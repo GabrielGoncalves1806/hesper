@@ -224,3 +224,17 @@ C_WATER = "#6aa8ff"
 C_TERMINAL = "#6fe3a0"
 INDEX_COLOR = {"o2": C_O2, "heat": C_HEAT, "water": C_WATER}
 STAGE_COLOR = {1: C_ACCENT, 2: "#9fd2e6", 3: "#a6e07a"}
+
+# ---------------------------------------------------------------------------
+# Transição gradual de estágio (game/transition.py)
+# Nos últimos 35% da barra até o próximo estágio, o visual novo entra tile por tile,
+# como uma mancha que nasce na base e nas máquinas e se espalha pras bordas.
+# ---------------------------------------------------------------------------
+TRANSITION_WINDOW = 0.35        # fração final da barra de progresso em que a mancha cresce
+TRANSITION_STEPS = 100          # "degraus" da janela: o visual só muda a cada 1% (deixa cachear)
+TRANSITION_FRONT_NEAR = 14      # tiles que a frente da mancha anda "em linha reta" ao longo da janela
+TRANSITION_FRONT_FAR = 100      # tiles extras que ela dispara no fim, pra chegar nas bordas do mapa
+TRANSITION_FRONT_POWER = 8      # quão no fim é esse disparo (maior = mais concentrado no final)
+TRANSITION_NOISE_SCALE = 0.11   # tamanho das "manchas" do ruído (menor = manchas maiores)
+TRANSITION_WOBBLE = 0.7         # quanto o ruído estica/encolhe a distância (0 = círculo perfeito)
+TRANSITION_GRAIN = 1.5          # sorteio por tile na fronteira, em tiles (esfarela a borda)
