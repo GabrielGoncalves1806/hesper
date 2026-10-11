@@ -267,6 +267,37 @@ TRANSITION_WOBBLE = 0.7         # quanto o ruído estica/encolhe a distância (0
 TRANSITION_GRAIN = 1.5          # sorteio por tile na fronteira, em tiles (esfarela a borda)
 
 # ---------------------------------------------------------------------------
+# Save/load e tela de título (game/save.py, game/title.py)
+# ---------------------------------------------------------------------------
+AUTOSAVE_INTERVAL = 120.0   # autosave a cada 2 min jogando (pausa, menus e tela de título não contam)
+SAVED_NOTICE_TIME = 2.0     # quanto tempo o aviso "Jogo salvo" fica no HUD (segundos)
+VOLUME["save"] = 0.6        # som discreto ao salvar (sem o arquivo save.wav, fica em silêncio)
+
+# ---------------------------------------------------------------------------
+# Energia global, sem fios (bíblia §8, Marco 2) · a lógica fica em game/energy.py
+# A produção total (kW) é comparada com o consumo total. Se faltar energia, TODAS as
+# máquinas rodam no mesmo ritmo: fator = produção / consumo (nunca desliga de vez).
+# Sem bateria e sem dia/noite no v0.2.
+# ---------------------------------------------------------------------------
+POD_POWER = 5            # kW fixos da cápsula, pro começo do jogo funcionar
+# Quanto cada máquina consome (kW). Quem não está na tabela consome 0 (painel solar, baú...).
+POWER_USE = {
+    "o2": 1, "melter": 1, "heater": 2,
+    "o2_t2": 3, "melter_t2": 3, "heater_t2": 4,
+    "drill": 2,
+    "drone_station": 3,  # Marco 3: a estação ainda não existe, mas o consumo já fica aqui
+}
+POWER_GEN = {"solar": 3}  # quanto cada máquina gera (kW)
+ENERGY_TIGHT = 0.8        # consumo ≥ 80% da produção: medidor amarelo ("perto do limite")
+ENERGY_REARM_TIME = 5.0   # o som power_low só toca de novo depois de 5 s seguidos sem déficit
+C_ENERGY = "#ffd84a"      # cor do raio do medidor
+
+# Painel solar: +3 kW, não soma Ti. O sprite "solar_panel" e o ícone "icon_solar" ainda estão
+# pendentes de aprovação: enquanto não existirem, o jogo desenha o fallback (art.solar_panel).
+MACHINES["solar"] = MachineType("solar", "Painel solar", "+ energia", {"iron": 8, "silicon": 6}, None, 0,
+                                0, "solar_panel")
+MACHINE_ORDER.append("solar")   # no fim da lista do fabricador; fabricado, vira item no inventário
+VOLUME["power_low"] = 0.7       # o déficit de energia começou (toca uma vez)
 # Inventário com slots, hotbar e baú (v0.2 · bíblia §8 "Inventário com slots" e "Baú")
 # A lógica fica em game/inventory.py; aqui só os números.
 # ---------------------------------------------------------------------------

@@ -61,6 +61,9 @@ class Renderer:
         self.particles: list[list[float]] = []   # [x, y, vx, vy, vida, cor]
         self.stage_map = StageMap()              # estágio visual de cada tile (transição gradual)
         self._fade_cache: dict[str, tuple[int, pygame.Surface]] = {}   # clima esmaecido (ver _faded)
+        # Relógio das animações das máquinas: o App soma dt × fator da energia (game/energy.py).
+        # No déficit ele anda mais devagar, então a drill gira e as máquinas animam mais devagar.
+        self.machine_t = 0.0
 
         # Superfícies de efeito pré-calculadas (fazer isso a cada frame seria lento).
         self.shadow_top = self._alpha_strips(T, [(10, 84), (6, 40)])   # sombra que a parede joga no chão
@@ -384,12 +387,12 @@ class Renderer:
             mx, my = m.anchor                                  # centro da base (drill: centro dos 2×2)
             if -64 < mx - cam_x < C.SCREEN_W + 64 and -80 < my - cam_y < C.SCREEN_H + 80:
                 if m.is_drill:
-                    items.append((my, lambda m=m, mx=mx, my=my: self.draw_drill(canvas, m, mx - cam_x, my - cam_y, t)))
+                    items.append((my, lambda m=m, mx=mx, my=my: self.draw_drill(canvas, m, mx - cam_x, my - cam_y, self.machine_t)))
                 elif m.is_chest:
                     items.append((my, lambda m=m, mx=mx, my=my: self._blit_anchored(
                         canvas, self.chest_surface(m is self.open_chest), mx - cam_x, my - cam_y)))
                 else:
-                    items.append((my, lambda m=m, mx=mx, my=my: self.draw_machine(canvas, m.kind, mx - cam_x, my - cam_y, t, m.rotation)))
+                    items.append((my, lambda m=m, mx=mx, my=my: self.draw_machine(canvas, m.kind, mx - cam_x, my - cam_y, self.machine_t, m.rotation)))
 
         if self.stage_map.next_stage >= 3:   # plantas nascem junto com a mancha verde
             tx0, ty0 = cam_x // T, cam_y // T
@@ -620,16 +623,19 @@ class Renderer:
             lights.append((pod_x + 50, pod_y + 2, 44, (255, 90, 74), 0.5, 0.5))
         machine_light = {"o2": ((89, 208, 230), 80, -30, 0.2), "heater": ((255, 138, 61), 100, -20, 0.3),
                          "melter": ((159, 230, 255), 70, -36, 0.18)}
+        # no déficit de energia o brilho das máquinas fica mais fraco (metade com fator 0)
+        dim = 0.5 + 0.5 * state.power.factor
         for m in state.machines:
             if m.is_drill:   # luzinha quente na cabeça da drill, só enquanto ela trabalha
                 if m.full:
                     continue
                 ax, ay = m.anchor
-                lights.append((ax - cam_x, ay - 66 - cam_y, 56, (255, 210, 140), 0.14, 1.0))
+                lights.append((ax - cam_x, ay - 66 - cam_y, 56, (255, 210, 140), round(0.14 * dim, 2), 1.0))
                 continue
-            if m.is_chest:   # o baú não tem luz
+            if m.kind.removesuffix("_t2") not in machine_light:   # painel solar e baú: sem luz própria
                 continue
             rgb, r, dy, a = machine_light[m.kind.removesuffix("_t2")]
+            a = round(a * dim, 2)
             if m.kind.endswith("_t2"):
                 r = int(r * 1.25)
             lx, ly = m.tx * T + 16 - cam_x, m.ty * T + T + dy - cam_y

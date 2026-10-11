@@ -911,6 +911,160 @@ CANDIDATES = {
 }
 
 
+# ---------------------------------------------------------------------------
+# v6 (v0.2): sons novos, entregues em assets/audio/_pending/ até o dono aprovar
+# ---------------------------------------------------------------------------
+
+PENDING_DIR = OUT_DIR / "_pending"
+
+
+def noise_sweep(rng, dur: float, lo_start: float, lo_end: float, width: float = 2.5) -> np.ndarray:
+    """Ruído cuja banda "anda" de lo_start pra lo_end (crossfade entre 4 bandas largas).
+    Serve de dobradiça/ar sem nenhum modo ressonante."""
+    n = ns(dur)
+    x = np.linspace(0, 1, n)
+    centers = np.geomspace(lo_start, lo_end, 4)
+    out = np.zeros(n)
+    for i, c in enumerate(centers):
+        w = np.clip(1 - np.abs(x * 3 - i), 0, 1)
+        out += filt(rng.standard_normal(n), c, c * width, 1) * w
+    return out
+
+
+def sfx_chest_open(rng):
+    tr = Track()
+    tr.add(noise_burst(rng, 1500, 5000, 0.0002, 0.0015, 0.01, order=2), 0, 0.4)         # trava soltando
+    tr.add(noise_burst(rng, 120, 700, 0.001, 0.016, 0.08, order=2), 0.003, 0.7)         # tranco macio
+    n = ns(0.22)
+    tr.add(filt(rng.standard_normal(n), 1200, 4500, 2) * bump(n, 0.12) ** 1.5, 0.03, 0.14)  # pssh
+    n = ns(0.3)
+    tr.add(noise_sweep(rng, 0.3, 500, 1400) * bump(n, 0.3), 0.08, 0.2)                  # dobradiça abrindo
+    tr.add(noise_burst(rng, None, 350, 0.004, 0.02, 0.08, order=2), 0.36, 0.25)         # tampa no batente
+    return reverb(tr.render(), rng, decay=0.3, mix=0.1, lp=4000)
+
+
+def sfx_chest_close(rng):
+    tr = Track()
+    n = ns(0.25)
+    tr.add(noise_sweep(rng, 0.25, 1300, 450) * bump(n, 0.4), 0, 0.16)                   # dobradiça fechando
+    tr.add(noise_burst(rng, 120, 700, 0.001, 0.02, 0.1, order=2), 0.24, 0.8)             # tampa assentando
+    tr.add(noise_burst(rng, 1500, 5000, 0.0002, 0.0015, 0.01, order=2), 0.25, 0.35)     # trava
+    n = ns(0.16)
+    tr.add(filt(rng.standard_normal(n), 1200, 4500, 2) * bump(n, 0.1) ** 1.5, 0.26, 0.1)   # pssh vedando
+    return reverb(tr.render(), rng, decay=0.3, mix=0.1, lp=4000)
+
+
+def sfx_inv_move(rng):
+    tr = Track()
+    tr.add(noise_burst(rng, 600, 2200, 0.0003, 0.004, 0.025, order=2), 0, 1.0)          # tok
+    tr.add(noise_burst(rng, 2000, 6000, 0.0002, 0.0008, 0.006, order=1), 0, 0.3)        # cliquezinho
+    return tr.render()
+
+
+def sfx_inv_full(rng):
+    n = ns(0.16)
+    t = tvec(n)
+    f = midi(76) * 2 ** (-(7 / 12) * np.clip(t / 0.1, 0, 1))                           # Mi5 desliza pra Lá4
+    x = np.sin(phase_of(f, n)) + 0.2 * bl_wave(f, n, "tri", 2500)
+    x *= adsr(n, 0.006, 0.05, 0.6, 0.06)
+    return echo(x, 0.09, 0.15, taps=1, lp=2000)
+
+
+def sfx_power_low(rng):
+    tr = Track()
+    n = ns(1.1)
+    t = tvec(n)
+    f = 55 + 165 * np.exp(-t / 0.35)                                                   # motor perdendo força
+    motor = bl_wave(f, n, "saw", 900) * np.exp(-t / 0.45) * np.minimum(1, t / 0.02)
+    tr.add(filt(motor, 40, 1200, 1), 0, 0.5)
+    air = noise_sweep(rng, 0.9, 1200, 200) * np.exp(-tvec(ns(0.9)) / 0.3)
+    tr.add(air, 0, 0.12)
+    for at in (0.55, 0.75):                                                            # bipe duplo baixo, Lá4
+        tr.add(chip_note(midi(69), 0.12, "square", 1800, a=0.008, sustain=0.7, release=0.05), at, 0.22)
+    return reverb(tr.render(), rng, decay=0.7, mix=0.15, lp=3500)
+
+
+def loop_solar_hum(rng):
+    L = 4.0
+    n = ns(L)
+    t = tvec(n)
+    hum = (np.sin(2 * np.pi * 100 * t) + 0.5 * np.sin(2 * np.pi * 200 * t + 1.0)
+           + 0.15 * np.sin(2 * np.pi * 300 * t + 2.0))
+    hum *= 1 + 0.08 * np.sin(2 * np.pi * (1 / L) * t)
+    air = norm_rms(filt(rng.standard_normal(n), 900, 3000, 2, circular=True))
+    air *= 0.5 + 0.5 * periodic_ctrl(n, L, rng, 1, 3)
+    whine = np.sin(2 * np.pi * fr(2400, L) * t) * (0.5 + 0.5 * np.sin(2 * np.pi * (2 / L) * t))
+    return norm_rms(hum) + air * 0.08 + whine * 0.03
+
+
+def loop_drone(rng):
+    """Dois rotores pequenos com rotações próximas (batimento leve), passa-baixa
+    pra tirar a parte irritante do zumbido e um balanço lento de quem paira."""
+    L = 4.0
+    n = ns(L)
+    t = tvec(n)
+    out = np.zeros(n)
+    for f0, g in ((fr(172.0, L), 1.0), (fr(178.5, L), 0.8)):
+        ph = 2 * np.pi * f0 * t + rng.uniform(0, 2 * np.pi)
+        buzz = sum(np.sin(k * ph) / k ** 1.3 for k in range(1, 12))
+        out += g * buzz
+    out = filt(out, 120, 1800, 1, circular=True)
+    wash = filt(rng.standard_normal(n), 300, 1800, 2, circular=True)
+    blade = 0.6 + 0.4 * np.sin(2 * np.pi * fr(172.0, L) * t) ** 2                       # ar cortado pela pá
+    x = norm_rms(out) + norm_rms(wash * blade) * 0.45
+    return x * (1 + 0.12 * np.sin(2 * np.pi * (2 / L) * t))
+
+
+def sfx_drone_deliver(rng):
+    tr = Track()
+    tr.add(noise_burst(rng, 1200, 5000, 0.0002, 0.002, 0.012, order=1), 0, 0.5)        # garra soltando
+    n = ns(0.12)
+    tr.add(filt(rng.standard_normal(n), 2500, 7000, 1) * bump(n, 0.1) ** 1.5, 0.01, 0.15)   # pssh curto
+    t = 0.09                                                                          # carga caindo (mais curto
+    while True:                                                                       # e agudo que a drill)
+        u = (t - 0.09) / 0.22
+        t += rng.exponential(1 / (20 + 180 * np.sin(np.pi * min(u, 1)) ** 1.5))
+        if t > 0.32:
+            break
+        hi = rng.uniform(1200, 4500)
+        env = np.sin(np.pi * min((t - 0.09) / 0.24, 1)) ** 0.7
+        tr.add(noise_burst(rng, hi / 4, hi, 0.0003, rng.uniform(0.0012, 0.004), 0.02, order=1),
+               t, 0.45 * env * rng.uniform(0.3, 1.0))
+    tr.add(noise_burst(rng, None, 450, 0.002, 0.03, 0.12, order=2), 0.1, 0.35)         # carga batendo no coletor
+    for m, at in ((81, 0.4), (88, 0.47)):                                              # confirmação: Lá5, Mi6
+        nn = ns(0.12)
+        x = np.sin(phase_of(midi(m), nn)) * perc(nn, 0.004, 0.035)
+        tr.add(x, at, 0.3)
+    return reverb(tr.render(), rng, decay=0.35, mix=0.12, lp=4000)
+
+
+def sfx_save(rng):
+    """Chime em Lá maior: Lá5, Dó#6, Mi6 dedilhados, timbre de sino macio (parciais harmônicos)."""
+    tr = Track()
+    for i, m in enumerate((81, 85, 88)):
+        nn = ns(0.9)
+        f = midi(m)
+        ph = phase_of(f, nn)
+        x = np.sin(ph) + 0.18 * np.sin(2 * ph) * np.exp(-tvec(nn) / 0.15) + 0.06 * np.sin(3 * ph)
+        tr.add(x * perc(nn, 0.004, 0.28), 0.07 * i, 0.32)
+    out = echo(tr.render(), 0.19, 0.2, taps=2, lp=3000)
+    return reverb(out, rng, decay=1.0, mix=0.2, lp=5000)
+
+
+PENDING = {
+    # nome: (função, loop?, alvo de loudness)
+    "chest_open": (sfx_chest_open, False, -21.0),
+    "chest_close": (sfx_chest_close, False, -21.0),
+    "inv_move": (sfx_inv_move, False, -28.0),
+    "inv_full": (sfx_inv_full, False, -25.0),
+    "power_low": (sfx_power_low, False, -19.0),
+    "solar_hum": (loop_solar_hum, True, -38.0),
+    "drone_loop": (loop_drone, True, -30.0),
+    "drone_deliver": (sfx_drone_deliver, False, -20.0),
+    "save": (sfx_save, False, -23.0),
+}
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
@@ -952,6 +1106,23 @@ def main() -> None:
             "wave": waveform_peaks(xi),
         }
         print(f"{'candidates/' + name + '.wav':<20}{len(xi) / SR:>8.2f}{peak_db:>11.2f}{loud:>9.1f}")
+    PENDING_DIR.mkdir(parents=True, exist_ok=True)
+    for name, (fn, loop, target) in PENDING.items():
+        xi = write_wav(PENDING_DIR / f"{name}.wav", finalize(fn(rng_for(name)), loop, target))
+        xf = xi.astype(float) / 32768
+        peak_db = 20 * np.log10(np.max(np.abs(xf)) + 1e-12)
+        loud = loudness(xf, loop)
+        meta["pend:" + name] = {
+            "file": f"_pending/{name}.wav", "loop": loop, "duration": round(len(xi) / SR, 3),
+            "peak_db": round(float(peak_db), 2), "loudness_db": round(float(loud), 1),
+            "wave": waveform_peaks(xi),
+        }
+        if loop:
+            adj = np.abs(np.diff(xi.astype(int)))
+            jump = abs(int(xi[0]) - int(xi[-1]))
+            meta["pend:" + name]["seam_lsb"] = jump
+            meta["pend:" + name]["seam_pct"] = round(float(100 * np.mean(adj < jump)), 1)
+        print(f"{'_pending/' + name + '.wav':<20}{len(xi) / SR:>8.2f}{peak_db:>11.2f}{loud:>9.1f}")
     (REPORT_DIR / "audio_meta.js").write_text(
         "// gerado por tools/audio/build_audio.py, não editar\nwindow.AUDIO_META = "
         + json.dumps(meta, ensure_ascii=False) + ";\n",

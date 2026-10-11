@@ -10,6 +10,7 @@ Modos de tela: "play" (jogando), "fabricator" (menu de receitas),
 "pause" (menu do Esc) e "end" (tela de fim do MVP).
 Em "pause" e "end" o mundo fica congelado (O₂, máquinas e Ti param). No fabricador, no terminal,
 no inventário e no baú o mundo continua (o player só fica parado), como em Core Keeper e Planet Crafter.
+O jogo abre em "title" (tela de título, game/title.py); o save/load fica em game/save.py.
 """
 
 import math
@@ -20,6 +21,8 @@ import pygame
 from game import art
 from game import config as C
 from game import audio as sound
+from game import save
+from game import energy
 from game import settings
 from game.assets import Sprites
 from game.audio import Audio
@@ -27,6 +30,7 @@ from game.inventory import Stack
 from game.objectives import ObjectiveTracker
 from game.render import Renderer, stage_key
 from game.systems import Controls, GameState
+from game.title import TitleScreen, draw_saved_notice
 from game.ui import UI, FloatingTexts
 
 MOVE_KEYS = {
@@ -53,7 +57,7 @@ def pick_scale() -> int:
 
 
 class App:
-    def __init__(self, scale: int | None = None):
+    def __init__(self, scale: int | None = None, skip_title: bool = False):
         sound.pre_init()   # configura o mixer antes do pygame.init() (só se o áudio estiver ligado)
         pygame.init()
         self.scale = scale or pick_scale()
@@ -104,6 +108,12 @@ class App:
         self.settings = settings.load()
         self.audio.set_mix(**self.settings)
         self.audio.start_ambient(stage_key(self.state.stage))
+        # save/load e tela de título (game/save.py, game/title.py)
+        self.autosave_timer = 0.0       # segundos jogando (modo "play") desde o último save
+        self.saved_notice = 0.0         # quanto falta do aviso "Jogo salvo" no HUD
+        self.title = TitleScreen(self.ui, self.renderer, self.audio.play)
+        if not skip_title:              # skip_title: entra direto num jogo novo (testes)
+            self.open_title()
 
     # ---- loop -----------------------------------------------------------------
     def run(self) -> None:
@@ -115,7 +125,10 @@ class App:
     def step(self, dt: float) -> None:
         self.handle_events()
         self.update(dt)
-        self.draw()
+        if self.mode == "title":
+            self.draw_title()
+        else:
+            self.draw()
         pygame.display.flip()
 
     # ---- input ----------------------------------------------------------------
@@ -131,7 +144,7 @@ class App:
     def handle_events(self) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                self.running = False
+                self.quit_game()
             elif event.type == pygame.KEYDOWN:
                 self.keys_down.add(event.key)
                 self.on_key(event.key)
@@ -141,6 +154,8 @@ class App:
                 self.mouse = (event.pos[0] // self.scale, event.pos[1] // self.scale)
                 if self.mode == "pause":
                     self.pause_hover()
+                elif self.mode == "title":
+                    self.title.hover(self.mouse[0] / 2, self.mouse[1] / 2)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 self.mouse = (event.pos[0] // self.scale, event.pos[1] // self.scale)
                 self.on_click(event.button)
@@ -154,6 +169,9 @@ class App:
                     settings.save(self.settings)
 
     def on_key(self, key: int) -> None:
+        if self.mode == "title":
+            self.on_title_action(self.title.on_key(key))
+            return
         state = self.state
         if key == pygame.K_F1:
             state.toggle_time_scale()
@@ -314,9 +332,12 @@ class App:
             elif option == "Controles":
                 self.pause_screen, self.pause_selected = "controls", 0
                 self.audio.play("ui_open")
+            elif option == "Salvar e sair":
+                self.save_game()
+                self.open_title()
             else:  # Sair
                 settings.save(self.settings)
-                self.running = False
+                self.quit_game()
         elif self.pause_screen == "volumes" and index < len(UI.VOLUME_ROWS):
             self.pause_selected = index
         else:   # "Voltar" (volumes ou controles)
@@ -357,6 +378,10 @@ class App:
                 return
 
     def on_click(self, button: int) -> None:
+        if self.mode == "title":
+            if button == 1:
+                self.on_title_action(self.title.click(self.mouse[0] / 2, self.mouse[1] / 2))
+            return
         if self.mode == "pause":
             if button == 1:
                 self.on_pause_click()
@@ -431,6 +456,10 @@ class App:
     def update(self, dt: float) -> None:
         dt = min(dt, C.MAX_DT)
         self.t += dt
+        if self.mode == "title":            # nenhum jogo rodando: só o som
+            self.audio.update(dt)
+            return
+        self.update_autosave(dt)
         if self.mode == "pause":            # congelado: só o som continua (pra ouvir o slider mexendo)
             self.audio.update(dt)
             return
@@ -442,6 +471,7 @@ class App:
             self.placing = None
         self.notice_time = max(0.0, self.notice_time - dt)
         self.banner_time += dt
+        self.renderer.machine_t += dt * self.state.power.factor    # animação das máquinas no ritmo da energia
         self.floaters.update(dt)
         self.renderer.update_particles(dt)
         events = self.state.pop_events()
@@ -494,6 +524,8 @@ class App:
             self.show_notice("Esvazie o baú antes de desmontar")
         elif kind == "craft":
             self.audio.play("craft")
+        elif kind == "power_low":             # o déficit de energia começou (sem o arquivo, fica em silêncio)
+            self.audio.play("power_low")
         elif kind == "place":
             self.audio.play("place")
         elif kind == "refill":
@@ -521,7 +553,7 @@ class App:
         audio.set_alarm(not state.fainted and sound.alarm_should_play(audio.alarm_on, o2_percent))
         # zumbido pela máquina mais próxima
         nearest = min((math.hypot((m.tx + 0.5) * C.TILE - state.player.x, (m.ty + 1) * C.TILE - state.player.y) / C.TILE
-                       for m in state.machines if not m.is_drill and not m.is_chest), default=None)
+                       for m in state.machines if m.type.index is not None), default=None)
         audio.set_hum(sound.hum_volume(nearest))
         self.update_drills_feedback(dt)
         # ambiente: some no desmaio, abaixa lendo terminal
@@ -554,7 +586,7 @@ class App:
         # poeira saindo da base enquanto perfura (só as que estão na tela)
         self.drill_dust_timer -= dt
         if self.drill_dust_timer <= 0:
-            self.drill_dust_timer = 0.12
+            self.drill_dust_timer = 0.12 / max(0.2, state.power.factor)   # no déficit, menos poeira
             cx, cy = self.cam
             for d in state.drills:
                 ax, ay = d.anchor
@@ -566,9 +598,11 @@ class App:
     def spawn_machine_floaters(self, dt: float) -> None:
         """De tempos em tempos cada máquina solta um '+O2', '+CALOR' ou '+AGUA' (como no mockup)."""
         period = 4.0
+        t = self.renderer.machine_t          # relógio das máquinas: no déficit, os "+O2" saem mais espaçados
+        dt = dt * self.state.power.factor
         for i, m in enumerate(self.state.machines):
             phase = (i * 1.37) % period
-            if m.type.index is not None and (self.t - dt + phase) % period > (self.t + phase) % period:
+            if m.type.index is not None and (t - dt + phase) % period > (t + phase) % period:
                 key = m.type.index
                 self.floaters.add(f"+{C.INDEX_LABEL[key]}", (m.tx + 0.5) * C.TILE, m.ty * C.TILE - 30, C.INDEX_COLOR[key])
 
@@ -597,12 +631,18 @@ class App:
             label = C.RESOURCE_NAME[machine.resource]
             content = (f"Drill cheia: {machine.stored} {label}" if machine.full
                        else f"Drill: {machine.stored}/{C.DRILL_CAPACITY} {label}")
+            if state.power.deficit and not machine.full:
+                content += f" · ritmo {self.power_percent()}%"
             return content + (" · [E] coletar" if state.nearby_drill() is machine and machine.stored else "")
         if machine and machine.is_chest:
             used = sum(1 for st in machine.storage.slots if st)
             near = state.nearby_chest() is machine
             return f"Baú ({used}/{C.CHEST_SLOTS})" + (" · [E] abrir" if near else "")
         if machine:
+            if state.power.deficit and energy.machine_use(machine.kind) > 0:     # no déficit: mostra o ritmo
+                rhythm = f"Ritmo {self.power_percent()}%"
+                return (f"{rhythm} · [Clique direito] desmontar" if state.can_dismantle(machine)
+                        else f"{rhythm} (falta energia)")
             return "[Clique direito] desmontar" if state.can_dismantle(machine) else "Chegue mais perto pra desmontar"
         vein = state.world.vein_at(*self.mouse_tile())     # mouse em cima de um veio livre
         if vein:
@@ -623,6 +663,10 @@ class App:
         if state.world.is_minable(*tile):
             return "Segure o clique para minerar" if state.can_mine(tile) else "Chegue mais perto pra minerar"
         return None
+
+    def power_percent(self) -> int:
+        """Ritmo atual das máquinas em % (arredondado pra baixo: 62,5% vira 62%)."""
+        return int(self.state.power.factor * 100)
 
     def draw(self) -> None:
         state, canvas, ui = self.state, self.canvas, self.ui
@@ -650,6 +694,8 @@ class App:
         ui.draw_hotbar(state.inventory, self.hotbar_selected, self.renderer.item_icon)
         if not critical:   # com O₂ crítico o aviso grande ocupa essa área (e o foco é voltar pra base)
             ui.draw_objectives(self.objectives.lines(state))
+        if self.saved_notice > 0:
+            draw_saved_notice(ui, self.saved_notice)
         if self.banner_time < BANNER_TIME:
             alpha = min(1.0, self.banner_time / BANNER_FADE_IN, (BANNER_TIME - self.banner_time) / BANNER_FADE_OUT)
             ui.draw_banner(self.banner_stage, alpha)
@@ -696,3 +742,76 @@ class App:
 
     def screenshot(self, path: str) -> None:
         pygame.image.save(self.canvas, path)
+
+    # ---- save/load e tela de título (game/save.py, game/title.py) --------------
+    def open_title(self) -> None:
+        """Vai pra tela de título. Lê o save do disco (se tiver um válido, aparece "Continuar")."""
+        self.title.open(save.load_game())
+        self.mode = "title"
+        self.placing = None
+        self.mouse_held = False
+        self.keys_down.clear()
+        self.audio.set_alarm(False)          # nada de alarme, zumbido ou drill tocando no menu
+        self.audio.set_hum(0.0)
+        self.audio.set_drill_loops([])
+        self.audio.duck_ambient(1.0)
+        if self.audio.ambient_key != "dead":
+            self.audio.start_ambient("dead")
+
+    def on_title_action(self, action: str | None) -> None:
+        if action == "continue":
+            self.start_game(self.title.saved)
+        elif action == "new":
+            self.start_game(save.new_state())
+            self.save_game(notify=False)     # o save antigo (se existia) é substituído na hora
+        elif action == "quit":
+            self.quit_game()
+
+    def start_game(self, state: GameState) -> None:
+        """Começa a jogar com `state` (novo ou carregado): zera tudo que é do App e não do jogo."""
+        self.state = state
+        self.objectives = ObjectiveTracker(state)
+        self.floaters = FloatingTexts()
+        self.renderer.particles.clear()
+        self.placing, self.rotation, self.mouse_held = None, 0, False
+        self.hotbar_selected, self.held, self.notice_time = 0, None, 0.0
+        self.open_chest = self.renderer.open_chest = None
+        self.banner_stage, self.banner_time, self.end_timer = state.stage, 0.0, None
+        self.drills_near.clear()
+        self.drill_full_last.clear()
+        self.autosave_timer, self.saved_notice = 0.0, 0.0
+        self.mode = "play"
+        self.audio.play("ui_close")
+        if self.audio.ambient_key != stage_key(state.stage):
+            self.audio.start_ambient(stage_key(state.stage))
+
+    def save_game(self, notify: bool = True) -> bool:
+        """Salva agora. `notify` mostra o "Jogo salvo" no HUD e toca o som de save."""
+        ok = save.write_save(self.state)
+        self.autosave_timer = 0.0
+        if ok and notify:
+            self.saved_notice = C.SAVED_NOTICE_TIME
+            self.audio.play("save")
+        return ok
+
+    def update_autosave(self, dt: float) -> None:
+        """Autosave a cada AUTOSAVE_INTERVAL de jogo. Só conta jogando (pausa e menus não contam)."""
+        self.saved_notice = max(0.0, self.saved_notice - dt)
+        if self.mode != "play":
+            return
+        self.autosave_timer += dt
+        if self.autosave_timer >= C.AUTOSAVE_INTERVAL:
+            self.save_game()
+
+    def quit_game(self) -> None:
+        """Fecha o jogo (janela ou "Sair"), salvando antes se tiver um jogo rolando."""
+        if self.mode != "title":
+            self.save_game(notify=False)
+        self.running = False
+
+    def draw_title(self) -> None:
+        self.title.draw(self.canvas, self.t, self.mouse)
+        if self.scale == 1:
+            self.window.blit(self.canvas, (0, 0))
+        else:
+            self.window.blit(pygame.transform.scale(self.canvas, self.window.get_size()), (0, 0))

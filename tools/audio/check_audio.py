@@ -27,6 +27,11 @@ CONTRACT = {
     "footstep_1": False, "machine_hum": True, "drill_loop": True, "drill_collect": False,
     "drill_full": False, "amb_dead": True, "amb_mist": True, "amb_green": True,
 }
+# v0.2: entregues em _pending/ até o dono aprovar
+PENDING = {
+    "chest_open": False, "chest_close": False, "inv_move": False, "inv_full": False,
+    "power_low": False, "solar_hum": True, "drone_loop": True, "drone_deliver": False, "save": False,
+}
 BANDS = [(20, 150), (150, 600), (600, 2500), (2500, 8000), (8000, 22050)]
 
 
@@ -41,7 +46,8 @@ def main() -> int:
     fails = []
     print(f"{'arquivo':<18}{'fmt':>14}{'dur':>7}{'pico':>8}{'rms':>8}{'centr':>7}  "
           f"{'bandas dB (<150|150-600|0.6-2.5k|2.5-8k|>8k)':<46}{'emenda'}")
-    for name, loop in CONTRACT.items():
+    todos = list(CONTRACT.items()) + [("_pending/" + k, v) for k, v in PENDING.items()]
+    for name, loop in todos:
         path = AUDIO / f"{name}.wav"
         if not path.exists():
             fails.append(f"{name}: não existe")
@@ -102,7 +108,7 @@ def main() -> int:
         for m in fails:
             print("  -", m)
         return 1
-    print(f"tudo ok: {len(CONTRACT)} arquivos")
+    print(f"tudo ok: {len(todos)} arquivos ({len(CONTRACT)} oficiais + {len(PENDING)} pendentes)")
     return 0
 
 

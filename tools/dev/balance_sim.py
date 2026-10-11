@@ -4,6 +4,7 @@
     uv run python tools/dev/balance_sim.py --current          # só os números do config.py
     uv run python tools/dev/balance_sim.py --overrides x.json # outro arquivo de overrides
     uv run python tools/dev/balance_sim.py --markdown         # tabelas em Markdown (pro reports/dev/balance.md)
+    uv run python tools/dev/balance_sim.py --no-energy        # roda também sem energia (como era antes do Marco 2)
 
 O que é real e o que é aproximado
 ---------------------------------
@@ -25,6 +26,9 @@ Aproximado (o simulador decide no lugar do jogador):
   (`_update_drill`). Na base, antes de sair pra minerar um recurso, ele vai coletar uma drill desse recurso se a
   viagem custar menos do que minerar aquelas unidades no ritmo dele. "Sem drills" = mesma simulação com a receita
   da drill trancada (`--no-drills` / `without_drills`).
+- Energia (Marco 2): a produção das máquinas e das drills já sai no ritmo da energia, porque o simulador usa o
+  `_update_machines` e o `ti_rate` reais. O jogador fabrica um painel solar (na base, como outra máquina qualquer)
+  sempre que o fator cai abaixo de `PANEL_BELOW`. "Sem energia" = consumo zerado (`--no-energy` / `without_energy`).
 
 Tempo morto: o jogador só fica parado quando não existe nada útil: (a) a próxima máquina não ficaria pronta antes
 de o Ti bater o fim, (b) ele já tem os recursos e está esperando a receita liberar, ou (c) não há minério alcançável
@@ -58,6 +62,7 @@ INF = float("inf")
 NEIGHBORS = [(1, 0, 1.0), (-1, 0, 1.0), (0, 1, 1.0), (0, -1, 1.0),
              (1, 1, SQRT2), (1, -1, SQRT2), (-1, 1, SQRT2), (-1, -1, SQRT2)]
 TILE_NAMES = {"ROCK": C.ROCK, "IRON": C.IRON, "SILICON": C.SILICON, "ICE": C.ICE}
+PANEL_BELOW = 0.9      # o jogador simulado fabrica um painel solar quando o fator da energia cai abaixo disso
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +160,7 @@ class Result:
     tiles_mined: int = 0
     units: int = 0                                   # recursos coletados
     time_by: dict = field(default_factory=dict)      # andar / minerar / base / espera
+    deficit_time: float = 0.0                        # segundos com falta de energia (máquinas mais lentas)
 
 
 # ---------------------------------------------------------------------------
@@ -339,7 +345,9 @@ class Sim:
         if rate > 0 and ti0 + rate * dt >= self.final_ti:
             dt = (self.final_ti - ti0) / rate
             self.res.finished = True
-        self.gs._update_machines(dt)           # regra real: soma rate*dt em cada índice e checa estágio
+        if self.gs.power.deficit:
+            self.res.deficit_time += dt
+        self.gs._update_machines(dt)           # regra real: soma rate*dt×fator em cada índice e checa estágio
         self.gs.play_time += dt
         self.t += dt
 
@@ -415,6 +423,13 @@ class Sim:
             return None
         self.plan = max(useful, key=lambda k: C.MACHINES[k].rate * (left - ready[k]))
         return self.plan
+
+    # ---- energia ----
+    def want_panel(self) -> bool:
+        """Falta energia (fator < PANEL_BELOW) e o painel está liberado: a próxima máquina é um painel."""
+        if "solar" not in C.MACHINES or self.gs.recipe_status("solar") == "locked":
+            return False
+        return self.gs.power.factor < PANEL_BELOW
 
     # ---- drills ----
     def _vein_walk(self, vein):
@@ -510,9 +525,10 @@ class Sim:
         assert ok, f"não conseguiu colocar {kind} em {(sx, sy)}"
         self._set_player(self._i(*self._xy_spawn()))
         self._advance(self.s.craft_overhead)
-        self.plan = None
-        if self.s.pick == "balanced":
-            self.rr += 1
+        if C.MACHINES[kind].index is not None:   # painel solar não conta como "a próxima máquina de Ti"
+            self.plan = None
+            if self.s.pick == "balanced":
+                self.rr += 1
         return True
 
     def _next_site(self):
@@ -613,7 +629,9 @@ class Sim:
         trip_t0, trip_units = self.t, 0
         while not self.res.finished and self.t < self.max_time:
             try:
-                if self.want_drill():
+                if self.want_panel():
+                    kind = "solar"
+                elif self.want_drill():
                     kind = "drill"
                 else:
                     kind = self.choose()
@@ -699,13 +717,13 @@ def table(title, results, markdown=False):
     marks = ["Ti 500"] + [s.name.capitalize() for s in C.STAGES[1:]]
     kinds = list(C.MACHINES)
     head = ["estratégia", "seed", *marks, "total", "espera total", "maior espera", "desm.", "drill un.",
-            "máquinas (" + "/".join(kinds) + ")"]
+            "déficit", "máquinas (" + "/".join(kinds) + ")"]
     rows = []
     for r in results:
         rows.append([r.strategy, str(r.seed), *[fmt(r.milestones.get(m)) for m in marks],
                      fmt(r.total) + ("" if r.finished else " (não acabou)"),
                      fmt(r.idle_total), fmt(r.idle_longest), str(r.faints), str(r.drill_units),
-                     "/".join(str(r.machines[k]) for k in kinds)])
+                     fmt(r.deficit_time), "/".join(str(r.machines[k]) for k in kinds)])
     out = [f"\n{'### ' if markdown else '== '}{title}\n"]
     if markdown:
         out.append("| " + " | ".join(head) + " |")
@@ -730,7 +748,11 @@ def main(argv=None):
     ap.add_argument("--markdown", action="store_true")
     ap.add_argument("--ablate-t2", action="store_true", help="roda também a proposta sem as máquinas nv.2")
     ap.add_argument("--no-drills", action="store_true", help="roda também cada cenário sem drills, pra comparar")
+    ap.add_argument("--no-energy", action="store_true", help="roda também sem energia (consumo zero), pra comparar")
     args = ap.parse_args(argv)
+    if args.no_energy:
+        print(table("Números atuais SEM energia (antes do Marco 2)", run_suite(without_energy(None), args.seeds),
+                    args.markdown))
     print(table("Números atuais (game/config.py)", run_suite(None, args.seeds), args.markdown))
     if args.no_drills:
         print(table("Números atuais SEM drills", run_suite(without_drills(None), args.seeds), args.markdown))
@@ -748,6 +770,13 @@ def without_drills(overrides):
     """Mesmos overrides, mas com a receita da drill trancada (o jogo como era antes dos veios)."""
     ov = copy.deepcopy(overrides or {})
     ov.setdefault("MACHINES", {}).setdefault("drill", {})["unlock_ti"] = 10**12
+    return ov
+
+
+def without_energy(overrides):
+    """Mesmos overrides, mas nenhuma máquina consome energia (o jogo como era antes do Marco 2)."""
+    ov = copy.deepcopy(overrides or {})
+    ov["POWER_USE"] = {}
     return ov
 
 

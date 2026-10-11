@@ -12,6 +12,7 @@ import math
 import pygame
 
 from game import config as C
+from game import energy
 from game.assets import Sprites, load_font
 from game.inventory import Inventory, Stack
 from game.systems import GameState, eta_label, stage_progress
@@ -229,8 +230,9 @@ class UI:
             self.fill((0, 0, 0, 90), (30 + int(i * 8.2), 11, 1, 7))
         self.text(f"{round(o2 * 100)}%", 30, 21, "#ff8a7a" if crit else "#a8c9d2")
 
-        # painel do Ti
+        # painel do Ti e, logo embaixo, o medidor de energia
         self.draw_ti_panel(state)
+        self.draw_energy(state)
 
         # resumo do inventário (total de cada recurso, somando as pilhas); os slots ficam na hotbar e no Tab
         counts = [str(state.inventory.count(res)) for res in C.RESOURCES]
@@ -262,6 +264,7 @@ class UI:
         wrap_eta = self.body.size(line2)[0] > inner      # não coube: o tempo desce pra uma 3ª linha
         h = 64 if nxt is None else 90 if wrap_eta else 78
         self.panel(px, 6, w, h)
+        self.ti_panel_bottom = 6 + h      # o medidor de energia encaixa logo abaixo (draw_energy)
 
         self.text("TI", px + 6, 10, C.C_TI)
         rate = state.ti_rate * state.time_scale
@@ -295,6 +298,52 @@ class UI:
             self.text_tilde(eta, px + 6, 80, C.C_MUTED)
         else:
             self.text_tilde(line2, px + 6, 68, C.C_MUTED)
+
+    # ---- energia (lógica em energy.py) ----------------------------------------
+    ENERGY_COLOR = {"ok": C.C_OK, "tight": "#ffd84a", "deficit": C.C_ALERT}
+
+    def draw_energy(self, state: GameState) -> None:
+        """Medidor discreto embaixo do painel do Ti: raio + barrinha + "produção/consumo KW".
+
+        Verde quando sobra, amarelo perto do limite e vermelho no déficit (com o aviso embaixo).
+        """
+        power = state.power
+        color = self.ENERGY_COLOR[power.level]
+        px, w = TI_PANEL_X, TI_PANEL_W
+        right = px + w - 6
+        y = getattr(self, "ti_panel_bottom", 84) + 4
+        warning = []
+        if power.deficit:
+            warning = [f"Energia insuficiente · máquinas a {int(power.factor * 100)}%"]
+            if self.body.size(warning[0])[0] > w - 12:    # não coube numa linha: quebra no "·"
+                warning = warning[0].split(" · ")
+        self.panel(px, y, w, 15 + 12 * len(warning))
+        self.draw_bolt(px + 6, y + 4, C.C_ENERGY if not power.deficit else C.C_ALERT)
+        label_w = self.text("ENERGIA", px + 14, y + 4, C.C_TEXT)
+        value_w = self.text(f"{fmt_rate(power.production)}/{fmt_rate(power.consumption)} KW", right, y + 4, color,
+                            align="right")
+        # barrinha de uso: quanto do que é produzido está sendo consumido (cheia e vermelha no déficit)
+        bar_x = px + 14 + label_w + 5
+        bar_w = right - value_w - 5 - bar_x
+        used = 1.0 if power.production <= 0 else min(1.0, power.consumption / power.production)
+        self.surf.fill(pygame.Color("#4a3b2a"), (bar_x, y + 5, bar_w, 6))
+        self.surf.fill(pygame.Color("#1b1411"), (bar_x + 1, y + 6, bar_w - 2, 4))
+        self.surf.fill(pygame.Color(color), (bar_x + 1, y + 6, round((bar_w - 2) * used), 4))
+        for i, line in enumerate(warning):
+            self.text(line, px + 6, y + 14 + 12 * i, "#ff8a7a", self.body)
+
+    def draw_bolt(self, x: int, y: int, color: str) -> None:
+        """Raio de pixels (5×8): a fonte não tem o "⚡"."""
+        rows = ["  ###", " ### ", " ##  ", "#####", "  ## ", " ##  ", " #   ", "#    "]
+        c = pygame.Color(color)
+        for dy, row in enumerate(rows):
+            for dx, cell in enumerate(row):
+                if cell == "#":
+                    self.surf.fill((0, 0, 0), (x + dx + 1, y + dy + 1, 1, 1))
+        for dy, row in enumerate(rows):
+            for dx, cell in enumerate(row):
+                if cell == "#":
+                    self.surf.fill(c, (x + dx, y + dy, 1, 1))
 
     def text_tilde(self, s: str, x: int, y: int, color: str) -> None:
         """Texto da Pixelify com "~" desenhado à mão: em 11 px o til da fonte vira um borrão."""
@@ -367,8 +416,11 @@ class UI:
     def draw_fabricator(self, state: GameState, selected: int, machine_preview, t: float) -> None:
         """Menu de receitas. `machine_preview(kind)` devolve a imagem da máquina (resolução cheia)."""
         self.fill((8, 5, 4, 158), (0, 0, UW, UH))
-        x, y, w, h = 66, 2, 348, 266
-        row_h = 34       # 7 receitas: a caixa da prévia ocupa a linha toda (68 px reais, nv.2 tem 64)
+        x, y, w, h = 66, 1, 348, 268
+        # cabem 7 receitas de 34 de altura: com mais, a lista rola junto com a seleção (setinhas mostram
+        # que tem mais); com menos, a altura se ajusta ao número de receitas
+        visible = min(7, len(C.MACHINE_ORDER))
+        row_h = min(34, (h - 20) // visible - 1)
         self.surf.fill(pygame.Color("#1b1411"), (x, y, w, h))
         pygame.draw.rect(self.surf, pygame.Color("#5a4034"), (x, y, w, h), 1)
         self.surf.fill(pygame.Color("#2a1e19"), (x + 1, y + 1, w - 2, 18))
@@ -376,8 +428,6 @@ class UI:
         self.text("[W/S] ESCOLHE · [ENTER] CRAFTA · [E] FECHA", x + w - 8, y + 6, C.C_MUTED, align="right")
         self.fabricator_buttons.clear()
         self.fabricator_rows.clear()
-        # cabem 7 receitas: com mais, a lista rola junto com a seleção (setinhas mostram que tem mais)
-        visible = 7
         first = max(0, min(selected - visible + 1, len(C.MACHINE_ORDER) - visible))
         if first > 0:                                   # setinhas do lado do título
             self._arrow(x + 82, y + 5, up=True)
@@ -399,6 +449,9 @@ class UI:
             preview = machine_preview(kind)
             bw2, bh2 = box.w * 2, box.h * 2
             clip = pygame.Surface((bw2, bh2), pygame.SRCALPHA)
+            if preview.get_height() > bh2 - 2:     # linha baixa demais pra prévia (ex.: nv.2): encolhe pra caber
+                ratio = (bh2 - 2) / preview.get_height()
+                preview = pygame.transform.scale(preview, (round(preview.get_width() * ratio), bh2 - 2))
             clip.blit(preview, (bw2 // 2 - preview.get_width() // 2, bh2 - 2 - preview.get_height()))
             if status == "locked":   # receita bloqueada: prévia escurecida
                 shade = pygame.Surface((bw2, bh2), pygame.SRCALPHA)
@@ -408,19 +461,30 @@ class UI:
 
             locked = status == "locked"
             tx = x + 56
-            name_w = self.text(m.name, tx, ry + 4, "#8a7b70" if locked else C.C_TEXT, self.body_big)
-            self.text(m.desc, tx + 6 + name_w, ry + 4, C.C_MUTED, self.body)
+            text_y = ry + (row_h - 32) // 2      # centraliza as 2 linhas de texto na linha
+            name_w = self.text(m.name, tx, text_y + 4, "#8a7b70" if locked else C.C_TEXT, self.body_big)
+            self.text(m.desc, tx + 6 + name_w, text_y + 4, C.C_MUTED, self.body)
             owned = state.inventory.count(kind)       # já fabricadas, no inventário
+            top_end = tx + name_w + 6 + self.body.size(m.desc)[0]     # onde acaba o texto da 1ª linha
             if owned:
-                self.text(f"x{owned}", tx + name_w + 6 + self.body.size(m.desc)[0] + 8, ry + 5, C.C_OK)
+                top_end += 8 + self.text(f"x{owned}", top_end + 8, text_y + 5, C.C_OK)
             cx = tx
             for res, n in m.cost.items():
                 have = state.available(res)              # inventário + baús da base
                 label = f"{have}/{n} {C.RESOURCE_LABEL[res]}"
                 color = "#6e6058" if locked else C.C_OK if have >= n else C.C_ALERT
-                cx += self.text(label, cx, ry + 21, color) + 8
+                cx += self.text(label, cx, text_y + 21, color) + 8
 
-            bx, by, bw, bh = x + w - 86, ry + 7, 72, 20
+            bx, by, bw, bh = x + w - 86, ry + (row_h - 20) // 2, 72, 20
+            # energia: "-2 KW" (consome) ou "+3 KW" (gera), encostado à esquerda do botão
+            use, gen = energy.machine_use(kind), energy.machine_gen(kind)
+            if use or gen:
+                kw = f"+{fmt_rate(gen)} KW" if gen else f"-{fmt_rate(use)} KW"
+                kw_color = "#6e6058" if locked else C.C_OK if gen else "#ffd84a"
+                kw_x = bx - 6 - self.font.size(kw)[0]
+                if kw_x - 8 >= top_end + 4:          # o raio só entra se couber sem encostar no nome
+                    self.draw_bolt(kw_x - 8, text_y + 4, kw_color)
+                self.text(kw, kw_x, text_y + 5, kw_color)
             button = pygame.Rect(bx, by, bw, bh)
             if status == "ok":
                 self.surf.fill(pygame.Color(C.C_ACCENT), button)
@@ -617,7 +681,7 @@ class UI:
             self.text("[ENTER] CONTINUAR EXPLORANDO", UW / 2, y + h - 18, C.C_TEXT, align="center")
 
     # ---- menu de pausa ---------------------------------------------------------
-    PAUSE_OPTIONS = ["Continuar", "Volumes", "Controles", "Sair"]
+    PAUSE_OPTIONS = ["Continuar", "Volumes", "Controles", "Salvar e sair", "Sair"]
     VOLUME_ROWS = [("master", "GERAL"), ("sfx", "EFEITOS"), ("ambient", "AMBIENTE")]
     CONTROLS = [
         ("WASD / SETAS", "Andar"),

@@ -60,6 +60,7 @@ def test_normal_sequence_walks_every_objective(game):
     craft_free(game, "melter"); step()
     game.indices["o2"] = 500; step()
     craft_free(game, "heater"); step()
+    craft_free(game, "solar"); step()
     game.read_terminal(0); step()
     game.debug_add_ti(); step()                 # Ti 10.500 -> Névoa
     vein = game.world.veins[0]                  # drill de verdade num veio de verdade
@@ -82,6 +83,7 @@ def test_normal_sequence_walks_every_objective(game):
         "Minere gelo e fabrique um Derretedor",
         "Chegue a Ti 500",
         "Fabrique um Aquecedor",
+        "Fabrique um painel solar",
         "Leia um terminal",
         "Chegue ao estágio Névoa",
         "Coloque uma drill num veio",
@@ -173,7 +175,7 @@ def test_tracker_flashes_completed_objective(game):
 def test_everything_done_list_disappears(game):
     game.mined_total.update(iron=10, silicon=4, ice=10)
     game.fabricator_opened = True
-    for kind in ("o2", "chest", "melter", "heater", "o2_t2"):
+    for kind in ("o2", "chest", "melter", "heater", "solar", "o2_t2"):
         craft_free(game, kind)
     place_at(game, "o2", (61, 66))
     game.read_terminal(0)

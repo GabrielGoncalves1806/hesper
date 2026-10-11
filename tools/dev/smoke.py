@@ -21,12 +21,15 @@ sys.path.insert(0, str(ROOT))
 import pygame  # noqa: E402
 
 from game import config as C  # noqa: E402
+from game import save  # noqa: E402
 from game import settings  # noqa: E402
 from game.app import NUMBER_KEYS, App  # noqa: E402
 
 # o smoke mexe nos volumes: grava num arquivo temporário, nunca no settings.json de verdade
 import tempfile  # noqa: E402
 settings.SETTINGS_PATH = Path(tempfile.gettempdir()) / "hesper_smoke_settings.json"
+# ...e o save também: o smoke nunca deixa um saves/slot1.json de verdade pra trás
+save.SAVE_PATH = Path(tempfile.gettempdir()) / "hesper_smoke_save" / "slot1.json"
 
 OUT = ROOT / "reports" / "dev"
 DT = 1 / 60
@@ -34,9 +37,17 @@ DT = 1 / 60
 
 class Bot:
     def __init__(self):
+        save.SAVE_PATH.unlink(missing_ok=True)
         self.app = App(scale=1)
-        self.state = self.app.state
         self.frame_times: list[float] = []
+        # o jogo abre na tela de título: sem save, só "Novo jogo" e "Sair"
+        assert self.app.mode == "title"
+        assert [label for _, label in self.app.title.options()] == ["Novo jogo", "Sair"]
+        self.frames(0.5)
+        self.shot("titulo.png")
+        self.key(pygame.K_RETURN)               # "Novo jogo" já vem selecionado
+        assert self.app.mode == "play"
+        self.state = self.app.state
 
     def frames(self, seconds: float) -> None:
         for _ in range(max(1, round(seconds / DT))):
@@ -440,6 +451,47 @@ def check_inventory_and_chest(bot) -> None:
     bot.frames(C.NOTICE_TIME)
 
 
+def check_energy(bot) -> None:
+    """Energia (Marco 2): painel solar pela hotbar, medidor verde/amarelo e, forçando um déficit,
+    medidor vermelho + aviso + ritmo no hover + power_low disparado uma vez."""
+    from game.systems import Machine
+    s, app = bot.state, bot.app
+    bot.teleport((64, 66))
+    bot.frames(0.1)
+    give(s, iron=max(8, s.inventory.count("iron")), silicon=max(6, s.inventory.count("silicon")))
+    assert s.craft("solar")
+    bot.key(hotbar_key(bot, "solar"))
+    assert app.placing == "solar"
+    spot = next(t for t in [(62, 67), (61, 68), (63, 68), (60, 67), (66, 68)] if s.can_place("solar", t))
+    bot.click(bot.tile_on_screen(spot))
+    panel = s.machine_at(spot)
+    assert panel is not None and panel.kind == "solar", "o painel devia ter sido colocado"
+    assert s.power.production == C.POD_POWER + 3 and not s.power.deficit
+    bot.mouse_to(bot.tile_on_screen((64, 69)))
+    bot.frames(0.5)
+    bot.shot("energia_ok.png")
+
+    # déficit forçado: máquinas nv.2 direto no mundo (o teste é do HUD, não do fabricador)
+    free = [(x, y) for y in range(67, 71) for x in range(58, 71)
+            if s.world.get(x, y) == C.FLOOR and not s.machine_at((x, y)) and (x, y) not in C.POD_TILES
+            and s.world.vein_at(x, y) is None and (x, y) != s.player.tile]
+    extra = [Machine("heater_t2", *t) for t in free[::3][:3]]
+    s.machines += extra
+    assert s.power.deficit and s.power_alert.armed
+    bot.frames(0.6)
+    assert not s.power_alert.armed, "o power_low devia ter disparado"
+    m = extra[0]
+    camx, camy = app.cam
+    bot.mouse_to((int((m.tx + 0.5) * C.TILE - camx), int((m.ty + 1) * C.TILE - 30 - camy)))
+    bot.frames(0.3)
+    percent = int(s.power.factor * 100)
+    assert app.hint().startswith(f"Ritmo {percent}%"), app.hint()
+    bot.shot("energia_deficit.png")
+    for machine in extra:
+        s.machines.remove(machine)
+    bot.frames(0.1)
+
+
 def check_objectives_midway(bot) -> None:
     """Objetivos no meio do caminho: com ferro e silício 'minerados', o atual vira "Fabrique um baú"."""
     s = bot.state
@@ -560,6 +612,55 @@ def check_drill_feature(bot) -> None:
     bot.frames(0.1)
 
 
+def check_save(bot) -> None:
+    """Autosave com o aviso no HUD, "Salvar e sair" pela pausa, tela de título com save e Continuar."""
+    s, app = bot.state, bot.app
+    bot.teleport((64, 66))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+    # autosave: só conta jogando (pausado o relógio não anda)
+    app.autosave_timer = C.AUTOSAVE_INTERVAL - 0.1
+    bot.key(pygame.K_ESCAPE)
+    bot.frames(0.5)
+    assert app.autosave_timer < C.AUTOSAVE_INTERVAL and app.saved_notice == 0, "pausa não pode contar pro autosave"
+    bot.key(pygame.K_ESCAPE)
+    save.SAVE_PATH.unlink(missing_ok=True)
+    bot.frames(0.3)
+    assert save.SAVE_PATH.exists() and app.saved_notice > 0, "o autosave devia ter salvo"
+    bot.shot("salvo.png")
+    bot.frames(C.SAVED_NOTICE_TIME)
+    assert app.saved_notice == 0
+    # "Salvar e sair" (4ª opção da pausa) volta pra tela de título
+    bot.key(pygame.K_ESCAPE)
+    for _ in range(3):
+        bot.key(pygame.K_s)
+    assert app.ui.PAUSE_OPTIONS[app.pause_selected] == "Salvar e sair"
+    bot.key(pygame.K_RETURN)
+    assert app.mode == "title"
+    saved = app.title.saved
+    assert saved is not None and saved is not s
+    assert saved.world.tiles == s.world.tiles and saved.inventory.to_data() == s.inventory.to_data()
+    assert saved.ti == s.ti and len(saved.machines) == len(s.machines) and saved.logs_read == s.logs_read
+    assert [label for _, label in app.title.options()] == ["Continuar", "Novo jogo", "Sair"]
+    bot.frames(0.5)
+    bot.shot("titulo_continuar.png")
+    # "Novo jogo" com save existente: pede confirmação; Esc volta
+    bot.key(pygame.K_s)
+    bot.key(pygame.K_RETURN)
+    assert app.title.confirming and app.mode == "title"
+    bot.frames(0.2)
+    bot.shot("titulo_confirmar.png")
+    bot.key(pygame.K_ESCAPE)
+    assert not app.title.confirming
+    # Continuar pelo mouse
+    row = app.title.items[0]
+    bot.click((row.centerx * 2, row.centery * 2))
+    assert app.mode == "play" and app.state is saved
+    bot.frames(0.5)
+    bot.state = app.state
+    save.SAVE_PATH.unlink(missing_ok=True)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     bot = Bot()
@@ -623,6 +724,7 @@ def main() -> None:
     check_pause(bot)
     check_dismantle(bot)
     check_inventory_and_chest(bot)
+    check_energy(bot)
     check_transition(bot, 1, [("transicao_25.png", 0.25), ("transicao_60.png", 0.60), ("transicao_90.png", 0.90)])
 
     print("4) terminal")
@@ -676,6 +778,9 @@ def main() -> None:
     bot.key(pygame.K_a, hold=1.0)
     bot.frames(1.0)
     bot.shot("stage3_explorando.png")
+
+    print("7) save/load e tela de título")
+    check_save(bot)
 
     # folha ampliada (4×) com o player de fallback: parado e andando, nas 3 direções
     from game import art
