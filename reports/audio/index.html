@@ -81,9 +81,10 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Hesper · report de som · v0.1</div>
+    <div class="eyebrow">Hesper · report de som · v2</div>
     <h1>Som do planeta</h1>
     <p class="lede">Os 19 arquivos do contrato de áudio da bíblia (§6), todos gerados por síntese procedural com seed fixa em <code>tools/audio/build_audio.py</code>. A estética é 8/16-bit refinada: osciladores limitados em banda, ruído filtrado, envelopes, varreduras de pitch e um reverb de cratera. Dá o play em cada um, os loops tocam em repetição pra tu ouvir a emenda.</p>
+    <div class="note" style="border-left-color:var(--cyan)"><b style="color:var(--cyan)">v2, o que mudou:</b> ambientes refeitos pra soar mais espaciais. Saíram vento, chiado, chuva e poeira (a fatia de energia acima de 2,5 kHz caiu de −12 a −16 dB pra −35 a −66 dB do total) e saíram os pássaros e insetos do verde. Agora é drone/pad longo, reverb de cauda longa e brilhos lentos, e a diferença entre estágios vem da harmonia. O <code>mine_break</code> virou rocha esfarelando (impacto curto + cascalho caindo em tempo irregular, sem notas). O <code>pickup</code> virou um "poop" de bolha de 110 ms. O resto não mudou.</div>
     <div class="note"><b>Aviso honesto:</b> quem gerou esses sons não consegue ouvir. Tudo foi validado por análise (formato, duração, pico, loudness aproximado, espectro por banda e teste de clique na emenda dos loops), mas o julgamento estético final é do teu ouvido. Se algum som incomodar, diz qual e o que incomoda (agudo demais, longo demais, grave demais) que dá pra ajustar rápido: é só mexer num número do script e rodar de novo.</div>
     <div class="stats">
       <div class="stat"><b>19</b><span>arquivos</span></div>
@@ -102,55 +103,55 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 
   <section id="direcao">
     <div class="sec-head"><span class="num">07</span><h2>Direção de ambientação</h2>
-      <p>Os três ambientes são o mesmo lugar ouvido em momentos diferentes. Mesma tônica (Lá) do começo ao fim, mesmo vento, mesmo reverb de cratera. O que muda é o que tem vida dentro dele.</p></div>
+      <p>Os três ambientes são o mesmo lugar ouvido em momentos diferentes, agora com cara de ambient de jogo espacial: calmo, amplo, solitário. O protagonista é um drone/pad longo com reverb de cauda longa e brilhos agudos que surgem e somem devagar. Ruído quase não tem: só uma camada bem baixa e escura no fundo. Mesma tônica (Lá) do começo ao fim. A diferença entre os estágios vem da harmonia e do timbre, não de bichos ou clima.</p></div>
     <div class="stages">
       <div class="stage">
         <div class="sw"><i style="background:#7b402c"></i><i style="background:#4b3332"></i><i style="background:#e8a066"></i></div>
         <span class="lbl">1 · Morto · Ti 0</span>
-        <h3>Solidão seca</h3>
+        <h3>Frio e vazio</h3>
         <p class="feel">"Tem ninguém aqui. Teve, mas não tem mais."</p>
         <ul>
-          <li>Vento seco e granulado, rajadas que clareiam o som e trazem poeira estalando no visor.</li>
-          <li>Drone grave em Lá1 + Mi2 (quinta vazia), com batimento lento: frio, sem terça, sem resposta.</li>
-          <li>Uma vez por volta, um gemido metálico muito distante: o que sobrou da Colônia Hesper. Quase subliminar.</li>
-          <li>Reverb largo e escuro. Nada vivo.</li>
+          <li>Drone grave em quinta vazia (Lá1, Mi2, Lá2, Mi3), com batimento lento e sem terça: frio, sem resposta.</li>
+          <li>Uma camada fina em Lá3 e Mi4 por cima e poucos brilhos gelados (Mi5, Lá5, Mi6).</li>
+          <li>Uma vez por volta, um gemido metálico muito distante: o que sobrou da Colônia Hesper.</li>
+          <li>Fundo: só um rumor subgrave quase inaudível.</li>
         </ul>
       </div>
       <div class="stage">
         <div class="sw"><i style="background:#6e5a4f"></i><i style="background:#4a4447"></i><i style="background:#3f7690"></i></div>
         <span class="lbl">2 · Névoa · Ti 10.000</span>
-        <h3>Primeiras chuvas</h3>
+        <h3>Abre e umedece</h3>
         <p class="feel">"Alguma coisa mudou no ar."</p>
         <ul>
-          <li>O vento continua, mas abafado e úmido (menos agudo, rajadas mais lentas).</li>
-          <li>Chuva fina constante e gotas pingando em poças, com eco: a água é a novidade.</li>
-          <li>O drone sobe uma oitava e abre: Lá2 + Mi3 + Si3 (sus2). Ainda sem terça, mas já não é vazio.</li>
-          <li>Reverb maior e mais úmido.</li>
+          <li>O pad sobe e abre: Lá2, Mi3, Si3, Mi4 (sus2), mais suave e respirando.</li>
+          <li>Reverb maior (7 s), mais brilhos (Si4, Mi5, Fá♯5, Si5).</li>
+          <li>Só 6 gotas por volta, abafadas e com eco longo. É a única "água" do som.</li>
+          <li>Fundo: névoa grave bem baixa.</li>
         </ul>
       </div>
       <div class="stage">
         <div class="sw"><i style="background:#4d7a39"></i><i style="background:#2c7ea6"></i><i style="background:#79b04f"></i></div>
         <span class="lbl">3 · Primeiro verde · Ti 100.000</span>
-        <h3>Aconchego</h3>
+        <h3>Quente e aberto</h3>
         <p class="feel">"Tu fez isso aqui ficar vivo."</p>
         <ul>
-          <li>O vento vira brisa, com farfalhar de folhas nas rajadas.</li>
-          <li>Insetos alienígenas (trilos pulsados) e pássaros com glissando, poucos e espaçados: vida discreta, não floresta tropical.</li>
-          <li>Pad harmônico calmo alternando Lá add9 e Ré maj7. Agora tem terça maior: é a primeira vez que o planeta soa "feliz".</li>
+          <li>Pad quente alternando Lá add9 e Ré maj7 ao longo do loop. Primeira terça maior: o planeta soa "feliz".</li>
+          <li>Brilhos mais frequentes, nas notas do acorde (Dó♯5 a Mi6).</li>
+          <li>Sem pássaros e sem insetos: a vida aparece na harmonia.</li>
           <li>O <code>stage_up</code> é em Lá maior, então o jingle cai certinho dentro desse ambiente.</li>
         </ul>
       </div>
     </div>
-    <p class="arrow">Evolução: ar seco → água → vida · quinta vazia → sus2 → acorde maior · reverb escuro → úmido → aberto</p>
+    <p class="arrow">Evolução: grave e vazio → aberto e úmido → quente · quinta vazia → sus2 → acorde maior · poucos brilhos → muitos</p>
     <div class="tbl" style="margin-top:16px">
       <table>
         <thead><tr><th>Camada</th><th>Morto</th><th>Névoa</th><th>Verde</th></tr></thead>
         <tbody>
-          <tr><td>Vento</td><td>forte, seco, rajadas brilhantes</td><td>médio, abafado</td><td>brisa leve + folhas</td></tr>
-          <tr><td>Água</td><td>nenhuma</td><td>chuva fina + gotas</td><td>(fica implícita nos lagos)</td></tr>
-          <tr><td>Vida</td><td>nenhuma (só o eco da colônia)</td><td>nenhuma</td><td>insetos e pássaros alienígenas</td></tr>
-          <tr><td>Harmonia</td><td>Lá1 + Mi2, drone</td><td>Lá2 + Mi3 + Si3, drone respirando</td><td>pad Lá add9 ↔ Ré maj7</td></tr>
-          <tr><td>Reverb</td><td>2,6 s, escuro</td><td>3,0 s, úmido</td><td>2,2 s, mais claro</td></tr>
+          <tr><td>Drone / pad</td><td>Lá1 Mi2 Lá2 Mi3 + fio em Lá3 Mi4</td><td>Lá2 Mi3 Si3 Mi4 (sus2)</td><td>Lá add9 ↔ Ré maj7</td></tr>
+          <tr><td>Brilhos</td><td>5 por volta, gelados</td><td>8 por volta</td><td>11 por volta, notas do acorde</td></tr>
+          <tr><td>Detalhe</td><td>gemido distante da colônia</td><td>6 gotas abafadas com eco</td><td>nenhum</td></tr>
+          <tr><td>Fundo (ruído)</td><td>rumor subgrave, quase nada</td><td>névoa grave, quase nada</td><td>ar grave, quase nada</td></tr>
+          <tr><td>Reverb do pad</td><td>6 s, escuro</td><td>7 s, úmido</td><td>5,5 s, mais claro</td></tr>
         </tbody>
       </table>
     </div>
@@ -256,7 +257,7 @@ def trocar_ambiente(novo, atual_idx):
     <div class="grid2">
       <div class="box">
         <h3>Como os loops emendam</h3>
-        <p>Nenhum loop usa crossfade: eles são construídos periódicos. Todo ruído é filtrado no domínio da frequência de forma circular, toda frequência fixa tem número inteiro de ciclos no comprimento do loop, rajadas/gotas/pássaros que passam do fim continuam no começo e o reverb é convolução circular. A amostra depois da última é, matematicamente, a primeira.</p>
+        <p>Nenhum loop usa crossfade: eles são construídos periódicos. Todo ruído é filtrado no domínio da frequência de forma circular, toda frequência fixa tem número inteiro de ciclos no comprimento do loop, brilhos e gotas que passam do fim continuam no começo e o reverb é convolução circular. A amostra depois da última é, matematicamente, a primeira.</p>
         <p>Validação: o salto entre a última e a primeira amostra é comparado com todos os saltos entre amostras vizinhas do arquivo (precisa ficar abaixo do percentil 99), e a energia de agudos numa janela de 3 ms em cima da emenda é comparada com o resto do arquivo (também abaixo do percentil 99). Os 5 loops passaram.</p>
       </div>
       <div class="box">
@@ -279,8 +280,8 @@ const GROUPS = [
     intro:"O som que o jogador mais vai ouvir. Prioridade: curto, grave o bastante pra ter peso, sem agudo que canse.",
     items:[
       ["mine_hit","A cada ~0,25 s enquanto segura o clique","Toc seco de ferramenta na rocha: um baque grave curto, um estalo e um tink metálico baixinho. Feito pra aguentar 500 repetições."],
-      ["mine_break","Quando o tile quebra","A rocha cede: baque, crack e pedrinhas caindo, com um eco curto de cratera."],
-      ["pickup","Ganhou recurso","Blip de duas notas subindo (Mi → Si): o \"guardei\" pequeno e positivo."],
+      ["mine_break","Quando o tile quebra","Rocha esfarelando: um impacto curto e depois cascalho caindo em tempo irregular, cada vez mais esparso. Só ruído filtrado, nada tonal."],
+      ["pickup","Ganhou recurso","Um \"poop\" de bolha: seno curto com o pitch subindo rápido. Discreto e gostoso de repetir."],
     ]},
   { id:"interface", title:"Interface", color:"#59d0e6",
     intro:"Bipes de computador de bordo: quadrados suavizados, sempre em Lá/Mi pra combinar com o resto.",
@@ -309,9 +310,9 @@ const GROUPS = [
   { id:"ambiente", title:"Ambiente", color:"#7fbf5a",
     intro:"Um loop por estágio, 32 s cada, todos em Lá. Detalhes na seção de direção de ambientação.",
     items:[
-      ["amb_dead","Estágio 1 · Morto (Ti 0)","Vento seco, rajadas com poeira estalando no visor, drone grave solitário e um gemido metálico distante da colônia."],
-      ["amb_mist","Estágio 2 · Névoa (Ti 10.000)","Vento úmido e abafado, chuva fina, gotas pingando em poças com eco e um drone mais aberto."],
-      ["amb_green","Estágio 3 · Primeiro verde (Ti 100.000)","Brisa, folhas, insetos e pássaros alienígenas discretos e um pad calmo em Lá maior."],
+      ["amb_dead","Estágio 1 · Morto (Ti 0)","Drone grave em quinta vazia, brilhos gelados raros e um gemido metálico distante da colônia. Frio e vazio."],
+      ["amb_mist","Estágio 2 · Névoa (Ti 10.000)","O pad abre em sus2, o reverb cresce, mais brilhos e umas poucas gotas abafadas com eco longo."],
+      ["amb_green","Estágio 3 · Primeiro verde (Ti 100.000)","Pad quente alternando Lá add9 e Ré maj7, com brilhos nas notas do acorde. Calmo e aberto."],
     ]},
   { id:"recompensa", title:"Recompensa", color:"#f2c46d",
     intro:"A grande recompensa do jogo. É o único som que pode ser grande.",

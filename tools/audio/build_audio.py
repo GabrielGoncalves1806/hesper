@@ -10,7 +10,7 @@ de BASE_SEED + nome, então mexer em um som não muda os outros.
 
 Loops (o2_low, machine_hum, amb_*) são construídos de forma periódica: todo ruído
 é filtrado no domínio da frequência de forma circular, toda frequência fixa tem um
-número inteiro de ciclos no comprimento do loop, eventos (rajadas, gotas, pássaros)
+número inteiro de ciclos no comprimento do loop, eventos (brilhos, gotas)
 dão a volta pelo começo e o reverb é convolução circular. Resultado: a amostra
 depois da última é exatamente a primeira, sem estalo e sem crossfade.
 """
@@ -298,30 +298,38 @@ def sfx_mine_hit(rng):
 
 
 def sfx_mine_break(rng):
+    """v2: rocha esfarelando. Impacto curto de ruído e depois cascalho caindo em tempo
+    irregular (processo de Poisson com taxa caindo), sem notas tonais."""
     tr = Track()
-    tr.add(thump(rng, 160, 42, 0.05, 0.13, 0.5), 0, 1.0)
-    tr.add(noise_burst(rng, 900, 5500, 0.0005, 0.016, 0.1), 0, 0.8)       # crack
-    tr.add(noise_burst(rng, 60, 600, 0.004, 0.16, 0.6), 0, 0.55)          # rumor do desabamento
-    # pedrinhas caindo: grãos cada vez mais esparsos e fracos
-    for i in range(22):
-        u = rng.uniform()
-        at = 0.02 + 0.42 * u ** 1.5
-        amp = (1 - u) ** 1.2 * rng.uniform(0.25, 0.6)
-        c = rng.uniform(600, 2600)
-        tr.add(noise_burst(rng, c * 0.6, c * 1.6, 0.0005, rng.uniform(0.004, 0.012), 0.04), at, amp)
-        if rng.uniform() < 0.35:
-            tr.add(chip_note(rng.uniform(700, 1500), 0.03, "tri", 4000, decay=0.008, release=0.005), at, amp * 0.3)
-    x = tr.render()
-    return reverb(x, rng, decay=0.45, mix=0.18, lp=3500)
+    tr.add(noise_burst(rng, 180, 2800, 0.0008, 0.03, 0.15), 0, 1.0)     # impacto
+    tr.add(thump(rng, 110, 55, 0.02, 0.05, 0.2), 0, 0.45)                # peso, curto
+    for _ in range(5):                                                   # pedaços maiores
+        c = rng.uniform(400, 1200)
+        tr.add(noise_burst(rng, c * 0.5, c * 2, 0.0005, rng.uniform(0.006, 0.014), 0.05),
+               rng.uniform(0.01, 0.12), rng.uniform(0.3, 0.55))
+    t = 0.03
+    while True:                                                          # cascalho fino
+        rate = 140 * np.exp(-t / 0.18) + 12
+        t += rng.exponential(1 / rate)
+        if t > 0.55:
+            break
+        c = rng.uniform(1200, 5500)
+        amp = 0.45 * np.exp(-t / 0.22) * rng.uniform(0.3, 1.0)
+        tr.add(noise_burst(rng, c * 0.6, c * 1.5, 0.0003, rng.uniform(0.0015, 0.005), 0.02), t, amp)
+    n = ns(0.5)                                                          # areia escorrendo
+    sand = filt(rng.standard_normal(n), 1500, 6000) * bump(n, 0.12) * np.exp(-tvec(n) / 0.2)
+    tr.add(sand, 0.03, 0.07)
+    return reverb(tr.render(), rng, decay=0.35, mix=0.12, lp=4000)
 
 
 def sfx_pickup(rng):
-    tr = Track()
-    tr.add(chip_note(midi(76), 0.07, "pulse", 4200, 0.25, decay=0.05, release=0.02), 0, 0.8)   # E5
-    tr.add(chip_note(midi(83), 0.16, "pulse", 4200, 0.25, decay=0.07, release=0.04), 0.06, 0.8)  # B5
-    tr.add(chip_note(midi(71), 0.2, "tri", 3000, decay=0.08, release=0.04), 0.06, 0.35)          # corpo
-    x = tr.render()
-    return echo(x, 0.085, 0.22, taps=2, lp=2500)
+    """v2: "poop" de bolha. Seno com subida rápida de pitch, ~110 ms, sem arpejo."""
+    n = ns(0.11)
+    t = tvec(n)
+    f = 330 + 420 * (1 - np.exp(-t / 0.025))
+    ph = phase_of(f, n)
+    x = (np.sin(ph) + 0.12 * np.sin(2 * ph)) * perc(n, 0.002, 0.03)
+    return x * np.clip((n / SR - t) / 0.02, 0, 1)
 
 
 def sfx_craft(rng):
@@ -535,137 +543,99 @@ def norm_rms(x):
     return x / (np.sqrt(np.mean(x ** 2)) + 1e-12)
 
 
+# v2: ambientes "espaciais". O protagonista é o drone/pad com reverb longo e brilhos
+# agudos lentos; textura de ruído só bem baixa e escura, no fundo. Sem bichos.
+
+def pad_voice(n: int, L: float, rng, f: float, detune=(-0.19, 0.0, 0.19),
+              harm=(1.0, 0.12, 0.04), swell=(1, 3)) -> np.ndarray:
+    """Voz de pad periódica: senoides levemente desafinadas (chorus) + poucos harmônicos,
+    respirando com swell lento. Toda frequência tem ciclos inteiros em L."""
+    t = tvec(n)
+    v = np.zeros(n)
+    for d in detune:
+        fd = fr(f + d, L)
+        for k, a in enumerate(harm, 1):
+            v += a * np.sin(2 * np.pi * k * fd * t + rng.uniform(0, 2 * np.pi))
+    return v * (0.4 + 0.6 * periodic_ctrl(n, L, rng, *swell)) / len(detune)
+
+
+def glints(n: int, rng, notes, count: int, dur=(2.5, 5.0), amp=(0.2, 0.35)) -> np.ndarray:
+    """Brilhos: notas agudas que surgem e somem devagar (pro reverb espalhar)."""
+    buf = np.zeros(n)
+    for _ in range(count):
+        f = midi(float(rng.choice(notes)))
+        m = ns(rng.uniform(*dur))
+        tm = tvec(m)
+        wob = 1 + 0.002 * np.sin(2 * np.pi * 4.5 * tm)
+        ph = phase_of(f * wob, m)
+        x = np.sin(ph) + 0.15 * np.sin(2 * ph) + 0.5 * np.sin(phase_of(f * 1.003 * wob, m, 1.0))
+        add_circ(buf, x * bump(m, 0.4) ** 1.5 * rng.uniform(*amp), int(rng.integers(0, n)))
+    return buf
+
+
+def space_mix(rng, pad, shimmer, texture, pad_rev=(6.0, 0.45, 2800), sh_rev=(7.5, 0.8, 6000)):
+    pad = reverb(pad, rng, decay=pad_rev[0], mix=pad_rev[1], lp=pad_rev[2], circular=True)
+    shimmer = reverb(shimmer, rng, decay=sh_rev[0], mix=sh_rev[1], lp=sh_rev[2], circular=True)
+    return pad + shimmer + texture
+
+
 def amb_dead(rng):
+    """Frio, vazio, grave: quinta vazia em Lá bem embaixo, brilhos raros e gelados."""
     L = 32.0
     n = ns(L)
     t = tvec(n)
-    slow = periodic_ctrl(n, L, rng, 1, 7)
-    g = gusts(n, rng, 5, (2.5, 5.0), 0.4)
-    low = norm_rms(filt(rng.standard_normal(n), 70, 380, 2, circular=True))
-    mid = norm_rms(filt(rng.standard_normal(n), 380, 1300, 2, circular=True))
-    high = norm_rms(filt(rng.standard_normal(n), 1600, 5500, 2, circular=True))
-    wind = (low * (0.35 + 0.45 * slow) + mid * (0.08 + 0.28 * g + 0.08 * slow) + high * (0.015 + 0.12 * g ** 1.6))
-    # poeira batendo no visor: estalinhos esparsos, mais densos nas rajadas
-    imp = np.zeros(n)
-    cand = rng.integers(0, n, int(220 * L))
-    keep = rng.uniform(0, 1, len(cand)) < (0.05 + 0.95 * g[cand] ** 2)
-    imp[cand[keep]] = np.clip(rng.standard_normal(keep.sum()), -2.5, 2.5)
-    grit = filt(imp, 2200, 7000, 2, circular=True)
-    grit = grit / (np.std(grit) + 1e-12) * 0.06
-    # drone grave e solitário: A1 + E2, com batimento lento
-    drone = np.zeros(n)
-    for f, a in ((55.0, 0.5), (fr(55.0 + 0.125, L), 0.35), (fr(82.41, L), 0.22), (110.0, 0.06)):
-        drone += a * np.sin(2 * np.pi * f * t + rng.uniform(0, 6.28))
-    drone *= 0.6 + 0.4 * periodic_ctrl(n, L, rng, 1, 3)
-    drone = drone * 0.22
-    # gemido metálico distante (o que sobrou da colônia), uma vez por volta
+    drone = sum(g * pad_voice(n, L, rng, midi(m), detune=(-0.125, 0.0, 0.125), harm=(1.0, 0.2, 0.06))
+                for m, g in ((33, 0.45), (40, 0.5), (45, 1.0), (52, 0.45)))  # A1 E2 A2 E3
+    cold = sum(pad_voice(n, L, rng, midi(m), harm=(1.0,), swell=(2, 4)) for m in (57, 64)) * 0.25  # A3 E4 fino
+    pad = norm_rms(drone + cold)
+    shimmer = glints(n, rng, (76, 81, 88), 5, (3.0, 6.0), (0.2, 0.35))     # E5 A5 E6
+    # o que sobrou da colônia: gemido metálico distante, uma vez por volta
     m = ns(6.0)
-    tm = tvec(m)
-    groan = bl_wave(74 - 8 * tm / 6.0, m, "saw", 450) * bump(m, 0.35)
-    groan = filt(groan, 50, 420, 2) * 0.05
-    buf = wind * 0.5 + grit + drone
-    add_circ(buf, groan, ns(19.0))
-    return reverb(buf, rng, decay=2.6, mix=0.22, lp=3000, circular=True)
+    groan = filt(bl_wave(74 - 8 * tvec(m) / 6.0, m, "saw", 450) * bump(m, 0.35), 50, 380, 2) * 0.25
+    add_circ(shimmer, groan, ns(19.0))
+    rumble = norm_rms(filt(rng.standard_normal(n), 25, 180, 2, circular=True))
+    rumble *= 0.07 * (0.5 + 0.5 * periodic_ctrl(n, L, rng, 1, 4))
+    return space_mix(rng, pad, shimmer, rumble, pad_rev=(6.0, 0.4, 2200))
 
 
 def amb_mist(rng):
+    """Abre e fica úmido: sus2 uma oitava acima, mais brilho, gotas raras e discretas."""
     L = 32.0
     n = ns(L)
-    t = tvec(n)
-    slow = periodic_ctrl(n, L, rng, 1, 6)
-    g = gusts(n, rng, 3, (4.0, 7.0), 0.45)
-    low = norm_rms(filt(rng.standard_normal(n), 60, 450, 2, circular=True))
-    mid = norm_rms(filt(rng.standard_normal(n), 450, 1100, 2, circular=True))
-    wind = low * (0.3 + 0.3 * slow) + mid * (0.05 + 0.15 * g)
-    # chuva fina: chiado + "patter" de microgotas
-    rain_hiss = norm_rms(filt(rng.standard_normal(n), 2500, 9000, 2, circular=True))
-    imp = np.zeros(n)
-    cand = rng.integers(0, n, int(350 * L))
-    imp[cand] = np.minimum(rng.exponential(1.0, len(cand)), 3.0) * rng.choice([-1, 1], len(cand))
-    patter = norm_rms(filt(imp, 2000, 8000, 2, circular=True))
-    rain_level = 0.7 + 0.3 * periodic_ctrl(n, L, rng, 1, 4)
-    rain = (rain_hiss * 0.05 + patter * 0.07) * rain_level
-    # gotas maiores pingando em poças
+    pad = sum(g * pad_voice(n, L, rng, midi(m), harm=(1.0, 0.1), swell=(1, 3))
+              for m, g in ((45, 1.0), (52, 0.7), (59, 0.45), (64, 0.3)))   # A2 E3 B3 E4
+    pad = norm_rms(pad)
+    shimmer = glints(n, rng, (71, 76, 78, 83), 8, (3.0, 6.0), (0.22, 0.38))  # B4 E5 F#5 B5
     drops = np.zeros(n)
-    for _ in range(34):
-        f0 = rng.uniform(850, 1900)
-        p = plink(rng, f0) * rng.uniform(0.05, 0.16)
-        st = rng.integers(0, n)
-        add_circ(drops, p, st)
-        if rng.uniform() < 0.4:
-            add_circ(drops, plink(rng, f0 * rng.uniform(1.05, 1.25)) * 0.4 * rng.uniform(0.05, 0.12),
-                     st + ns(rng.uniform(0.18, 0.45)))
-    drops = echo(drops, 0.23, 0.3, taps=2, lp=3000, circular=True)
-    # drone mais aberto: A2 E3 B3 (sus2), respirando
-    drone = np.zeros(n)
-    for f, a in ((110.0, 0.5), (fr(164.81, L), 0.35), (fr(246.94, L), 0.2), (fr(110.0 + 0.0625, L), 0.25)):
-        sw = 0.5 + 0.5 * periodic_ctrl(n, L, rng, 1, 3)
-        drone += a * sw * (np.sin(2 * np.pi * f * t + rng.uniform(0, 6.28))
-                           + 0.15 * np.sin(4 * np.pi * f * t + rng.uniform(0, 6.28)))
-    drone *= 0.13
-    buf = wind * 0.38 + rain + drops + drone
-    return reverb(buf, rng, decay=3.0, mix=0.3, lp=3500, circular=True)
+    for _ in range(6):
+        p = filt(plink(rng, rng.uniform(800, 1400), 0.08), None, 2500, 1)
+        add_circ(drops, p * rng.uniform(0.08, 0.14), int(rng.integers(0, n)))
+    shimmer += echo(drops, 0.37, 0.35, taps=3, lp=2000, circular=True)
+    mist = norm_rms(filt(rng.standard_normal(n), 40, 300, 2, circular=True))
+    mist *= 0.05 * (0.5 + 0.5 * periodic_ctrl(n, L, rng, 1, 3))
+    return space_mix(rng, pad, shimmer, mist, pad_rev=(7.0, 0.5, 3000))
 
 
 def amb_green(rng):
+    """Quente e aberto: pad em Lá maior (A add9 <-> D maj7) e brilhos nas notas do acorde."""
     L = 32.0
     n = ns(L)
     t = tvec(n)
-    slow = periodic_ctrl(n, L, rng, 1, 5)
-    g = gusts(n, rng, 4, (3.0, 6.0), 0.5)
-    breeze = norm_rms(filt(rng.standard_normal(n), 90, 650, 2, circular=True)) * (0.25 + 0.25 * slow)
-    leaves = norm_rms(filt(rng.standard_normal(n), 1800, 6000, 2, circular=True)) * (0.01 + 0.05 * g ** 1.5)
-    # pad: alterna A add9 <-> D maj7 (notas em comum = transição lisa)
     w = 0.5 + 0.5 * np.cos(2 * np.pi * t / L)
     chords = [
-        (w, (45, 52, 57, 61, 64, 71)),        # A2 E3 A3 C#4 E4 B4
-        (1 - w, (50, 57, 61, 66, 69, 73)),    # D3 A3 C#4 F#4 A4 C#5
+        (w, (33, 45, 52, 57, 61, 64, 71)),        # A1 A2 E3 A3 C#4 E4 B4
+        (1 - w, (38, 50, 57, 61, 66, 69, 73)),    # D2 D3 A3 C#4 F#4 A4 C#5
     ]
     pad = np.zeros(n)
     for weight, notes in chords:
         for m in notes:
-            f = midi(m)
-            amp = (1.0 if m < 60 else 0.6) * (0.55 + 0.45 * periodic_ctrl(n, L, rng, 1, 3))
-            v = np.zeros(n)
-            for det in (-0.25, 0.0, 0.25):
-                fd = fr(f + det, L)
-                v += np.sin(2 * np.pi * fd * t + rng.uniform(0, 6.28))
-                v += 0.18 * np.sin(4 * np.pi * fd * t + rng.uniform(0, 6.28))
-            pad += weight * amp * v
-    pad = filt(pad, 60, 1800, 1, circular=True)
-    pad = norm_rms(pad) * 0.09
-    # insetos alienígenas: trilos pulsados em frases curtas
-    bugs = np.zeros(n)
-    for _ in range(9):
-        d = rng.uniform(1.2, 2.8)
-        m = ns(d)
-        tm = tvec(m)
-        fc = rng.choice([3900.0, 4400.0, 3300.0])
-        rate = rng.uniform(16, 26)
-        gate = (0.5 - 0.5 * np.cos(2 * np.pi * rate * tm)) ** 4
-        group = (0.5 + 0.5 * np.sin(2 * np.pi * rng.uniform(1.5, 3.0) * tm)) ** 2
-        x = np.sin(2 * np.pi * fc * tm + 0.4 * np.sin(2 * np.pi * 40 * tm)) * gate * group * bump(m, 0.3)
-        add_circ(bugs, x * rng.uniform(0.012, 0.025), rng.integers(0, n))
-    # pássaros alienígenas: frases de 2-4 notas com glissando e vibrato
-    birds = np.zeros(n)
-    for _ in range(7):
-        st = rng.integers(0, n)
-        f0 = rng.uniform(1500, 2600)
-        glide = rng.choice([0.35, -0.25, 0.5])
-        pos = 0
-        for k in range(int(rng.integers(2, 5))):
-            d = rng.uniform(0.07, 0.15)
-            m = ns(d)
-            tm = tvec(m)
-            f = f0 * (1 + glide * tm / d) * (1 + 0.03 * np.sin(2 * np.pi * 28 * tm))
-            ph = phase_of(f, m)
-            x = (np.sin(ph) + 0.15 * np.sin(2 * ph)) * bump(m, 0.15)
-            add_circ(birds, x * rng.uniform(0.05, 0.08), st + pos)
-            pos += m + ns(rng.uniform(0.04, 0.09))
-            f0 *= rng.uniform(0.9, 1.15)
-    birds = echo(birds, 0.27, 0.28, taps=2, lp=3500, circular=True)
-    buf = breeze * 0.35 + leaves + pad + bugs + birds
-    return reverb(buf, rng, decay=2.2, mix=0.25, lp=4500, circular=True)
+            g = 0.8 if m < 40 else (1.0 if m < 60 else 0.55)
+            pad += weight * g * pad_voice(n, L, rng, midi(m), harm=(1.0, 0.18, 0.06), swell=(1, 3))
+    pad = norm_rms(filt(pad, 40, 2200, 1, circular=True))
+    shimmer = glints(n, rng, (73, 76, 81, 83, 85, 88), 11, (2.5, 5.0), (0.22, 0.4))
+    air = norm_rms(filt(rng.standard_normal(n), 60, 400, 2, circular=True))
+    air *= 0.04 * (0.5 + 0.5 * periodic_ctrl(n, L, rng, 1, 3))
+    return space_mix(rng, pad, shimmer, air, pad_rev=(5.5, 0.45, 3200))
 
 
 # ---------------------------------------------------------------------------
@@ -698,7 +668,7 @@ SOUNDS = {
     # nome: (função, loop?, alvo de loudness dB)
     "mine_hit": (sfx_mine_hit, False, -22.0),
     "mine_break": (sfx_mine_break, False, -17.0),
-    "pickup": (sfx_pickup, False, -20.0),
+    "pickup": (sfx_pickup, False, -23.0),
     "craft": (sfx_craft, False, -17.0),
     "place": (sfx_place, False, -17.0),
     "ui_open": (sfx_ui_open, False, -22.0),
