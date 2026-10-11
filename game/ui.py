@@ -215,50 +215,53 @@ class UI:
     def draw_fabricator(self, state: GameState, selected: int, machine_preview, t: float) -> None:
         """Menu de receitas. `machine_preview(kind)` devolve a imagem da máquina (resolução cheia)."""
         self.fill((8, 5, 4, 158), (0, 0, UW, UH))
-        x, y, w, h = 66, 10, 348, 244
-        row_h = 34
+        x, y, w, h = 66, 4, 348, 262
+        row_h = 39       # linha alta o bastante pra prévia das máquinas nv.2 (64 px) caber inteira
         self.surf.fill(pygame.Color("#1b1411"), (x, y, w, h))
         pygame.draw.rect(self.surf, pygame.Color("#5a4034"), (x, y, w, h), 1)
         self.surf.fill(pygame.Color("#2a1e19"), (x + 1, y + 1, w - 2, 18))
         self.text("FABRICADOR", x + 8, y + 6, C.C_TI)
-        self.text("[E] FECHAR", x + w - 8, y + 6, C.C_MUTED, align="right")
+        self.text("[W/S] ESCOLHE · [ENTER] CRAFTA · [E] FECHA", x + w - 8, y + 6, C.C_MUTED, align="right")
         self.fabricator_buttons.clear()
         self.fabricator_rows.clear()
         for i, kind in enumerate(C.MACHINE_ORDER):
             m = C.MACHINES[kind]
             status = state.recipe_status(kind)
-            ry = y + 24 + i * (row_h + 2)
+            ry = y + 22 + i * (row_h + 1)
             sel = i == selected
             row = pygame.Rect(x + 8, ry, w - 16, row_h)
             self.fabricator_rows.append((row, kind))
             self.surf.fill(pygame.Color("#2c1e18" if sel else "#211915"), row)
             pygame.draw.rect(self.surf, pygame.Color(C.C_ACCENT if sel else "#3a2c25"), row, 1)
-            # prévia da máquina (desenhada em resolução cheia, recortada numa caixinha)
-            box = pygame.Rect(x + 14, ry + 2, 30, 30)
+            # prévia da máquina em resolução cheia, sem redimensionar: caixa de 72×74 px reais,
+            # base da máquina 4 px acima do fundo (nv.2 tem 64 px de altura: sobram 6 px em cima)
+            box = pygame.Rect(x + 12, ry + 1, 36, 37)
             self.surf.fill(pygame.Color("#120d0b"), box)
             preview = machine_preview(kind)
-            clip = pygame.Surface((60, 60), pygame.SRCALPHA)
-            clip.blit(preview, (30 - preview.get_width() // 2, 58 - preview.get_height()))
+            bw2, bh2 = box.w * 2, box.h * 2
+            clip = pygame.Surface((bw2, bh2), pygame.SRCALPHA)
+            clip.blit(preview, (bw2 // 2 - preview.get_width() // 2, bh2 - 4 - preview.get_height()))
             if status == "locked":   # receita bloqueada: prévia escurecida
-                shade = pygame.Surface((60, 60), pygame.SRCALPHA)
+                shade = pygame.Surface((bw2, bh2), pygame.SRCALPHA)
                 shade.fill((18, 13, 11, 184))
                 clip.blit(shade, (0, 0))
             self.native.append((clip, (box.x * 2, box.y * 2)))
 
             locked = status == "locked"
-            name_w = self.text(m.name, x + 52, ry + 4, "#8a7b70" if locked else C.C_TEXT, self.body_big)
-            self.text(m.desc, x + 58 + name_w, ry + 5, C.C_MUTED, self.body)
+            tx = x + 56
+            name_w = self.text(m.name, tx, ry + 7, "#8a7b70" if locked else C.C_TEXT, self.body_big)
+            self.text(m.desc, tx + 6 + name_w, ry + 7, C.C_MUTED, self.body)
             owned = state.machines_owned[kind]
             if owned:
-                self.text(f"x{owned}", x + 52 + name_w + 6 + self.body.size(m.desc)[0] + 8, ry + 5, C.C_OK)
-            cx = x + 52
+                self.text(f"x{owned}", tx + name_w + 6 + self.body.size(m.desc)[0] + 8, ry + 8, C.C_OK)
+            cx = tx
             for res, n in m.cost.items():
                 have = state.inventory[res]
                 label = f"{have}/{n} {C.RESOURCE_LABEL[res]}"
                 color = "#6e6058" if locked else C.C_OK if have >= n else C.C_ALERT
-                cx += self.text(label, cx, ry + 22, color) + 10
+                cx += self.text(label, cx, ry + 25, color) + 8
 
-            bx, by, bw, bh = x + w - 86, ry + 7, 72, 20
+            bx, by, bw, bh = x + w - 86, ry + 10, 72, 20
             button = pygame.Rect(bx, by, bw, bh)
             if status == "ok":
                 self.surf.fill(pygame.Color(C.C_ACCENT), button)
@@ -274,7 +277,6 @@ class UI:
                 self.surf.fill(pygame.Color(C.C_MUTED), (bx + 7, by + 9, 7, 6))          # cadeado
                 pygame.draw.rect(self.surf, pygame.Color(C.C_MUTED), (bx + 8, by + 5, 5, 5), 1)
                 self.text(f"TI {fmt(m.unlock_ti)}", bx + 42, by + 6, C.C_MUTED, align="center")
-        self.text("CLIQUE OU [ENTER] PARA CRAFTAR · [W/S] ESCOLHE", UW / 2, y + h + 4, C.C_MUTED, align="center")
 
     # ---- terminal -------------------------------------------------------------
     def draw_terminal(self, index: int, t: float) -> None:
@@ -288,16 +290,23 @@ class UI:
             self.text("[E] CONTINUAR", dx + dw - 10, dy + dh - 13, C.C_TERMINAL, align="right")
 
     # ---- banner de estágio ----------------------------------------------------
+    # Vão livre no topo, entre o painel de O₂ (x 6–118) e o do Ti (x 334–474), em coordenadas da UI.
+    BANNER_GAP = (118, 334)
+
     def draw_banner(self, stage: int, alpha: float) -> None:
+        """Faixa compacta no topo da tela (fora da área de jogo): título em cima, subtítulo embaixo."""
         s = C.STAGES[stage - 1]
         color = C.STAGE_COLOR[stage]
-        w = max(self.body_big.size(s.title)[0], self.body.size(s.subtitle)[0]) + 30
-        x, y = (UW - w) // 2, 64
-        layer = pygame.Surface((w, 38), pygame.SRCALPHA)
-        self.panel(0, 0, w, 38, (14, 10, 9, 219), target=layer)
+        left, right = self.BANNER_GAP
+        max_w = right - left - 16                     # 8 px de folga de cada painel
+        w = min(max_w, max(self.font.size(s.title)[0], self.body.size(s.subtitle)[0]) + 16)
+        h = 30
+        x, y = (left + right) // 2 - w // 2, 6
+        layer = pygame.Surface((w, h), pygame.SRCALPHA)
+        self.panel(0, 0, w, h, (14, 10, 9, 219), target=layer)
         layer.fill(pygame.Color(color), (0, 0, w, 2))
-        self.text(s.title, w / 2, 7, color, self.body_big, "center", target=layer)
-        self.text(s.subtitle, w / 2, 23, "#d9cfc4", self.body, "center", target=layer)
+        self.text(s.title, w / 2, 5, color, self.font, "center", target=layer)
+        self.text(s.subtitle, w / 2, 15, "#d9cfc4", self.body, "center", target=layer)
         layer.set_alpha(int(255 * alpha))
         self.surf.blit(layer, (x, y))
 

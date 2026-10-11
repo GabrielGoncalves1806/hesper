@@ -29,7 +29,8 @@ MOVE_KEYS = {
     pygame.K_s: (0, 1), pygame.K_DOWN: (0, 1),
 }
 NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6]
-BANNER_TIME = 5.0
+BANNER_TIME = 3.5          # banner de estágio: entra em 0,4 s, fica, sai em 0,8 s
+BANNER_FADE_IN, BANNER_FADE_OUT = 0.4, 0.8
 END_SCREEN_DELAY = 4.5
 FOOTSTEP_INTERVAL = 0.3
 
@@ -344,7 +345,8 @@ class App:
         icons = {r: self.renderer.surface(f"icon_{r}", lambda r=r: art.icon(r))[0] for r in C.RESOURCES}
         ui.draw_hud(state, self.t, self.hint() if self.mode == "play" else None, icons)
         if self.banner_time < BANNER_TIME:
-            ui.draw_banner(self.banner_stage, min(1.0, (BANNER_TIME - self.banner_time) / 1.0))
+            alpha = min(1.0, self.banner_time / BANNER_FADE_IN, (BANNER_TIME - self.banner_time) / BANNER_FADE_OUT)
+            ui.draw_banner(self.banner_stage, alpha)
         ui.finish(canvas)
 
         # camada 2: menus e telas por cima do HUD

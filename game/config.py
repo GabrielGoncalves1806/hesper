@@ -148,8 +148,8 @@ class Stage:
 
 
 STAGES = [
-    Stage(1, "dead", 0, "ESTÁGIO 1 · MORTO", "Um planeta sem ar. Por enquanto."),
-    Stage(2, "mist", 10_000, "ESTÁGIO 2 · PRIMEIRAS CHUVAS", "Ti 10.000 · máquinas nv.2 desbloqueadas"),
+    Stage(1, "dead", 0, "ESTÁGIO 1 · MORTO", "Planeta sem ar. Por enquanto."),
+    Stage(2, "mist", 10_000, "ESTÁGIO 2 · PRIMEIRAS CHUVAS", "Máquinas nv.2 liberadas"),
     Stage(3, "green", 100_000, "ESTÁGIO 3 · PRIMEIRO VERDE", "Ti 100.000 · fim do MVP"),
 ]
 
