@@ -513,3 +513,37 @@ def drill_icon() -> pygame.Surface:
     _r(s, _OUT, 6, 0, 4, 5); _r(s, "#8a929c", 7, 1, 2, 4)
     _r(s, _OUT, 7, 12, 2, 4)
     return s
+
+
+# ---------------------------------------------------------------- baú (v0.2)
+# O sprite chest/chest_open ainda espera o ok do dono (config.CHEST_SPRITE_APPROVED): até lá, é este.
+def chest(opened: bool = False) -> pygame.Surface:
+    """Baú 32×40, âncora no centro da base: caixote de metal com faixa laranja e trava."""
+    s = pygame.Surface(C.CHEST_SPRITE_SIZE, pygame.SRCALPHA)
+    _ellipse(s, (0, 0, 0, 100), 16, 37, 15, 3)
+    _r(s, _OUT, 2, 18, 28, 20)                                       # corpo
+    _bands(s, 3, 19, 18, [("#c9ced4", 3), ("#9aa2ab", 18), ("#737b85", 5)])
+    _r(s, "#5d646d", 3, 33, 26, 4)                                   # rodapé
+    _r(s, C.C_ACCENT, 3, 24, 26, 2); _r(s, "#a8471f", 3, 26, 26, 1)  # faixa
+    if opened:
+        _r(s, _OUT, 2, 6, 28, 13)                                    # tampa levantada pra trás
+        _r(s, "#737b85", 3, 7, 26, 4); _r(s, "#5d646d", 3, 11, 26, 7)
+        _r(s, "#1b1411", 4, 18, 24, 3)                               # boca escura do baú
+        _r(s, C.C_TI, 8, 18, 4, 1); _r(s, C.C_O2, 18, 18, 3, 1)      # brilho do que tem dentro
+    else:
+        _r(s, _OUT, 1, 12, 30, 9)                                    # tampa fechada
+        _bands(s, 2, 13, 7, [("#d9dde2", 3), ("#b9c0c8", 20), ("#8c949e", 5)])
+        _r(s, (255, 255, 255, 120), 3, 13, 26, 1)
+        _r(s, _OUT, 13, 18, 6, 6); _r(s, C.C_TI, 14, 19, 4, 4)       # trava
+        _r(s, "#8a6a2a", 15, 21, 2, 2)
+    return s
+
+
+def chest_icon() -> pygame.Surface:
+    """Ícone 16×16 do baú (pra hotbar e inventário)."""
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    _r(s, _OUT, 1, 3, 14, 12)
+    _r(s, "#b9c0c8", 2, 4, 12, 4); _r(s, "#9aa2ab", 2, 8, 12, 6)
+    _r(s, C.C_ACCENT, 2, 9, 12, 1)
+    _r(s, _OUT, 6, 7, 4, 4); _r(s, C.C_TI, 7, 8, 2, 2)
+    return s

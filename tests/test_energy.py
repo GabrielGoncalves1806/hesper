@@ -7,6 +7,7 @@ import pytest
 from game import config as C
 from game.energy import PowerAlert, machine_gen, machine_use, power_report
 from game.systems import GameState, Machine
+from tests.helpers import give
 
 
 @pytest.fixture
@@ -139,7 +140,7 @@ def test_solar_panel_recipe():
 
 
 def test_solar_panel_craft_place_dismantle(game):
-    game.inventory.update(iron=8, silicon=6)
+    give(game, iron=8, silicon=6)
     assert game.recipe_status("solar") == "ok"
     assert game.craft("solar")
     px, py = game.player.tile
@@ -150,4 +151,4 @@ def test_solar_panel_craft_place_dismantle(game):
     assert game.ti == ti                                # painel não soma Ti
     panel = game.machine_at((px + 2, py))
     assert game.dismantle(panel)
-    assert game.machines_owned["solar"] == 1 and game.power.production == 5
+    assert game.inventory.count("solar") == 1 and game.power.production == 5

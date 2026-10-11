@@ -9,7 +9,9 @@ import pytest
 from game import config as C
 from game import save
 from game.objectives import current_index
+from game.inventory import Stack
 from game.systems import GameState
+from tests.helpers import give
 
 
 def rich_state() -> GameState:
@@ -35,9 +37,9 @@ def rich_state() -> GameState:
     state.mined_total.update(iron=37, silicon=12, ice=8)
     state.fabricator_opened = True
     state.read_terminal(1)
-    state.inventory.update(iron=17, silicon=9, ice=33)
+    give(state, iron=17, silicon=9, ice=33)
     # máquinas colocadas (uma girada) e uma drill com conteúdo e tempo acumulado
-    state.machines_owned.update(o2=1, heater=1, drill=1)
+    give(state, o2=1, heater=1, drill=1, chest=1)
     state.player.x, state.player.y = 64 * C.TILE, 66 * C.TILE
     assert state.place("o2", (61, 66), rotation=2)
     assert state.place("heater", (67, 66))
@@ -47,7 +49,18 @@ def rich_state() -> GameState:
     drill = state.drills[0]
     drill.stored, drill.timer = 7, 4.75
     state.drill_collected["ice"] = 20
-    state.machines_owned["melter"] = 2                    # fabricadas e ainda no estoque
+    # baú na base com itens espalhados (slot 0, 5 e o último)
+    state.player.x, state.player.y = 64 * C.TILE, 66 * C.TILE
+    assert state.place("chest", (62, 68))
+    chest = state.chests[0]
+    chest.storage.slots[0] = Stack("iron", 50)
+    chest.storage.slots[5] = Stack("solar", 2)
+    chest.storage.slots[23] = Stack("ice", 3)
+    # hotbar com máquinas em slots escolhidos (a ordem dos slots tem que voltar igual)
+    give(state, melter=2)                                 # fabricadas e ainda no inventário
+    state.inventory.move(state.inventory.slots.index(Stack("melter", 2)), 6)
+    state.inventory.slots[12] = Stack("o2_t2", 1)         # na mochila
+    state.crafted.update(o2=2, heater=1, drill=1, melter=2, chest=1, o2_t2=1)
     state.player.x, state.player.y = 70.5 * C.TILE, 80.25 * C.TILE
     state.pop_events()
     return state
@@ -62,8 +75,9 @@ def snapshot(state: GameState) -> dict:
         "player": (p.x, p.y, p.direction),
         "o2": state.o2, "fainted": state.fainted, "faint_time": state.faint_time,
         "was_in_base": state.was_in_base,
-        "inventory": dict(state.inventory), "machines_owned": dict(state.machines_owned),
-        "machines": [(m.kind, m.tx, m.ty, m.rotation, m.resource, m.stored, m.timer) for m in state.machines],
+        "inventory": state.inventory.to_data(), "crafted": dict(state.crafted),
+        "machines": [(m.kind, m.tx, m.ty, m.rotation, m.resource, m.stored, m.timer,
+                      m.storage.to_data() if m.storage else None) for m in state.machines],
         "indices": dict(state.indices), "stage": state.stage, "ti": state.ti,
         "smoothed_rate": state.smoothed_rate, "play_time": state.play_time,
         "mined_total": dict(state.mined_total), "fabricator_opened": state.fabricator_opened,
@@ -206,3 +220,50 @@ def test_write_creates_folder_and_overwrites(tmp_path):
     assert save.write_save(state, path)
     assert save.load_game(path).play_time == 2000.0
     assert sorted(p.name for p in path.parent.iterdir()) == ["slot1.json"]
+
+
+def v1_save() -> dict:
+    """Um save no formato v1 (antes do inventário com slots): contador de recursos + machines_owned,
+    sem `crafted`, com um gerador colocado no mundo."""
+    state = save.new_state()
+    state.player.x, state.player.y = 64 * C.TILE, 66 * C.TILE
+    give(state, o2=1)
+    assert state.place("o2", (61, 66))
+    data = save.state_to_dict(state)
+    data["version"] = 1
+    data["inventory"] = {"resources": {"iron": 120, "silicon": 7, "ice": 0},
+                         "machines_owned": {"o2": 2, "melter": 1, "drill": 0}}
+    del data["progress"]["crafted"]
+    return data
+
+
+def test_migration_v1_to_v2_turns_counters_into_slots(tmp_path):
+    path = tmp_path / "slot1.json"
+    path.write_text(json.dumps(v1_save()), encoding="utf-8")
+    loaded = save.load_game(path)
+    assert loaded is not None
+    inv = loaded.inventory
+    assert len(inv) == C.INVENTORY_SLOTS
+    # recursos primeiro (ferro em pilhas de 50), depois as máquinas na ordem do fabricador
+    assert inv.to_data()[:6] == [["iron", 50], ["iron", 50], ["iron", 20], ["silicon", 7], ["o2", 2], ["melter", 1]]
+    assert inv.counts() == {"iron": 120, "silicon": 7, "o2": 2, "melter": 1}
+    # crafted estimado = guardado + colocado (o que os objetivos contavam no v1)
+    assert loaded.crafted["o2"] == 3 and loaded.crafted["melter"] == 1 and loaded.crafted["chest"] == 0
+    # e o save regravado já sai em v2
+    save.write_save(loaded, path)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["version"] == 2 == save.SAVE_VERSION and "slots" in data["inventory"]
+
+
+def test_migration_v1_drops_what_does_not_fit():
+    data = v1_save()
+    data["inventory"]["resources"] = {"iron": 5000, "silicon": 0, "ice": 0}   # v0.1 não tinha limite
+    state = save.state_from_dict(save.migrate(data))
+    assert state.inventory.counts() == {"iron": C.INVENTORY_SLOTS * C.STACK_RESOURCE}
+
+
+def test_unknown_items_become_empty_slots():
+    data = save.state_to_dict(rich_state())
+    data["inventory"]["slots"][0] = ["unobtanium", 3]
+    state = save.state_from_dict(data)
+    assert state.inventory.slots[0] is None and len(state.inventory) == C.INVENTORY_SLOTS

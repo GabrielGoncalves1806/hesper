@@ -9,12 +9,12 @@ não guarda as 128×128 casas: guarda a seed e só os tiles que ficaram diferent
 Formato do arquivo (JSON):
 
     {
-      "version": 1,              # sobe quando o formato mudar (ver MIGRATIONS)
+      "version": 2,              # sobe quando o formato mudar (ver MIGRATIONS)
       "seed": 7,
       "world":     {...},        # tiles que mudaram
       "player":    {...},        # posição, direção, O₂, desmaio
-      "inventory": {...},        # recursos + máquinas fabricadas ainda não colocadas
-      "machines":  [...],        # máquinas colocadas (e o conteúdo das drills)
+      "inventory": {"slots": [...]},   # os 16 slots: [item, quantidade] ou null (v2)
+      "machines":  [...],        # máquinas colocadas (conteúdo das drills e os slots dos baús)
       "progress":  {...}         # índices, estágio, objetivos, terminais lidos, tempo de jogo...
     }
 
@@ -35,10 +35,11 @@ import tempfile
 from pathlib import Path
 
 from game import config as C
+from game.inventory import Inventory
 from game.systems import GameState, Machine
 from game.world import World
 
-SAVE_VERSION = 1
+SAVE_VERSION = 2   # v2: inventário com slots, baús e `crafted` (v1 = contador + machines_owned)
 SAVE_PATH = C.ROOT_DIR / "saves" / "slot1.json"   # o smoke e os testes apontam pra outro lugar
 
 
@@ -105,24 +106,32 @@ def player_from_dict(state: GameState, data: dict) -> None:
     state.was_in_base = bool(data["was_in_base"])
 
 
+def _known_item(item) -> bool:
+    return item in C.RESOURCES or item in C.MACHINES
+
+
+def slots_from_data(data: list, size: int) -> Inventory:
+    """Lista de slots do save -> Inventory do tamanho certo. Item que o jogo não conhece mais
+    (removido do config) vira slot vazio, em vez de quebrar o load."""
+    clean = [[d[0], int(d[1])] if d and _known_item(d[0]) and int(d[1]) > 0 else None for d in data[:size]]
+    return Inventory.from_data(clean + [None] * (size - len(clean)))
+
+
 def inventory_to_dict(state: GameState) -> dict:
-    """Inventário de hoje: recursos soltos + estoque de máquinas fabricadas.
-    Isolado aqui de propósito: quando o inventário virar slots, só esta dupla de funções muda."""
-    return {"resources": dict(state.inventory), "machines_owned": dict(state.machines_owned)}
+    """Os 16 slots do player (a hotbar são os 8 primeiros)."""
+    return {"slots": state.inventory.to_data()}
 
 
 def inventory_from_dict(state: GameState, data: dict) -> None:
-    # só copia as chaves que o jogo conhece (recurso/máquina removida do config não quebra o load)
-    for r in state.inventory:
-        state.inventory[r] = int(data["resources"].get(r, 0))
-    for k in state.machines_owned:
-        state.machines_owned[k] = int(data["machines_owned"].get(k, 0))
+    state.inventory = slots_from_data(data["slots"], C.INVENTORY_SLOTS)
 
 
 def machine_to_dict(m: Machine) -> dict:
     data = {"kind": m.kind, "tx": m.tx, "ty": m.ty, "rotation": m.rotation}
     if m.is_drill:
         data.update(resource=m.resource, stored=m.stored, timer=m.timer)
+    if m.is_chest:
+        data["storage"] = m.storage.to_data()
     return data
 
 
@@ -130,9 +139,12 @@ def machine_from_dict(data: dict) -> Machine:
     kind = data["kind"]
     if kind not in C.MACHINES:
         raise ValueError(f"máquina desconhecida: {kind!r}")
-    return Machine(kind, int(data["tx"]), int(data["ty"]), int(data["rotation"]) % 4,
-                   resource=data.get("resource"), stored=int(data.get("stored", 0)),
-                   timer=float(data.get("timer", 0.0)))
+    machine = Machine(kind, int(data["tx"]), int(data["ty"]), int(data["rotation"]) % 4,
+                      resource=data.get("resource"), stored=int(data.get("stored", 0)),
+                      timer=float(data.get("timer", 0.0)))
+    if machine.is_chest:
+        machine.storage = slots_from_data(data.get("storage", []), C.CHEST_SLOTS)
+    return machine
 
 
 def machines_to_dict(state: GameState) -> list:
@@ -154,6 +166,7 @@ def progress_to_dict(state: GameState) -> dict:
         "fabricator_opened": state.fabricator_opened,
         "drills_placed": state.drills_placed,
         "drill_collected": dict(state.drill_collected),
+        "crafted": dict(state.crafted),
         "logs_read": sorted(state.logs_read),
         "transition_sources": sorted([list(t) for t in state.transition_sources]),
     }
@@ -171,6 +184,8 @@ def progress_from_dict(state: GameState, data: dict) -> None:
     state.drills_placed = int(data["drills_placed"])
     for r in state.drill_collected:
         state.drill_collected[r] = int(data["drill_collected"].get(r, 0))
+    for k in state.crafted:
+        state.crafted[k] = int(data["crafted"].get(k, 0))
     state.logs_read = {int(i) for i in data["logs_read"] if 0 <= int(i) < len(C.LOGS)}
     state.transition_sources = {(int(x), int(y)) for x, y in data["transition_sources"]}
 
@@ -205,12 +220,27 @@ def state_from_dict(data: dict) -> GameState:
 # Versões e migração
 # ---------------------------------------------------------------------------
 # Quando o formato mudar: suba SAVE_VERSION e registre aqui a função que converte
-# um save da versão N pra N+1 (ela recebe o dict e devolve o dict atualizado). Exemplo:
-#     def _v1_to_v2(data):
-#         data["chests"] = []          # saves antigos não tinham baú
-#         return data
-#     MIGRATIONS = {1: _v1_to_v2}
-MIGRATIONS: dict = {}
+# um save da versão N pra N+1 (ela recebe o dict e devolve o dict atualizado).
+def _v1_to_v2(data: dict) -> dict:
+    """v1 -> v2: o inventário era um contador ({"resources": {...}, "machines_owned": {...}}).
+    Agora são slots: empilha tudo do jeito que o jogo empilharia (recursos primeiro, depois as
+    máquinas, na ordem do fabricador). O que não couber nos 16 slots é perdido (save v1 com
+    centenas de itens; o v0.1 não tinha limite). `crafted` não existia: estima com o que o
+    jogador tinha (guardado + colocado), que é o que os objetivos contavam no v1."""
+    old = data["inventory"]
+    inv = Inventory(C.INVENTORY_SLOTS)
+    for r in C.RESOURCES:
+        inv.add(r, int(old.get("resources", {}).get(r, 0)))
+    owned = old.get("machines_owned", {})
+    for k in C.MACHINE_ORDER:
+        inv.add(k, int(owned.get(k, 0)))
+    data["inventory"] = {"slots": inv.to_data()}
+    placed = [m["kind"] for m in data["machines"]]
+    data["progress"]["crafted"] = {k: int(owned.get(k, 0)) + placed.count(k) for k in C.MACHINES}
+    return data
+
+
+MIGRATIONS: dict = {1: _v1_to_v2}
 
 
 class SaveError(Exception):

@@ -13,15 +13,18 @@ import pygame
 
 from game import config as C
 from game import energy
-from game.assets import load_font
+from game.assets import Sprites, load_font
+from game.inventory import Inventory, Stack
 from game.systems import GameState, eta_label, stage_progress
 
 UW, UH = C.UI_W, C.UI_H
 TI_PANEL_W = 160                 # painel do Ti (em cima à direita)
 TI_PANEL_X = UW - 6 - TI_PANEL_W
-SHORT_NAME = {"o2": "O2", "melter": "DERRET.", "heater": "AQUEC.",
-              "o2_t2": "O2 II", "melter_t2": "DERRET. II", "heater_t2": "AQUEC. II", "drill": "DRILL",
-              "solar": "SOLAR"}
+# inventário e hotbar (coordenadas da UI, metade da tela): slot de 20×20 (= ui_slot.png) com 2 de vão
+SLOT, SLOT_GAP = 20, 2
+SLOT_STEP = SLOT + SLOT_GAP
+GRID_W = 8 * SLOT_STEP - SLOT_GAP                # 8 colunas = 174
+HOTBAR_X, HOTBAR_Y = (UW - GRID_W) // 2, UH - 6 - SLOT
 
 
 # Dígitos 5×7 desenhados à mão, no traço fino da Pixelify. Em 11 px a fonte desenha o "5" igual
@@ -99,6 +102,13 @@ def fmt_rate(n: float) -> str:
     return (f"{n:.1f}".replace(".", ",") if n % 1 else str(int(n)))
 
 
+def item_name(item: str) -> str:
+    """Nome de um item do inventário pra mostrar ao jogador ('Ferro', 'Gerador de O2', 'Baú')."""
+    if item in C.RESOURCE_NAME:
+        return C.RESOURCE_NAME[item].capitalize()
+    return C.MACHINES[item].name
+
+
 def wrap(font: pygame.font.Font, text: str, max_w: int) -> list[str]:
     lines, line = [], ""
     for word in text.split(" "):
@@ -144,6 +154,9 @@ class UI:
         self.fabricator_rows: list[tuple[pygame.Rect, str]] = []
         self.pause_items: list[pygame.Rect] = []      # linhas clicáveis do menu de pausa (coord. da UI)
         self.pause_sliders: list[pygame.Rect] = []    # barras dos sliders de volume
+        # slots clicáveis da tela de inventário/baú: (retângulo na UI, inventário, índice do slot)
+        self.slot_rects: list[tuple[pygame.Rect, Inventory, int]] = []
+        self.slot_img = Sprites().get("ui_slot")      # moldura opcional (bíblia §8); sem ela, desenhamos
 
     # ---- primitivas -----------------------------------------------------------
     def begin(self) -> None:
@@ -221,28 +234,21 @@ class UI:
         self.draw_ti_panel(state)
         self.draw_energy(state)
 
-        # inventário
-        self.panel(6, UH - 26, 232, 20)
-        for i, res in enumerate(C.RESOURCES):
-            x = 12 + i * 76
+        # resumo do inventário (total de cada recurso, somando as pilhas); os slots ficam na hotbar e no Tab
+        counts = [str(state.inventory.count(res)) for res in C.RESOURCES]
+        w = 6 + sum(14 + self.font.size(n)[0] + 6 for n in counts)
+        self.panel(6, UH - 26, w, 20)
+        x = 12
+        for res, n in zip(C.RESOURCES, counts):
             self.native.append((icons[res], (x * 2, (UH - 20) * 2)))
-            n = str(state.inventory[res])
-            w = self.text(n, x + 12, UH - 20, C.C_TEXT)
-            self.text(C.RESOURCE_LABEL[res], x + 14 + w, UH - 20, C.C_MUTED)
-
-        # máquinas fabricadas esperando pra serem colocadas
-        owned = [(i, k, n) for i, (k, n) in enumerate(state.machines_owned.items()) if n > 0]
-        if owned:
-            parts = [f"[{i + 1}] {SHORT_NAME[k]} x{n}" for i, k, n in owned]
-            label = "  ".join(parts)
-            w = self.font.size(label)[0] + 12
-            self.panel(6, UH - 48, w, 18)
-            self.text(label, 12, UH - 43, C.C_OK)
+            x += 14 + self.text(n, x + 12, UH - 20, C.C_TEXT) + 6
 
         if hint:
             w = self.body.size(hint)[0] + 14
-            self.panel(UW - 6 - w, UH - 26, w, 20)
-            self.text(hint, UW - 13, UH - 22, C.C_TEXT, self.body, "right")
+            # dica embaixo à direita; se for comprida e encostar na hotbar, sobe uma linha
+            y = UH - 26 if UW - 6 - w >= HOTBAR_X + GRID_W + 6 else HOTBAR_Y - 34
+            self.panel(UW - 6 - w, y, w, 20)
+            self.text(hint, UW - 13, y + 4, C.C_TEXT, self.body, "right")
 
         if state.time_scale != 1:
             self.text(f"DEBUG · TEMPO x{state.time_scale}", UW // 2, 8, C.C_TI, align="center")
@@ -411,8 +417,10 @@ class UI:
         """Menu de receitas. `machine_preview(kind)` devolve a imagem da máquina (resolução cheia)."""
         self.fill((8, 5, 4, 158), (0, 0, UW, UH))
         x, y, w, h = 66, 1, 348, 268
-        # altura da linha: 34 com até 7 receitas; com mais, encolhe pra caber todas (8 receitas = 30)
-        row_h = min(34, (h - 20) // len(C.MACHINE_ORDER) - 1)
+        # cabem 7 receitas de 34 de altura: com mais, a lista rola junto com a seleção (setinhas mostram
+        # que tem mais); com menos, a altura se ajusta ao número de receitas
+        visible = min(7, len(C.MACHINE_ORDER))
+        row_h = min(34, (h - 20) // visible - 1)
         self.surf.fill(pygame.Color("#1b1411"), (x, y, w, h))
         pygame.draw.rect(self.surf, pygame.Color("#5a4034"), (x, y, w, h), 1)
         self.surf.fill(pygame.Color("#2a1e19"), (x + 1, y + 1, w - 2, 18))
@@ -420,10 +428,15 @@ class UI:
         self.text("[W/S] ESCOLHE · [ENTER] CRAFTA · [E] FECHA", x + w - 8, y + 6, C.C_MUTED, align="right")
         self.fabricator_buttons.clear()
         self.fabricator_rows.clear()
-        for i, kind in enumerate(C.MACHINE_ORDER):
+        first = max(0, min(selected - visible + 1, len(C.MACHINE_ORDER) - visible))
+        if first > 0:                                   # setinhas do lado do título
+            self._arrow(x + 82, y + 5, up=True)
+        if first + visible < len(C.MACHINE_ORDER):
+            self._arrow(x + 82, y + 11, up=False)
+        for i, kind in enumerate(C.MACHINE_ORDER[first:first + visible], start=first):
             m = C.MACHINES[kind]
             status = state.recipe_status(kind)
-            ry = y + 20 + i * (row_h + 1)
+            ry = y + 20 + (i - first) * (row_h + 1)
             sel = i == selected
             row = pygame.Rect(x + 8, ry, w - 16, row_h)
             self.fabricator_rows.append((row, kind))
@@ -451,13 +464,13 @@ class UI:
             text_y = ry + (row_h - 32) // 2      # centraliza as 2 linhas de texto na linha
             name_w = self.text(m.name, tx, text_y + 4, "#8a7b70" if locked else C.C_TEXT, self.body_big)
             self.text(m.desc, tx + 6 + name_w, text_y + 4, C.C_MUTED, self.body)
-            owned = state.machines_owned[kind]
+            owned = state.inventory.count(kind)       # já fabricadas, no inventário
             top_end = tx + name_w + 6 + self.body.size(m.desc)[0]     # onde acaba o texto da 1ª linha
             if owned:
                 top_end += 8 + self.text(f"x{owned}", top_end + 8, text_y + 5, C.C_OK)
             cx = tx
             for res, n in m.cost.items():
-                have = state.inventory[res]
+                have = state.available(res)              # inventário + baús da base
                 label = f"{have}/{n} {C.RESOURCE_LABEL[res]}"
                 color = "#6e6058" if locked else C.C_OK if have >= n else C.C_ALERT
                 cx += self.text(label, cx, text_y + 21, color) + 8
@@ -487,6 +500,122 @@ class UI:
                 self.surf.fill(pygame.Color(C.C_MUTED), (bx + 7, by + 9, 7, 6))          # cadeado
                 pygame.draw.rect(self.surf, pygame.Color(C.C_MUTED), (bx + 8, by + 5, 5, 5), 1)
                 self.text(f"TI {fmt(m.unlock_ti)}", bx + 42, by + 6, C.C_MUTED, align="center")
+
+    # ---- inventário: slots, hotbar, tela do Tab e do baú ------------------------
+    # Os ícones são 32×32 em resolução cheia (lista `native`), então o número da pilha também precisa
+    # ir pra `native`, senão o ícone cobre ele.
+    def native_text(self, s: str, x: float, y: float, color: str, align: str = "left") -> None:
+        img, shadow = self._render(self.font, s, color), self._render(self.font, s, "#000000")
+        layer = pygame.Surface((img.get_width() + 1, img.get_height() + 1), pygame.SRCALPHA)
+        layer.blit(shadow, (1, 1))
+        layer.blit(img, (0, 0))
+        if align == "right":
+            x -= img.get_width()
+        self.native.append((pygame.transform.scale_by(layer, 2), (int(x * 2), int(y * 2))))
+
+    def draw_slot(self, x: int, y: int, stack: Stack | None, item_icon, selected=False, hover=False) -> None:
+        if self.slot_img:
+            self.surf.blit(self.slot_img, (x, y))
+        else:
+            self.surf.fill(pygame.Color("#120d0b"), (x, y, SLOT, SLOT))
+            pygame.draw.rect(self.surf, pygame.Color("#3a2c25"), (x, y, SLOT, SLOT), 1)
+            self.surf.fill(pygame.Color("#000000"), (x + 1, y + 1, SLOT - 2, 1))      # sombrinha de "fundo"
+        if hover:
+            self.fill((255, 255, 255, 30), (x + 1, y + 1, SLOT - 2, SLOT - 2))
+        if selected:
+            pygame.draw.rect(self.surf, pygame.Color(C.C_ACCENT), (x - 1, y - 1, SLOT + 2, SLOT + 2), 2)
+        if stack:
+            self.native.append((item_icon(stack.item), (x * 2 + 4, y * 2 + 4)))
+            if stack.count > 1:
+                self.native_text(str(stack.count), x + SLOT - 1, y + SLOT - 9, C.C_TEXT, "right")
+
+    def draw_hotbar(self, inventory: Inventory, selected: int, item_icon) -> None:
+        """Os 8 primeiros slots do inventário no rodapé central, com o número da tecla (em cima de
+        cada slot, pra não cobrir o ícone) e o selecionado destacado."""
+        self.panel(HOTBAR_X - 3, HOTBAR_Y - 11, GRID_W + 6, SLOT + 14)
+        for i in range(C.HOTBAR_SLOTS):
+            x = HOTBAR_X + i * SLOT_STEP
+            self.text(str(i + 1), x + SLOT / 2 + 1, HOTBAR_Y - 10, C.C_TI if i == selected else C.C_MUTED, align="center")
+            self.draw_slot(x, HOTBAR_Y, inventory.slots[i], item_icon, selected=i == selected)
+
+    def draw_notice(self, text: str, alpha: float) -> None:
+        """Aviso curto no meio da tela, acima da hotbar ("Inventário cheio")."""
+        w = self.body.size(text)[0] + 16
+        layer = pygame.Surface((w, 18), pygame.SRCALPHA)
+        self.panel(0, 0, w, 18, (40, 12, 9, 225), target=layer)
+        layer.fill(pygame.Color(C.C_ALERT), (0, 0, w, 1))
+        self.text(text, w / 2, 3, "#ffd0c8", self.body, "center", target=layer)
+        layer.set_alpha(int(255 * alpha))
+        self.surf.blit(layer, (UW // 2 - w // 2, HOTBAR_Y - 58))
+
+    def _grid(self, inv: Inventory, indexes: list[int], x: int, y: int, item_icon, mouse, selected=None) -> None:
+        """Desenha os slots `indexes` de `inv` em linhas de 8, a partir de (x, y), e guarda os retângulos."""
+        for n, i in enumerate(indexes):
+            sx, sy = x + (n % 8) * SLOT_STEP, y + (n // 8) * SLOT_STEP
+            rect = pygame.Rect(sx, sy, SLOT, SLOT)
+            self.draw_slot(sx, sy, inv.slots[i], item_icon, selected=i == selected, hover=rect.collidepoint(mouse))
+            self.slot_rects.append((rect, inv, i))
+
+    def _window(self, x: int, y: int, w: int, h: int, title: str, color: str) -> None:
+        self.surf.fill(pygame.Color("#1b1411"), (x, y, w, h))
+        pygame.draw.rect(self.surf, pygame.Color("#5a4034"), (x, y, w, h), 1)
+        self.surf.fill(pygame.Color("#2a1e19"), (x + 1, y + 1, w - 2, 18))
+        self.surf.fill(pygame.Color(color), (x, y, w, 2))
+        self.text(title, x + 8, y + 6, color)
+
+    def draw_inventory(self, inventory: Inventory, chest: Inventory | None, hotbar_selected: int,
+                       item_icon, mouse: tuple[float, float]) -> None:
+        """Tela do Tab (só o inventário) ou do baú (inventário à esquerda, baú à direita).
+        Inventário: mochila (slots 8–15) em cima, hotbar (slots 0–7) embaixo, igual à ordem da tela."""
+        self.slot_rects.clear()
+        self.fill((8, 5, 4, 158), (0, 0, UW, UH))
+        pw = GRID_W + 16
+        ph_inv = 20 + 6 + SLOT + 14 + SLOT + 8                  # título, mochila, rótulo HOTBAR, hotbar
+        ph_chest = 20 + 6 + 3 * SLOT_STEP - SLOT_GAP + 8
+        total_w = pw if chest is None else 2 * pw + 10
+        x = (UW - total_w) // 2
+        h = ph_inv if chest is None else max(ph_inv, ph_chest)
+        y = (UH - h) // 2 - 16
+
+        self._window(x, y, pw, h, "INVENTÁRIO", C.C_TI)
+        used = sum(1 for s in inventory.slots if s)
+        self.text(f"{used}/{len(inventory)}", x + pw - 8, y + 6, C.C_MUTED, align="right")
+        hb = C.HOTBAR_SLOTS
+        self._grid(inventory, list(range(hb, len(inventory))), x + 8, y + 26, item_icon, mouse)
+        self.text("HOTBAR", x + 8, y + 26 + SLOT + 4, C.C_MUTED)
+        self._grid(inventory, list(range(hb)), x + 8, y + 26 + SLOT + 14, item_icon, mouse, hotbar_selected)
+
+        if chest is not None:
+            cx = x + pw + 10
+            self._window(cx, y, pw, h, "BAÚ", C.C_ACCENT)
+            used = sum(1 for s in chest.slots if s)
+            self.text(f"{used}/{len(chest)}", cx + pw - 8, y + 6, C.C_MUTED, align="right")
+            self._grid(chest, list(range(len(chest))), cx + 8, y + 26, item_icon, mouse)
+
+        keys = "[CLIQUE] PEGA/SOLTA · [DIREITO] METADE"
+        keys += " · [SHIFT+CLIQUE] MANDA PRO OUTRO LADO" if chest is not None else ""
+        keys += " · [ESC] FECHA"
+        self.text(keys, UW / 2, y + h + 6, C.C_MUTED, align="center")
+
+    def draw_held_and_tooltip(self, held: Stack | None, hovered: Stack | None, mouse, item_icon) -> None:
+        """Por cima de tudo: a pilha presa no cursor ou, sem nada na mão, o nome do item debaixo do mouse."""
+        mx, my = mouse
+        if held is not None:
+            self.native.append((item_icon(held.item), (int(mx * 2) + 6, int(my * 2) + 6)))
+            if held.count > 1:
+                self.native_text(str(held.count), mx + 20, my + 14, C.C_TEXT, "right")
+        elif hovered is not None:
+            label = f"{item_name(hovered.item)} · {hovered.count}"
+            w = self.body.size(label)[0] + 12
+            tx, ty = min(mx + 8, UW - w - 2), my - 18
+            self.panel(tx, ty, w, 16, (14, 10, 9, 235))
+            self.text(label, tx + 6, ty + 2, C.C_TEXT, self.body)
+
+    def _arrow(self, cx: int, y: int, up: bool) -> None:
+        """Setinha de 5×3 (tem mais receita pra cima/baixo)."""
+        for k in range(3):
+            row = k if up else 2 - k
+            self.surf.fill(pygame.Color(C.C_MUTED), (cx - row, y + k, 2 * row + 1, 1))
 
     # ---- terminal -------------------------------------------------------------
     def draw_terminal(self, index: int, t: float) -> None:
@@ -557,11 +686,12 @@ class UI:
     CONTROLS = [
         ("WASD / SETAS", "Andar"),
         ("SEGURAR CLIQUE", "Minerar a parede mirada"),
-        ("E", "Fabricador (na base) · ler terminal"),
-        ("CLIQUE", "Colocar máquina fabricada"),
+        ("E", "Fabricador (na base) · terminal · baú"),
+        ("1 A 8 · RODINHA", "Escolher slot da hotbar"),
+        ("CLIQUE", "Colocar a máquina da hotbar"),
         ("R", "Girar a máquina (só visual)"),
-        ("1 A 8", "Escolher máquina já fabricada"),
-        ("CLIQUE DIREITO", "Desmontar máquina (volta pro 1–8)"),
+        ("TAB", "Inventário"),
+        ("CLIQUE DIREITO", "Desmontar (volta pro inventário)"),
         ("ESC", "Cancelar / fechar / pausar"),
         ("F1 · F2", "Debug: tempo x10 · +10.000 Ti"),
     ]

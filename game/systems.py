@@ -11,6 +11,7 @@ import random
 from dataclasses import dataclass
 
 from game import config as C
+from game.inventory import Inventory
 from game.energy import PowerAlert, PowerReport, power_report
 from game.player import Player, Rect, overlaps
 from game.world import World
@@ -34,6 +35,8 @@ class Machine:
     resource: str | None = None   # minério do veio embaixo dela
     stored: int = 0               # quanto já extraiu e está esperando coleta
     timer: float = 0.0            # segundos acumulados pra próxima unidade
+    # só o baú usa este: os 24 slots dele (criado no place)
+    storage: Inventory | None = None
 
     @property
     def type(self) -> C.MachineType:
@@ -46,6 +49,10 @@ class Machine:
     @property
     def is_drill(self) -> bool:
         return self.kind == "drill"
+
+    @property
+    def is_chest(self) -> bool:
+        return self.kind == "chest"
 
     @property
     def full(self) -> bool:
@@ -72,6 +79,8 @@ class Machine:
         """Área que a máquina ocupa na tela (âncora: centro da base). Usada pelo mouse."""
         if self.is_drill:
             w, h = C.DRILL_SPRITE_SIZE
+        elif self.is_chest:
+            w, h = C.CHEST_SPRITE_SIZE
         else:
             w, h = C.MACHINE_SPRITE_SIZE[2 if self.kind.endswith("_t2") else 1]
         ax, ay = self.anchor
@@ -146,8 +155,9 @@ class GameState:
         self.world = World.generate(seed)
         self.rng = rng or random.Random()
         self.player = Player(*C.SPAWN_POS)
-        self.inventory = {r: 0 for r in C.RESOURCES}
-        self.machines_owned = {k: 0 for k in C.MACHINES}   # fabricadas, ainda não colocadas
+        # mochila com slots (game/inventory.py): recursos E máquinas fabricadas ainda não colocadas.
+        # A hotbar são os slots 0 a 7 (a primeira linha).
+        self.inventory = Inventory(C.INVENTORY_SLOTS)
         self.machines: list[Machine] = []                  # colocadas no mundo
         # Tiles onde já existiu máquina: fontes da mancha de transição (game/transition.py).
         # Só cresce: desmontar a máquina NÃO tira daqui, senão a terra em volta "desconverteria".
@@ -168,6 +178,7 @@ class GameState:
         self.fabricator_opened = False
         self.drills_placed = 0                         # quantas vezes já colocou uma drill (só cresce)
         self.drill_collected = {r: 0 for r in C.RESOURCES}   # total já coletado de drills (só cresce)
+        self.crafted = {k: 0 for k in C.MACHINES}            # quantas de cada já fabricou (só cresce)
         self.power_alert = PowerAlert()                # quando tocar o power_low (game/energy.py)
         self.events: list[tuple] = []
 
@@ -264,9 +275,12 @@ class GameState:
         resource = C.ORE_TILES.get(kind)
         if resource:
             amount = self.rng.randint(C.DROP_MIN, C.DROP_MAX)
-            self.inventory[resource] += amount
-            self.mined_total[resource] += amount
-            self.events.append(("pickup", tile, resource, amount))
+            got = amount - self.inventory.add(resource, amount)   # cheio: o tile quebra, o minério se perde
+            if got:
+                self.mined_total[resource] += got
+                self.events.append(("pickup", tile, resource, got))
+            if got < amount:
+                self.events.append(("inv_full",))
 
     # ---- oxigênio -----------------------------------------------------------
     def _update_o2(self, dt: float) -> None:
@@ -300,27 +314,55 @@ class GameState:
             self.fainted = False
 
     # ---- fabricador e máquinas ----------------------------------------------
+    @property
+    def chests(self) -> list[Machine]:
+        return [m for m in self.machines if m.is_chest]
+
+    def base_chests(self) -> list[Machine]:
+        """Baús dentro da zona de O₂ da base: o fabricador também puxa recurso deles."""
+        return [c for c in self.chests
+                if math.hypot(c.anchor[0] - C.BASE_CENTER[0], c.anchor[1] - C.BASE_CENTER[1]) <= C.BASE_RADIUS]
+
+    def available(self, resource: str) -> int:
+        """Quanto o fabricador enxerga desse recurso: inventário + baús da base."""
+        return self.inventory.count(resource) + sum(c.storage.count(resource) for c in self.base_chests())
+
     def recipe_status(self, kind: str) -> str:
         """'locked' (Ti insuficiente), 'missing' (falta recurso) ou 'ok'."""
         machine = C.MACHINES[kind]
         if self.ti < machine.unlock_ti:
             return "locked"
-        if any(self.inventory[r] < n for r, n in machine.cost.items()):
+        if any(self.available(r) < n for r, n in machine.cost.items()):
             return "missing"
         return "ok"
 
     def missing_resource(self, kind: str) -> str | None:
         for r, n in C.MACHINES[kind].cost.items():
-            if self.inventory[r] < n:
+            if self.available(r) < n:
                 return r
         return None
 
     def craft(self, kind: str) -> bool:
+        """Fabrica 1 máquina: gasta primeiro o que está no inventário, depois o dos baús da base.
+        A máquina vira um item no inventário (falha com aviso se não couber)."""
         if not self.in_base_zone() or self.recipe_status(kind) != "ok":
             return False
-        for r, n in C.MACHINES[kind].cost.items():
-            self.inventory[r] -= n
-        self.machines_owned[kind] += 1
+        cost = C.MACHINES[kind].cost
+        # "e se eu gastar o que vem do inventário, sobra lugar pra máquina?" (testa numa cópia)
+        trial = self.inventory.copy()
+        for r, n in cost.items():
+            trial.remove(r, n)
+        if not trial.has_space(kind):
+            self.events.append(("inv_full",))
+            return False
+        for r, n in cost.items():
+            left = n - self.inventory.remove(r, n)
+            for chest in self.base_chests():
+                if left <= 0:
+                    break
+                left -= chest.storage.remove(r, left)
+        self.inventory.add(kind, 1)
+        self.crafted[kind] += 1
         self.events.append(("craft", kind))
         return True
 
@@ -328,7 +370,7 @@ class GameState:
         """Máquina comum: 1 tile de chão livre fora de veio. Drill: `tile` tem que ser o canto
         de cima à esquerda de um veio livre (o App "gruda" o fantasma no veio debaixo do mouse)."""
         tx, ty = tile
-        if self.machines_owned.get(kind, 0) <= 0:
+        if self.inventory.count(kind) <= 0:     # precisa ter a máquina (item) no inventário
             return False
         machine = Machine(kind, tx, ty)
         vein = self.world.vein_at(tx, ty)
@@ -348,16 +390,26 @@ class GameState:
         # não pode prender o player dentro da máquina
         return not overlaps(self.player.box, machine.rect)
 
-    def place(self, kind: str, tile: tuple[int, int], rotation: int = 0) -> bool:
+    def place(self, kind: str, tile: tuple[int, int], rotation: int = 0, slot: int | None = None) -> bool:
+        """Coloca a máquina e gasta 1 item dela. `slot` = de qual slot sai (o da hotbar selecionado);
+        sem `slot`, sai de qualquer pilha dessa máquina."""
         if not self.can_place(kind, tile):
+            return False
+        stack = self.inventory.slots[slot] if slot is not None else None
+        if slot is not None and (stack is None or stack.item != kind):
             return False
         machine = Machine(kind, tile[0], tile[1], rotation)
         if machine.is_drill:
             machine.resource = self.world.vein_at(*tile).resource
             self.drills_placed += 1
+        if machine.is_chest:
+            machine.storage = Inventory(C.CHEST_SLOTS)
         self.machines.append(machine)
         self.transition_sources.add(tuple(tile))
-        self.machines_owned[kind] -= 1
+        if slot is not None:
+            self.inventory.remove_from_slot(slot, 1)
+        else:
+            self.inventory.remove(kind, 1)
         self.events.append(("place", kind, tile))
         return True
 
@@ -376,8 +428,14 @@ class GameState:
         tx, ty = self.world.terminals[index]
         return math.hypot(self.player.x - (tx + 0.5) * C.TILE, self.player.y - (ty + 1) * C.TILE)
 
+    def nearby_chest(self) -> Machine | None:
+        """Baú ao alcance do E (o mais perto). A distância é medida igual à da drill: até a base."""
+        near = [c for c in self.chests if self.drill_distance(c) <= C.CHEST_REACH]
+        return min(near, key=self.drill_distance, default=None)
+
     def interaction(self) -> tuple[str, object] | None:
-        """O que o E faz aqui: ("terminal", índice) ou ("drill", máquina), o que estiver mais perto."""
+        """O que o E faz aqui: ("terminal", índice), ("drill", máquina) ou ("chest", máquina),
+        o que estiver mais perto."""
         options = []
         terminal = self.nearby_terminal()
         if terminal is not None:
@@ -385,18 +443,25 @@ class GameState:
         drill = self.nearby_drill()
         if drill is not None:
             options.append((self.drill_distance(drill), "drill", drill))
+        chest = self.nearby_chest()
+        if chest is not None:
+            options.append((self.drill_distance(chest), "chest", chest))
         if not options:
             return None
         _, kind, target = min(options, key=lambda o: o[0])
         return kind, target
 
     def collect(self, drill: Machine) -> int:
-        """Leva tudo que a drill guardou pro inventário. Devolve quanto coletou."""
-        amount = drill.stored
+        """Leva o que a drill guardou pro inventário (o que não couber fica nela). Devolve quanto coletou."""
+        if drill.stored <= 0:
+            return 0
+        left = self.inventory.add(drill.resource, drill.stored)
+        amount = drill.stored - left
+        drill.stored = left
+        if left:
+            self.events.append(("inv_full",))
         if amount <= 0:
             return 0
-        drill.stored = 0
-        self.inventory[drill.resource] += amount
         self.drill_collected[drill.resource] += amount
         self.events.append(("drill_collect", drill.resource, amount, drill.anchor))
         return amount
@@ -422,14 +487,24 @@ class GameState:
         return machine in self.machines and max(abs(machine.tx - px), abs(machine.ty - py)) <= C.PLACE_REACH
 
     def dismantle(self, machine: Machine) -> bool:
-        """Tira a máquina do mapa e devolve pro estoque de máquinas fabricadas (teclas 1–7).
-        A cápsula não é uma Machine, então nunca entra aqui."""
+        """Tira a máquina do mapa e devolve ela como item pro inventário.
+        Não desmonta (e avisa) se: o baú tem coisa dentro, ou não cabe no inventário.
+        Drill: o que ela guardou vai antes pro inventário; se não couber tudo, o resto fica nela
+        e ela continua no lugar. A cápsula não é uma Machine, então nunca entra aqui."""
         if not self.can_dismantle(machine):
+            return False
+        if machine.is_chest and not machine.storage.is_empty():
+            self.events.append(("chest_not_empty",))
             return False
         if machine.is_drill and machine.stored:      # o que a drill guardou vai pro inventário
             self.collect(machine)
+            if machine.stored:                       # não coube tudo: a drill fica (o collect já avisou)
+                return False
+        if not self.inventory.has_space(machine.kind):
+            self.events.append(("inv_full",))
+            return False
         self.machines.remove(machine)
-        self.machines_owned[machine.kind] += 1
+        self.inventory.add(machine.kind, 1)
         self.events.append(("dismantle", machine.kind, (machine.tx, machine.ty)))
         return True
 
@@ -441,7 +516,7 @@ class GameState:
         for m in self.machines:
             if m.is_drill:
                 self._update_drill(m, work_dt)
-            elif m.type.index is not None:   # painel solar não soma Ti
+            elif m.type.index is not None:   # painel solar e baú não somam Ti
                 self.indices[m.type.index] += m.type.rate * work_dt
         self._check_stage()
 

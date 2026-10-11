@@ -7,6 +7,7 @@ import pytest
 from game import config as C
 from game.objectives import FLASH_TIME, OBJECTIVES, ObjectiveTracker, current_index
 from game.systems import GameState, Machine
+from tests.helpers import give
 
 
 @pytest.fixture
@@ -21,11 +22,12 @@ def current_text(game: GameState) -> str | None:
 
 def craft_free(game: GameState, kind: str) -> None:
     """Fabrica sem gastar recurso (o teste é dos objetivos, não do fabricador)."""
-    game.machines_owned[kind] += 1
+    game.crafted[kind] += 1
+    give(game, **{kind: 1})
 
 
 def place_at(game: GameState, kind: str, tile: tuple[int, int]) -> None:
-    game.machines_owned[kind] -= 1
+    game.inventory.remove(kind, 1)
     game.machines.append(Machine(kind, *tile))
 
 
@@ -33,9 +35,9 @@ def mine_one(game: GameState, kind: int) -> int:
     """Quebra um tile de minério do lado do player e devolve quanto caiu."""
     px, py = game.player.tile
     game.world.set(px + 1, py, kind)
-    before = sum(game.inventory.values())
+    before = sum(game.inventory.counts().values())
     game._break_tile((px + 1, py), kind)
-    return sum(game.inventory.values()) - before
+    return sum(game.inventory.counts().values()) - before
 
 
 # ---------------------------------------------------------------- sequência normal
@@ -54,6 +56,7 @@ def test_normal_sequence_walks_every_objective(game):
     game.fabricator_opened = True; step()
     craft_free(game, "o2"); step()
     place_at(game, "o2", (61, 66)); step()
+    craft_free(game, "chest"); step()
     craft_free(game, "melter"); step()
     game.indices["o2"] = 500; step()
     craft_free(game, "heater"); step()
@@ -76,6 +79,7 @@ def test_normal_sequence_walks_every_objective(game):
         "Abra o fabricador na base [E]",
         "Fabrique um Gerador de O2",
         "Coloque o gerador perto da base",
+        "Fabrique um baú",
         "Minere gelo e fabrique um Derretedor",
         "Chegue a Ti 500",
         "Fabrique um Aquecedor",
@@ -98,7 +102,7 @@ def test_generator_far_from_base_does_not_count(game):
     assert current_text(game) == "Coloque o gerador perto da base"
     craft_free(game, "o2")
     place_at(game, "o2", (66, 66))
-    assert current_text(game) == "Minere gelo e fabrique um Derretedor"
+    assert current_text(game) == "Fabrique um baú"
 
 
 # ---------------------------------------------------------------- contadores
@@ -106,12 +110,12 @@ def test_counter_uses_total_mined_not_inventory(game):
     got = mine_one(game, C.IRON)
     assert game.mined_total["iron"] == got
     assert current_text(game) == f"Minere ferro ({got}/10)"
-    game.inventory["iron"] = 0                  # gastou tudo craftando: o contador não volta
+    game.inventory.remove("iron", 999)          # gastou tudo craftando: o contador não volta
     assert current_text(game) == f"Minere ferro ({got}/10)"
 
 
 def test_inventory_from_elsewhere_does_not_count(game):
-    game.inventory["iron"] = 50                 # recurso que não veio de mineração
+    give(game, iron=50)                         # recurso que não veio de mineração
     assert current_text(game) == "Minere ferro (0/10)"
 
 
@@ -171,7 +175,7 @@ def test_tracker_flashes_completed_objective(game):
 def test_everything_done_list_disappears(game):
     game.mined_total.update(iron=10, silicon=4, ice=10)
     game.fabricator_opened = True
-    for kind in ("o2", "melter", "heater", "solar", "o2_t2"):
+    for kind in ("o2", "chest", "melter", "heater", "solar", "o2_t2"):
         craft_free(game, kind)
     place_at(game, "o2", (61, 66))
     game.read_terminal(0)
@@ -187,3 +191,13 @@ def test_everything_done_list_disappears(game):
     tracker.update(game, FLASH_TIME)
     assert not tracker.visible
     assert tracker.lines(game) == []
+
+
+def test_crafted_counter_does_not_go_back_when_placed_or_dismantled(game):
+    give(game, iron=100, silicon=100)
+    assert game.craft("chest")
+    px, py = game.player.tile
+    assert game.place("chest", (px + 2, py))
+    assert game.crafted["chest"] == 1 and game.inventory.count("chest") == 0
+    assert game.dismantle(game.chests[0])
+    assert game.crafted["chest"] == 1

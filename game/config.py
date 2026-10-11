@@ -296,5 +296,24 @@ C_ENERGY = "#ffd84a"      # cor do raio do medidor
 # pendentes de aprovação: enquanto não existirem, o jogo desenha o fallback (art.solar_panel).
 MACHINES["solar"] = MachineType("solar", "Painel solar", "+ energia", {"iron": 8, "silicon": 6}, None, 0,
                                 0, "solar_panel")
-MACHINE_ORDER.append("solar")   # tecla 8 no estoque de máquinas atual (o inventário com slots substitui isso)
+MACHINE_ORDER.append("solar")   # no fim da lista do fabricador; fabricado, vira item no inventário
 VOLUME["power_low"] = 0.7       # o déficit de energia começou (toca uma vez)
+# Inventário com slots, hotbar e baú (v0.2 · bíblia §8 "Inventário com slots" e "Baú")
+# A lógica fica em game/inventory.py; aqui só os números.
+# ---------------------------------------------------------------------------
+INVENTORY_SLOTS = 16            # mochila do player: 2 linhas de 8
+HOTBAR_SLOTS = 8                # a hotbar É a primeira linha da mochila (slots 0 a 7), teclas 1–8
+STACK_RESOURCE = 50             # recursos empilham até 50 por slot
+STACK_MACHINE = 5               # máquinas fabricadas viram itens e empilham até 5
+CHEST_SLOTS = 24                # baú: 3 linhas de 8
+CHEST_REACH = 48                # px entre os pés do player e a base do baú pra abrir com E
+CHEST_SPRITE_SIZE = (32, 40)    # chest.png / chest_open.png (bíblia §8, contrato de assets)
+CHEST_SPRITE_APPROVED = False   # chest/chest_open/icon_chest esperam o ok do dono: até lá, desenho de fallback
+NOTICE_TIME = 2.0               # segundos que um aviso ("Inventário cheio") fica na tela
+
+# O baú é uma "máquina" sem índice: não soma Ti, não consome energia, só guarda itens.
+MACHINES["chest"] = MachineType("chest", "Baú", "guarda 24 pilhas", {"iron": 6}, None, 0, 0, "chest")
+MACHINE_ORDER.insert(MACHINE_ORDER.index("heater") + 1, "chest")   # no fabricador, junto das receitas do começo
+
+# Sons novos: o Som ainda vai entregar os .wav. Enquanto o arquivo não existe, o play() fica em silêncio.
+VOLUME.update({"inv_move": 0.5, "chest_open": 0.7, "chest_close": 0.7, "inv_full": 0.5})
