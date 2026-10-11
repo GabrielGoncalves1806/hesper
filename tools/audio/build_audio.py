@@ -1051,8 +1051,11 @@ def sfx_save(rng):
     return reverb(out, rng, decay=1.0, mix=0.2, lp=5000)
 
 
-PENDING = {
-    # nome: (função, loop?, alvo de loudness)
+# v6.1: os 9 sons do v0.2 foram aprovados e entraram no SOUNDS.
+# Próximas rodadas: o que for novo entra aqui e sai em assets/audio/_pending/.
+PENDING: dict = {}
+
+SOUNDS.update({
     "chest_open": (sfx_chest_open, False, -21.0),
     "chest_close": (sfx_chest_close, False, -21.0),
     "inv_move": (sfx_inv_move, False, -28.0),
@@ -1062,7 +1065,7 @@ PENDING = {
     "drone_loop": (loop_drone, True, -30.0),
     "drone_deliver": (sfx_drone_deliver, False, -20.0),
     "save": (sfx_save, False, -23.0),
-}
+})
 
 
 def main() -> None:
@@ -1106,7 +1109,8 @@ def main() -> None:
             "wave": waveform_peaks(xi),
         }
         print(f"{'candidates/' + name + '.wav':<20}{len(xi) / SR:>8.2f}{peak_db:>11.2f}{loud:>9.1f}")
-    PENDING_DIR.mkdir(parents=True, exist_ok=True)
+    if PENDING:
+        PENDING_DIR.mkdir(parents=True, exist_ok=True)
     for name, (fn, loop, target) in PENDING.items():
         xi = write_wav(PENDING_DIR / f"{name}.wav", finalize(fn(rng_for(name)), loop, target))
         xf = xi.astype(float) / 32768

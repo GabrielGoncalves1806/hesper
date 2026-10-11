@@ -88,10 +88,10 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Hesper · report de som · v6 (v0.2)</div>
+    <div class="eyebrow">Hesper · report de som · v6.1</div>
     <h1>Som do planeta</h1>
     <p class="lede">Os 19 arquivos do contrato de áudio da bíblia (§6), todos gerados por síntese procedural com seed fixa em <code>tools/audio/build_audio.py</code>. A estética é 8/16-bit refinada: osciladores limitados em banda, ruído filtrado, envelopes, varreduras de pitch e um reverb de cratera. Dá o play em cada um, os loops tocam em repetição pra tu ouvir a emenda.</p>
-    <div class="note" style="border-left-color:#7fd67a"><b style="color:#7fd67a">v6 (v0.2):</b> 9 sons novos do v0.2 (baú, inventário, energia, painel solar, drones e save), entregues em <code>assets/audio/_pending/</code> até tu aprovar. Estão na seção <a href="#pendentes">v0.2 · pendentes de aprovação</a>, logo abaixo. Nenhum som oficial nem candidata mudou (conferido por md5).</div>
+    <div class="note" style="border-left-color:#7fd67a"><b style="color:#7fd67a">v6.1 · sons do v0.2 aprovados:</b> os 9 sons do v0.2 saíram de <code>_pending/</code> e agora são oficiais em <code>assets/audio/</code>, idênticos byte a byte aos que tu aprovou. Baú, inventário e save estão em <a href="#interface">Interface</a>. Painel solar e queda de energia estão em <a href="#energia">Energia</a>. Os drones estão em <a href="#drones">Drones</a>. Os volumes sugeridos estão na tabela de integração. O contrato agora tem 31 arquivos.</div>
     <div class="note" style="border-left-color:#c3d1e2"><b style="color:#c3d1e2">v5:</b> três sons novos da drill automática (§4 "Veios e drills automáticas"), na seção <a href="#drill">Drill</a>: <code>drill_loop</code> (loop), <code>drill_collect</code> e <code>drill_full</code>. Nenhum som existente mudou (conferido por md5).</div>
     <div class="note" style="border-left-color:var(--gold)"><b>v4:</b> nada oficial mudou. Tem 6 candidatas novas pro <code>mine_hit</code> (3 sintéticas mais rochosas e 3 gravadas do Kenney, CC0) e uma bônus pro <code>mine_break</code>, lado a lado com a v3 em <a href="#escolha">Escolha o som de mineração</a>.</div>
     <div class="note" style="border-left-color:var(--ok)"><b style="color:var(--ok)">v3, o que mudou:</b> só os dois sons de mineração. O <code>mine_hit</code> deixou de ser "tambor": saiu o seno grave, agora é um "tchk" seco de 60 ms feito só de ruído (clique de 1–2 ms, rajada de 1–5 kHz, um "toc" pétreo amortecido de 600–1500 Hz e 2–3 lascas). O <code>mine_break</code> deixou de ser "latinha": saiu todo componente tonal e todo filtro estreito. Agora é estalo de rachadura, baque surdo de ruído abaixo de 350 Hz, pedaços e entulho caindo com filtros largos e corte aleatório por grão (0,8–4 kHz), em tempo irregular, e um rabo de poeira bem baixo. O resto é igual à v2.</div>
@@ -105,33 +105,13 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
     </div>
     <nav class="toc">
       <a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
-      <a href="#maquinas">Máquinas</a><a href="#drill">Drill</a><a href="#ambiente">Ambiente</a><a href="#recompensa">Recompensa</a>
+      <a href="#maquinas">Máquinas</a><a href="#drill">Drill</a><a href="#energia">Energia</a><a href="#drones">Drones</a><a href="#ambiente">Ambiente</a><a href="#recompensa">Recompensa</a>
       <a href="#direcao">Direção de ambientação</a><a href="#integracao">Integração</a><a href="#checagens">Checagens</a>
     </nav>
   </header>
 
 
 
-  <section class="pick" id="pendentes" style="border-color:#7fd67a">
-    <div class="sec-head" style="border-color:#2f5a2d"><span class="num">v0.2</span><h2 style="color:#7fd67a">v0.2 · pendentes de aprovação</h2>
-      <p>Os 9 sons do contrato do v0.2 (bíblia §8). Estão em <code>assets/audio/_pending/</code> e só vão pra pasta oficial depois que tu aprovar. Seguem o que já foi aprovado: nada de tambor, nada de latinha, as pedrinhas no mesmo estilo da quebra e da drill, e bipes e chimes em Lá. Se algum incomodar, diz qual e o quê.</p></div>
-    <div class="cards" id="pend"></div>
-    <div class="tbl" style="margin-top:16px">
-      <table>
-        <thead><tr><th>Arquivo</th><th>Volume sugerido (<code>set_volume</code>)</th><th>Como usar</th></tr></thead>
-        <tbody>
-          <tr><td><code>chest_open</code> / <code>chest_close</code></td><td>0,9</td><td>um por ação; o close toca ao fechar a UI do baú</td></tr>
-          <tr><td><code>inv_move</code></td><td>0,6</td><td>a cada pilha movida; pitch ±3% se tiver as variações do <code>mine_hit</code></td></tr>
-          <tr><td><code>inv_full</code></td><td>0,8</td><td>no máximo 1 a cada ~1,5 s (coletar com inventário cheio pode disparar várias vezes)</td></tr>
-          <tr><td><code>power_low</code></td><td>1,0</td><td>uma vez quando o déficit começa; não repetir até a energia voltar</td></tr>
-          <tr><td><code>solar_hum</code></td><td>0 a 0,5 pela distância</td><td>um canal só pra todos os painéis (o mais próximo), cheio até 2 tiles, zero a partir de ~6</td></tr>
-          <tr><td><code>drone_loop</code></td><td>0 a 0,5 pela distância</td><td>no máximo 2 canais (os 2 drones mais próximos), cheio até 3 tiles, zero a partir de ~10</td></tr>
-          <tr><td><code>drone_deliver</code></td><td>0,8 (× distância, se longe)</td><td>quando o drone solta a carga na estação</td></tr>
-          <tr><td><code>save</code></td><td>0,6</td><td>no save manual; no autosave pode ir a 0,4, ou ficar em silêncio se for muito frequente</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
 
   <section class="pick" id="escolha">
     <div class="sec-head" style="border-color:#5a4524"><span class="num">v4</span><h2>Escolha o som de mineração</h2>
@@ -214,6 +194,15 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
           <tr><td>Drill</td><td><code>drill_loop</code></td><td>0 a 0,5 pela distância</td><td>mesmo esquema do zumbido: um canal pra drill mais próxima (cheio até 2 tiles, zero a partir de ~8). Para com <code>fadeout(400)</code> quando a drill enche. Com várias drills, não toca uma por drill: no máximo 2 canais (as 2 mais próximas).</td></tr>
           <tr><td>Drill</td><td><code>drill_collect</code></td><td>1,0</td><td>no lugar do <code>pickup</code> (já tem o "poop" dentro). Não tocar os dois juntos.</td></tr>
           <tr><td>Drill</td><td><code>drill_full</code></td><td>0,6–0,8</td><td>uma vez ao entrar no raio (~4 tiles) de uma drill cheia, com intervalo mínimo de ~10 s pra mesma drill.</td></tr>
+          <tr><td>v0.2</td><td><code>chest_open</code> / <code>chest_close</code></td><td>0,9</td><td>um por ação; o close toca ao fechar a UI do baú</td></tr>
+          <tr><td>v0.2</td><td><code>inv_move</code></td><td>0,6</td><td>a cada pilha movida; pitch ±3% se tiver as variações do <code>mine_hit</code></td></tr>
+          <tr><td>v0.2</td><td><code>inv_full</code></td><td>0,8</td><td>no máximo 1 a cada ~1,5 s (coletar com inventário cheio pode disparar várias vezes)</td></tr>
+          <tr><td>v0.2</td><td><code>power_low</code></td><td>1,0</td><td>uma vez quando o déficit começa; não repetir até a energia voltar</td></tr>
+          <tr><td>v0.2</td><td><code>solar_hum</code></td><td>0 a 0,5 pela distância</td><td>um canal só pra todos os painéis (o mais próximo), cheio até 2 tiles, zero a partir de ~6</td></tr>
+          <tr><td>v0.2</td><td><code>drone_loop</code></td><td>0 a 0,5 pela distância</td><td>no máximo 2 canais (os 2 drones mais próximos), cheio até 3 tiles, zero a partir de ~10</td></tr>
+          <tr><td>v0.2</td><td><code>drone_deliver</code></td><td>0,8 (× distância, se longe)</td><td>quando o drone solta a carga na estação</td></tr>
+          <tr><td>v0.2</td><td><code>save</code></td><td>0,6</td><td>no save manual; no autosave pode ir a 0,4, ou ficar em silêncio se for muito frequente</td></tr>
+        
           <tr><td>Ambiente</td><td><code>amb_*</code></td><td>0,7</td><td>já saem ~8–10 dB abaixo dos sfx.</td></tr>
           <tr><td>Recompensa</td><td><code>stage_up</code></td><td>1,0</td><td>é o som mais alto do jogo, de propósito.</td></tr>
         </tbody>
@@ -332,6 +321,11 @@ const GROUPS = [
       ["ui_open","Abriu o fabricador (E)","Dois bipes subindo (Lá → Mi). Abriu."],
       ["ui_close","Fechou o menu","Os mesmos dois bipes descendo (Mi → Lá). Fechou."],
       ["ui_click","Clique em botão/receita","Tique curtinho e seco, sem agudo agressivo."],
+      ["chest_open","Abriu o baú","Trava soltando, tranco macio, \"pssh\" pneumático e a dobradiça abrindo até o batente. Sem rangido metálico."],
+      ["chest_close","Fechou o baú","Dobradiça fechando, a tampa assenta, a trava fecha e um \"pssh\" curto vedando."],
+      ["inv_move","Moveu uma pilha no inventário","\"Tok\" curtíssimo (20 ms), médio e seco. Feito pra sumir no meio do uso."],
+      ["inv_full","Tentou coletar com o inventário cheio","Blip suave que escorrega pra baixo (Mi5 → Lá4). \"Não cabe\" sem bronca."],
+      ["save","Salvou o jogo (autosave e manual)","Chime em Lá maior (Lá5, Dó#6, Mi6) dedilhado, timbre de sino macio e um eco curto."],
       ["terminal_open","Abriu um terminal de lore","CRT ligando, rajada de bipes de dados e um acorde menor que fica no ar: tem coisa errada nessa história."],
     ]},
   { id:"sobrevivencia", title:"Sobrevivência", color:"#ff6a55",
@@ -356,6 +350,18 @@ const GROUPS = [
       ["drill_loop","Loop perto de uma drill trabalhando (volume pela distância). Para quando ela enche","Motor elétrico grave e estável e a rosca raspando pedra a 2,5 voltas por segundo, com pedrinhas sendo moídas no pico de cada volta."],
       ["drill_collect","E perto da drill: coletou o conteúdo","Clique da trava, despejo de pedrinhas e minério caindo no coletor e o mesmo \"poop\" do pickup no final, pra fechar como recompensa."],
       ["drill_full","Chegou perto de uma drill cheia","Dois bipes suaves subindo (Mi → Lá), bem baixos. Só um lembrete."],
+    ]},
+  { id:"energia", title:"Energia", color:"#f2c46d",
+    intro:"Painéis solares e falta de energia. O hum é quase imperceptível; o aviso de queda avisa sem alarmar.",
+    items:[
+      ["solar_hum","Loop perto de painéis solares","Zumbido elétrico de 100 Hz com um ar fininho. Quase imperceptível, de propósito."],
+      ["power_low","O déficit de energia começou (uma vez)","Motor perdendo força, num \"whoom\" descendente, e dois bipes baixos em Lá4. Avisa sem alarme."],
+    ]},
+  { id:"drones", title:"Drones", color:"#59d0e6",
+    intro:"Drones de logística. Vários podem voar juntos, então o loop é leve e sem agudo irritante.",
+    items:[
+      ["drone_loop","Loop do drone voando (volume pela distância)","Dois rotores pequenos em rotações próximas (batimento leve), com passa-baixa pra não irritar e um balanço lento de quem paira."],
+      ["drone_deliver","O drone entregou carga","Garra soltando, \"pssh\" curto, carga caindo no coletor (mais curto e mais agudo que o da drill) e um bipe de confirmação Lá5–Mi6."],
     ]},
   { id:"ambiente", title:"Ambiente", color:"#7fbf5a",
     intro:"Um loop por estágio, 32 s cada, todos em Lá. Detalhes na seção de direção de ambientação.",
@@ -400,7 +406,7 @@ GROUPS.forEach((g, gi) => {
   const cards = sec.querySelector(".cards");
   g.items.forEach(([name, when, what]) => {
     const m = META[name] || {};
-    const loop = m.loop ?? /^(amb_|o2_low|machine_hum|drill_loop)/.test(name);
+    const loop = m.loop ?? /^(amb_|o2_low|machine_hum|drill_loop|solar_hum|drone_loop)/.test(name);
     const card = document.createElement("article");
     card.className = "card";
     card.innerHTML = `
@@ -465,40 +471,6 @@ CANDS.forEach(([key, file, title, src, desc]) => {
   card.querySelector("[data-b]").onclick = () => isBreak ? playBurst(hitV3, 4, BREAK_OFFICIAL) : playBurst(url, 4, BREAK_OFFICIAL);
 });
 
-// ---- v6 (v0.2): pendentes de aprovação ----
-const PEND = [
-  ["chest_open", "Abriu o baú", "Trava soltando, tranco macio, \"pssh\" pneumático e a dobradiça abrindo até o batente. Sem rangido metálico."],
-  ["chest_close", "Fechou o baú", "Dobradiça fechando, a tampa assenta, a trava fecha e um \"pssh\" curto vedando."],
-  ["inv_move", "Moveu uma pilha no inventário", "\"Tok\" curtíssimo (20 ms), médio e seco. Feito pra sumir no meio do uso."],
-  ["inv_full", "Tentou coletar com o inventário cheio", "Blip suave que escorrega pra baixo (Mi5 → Lá4). \"Não cabe\" sem bronca."],
-  ["power_low", "O déficit de energia começou (uma vez)", "Motor perdendo força, num \"whoom\" descendente, e dois bipes baixos em Lá4. Avisa sem alarme."],
-  ["solar_hum", "Loop perto de painéis solares", "Zumbido elétrico de 100 Hz com um ar fininho. Quase imperceptível, de propósito."],
-  ["drone_loop", "Loop do drone voando (volume pela distância)", "Dois rotores pequenos em rotações próximas (batimento leve), com passa-baixa pra não irritar e um balanço lento de quem paira."],
-  ["drone_deliver", "O drone entregou carga", "Garra soltando, \"pssh\" curto, carga caindo no coletor (mais curto e mais agudo que o da drill) e um bipe de confirmação Lá5–Mi6."],
-  ["save", "Salvou o jogo (autosave e manual)", "Chime em Lá maior (Lá5, Dó#6, Mi6) dedilhado, timbre de sino macio e um eco curto."],
-];
-const pendRoot = document.getElementById("pend");
-PEND.forEach(([name, when, what]) => {
-  const m = META["pend:" + name] || {};
-  const loop = !!m.loop;
-  const card = document.createElement("article");
-  card.className = "card";
-  card.innerHTML = `
-    <div class="card-top"><span class="fname">${name}.wav</span>
-      <span class="tags">${loop ? '<span class="tag loop">loop</span>' : '<span class="tag">sfx</span>'}<span class="tag src">pendente</span>
-      <span class="tag">${fmtDur(m.duration)}</span><span class="tag">pico ${fmtDb(m.peak_db)}</span></span></div>
-    <canvas class="wave" aria-hidden="true"></canvas>
-    <audio controls preload="metadata" ${loop ? "loop" : ""} src="../../assets/audio/_pending/${name}.wav"></audio>
-    <div class="when">${when}</div>
-    <p class="what">${what}</p>`;
-  pendRoot.appendChild(card);
-  const cv = card.querySelector("canvas");
-  requestAnimationFrame(() => drawWave(cv, m.wave, "#7fd67a"));
-  window.addEventListener("resize", () => drawWave(cv, m.wave, "#7fd67a"));
-  const tr = document.createElement("tr");
-  tr.innerHTML = `<td><code>_pending/${name}.wav</code></td><td>${fmtDur(m.duration)}</td><td class="pass">${fmtDb(m.peak_db)}</td><td>${fmtDb(m.loudness_db)}</td><td>${loop && m.seam_lsb != null ? `<span class="pass">OK · salto ${m.seam_lsb} lsb (percentil ${String(m.seam_pct).replace(".", ",")} dos saltos normais)</span>` : "—"}</td>`;
-  checks.appendChild(tr);
-});
 // só uma faixa tocando por vez
 document.addEventListener("play", e => {
   document.querySelectorAll("audio").forEach(a => { if (a !== e.target) a.pause(); });

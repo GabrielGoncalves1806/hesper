@@ -25,13 +25,13 @@ CONTRACT = {
     "ui_open": False, "ui_close": False, "ui_click": False, "o2_low": True, "o2_refill": False,
     "faint": False, "terminal_open": False, "stage_up": False, "footstep_0": False,
     "footstep_1": False, "machine_hum": True, "drill_loop": True, "drill_collect": False,
-    "drill_full": False, "amb_dead": True, "amb_mist": True, "amb_green": True,
-}
-# v0.2: entregues em _pending/ até o dono aprovar
-PENDING = {
+    "drill_full": False,
     "chest_open": False, "chest_close": False, "inv_move": False, "inv_full": False,
     "power_low": False, "solar_hum": True, "drone_loop": True, "drone_deliver": False, "save": False,
+    "amb_dead": True, "amb_mist": True, "amb_green": True,
 }
+# v0.2: entregues em _pending/ até o dono aprovar
+PENDING: dict = {}
 BANDS = [(20, 150), (150, 600), (600, 2500), (2500, 8000), (8000, 22050)]
 
 
