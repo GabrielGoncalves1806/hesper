@@ -336,8 +336,33 @@ MACHINE_SIZE = {1: (40, 58), 2: (40, 66)}
 T2_LIFT = 7   # quanto o corpo do nv.2 fica "levantado" em cima do pedestal
 
 
+def solar_panel() -> pygame.Surface:
+    """Painel solar 32×40 (fallback até o sprite solar_panel ser aprovado): placa azul-escura inclinada num poste."""
+    s = pygame.Surface((32, 40), pygame.SRCALPHA)
+    _ellipse(s, (0, 0, 0, 90), 16, 37, 12, 3)
+    _r(s, "#1a1418", 11, 35, 10, 3); _r(s, "#4a4f57", 12, 35, 8, 2)        # pé
+    _r(s, "#1a1418", 14, 20, 4, 16); _r(s, "#6b717a", 15, 20, 2, 15)       # poste
+    # placa: trapézio (mais estreito em cima = inclinado pra trás, virado pro céu)
+    outline = [(5, 4), (26, 4), (31, 24), (0, 24)]
+    face = [(6, 5), (25, 5), (29, 23), (2, 23)]
+    pygame.draw.polygon(s, Color("#1a1418"), outline)
+    pygame.draw.polygon(s, Color("#1d3566"), face)
+    for i in range(1, 4):                                                  # células: linhas horizontais
+        y = 5 + i * 18 // 4
+        k = (y - 5) / 18
+        _r(s, "#2c4f8f", round(6 - 4 * k), y, round(19 + 8 * k), 1)
+    for i in range(1, 4):                                                  # e "verticais" (abrindo em leque)
+        top_x, bot_x = 6 + i * 19 / 4, 2 + i * 27 / 4
+        pygame.draw.line(s, Color("#2c4f8f"), (round(top_x), 5), (round(bot_x), 22))
+    _r(s, "#6fa0e0", 7, 6, 6, 1); _r(s, "#4a78c0", 6, 7, 3, 1)             # reflexo
+    _r(s, "#0f1d3a", 1, 24, 30, 1)                                         # borda de baixo, na sombra
+    return s
+
+
 def machine(kind: str) -> pygame.Surface:
     """Máquina nv.1 (40×58) ou nv.2 (40×66: mesma máquina num pedestal com faixas douradas)."""
+    if kind == "solar":
+        return solar_panel()
     tier = 2 if kind.endswith("_t2") else 1
     base_kind = kind.removesuffix("_t2")
     w, h = MACHINE_SIZE[tier]

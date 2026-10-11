@@ -265,3 +265,29 @@ TRANSITION_FRONT_POWER = 8      # quão no fim é esse disparo (maior = mais con
 TRANSITION_NOISE_SCALE = 0.11   # tamanho das "manchas" do ruído (menor = manchas maiores)
 TRANSITION_WOBBLE = 0.7         # quanto o ruído estica/encolhe a distância (0 = círculo perfeito)
 TRANSITION_GRAIN = 1.5          # sorteio por tile na fronteira, em tiles (esfarela a borda)
+
+# ---------------------------------------------------------------------------
+# Energia global, sem fios (bíblia §8, Marco 2) · a lógica fica em game/energy.py
+# A produção total (kW) é comparada com o consumo total. Se faltar energia, TODAS as
+# máquinas rodam no mesmo ritmo: fator = produção / consumo (nunca desliga de vez).
+# Sem bateria e sem dia/noite no v0.2.
+# ---------------------------------------------------------------------------
+POD_POWER = 5            # kW fixos da cápsula, pro começo do jogo funcionar
+# Quanto cada máquina consome (kW). Quem não está na tabela consome 0 (painel solar, baú...).
+POWER_USE = {
+    "o2": 1, "melter": 1, "heater": 2,
+    "o2_t2": 3, "melter_t2": 3, "heater_t2": 4,
+    "drill": 2,
+    "drone_station": 3,  # Marco 3: a estação ainda não existe, mas o consumo já fica aqui
+}
+POWER_GEN = {"solar": 3}  # quanto cada máquina gera (kW)
+ENERGY_TIGHT = 0.8        # consumo ≥ 80% da produção: medidor amarelo ("perto do limite")
+ENERGY_REARM_TIME = 5.0   # o som power_low só toca de novo depois de 5 s seguidos sem déficit
+C_ENERGY = "#ffd84a"      # cor do raio do medidor
+
+# Painel solar: +3 kW, não soma Ti. O sprite "solar_panel" e o ícone "icon_solar" ainda estão
+# pendentes de aprovação: enquanto não existirem, o jogo desenha o fallback (art.solar_panel).
+MACHINES["solar"] = MachineType("solar", "Painel solar", "+ energia", {"iron": 8, "silicon": 6}, None, 0,
+                                0, "solar_panel")
+MACHINE_ORDER.append("solar")   # tecla 8 no estoque de máquinas atual (o inventário com slots substitui isso)
+VOLUME["power_low"] = 0.7       # o déficit de energia começou (toca uma vez)
