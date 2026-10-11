@@ -88,6 +88,43 @@ def find_ore_with_floor_below(state, kind=C.IRON):
     return best[1]
 
 
+def crop_around_player(bot, w=96, h=80) -> pygame.Surface:
+    cx, cy = bot.app.cam
+    x, y = int(bot.state.player.x - cx), int(bot.state.player.y - cy)
+    return bot.app.canvas.subsurface((x - w // 2, y - h + 16, w, h)).copy()
+
+
+def check_directions_and_order(bot) -> None:
+    """Monta 2 imagens ampliadas: o player andando nas 4 direções e a ordem de desenho com uma máquina."""
+    s = bot.state
+    frames = []
+    for key in (pygame.K_s, pygame.K_w, pygame.K_d, pygame.K_a):
+        bot.teleport((64, 67))
+        pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=key, mod=0, unicode="", scancode=0))
+        bot.frames(0.25)
+        frames.append(crop_around_player(bot))      # tirado no meio da caminhada
+        pygame.event.post(pygame.event.Event(pygame.KEYUP, key=key, mod=0, unicode="", scancode=0))
+        bot.frames(0.1)
+        frames.append(crop_around_player(bot))      # parado, virado pra mesma direção
+    sheet = pygame.Surface((96 * 4, 80 * 2))
+    for i, f in enumerate(frames):
+        sheet.blit(f, ((i // 2) * 96, (i % 2) * 80))
+    pygame.image.save(pygame.transform.scale_by(sheet, 2), str(OUT / "player_direcoes.png"))
+    print("  screenshot: reports/dev/player_direcoes.png  (colunas: baixo, cima, direita, esquerda · linha 1 andando, 2 parado)")
+
+    # ordem de desenho: pés acima da base da máquina = atrás; abaixo = na frente
+    m = s.machines[0]
+    order = pygame.Surface((96 * 2, 80))
+    for i, feet_y in enumerate(((m.ty + 1) * C.TILE - 14, (m.ty + 1) * C.TILE + 10)):
+        s.player.x, s.player.y = (m.tx + 0.5) * C.TILE + 6, feet_y
+        bot.frames(DT)
+        order.blit(crop_around_player(bot), (i * 96, 0))
+    pygame.image.save(pygame.transform.scale_by(order, 3), str(OUT / "ordem_desenho.png"))
+    print("  screenshot: reports/dev/ordem_desenho.png  (esquerda: player atrás da máquina · direita: na frente)")
+    bot.teleport((64, 66))
+    bot.frames(0.1)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     bot = Bot()
@@ -142,6 +179,7 @@ def main() -> None:
     print(f"  máquinas colocadas: {[m.kind for m in s.machines]}")
     bot.frames(2.0)
     bot.shot("base.png")
+    check_directions_and_order(bot)
 
     print("4) terminal")
     tx, ty = s.world.terminals[0]

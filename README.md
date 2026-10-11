@@ -49,7 +49,8 @@ assim o jogo anda na mesma velocidade num PC rápido ou lento. O código separa 
 | `game/render.py` | desenha o mundo: só os tiles visíveis, objetos ordenados pelo Y do pé (quem está mais embaixo fica na frente), luz e clima do estágio |
 | `game/ui.py` | HUD, fabricador, terminal, banner, O₂ crítico, desmaio e tela de fim (desenhado em 480×270 e esticado 2×, igual ao mockup) |
 | `game/art.py` | os desenhos "de retângulos" usados enquanto não tem sprite aprovado |
-| `game/assets.py` | carrega sprites/sons opcionais; se o arquivo não existir, devolve nada e o jogo usa o fallback |
+| `game/assets.py` | carrega sprites e fontes; se o PNG não existir, devolve nada e o jogo usa o desenho de fallback |
+| `game/audio.py` | som: efeitos com variação de pitch, alarme de O₂ com histerese, zumbido pela distância, ambiente com crossfade entre estágios |
 
 O fluxo de um frame: `App.handle_events()` → `App.update(dt)` (que chama `GameState.update`) → `App.draw()`
 (que chama `Renderer.draw` e depois a `UI`). O `GameState` nunca toca som nem desenha: ele só anota o que aconteceu
@@ -57,8 +58,13 @@ numa lista de eventos (`"break"`, `"pickup"`, `"stage_up"`...) e o `App` decide 
 
 ## Assets
 
-Sprites e sons ficam em `assets/` e seguem o contrato da bíblia (§6). Eles só entram no jogo depois de aprovados:
-ligue `ENABLE_SPRITES` / `ENABLE_AUDIO` em `game/config.py`. Com as flags ligadas e algum arquivo faltando,
-o jogo continua funcionando com o desenho de fallback (ou em silêncio).
+Sprites e sons ficam em `assets/` e seguem o contrato da bíblia (§6). Eles só entram no jogo depois de aprovados,
+pelas flags em `game/config.py`:
+
+- `ENABLE_SPRITES = True`: os sprites do design v2 foram aprovados e estão ligados.
+- `ENABLE_AUDIO = False`: o código de som está pronto, mas os sons ainda estão em revisão.
+
+Com uma flag ligada e algum arquivo faltando, o jogo continua funcionando com o desenho de fallback (ou em silêncio).
+Pra ver o jogo só com o fallback de retângulos, é só desligar `ENABLE_SPRITES`.
 
 As fontes Silkscreen e Pixelify Sans (licença OFL) estão em `game/fonts/`, junto com as licenças.

@@ -342,7 +342,7 @@ def machine_anim(target: pygame.Surface, kind: str, ax: int, ay: int, t: float) 
     """
     tier = 2 if kind.endswith("_t2") else 1
     base_kind = kind.removesuffix("_t2")
-    x, y = ax - 16, ay - 2 - (T2_LIFT if tier == 2 else 0)
+    x, y = ax - 16, ay - 2 - (T2_LIFT if tier == 2 else 0)   # mesma origem usada em machine()
     tick = t * 9   # o mockup animava a ~9 quadros por segundo
     if base_kind == "o2":
         _r(target, C.C_OK if tick % 8 < 4 else "#2f5a2c", x + 4, y - 14, 2, 2)

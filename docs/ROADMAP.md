@@ -14,7 +14,7 @@ Detalhes em `GAME_BIBLE.md` §4.
 - [x] 3 estágios visuais (troca de paleta, água, plantas)
 - [x] 3 terminais de lore
 - [x] Tela de fim do MVP
-- [ ] Guia visual + sprites (Designer) · aprovado pelo dono
+- [x] Guia visual + sprites (Designer) · aprovado pelo dono
 - [ ] Guia de som + efeitos (Som) · aprovado pelo dono
 - [ ] Integrar sprites e sons aprovados
 

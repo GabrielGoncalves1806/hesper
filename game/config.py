@@ -10,7 +10,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Liga/desliga assets (o dono do projeto precisa aprovar antes de ligar)
 # ---------------------------------------------------------------------------
-ENABLE_SPRITES = False  # True = tenta carregar assets/sprites/<nome>.png
+ENABLE_SPRITES = True   # True = usa assets/sprites/<nome>.png (aprovados no design v2)
 ENABLE_AUDIO = False    # True = tenta tocar assets/audio/<nome>.wav
 
 ROOT_DIR = Path(__file__).resolve().parent.parent

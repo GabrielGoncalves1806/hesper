@@ -66,7 +66,7 @@ class UI:
         self.font = load_font("Silkscreen-Regular.ttf", 8, 12)        # rótulos
         self.font_big = load_font("Silkscreen-Regular.ttf", 16, 22)   # títulos
         self.body = load_font("PixelifySans.ttf", 11, 13)             # textos (11 px: em 10 e 12 o "G" vira "Q")
-        self.body_big = load_font("PixelifySans.ttf", 14, 16)
+        self.body_big = load_font("PixelifySans.ttf", 11, 16)   # títulos: mesmo tamanho (o "G" só fica certo em 11), destaque pela cor
         self._text_cache: dict[tuple, pygame.Surface] = {}
         self._tmp: dict[tuple, pygame.Surface] = {}
         self.fabricator_buttons: list[tuple[pygame.Rect, str]] = []   # retângulos clicáveis (coord. da UI)
@@ -246,7 +246,7 @@ class UI:
             self.native.append((clip, (box.x * 2, box.y * 2)))
 
             locked = status == "locked"
-            name_w = self.text(m.name, x + 52, ry + 2, "#8a7b70" if locked else C.C_TEXT, self.body_big)
+            name_w = self.text(m.name, x + 52, ry + 4, "#8a7b70" if locked else C.C_TEXT, self.body_big)
             self.text(m.desc, x + 58 + name_w, ry + 5, C.C_MUTED, self.body)
             owned = state.machines_owned[kind]
             if owned:
@@ -296,7 +296,7 @@ class UI:
         layer = pygame.Surface((w, 38), pygame.SRCALPHA)
         self.panel(0, 0, w, 38, (14, 10, 9, 219), target=layer)
         layer.fill(pygame.Color(color), (0, 0, w, 2))
-        self.text(s.title, w / 2, 4, color, self.body_big, "center", target=layer)
+        self.text(s.title, w / 2, 7, color, self.body_big, "center", target=layer)
         self.text(s.subtitle, w / 2, 23, "#d9cfc4", self.body, "center", target=layer)
         layer.set_alpha(int(255 * alpha))
         self.surf.blit(layer, (x, y))

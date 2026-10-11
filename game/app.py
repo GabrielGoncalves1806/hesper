@@ -15,7 +15,9 @@ import pygame
 
 from game import art
 from game import config as C
-from game.assets import Audio, Sprites
+from game import audio as sound
+from game.assets import Sprites
+from game.audio import Audio
 from game.render import Renderer, stage_key
 from game.systems import Controls, GameState
 from game.ui import UI, FloatingTexts
@@ -29,7 +31,7 @@ MOVE_KEYS = {
 NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6]
 BANNER_TIME = 5.0
 END_SCREEN_DELAY = 4.5
-FOOTSTEP_INTERVAL = 0.32
+FOOTSTEP_INTERVAL = 0.3
 
 
 def pick_scale() -> int:
@@ -43,6 +45,7 @@ def pick_scale() -> int:
 
 class App:
     def __init__(self, scale: int | None = None):
+        sound.pre_init()   # configura o mixer antes do pygame.init() (só se o áudio estiver ligado)
         pygame.init()
         self.scale = scale or pick_scale()
         self.window = pygame.display.set_mode((C.SCREEN_W * self.scale, C.SCREEN_H * self.scale))
@@ -74,6 +77,7 @@ class App:
         self.end_timer: float | None = None
         self.footstep_timer = 0.0
         self.footstep_side = 0
+        self.audio.start_ambient(stage_key(self.state.stage))
 
     # ---- loop -----------------------------------------------------------------
     def run(self) -> None:
@@ -215,7 +219,11 @@ class App:
         self.banner_time += dt
         self.floaters.update(dt)
         self.renderer.update_particles(dt)
-        for event in self.state.pop_events():
+        events = self.state.pop_events()
+        broke = any(e[0] == "break" for e in events)
+        for event in events:
+            if event[0] == "mine_hit" and broke:
+                continue   # no frame em que o tile quebra, toca só o mine_break
             self.on_game_event(event)
         if self.end_timer is not None:
             self.end_timer -= dt
@@ -228,7 +236,7 @@ class App:
     def on_game_event(self, event: tuple) -> None:
         kind = event[0]
         if kind == "mine_hit":
-            self.audio.play("mine_hit", 0.6)
+            self.audio.play("mine_hit")
             self.renderer.spawn_chips(event[1], "#b0704f", 2)
         elif kind == "break":
             _, tile, tile_kind = event
@@ -240,7 +248,7 @@ class App:
             _, tile, resource, amount = event
             x, y = (tile[0] + 0.5) * C.TILE, tile[1] * C.TILE - 8
             self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", x, y, C.ORE_COLORS[resource][0])
-            self.audio.play("pickup")
+            self.audio.play("pickup", delay=0.06)   # 60 ms depois do mine_break, pra não embolar
         elif kind == "craft":
             self.audio.play("craft")
         elif kind == "place":
@@ -249,30 +257,36 @@ class App:
             self.audio.play("o2_refill")
         elif kind == "faint":
             self.audio.play("faint")
+            self.audio.set_alarm(False)
             self.placing = None
             self.set_mode("play")
+        elif kind == "wake":
+            self.audio.play("o2_refill")
         elif kind == "terminal":
             self.audio.play("terminal_open")
         elif kind == "stage_up":
             self.banner_stage = event[1]
             self.banner_time = 0.0
-            self.audio.play("stage_up")
+            self.audio.stage_up(stage_key(event[1]))
             if event[1] == 3:
                 self.end_timer = END_SCREEN_DELAY
 
     def update_ambient_sounds(self, dt: float) -> None:
-        state = self.state
-        self.audio.loop("o2_low", state.o2 < C.O2_LOW and not state.fainted, 0.7)
-        near = any(math.hypot((m.tx + 0.5) * C.TILE - state.player.x, (m.ty + 1) * C.TILE - state.player.y) < 5 * C.TILE
-                   for m in state.machines)
-        self.audio.loop("machine_hum", near, 0.4)
-        current = stage_key(state.stage)
-        for s in C.STAGES:
-            self.audio.loop(f"amb_{s.key}", s.key == current, 0.5)
+        state, audio = self.state, self.audio
+        # alarme com histerese: liga abaixo de 25%, desliga em 27% (ou desmaiado)
+        o2_percent = 100 * state.o2 / C.O2_MAX
+        audio.set_alarm(not state.fainted and sound.alarm_should_play(audio.alarm_on, o2_percent))
+        # zumbido pela máquina mais próxima
+        nearest = min((math.hypot((m.tx + 0.5) * C.TILE - state.player.x, (m.ty + 1) * C.TILE - state.player.y) / C.TILE
+                       for m in state.machines), default=None)
+        audio.set_hum(sound.hum_volume(nearest))
+        # ambiente: some no desmaio, abaixa lendo terminal
+        audio.duck_ambient(0.0 if state.fainted else 0.6 if self.mode == "terminal" else 1.0)
+        audio.update(dt)
         if state.player.moving and self.mode == "play":
             self.footstep_timer -= dt
             if self.footstep_timer <= 0:
-                self.audio.play(f"footstep_{self.footstep_side}", 0.5)
+                self.audio.play(f"footstep_{self.footstep_side}")
                 self.footstep_side = 1 - self.footstep_side
                 self.footstep_timer = FOOTSTEP_INTERVAL
         else:

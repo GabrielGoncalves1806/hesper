@@ -37,17 +37,17 @@ class Renderer:
         self.particles: list[list[float]] = []   # [x, y, vx, vy, vida, cor]
 
         # Superfícies de efeito pré-calculadas (fazer isso a cada frame seria lento).
-        self.shadow_top = self._alpha_strips(T, [(6, 82), (4, 36)])
+        self.shadow_top = self._alpha_strips(T, [(10, 84), (6, 40)])   # sombra que a parede joga no chão
         self.shadow_left = pygame.Surface((4, T), pygame.SRCALPHA)
-        self.shadow_left.fill((0, 0, 0, 41))
+        self.shadow_left.fill((0, 0, 0, 40))
         self.water_top = pygame.Surface((T, 4), pygame.SRCALPHA)
         self.water_top.fill((0, 0, 0, 72))
         self.water_left = pygame.Surface((2, T), pygame.SRCALPHA)
         self.water_left.fill((0, 0, 0, 46))
         self.bedrock_shade = pygame.Surface((T, T), pygame.SRCALPHA)
         self.bedrock_shade.fill((0, 0, 0, 110))
-        self.player_shadow = pygame.Surface((20, 6), pygame.SRCALPHA)
-        pygame.draw.ellipse(self.player_shadow, (0, 0, 0, 97), (0, 0, 20, 6))
+        self.player_shadow = pygame.Surface((16, 5), pygame.SRCALPHA)
+        pygame.draw.ellipse(self.player_shadow, (0, 0, 0, 97), (0, 0, 16, 5))
         self.darkness = pygame.Surface((C.SCREEN_W, C.SCREEN_H), pygame.SRCALPHA)
         self.layer = pygame.Surface((C.SCREEN_W, C.SCREEN_H), pygame.SRCALPHA)   # camada reaproveitável
         self.vignette = art.vignette(C.SCREEN_W, C.SCREEN_H, (0, 0, 0), 128)
@@ -163,13 +163,13 @@ class Renderer:
         canvas.blit(surf, (sx, sy))
         has_face = not world.is_solid(tx, ty + 1)
         top = WALL_TOP if has_face else T   # com chão embaixo, só 8 px de topo aparecem
-        # bordas iluminadas onde a parede encontra o chão
-        if not world.is_solid(tx, ty - 1):
-            canvas.fill(P["edge"], (sx, sy, T, 2))
-        if not world.is_solid(tx - 1, ty):
-            canvas.fill(P["edge"], (sx, sy, 1, top))
-        if not world.is_solid(tx + 1, ty):
-            canvas.fill(P["rock_dot"], (sx + T - 1, sy, 1, top))
+        if fallback:   # bordas iluminadas onde a parede encontra o chão (os PNGs não precisam)
+            if not world.is_solid(tx, ty - 1):
+                canvas.fill(P["edge"], (sx, sy, T, 2))
+            if not world.is_solid(tx - 1, ty):
+                canvas.fill(P["edge"], (sx, sy, 1, top))
+            if not world.is_solid(tx + 1, ty):
+                canvas.fill(P["rock_dot"], (sx + T - 1, sy, 1, top))
         if fallback and stage == "green" and hash01(tx, ty, 70) < 0.5:
             canvas.blit(self.surface(None, lambda: art.moss(v), f"moss#{v}")[0], (sx, sy))
         if has_face:
@@ -191,20 +191,24 @@ class Renderer:
         if world.is_water(tx, ty, stage_num):
             up, down = world.is_water(tx, ty - 1, stage_num), world.is_water(tx, ty + 1, stage_num)
             left, right = world.is_water(tx - 1, ty, stage_num), world.is_water(tx + 1, ty, stage_num)
-            # A água encolhe 3 px nos lados que não têm água vizinha: vira poça, não quadrado.
-            l, r = (0 if left else 3), (0 if right else 3)
-            u, d = (0 if up else 3), (0 if down else 3)
-            water, _ = self.surface(f"water_{stage}", lambda: art.water(stage))
-            canvas.blit(water, (sx + l, sy + u), (l, u, T - l - r, T - u - d))
-            # água funda: só no miolo dos lagos (os 8 vizinhos também são água)
-            if up and down and left and right and all(
-                    world.is_water(tx + dx, ty + dy, stage_num) for dx, dy in ((-1, -1), (1, -1), (-1, 1), (1, 1))):
-                canvas.fill(P["water_d"], (sx, sy, T, T))
-            if not up:
-                canvas.blit(self.water_top, (sx + l, sy + u), (0, 0, T - l - r, 4))
-                canvas.fill(P["foam"], (sx + l, sy + u + 4, T - l - r, 1))
-            if not left:
-                canvas.blit(self.water_left, (sx + l, sy + u), (0, 0, 2, T - u - d))
+            water, fallback = self.surface(f"water_{stage}", lambda: art.water(stage))
+            if not fallback:
+                canvas.blit(water, (sx, sy))   # sprite aprovado: tile quadrado, sem borda
+            else:
+                # Fallback: a água encolhe 3 px nos lados sem água vizinha (vira poça, não quadrado).
+                l, r = (0 if left else 3), (0 if right else 3)
+                u, d = (0 if up else 3), (0 if down else 3)
+                canvas.blit(water, (sx + l, sy + u), (l, u, T - l - r, T - u - d))
+            if fallback:
+                # água funda: só no miolo dos lagos (os 8 vizinhos também são água)
+                if up and down and left and right and all(
+                        world.is_water(tx + dx, ty + dy, stage_num) for dx, dy in ((-1, -1), (1, -1), (-1, 1), (1, 1))):
+                    canvas.fill(P["water_d"], (sx, sy, T, T))
+                if not up:
+                    canvas.blit(self.water_top, (sx + l, sy + u), (0, 0, T - l - r, 4))
+                    canvas.fill(P["foam"], (sx + l, sy + u + 4, T - l - r, 1))
+                if not left:
+                    canvas.blit(self.water_left, (sx + l, sy + u), (0, 0, 2, T - u - d))
             # reflexos que andam devagar
             h = hash01(tx, ty, 5)
             o = int((t * 5.4 + h * 24) % 24)
@@ -242,7 +246,7 @@ class Renderer:
         items.append((ay, lambda: self._draw_pod(canvas, ax - cam_x, ay - cam_y, t)))
 
         for m in state.machines:
-            mx, my = m.tx * T + T // 2, m.ty * T + T - 2
+            mx, my = m.tx * T + T // 2, (m.ty + 1) * T      # âncora: centro do tile, borda de baixo
             if -64 < mx - cam_x < C.SCREEN_W + 64 and -80 < my - cam_y < C.SCREEN_H + 80:
                 items.append((my, lambda m=m, mx=mx, my=my: self.draw_machine(canvas, m.kind, mx - cam_x, my - cam_y, t, m.rotation)))
 
@@ -252,7 +256,7 @@ class Renderer:
                 for tx in range(tx0, tx0 + C.SCREEN_W // T + 2):
                     kind = state.world.plant_at(tx, ty)
                     if kind and not state.machine_at((tx, ty)):
-                        px, py = tx * T + T // 2, ty * T + T - 4
+                        px, py = tx * T + T // 2, (ty + 1) * T
                         surf = self.surface(f"plant_{kind}", lambda k=kind: art.plant(k))[0]
                         items.append((py, lambda s=surf, px=px, py=py: canvas.blit(
                             s, (px - cam_x - s.get_width() // 2, py - cam_y - s.get_height()))))
@@ -270,9 +274,9 @@ class Renderer:
 
     def _draw_pod(self, canvas, ax, ay, t) -> None:
         surf, fallback = self.surface("pod", art.pod)
-        self._blit_anchored(canvas, surf, ax, ay + 2)
+        self._blit_anchored(canvas, surf, ax, ay)
         if fallback and (t * 9) % 10 < 5:   # luz da antena piscando
-            canvas.fill("#ff5a4a", (round(ax) - 32 + 49, round(ay) + 2 - 72 + 1, 3, 3))
+            canvas.fill("#ff5a4a", (round(ax) - 32 + 49, round(ay) - 72 + 1, 3, 3))
 
     def draw_machine(self, canvas, kind, ax, ay, t, rotation=0, alpha=None) -> None:
         name = C.MACHINES[kind].sprite
@@ -280,13 +284,13 @@ class Renderer:
         if alpha is not None:
             surf = surf.copy()
             surf.set_alpha(alpha)
-        self._blit_anchored(canvas, surf, ax, ay + 2, flip=rotation % 2 == 1)
+        self._blit_anchored(canvas, surf, ax, ay, flip=rotation % 2 == 1)
         if fallback and alpha is None and rotation % 2 == 0:
             art.machine_anim(canvas, kind, round(ax), round(ay), t)
 
     def _draw_player(self, canvas, state: GameState, x, y, t) -> None:
         p = state.player
-        canvas.blit(self.player_shadow, (round(x) - 10, round(y) - 3))
+        canvas.blit(self.player_shadow, (round(x) - 8, round(y) - 5))   # elipse 16×5 nos pés (linha 30)
         # "left" usa o sprite de lado espelhado; "right" usa ele direto
         view = "side" if p.direction in ("left", "right") else p.direction
         if p.moving and not state.fainted:
@@ -342,7 +346,7 @@ class Renderer:
             for x, y, w, h in [(px + 1 + (i + step) % (T - 2), py + 1, 4, 2), (px + 1 + (i + step) % (T - 2), py + T - 3, 4, 2),
                                (px + 1, py + 1 + (i + step) % (T - 2), 2, 4), (px + T - 3, py + 1 + (i + step) % (T - 2), 2, 4)]:
                 canvas.fill(color, (x, y, w, h))
-        self.draw_machine(canvas, kind, px + T // 2, py + T - 2, t, rotation, alpha=128)
+        self.draw_machine(canvas, kind, px + T // 2, py + T, t, rotation, alpha=128)
 
     # ---- partículas (lasquinhas da mineração) ---------------------------------
     def spawn_chips(self, tile: tuple[int, int], color: str, n: int = 10) -> None:
@@ -369,7 +373,7 @@ class Renderer:
         cam_x, cam_y = cam
         tick = t * 9
         lights = []   # (x, y, raio, cor, força do brilho, quanto "corta" o escuro)
-        pod_x, pod_y = C.POD_ANCHOR[0] - 32 - cam_x, C.POD_ANCHOR[1] + 2 - 70 - cam_y
+        pod_x, pod_y = C.POD_ANCHOR[0] - 32 - cam_x, C.POD_ANCHOR[1] - 70 - cam_y
         lights.append((pod_x + 20, pod_y + 29, 170, (89, 208, 230), 0.2, 1.0))
         if tick % 10 < 5:
             lights.append((pod_x + 50, pod_y + 2, 44, (255, 90, 74), 0.5, 0.5))
