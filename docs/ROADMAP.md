@@ -15,8 +15,8 @@ Detalhes em `GAME_BIBLE.md` §4.
 - [x] 3 terminais de lore
 - [x] Tela de fim do MVP
 - [x] Guia visual + sprites (Designer) · aprovado pelo dono
-- [ ] Guia de som + efeitos (Som) · aprovado pelo dono
-- [ ] Integrar sprites e sons aprovados
+- [x] Guia de som + efeitos (Som) · aprovado pelo dono
+- [x] Integrar sprites e sons aprovados
 
 ## v0.2 · Sobrevivência de verdade
 Energia (painel solar), água e comida, save/load, mais recursos e máquinas.

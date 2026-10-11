@@ -7,7 +7,7 @@ from game.audio import HUM_MAX_VOLUME, alarm_should_play, hum_volume, resample
 
 
 def test_audio_and_sprites_flags():
-    assert C.ENABLE_AUDIO is False      # som ainda em revisão
+    assert C.ENABLE_AUDIO is True       # som v3 aprovado
     assert C.ENABLE_SPRITES is True     # sprites v2 aprovados
 
 
