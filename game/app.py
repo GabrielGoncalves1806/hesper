@@ -18,6 +18,7 @@ from game import config as C
 from game import audio as sound
 from game.assets import Sprites
 from game.audio import Audio
+from game.objectives import ObjectiveTracker
 from game.render import Renderer, stage_key
 from game.systems import Controls, GameState
 from game.ui import UI, FloatingTexts
@@ -65,6 +66,7 @@ class App:
         self.floaters = FloatingTexts()
         self.red_vignette = art.vignette(C.SCREEN_W, C.SCREEN_H, (170, 18, 8), 255)
         self.state = GameState()
+        self.objectives = ObjectiveTracker(self.state)
 
         self.running = True
         self.t = 0.0
@@ -159,6 +161,7 @@ class App:
                 elif state.in_base_zone():
                     self.placing = None
                     self.set_mode("fabricator")
+                    state.fabricator_opened = True
             elif key == pygame.K_ESCAPE and self.placing:
                 self.placing = None
                 self.audio.play("ui_close")
@@ -237,6 +240,7 @@ class App:
                 self.set_mode("end")
         self.update_ambient_sounds(dt)
         self.spawn_machine_floaters(dt)
+        self.objectives.update(self.state, dt)
 
     def on_game_event(self, event: tuple) -> None:
         kind = event[0]
@@ -344,6 +348,8 @@ class App:
             ui.draw_o2_critical(state, self.t, cam)
         icons = {r: self.renderer.surface(f"icon_{r}", lambda r=r: art.icon(r))[0] for r in C.RESOURCES}
         ui.draw_hud(state, self.t, self.hint() if self.mode == "play" else None, icons)
+        if not critical:   # com O₂ crítico o aviso grande ocupa essa área (e o foco é voltar pra base)
+            ui.draw_objectives(self.objectives.lines(state))
         if self.banner_time < BANNER_TIME:
             alpha = min(1.0, self.banner_time / BANNER_FADE_IN, (BANNER_TIME - self.banner_time) / BANNER_FADE_OUT)
             ui.draw_banner(self.banner_stage, alpha)
