@@ -22,6 +22,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "assets" / "sprites"
+PENDING = OUT / "_pending"  # assets novos aguardando aprovação do dono
 REP = ROOT / "reports" / "design"
 T = 32  # tamanho do tile
 
@@ -1639,6 +1640,324 @@ def make_flower() -> Canvas:
     return cv
 
 
+# ---------------------------------------------------------------- v0.2 (pendentes): baú, painel, estação, drone, ícones, slot
+
+MT = dict(w="#f4f6f8", l="#e1e5ea", m="#c8cdd4", s="#abb2bb", d="#8c949e", g="#6b717a", k="#3b3f46", kk="#2a2d33",
+          o="#e2733a", oh="#f29a62", od="#a8471f", led="#7fd67a", ledh="#d6ffd0", red="#ff5a4a")
+
+
+def _m(cv, x, y, w, h, c):
+    cv.rect(x, y, w, h, C(MT[c]) if c in MT else C(c))
+
+
+def make_chest(open_: bool) -> Canvas:
+    """Baú 32x40: tampa (topo) + frente em faixas; base em y=38 (sombra no rodapé)."""
+    cv = Canvas(32, 40)
+    cv.ellipse(16, 37.5, 15, 2.5, SHADOW)
+    # corpo (frente)
+    _m(cv, 2, 20, 28, 18, INK)
+    cv.bands(3, 21, 16, [(MT["l"], 3), (MT["m"], 14), (MT["s"], 6), (MT["d"], 3)])
+    _m(cv, 3, 36, 26, 1, "g")
+    _m(cv, 3, 27, 26, 3, "o")
+    _m(cv, 3, 27, 26, 1, "oh")
+    _m(cv, 3, 29, 26, 1, "od")
+    for cx in (3, 26):                                  # cantoneiras
+        _m(cv, cx, 21, 3, 15, "k")
+        _m(cv, cx, 21, 1, 15, "g")
+    _m(cv, 14, 25, 4, 6, INK)                           # trava
+    _m(cv, 15, 26, 2, 4, "k")
+    _m(cv, 15, 26, 1, 1, "d")
+    _m(cv, 7, 23, 2, 2, "led")
+    cv.px(7, 23, C(MT["ledh"]))
+    _m(cv, 3, 33, 26, 1, "s")
+    if not open_:
+        # tampa vista de cima (fechada)
+        _m(cv, 2, 11, 28, 10, INK)
+        _m(cv, 3, 12, 26, 8, "w")
+        _m(cv, 3, 17, 26, 3, "l")
+        _m(cv, 27, 12, 2, 8, "m")
+        _m(cv, 3, 19, 26, 1, "s")
+        _m(cv, 6, 14, 20, 1, "m")                       # vinco
+        _m(cv, 13, 12, 6, 8, "o")
+        _m(cv, 13, 12, 6, 1, "oh")
+        _m(cv, 18, 12, 1, 8, "od")
+        for cx in (3, 26):
+            _m(cv, cx, 12, 3, 8, "k")
+            _m(cv, cx, 12, 1, 8, "g")
+        return cv
+    # aberto: boca do baú com o interior e a tampa levantada pra trás
+    _m(cv, 2, 14, 28, 7, INK)
+    _m(cv, 3, 15, 26, 5, "#1d2026")
+    _m(cv, 3, 19, 26, 1, "#2a2e36")
+    # conteúdo: pepitas de cobre, lasca de silício, cubo de gelo
+    paint_piece(cv, shape_lump(5, 4, 1), 6, 14, ORE_STYLE["iron"], "nug", 1)
+    paint_piece(cv, shape_block(4, 4, 0), 17, 14, ORE_STYLE["ice"], "cube", 1)
+    paint_piece(cv, shape_shard(3, 5, 1), 11, 13, ORE_STYLE["silicon"], "shard", 1)
+    paint_piece(cv, shape_lump(4, 3, 0), 22, 15, ORE_STYLE["iron"], "nug", 1)
+    # borda da boca
+    _m(cv, 2, 20, 28, 1, INK)
+    _m(cv, 3, 20, 26, 1, "k")
+    # tampa aberta (vemos a parte de dentro, escura, inclinada pra trás)
+    _m(cv, 2, 2, 28, 12, INK)
+    _m(cv, 3, 3, 26, 10, "#4a4f57")
+    _m(cv, 3, 3, 26, 2, "g")
+    _m(cv, 5, 6, 22, 5, "#3b3f46")
+    _m(cv, 5, 6, 22, 1, "#2a2d33")
+    _m(cv, 13, 11, 6, 2, "o")
+    for cx in (3, 26):
+        _m(cv, cx, 3, 3, 10, "k")
+    _m(cv, 3, 12, 26, 1, "kk")
+    return cv
+
+
+def make_solar() -> Canvas:
+    """Painel solar 32x40: placa inclinada (células azul-escuras, grade e reflexo) num poste."""
+    cv = Canvas(32, 40)
+    cv.ellipse(16, 37.5, 13, 2.5, SHADOW)
+    # base e poste
+    _m(cv, 9, 32, 14, 6, INK)
+    _m(cv, 10, 33, 12, 4, "s")
+    _m(cv, 10, 33, 12, 1, "l")
+    _m(cv, 10, 35, 12, 1, "o")
+    _m(cv, 13, 22, 6, 11, INK)
+    _m(cv, 14, 22, 4, 11, "m")
+    _m(cv, 14, 22, 1, 11, "w")
+    _m(cv, 17, 22, 1, 11, "d")
+    _m(cv, 11, 34, 2, 1, "led")
+    # suporte em V
+    _m(cv, 10, 21, 12, 3, INK)
+    _m(cv, 11, 22, 10, 1, "g")
+    # placa: topo mais estreito (vai pra trás) -> trapézio, com espessura embaixo
+    top, bot = 3, 20
+    for y in range(top, bot + 1):
+        t = (y - top) / (bot - top)
+        inset = round(3 * (1 - t))
+        x0, x1 = 1 + inset, 31 - inset
+        cv.rect(x0, y, x1 - x0, 1, C(INK))
+        if y in (top, bot):
+            continue
+        cv.rect(x0 + 1, y, x1 - x0 - 2, 1, C("#1f3a6e"))
+        # grade de células (4 colunas x 3 linhas), linhas finas mais claras
+        for k in range(1, 4):
+            gx = x0 + 1 + round((x1 - x0 - 2) * k / 4)
+            cv.px(gx, y, C("#4f74b8"))
+        if (y - top) in (6, 12):
+            cv.rect(x0 + 1, y, x1 - x0 - 2, 1, C("#4f74b8"))
+        cv.px(x0 + 1, y, C("#c8cdd4"))                  # moldura prateada
+        cv.px(x1 - 2, y, C("#8c949e"))
+        # tom um pouco mais claro na metade de cima de cada célula
+        if (y - top) % 6 in (1, 2):
+            for x in range(x0 + 2, x1 - 2):
+                if cv.get(x, y)[:3] == C("#1f3a6e")[:3]:
+                    cv.px(x, y, C("#2a4f8f"))
+        # reflexo diagonal
+        for x in range(x0 + 1, x1 - 1):
+            d = x - (y - top) * 1.1
+            if 7 <= d < 10 or 17 <= d < 18:
+                cv.px(x, y, C("#9fc4f5" if 7 <= d < 9 or 17 <= d < 18 else "#6e98dc"))
+    _m(cv, 2, bot, 28, 1, "#c8cdd4")                    # aresta da frente
+    _m(cv, 2, bot + 1, 28, 1, INK)
+    cv.rect(4, top + 1, 1, 1, C("#ffffff"))
+    return cv
+
+
+STATION_PADS = [(18, 44), (46, 44)]   # centro do drone pousado, relativo ao PNG da estação
+
+
+def make_station() -> Canvas:
+    """Estação de drones 64x72: plataforma 2x2 com 2 pads marcados e torre de antena. Base em y=71."""
+    cv = Canvas(64, 72)
+    cv.ellipse(32, 67, 31, 4.5, SHADOW)
+    # plataforma: topo (vista de cima) + face frontal
+    _m(cv, 1, 26, 62, 42, INK)
+    _m(cv, 2, 27, 60, 33, "#4a4f57")
+    _m(cv, 2, 27, 60, 1, "g")
+    _m(cv, 2, 27, 1, 33, "g")
+    _m(cv, 61, 28, 1, 32, "k")
+    _m(cv, 2, 60, 60, 7, "s")                           # face da frente
+    _m(cv, 2, 60, 60, 1, "l")
+    _m(cv, 2, 66, 60, 1, "d")
+    hazard(cv, 4, 62, 28)                               # faixa de alerta
+    for fx in (2, 58):                                  # pés
+        _m(cv, fx, 67, 4, 3, "kk")
+    # pads de pouso: anel laranja + "H" claro
+    for px_, py_ in STATION_PADS:
+        cv.ellipse(px_, py_, 10, 7.5, C("#2f3338"))
+        cv.ellipse(px_, py_, 9, 6.5, C(MT["o"]))
+        cv.ellipse(px_, py_, 7, 5, C("#2f3338"))
+        _m(cv, px_ - 3, py_ - 3, 1, 6, "l")
+        _m(cv, px_ + 2, py_ - 3, 1, 6, "l")
+        _m(cv, px_ - 2, py_, 4, 1, "l")
+        for dx in (-10, 9):
+            cv.px(px_ + dx, py_, C(MT["led"]))
+    _m(cv, 31, 28, 2, 31, "#3b3f46")                    # divisória
+    for yy in (36, 52):                                 # emendas das chapas + rebites
+        _m(cv, 3, yy, 27, 1, "#575d66")
+        _m(cv, 34, yy, 27, 1, "#575d66")
+    for rx_, ry_ in ((4, 29), (28, 29), (35, 29), (59, 29), (4, 57), (28, 57), (35, 57), (59, 57)):
+        cv.px(rx_, ry_, C(MT["d"]))
+    # torre de antena atrás, à direita
+    _m(cv, 50, 4, 6, 24, INK)
+    _m(cv, 51, 4, 4, 24, "m")
+    _m(cv, 51, 4, 1, 24, "w")
+    _m(cv, 54, 4, 1, 24, "d")
+    for yy in (9, 15, 21):
+        _m(cv, 51, yy, 4, 1, "o")
+    _m(cv, 47, 10, 12, 1, INK)
+    _m(cv, 52, 0, 2, 4, "g")
+    _m(cv, 51, 0, 4, 2, "red")
+    cv.px(51, 0, C("#ffb3a8"))
+    # módulo de controle atrás, à esquerda
+    _m(cv, 6, 14, 18, 13, INK)
+    _m(cv, 7, 15, 16, 11, "l")
+    _m(cv, 7, 15, 16, 2, "w")
+    _m(cv, 21, 15, 2, 11, "s")
+    _m(cv, 9, 19, 9, 4, "#14202b")
+    _m(cv, 10, 20, 3, 1, "#59d0e6")
+    _m(cv, 10, 22, 6, 1, "#59d0e6")
+    _m(cv, 19, 19, 2, 2, "led")
+    _m(cv, 7, 24, 16, 1, "o")
+    return cv
+
+
+def make_drone_frame(f: int) -> Canvas:
+    """Drone 16x16 em 3/4: corpo branco/laranja 8x7, 4 braços, hélices girando (45° por quadro)."""
+    cv = Canvas(16, 16)
+    rotors = [(2, 3), (13, 3), (2, 12), (13, 12)]
+    for rx, ry in rotors:                                # braços
+        x, y = 7 + (rx > 7), 7 + (ry > 7)
+        while (x, y) != (rx, ry):
+            cv.px(x, y, C(MT["k"]))
+            x += (rx > x) - (rx < x)
+            y += (ry > y) - (ry < y)
+    blades = [((-2, 0), (2, 0)), ((-2, -1), (2, 1)), ((0, -2), (0, 2)), ((-2, 1), (2, -1))]
+    for i, (rx, ry) in enumerate(rotors):
+        (ax, ay), (bx, by) = blades[(f + i) % 4]
+        for t in range(5):
+            x = round(ax + (bx - ax) * t / 4)
+            y = round(ay + (by - ay) * t / 4)
+            cv.px(rx + x, ry + y, C("#eef2f8" if t in (0, 4) else "#aab3c2"))
+        cv.px(rx, ry, C(MT["kk"]))
+    body = Canvas(16, 16)
+    body.rect(4, 4, 8, 7, C(MT["w"]))
+    body.rect(4, 9, 8, 2, C(MT["m"]))
+    body.rect(10, 5, 2, 6, C(MT["s"]))
+    body.rect(4, 7, 8, 2, C(MT["o"]))
+    body.rect(4, 7, 8, 1, C(MT["oh"]))
+    body.rect(6, 4, 3, 2, C("#2b7f99"))
+    body.px(6, 4, C("#59d0e6"))
+    for x, y in ((4, 4), (11, 4), (4, 10), (11, 10)):
+        body.a[y, x] = 0
+    body.outline(C(INK))
+    cv.paste(body, 0, 0)
+    cv.px(10, 9, C(MT["led"] if f % 2 == 0 else "#2f5a2c"))
+    return cv
+
+
+def make_drone_sheet() -> Canvas:
+    sheet = Canvas(64, 16)
+    for f in range(4):
+        sheet.paste(make_drone_frame(f), f * 16, 0)
+    return sheet
+
+
+def make_icon_chest() -> Canvas:
+    cv = Canvas(16, 16)
+    lay = Canvas(16, 16)
+    lay.rect(2, 5, 12, 4, C(MT["w"]))
+    lay.rect(2, 8, 12, 1, C(MT["m"]))
+    lay.rect(2, 9, 12, 5, C(MT["l"]))
+    lay.rect(2, 10, 12, 2, C(MT["o"]))
+    lay.rect(2, 10, 12, 1, C(MT["oh"]))
+    lay.rect(12, 5, 2, 9, C(MT["s"]))
+    lay.rect(2, 13, 12, 1, C(MT["d"]))
+    lay.rect(7, 9, 2, 3, C(MT["k"]))
+    lay.px(3, 6, C(MT["led"]))
+    lay.a[5, 2] = 0
+    lay.a[5, 13] = 0
+    lay.outline(C(OUTLINE))
+    a = lay.a; op = a[:, :, 3] == 255; below = np.zeros_like(op); below[1:] = op[:-1]
+    a[below & ~op] = C(OUTLINE)
+    cv.paste(lay, 0, 0)
+    return cv
+
+
+def make_icon_solar() -> Canvas:
+    cv = Canvas(16, 16)
+    lay = Canvas(16, 16)
+    lay.rect(7, 10, 2, 3, C(MT["m"]))
+    lay.rect(5, 12, 6, 2, C(MT["s"]))
+    lay.rect(5, 12, 6, 1, C(MT["l"]))
+    for y in range(2, 10):
+        inset = round(2 * (1 - (y - 2) / 7))
+        lay.rect(1 + inset, y, 14 - 2 * inset, 1, C("#1f3a6e"))
+        lay.px(1 + inset, y, C("#c8cdd4"))
+        lay.px(14 - inset, y, C("#8c949e"))
+    for y in range(3, 9):
+        lay.px(8, y, C("#4f74b8"))
+    lay.rect(3, 5, 10, 1, C("#4f74b8"))
+    for x, y in ((4, 3), (5, 3), (3, 4), (4, 4), (10, 6), (11, 6)):
+        lay.px(x, y, C("#9fc4f5"))
+    lay.px(4, 3, C("#ffffff"))
+    lay.rect(1, 9, 14, 1, C("#c8cdd4"))
+    lay.outline(C(OUTLINE))
+    cv.paste(lay, 0, 0)
+    return cv
+
+
+def make_icon_station() -> Canvas:
+    cv = Canvas(16, 16)
+    lay = Canvas(16, 16)
+    lay.rect(1, 8, 14, 5, C("#4a4f57"))
+    lay.rect(1, 8, 14, 1, C(MT["g"]))
+    lay.rect(1, 12, 14, 2, C(MT["s"]))
+    lay.rect(1, 12, 14, 1, C(MT["l"]))
+    lay.rect(3, 9, 4, 3, C(MT["o"]))
+    lay.rect(4, 10, 2, 1, C("#2f3338"))
+    lay.rect(12, 2, 2, 7, C(MT["m"]))
+    lay.px(12, 1, C(MT["red"]))
+    lay.px(13, 1, C(MT["red"]))
+    lay.outline(C(OUTLINE))
+    cv.paste(lay, 0, 0)
+    # mini drone pousado
+    d = Canvas(16, 16)
+    d.rect(8, 7, 3, 3, C(MT["w"]))
+    d.rect(8, 8, 3, 1, C(MT["o"]))
+    d.px(7, 6, C("#aab3c2")); d.px(11, 6, C("#aab3c2"))
+    d.outline(C(OUTLINE))
+    cv.paste(d, 0, 0)
+    return cv
+
+
+def make_ui_slot() -> Canvas:
+    cv = Canvas(20, 20)
+    cv.rect(0, 0, 20, 20, C("#4a382f"))
+    cv.rect(1, 1, 18, 18, C("#1e1714"))
+    cv.rect(1, 1, 18, 1, C("#120d0b"))                  # sombra interna em cima/esquerda
+    cv.rect(1, 1, 1, 18, C("#120d0b"))
+    cv.rect(2, 18, 17, 1, C("#2c211c"))                 # luz interna embaixo/direita
+    cv.rect(18, 2, 1, 17, C("#2c211c"))
+    for x, y in ((0, 0), (19, 0), (0, 19), (19, 19)):
+        cv.a[y, x] = 0
+    for x, y in ((1, 1), (18, 1), (1, 18), (18, 18)):
+        cv.px(x, y, C("#4a382f"))
+    return cv
+
+
+def build_pending() -> dict[str, Canvas]:
+    return {
+        "chest.png": make_chest(False),
+        "chest_open.png": make_chest(True),
+        "solar_panel.png": make_solar(),
+        "drone_station.png": make_station(),
+        "drone.png": make_drone_sheet(),
+        "icon_chest.png": make_icon_chest(),
+        "icon_solar.png": make_icon_solar(),
+        "icon_drone_station.png": make_icon_station(),
+        "ui_slot.png": make_ui_slot(),
+    }
+
+
 # ---------------------------------------------------------------- geração de tudo
 
 def build_sprites() -> dict[str, Canvas]:
@@ -1737,6 +2056,9 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
         for c in ((vx, vy), (vx + 1, vy), (vx, vy + 1), (vx + 1, vy + 1)):
             g[c[1]][c[0]] = FL
             vein_cells.add(c)
+    base_v02 = {(11, 5), (12, 5), (13, 5), (15, 5), (16, 4), (17, 4), (16, 5), (17, 5)}
+    for c in base_v02:                           # baú, painéis e estação (v0.2)
+        g[c[1]][c[0]] = FL
     # terminal: parede com chão embaixo, na borda esquerda de cima
     term = None
     for y in range(1, GH - 1):
@@ -1790,7 +2112,7 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
         obj("machine_o2_t2.png", 12 * T + 16, 11 * T)
         obj("machine_heater_t2.png", 15 * T + 16, 11 * T)
         occupied = {(11, 8), (17, 7), (17, 9), (12, 10), (15, 10), (14, 7), (15, 7), (14, 8), (15, 8),
-                    (20, 9), (21, 9), (22, 9), (14, 0), (14, 1)} | vein_cells
+                    (20, 9), (21, 9), (22, 9), (14, 0), (14, 1)} | vein_cells | base_v02
         obj("machine_drill.png#2", 21 * T, 9 * T)
         for y in range(GH):
             for x in range(GW):
@@ -1808,6 +2130,10 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
         objs.append((2 * T - 4, "player2", 14 * T + 16))
 
     def draw_obj(ay, name, ax):
+        if name.startswith("landed:"):
+            _, lx, ly = name.split(":")
+            img.alpha_composite(spr["_pending/drone.png"].crop((0, 0, 16, 16)), (int(lx) - 8, int(ly) - 10))
+            return
         if name.startswith("player"):
             sh = Canvas(20, 7)
             sh.ellipse(10, 3.5, 8, 2.5, SHADOW)
@@ -1827,6 +2153,20 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
             s = spr[name]
         img.alpha_composite(s, (ax - s.width // 2, ay - s.height))
 
+    # v0.2 (pendentes): baú, painéis solares e estação de drones na base
+    for sx_ in (11, 12, 13):
+        obj("_pending/solar_panel.png", sx_ * T + 16, 6 * T)
+    obj("_pending/chest_open.png" if stage == "green" else "_pending/chest.png", 15 * T + 16, 6 * T)
+    flying = []
+    if stage != "dead":                       # a estação só libera na Névoa
+        st_ax, st_ay = 17 * T, 6 * T
+        obj("_pending/drone_station.png", st_ax, st_ay)
+        sx0, sy0 = st_ax - 32, st_ay - 72
+        # um drone pousado no pad 1; o outro está voando
+        objs.append((st_ay + 0.5, f"landed:{sx0 + STATION_PADS[0][0]}:{sy0 + STATION_PADS[0][1]}", 0))
+        flying.append((10 * T + 16, 2 * T + 18, 1))     # por cima da parede (face), sombra cai no chão
+        flying.append((19 * T + 4, 6 * T + 26, 3))     # sobre o chão, chegando na estação
+
     # 2) linhas de cima pra baixo
     for y in range(GH):
         for x in range(GW):
@@ -1845,6 +2185,12 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
                 img.alpha_composite(spr["terminal.png"], (px, py))
         for o in sorted(o for o in objs if (o[0] - 1) // T == y):
             draw_obj(*o)
+    # drones voando: por cima de tudo; sombra no chão 18 px abaixo (altitude)
+    for dx, dy, f in flying:
+        sh = Canvas(14, 6)
+        sh.ellipse(7, 3, 6, 2.5, SHADOW)
+        img.alpha_composite(sh.image(), (dx - 7, dy + 18 - 3))
+        img.alpha_composite(spr["_pending/drone.png"].crop((f * 16, 0, f * 16 + 16, 16)), (dx - 8, dy - 8))
     return img.crop((0, 0, 960, 540)).convert("RGB")
 
 
@@ -1865,6 +2211,9 @@ GROUPS = [
     ("Máquinas nv.1", "obj", ["machine_o2.png", "machine_heater.png", "machine_melter.png"]),
     ("Máquinas nv.2", "obj", ["machine_o2_t2.png", "machine_heater_t2.png", "machine_melter_t2.png"]),
     ("Plantas (estágio verde)", "obj", ["plant_bush.png", "plant_tree.png", "plant_flower.png"]),
+    ("v0.2 · baú, painel e estação (pendentes)", "obj", ["_pending/chest.png", "_pending/chest_open.png", "_pending/solar_panel.png", "_pending/drone_station.png"]),
+    ("v0.2 · drone (4 quadros, animado a 15 fps ao lado)", "drone", ["_pending/drone.png"]),
+    ("v0.2 · ícones e slot (pendentes)", "icon", ["_pending/icon_chest.png", "_pending/icon_solar.png", "_pending/icon_drone_station.png", "_pending/ui_slot.png"]),
     ("Drill automática (4 quadros, animada a 8 fps ao lado)", "obj", ["machine_drill.png"]),
     ("Broca (4 quadros, animada a 12 fps ao lado)", "drill", ["drill_side.png", "drill_down.png", "drill_up.png"]),
 ]
@@ -1893,6 +2242,7 @@ def build_report(spr: dict[str, Image.Image]):
         ("Astronauta e broca", [k for k in spr if k.startswith(("player", "drill"))]),
         ("Cápsula, máquinas e terminal", [k for k in spr if k.startswith(("pod", "machine", "terminal"))]),
         ("Plantas", [k for k in spr if k.startswith("plant_")]),
+        ("v0.2 · pendentes", [k for k in spr if k.startswith("_pending/")]),
     ]
     total = set()
     pal_html = []
@@ -1904,7 +2254,7 @@ def build_report(spr: dict[str, Image.Image]):
         )
         pal_html.append(f'<div class="pal"><h3>{title} <span>{len(cols)} cores</span></h3><ul>{sw}</ul></div>')
 
-    scale = {"tile": 4, "obj": 4, "icon": 8, "char": 6, "face": 8, "drill": 8}
+    scale = {"tile": 4, "obj": 4, "icon": 8, "char": 6, "face": 8, "drill": 8, "drone": 8}
     groups_html = []
     for title, kind, names in GROUPS:
         cards = []
@@ -1912,9 +2262,9 @@ def build_report(spr: dict[str, Image.Image]):
             im = spr[n]
             s = scale[kind]
             extra = ""
-            if n.startswith(("player_walk", "drill_", "machine_drill")):
+            if n.startswith(("player_walk", "drill_", "machine_drill", "_pending/drone.png")):
                 fw, fh = im.width // 4, im.height
-                cls = "anim fast" if n.startswith("drill_") else "anim"
+                cls = "anim fast" if n.startswith(("drill_", "_pending/drone")) else "anim"
                 extra = (f'<div class="{cls}" style="width:{fw * s}px;height:{fh * s}px;--end:-{im.width * s}px;'
                          f'background-image:url(../../assets/sprites/{n});background-size:{im.width * s}px {fh * s}px"></div>')
             cards.append(
@@ -1943,6 +2293,8 @@ def build_report(spr: dict[str, Image.Image]):
         b_html = (f'<div>antes<img src="before/{n}.png" width="{w}" height="{h}" alt="{n} antes"></div>' if before else "")
         cmp_items.append(f'<figure><div class="pair">{b_html}<div>depois<img src="../../assets/sprites/{n}.png" width="{w}" height="{h}" alt="{n} depois"></div></div><figcaption>{n}.png · {sc}×</figcaption></figure>')
     cmp_html = "".join(cmp_items)
+    n_pending = sum(1 for k in spr if k.startswith("_pending/"))
+    n_official = len(spr) - n_pending
 
     notes = [
         ("Tiles sem costura",
@@ -2048,11 +2400,31 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v2.3</div>
+  <div class="eyebrow">Hesper · Designer · v3.0 (v0.2)</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
-  <div class="status"><span class="chip ok">{len(spr)} arquivos · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span></div>
-  <div class="v2"><b>v2.3 · o que mudou</b><ul>
+  <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span></div>
+  <div class="v2"><b>v3.0 (v0.2) · sprites novos, aguardando aprovação</b><ul>
+    <li><b>Assets novos</b> em <code>assets/sprites/_pending/</code>, que o jogo ainda não usa:
+      <ul>
+        <li>baú fechado e aberto (<code>chest</code>, <code>chest_open</code>);</li>
+        <li><code>solar_panel</code>;</li>
+        <li><code>drone_station</code>, com 2 pads de pouso;</li>
+        <li><code>drone</code>, com 4 quadros de hélice girando;</li>
+        <li>os ícones <code>icon_chest</code>, <code>icon_solar</code> e <code>icon_drone_station</code>;</li>
+        <li>e <code>ui_slot</code>.</li>
+      </ul>
+      Tudo segue a família das máquinas: branco/cinza em faixas, laranja, LED e contorno escuro. Os ícones seguem o estilo v2.3.</li>
+    <li><b>Os 58 sprites oficiais não mudaram</b> (md5 conferido).</li>
+    <li><b>Prévias:</b> todas ganharam o baú (aberto no Verde) e 3 painéis solares. Na Névoa e no Verde aparecem também:
+      <ul>
+        <li>a estação de drones com 1 drone pousado;</li>
+        <li>1 drone voando por cima de uma parede, com a sombra caindo no chão;</li>
+        <li>1 drone chegando sobre o chão.</li>
+      </ul>
+      A estação não aparece no Morto porque só libera na Névoa.</li>
+  </ul></div>
+  <div class="v2" style="opacity:.75"><b>v2.3</b><ul>
     <li><b>Minérios num estilo novo, mais amigável:</b> peças chunky e arredondadas, sem cristal fino nem spike. Cores chapadas e saturadas em 2–3 faixas, um brilho claro e contorno <code>#1b1630</code> (o mesmo do astronauta e da broca), com 2 px na base pra parecer encrustado. As formas diferem por minério: ferro em pepitas gordas cor de cobre, silício em lascas grossas de topo rombudo, gelo em cubos.</li>
     <li><b>Arquivos refeitos:</b> <code>ore_*</code> (overlay da parede) e <code>icon_*</code> (agora como item coletado, com o silício num toco de rocha escura).</li>
     <li><b>Veios refeitos</b> como placas achatadas encravadas no chão, quase niveladas com o solo. As placas são angulosas, de tamanhos variados, com contorno escuro, 2 px de espessura embaixo, bisel claro e fraturas finas. Pepitas pequenas contornadas ficam por cima e em volta. Ferro tem placas rugosas, silício tem lascas sobrepostas e gelo tem placas lisas de aresta reta. A mancha de terra ficou mais sutil (preto 19%).</li>
@@ -2080,6 +2452,17 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 <section><h2>Minérios · antes (v2.2) × depois (v2.3)</h2><div class="cmp">{cmp_html}</div></section>
 
 {"".join(groups_html)}
+
+<section><h2>v0.2 · pro Dev</h2>
+<div class="box dev"><table class="tb"><thead><tr><th>Sprite</th><th>Tamanho</th><th>Âncora / uso</th></tr></thead><tbody>
+<tr><td><code>chest.png</code> / <code>chest_open.png</code></td><td>32×40</td><td>Centro da base do tile: blit em <code>(tx·32 + 16 − 16, (ty+1)·32 − 40)</code>. Os 8 px de cima sobem pro tile de cima. Sombra no rodapé.</td></tr>
+<tr><td><code>solar_panel.png</code></td><td>32×40</td><td>Igual ao baú (1 tile, centro da base). Sombra no rodapé.</td></tr>
+<tr><td><code>drone_station.png</code></td><td>64×72</td><td>2×2, centro da base dos 2×2: <code>ax = (tx+1)·32</code>, <code>ay = (ty+2)·32</code>, blit em <code>(ax − 32, ay − 72)</code>. A torre de antena sobe 8 px pro tile de cima.</td></tr>
+<tr><td>Pontos de pouso</td><td>2</td><td>Relativos ao canto sup. esquerdo do PNG da estação: <b>pad 1 = {STATION_PADS[0]}</b>, <b>pad 2 = {STATION_PADS[1]}</b>. É o centro do drone pousado: blit do quadro do drone em <code>(sx + px − 8, sy + py − 10)</code> (2 px acima do pad, parece pousado sobre os pés). Desenhar logo depois da estação.</td></tr>
+<tr><td><code>drone.png</code></td><td>64×16</td><td>4 quadros de 16×16, recorte <code>(16·f, 0, 16, 16)</code>, ~15 fps sempre (pousado pode ficar no quadro 0). Sem sombra no PNG: o jogo desenha uma elipse ~12×5 (preto 36%) no chão, uns 18 px abaixo do centro do drone (altitude). Voando, o drone vai por cima de tudo (depois de paredes e objetos).</td></tr>
+<tr><td><code>ui_slot.png</code></td><td>20×20</td><td>Moldura de slot, opaca, com os cantos vazados. O ícone 16×16 entra em <code>(2, 2)</code>.</td></tr>
+</tbody></table></div>
+</section>
 
 <section><h2>Drill automática · pro Dev</h2>
 <div class="box dev"><table class="tb"><thead><tr><th>Item</th><th>Valor</th></tr></thead><tbody>
@@ -2123,12 +2506,18 @@ def main():
     canv = build_sprites()
     for name, cv in canv.items():
         cv.save(name)
+    PENDING.mkdir(parents=True, exist_ok=True)
+    pend = build_pending()
+    for name, cv in pend.items():
+        cv.image().save(PENDING / name)
     spr = {n: Image.open(OUT / n).convert("RGBA") for n in canv}
+    spr.update({f"_pending/{n}": Image.open(PENDING / n).convert("RGBA") for n in pend})
     for st in STAGES:
         render_scene(st, spr).save(REP / f"preview_{st}.png")
     make_drill_preview(spr).save(REP / "drill_preview.png")
     build_report(spr)
-    print(f"{len(canv)} sprites em {OUT.relative_to(ROOT)}, 3 prévias + index.html em {REP.relative_to(ROOT)}")
+    print(f"{len(canv)} sprites oficiais em {OUT.relative_to(ROOT)}, {len(pend)} pendentes em "
+          f"{PENDING.relative_to(ROOT)}, 3 prévias + index.html em {REP.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
