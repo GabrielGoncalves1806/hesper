@@ -307,31 +307,77 @@ def make_wall(stage: str, v: int) -> Canvas:
     return cv
 
 
+FACE_EXTRA = {  # tons extras da face alta (derivados da cor de face da bíblia)
+    "dead": dict(faceL="#3e2928", faceD="#241717", faceDD="#180f10"),
+    "mist": dict(faceL="#3a3438", faceD="#211e20", faceDD="#151314"),
+    "green": dict(faceL="#3b3b36", faceD="#22221f", faceDD="#151513"),
+}
+FH = 24  # altura da face
+
+
 def make_face(stage: str) -> Canvas:
+    """Paredão de 32x24 em lajes verticais: lábio claro no topo, fendas verticais, estratos,
+    saliências com luz/sombra e tom escurecendo em faixas pra baixo. Emenda na horizontal."""
     P, seed = STAGES[stage], STAGE_SEED[stage]
-    cv = Canvas(T, 12)
-    cv.rect(0, 0, T, 12, C(P["face"]))
-    cv.rect(0, 0, T, 1, C(P["faceHi"]))
-    cv.rect(0, 1, T, 1, C(P["faceMid"]))
-    cv.rect(0, 10, T, 2, C(P["faceDark"]))
-    # estrato horizontal claro e quebrado
+    X = FACE_EXTRA[stage]
+    ramp = [X["faceL"], P["rockDot"], P["face"], X["faceD"], X["faceDD"]]  # claro -> escuro
+    band_of = lambda y: 0 if y < 9 else 1 if y < 15 else 2 if y < 20 else 3
+    lighter = lambda y: C(P["rock"]) if band_of(y) == 0 else C(ramp[band_of(y) - 1])
+    darker = lambda y: C(ramp[band_of(y) + 1])
+    cv = Canvas(T, FH)
+    for y in range(FH):
+        cv.rect(0, y, T, 1, C(ramp[band_of(y)]))
+    # bordas das faixas serrilhadas em degrau (padrão fixo, não ruído)
+    for y in (9, 15, 20):
+        for x in range(T):
+            if (x // 3 + y) % 3 == 0:
+                cv.px(x, y, C(ramp[band_of(y - 1)]))
+    # lajes verticais separadas por fendas
+    cuts = [0, 11, 17, 26]
+    for i, cx in enumerate(cuts):
+        jog = 9 + (i * 5) % 7          # altura onde a fenda dá um passo pro lado
+        for y in range(2, FH - 1):
+            x = cx + (1 if y >= jog else 0) + (1 if y >= jog + 6 and i % 2 else 0)
+            cv.px(x, y, C(X["faceDD"]), wrap=True)
+            cv.px(x + 1, y, lighter(y), wrap=True)         # aresta iluminada à direita da fenda
+            cv.px(x - 1, y, darker(y), wrap=True)          # lado sombreado à esquerda
+    # estratos: uma rachadura horizontal por laje, com luz logo abaixo
+    for (a, b), sy in zip(zip(cuts, cuts[1:] + [32]), (12, 7, 14, 10)):
+        for x in range(a + 3, b - 2):
+            cv.px(x, sy, C(X["faceDD"]))
+            cv.px(x, sy + 1, lighter(sy + 1))
+    # saliências (pedras salientes)
+    for sx, sy, w in ((4, 4, 4), (21, 3, 3), (12, 16, 4), (28, 13, 3)):
+        cv.rect(sx, sy, w, 1, lighter(sy))
+        cv.rect(sx, sy + 1, w, 1, C(ramp[band_of(sy)]))
+        cv.rect(sx, sy + 2, w, 1, C(X["faceDD"]))
+        cv.px(sx, sy, C(P["rockHi"]) if sy < 9 else lighter(sy))
+    # lábio do topo
+    cv.rect(0, 0, T, 1, C(P["rockHi"]))
+    cv.rect(0, 1, T, 1, C(P["rock"]))
     for x in range(T):
-        if hsh(x, 0, seed) < 0.55:
-            cv.px(x, 5, C(P["faceMid"]))
-    # rachaduras verticais
-    for cx, top, ln in ((5, 2, 6), (17, 3, 7), (26, 2, 4)):
-        for y in range(top, top + ln):
-            cv.px(cx + (1 if y > top + 3 else 0), y, C(P["faceDark"]))
-    cv.rect(10, 7, 3, 1, C(P["faceDark"]))
-    cv.rect(22, 4, 2, 1, C(P["faceDark"]))
-    cv.px(13, 3, C(P["faceHi"]))
-    cv.px(29, 7, C(P["faceHi"]))
+        if (x * 7) % 5 == 0:
+            cv.px(x, 2, C(P["rockDot"]))
+    cv.rect(0, FH - 1, T, 1, C(X["faceDD"]))
     if "moss" in P:
-        for x, ln in ((3, 4), (4, 6), (12, 3), (20, 5), (21, 2), (28, 4)):
-            cv.rect(x, 0, 1, ln, C(P["moss"]))
-            cv.px(x, ln - 1, C(P["moss2"]))
-        cv.rect(2, 0, 5, 1, C(P["moss2"]))
-        cv.rect(19, 0, 4, 1, C(P["moss2"]))
+        for x in range(T):
+            cv.px(x, 0, C(P["moss2"] if hsh(x, 3, seed) < 0.5 else P["moss"]))
+            if hsh(x, 4, seed) < 0.6:
+                cv.px(x, 1, C(P["moss"]))
+            if hsh(x, 5, seed) < 0.2:
+                cv.px(x, 2, C(P["mossD"]))
+        for vx, ln in ((4, 14), (13, 7), (22, 18), (29, 10)):
+            x = vx
+            for y in range(1, 1 + ln):
+                cv.px(x, y, C(P["moss"] if y % 4 else P["mossD"]), wrap=True)
+                if y % 3 == 2:
+                    cv.px(x + (1 if (y // 3) % 2 else -1), y, C(P["moss2"]), wrap=True)
+                if y in (5, 11):
+                    x += 1 if vx % 2 else -1
+            cv.px(x, 1 + ln, C(P["moss2"]), wrap=True)
+        for mx, my, w in ((6, 13, 3), (19, 8, 3)):
+            cv.rect(mx, my, w, 1, C(P["moss"]))
+            cv.px(mx + 1, my - 1, C(P["moss2"]))
     return cv
 
 
@@ -437,104 +483,203 @@ def make_icon(name: str) -> Canvas:
     return cv
 
 
-# ---------------------------------------------------------------- personagem
+# ---------------------------------------------------------------- personagem (v2: astronauta chibi 32x32)
 
-PAL_PLAYER = {"k": INK, "w": "#ece8e0", "g": "#b9b2a8", "o": "#e2733a", "O": "#a8471f",
-              "c": "#59d0e6", "C": "#2b7f99", "h": "#d8fbff", "d": "#3b3f46", "s": "#6b717a"}
-PLAYER = [
-    "......kkkkkkk.......",
-    "....kkwwwwwwwkk.....",
-    "...kwwwwwwwwwwwk....",
-    "..kwwwwwwwwwwhwwk...",
-    "..kwwwwwwkkkkkkkk...",
-    ".kwwwwwwkcccchhhck..",
-    ".kgwwwwwkccccchhck..",
-    ".kgwwwwwkcccccccck..",
-    ".kggwwwwkCcccccccck.",
-    ".kggwwwwkCCCcccccck.",
-    "..kggwwwwkkkkkkkkk..",
-    "...kkgggwwwwwwkk....",
-    ".kkkkkgwwwwwwwwk....",
-    "kOooOkgwwwwwwwwwk...",
-    "kOooOkggwwwwwwwwwk..",
-    "kOooOkggwwwwwccwwk..",
-    "kOooOkggwwwwwccwdk..",
-    "kOooOkgggwwwwwwwddk.",
-    "kOOOOkgggooooooodk..",
-    ".kkkkkggwwwwwwwwk...",
-    ".....kggwwwwwwwwk...",
-    ".....kggwwwkgwwwk...",
-    ".....kggwwk.kgwwk...",
-    ".....kggwwk.kgwwk...",
-    ".....kgwwwk.kgwwk...",
-    ".....kddddk.kdddk...",
-    ".....kddddk.kddddk..",
-    "....kdddddk.kddddk..",
-    "....ksssssk.kssssk..",
-    "....kkkkkkk.kkkkkk..",
-]
-UPPER = PLAYER[:21]  # cabeça, tronco e quadril (linhas 0..20)
-
-# pernas dos quadros de caminhada: contato = corpo 1 px abaixo, pernas em 8 linhas (22..29)
-LEGS_CONTACT_A = [  # perna de trás (longe) atrás, perna da frente adiante
-    "....kggwwk.kgwwk....",
-    "...kggwwk...kgwwk...",
-    "...kggwk....kgwwwk..",
-    "..kggwk......kgwwk..",
-    "..kdddk......kddddk.",
-    ".kdddk.......kddddk.",
-    ".ksssk.......kssssk.",
-    ".kkkkk.......kkkkkk.",
-]
-LEGS_PASS_1 = [  # passagem: perna de trás sobe
-    ".....kggwwwkgwwwk...",
-    ".....kggwwk.kgwwk...",
-    "......kggwk.kgwwk...",
-    "......kddddkkgwwk...",
-    "......kddddkkdddk...",
-    "......ksssskkddddk..",
-    "......kkkkkkkddddk..",
-    "............kssssk..",
-    "............kkkkkk..",
-]
-LEGS_CONTACT_B = [  # trocou: a de trás foi pra frente
-    "....kgwwwk.kggwk....",
-    "...kgwwwk...kggwk...",
-    "...kgwwk....kggwwk..",
-    "..kgwwk......kggwk..",
-    "..kddddk.....kdddk..",
-    ".kddddk......kddddk.",
-    ".kssssk......kssssk.",
-    ".kkkkkk......kkkkkk.",
-]
-LEGS_PASS_2 = [  # passagem: perna da frente sobe
-    ".....kggwwwkgwwwk...",
-    ".....kggwwkkgwwk....",
-    ".....kggwwkkgwwk....",
-    ".....kgwwwkkddddk...",
-    ".....kddddkkddddk...",
-    ".....kddddkkssssk...",
-    ".....kddddkkkkkkk...",
-    "....ksssssk.........",
-    "....kkkkkkk.........",
-]
+AST = dict(
+    line="#1b1630", w="#f4f4f8", l="#d3d8e6", s="#9aa2bf", d="#6a7194",
+    v0="#151638", v1="#232457", v2="#3b2f78", vr="#9fb2ff", vh="#ffffff",
+    r="#d9384a", rd="#97213a", p="#353a5a", cy="#59d0e6", y="#f2c46d",
+    bp="#b9bfd1", bps="#878fac",
+)
 
 
-def make_player() -> Canvas:
-    cv = Canvas(20, 30)
-    cv.draw_map(PLAYER, PAL_PLAYER)
+def shade_ellipse(cx, cy, rx, ry):
+    """Máscara + nível de luz (0 claro .. 3 escuro) de uma elipse, luz vindo de cima/esquerda."""
+    ys, xs = np.mgrid[0:32, 0:32] + 0.5
+    dx, dy = (xs - cx) / rx, (ys - cy) / ry
+    m = dx * dx + dy * dy <= 1.0
+    k = dx * 0.75 + dy * 0.65
+    lvl = np.where(k > 0.62, 3, np.where(k > 0.3, 2, np.where(k > -0.25, 1, 0)))
+    lvl[(k < -0.62)] = 0
+    return m, lvl
+
+
+class Part:
+    """Uma camada do boneco: pinta numa tela própria, ganha contorno e é colada de trás pra frente."""
+    def __init__(self):
+        self.cv = Canvas(32, 32)
+
+    def r(self, x, y, w, h, c):
+        self.cv.rect(x, y, w, h, C(AST[c]))
+        return self
+
+    def p(self, x, y, c):
+        self.cv.px(x, y, C(AST[c]))
+        return self
+
+    def body_rect(self, x, y, w, h, round_=True):
+        """Bloco do traje: branco, coluna da esquerda clara, direita e base em cinza-azulado."""
+        self.r(x, y, w, h, "w")
+        self.r(x + w - 2, y, 2, h, "l")
+        self.r(x + w - 1, y + 1, 1, h - 1, "s")
+        self.r(x, y + h - 1, w, 1, "s")
+        if round_:
+            for cx, cy in ((x, y), (x + w - 1, y), (x, y + h - 1), (x + w - 1, y + h - 1)):
+                self.cv.a[cy, cx] = 0
+        return self
+
+
+def put(dst: Canvas, part: Part):
+    part.cv.outline(C(AST["line"]))
+    dst.paste(part.cv, 0, 0)
+
+
+def helmet(dst: Canvas, view: str, bob: int):
+    cx, cy = (16.0 if view != "side" else 15.5), 8.5 + bob
+    m, lvl = shade_ellipse(cx, cy, 8.6, 7.7)
+    pt = Part()
+    cols = [C(AST["w"]), C(AST["w"]), C(AST["l"]), C(AST["s"])]
+    for k in range(4):
+        pt.cv.a[m & (lvl == k)] = cols[k]
+    if view == "up":
+        # nuca: faixa vermelha e respiro
+        yb = int(cy + 3)
+        for x in range(32):
+            if m[yb, x] and m[yb + 1, x]:
+                pt.cv.px(x, yb, C(AST["r"]))
+        pt.r(14, int(cy) - 3, 4, 2, "l").r(14, int(cy) - 3, 4, 1, "s")
+    else:
+        vcx = cx if view == "down" else cx + 3.2
+        vrx = 6.2 if view == "down" else 4.6
+        vm, vl = shade_ellipse(vcx, cy + 0.6, vrx, 5.0)
+        vm &= m
+        if view == "side":
+            inner, _ = shade_ellipse(cx, cy, 7.6, 6.7)
+            vm &= inner
+        vc = [C(AST["v1"]), C(AST["v1"]), C(AST["v1"]), C(AST["v0"])]
+        for k in range(4):
+            pt.cv.a[vm & (vl == k)] = vc[k]
+        # meia-lua roxa na base do visor (luz rebatida)
+        below2 = np.roll(vm, -2, 0)
+        pt.cv.a[vm & ~below2 & np.roll(vm, -1, 0)] = C(AST["v2"])
+        # aro cinza em volta do visor (só do lado de dentro do capacete)
+        ring = np.zeros_like(vm)
+        ring[1:, :] |= vm[:-1, :]; ring[:-1, :] |= vm[1:, :]
+        ring[:, 1:] |= vm[:, :-1]; ring[:, :-1] |= vm[:, 1:]
+        ring &= ~vm & m
+        if view == "side":
+            ring &= np.arange(32)[None, :] < 26
+        pt.cv.a[ring] = C(AST["s"])
+        # reflexo em curva: faixa fina perto da borda de cima/esquerda do visor
+        ys_, xs_ = np.mgrid[0:32, 0:32] + 0.5
+        ddx, ddy = (xs_ - vcx) / vrx, (ys_ - cy - 0.6) / 5.0
+        rr = ddx * ddx + ddy * ddy
+        arc = vm & (rr > 0.42) & (rr < 0.78) & (ddx < -0.05) & (ddy < -0.15) & (ddx + ddy < -0.55)
+        pt.cv.a[arc] = C(AST["vr"])
+        ay, ax = np.nonzero(arc)
+        if len(ax):
+            i = np.argsort(ax + ay)[len(ax) // 2]
+            pt.cv.px(ax[i], ay[i], C(AST["vh"]))
+        gx = int(vcx + vrx * 0.35)
+        pt.cv.px(gx, int(cy + 0.6 + 2.6), C(AST["vr"]))
+        if view == "side":  # antena/luz da lateral do capacete
+            pt.r(int(cx) - 6, int(cy) - 1, 2, 3, "l").p(int(cx) - 6, int(cy), "r")
+    put(dst, pt)
+
+
+def leg(dst: Canvas, x, top, bottom, view, stride=0, toe=1):
+    """Perna com bota; `stride` inclina (desloca o pé) no lado."""
+    pt = Part()
+    n = bottom - top + 1
+    for i, y in enumerate(range(top, bottom + 1)):
+        t = i / max(1, n - 1)
+        xo = x + int(round(stride * t))
+        boot = y >= bottom - 2
+        if boot:
+            pt.r(xo, y, 4, 1, "d").p(xo, y, "s")
+            if view == "side" and y == bottom:
+                pt.p(xo + 4 * (1 if toe > 0 else 0) - (1 if toe < 0 else 0), y, "d")
+        else:
+            pt.r(xo, y, 4, 1, "w").r(xo + 3, y, 1, 1, "s").r(xo + 2, y, 1, 1, "l")
+        if y == bottom - 3:
+            pt.r(xo, y, 4, 1, "r").p(xo + 3, y, "rd")
+    put(dst, pt)
+
+
+def arm(dst: Canvas, x, y, w=3, h=7, glove_rows=2, side=False):
+    pt = Part()
+    pt.r(x, y, w, h, "w").r(x + w - 1, y, 1, h, "s").r(x, y, 1, h - glove_rows, "w")
+    if w >= 3:
+        pt.r(x + 1, y, 1, h, "l") if side else None
+    pt.r(x, y + h - glove_rows, w, glove_rows, "r").r(x + w - 1, y + h - glove_rows, 1, glove_rows, "rd")
+    pt.r(x, y + 1, w, 1, "l")
+    put(dst, pt)
+
+
+def astronaut(view: str, bob=0, lift_l=0, lift_r=0, arm_l=0, arm_r=0, stride=0, swap=False) -> Canvas:
+    """Desenha um quadro. bob<0 sobe o corpo; lift_* levanta o pé; arm_* move o braço; stride = passada (lado)."""
+    cv = Canvas(32, 32)
+    B = bob
+    if view in ("down", "up"):
+        # mochila aparecendo atrás (frente) — na vista de costas ela vem por cima, mais abaixo
+        if view == "down":
+            bp = Part().r(9, 14 + B, 14, 8, "bp").r(20, 14 + B, 3, 8, "bps")
+            put(cv, bp)
+        leg(cv, 11, 23 + B, 30 - lift_l, view)
+        leg(cv, 17, 23 + B, 30 - lift_r, view)
+        torso = Part().body_rect(10, 15 + B, 12, 10)
+        torso.r(10, 22 + B, 12, 1, "r").r(20, 22 + B, 2, 1, "rd")      # cinto vermelho
+        if view == "down":
+            torso.r(13, 17 + B, 6, 4, "p")                           # painel do peito
+            torso.p(14, 18 + B, "r").p(15, 18 + B, "cy").p(16, 18 + B, "y").r(14, 19 + B, 4, 1, "d")
+            torso.p(17, 18 + B, "cy")
+        put(cv, torso)
+        arm(cv, 7, 16 + B + arm_l, 3, 7)
+        arm(cv, 22, 16 + B + arm_r, 3, 7)
+        if view == "up":
+            bp = Part().r(10, 14 + B, 12, 10, "bp").r(19, 14 + B, 3, 10, "bps").r(10, 23 + B, 12, 1, "bps")
+            bp.r(12, 16 + B, 8, 1, "r").r(12, 19 + B, 3, 2, "d").r(17, 19 + B, 3, 2, "d")
+            bp.p(12, 19 + B, "s").p(17, 19 + B, "s")
+            for cx, cy_ in ((10, 14), (21, 14), (10, 23), (21, 23)):
+                bp.cv.a[cy_ + B, cx] = 0
+            put(cv, bp)
+        helmet(cv, view, B)
+        return cv
+    # lado (olhando pra direita)
+    bp = Part().r(6, 14 + B, 6, 10, "bp").r(6, 14 + B, 6, 1, "w").r(6, 23 + B, 6, 1, "bps")
+    bp.r(7, 16 + B, 1, 6, "r")
+    for cx, cy_ in ((6, 14), (6, 23)):
+        bp.cv.a[cy_ + B, cx] = 0
+    back, front = (13, 15) if not swap else (15, 13)
+    leg(cv, back if not swap else front, 23 + B, 30 - (lift_l if not swap else lift_r), "side", -stride)
+    torso = Part().body_rect(11, 15 + B, 10, 10)
+    torso.r(11, 22 + B, 10, 1, "r").r(19, 22 + B, 2, 1, "rd")
+    torso.r(17, 17 + B, 3, 3, "p").p(18, 18 + B, "cy")
+    leg_front_x = front if not swap else back
+    leg(cv, leg_front_x, 23 + B, 30 - (lift_r if not swap else lift_l), "side", stride)
+    put(cv, torso)
+    put(cv, bp)
+    helmet(cv, "side", B)
+    arm(cv, 14 + arm_r, 16 + B, 3, 7, side=True)
     return cv
 
 
-def make_walk() -> Canvas:
-    sheet = Canvas(80, 30)
-    frames = [(1, LEGS_CONTACT_A, 22), (0, LEGS_PASS_1, 21), (1, LEGS_CONTACT_B, 22), (0, LEGS_PASS_2, 21)]
-    for f, (bob, legs, ly) in enumerate(frames):
-        fr = Canvas(20, 30)
-        fr.draw_map(legs, PAL_PLAYER, 0, ly)
-        fr.draw_map(UPPER, PAL_PLAYER, 0, bob)
-        # mochila balança: no contato desce junto com o corpo (já incluso); na passagem o braço fica
-        sheet.paste(fr, f * 20, 0)
+WALK = {
+    # (bob, lift_l, lift_r, arm_l, arm_r, stride, swap): contato, passagem, contato invertido, passagem
+    "down": [(0, 0, 2, 1, -1, 0, False), (-1, 0, 0, 0, 0, 0, False), (0, 2, 0, -1, 1, 0, False), (-1, 0, 0, 0, 0, 0, False)],
+    "side": [(0, 0, 0, 0, 1, 3, False), (-1, 2, 0, 0, 0, 0, False), (0, 0, 0, 0, -1, 3, True), (-1, 0, 2, 0, 0, 0, False)],
+}
+WALK["up"] = WALK["down"]
+
+
+def make_player(view: str) -> Canvas:
+    return astronaut(view)
+
+
+def make_walk(view: str) -> Canvas:
+    sheet = Canvas(128, 32)
+    for f, (bob, ll, lr, al, ar, st, sw) in enumerate(WALK[view]):
+        sheet.paste(astronaut(view, bob, ll, lr, al, ar, st, sw), f * 32, 0)
     return sheet
 
 
@@ -916,8 +1061,9 @@ def make_flower() -> Canvas:
 
 def build_sprites() -> dict[str, Canvas]:
     out: dict[str, Canvas] = {}
-    out["player.png"] = make_player()
-    out["player_walk.png"] = make_walk()
+    for view in ("down", "up", "side"):
+        out[f"player_{view}.png"] = make_player(view)
+        out[f"player_walk_{view}.png"] = make_walk(view)
     for st in STAGES:
         for v in range(4):
             out[f"floor_{st}_{v}.png"] = make_floor(st, v)
@@ -995,7 +1141,8 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
                 term = (x, y)
                 g[y][x] = RK
     img = Image.new("RGBA", (GW * T, GH * T), (0, 0, 0, 255))
-    shade = Image.new("RGBA", (T, 6), (0, 0, 0, 80))
+    shade = Image.new("RGBA", (T, 10), (0, 0, 0, 84))
+    shade_b = Image.new("RGBA", (T, 6), (0, 0, 0, 40))
     shade2 = Image.new("RGBA", (4, T), (0, 0, 0, 40))
     ore_name = {FE: "ore_iron.png", SI: "ore_silicon.png", IC: "ore_ice.png"}
     for y in range(GH):
@@ -1006,7 +1153,7 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
                 img.alpha_composite(spr[f"wall_{stage}_{v}.png"], (px, py))
                 below = g[y + 1][x] if y + 1 < GH else RK
                 if not is_wall(below):
-                    img.alpha_composite(spr[f"wall_face_{stage}.png"], (px, py + T - 12))
+                    img.alpha_composite(spr[f"wall_face_{stage}.png"], (px, py + 8))
                 if t in ore_name:
                     img.alpha_composite(spr[ore_name[t]], (px, py))
             else:
@@ -1017,6 +1164,7 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
                     img.alpha_composite(spr[f"floor_{stage}_{v}.png"], (px, py))
                 if y > 0 and is_wall(g[y - 1][x]):
                     img.alpha_composite(shade, (px, py))
+                    img.alpha_composite(shade_b, (px, py + 10))
                 if x > 0 and is_wall(g[y][x - 1]):
                     img.alpha_composite(shade2, (px, py))
     if term:
@@ -1063,13 +1211,13 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
     objs.sort(key=lambda o: o[0])
     for ay, name, ax in objs:
         if name == "player":
-            sh = Canvas(22, 7)
-            sh.ellipse(11, 3.5, 10, 3, SHADOW)
-            img.alpha_composite(sh.image(), (ax - 11, ay - 4))
-            p = spr["player.png"] if stage != "mist" else spr["player_walk.png"].crop((20, 0, 40, 30))
-            if stage == "green":
-                p = p.transpose(Image.FLIP_LEFT_RIGHT)
-            img.alpha_composite(p, (ax - 10, ay - 30))
+            sh = Canvas(20, 7)
+            sh.ellipse(10, 3.5, 8, 2.5, SHADOW)
+            img.alpha_composite(sh.image(), (ax - 10, ay - 4))
+            p = {"dead": spr["player_side.png"],
+                 "mist": spr["player_walk_down.png"].crop((0, 0, 32, 32)),
+                 "green": spr["player_side.png"].transpose(Image.FLIP_LEFT_RIGHT)}[stage]
+            img.alpha_composite(p, (ax - 16, ay - 32))
             continue
         s = spr[name]
         img.alpha_composite(s, (ax - s.width // 2, ay - s.height))
@@ -1079,9 +1227,11 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
 # ---------------------------------------------------------------- report HTML
 
 GROUPS = [
-    ("Personagem", "obj", ["player.png", "player_walk.png"]),
+    ("Astronauta · parado (baixo, cima, lado)", "char", ["player_down.png", "player_up.png", "player_side.png"]),
+    ("Astronauta · caminhada (4 quadros, animada ao lado)", "char", ["player_walk_down.png", "player_walk_up.png", "player_walk_side.png"]),
     ("Chão", "tile", [f"floor_{s}_{v}.png" for s in STAGES for v in range(4)]),
-    ("Parede (topo) e face", "tile", [f"wall_{s}_{v}.png" for s in STAGES for v in range(3)] + [f"wall_face_{s}.png" for s in STAGES]),
+    ("Face alta da parede (nova, 32×24)", "face", [f"wall_face_{s}.png" for s in STAGES]),
+    ("Parede (topo)", "tile", [f"wall_{s}_{v}.png" for s in STAGES for v in range(3)]),
     ("Água", "tile", [f"water_{s}.png" for s in STAGES]),
     ("Minérios (overlay)", "tile", ["ore_iron.png", "ore_silicon.png", "ore_ice.png"]),
     ("Ícones", "icon", ["icon_iron.png", "icon_silicon.png", "icon_ice.png"]),
@@ -1112,7 +1262,7 @@ def build_report(spr: dict[str, Image.Image]):
         ("Tiles · névoa", [k for k in spr if "_mist" in k]),
         ("Tiles · verde", [k for k in spr if "_green" in k]),
         ("Minérios e ícones", [k for k in spr if k.startswith(("ore_", "icon_"))]),
-        ("Astronauta", ["player.png", "player_walk.png"]),
+        ("Astronauta", [k for k in spr if k.startswith("player")]),
         ("Cápsula, máquinas e terminal", [k for k in spr if k.startswith(("pod", "machine", "terminal"))]),
         ("Plantas", [k for k in spr if k.startswith("plant_")]),
     ]
@@ -1126,7 +1276,7 @@ def build_report(spr: dict[str, Image.Image]):
         )
         pal_html.append(f'<div class="pal"><h3>{title} <span>{len(cols)} cores</span></h3><ul>{sw}</ul></div>')
 
-    scale = {"tile": 4, "obj": 4, "icon": 8}
+    scale = {"tile": 4, "obj": 4, "icon": 8, "char": 6, "face": 8}
     groups_html = []
     for title, kind, names in GROUPS:
         cards = []
@@ -1134,12 +1284,12 @@ def build_report(spr: dict[str, Image.Image]):
             im = spr[n]
             s = scale[kind]
             extra = ""
-            if n == "player_walk.png":
-                extra = (f'<div class="anim" style="width:{20 * s}px;height:{30 * s}px;'
-                         f'background-image:url(../../assets/sprites/{n});background-size:{80 * s}px {30 * s}px"></div>')
+            if n.startswith("player_walk"):
+                extra = (f'<div class="anim" title="animação a 8 fps" style="width:{32 * s}px;height:{32 * s}px;--end:-{128 * s}px;'
+                         f'background-image:url(../../assets/sprites/{n});background-size:{128 * s}px {32 * s}px"></div>')
             cards.append(
                 f'<figure class="spr"><div class="chk">'
-                f'<img src="../../assets/sprites/{n}" width="{im.width * s}" height="{im.height * s}" alt="{n}">{extra}</div>'
+                f'{extra}<img src="../../assets/sprites/{n}" width="{im.width * s}" height="{im.height * s}" alt="{n}"></div>'
                 f'<figcaption><code>{n}</code><span>{im.width}×{im.height} · {s}×</span></figcaption></figure>'
             )
         groups_html.append(f'<section class="grp"><h2>{title}</h2><div class="cards">{"".join(cards)}</div></section>')
@@ -1149,7 +1299,7 @@ def build_report(spr: dict[str, Image.Image]):
         f'<figcaption><b>{lab}</b><span>{sub}</span></figcaption></figure>'
         for st, lab, sub in (
             ("dead", "1 · Morto", "máquinas nv.1, poucas poças"),
-            ("mist", "2 · Névoa", "nv.1 + nv.2 misturadas, poças maiores, player no quadro 2 da caminhada"),
+            ("mist", "2 · Névoa", "nv.1 + nv.2 misturadas, poças maiores, player no quadro 1 da caminhada pra baixo"),
             ("green", "3 · Primeiro verde", "só nv.2, lagos, arbustos, árvores e flores"),
         )
     )
@@ -1157,16 +1307,16 @@ def build_report(spr: dict[str, Image.Image]):
     notes = [
         ("Tiles sem costura",
          "Chão e água usam ruído periódico de 32 px. Os pontos da borda são iguais em todas as variações do mesmo estágio, então qualquer variação encosta em qualquer outra sem emenda. As pedras da parede ficam dentro do tile (1 px de folga) sobre um fundo granulado que também emenda."),
-        ("Paredes",
-         "O topo da rocha não tem borda desenhada (borda depende do vizinho, e isso é trabalho do jogo). A face de 32×12 tem lábio claro em cima e pé escuro embaixo, então ela sozinha já separa bem rocha e chão."),
+        ("Paredes altas (v2)",
+         "A face agora tem 24 px e vira um paredão: lábio claro no topo, estratos horizontais, rachas verticais, saliências com luz em cima e sombra embaixo, e o tom escurecendo em faixas até o pé. No verde, musgo na borda e cipós descendo. O topo da rocha continua sem borda desenhada, porque isso depende do vizinho."),
         ("Minério",
-         "Cada minério tem uma silhueta própria, além da cor: ferro em cristais baixos e largos, silício em lascas altas, gelo em cubos. Dá pra distinguir até em tela pequena ou pra quem tem daltonismo. Os cristais ficam quase todos nos 20 px de cima; o de baixo também fica bonito por cima da face."),
-        ("Astronauta",
-         "player.png é o mapa PLAYER do mockup, pixel por pixel. A caminhada usa o mesmo tronco: contato (corpo desce 1 px, pernas abertas), passagem (perna levantada), contato invertido, passagem. Rodar a 8–10 fps."),
+         "Cada minério tem uma silhueta própria, além da cor: ferro em cristais baixos e largos, silício em lascas altas, gelo em cubos. Dá pra distinguir até em tela pequena ou pra quem tem daltonismo. Numa parede com face, o overlay de 32×32 cai por cima da faixa de topo e da face, então os cristais aparecem brotando do paredão."),
+        ("Astronauta chibi (v2)",
+         "Personagem original no estilo das referências, sem copiar nenhuma. O capacete ocupa metade da altura, com visor azul-marinho, meia-lua roxa na base e reflexo claro em curva. Traje branco sombreado em cinza-azulado, luvas, cinto e faixa no joelho vermelhos, painel no peito e mochila (atrás dos ombros de frente, grande de costas e de lado). Contorno #1b1630 em todas as peças, então ele lê bem a 1×. A caminhada segue contato, passagem (corpo sobe 1 px), contato invertido e passagem, com braço balançando. Rodar a 8–10 fps."),
         ("Máquinas nv.2",
          "Mesma família das nv.1 (mesmas cores e faixas de cilindro), só que mais largas e altas, com anéis e frisos dourados (#f2c46d) e peças duplicadas: dois bocais no O₂, duas chaminés e cinco fendas no aquecedor, funil maior com dois visores no derretedor."),
         ("Sombras",
-         "Pod, máquinas e plantas já trazem a sombra no rodapé do PNG, em preto com 36% de opacidade (um nível só, sem degradê). O player não tem sombra no PNG: o jogo desenha uma elipse 20×6 nos pés, como no mockup."),
+         "Pod, máquinas e plantas já trazem a sombra no rodapé do PNG, em preto com 36% de opacidade (um nível só, sem degradê). O player não tem sombra no PNG: o jogo desenha uma elipse de ~16×5 nos pés."),
         ("Luz e animação",
          "Brilhos, partículas, piscadas e luz ficam por conta do jogo (são cosméticos no MVP). Os sprites vêm no estado 'ligado': luz verde acesa, fendas do aquecedor brilhando."),
     ]
@@ -1175,9 +1325,9 @@ def build_report(spr: dict[str, Image.Image]):
     integ = [
         "Âncora dos objetos (pod, máquinas, plantas, terminal): centro da base do PNG. Blit em <code>(ax − w/2, ay − h)</code>, com <code>ax</code> = centro do tile e <code>ay</code> = borda de baixo do tile ocupado. O pod tem 64 px e ocupa 2 tiles: <code>ax</code> = linha entre os dois tiles.",
         "Máquinas: nv.1 sempre 40×56, nv.2 sempre 40×64 (canvas fixo, a máquina centralizada). Assim a âncora não muda quando faz upgrade.",
-        "Ordem de desenho por tile: chão ou água → parede (topo 32×32) → face (em <code>y + 20</code>, se o tile de baixo não for parede) → overlay de minério → terminal. Depois os objetos e o player ordenados por <code>ay</code>.",
-        "Sugestão barata usada nas prévias: no chão logo abaixo de uma parede, um retângulo preto 32×6 com alpha 80; à direita de uma parede, 4×32 com alpha 40. Dá profundidade sem asset novo.",
-        "<code>player.png</code> olha pra direita; espelhe pra esquerda. <code>player_walk.png</code>: 4 quadros de 20×30, mesma âncora (pés na última linha).",
+        "Ordem de desenho por tile: chão ou água → <code>wall_{stage}_N</code> (32×32 em <code>y</code>) → se o tile de baixo não for parede, <code>wall_face_{stage}</code> (32×24) em <code>y + 8</code>, cobrindo as linhas 8–31 → overlay de minério em <code>y</code> → terminal. Depois os objetos e o player ordenados por <code>ay</code>.",
+        "Sombra no chão logo abaixo de uma parede (usada nas prévias, vende a altura): retângulo preto 32×10 com alpha 84 e mais 32×6 com alpha 40 logo abaixo. À direita de uma parede, 4×32 com alpha 40.",
+        "Player: quadros de 32×32 com os pés na linha 30 (a 31 é o contorno da bota). Blit em <code>(ax − 16, ay − 32)</code>. <code>side</code> olha pra direita; espelhe pra esquerda. Caminhadas: 4 quadros de 32×32 na horizontal.",
         "Carregar com <code>convert_alpha()</code>. Nada de <code>smoothscale</code>: escala inteira só no final, na janela.",
     ]
     integ_html = "".join(f"<li>{s}</li>" for s in integ)
@@ -1218,8 +1368,8 @@ section{{margin-top:56px}}
 .chk{{display:flex;gap:10px;align-items:flex-end;padding:8px;overflow:auto;
   background-color:#2a211d;background-image:conic-gradient(#3a2e28 25%,transparent 0 50%,#3a2e28 0 75%,transparent 0);background-size:16px 16px}}
 .chk img{{image-rendering:pixelated;display:block;max-width:none}}
-.anim{{image-rendering:pixelated;animation:walk .5s steps(4) infinite;flex:none}}
-@keyframes walk{{to{{background-position-x:-100%}}}}
+.anim{{image-rendering:pixelated;animation:walk .5s steps(4) infinite;flex:none;outline:1px dashed var(--gold);outline-offset:2px}}
+@keyframes walk{{from{{background-position:0 0}}to{{background-position:var(--end) 0}}}}
 .spr figcaption{{display:flex;justify-content:space-between;gap:12px;font:12px var(--f-mono)}}
 .spr figcaption span{{color:var(--muted)}}
 .pals{{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}}
@@ -1237,15 +1387,25 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 .box{{background:var(--panel);border:1px solid var(--line);padding:18px 20px}}
 .box h3{{font:600 18px var(--f-display);margin:0 0 10px}}
 .dev{{border-left:3px solid var(--cyan)}}
+.v2{{margin-top:22px;max-width:860px;background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--gold);padding:14px 18px}}
+.v2 > b{{font:13px var(--f-label);color:var(--gold)}}
+.v2 ul{{margin:8px 0 0;padding-left:18px;color:var(--muted)}}
+.v2 li{{margin-bottom:6px}}
+.v2 li b{{color:var(--fg)}}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v0.1</div>
+  <div class="eyebrow">Hesper · Designer · v2</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
   <div class="status"><span class="chip ok">{len(spr)} arquivos · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span></div>
+  <div class="v2"><b>v2 · o que mudou</b><ul>
+    <li><b>Paredes mais altas:</b> a face foi de 32×12 pra <b>32×24</b>. Quando o tile de baixo é chão, a parede mostra 8 px do topo da rocha e um paredão de 24 px, com borda clara, estratos, rachas verticais e saliências, escurecendo pra baixo. No verde tem musgo e cipós. A sombra no chão ficou mais longa.</li>
+    <li><b>Astronauta novo, chibi:</b> 32×32, capacete grande com visor escuro e reflexo, traje branco com vermelho e mochila. Tem 3 direções paradas (<code>player_down/up/side</code>) e 3 caminhadas de 4 quadros (<code>player_walk_*</code>). <code>player.png</code> e <code>player_walk.png</code> saíram do contrato.</li>
+    <li>As prévias foram refeitas com a regra nova. Chão, água, minério, máquinas, pod e plantas não mudaram.</li>
+  </ul></div>
 </header>
 
 <section><h2>Prévia das cenas (960×540, tamanho real)</h2><div class="pvs">{previews}</div></section>
