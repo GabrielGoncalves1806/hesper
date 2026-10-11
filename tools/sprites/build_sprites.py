@@ -460,46 +460,138 @@ def gem(cv: Canvas, x, yb, w, h, O, kind="point", line=None):
     cv.paste(tmp, 0, 0)
 
 
-ORE_LAYOUT = {
-    # (x, base_y, w, h, tipo), de trás pra frente. Cachos no topo visível (y<20) e um embaixo,
-    # que fica bonito tanto na rocha quanto por cima da face.
-    "iron": [(5, 13, 7, 8, "point"), (11, 15, 6, 6, "point"), (2, 16, 5, 4, "point"),
-             (19, 10, 6, 6, "point"), (24, 12, 5, 5, "point"),
-             (17, 26, 8, 8, "point"), (23, 28, 5, 5, "point"), (14, 28, 4, 4, "point")],
-    "silicon": [(5, 15, 4, 11, "point"), (9, 16, 3, 7, "point"), (2, 17, 3, 5, "point"),
-                (21, 13, 4, 10, "point"), (25, 14, 3, 6, "point"),
-                (15, 27, 5, 12, "point"), (20, 28, 3, 6, "point"), (12, 28, 3, 5, "point")],
-    "ice": [(4, 13, 7, 7, "cube"), (10, 16, 6, 6, "cube"), (2, 17, 4, 4, "cube"),
-            (20, 11, 7, 7, "cube"), (25, 13, 4, 4, "cube"),
-            (15, 27, 8, 8, "cube"), (22, 28, 5, 5, "cube")],
+# ---------------------------------------------------------------- minérios v2.3: estilo "chunky" com contorno
+
+OUTLINE = "#1b1630"  # mesmo contorno do astronauta e da broca
+ORE_STYLE = {
+    "iron": dict(hi="#fff1dc", light="#f4a868", mid="#d9763a", dark="#9e4c24", deep="#6e3417"),
+    "silicon": dict(hi="#ffffff", light="#e3ebf5", mid="#c3d1e2", dark="#7d8ca3", deep="#4f5a70"),
+    "ice": dict(hi="#ffffff", light="#cdf6ff", mid="#8fe0f8", dark="#4fb3d6", deep="#2f7fa6"),
+}
+
+
+def shape_block(w, h, r=1):
+    m = np.ones((h, w), bool)
+    if r:
+        for (y, x) in ((0, 0), (0, w - 1), (h - 1, 0), (h - 1, w - 1)):
+            m[y, x] = False
+    return m
+
+
+def shape_lump(w, h, seed=0):
+    """Pepita gordinha: elipse com um lado achatado e um calombo, contorno irregular mas sem ponta."""
+    ys, xs = np.mgrid[0:h, 0:w] + 0.5
+    m = ((xs - w / 2) / (w / 2)) ** 2 + ((ys - h / 2) / (h / 2)) ** 2 <= 1.15
+    m[h - 1, :] &= np.abs(xs[0] - w / 2) < w / 2 - 1
+    if seed % 2:
+        m[0, : w // 2] = False
+    else:
+        m[0, w // 2:] = False
+    return m
+
+
+def shape_shard(w, h, lean):
+    """Lasca grossa inclinada, de topo rombudo (nada pontudo)."""
+    W = w + abs(lean)
+    m = np.zeros((h, W), bool)
+    for y in range(h):
+        off = round(lean * (h - 1 - y) / max(1, h - 1)) if lean > 0 else round(-lean * y / max(1, h - 1))
+        x0 = off + (1 if y == 0 else 0)
+        x1 = off + w - (1 if y == 0 else 0)
+        m[y, x0:x1] = True
+    return m
+
+
+def paint_piece(cv: Canvas, m: np.ndarray, x, y, S, kind, base=2):
+    """Pinta uma peça chunky: faixas chapadas (claro em cima/esquerda, escuro embaixo/direita),
+    1 brilho, contorno de 1 px e base de 2 px. Cada peça ganha seu próprio contorno (separa as peças)."""
+    h, w = m.shape
+    layer = Canvas(cv.w, cv.h)
+    up = np.zeros_like(m); up[1:] = m[:-1]
+    dn = np.zeros_like(m); dn[:-1] = m[1:]
+    lf = np.zeros_like(m); lf[:, 1:] = m[:, :-1]
+    rt = np.zeros_like(m); rt[:, :-1] = m[:, 1:]
+    for j in range(h):
+        for i in range(w):
+            if not m[j, i]:
+                continue
+            if not dn[j, i] or not rt[j, i]:
+                c = S["dark"]
+            elif not up[j, i] or (kind == "cube" and j < 2) or not lf[j, i]:
+                c = S["light"]
+            else:
+                c = S["mid"]
+            if kind == "slab" and j % 3 == 1 and 1 < i < w - 2 and (i + j) % 5 != 0 and dn[j, i] and up[j, i]:
+                c = S["light"]                               # camadas do ferro
+            if kind == "cube" and j == 2 and rt[j, i] and lf[j, i] and dn[j, i]:
+                c = S["dark"]                                # aresta entre topo e frente do cubo
+            layer.px(x + i, y + j, C(c))
+    # brilho: 2 px perto do canto de cima/esquerda
+    ys, xs = np.nonzero(m)
+    top = ys.min()
+    xl = xs[ys == top].min()
+    layer.px(x + xl + 1, y + top + 1, C(S["hi"]))
+    if kind != "slab":
+        layer.px(x + xl + 1, y + top + 2, C(S["hi"]))
+    else:
+        layer.px(x + xl + 2, y + top + 1, C(S["hi"]))
+    layer.outline(C(OUTLINE))
+    # base mais grossa: mais 1 px de contorno embaixo
+    a = layer.a
+    op = a[:, :, 3] == 255
+    below = np.zeros_like(op); below[1:] = op[:-1]
+    if base >= 2:
+        a[below & ~op] = C(OUTLINE)
+    cv.paste(layer, 0, 0)
+
+
+def ore_piece(cv, name, x, y, size, S, seed=0, base=2):
+    if name == "iron":
+        w, h = size + 2, max(5, size)
+        paint_piece(cv, shape_lump(w, h, seed), x, y, S, "slab", base)
+    elif name == "silicon":
+        w, h = max(3, size - 2), size + 3
+        paint_piece(cv, shape_shard(w + 1, h, 2 if seed % 3 != 2 else 1), x, y, S, "shard", base)
+    else:
+        paint_piece(cv, shape_block(size, size, 0), x, y, S, "cube", base)
+
+
+ORE_PIECES = {
+    # (x, y, tamanho) de trás pra frente; poucas peças, pra rocha continuar aparecendo
+    "iron": [(4, 4, 7), (17, 3, 6), (10, 13, 8), (21, 19, 5)],
+    "silicon": [(3, 3, 6), (9, 5, 7), (20, 4, 6), (12, 16, 6), (23, 18, 5)],
+    "ice": [(4, 4, 7), (19, 3, 7), (10, 15, 7), (22, 18, 5)],
 }
 
 
 def make_ore(name: str) -> Canvas:
-    O = ORES[name]
+    S = ORE_STYLE[name]
     cv = Canvas(T, T)
-    for x, yb, w, h, k in ORE_LAYOUT[name]:
-        gem(cv, x, yb, w, h, O, k)
-    for x, y in ((28, 4), (13, 5), (6, 23)):
-        cv.px(x, y, C(O["hi"]))
+    for i, (x, y, sz) in enumerate(ORE_PIECES[name]):
+        ore_piece(cv, name, x, y, sz, S, i)
     return cv
 
 
 def make_icon(name: str) -> Canvas:
-    O = ORES[name]
+    S = ORE_STYLE[name]
     cv = Canvas(16, 16)
-    if name == "iron":
-        gem(cv, 4, 12, 8, 10, O, line=INK)
-        gem(cv, 1, 15, 6, 6, O, line=INK)
-        gem(cv, 9, 15, 6, 7, O, line=INK)
-    elif name == "silicon":
-        gem(cv, 5, 13, 6, 12, O, line=INK)
-        gem(cv, 1, 15, 4, 8, O, line=INK)
-        gem(cv, 10, 15, 4, 9, O, line=INK)
-    else:
-        gem(cv, 4, 8, 8, 7, O, "cube", line=INK)
-        gem(cv, 1, 15, 7, 7, O, "cube", line=INK)
-        gem(cv, 8, 15, 7, 7, O, "cube", line=INK)
+    if name == "iron":                       # dois lingotes/placas de cobre empilhados
+        paint_piece(cv, shape_lump(10, 8, 1), 1, 2, S, "slab")
+        paint_piece(cv, shape_lump(8, 7, 0), 7, 7, S, "slab")
+    elif name == "silicon":                  # três lascas grossas num toco de rocha escura
+        rock = Canvas(16, 16)
+        rock.rect(2, 10, 12, 3, C("#4a4458"))
+        rock.rect(2, 10, 12, 1, C("#615a72"))
+        rock.rect(12, 11, 2, 2, C("#332e40"))
+        rock.outline(C(OUTLINE))
+        paint_piece(cv, shape_shard(4, 9, 2), 2, 2, S, "shard", 1)
+        paint_piece(cv, shape_shard(4, 7, -2), 9, 4, S, "shard", 1)
+        cv.paste(rock, 0, 0)
+        paint_piece(cv, shape_shard(4, 8, 1), 6, 4, S, "shard", 1)
+    else:                                     # três cubos de gelo
+        paint_piece(cv, shape_block(6, 6, 0), 1, 8, S, "cube", 1)
+        paint_piece(cv, shape_block(6, 6, 0), 9, 8, S, "cube", 1)
+        paint_piece(cv, shape_block(7, 7, 0), 4, 1, S, "cube", 1)
     return cv
 
 
@@ -891,24 +983,6 @@ def make_drill_preview(spr: dict[str, Image.Image]) -> Image.Image:
 
 # ---------------------------------------------------------------- veios e drill automática (v2.2)
 
-VEIN_SOIL = (0, 0, 0, 72)       # terra remexida: escurece qualquer chão (1 nível de alpha)
-VEIN_PIT = (0, 0, 0, 128)       # miolo mais fundo, em volta dos cristais
-RUBBLE = ["#4a3f3a", "#6b5d55", "#8a7b70"]  # cascalho neutro, funciona nos 3 chãos
-
-VEIN_LAYOUT = {
-    # (x, base_y, w, h, tipo), de trás pra frente
-    "iron": [(17, 27, 9, 10, "point"), (27, 24, 11, 13, "point"), (38, 28, 8, 8, "point"),
-             (12, 36, 7, 7, "point"), (21, 40, 10, 11, "point"), (33, 42, 12, 12, "point"),
-             (44, 39, 7, 7, "point"), (27, 49, 8, 7, "point"), (17, 48, 6, 5, "point"), (40, 50, 6, 5, "point")],
-    "silicon": [(19, 28, 5, 13, "point"), (26, 26, 6, 18, "point"), (34, 27, 5, 12, "point"),
-                (40, 33, 4, 9, "point"), (13, 37, 4, 9, "point"), (22, 43, 6, 16, "point"),
-                (31, 45, 7, 20, "point"), (40, 47, 5, 12, "point"), (16, 49, 4, 7, "point"), (47, 45, 3, 6, "point")],
-    "ice": [(18, 28, 9, 9, "cube"), (29, 25, 10, 10, "cube"), (40, 31, 7, 7, "cube"),
-            (12, 38, 7, 7, "cube"), (21, 43, 11, 11, "cube"), (34, 44, 10, 10, "cube"),
-            (44, 46, 7, 7, "cube"), (28, 51, 7, 6, "cube"), (16, 51, 5, 5, "cube")],
-}
-
-
 def vein_mask(seed, rx, ry, cx=32, cy=36, wob=0.22):
     ys, xs = np.mgrid[0:64, 0:64] + 0.5
     ang = np.arctan2(ys - cy, xs - cx)
@@ -918,48 +992,130 @@ def vein_mask(seed, rx, ry, cx=32, cy=36, wob=0.22):
     return r <= k
 
 
+VEIN_SOIL = (0, 0, 0, 48)       # mancha de terra bem sutil (1 nível de alpha)
+RUBBLE = ["#4a3f3a", "#6b5d55", "#8a7b70"]  # pedrisco neutro, funciona nos 3 chãos
+
+PLATE = {
+    # placas do veio no estilo chunky: tampa chapada, bisel claro, borda escura, fratura clara
+    "iron": dict(body="#c9693a", light="#f0a062", edge="#94461f", frac="#ffd0a0", speck="#a8552b"),
+    "silicon": dict(body="#a9b8cf", light="#e3ebf5", edge="#6f7f99", frac="#ffffff", speck="#8f9fb8"),
+    "ice": dict(body="#8fe0f8", light="#d2f7ff", edge="#3f9fc6", frac="#ffffff", speck="#b3ecfb"),
+}
+
+
+def poly_mask(pts, w=64, h=64):
+    ys, xs = np.mgrid[0:h, 0:w] + 0.5
+    inside = np.zeros((h, w), bool)
+    n = len(pts)
+    for i in range(n):
+        x1, y1 = pts[i]
+        x2, y2 = pts[(i + 1) % n]
+        cond = (y1 > ys) != (y2 > ys)
+        xint = (x2 - x1) * (ys - y1) / ((y2 - y1) if y2 != y1 else 1e-9) + x1
+        inside ^= cond & (xs < xint)
+    return inside
+
+
+def plate_poly(cx, cy, rx, ry, rot, nv, s, jag):
+    """Polígono anguloso: nv vértices com ângulo e raio sorteados, girado e achatado (vista de cima/3-4)."""
+    pts = []
+    for i in range(nv):
+        a = (i + (hsh(i, 1, s) - 0.5) * jag) * 2 * math.pi / nv
+        r = 1 - jag * 0.35 * hsh(i, 2, s)
+        x, y = math.cos(a) * rx * r, math.sin(a) * ry * r
+        xr = x * math.cos(rot) - y * math.sin(rot)
+        yr = x * math.sin(rot) + y * math.cos(rot)
+        pts.append((cx + xr, cy + yr * 0.8))
+    return pts
+
+
+VEIN_PLATES = {
+    # (cx, cy, rx, ry, rot, vértices, jag): ferro = lajes rugosas; silício = lascas finas sobrepostas;
+    # gelo = placas lisas de arestas retas
+    "iron": [(19, 19, 11, 8, 0.3, 5, 0.75), (40, 17, 9, 7, 1.2, 5, 0.75), (52, 31, 7, 8, 0.1, 5, 0.75),
+             (13, 37, 8, 9, 2.0, 5, 0.75), (31, 34, 12, 9, 0.7, 5, 0.75), (47, 47, 9, 8, 2.4, 5, 0.75),
+             (22, 51, 10, 7, 1.5, 5, 0.75), (37, 55, 6, 5, 0.4, 5, 0.75)],
+    "silicon": [(20, 17, 13, 5.2, 0.45, 6, 0.55), (25, 22, 11, 5.2, 0.4, 6, 0.55), (43, 19, 11, 5.2, -0.4, 6, 0.55),
+                (13, 34, 10, 5.2, 0.2, 6, 0.55), (31, 32, 14, 5.7, 0.55, 6, 0.55), (36, 37, 11, 5.2, 0.5, 6, 0.55),
+                (51, 34, 9, 5.2, -0.6, 6, 0.55), (21, 48, 12, 5.2, -0.3, 6, 0.55), (27, 52, 9, 5.2, -0.25, 6, 0.55),
+                (46, 50, 11, 5.2, 0.4, 6, 0.55)],
+    "ice": [(19, 20, 11, 9, 0.2, 4, 0.12), (40, 18, 9, 8, 0.9, 5, 0.12), (52, 34, 7, 8, 0.3, 4, 0.12),
+            (14, 38, 8, 8, 1.1, 5, 0.12), (32, 35, 12, 10, 0.75, 4, 0.12), (47, 48, 9, 8, 0.1, 5, 0.12),
+            (25, 52, 10, 7, 0.5, 4, 0.12)],
+}
+
+
 def make_vein(name: str) -> Canvas:
-    O = ORES[name]
+    O, Pc = ORES[name], PLATE[name]
     sd = {"iron": 1.3, "silicon": 2.9, "ice": 4.4}[name]
+    si = int(sd * 10)
     cv = Canvas(64, 64)
     soil = vein_mask(sd, 29, 25)
-    pit = vein_mask(sd + 1, 19, 15, wob=0.18)
     cv.a[soil] = VEIN_SOIL
-    cv.a[pit] = VEIN_PIT
-    # rachaduras saindo do miolo
-    for i in range(7):
-        a = sd + i * 0.9
-        x, y = 32 + math.cos(a) * 15, 36 + math.sin(a) * 12
-        for j in range(5 + i % 3):
-            xi, yi = int(x), int(y)
-            if 0 <= xi < 64 and 0 <= yi < 64 and soil[yi, xi]:
-                cv.px(xi, yi, C("#241c18"))
-            x += math.cos(a) * 1.4 + (hsh(i, j, 5) - 0.5)
-            y += math.sin(a) * 1.0
-    # cascalho na terra remexida
-    for i in range(26):
-        x, y = int(hsh(i, 1, int(sd * 10)) * 64), int(hsh(i, 2, int(sd * 10)) * 64)
-        if not soil[y, x] or pit[y, x]:
+    for k, (cx, cy, rx, ry, rot, nv, jag) in enumerate(VEIN_PLATES[name]):
+        top = poly_mask(plate_poly(cx, cy, rx, ry, rot, nv, si + k * 7, jag))
+        ring = np.zeros_like(top)                     # contorno escuro de 1 px + 2 px de espessura embaixo
+        ring[1:, :] |= top[:-1, :]; ring[2:, :] |= top[:-2, :]
+        ring[:-1, :] |= top[1:, :]
+        ring[:, 1:] |= top[:, :-1]; ring[:, :-1] |= top[:, 1:]
+        cv.a[ring & ~top] = C(OUTLINE)
+        up = np.roll(top, 1, 0)
+        left = np.roll(top, 1, 1)
+        down = np.roll(top, -1, 0)
+        right = np.roll(top, -1, 1)
+        cv.a[top] = C(Pc["body"])
+        cv.a[top & (~down | ~right)] = C(Pc["edge"])
+        cv.a[top & (~up | ~left)] = C(Pc["light"])
+        ys, xs = np.nonzero(top & up & left & down & right)
+        if len(xs) < 4:
             continue
-        w = 1 + (i % 3 == 0)
-        cv.rect(x, y, w + 1, 1, C(RUBBLE[1]))
-        cv.px(x, y, C(RUBBLE[2]))
-        cv.rect(x, y + 1, w + 1, 1, C(RUBBLE[0]))
-    # lascas do minério espalhadas (dão a cor do veio de longe)
-    for i in range(14):
-        x, y = int(hsh(i, 3, int(sd * 10)) * 64), int(hsh(i, 4, int(sd * 10)) * 64)
+        # textura: ferro rugoso (pontinhos), gelo liso com reflexo diagonal, silício com veio longitudinal
+        if name == "iron":
+            for i in range(len(xs)):
+                if hsh(int(xs[i]), int(ys[i]), si) < 0.12:
+                    cv.px(xs[i], ys[i], C(Pc["speck"]))
+        elif name == "ice":
+            for i in range(len(xs)):
+                d = (xs[i] - ys[i] - (cx - cy)) % 9
+                if d in (0, 1) and ys[i] < cy:
+                    cv.px(xs[i], ys[i], C(Pc["light"]))
+            cv.px(int(xs.min()) + 2, int(ys.min()) + 1, C(Pc["frac"]))
+        # linhas de fratura finas e claras saindo de um ponto interno
+        ox, oy = int(np.median(xs)), int(np.median(ys))
+        nfr = 2 if name != "silicon" else 1
+        for j in range(nfr):
+            a = hsh(k, j, si) * 2 * math.pi if name != "silicon" else rot
+            x, y = float(ox), float(oy)
+            for _ in range(14):
+                xi, yi = int(round(x)), int(round(y))
+                if not (0 <= xi < 64 and 0 <= yi < 64) or not (top[yi, xi] and down[yi, xi] and right[yi, xi]):
+                    break
+                cv.px(xi, yi, C(Pc["frac"]))
+                x += math.cos(a)
+                y += math.sin(a) * (0.75 if name != "silicon" else 1)
+                if name != "ice":
+                    a += (hsh(k, int(x * 3), si) - 0.5) * 0.5
+    # pepitas do minério (2-4 px), saturadas e contornadas, por cima das placas e em volta
+    S = ORE_STYLE[name]
+    spots = [(15, 21), (28, 36), (44, 20), (36, 42), (50, 46), (19, 50), (8, 41), (55, 27)]
+    for i, (x, y) in enumerate(spots):
         if not soil[y, x]:
             continue
-        cv.rect(x, y, 2, 1, C(O["light"]))
-        cv.px(x + 1, y, C(O["dark"]))
-        cv.px(x, y + 1, C(O["line"]))
-        cv.px(x + 1, y + 1, C(O["line"]))
-    # afloramento: cristais grandes com contorno próprio
-    for x, yb, w, h, k in VEIN_LAYOUT[name]:
-        gem(cv, x, yb, w, h, O, k)
-    for x, y in ((24, 20), (41, 24), (11, 31), (50, 41), (30, 56)):
-        if soil[y, x]:
-            cv.px(x, y, C(O["hi"]))
+        if name == "iron":
+            m = shape_lump(4 if i % 2 else 3, 3, i)
+        elif name == "silicon":
+            m = shape_shard(2, 4, 1 if i % 2 else -1)
+        else:
+            m = shape_block(3, 3, 0)
+        paint_piece(cv, m, x, y, S, "nug", 1)
+    # pedriscos neutros
+    for i in range(10):
+        x, y = int(hsh(i, 1, si) * 60) + 2, int(hsh(i, 2, si) * 60) + 2
+        if not soil[y, x] or cv.a[y, x, 3] == 255:
+            continue
+        cv.rect(x, y, 2, 1, C(RUBBLE[1]))
+        cv.px(x, y, C(RUBBLE[2]))
+        cv.rect(x, y + 1, 2, 1, C(RUBBLE[0]))
     return cv
 
 
@@ -1778,13 +1934,23 @@ def build_report(spr: dict[str, Image.Image]):
         )
     )
 
+    cmp_items = []
+    for n in ["ore_iron", "ore_silicon", "ore_ice", "icon_iron", "icon_silicon", "icon_ice", "vein_iron", "vein_silicon", "vein_ice"]:
+        im = spr[n + ".png"]
+        sc = 8 if n.startswith("icon") else 4 if n.startswith("ore") else 3
+        w, h = im.width * sc, im.height * sc
+        before = (REP / "before" / (n + ".png")).exists()
+        b_html = (f'<div>antes<img src="before/{n}.png" width="{w}" height="{h}" alt="{n} antes"></div>' if before else "")
+        cmp_items.append(f'<figure><div class="pair">{b_html}<div>depois<img src="../../assets/sprites/{n}.png" width="{w}" height="{h}" alt="{n} depois"></div></div><figcaption>{n}.png · {sc}×</figcaption></figure>')
+    cmp_html = "".join(cmp_items)
+
     notes = [
         ("Tiles sem costura",
          "Chão e água usam ruído periódico de 32 px. Os pontos da borda são iguais em todas as variações do mesmo estágio, então qualquer variação encosta em qualquer outra sem emenda. As pedras da parede ficam dentro do tile (1 px de folga) sobre um fundo granulado que também emenda."),
         ("Paredes altas (v2.1)",
          "A face de 32×24 agora é feita de blocos de rocha irregulares e achatados, em três ou quatro estratos horizontais quebrados, com fissuras diagonais. Cada bloco tem luz no topo e uma junta escura embaixo, e o tom escurece em faixas até o pé, usando as mesmas cores do topo da rocha do estágio. Não existe junta vertical regular, que era o que fazia parecer tábua de cerca. No verde, o musgo na borda e os cipós continuam. Com o topo elevado (y−24), o maciço fica com 56 px de altura visível."),
         ("Minério",
-         "Cada minério tem uma silhueta própria, além da cor: ferro em cristais baixos e largos, silício em lascas altas, gelo em cubos. Dá pra distinguir até em tela pequena ou pra quem tem daltonismo. Numa parede com face, o overlay de 32×32 cai por cima da faixa de topo e da face, então os cristais aparecem brotando do paredão."),
+         "Cada minério tem uma silhueta própria, além da cor: ferro em pepitas gordas, silício em lascas grossas, gelo em cubos. Dá pra distinguir até em tela pequena ou pra quem tem daltonismo. O contorno #1b1630 é o mesmo do astronauta, da broca e da drill, então o minério conversa com eles. Numa parede com face, o overlay de 32×32 cai por cima da faixa de topo e da face, então os cristais aparecem brotando do paredão."),
         ("Astronauta chibi (v2)",
          "Personagem original no estilo das referências, sem copiar nenhuma. O capacete ocupa metade da altura, com visor azul-marinho, meia-lua roxa na base e reflexo claro em curva. Traje branco sombreado em cinza-azulado, luvas, cinto e faixa no joelho vermelhos, painel no peito e mochila (atrás dos ombros de frente, grande de costas e de lado). Contorno #1b1630 em todas as peças, então ele lê bem a 1×. A caminhada segue contato, passagem (corpo sobe 1 px), contato invertido e passagem, com braço balançando. Rodar a 8–10 fps."),
         ("Máquinas nv.2",
@@ -1868,6 +2034,12 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 .v2 li{{margin-bottom:6px}}
 .v2 li b{{color:var(--fg)}}
 .anim.fast{{animation-duration:.3s}}
+.cmp{{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}}
+.cmp figure{{margin:0;background:var(--panel);border:1px solid var(--line);padding:10px}}
+.cmp .pair{{display:flex;gap:12px;align-items:flex-end}}
+.cmp .pair div{{display:flex;flex-direction:column;gap:4px;font:11px var(--f-label);color:var(--muted)}}
+.cmp img{{image-rendering:pixelated;display:block;background-color:#2a211d;background-image:conic-gradient(#3a2e28 25%,transparent 0 50%,#3a2e28 0 75%,transparent 0);background-size:16px 16px}}
+.cmp figcaption{{font:12px var(--f-mono);margin-top:8px}}
 .tb{{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:12px}}
 .tb th,.tb td{{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line)}}
 .tb th{{font:11px var(--f-label);color:var(--muted)}}
@@ -1876,11 +2048,17 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v2.2</div>
+  <div class="eyebrow">Hesper · Designer · v2.3</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
   <div class="status"><span class="chip ok">{len(spr)} arquivos · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span></div>
-  <div class="v2"><b>v2.2 · o que mudou</b><ul>
+  <div class="v2"><b>v2.3 · o que mudou</b><ul>
+    <li><b>Minérios num estilo novo, mais amigável:</b> peças chunky e arredondadas, sem cristal fino nem spike. Cores chapadas e saturadas em 2–3 faixas, um brilho claro e contorno <code>#1b1630</code> (o mesmo do astronauta e da broca), com 2 px na base pra parecer encrustado. As formas diferem por minério: ferro em pepitas gordas cor de cobre, silício em lascas grossas de topo rombudo, gelo em cubos.</li>
+    <li><b>Arquivos refeitos:</b> <code>ore_*</code> (overlay da parede) e <code>icon_*</code> (agora como item coletado, com o silício num toco de rocha escura).</li>
+    <li><b>Veios refeitos</b> como placas achatadas encravadas no chão, quase niveladas com o solo. As placas são angulosas, de tamanhos variados, com contorno escuro, 2 px de espessura embaixo, bisel claro e fraturas finas. Pepitas pequenas contornadas ficam por cima e em volta. Ferro tem placas rugosas, silício tem lascas sobrepostas e gelo tem placas lisas de aresta reta. A mancha de terra ficou mais sutil (preto 19%).</li>
+    <li>Tamanhos e nomes não mudaram. O antes × depois está logo abaixo das prévias.</li>
+  </ul></div>
+  <div class="v2" style="opacity:.75"><b>v2.2</b><ul>
     <li><b>Veios no chão:</b> <code>vein_iron</code>, <code>vein_silicon</code> e <code>vein_ice</code> (64×64, 2×2 tiles). São overlays transparentes: um afloramento de cristais no mesmo idioma dos minérios da parede, em cima de uma mancha de terra remexida com borda orgânica, rachaduras, cascalho e lascas. A mancha é preto translúcido, então funciona sobre o chão dos 3 estágios.</li>
     <li><b>Drill automática:</b> <code>machine_drill</code> (256×80, 4 quadros de 64×80). Tem uma moldura vazada sobre o veio, a cabeça no estilo das máquinas e um eixo com broca girando enterrada no chão. A caçamba tem um visor onde o jogo pinta o nível. Âncora e retângulo do indicador estão na tabela da seção da drill.</li>
     <li><b>Ícone:</b> <code>icon_drill</code> (16×16). As prévias ganharam um veio de cada tipo; a drill aparece em cima do veio de silício na Névoa e no Verde (no Morto ela ainda não foi liberada).</li>
@@ -1898,6 +2076,8 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 </header>
 
 <section><h2>Prévia das cenas (960×540, tamanho real)</h2><div class="pvs">{previews}</div></section>
+
+<section><h2>Minérios · antes (v2.2) × depois (v2.3)</h2><div class="cmp">{cmp_html}</div></section>
 
 {"".join(groups_html)}
 
