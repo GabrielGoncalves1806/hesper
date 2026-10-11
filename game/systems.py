@@ -106,6 +106,9 @@ class GameState:
         self.inventory = {r: 0 for r in C.RESOURCES}
         self.machines_owned = {k: 0 for k in C.MACHINES}   # fabricadas, ainda não colocadas
         self.machines: list[Machine] = []                  # colocadas no mundo
+        # Tiles onde já existiu máquina: fontes da mancha de transição (game/transition.py).
+        # Só cresce: desmontar a máquina NÃO tira daqui, senão a terra em volta "desconverteria".
+        self.transition_sources: set[tuple[int, int]] = set()
         self.indices = {"o2": 0.0, "heat": 0.0, "water": 0.0}
         self.o2 = C.O2_MAX
         self.stage = 1
@@ -276,6 +279,7 @@ class GameState:
         if not self.can_place(kind, tile):
             return False
         self.machines.append(Machine(kind, tile[0], tile[1], rotation))
+        self.transition_sources.add(tuple(tile))
         self.machines_owned[kind] -= 1
         self.events.append(("place", kind, tile))
         return True

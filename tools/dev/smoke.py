@@ -212,6 +212,28 @@ def check_drill(bot) -> None:
     print("  screenshot: reports/dev/broca.png  (direita, esquerda, baixo, cima)")
 
 
+def ti_in_window(stage: int, window_fraction: float) -> float:
+    """Ti que fica `window_fraction` (0 a 1) dentro da janela de transição do estágio `stage` pro próximo."""
+    start, end = C.STAGES[stage - 1].ti, C.STAGES[stage].ti
+    bar = 1 - C.TRANSITION_WINDOW + C.TRANSITION_WINDOW * window_fraction
+    return start + (end - start) * bar
+
+
+def check_transition(bot, stage: int, shots: list[tuple[str, float]]) -> None:
+    """Prints da mancha do próximo estágio se espalhando a partir da base e das máquinas."""
+    s = bot.state
+    before = dict(s.indices)
+    bot.teleport((64, 66))
+    s.o2 = C.O2_MAX
+    for name, fraction in shots:
+        s.indices.update(o2=ti_in_window(stage, fraction), heat=0.0, water=0.0)
+        bot.frames(0.1)
+        assert s.stage == stage, "a transição não pode trocar o estágio oficial antes do limiar"
+        bot.shot(name)
+    s.indices.update(before)
+    bot.frames(DT)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     bot = Bot()
@@ -269,6 +291,7 @@ def main() -> None:
     check_directions_and_order(bot)
     check_walls_and_hover(bot)
     check_drill(bot)
+    check_transition(bot, 1, [("transicao_25.png", 0.25), ("transicao_60.png", 0.60), ("transicao_90.png", 0.90)])
 
     print("4) terminal")
     tx, ty = s.world.terminals[0]
@@ -306,6 +329,8 @@ def main() -> None:
     bot.frames(0.2)
     bot.shot("crafting_stage2.png")
     bot.key(pygame.K_ESCAPE)
+    bot.frames(3.0)                           # deixa o banner do estágio 2 sumir
+    check_transition(bot, 2, [("transicao_verde_60.png", 0.60)])
     for _ in range(9):
         bot.key(pygame.K_F2)
     bot.frames(1.0)

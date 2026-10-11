@@ -19,6 +19,7 @@ from game import art
 from game import config as C
 from game.assets import Sprites
 from game.systems import GameState, Mining
+from game.transition import BASE_SOURCE, StageMap
 from game.world import hash01
 
 T = C.TILE
@@ -58,6 +59,8 @@ class Renderer:
         self._surfaces: dict[str, tuple[pygame.Surface, bool]] = {}
         self._fx: dict[tuple, pygame.Surface] = {}
         self.particles: list[list[float]] = []   # [x, y, vx, vy, vida, cor]
+        self.stage_map = StageMap()              # estágio visual de cada tile (transição gradual)
+        self._fade_cache: dict[str, tuple[int, pygame.Surface]] = {}   # clima esmaecido (ver _faded)
 
         # Superfícies de efeito pré-calculadas (fazer isso a cada frame seria lento).
         self.shadow_top = self._alpha_strips(T, [(10, 84), (6, 40)])   # sombra que a parede joga no chão
@@ -157,6 +160,7 @@ class Renderer:
     def draw(self, canvas: pygame.Surface, state: GameState, cam: tuple[int, int], t: float,
              ghost: tuple[str, tuple[int, int], int, bool] | None = None) -> None:
         stage = stage_key(state.stage)
+        self.stage_map.update(state.ti, [BASE_SOURCE, *state.transition_sources])
         self.draw_floors(canvas, state, cam, stage, t)
         self.draw_zone(canvas, cam, t)
         self.draw_walls_and_objects(canvas, state, cam, stage, t)
@@ -184,7 +188,8 @@ class Renderer:
                 if world.is_solid(tx, ty):
                     canvas.fill(backstop, (sx, sy, T, T))   # fundo escuro (só aparece na borda do mapa)
                 else:
-                    self._draw_floor(canvas, world, tx, ty, sx, sy, stage, state.stage, t)
+                    num = self.stage_map.stage_at(tx, ty)   # pode estar "à frente" no meio da transição
+                    self._draw_floor(canvas, world, tx, ty, sx, sy, stage_key(num), num, t)
 
     def draw_walls_and_objects(self, canvas, state: GameState, cam, stage: str, t: float) -> None:
         """Passada 2: linha por linha, paredes com topo elevado e objetos ordenados pelo pé."""
@@ -194,7 +199,8 @@ class Renderer:
         for item in build_draw_list(state.world, objects, tx0, tx1, ty0, ty1 + 1):
             if item[0] == "wall":
                 _, tx, ty = item
-                self._draw_wall(canvas, state.world, tx, ty, tx * T - cam[0], ty * T - cam[1], stage)
+                tile_stage = stage_key(self.stage_map.stage_at(tx, ty))
+                self._draw_wall(canvas, state.world, tx, ty, tx * T - cam[0], ty * T - cam[1], tile_stage)
             else:
                 item[1]()
         self._draw_player_silhouette(canvas, state, cam)
@@ -232,6 +238,9 @@ class Renderer:
         top_y = sy - WALL_LIFT
         surf, fallback = self.surface(f"wall_{stage}_{v}", lambda: art.wall(stage, v))
         canvas.blit(surf, (sx, top_y))
+        if self.stage_map.step > 0:
+            self._blend_edges(canvas, world, tx, ty, sx, top_y, self.stage_map.stage_at(tx, ty), True,
+                              lambda st: (f"wall_{st}_{v}", lambda: art.wall(st, v)))
         open_up = not world.is_solid(tx, ty - 1)
         open_left = not world.is_solid(tx - 1, ty)
         open_right = not world.is_solid(tx + 1, ty)
@@ -266,9 +275,14 @@ class Renderer:
         P = C.PALETTES[stage]
         v = int(hash01(tx, ty, 3) * 4)
         canvas.blit(self.surface(f"floor_{stage}_{v}", lambda: art.floor(stage, v))[0], (sx, sy))
-        if world.is_water(tx, ty, stage_num):
-            up, down = world.is_water(tx, ty - 1, stage_num), world.is_water(tx, ty + 1, stage_num)
-            left, right = world.is_water(tx - 1, ty, stage_num), world.is_water(tx + 1, ty, stage_num)
+        if self.stage_map.step > 0:
+            self._blend_edges(canvas, world, tx, ty, sx, sy, stage_num, False,
+                              lambda st: (f"floor_{st}_{v}", lambda: art.floor(st, v)))
+        # cada vizinho é água (ou não) no estágio visual DELE (na transição, pode ser outro)
+        wet = lambda x, y: world.is_water(x, y, self.stage_map.stage_at(x, y))   # noqa: E731
+        if wet(tx, ty):
+            up, down = wet(tx, ty - 1), wet(tx, ty + 1)
+            left, right = wet(tx - 1, ty), wet(tx + 1, ty)
             water, fallback = self.surface(f"water_{stage}", lambda: art.water(stage))
             if not fallback:
                 canvas.blit(water, (sx, sy))   # sprite aprovado: tile quadrado, sem borda
@@ -280,7 +294,7 @@ class Renderer:
             if fallback:
                 # água funda: só no miolo dos lagos (os 8 vizinhos também são água)
                 if up and down and left and right and all(
-                        world.is_water(tx + dx, ty + dy, stage_num) for dx, dy in ((-1, -1), (1, -1), (-1, 1), (1, 1))):
+                        wet(tx + dx, ty + dy) for dx, dy in ((-1, -1), (1, -1), (-1, 1), (1, 1))):
                     canvas.fill(P["water_d"], (sx, sy, T, T))
                 if not up:
                     canvas.blit(self.water_top, (sx + l, sy + u), (0, 0, T - l - r, 4))
@@ -297,6 +311,37 @@ class Renderer:
             canvas.blit(self.shadow_top, (sx, sy))
         if world.is_solid(tx - 1, ty):
             canvas.blit(self.shadow_left, (sx, sy))
+
+    # Ordem de "pontilhado" (Bayer 4×4): espalha os pixels da mistura sem formar listras.
+    BAYER = ((0, 8, 2, 10), (12, 4, 14, 6), (3, 11, 1, 9), (15, 7, 13, 5))
+    BLEND_DEPTH = 16   # px: até onde a mistura entra no tile (meio tile)
+    BLEND_CELL = 2     # px: tamanho de cada "ponto" do pontilhado
+
+    def _blend_edges(self, canvas, world, tx, ty, x, y, stage_num, solid, sprite) -> None:
+        """Fronteira da mancha de transição: se o vizinho (do mesmo tipo: chão com chão, parede com
+        parede) está em outro estágio, a versão daquele estágio entra pontilhada pela borda deste tile
+        (50% na borda, sumindo até o meio). Como os dois lados fazem isso, a troca de estágio vira uma
+        faixa de mistura em vez de um degrau de cor. `sprite(stage)` devolve (nome, desenho de fallback)."""
+        for direction, (dx, dy) in (("left", (-1, 0)), ("right", (1, 0)), ("up", (0, -1)), ("down", (0, 1))):
+            other = self.stage_map.stage_at(tx + dx, ty + dy)
+            if other != stage_num and world.is_solid(tx + dx, ty + dy) == solid:
+                canvas.blit(self._fringe(*sprite(stage_key(other)), direction), (x, y))
+
+    def _fringe(self, name: str, painter, direction: str) -> pygame.Surface:
+        """O tile `name` recortado num pontilhado que encosta na borda `direction`."""
+        key = ("fringe", name, direction)
+        if key not in self._fx:
+            tile = self.surface(name, painter)[0]
+            fringe = pygame.Surface((T, T), pygame.SRCALPHA)
+            cell = self.BLEND_CELL
+            for y in range(0, T, cell):
+                for x in range(0, T, cell):
+                    depth = {"left": x, "right": T - cell - x, "up": y, "down": T - cell - y}[direction]
+                    density = 0.5 * (1 - depth / self.BLEND_DEPTH)
+                    if self.BAYER[(y // cell) % 4][(x // cell) % 4] / 16 < density:
+                        fringe.blit(tile, (x, y), (x, y, cell, cell))
+            self._fx[key] = fringe
+        return self._fx[key]
 
     # ---- zona de O₂ -----------------------------------------------------------
     def draw_zone(self, canvas, cam, t) -> None:
@@ -329,12 +374,12 @@ class Renderer:
             if -64 < mx - cam_x < C.SCREEN_W + 64 and -80 < my - cam_y < C.SCREEN_H + 80:
                 items.append((my, lambda m=m, mx=mx, my=my: self.draw_machine(canvas, m.kind, mx - cam_x, my - cam_y, t, m.rotation)))
 
-        if state.stage >= 3:
+        if self.stage_map.next_stage >= 3:   # plantas nascem junto com a mancha verde
             tx0, ty0 = cam_x // T, cam_y // T
             for ty in range(ty0, ty0 + C.SCREEN_H // T + 3):
                 for tx in range(tx0, tx0 + C.SCREEN_W // T + 2):
                     kind = state.world.plant_at(tx, ty)
-                    if kind and not state.machine_at((tx, ty)):
+                    if kind and self.stage_map.stage_at(tx, ty) >= 3 and not state.machine_at((tx, ty)):
                         px, py = tx * T + T // 2, (ty + 1) * T
                         surf = self.surface(f"plant_{kind}", lambda k=kind: art.plant(k))[0]
                         items.append((py, lambda s=surf, px=px, py=py: canvas.blit(
@@ -498,7 +543,7 @@ class Renderer:
         p = state.player
         lights.append((p.x - cam_x, p.y - 18 - cam_y, 130, (255, 236, 210), 0.07, 1.0))
 
-        self.darkness.fill(C.PALETTES[stage]["ambient"])
+        self.darkness.fill(self.ambient_color(stage))
         for x, y, r, _, _, cut in lights:
             self.darkness.blit(self.light_cut(r, cut), (round(x - r), round(y - r)), special_flags=pygame.BLEND_RGBA_SUB)
         canvas.blit(self.darkness, (0, 0))
@@ -506,30 +551,71 @@ class Renderer:
             gr = int(r * 0.75)
             canvas.blit(self.light_glow(gr, rgb, a), (round(x - gr), round(y - gr)), special_flags=pygame.BLEND_RGB_ADD)
 
+    def transition_fade(self) -> float:
+        """Quanto (0 a 1) o clima e a luz do próximo estágio já entraram. 0 = sem transição."""
+        m = self.stage_map
+        return m.progress if m.next_stage > m.stage else 0.0
+
+    def ambient_color(self, stage: str) -> tuple[int, int, int, int]:
+        """Escuro ambiente do estágio, misturado com o do próximo durante a transição."""
+        color = C.PALETTES[stage]["ambient"]
+        fade = self.transition_fade()
+        if fade <= 0:
+            return color
+        target = C.PALETTES[stage_key(self.stage_map.next_stage)]["ambient"]
+        return tuple(round(a + (b - a) * fade) for a, b in zip(color, target))
+
+    def _faded(self, name: str, surf: pygame.Surface, amount: float) -> pygame.Surface:
+        """Cópia de `surf` com o alfa multiplicado por `amount` (0 a 1).
+
+        Por que não `set_alpha`? Em superfície com alfa por pixel ele cai num caminho lento
+        (~1 ms por tela cheia). Aqui o alfa é "assado" na cópia uma vez e reaproveitado até o
+        nível mudar (32 níveis: na transição real isso muda a cada vários segundos).
+        """
+        level = round(amount * 32)
+        if level >= 32:
+            return surf
+        cached = self._fade_cache.get(name)
+        if cached is None or cached[0] != level:
+            faded = surf.copy()
+            faded.fill((255, 255, 255, level * 8), special_flags=pygame.BLEND_RGBA_MULT)
+            cached = self._fade_cache[name] = (level, faded)
+        return cached[1]
+
     # ---- clima por estágio ----------------------------------------------------
     def draw_atmosphere(self, canvas, stage: str, t: float) -> None:
+        """Clima do estágio. Na transição, o do estágio atual vai saindo e o do próximo entrando."""
+        fade = self.transition_fade()
+        self._draw_weather(canvas, stage, t, 1.0 - fade)
+        if fade > 0:
+            self._draw_weather(canvas, stage_key(self.stage_map.next_stage), t, fade)
+        canvas.blit(self.vignette, (0, 0))
+
+    def _draw_weather(self, canvas, stage: str, t: float, amount: float = 1.0) -> None:
+        """Clima de um estágio com intensidade `amount` (0 a 1): menos partículas e véus mais fracos."""
         W, H = C.SCREEN_W, C.SCREEN_H
         if stage == "dead":           # poeira laranja no ar
-            canvas.blit(self.tints["dead"], (0, 0))
-            for i in range(70):
+            canvas.blit(self._faded("tint_dead", self.tints["dead"], amount), (0, 0))
+            for i in range(round(70 * amount)):
                 x = (hash01(i, 1, 7) * W + t * 27 * (0.5 + hash01(i, 2, 7))) % W
                 y = hash01(i, 3, 7) * H + math.sin(t * 0.9 + i) * 6
                 canvas.blit(self.dust[0 if i % 3 else 1], (int(x), int(y)))
         elif stage == "mist":         # névoa + chuva fina
-            canvas.blit(self.fog_gradient, (0, 0))
+            canvas.blit(self._faded("fog_gradient", self.fog_gradient, amount), (0, 0))
+            fog_blob = self._faded("fog_blob", self.fog_blob, amount)
             for i in range(4):
                 fx = ((hash01(i, 9, 7) * W + t * 11) % (W + 320)) - 160
                 fy = hash01(i, 8, 7) * H
-                canvas.blit(self.fog_blob, (int(fx - 180), int(fy - 180)))
+                canvas.blit(fog_blob, (int(fx - 180), int(fy - 180)))
             self.layer.fill((0, 0, 0, 0))
-            for i in range(80):
+            for i in range(round(80 * amount)):
                 x = (hash01(i, 5, 7) * W + t * 36) % W
                 y = (hash01(i, 6, 7) * H + t * 108) % H
                 pygame.draw.line(self.layer, (185, 215, 230, 128), (x, y), (x - 4, y + 10))
             canvas.blit(self.layer, (0, 0))
         else:                          # luz quente + borboletas
-            canvas.blit(self.tints["green"], (0, 0))
-            for i in range(6):
+            canvas.blit(self._faded("tint_green", self.tints["green"], amount), (0, 0))
+            for i in range(round(6 * amount)):
                 x = round((hash01(i, 11, 7) * W + t * 22 + math.sin(t * 2.7 + i) * 16) % W)
                 y = round(hash01(i, 12, 7) * H * 0.8 + 40 + math.sin(t * 4.5 + i * 2) * 12)
                 col = "#f5d36b" if i % 2 else "#f2a3c8"
@@ -540,4 +626,3 @@ class Renderer:
                 else:
                     canvas.fill(col, (x - 2, y - 4, 2, 4))
                     canvas.fill(col, (x + 2, y - 4, 2, 4))
-        canvas.blit(self.vignette, (0, 0))
