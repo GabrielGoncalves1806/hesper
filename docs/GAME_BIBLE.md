@@ -33,9 +33,9 @@ O mistério do gelo **não se resolve no MVP**. É gancho pro futuro.
 
 Referência obrigatória: `reports/mockups/mockups.html` (abre no navegador).
 
-- **Tile 32×32 px**, visão top-down 3/4: parede tem "topo" (32×20) e "face" frontal (12 px) quando o tile de baixo é chão.
+- **Tile 32×32 px**, visão top-down 3/4. Quando o tile de baixo é chão, a parede mostra uma faixa de topo de 8 px e uma **face frontal alta de 24 px**. A parede tem que parecer parede, não degrau.
 - **Resolução interna 960×540** (30×17 tiles visíveis), escalada inteira pra janela. Pixel art sem suavização.
-- Personagem: astronauta 20×30 px, traje branco, visor ciano, mochila laranja.
+- Personagem: astronauta **chibi 32×32**, com capacete grande (~metade da altura), visor escuro azul-marinho com reflexo, traje branco com detalhes vermelhos e mochila. Tem 3 direções (baixo, cima, lado).
 - Luz: cosmética no MVP (brilho das máquinas e do capacete). Escuridão de verdade só no v0.3.
 
 ### Paletas por estágio (hex)
@@ -130,11 +130,11 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 
 | Arquivo | Tamanho | Observação |
 |---|---|---|
-| `player.png` | 20×30 | virado pra direita (o jogo espelha) |
-| `player_walk.png` | 80×30 | 4 quadros de 20×30 na horizontal |
+| `player_{down,up,side}.png` | 32×32 | parado, olhando pra baixo / cima / direita (o jogo espelha `side` pra esquerda) |
+| `player_walk_{down,up,side}.png` | 128×32 | 4 quadros de 32×32 na horizontal |
 | `floor_{stage}_{0..3}.png` | 32×32 | 4 variações · stage = `dead`, `mist`, `green` |
 | `wall_{stage}_{0..2}.png` | 32×32 | topo da rocha, 3 variações |
-| `wall_face_{stage}.png` | 32×12 | desenhado na parte de baixo do tile quando o tile abaixo é chão |
+| `wall_face_{stage}.png` | 32×24 | face frontal alta. Quando o tile abaixo é chão, o tile da parede mostra os 8 px de cima do `wall_{stage}_N` + essa face de 24 px |
 | `water_{stage}.png` | 32×32 | |
 | `ore_iron.png` `ore_silicon.png` `ore_ice.png` | 32×32 | overlay transparente por cima da parede |
 | `icon_iron.png` `icon_silicon.png` `icon_ice.png` | 16×16 | ícones do inventário/HUD |

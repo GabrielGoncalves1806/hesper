@@ -1,0 +1,424 @@
+"""Desenhos "de retângulos" usados quando não existe sprite (ou ENABLE_SPRITES = False).
+
+Cada função devolve uma pygame.Surface do mesmo tamanho que o sprite do contrato (§6),
+então trocar pelo PNG da Designer depois é só ligar a flag. Os desenhos foram portados
+do mockup aprovado (reports/mockups/mockups.html).
+
+Convenção dos objetos (cápsula, máquinas, plantas, player): a âncora é o centro da BASE,
+ou seja, o ponto (largura/2, altura) da imagem fica em cima do ponto do mundo.
+"""
+
+import math
+import random
+
+import pygame
+
+from game import config as C
+
+Color = pygame.Color
+
+
+def _r(surf, color, x, y, w, h):
+    """Retângulo cheio (atalho pra deixar os desenhos legíveis)."""
+    surf.fill(Color(color) if isinstance(color, str) else color, (x, y, w, h))
+
+
+def _ellipse(surf, color, cx, cy, rx, ry):
+    pygame.draw.ellipse(surf, color, (cx - rx, cy - ry, rx * 2, ry * 2))
+
+
+def _bands(surf, x, y, h, bands):
+    """Faixas verticais lado a lado: [(cor, largura), ...]. Dá o volume 'cilíndrico' das máquinas."""
+    for color, w in bands:
+        _r(surf, color, x, y, w, h)
+        x += w
+
+
+def _crystal(surf, x, y, color, shadow, size):
+    _r(surf, shadow, x + 1, y + 1, size, size + 2)
+    _r(surf, color, x, y, size, size + 1)
+    _r(surf, color, x + 1, y - 1, max(1, size - 2), 1)
+    _r(surf, (255, 255, 255, 220), x, y, 1, 2)
+
+
+# ---------------------------------------------------------------- tiles
+def floor(stage: str, variant: int) -> pygame.Surface:
+    P = C.PALETTES[stage]
+    rng = random.Random(f"floor-{stage}-{variant}")
+    s = pygame.Surface((C.TILE, C.TILE))
+    s.fill(P["floor"][variant % 3])
+    for _ in range(5):   # manchas
+        _r(s, P["patch"], rng.randrange(27), rng.randrange(29), rng.choice((2, 4, 6)), 2)
+    for _ in range(6):   # pontinhos
+        _r(s, P["dot"], rng.randrange(31), rng.randrange(31), 1, 1)
+    if P["crack"] and variant in (1, 3):   # rachaduras só no planeta morto
+        x, y = 4 + rng.randrange(12), 8 + rng.randrange(14)
+        for _ in range(12):
+            _r(s, P["crack"], x, y, 1, 1)
+            x += 1
+            y += rng.choice((-1, 0, 1))
+    for _ in range(2):   # pedrinhas
+        if rng.random() < 0.5:
+            x, y = 3 + rng.randrange(24), 4 + rng.randrange(22)
+            _r(s, P["dot"], x, y + 2, 4, 1)
+            _r(s, P["peb"], x, y, 4, 2)
+            _r(s, P["peb_hi"], x, y, 2, 1)
+    if "grass" in P:      # tufos de grama no estágio verde
+        for _ in range(3):
+            if rng.random() < 0.65:
+                gx, gy = 2 + rng.randrange(22), 9 + rng.randrange(20)
+                for b in range(4):
+                    bh = 3 + rng.randrange(4)
+                    _r(s, P["grass2"] if b % 2 else P["grass"], gx + b * 2, gy - bh, 1, bh)
+    return s
+
+
+def wall(stage: str, variant: int) -> pygame.Surface:
+    """Topo da rocha (32×32). Com chão embaixo, só os 8 px de cima aparecem e a face (24 px) cobre o resto."""
+    P = C.PALETTES[stage]
+    rng = random.Random(f"wall-{stage}-{variant}")
+    s = pygame.Surface((C.TILE, C.TILE))
+    s.fill(P["rock"] if variant % 2 == 0 else P["rock2"])
+    for i in range(5):   # blocos de pedra com luz em cima/esquerda e sombra embaixo/direita
+        sx, sy = 1 + rng.randrange(20), 1 + rng.randrange(22)
+        sw, sh = min(6 + rng.randrange(8), 31 - sx), min(4 + rng.randrange(4), 31 - sy)
+        _r(s, P["rock2"] if i % 2 else P["rock"], sx, sy, sw, sh)
+        _r(s, P["rock_hi"], sx, sy, sw - 1, 1)
+        _r(s, P["rock_hi"], sx, sy, 1, sh - 1)
+        _r(s, P["rock_dot"], sx + 1, sy + sh - 1, sw - 1, 1)
+        _r(s, P["rock_dot"], sx + sw - 1, sy + 1, 1, sh - 1)
+    return s
+
+
+def wall_face(stage: str) -> pygame.Surface:
+    """Face frontal alta (32×24): é ela que faz a parede parecer parede, não degrau."""
+    P = C.PALETTES[stage]
+    s = pygame.Surface((C.TILE, 24))
+    s.fill(P["face"])
+    _r(s, P["face_hi"], 0, 0, 32, 1)
+    _r(s, P["face_hi"], 0, 1, 32, 1)
+    # estratos de rocha horizontais + rachaduras verticais
+    _r(s, P["face_dark"], 0, 8, 13, 1); _r(s, P["face_dark"], 17, 7, 15, 1)
+    _r(s, P["face_dark"], 4, 15, 20, 1); _r(s, P["face_dark"], 26, 16, 6, 1)
+    _r(s, P["face_hi"], 0, 9, 13, 1); _r(s, P["face_hi"], 4, 16, 20, 1)
+    _r(s, P["face_dark"], 11, 2, 1, 6); _r(s, P["face_dark"], 23, 9, 1, 6); _r(s, P["face_dark"], 7, 17, 1, 5)
+    _r(s, P["face_dark"], 0, 21, 32, 3)   # base escura, onde encosta no chão
+    if "moss" in P:   # cipós descendo pela face no estágio verde
+        _r(s, P["moss"], 6, 0, 2, 12); _r(s, P["moss"], 5, 10, 1, 3)
+        _r(s, P["moss"], 13, 0, 1, 5)
+        _r(s, P["moss2"], 24, 0, 2, 8); _r(s, P["moss"], 26, 6, 1, 4)
+    return s
+
+
+def moss(variant: int) -> pygame.Surface:
+    P = C.PALETTES["green"]
+    rng = random.Random(f"moss-{variant}")
+    s = pygame.Surface((C.TILE, C.TILE), pygame.SRCALPHA)
+    for _ in range(2):
+        mx, my = 2 + rng.randrange(20), 2 + rng.randrange(12)
+        _r(s, P["moss"], mx, my, 8, 3)
+        _r(s, P["moss"], mx + 2, my - 1, 4, 1)
+        _r(s, P["moss2"], mx + 1, my, 4, 1)
+    return s
+
+
+def water(stage: str) -> pygame.Surface:
+    s = pygame.Surface((C.TILE, C.TILE))
+    s.fill(C.PALETTES[stage]["water"])
+    return s
+
+
+def ore(resource: str, variant: int) -> pygame.Surface:
+    """Cristais coloridos por cima da parede (fundo transparente)."""
+    color, shadow = (Color(c) for c in C.ORE_COLORS[resource])
+    rng = random.Random(f"ore-{resource}-{variant}")
+    s = pygame.Surface((C.TILE, C.TILE), pygame.SRCALPHA)
+    for _ in range(3 + variant % 2):
+        _crystal(s, 3 + rng.randrange(23), 3 + rng.randrange(9), color, shadow, 3 + rng.randrange(3))
+    return s
+
+
+def terminal() -> pygame.Surface:
+    s = pygame.Surface((C.TILE, C.TILE), pygame.SRCALPHA)
+    _r(s, "#1a1418", 5, 5, 22, 22)
+    _r(s, "#3a3f3c", 6, 6, 20, 20)
+    _r(s, "#4e5551", 6, 6, 20, 1)
+    _r(s, "#0d1a15", 8, 8, 16, 12)
+    for i, w in enumerate((12, 9, 13, 6)):
+        _r(s, C.C_TERMINAL, 9, 9 + i * 3, w, 1)
+    _r(s, "#5a605c", 8, 22, 16, 2)
+    _r(s, C.C_ACCENT, 22, 22, 2, 2)
+    return s
+
+
+def icon(resource: str) -> pygame.Surface:
+    color, shadow = C.ORE_COLORS[resource]
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    _r(s, shadow, 1, 1, 15, 15)
+    _r(s, color, 0, 0, 15, 15)
+    _r(s, (255, 255, 255, 190), 0, 0, 2, 4)
+    return s
+
+
+# ---------------------------------------------------------------- player
+# Astronauta chibi 32×32 (§3): capacete grande, visor azul-marinho com reflexo,
+# traje branco com detalhes vermelhos e mochila. 3 direções: "down", "up", "side" (olhando pra direita).
+_OUT, _SUIT, _SUIT_SH, _RED, _RED_D = "#1a1418", "#ece8e0", "#b9b2a8", "#d64541", "#8f2a2a"
+_VISOR, _VISOR_HI, _BOOT, _PACK = "#1c2a4a", "#8fc4f0", "#3b3f46", "#6b717a"
+
+
+def _astronaut(view: str, frame: int) -> pygame.Surface:
+    """Desenha um quadro. frame 0..3: nos quadros 1 e 3 o corpo sobe 1 px e as pernas alternam."""
+    s = pygame.Surface((32, 32), pygame.SRCALPHA)
+    bob = 1 if frame % 2 else 0
+    # pernas (não sobem com o bob)
+    lift_l = 2 if frame == 1 else 0
+    lift_r = 2 if frame == 3 else 0
+    if view == "side":
+        front = 3 if frame == 1 else -2 if frame == 3 else 0     # passada pra frente/trás
+        _r(s, _OUT, 12 + front, 26, 6, 6); _r(s, _BOOT, 13 + front, 27, 4, 4)
+        _r(s, _OUT, 14 - front, 26, 6, 6); _r(s, _SUIT_SH, 15 - front, 27, 4, 3); _r(s, _BOOT, 15 - front, 29, 4, 2)
+    else:
+        _r(s, _OUT, 10, 26 - lift_l, 6, 6); _r(s, _SUIT_SH, 11, 27 - lift_l, 4, 2); _r(s, _BOOT, 11, 29 - lift_l, 4, 2)
+        _r(s, _OUT, 16, 26 - lift_r, 6, 6); _r(s, _SUIT_SH, 17, 27 - lift_r, 4, 2); _r(s, _BOOT, 17, 29 - lift_r, 4, 2)
+    y = -bob
+    # mochila (atrás: aparece do lado esquerdo na vista de lado e inteira de costas)
+    if view == "side":
+        _r(s, _OUT, 5, 15 + y, 7, 11); _r(s, _PACK, 6, 16 + y, 5, 9); _r(s, _RED, 6, 18 + y, 5, 2)
+    # corpo
+    _r(s, _OUT, 9, 16 + y, 14, 11)
+    _r(s, _SUIT, 10, 17 + y, 12, 9)
+    _r(s, _SUIT_SH, 10, 23 + y, 12, 3)
+    if view == "down":
+        _r(s, _RED, 14, 18 + y, 4, 3); _r(s, _RED_D, 14, 20 + y, 4, 1)          # painel do peito
+        _r(s, _OUT, 7, 18 + y, 3, 6); _r(s, _SUIT_SH, 8, 18 + y, 2, 5)           # braços
+        _r(s, _OUT, 22, 18 + y, 3, 6); _r(s, _SUIT_SH, 22, 18 + y, 2, 5)
+    elif view == "up":
+        _r(s, _OUT, 10, 16 + y, 12, 9); _r(s, _PACK, 11, 17 + y, 10, 7); _r(s, _RED, 11, 19 + y, 10, 2)
+        _r(s, _OUT, 7, 18 + y, 3, 6); _r(s, _SUIT_SH, 8, 18 + y, 2, 5)
+        _r(s, _OUT, 22, 18 + y, 3, 6); _r(s, _SUIT_SH, 22, 18 + y, 2, 5)
+    else:
+        arm = 1 if frame in (1, 3) else 0
+        _r(s, _OUT, 14 + arm, 18 + y, 5, 6); _r(s, _SUIT_SH, 15 + arm, 18 + y, 3, 5); _r(s, _RED, 15 + arm, 22 + y, 3, 1)
+    _r(s, _RED, 10, 25 + y, 12, 1)                                                # cinto
+    # capacete grande (~metade da altura)
+    _r(s, _OUT, 8, 1 + y, 16, 17); _r(s, _OUT, 7, 3 + y, 18, 13)
+    _r(s, _SUIT, 9, 2 + y, 14, 15); _r(s, _SUIT, 8, 4 + y, 16, 11)
+    _r(s, _SUIT_SH, 8, 13 + y, 16, 2); _r(s, _SUIT_SH, 9, 15 + y, 14, 2)
+    _r(s, "#ffffff", 10, 3 + y, 4, 1)                                             # brilho no topo
+    if view == "down":       # visor de frente, centralizado
+        _r(s, _OUT, 10, 6 + y, 12, 8); _r(s, _VISOR, 11, 7 + y, 10, 6)
+        _r(s, _VISOR_HI, 12, 8 + y, 3, 1); _r(s, _VISOR_HI, 12, 9 + y, 1, 2)
+    elif view == "side":     # visor deslocado pra direita: é assim que se lê "olhando pro lado"
+        _r(s, _OUT, 15, 6 + y, 10, 8); _r(s, _VISOR, 16, 7 + y, 8, 6)
+        _r(s, _VISOR_HI, 17, 8 + y, 3, 1); _r(s, _VISOR_HI, 17, 9 + y, 1, 2)
+        _r(s, _RED, 9, 9 + y, 3, 2)                                               # detalhe vermelho na nuca
+    else:                    # de costas: sem visor, faixa vermelha e antena
+        _r(s, _RED, 9, 9 + y, 14, 2)
+        _r(s, _PACK, 21, 0 + y, 1, 3); _r(s, _RED, 20, 0 + y, 3, 1)
+    return s
+
+
+def player(view: str) -> pygame.Surface:
+    """Player parado, 32×32. view = 'down', 'up' ou 'side' (olhando pra direita)."""
+    return _astronaut(view, 0)
+
+
+def player_walk(view: str) -> pygame.Surface:
+    """Folha de caminhada 128×32: 4 quadros de 32×32 lado a lado."""
+    sheet = pygame.Surface((128, 32), pygame.SRCALPHA)
+    for i in range(4):
+        sheet.blit(_astronaut(view, i), (i * 32, 0))
+    return sheet
+
+
+# ---------------------------------------------------------------- cápsula
+def pod() -> pygame.Surface:
+    """Cápsula 64×72. Base do desenho em y=70."""
+    s = pygame.Surface((64, 72), pygame.SRCALPHA)
+    x, y = 0, 70
+    _ellipse(s, (0, 0, 0, 100), 32, y - 4, 32, 7)
+    _r(s, "#2a2d33", x + 1, y - 5, 10, 3); _r(s, "#2a2d33", x + 53, y - 5, 10, 3)
+    _r(s, "#3b3f46", x + 4, y - 16, 4, 11); _r(s, "#3b3f46", x + 56, y - 16, 4, 11)
+    _r(s, "#22272e", x + 5, y - 49, 54, 38)
+    _bands(s, x + 6, y - 48, 36, [("#f4f6f8", 4), ("#e1e5ea", 20), ("#c8cdd4", 16), ("#abb2bb", 8), ("#8c949e", 4)])
+    for i, n in enumerate((14, 10, 7, 5, 3, 1)):   # domo
+        yy = y - 54 + i
+        _r(s, "#22272e", x + 5 + n, yy, 54 - 2 * n, 1)
+        if i > 0:
+            _r(s, "#eef1f4" if i < 3 else "#e1e5ea", x + 6 + n, yy, 52 - 2 * n, 1)
+    _r(s, "#abb2bb", x + 6, y - 38, 52, 1)
+    _r(s, C.C_ACCENT, x + 6, y - 30, 52, 4); _r(s, "#f29a62", x + 6, y - 30, 52, 1); _r(s, "#a8471f", x + 6, y - 26, 52, 1)
+    _r(s, "#22272e", x + 11, y - 47, 18, 12); _r(s, "#2b7f99", x + 12, y - 46, 16, 10); _r(s, C.C_O2, x + 12, y - 46, 12, 8)
+    _r(s, "#d8fbff", x + 14, y - 45, 3, 1); _r(s, "#d8fbff", x + 14, y - 44, 1, 2); _r(s, "#d8fbff", x + 19, y - 45, 1, 1)
+    _r(s, "#22272e", x + 35, y - 25, 16, 14); _r(s, "#34444f", x + 36, y - 24, 14, 13); _r(s, "#22303a", x + 42, y - 24, 1, 13)
+    _r(s, C.C_ACCENT, x + 39, y - 18, 2, 2); _r(s, C.C_ACCENT, x + 44, y - 18, 2, 2)
+    for i in range(3):
+        _r(s, "#8c949e", x + 12, y - 22 + i * 3, 14, 1)
+    _r(s, "#8c949e", x + 34, y - 46, 18, 4); _r(s, C.C_ACCENT, x + 34, y - 46, 4, 4)
+    _r(s, "#6b717a", x + 50, y - 66, 1, 14); _r(s, "#6b717a", x + 47, y - 58, 7, 1)
+    _r(s, "#7a2a24", x + 49, y - 69, 3, 3)   # luz da antena (pisca no render)
+    return s
+
+
+# ---------------------------------------------------------------- máquinas
+# Cada máquina é desenhada com "origem" (x, y) = canto esquerdo da base, igual ao mockup.
+def _o2gen(s, x, y):
+    _ellipse(s, (0, 0, 0, 100), x + 16, y - 2, 17, 5)
+    _r(s, "#151a20", x, y - 11, 32, 10); _r(s, "#2b3440", x + 1, y - 10, 30, 8); _r(s, "#3d4856", x + 1, y - 10, 30, 2)
+    _r(s, "#8a96a3", x + 3, y - 7, 2, 2); _r(s, "#8a96a3", x + 27, y - 7, 2, 2)
+    _r(s, "#14202b", x + 5, y - 45, 22, 35); _r(s, "#14202b", x + 7, y - 47, 18, 2)
+    _bands(s, x + 6, y - 44, 34, [("#9ad9f7", 2), ("#64b7e8", 6), ("#3f91c6", 7), ("#2d70a0", 3), ("#1f5379", 2)])
+    _r(s, "#2d70a0", x + 8, y - 46, 16, 2); _r(s, "#64b7e8", x + 9, y - 46, 8, 1)
+    _r(s, "#1b3448", x + 6, y - 33, 20, 2); _r(s, "#1b3448", x + 6, y - 20, 20, 2)
+    _r(s, (255, 255, 255, 150), x + 8, y - 42, 1, 7)
+    _r(s, "#e9e5dd", x + 12, y - 29, 8, 6); _r(s, "#1a1418", x + 12, y - 29, 8, 1); _r(s, "#c2281c", x + 15, y - 27, 1, 3)
+    _r(s, "#6b717a", x + 13, y - 49, 6, 2); _r(s, C.C_ACCENT, x + 12, y - 52, 8, 3); _r(s, "#a8471f", x + 12, y - 50, 8, 1)
+    _r(s, "#6b717a", x + 27, y - 26, 4, 2); _r(s, "#6b717a", x + 29, y - 26, 2, 15)
+
+
+def _heater(s, x, y):
+    _ellipse(s, (0, 0, 0, 100), x + 16, y - 2, 17, 5)
+    _r(s, "#2a1712", x + 5, y - 4, 5, 4); _r(s, "#2a1712", x + 22, y - 4, 5, 4)
+    _r(s, "#1a1418", x + 2, y - 36, 28, 33)
+    _bands(s, x + 3, y - 35, 31, [("#8a6050", 3), ("#6a4538", 14), ("#5a3a2f", 6), ("#462c24", 3)])
+    _r(s, "#9a7060", x + 2, y - 38, 28, 3); _r(s, "#1a1418", x + 2, y - 35, 28, 1)
+    for i in range(4):
+        _r(s, "#1d0f0b", x + 7, y - 30 + i * 5, 18, 4)
+        _r(s, "#ff9a3d", x + 8, y - 29 + i * 5, 16, 2)
+    for i in range(13):
+        _r(s, "#1a1418" if i % 2 else C.C_TI, x + 3 + i * 2, y - 8, 2, 2)
+    _r(s, "#1a1418", x + 20, y - 47, 7, 10); _r(s, "#4a3a34", x + 21, y - 46, 5, 9); _r(s, "#6b5a52", x + 19, y - 48, 9, 2)
+
+
+def _ice_cube(s, x, y, size):
+    _r(s, "#4fb3d6", x + 1, y + 1, size, size)
+    _r(s, "#bdf1ff", x, y, size, size)
+    _r(s, "#eafcff", x, y, size, 1); _r(s, "#eafcff", x, y, 1, size - 1)
+    _r(s, "#7fd3ef", x + size - 1, y + 1, 1, size - 1)
+
+
+def _melter(s, x, y):
+    _ellipse(s, (0, 0, 0, 90), x + 16, y - 2, 16, 5)
+    _r(s, "#1a1418", x + 3, y - 25, 26, 24)
+    _bands(s, x + 4, y - 24, 22, [("#6f8696", 3), ("#4f6370", 13), ("#3e4f5a", 5), ("#2b3740", 3)])
+    for i in range(8):
+        _r(s, "#1a1418" if i == 0 else "#8aa2b2" if i < 3 else "#64798a", x + i, y - 33 + i, 32 - 2 * i, 1)
+    _r(s, "#1a1418", x, y - 34, 32, 1)
+    _ice_cube(s, x + 6, y - 41, 7); _ice_cube(s, x + 14, y - 43, 8); _ice_cube(s, x + 23, y - 40, 6)
+    _r(s, "#14202b", x + 9, y - 21, 7, 15)
+    _r(s, "#6b717a", x + 28, y - 14, 4, 3); _r(s, "#6b717a", x + 30, y - 14, 2, 7)
+
+
+_MACHINE_PAINTERS = {"o2": _o2gen, "heater": _heater, "melter": _melter}
+MACHINE_SIZE = {1: (40, 58), 2: (40, 66)}
+T2_LIFT = 7   # quanto o corpo do nv.2 fica "levantado" em cima do pedestal
+
+
+def machine(kind: str) -> pygame.Surface:
+    """Máquina nv.1 (40×58) ou nv.2 (40×66: mesma máquina num pedestal com faixas douradas)."""
+    tier = 2 if kind.endswith("_t2") else 1
+    base_kind = kind.removesuffix("_t2")
+    w, h = MACHINE_SIZE[tier]
+    s = pygame.Surface((w, h), pygame.SRCALPHA)
+    ox, oy = 4, h - 2
+    if tier == 2:
+        _ellipse(s, (0, 0, 0, 100), ox + 16, oy - 2, 19, 5)
+        _r(s, "#1a1418", ox - 2, oy - T2_LIFT - 2, 36, T2_LIFT + 1)
+        _r(s, "#3b3f46", ox - 1, oy - T2_LIFT - 1, 34, T2_LIFT - 1)
+        for i in range(8):
+            _r(s, C.C_TI if i % 2 == 0 else "#1a1418", ox + 1 + i * 4, oy - 4, 4, 2)
+        oy -= T2_LIFT
+    _MACHINE_PAINTERS[base_kind](s, ox, oy)
+    if tier == 2:   # marca "II" dourada no topo
+        _r(s, C.C_TI, ox + 1, oy - 30, 2, 6); _r(s, C.C_TI, ox + 4, oy - 30, 2, 6)
+    return s
+
+
+def machine_anim(target: pygame.Surface, kind: str, ax: int, ay: int, t: float) -> None:
+    """Partes que mexem (LED, chama, nível d'água). Só usado com o desenho de fallback.
+
+    (ax, ay) = âncora na tela (centro da base). t = tempo em segundos.
+    """
+    tier = 2 if kind.endswith("_t2") else 1
+    base_kind = kind.removesuffix("_t2")
+    x, y = ax - 16, ay - 2 - (T2_LIFT if tier == 2 else 0)
+    tick = t * 9   # o mockup animava a ~9 quadros por segundo
+    if base_kind == "o2":
+        _r(target, C.C_OK if tick % 8 < 4 else "#2f5a2c", x + 4, y - 14, 2, 2)
+        _r(target, "#c2281c", x + 15 + (1 if tick % 6 < 3 else 0), y - 27, 1, 3)
+        for i in range(4):   # bolhas de O₂ subindo
+            p = (tick * 1.2 + i * 9) % 36
+            a = int(255 * (1 - p / 36))
+            bubble = pygame.Surface((3, 3), pygame.SRCALPHA)
+            bubble.fill((170, 235, 255, a))
+            target.blit(bubble, (x + 12 + (i * 5) % 9 + round(math.sin((tick + i * 3) * 0.4)), y - 55 - p))
+    elif base_kind == "heater":
+        for i in range(4):
+            f = math.sin(tick * 0.7 + i * 1.3)
+            _r(target, "#ffd27a" if f > 0.3 else "#ff9a3d" if f > -0.3 else "#e0602a", x + 8, y - 29 + i * 5, 16, 2)
+    elif base_kind == "melter":
+        level = 6 + round(4 + math.sin(tick * 0.25) * 3)
+        _r(target, "#4aa8d8", x + 10, y - 7 - level, 5, level)
+        _r(target, "#9fe0f5", x + 10, y - 7 - level, 5, 1)
+        drop = (tick * 1.5) % 10
+        _r(target, "#6fc9ef", x + 30, y - 6 + drop * 0.5, 2, 2)
+
+
+# ---------------------------------------------------------------- plantas
+def plant(kind: str) -> pygame.Surface:
+    """Planta 32×40 (âncora: centro da base)."""
+    s = pygame.Surface((32, 40), pygame.SRCALPHA)
+    x, y = 16, 38
+    if kind == "bush":
+        _ellipse(s, (0, 0, 0, 77), x, y, 11, 3)
+        _r(s, "#1d4224", x - 10, y - 11, 20, 10); _r(s, "#1d4224", x - 7, y - 14, 14, 3)
+        _r(s, "#2f6a33", x - 9, y - 12, 16, 9); _r(s, "#2f6a33", x - 5, y - 14, 9, 2)
+        _r(s, "#4a8f45", x - 7, y - 13, 7, 3); _r(s, "#4a8f45", x + 1, y - 9, 4, 2)
+        _r(s, "#7cc45e", x - 6, y - 13, 2, 1)
+        for px, py in ((3, -11), (-3, -7), (6, -6)):
+            _r(s, "#e94f6a", x + px, y + py, 2, 2)
+    elif kind == "tree":
+        _ellipse(s, (0, 0, 0, 82), x, y, 13, 4)
+        _r(s, "#3d2a1e", x - 3, y - 17, 6, 17); _r(s, "#6b4a33", x - 2, y - 17, 3, 17); _r(s, "#8a6446", x - 2, y - 17, 1, 15)
+        for cx, cy, rad, col in [(0, -25, 12, "#1a4322"), (-7, -22, 8, "#1a4322"), (8, -21, 7, "#1a4322"),
+                                 (-1, -27, 10, "#2e6a33"), (-6, -23, 6, "#2e6a33"), (6, -23, 6, "#2e6a33"),
+                                 (-4, -30, 6, "#4a8f45"), (3, -25, 4, "#4a8f45")]:
+            pygame.draw.circle(s, Color(col), (x + cx, y + cy), rad)
+        _r(s, "#7cc45e", x - 6, y - 34, 3, 1)
+    else:  # flower
+        for i in range(3):
+            fx, fy = x - 6 + i * 6, y - 2 - (i % 2) * 3
+            _r(s, "#3f7a34", fx, fy - 5, 1, 5); _r(s, "#3f7a34", fx + 1, fy - 3, 2, 1)
+            _r(s, "#f2a3c8" if i != 1 else "#f5d36b", fx - 1, fy - 8, 3, 3)
+            _r(s, "#fff3c4", fx, fy - 7, 1, 1)
+    return s
+
+
+# ---------------------------------------------------------------- efeitos
+def radial(radius: int, color: tuple[int, int, int], max_alpha: int) -> pygame.Surface:
+    """Círculo com degradê (centro forte, borda transparente). Usado pra luzes, névoa e vinheta.
+
+    Calculamos numa grade pequena (32×32) e esticamos com smoothscale: rápido e suave.
+    """
+    n = 32
+    small = pygame.Surface((n, n), pygame.SRCALPHA)
+    for j in range(n):
+        for i in range(n):
+            d = math.hypot(i + 0.5 - n / 2, j + 0.5 - n / 2) / (n / 2)
+            a = max(0.0, 1 - d)
+            small.set_at((i, j), (*color, int(max_alpha * a * a)))
+    return pygame.transform.smoothscale(small, (radius * 2, radius * 2))
+
+
+def vignette(w: int, h: int, color: tuple[int, int, int], max_alpha: int) -> pygame.Surface:
+    """Bordas escurecidas (ou avermelhadas, no O₂ crítico)."""
+    sw, sh = 64, 36
+    small = pygame.Surface((sw, sh), pygame.SRCALPHA)
+    for j in range(sh):
+        for i in range(sw):
+            dx, dy = (i + 0.5) / sw - 0.5, (j + 0.5) / sh - 0.5
+            d = math.hypot(dx * 1.0, dy * 0.75) / 0.6
+            a = min(1.0, max(0.0, (d - 0.45) / 0.55))
+            small.set_at((i, j), (*color, int(max_alpha * a)))
+    return pygame.transform.smoothscale(small, (w, h))
