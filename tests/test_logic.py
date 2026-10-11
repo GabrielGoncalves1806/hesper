@@ -290,3 +290,45 @@ def test_no_water_in_stage1_but_water_later():
     stage2 = {t for t in tiles if w.is_water(*t, 2)}
     stage3 = {t for t in tiles if w.is_water(*t, 3)}
     assert stage2 and stage2 <= stage3                         # Névoa tem poças; Verde mantém e cresce
+
+
+# ---------------------------------------------------------------- desmontar
+def placed(game, kind="o2", dx=2):
+    game.inventory.update(iron=100, silicon=100, ice=100)
+    game.craft(kind)
+    px, py = game.player.tile
+    game.place(kind, (px + dx, py))
+    return game.machines[-1]
+
+
+def test_dismantle_returns_machine_to_stock_and_stops_index(game):
+    m = placed(game)
+    assert game.machines_owned["o2"] == 0
+    run(game, 1)
+    o2_before = game.indices["o2"]
+    assert game.dismantle(m)
+    assert m not in game.machines and game.machines_owned["o2"] == 1
+    assert ("dismantle", "o2", (m.tx, m.ty)) in game.pop_events()
+    run(game, 2)
+    assert game.indices["o2"] == o2_before        # parou de somar
+    assert game.ti_rate == 0
+    px, py = game.player.tile
+    assert game.place("o2", (px - 2, py))         # dá pra recolocar
+
+
+def test_dismantle_needs_reach(game):
+    m = placed(game)
+    game.player.x += 10 * C.TILE
+    assert not game.can_dismantle(m)
+    assert not game.dismantle(m)
+    assert m in game.machines
+
+
+def test_machine_hit_by_sprite_area_and_pod_is_not_a_machine(game):
+    m = placed(game, "o2")
+    cx = (m.tx + 0.5) * C.TILE
+    assert game.machine_at_point(cx, (m.ty + 1) * C.TILE - 2) is m       # na base
+    assert game.machine_at_point(cx, (m.ty + 1) * C.TILE - 50) is m      # no topo do sprite (tile de cima)
+    assert game.machine_at_point(cx, (m.ty + 1) * C.TILE - 60) is None   # acima do sprite de 56 px
+    pod_x, pod_y = C.POD_ANCHOR
+    assert game.machine_at_point(pod_x, pod_y - 20) is None              # a cápsula não é desmontável

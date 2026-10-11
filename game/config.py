@@ -32,7 +32,7 @@ VOLUME = {
     # sobrevivência: o alarme fica alto de propósito (abaixo de 0,6 ele perde a função)
     "o2_low": 0.9, "o2_refill": 0.65, "faint": 0.7,
     # máquinas: ~30% abaixo do original (1,0)
-    "craft": 0.7, "place": 0.7,
+    "craft": 0.7, "place": 0.7, "place_low": 0.7,   # place_low = "place" mais grave (desmontar)
     # recompensa: o jingle de estágio continua sendo o som mais alto
     "stage_up": 0.85,
 }
@@ -133,6 +133,7 @@ MACHINES = {
     ]
 }
 MACHINE_ORDER = list(MACHINES)   # ordem no fabricador e nas teclas 1–6
+MACHINE_SPRITE_SIZE = {1: (40, 56), 2: (40, 64)}   # tamanho do sprite por nível (usado pro mouse "acertar" a máquina)
 PLACE_REACH = 4                  # alcance pra colocar máquina (tiles)
 
 # ---------------------------------------------------------------------------

@@ -20,7 +20,12 @@ sys.path.insert(0, str(ROOT))
 import pygame  # noqa: E402
 
 from game import config as C  # noqa: E402
+from game import settings  # noqa: E402
 from game.app import App  # noqa: E402
+
+# o smoke mexe nos volumes: grava num arquivo temporário, nunca no settings.json de verdade
+import tempfile  # noqa: E402
+settings.SETTINGS_PATH = Path(tempfile.gettempdir()) / "hesper_smoke_settings.json"
 
 OUT = ROOT / "reports" / "dev"
 DT = 1 / 60
@@ -212,6 +217,95 @@ def check_drill(bot) -> None:
     print("  screenshot: reports/dev/broca.png  (direita, esquerda, baixo, cima)")
 
 
+def check_pause(bot) -> None:
+    """Esc pausa (mundo congela), menu com mouse e teclado, sliders de volume, controles."""
+    s, app = bot.state, bot.app
+    settings.SETTINGS_PATH.unlink(missing_ok=True)
+    assert s.machines, "precisa de máquina pra ver o Ti congelar"
+    bot.key(pygame.K_ESCAPE)
+    assert app.mode == "pause"
+    ti_before, o2_before = s.ti, s.o2
+    bot.frames(1.0)
+    assert s.ti == ti_before and s.o2 == o2_before, "pausa tem que congelar Ti e O2"
+    ui = app.ui
+    bot.mouse_to((ui.pause_items[1].centerx * 2, ui.pause_items[1].centery * 2))   # mouse em "Volumes"
+    assert app.pause_selected == 1
+    bot.shot("pausa.png")
+    bot.click((ui.pause_items[1].centerx * 2, ui.pause_items[1].centery * 2))
+    assert app.pause_screen == "volumes"
+    bot.frames(DT)
+    # teclado: desce pro "Efeitos" e abaixa 3 vezes (100% -> 70%)
+    bot.key(pygame.K_s)
+    for _ in range(3):
+        bot.key(pygame.K_a)
+    assert app.settings["sfx"] == 0.7, app.settings
+    # mouse: clica no meio da barra do "Geral" (≈50%) e arrasta até ~80%
+    bar = ui.pause_sliders[0]
+    bot.mouse_to((bar.x * 2 + bar.w, bar.centery * 2))
+    bot.mouse_down((bar.x * 2 + bar.w, bar.centery * 2))
+    bot.frames(DT)
+    bot.mouse_to((int((bar.x + bar.w * 0.8) * 2), bar.centery * 2))
+    bot.mouse_up((int((bar.x + bar.w * 0.8) * 2), bar.centery * 2))
+    bot.frames(DT)
+    assert abs(app.settings["master"] - 0.8) < 0.051, app.settings
+    assert settings.load() == app.settings, "volumes têm que ir pro settings.json"
+    assert app.audio.mix == app.settings
+    bot.shot("pausa_volumes.png")
+    bot.key(pygame.K_ESCAPE)
+    assert app.pause_screen == "main"
+    bot.key(pygame.K_s)
+    bot.key(pygame.K_s)
+    bot.key(pygame.K_RETURN)
+    assert app.pause_screen == "controls"
+    bot.frames(DT)
+    bot.shot("pausa_controles.png")
+    bot.key(pygame.K_ESCAPE)
+    bot.key(pygame.K_ESCAPE)
+    assert app.mode == "play"
+    app.settings = dict(settings.DEFAULTS)
+    app.audio.set_mix(**app.settings)
+    settings.SETTINGS_PATH.unlink(missing_ok=True)
+    # Esc com máquina na mão só cancela (não pausa)
+    s.machines_owned["o2"] += 1
+    bot.key(pygame.K_1)
+    assert app.placing == "o2"
+    bot.key(pygame.K_ESCAPE)
+    assert app.placing is None and app.mode == "play"
+    s.machines_owned["o2"] -= 1
+
+
+def check_dismantle(bot) -> None:
+    """Clique direito numa máquina: volta pro estoque, para de somar; dica com o mouse em cima."""
+    s, app = bot.state, bot.app
+    bot.teleport((64, 66))
+    bot.frames(0.1)
+    s.inventory.update(iron=60, silicon=30, ice=40)
+    kind = "heater" if s.recipe_status("heater") == "ok" else "o2"   # aquecedor só libera com Ti 500
+    s.craft(kind)
+    s.place(kind, (66, 66))
+    m = s.machine_at((66, 66))
+    camx, camy = app.cam
+    body = (int((m.tx + 0.5) * C.TILE - camx), int((m.ty + 1) * C.TILE - 40 - camy))   # no corpo, acima do tile
+    bot.mouse_to(body)
+    bot.frames(0.1)
+    assert app.hint() == "[Clique direito] desmontar", app.hint()
+    bot.shot("desmontar.png")
+    owned = s.machines_owned[kind]
+    rate = s.ti_rate
+    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=body, button=3))
+    bot.frames(0.15)
+    assert m not in s.machines and s.machines_owned[kind] == owned + 1
+    assert s.ti_rate == rate - C.MACHINES[kind].rate
+    bot.shot("desmontar_depois.png")
+    # a cápsula não desmonta
+    pod = (C.POD_ANCHOR[0] - camx, C.POD_ANCHOR[1] - 30 - camy)
+    n = len(s.machines)
+    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=pod, button=3))
+    bot.frames(0.1)
+    assert len(s.machines) == n
+    s.place(kind, (66, 66))      # devolve a máquina pro resto do smoke
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     bot = Bot()
@@ -269,6 +363,8 @@ def main() -> None:
     check_directions_and_order(bot)
     check_walls_and_hover(bot)
     check_drill(bot)
+    check_pause(bot)
+    check_dismantle(bot)
 
     print("4) terminal")
     tx, ty = s.world.terminals[0]

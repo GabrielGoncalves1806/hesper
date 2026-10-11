@@ -23,6 +23,8 @@ uv run python -m game --scale 2   # força o zoom da janela (padrão: o maior qu
 | Fabricador | E (só dentro do círculo azul da base) · W/S escolhe · clique ou Enter fabrica |
 | Colocar máquina | depois de fabricar, clique no chão · R gira · Esc ou botão direito cancela |
 | Escolher máquina já fabricada | 1 a 6 (aparece no HUD, em cima do inventário) |
+| Desmontar máquina | clique direito em cima dela (volta pro estoque, teclas 1 a 6) |
+| Pausa | Esc (Continuar, Volumes, Controles, Sair) · os volumes ficam salvos em `settings.json` |
 | Ler terminal | E perto dele |
 | Debug | F1 acelera o tempo ×10 (O₂ e máquinas) · F2 soma +10.000 Ti |
 

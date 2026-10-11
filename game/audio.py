@@ -31,6 +31,7 @@ PITCH_VARIANTS = {
     "ui_click": (0.98, 1.0, 1.02),
 }
 VOLUME_JITTER = {"mine_hit": 0.10}   # ±10% de volume no mine_hit
+DERIVED = {"place_low": ("place", 0.8)}   # nome -> (arquivo base, fator de pitch); 0.8 = mais grave
 
 ALARM_ON_BELOW = 25.0    # % de O₂ que liga o alarme
 ALARM_OFF_AT = 27.0      # % que desliga (histerese: não fica ligando/desligando na borda)
@@ -93,6 +94,7 @@ class Audio:
         self._amb_target = 1.0
         self._pending_ambient: list | None = None  # [segundos até o crossfade, chave do estágio novo]
         self._fade_busy = 0.0                    # enquanto > 0 não mexe no volume do ambiente (fade rolando)
+        self.mix = {"master": 1.0, "sfx": 1.0, "ambient": 1.0}   # sliders do menu de pausa
         if not (C.ENABLE_AUDIO if enabled is None else enabled):
             return
         try:
@@ -107,6 +109,25 @@ class Audio:
         except pygame.error as err:
             print(f"[audio] sem áudio ({err}). Seguindo em silêncio.")
 
+    # ---- mixagem (menu de pausa) ----------------------------------------------
+    @property
+    def sfx_gain(self) -> float:
+        return self.mix["master"] * self.mix["sfx"]
+
+    @property
+    def ambient_gain(self) -> float:
+        return AMBIENT_VOLUME * self.mix["master"] * self.mix["ambient"]
+
+    def set_mix(self, master: float, sfx: float, ambient: float) -> None:
+        """Aplica os sliders na hora: multiplicam a tabela VOLUME do config.py."""
+        self.mix = {"master": master, "sfx": sfx, "ambient": ambient}
+        if not self.ok:
+            return
+        if self.alarm_on:
+            self.alarm_channel.set_volume(VOLUME["o2_low"] * self.sfx_gain)
+        if self._fade_busy <= 0:
+            self.amb[self._amb_index].set_volume(self.ambient_gain * self._amb_level)
+
     # ---- carregar --------------------------------------------------------------
     def _get(self, name: str) -> list[pygame.mixer.Sound]:
         """Lista de variações do som (vazia se o arquivo não existir)."""
@@ -116,6 +137,15 @@ class Audio:
 
     @staticmethod
     def _load(name: str) -> list[pygame.mixer.Sound]:
+        if name in DERIVED:   # som gerado a partir de outro (ex.: "place" mais grave pro desmontar)
+            base, factor = DERIVED[name]
+            sounds = Audio._load(base)
+            _, size, channels = pygame.mixer.get_init()
+            if not sounds or size != -16:
+                return sounds
+            samples = array("h")
+            samples.frombytes(sounds[0].get_raw())
+            return [pygame.mixer.Sound(buffer=resample(samples, channels, factor).tobytes())]
         path = C.AUDIO_DIR / f"{name}.wav"
         if not path.exists():
             return []
@@ -154,7 +184,7 @@ class Audio:
         if sound:
             volume = VOLUME.get(name, 1.0)
             jitter = VOLUME_JITTER.get(name, 0.0)
-            sound.set_volume(volume * random.uniform(1 - jitter, 1 + jitter))
+            sound.set_volume(volume * self.sfx_gain * random.uniform(1 - jitter, 1 + jitter))
             sound.play()
 
     # ---- loops -----------------------------------------------------------------
@@ -165,7 +195,7 @@ class Audio:
         if on:
             sounds = self._get("o2_low")
             if sounds:
-                self.alarm_channel.set_volume(VOLUME["o2_low"])
+                self.alarm_channel.set_volume(VOLUME["o2_low"] * self.sfx_gain)
                 self.alarm_channel.play(sounds[0], loops=-1)
         else:
             self.alarm_channel.fadeout(300)
@@ -179,7 +209,7 @@ class Audio:
             return
         if volume > 0 and not self.hum_channel.get_busy():
             self.hum_channel.play(sounds[0], loops=-1)
-        self.hum_channel.set_volume(volume)
+        self.hum_channel.set_volume(volume * self.sfx_gain)
 
     # ---- ambiente --------------------------------------------------------------
     def start_ambient(self, stage_key: str) -> None:
@@ -189,7 +219,7 @@ class Audio:
         self.ambient_key = stage_key
         if sounds:
             channel = self.amb[self._amb_index]
-            channel.set_volume(AMBIENT_VOLUME)
+            channel.set_volume(self.ambient_gain)
             channel.play(sounds[0], loops=-1, fade_ms=2000)
             self._fade_busy = 2.0
 
@@ -210,7 +240,7 @@ class Audio:
         self._amb_level = self._amb_target = 1.0
         if sounds:
             new = self.amb[self._amb_index]
-            new.set_volume(AMBIENT_VOLUME)
+            new.set_volume(self.ambient_gain)
             new.play(sounds[0], loops=-1, fade_ms=CROSSFADE_MS)
         self._fade_busy = CROSSFADE_MS / 1000
 
@@ -245,4 +275,4 @@ class Audio:
             self._amb_level = self._amb_target
         else:
             self._amb_level += step if self._amb_target > self._amb_level else -step
-        self.amb[self._amb_index].set_volume(AMBIENT_VOLUME * self._amb_level)
+        self.amb[self._amb_index].set_volume(self.ambient_gain * self._amb_level)

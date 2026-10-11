@@ -6,7 +6,8 @@ Game loop (60 vezes por segundo):
     3. draw()           desenha mundo + UI numa tela de 960×540 e estica pra janela
 
 Modos de tela: "play" (jogando), "fabricator" (menu de receitas),
-"terminal" (lendo um log) e "end" (tela de fim do MVP).
+"terminal" (lendo um log), "pause" (menu do Esc) e "end" (tela de fim do MVP).
+Em "pause" e "end" o mundo fica congelado (O₂, máquinas e Ti param).
 """
 
 import math
@@ -16,6 +17,7 @@ import pygame
 from game import art
 from game import config as C
 from game import audio as sound
+from game import settings
 from game.assets import Sprites
 from game.audio import Audio
 from game.render import Renderer, stage_key
@@ -81,6 +83,11 @@ class App:
         self.end_timer: float | None = None
         self.footstep_timer = 0.0
         self.footstep_side = 0
+        self.pause_screen = "main"      # "main", "volumes" ou "controls"
+        self.pause_selected = 0
+        self.dragging_slider: int | None = None
+        self.settings = settings.load()
+        self.audio.set_mix(**self.settings)
         self.audio.start_ambient(stage_key(self.state.stage))
 
     # ---- loop -----------------------------------------------------------------
@@ -117,11 +124,16 @@ class App:
                 self.keys_down.discard(event.key)
             elif event.type == pygame.MOUSEMOTION:
                 self.mouse = (event.pos[0] // self.scale, event.pos[1] // self.scale)
+                if self.mode == "pause":
+                    self.pause_hover()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 self.mouse = (event.pos[0] // self.scale, event.pos[1] // self.scale)
                 self.on_click(event.button)
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 self.mouse_held = False
+                if self.dragging_slider is not None:
+                    self.dragging_slider = None
+                    settings.save(self.settings)
 
     def on_key(self, key: int) -> None:
         state = self.state
@@ -132,7 +144,9 @@ class App:
         if state.fainted:
             return
 
-        if self.mode == "fabricator":
+        if self.mode == "pause":
+            self.on_pause_key(key)
+        elif self.mode == "fabricator":
             if key in (pygame.K_e, pygame.K_ESCAPE):
                 self.set_mode("play")
             elif key in (pygame.K_w, pygame.K_UP):
@@ -162,6 +176,8 @@ class App:
             elif key == pygame.K_ESCAPE and self.placing:
                 self.placing = None
                 self.audio.play("ui_close")
+            elif key == pygame.K_ESCAPE:
+                self.open_pause()
             elif key == pygame.K_r and self.placing:
                 self.rotation = (self.rotation + 1) % 4
             elif key in NUMBER_KEYS:
@@ -170,11 +186,100 @@ class App:
                     self.placing = kind
                     self.audio.play("ui_click")
 
+    # ---- menu de pausa ---------------------------------------------------------
+    def open_pause(self) -> None:
+        self.pause_screen, self.pause_selected = "main", 0
+        self.set_mode("pause")
+
+    def pause_item_count(self) -> int:
+        return {"main": len(UI.PAUSE_OPTIONS), "volumes": len(UI.VOLUME_ROWS) + 1, "controls": 1}[self.pause_screen]
+
+    def on_pause_key(self, key: int) -> None:
+        if key in (pygame.K_w, pygame.K_UP, pygame.K_s, pygame.K_DOWN):
+            step = -1 if key in (pygame.K_w, pygame.K_UP) else 1
+            self.pause_selected = (self.pause_selected + step) % self.pause_item_count()
+            self.audio.play("ui_click")
+        elif key in (pygame.K_a, pygame.K_LEFT, pygame.K_d, pygame.K_RIGHT) and self.pause_screen == "volumes":
+            if self.pause_selected < len(UI.VOLUME_ROWS):
+                key_name = UI.VOLUME_ROWS[self.pause_selected][0]
+                delta = -0.1 if key in (pygame.K_a, pygame.K_LEFT) else 0.1
+                self.set_volume(key_name, self.settings[key_name] + delta, save=True)
+        elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            self.pause_activate(self.pause_selected)
+        elif key == pygame.K_ESCAPE:
+            if self.pause_screen == "main":
+                self.set_mode("play")
+            else:
+                self.pause_screen, self.pause_selected = "main", 0
+                self.audio.play("ui_close")
+
+    def pause_activate(self, index: int) -> None:
+        if self.pause_screen == "main":
+            option = UI.PAUSE_OPTIONS[index]
+            if option == "Continuar":
+                self.set_mode("play")
+            elif option == "Volumes":
+                self.pause_screen, self.pause_selected = "volumes", 0
+                self.audio.play("ui_open")
+            elif option == "Controles":
+                self.pause_screen, self.pause_selected = "controls", 0
+                self.audio.play("ui_open")
+            else:  # Sair
+                settings.save(self.settings)
+                self.running = False
+        elif self.pause_screen == "volumes" and index < len(UI.VOLUME_ROWS):
+            self.pause_selected = index
+        else:   # "Voltar" (volumes ou controles)
+            self.pause_screen, self.pause_selected = "main", 0
+            self.audio.play("ui_close")
+
+    def set_volume(self, key: str, value: float, save: bool = False) -> None:
+        self.settings = settings.clean({**self.settings, key: round(value, 2)})
+        self.audio.set_mix(**self.settings)
+        self.audio.play("ui_click")
+        if save:
+            settings.save(self.settings)
+
+    def pause_hover(self) -> None:
+        ux, uy = self.mouse[0] / 2, self.mouse[1] / 2
+        if self.dragging_slider is not None:
+            bar = self.ui.pause_sliders[self.dragging_slider]
+            key = UI.VOLUME_ROWS[self.dragging_slider][0]
+            value = round(max(0.0, min(1.0, (ux - bar.x) / bar.w)) * 20) / 20   # passos de 5%
+            if value != self.settings[key]:
+                self.set_volume(key, value)
+            return
+        for i, rect in enumerate(self.ui.pause_items):
+            if rect.collidepoint(ux, uy):
+                self.pause_selected = i
+
+    def on_pause_click(self) -> None:
+        ux, uy = self.mouse[0] / 2, self.mouse[1] / 2
+        for i, bar in enumerate(self.ui.pause_sliders):
+            if bar.inflate(4, 8).collidepoint(ux, uy):     # área de clique um pouco maior que a barra
+                self.dragging_slider = i
+                self.pause_selected = i
+                self.pause_hover()
+                return
+        for i, rect in enumerate(self.ui.pause_items):
+            if rect.collidepoint(ux, uy):
+                self.pause_activate(i)
+                return
+
     def on_click(self, button: int) -> None:
+        if self.mode == "pause":
+            if button == 1:
+                self.on_pause_click()
+            return
         if self.state.fainted:
             return
         if button == 3 and self.placing:   # botão direito também cancela
             self.placing = None
+            return
+        if button == 3 and self.mode == "play":   # botão direito numa máquina: desmonta
+            machine = self.hovered_machine()
+            if machine:
+                self.state.dismantle(machine)
             return
         if button != 1:
             return
@@ -197,7 +302,7 @@ class App:
 
     def set_mode(self, mode: str) -> None:
         if mode != self.mode:
-            self.audio.play("ui_open" if mode == "fabricator" else "ui_close")
+            self.audio.play("ui_open" if mode in ("fabricator", "pause") else "ui_close")
         self.mode = mode
         self.mouse_held = False
 
@@ -219,6 +324,9 @@ class App:
     def update(self, dt: float) -> None:
         dt = min(dt, C.MAX_DT)
         self.t += dt
+        if self.mode == "pause":            # congelado: só o som continua (pra ouvir o slider mexendo)
+            self.audio.update(dt)
+            return
         if self.mode != "end":
             self.state.update(dt, self.controls())
         self.banner_time += dt
@@ -256,6 +364,11 @@ class App:
             x, y = (tile[0] + 0.5) * C.TILE, tile[1] * C.TILE - 8
             self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", x, y, C.ORE_COLORS[resource][0])
             self.audio.play("pickup", delay=0.06)   # 60 ms depois do mine_break, pra não embolar
+        elif kind == "dismantle":
+            _, _, tile = event
+            self.renderer.spawn_chips(tile, "#9a9086", 14)       # poeirinha
+            self.renderer.spawn_chips(tile, "#c8c0b4", 8)
+            self.audio.play("place_low")
         elif kind == "craft":
             self.audio.play("craft")
         elif kind == "place":
@@ -309,10 +422,17 @@ class App:
                 self.floaters.add(f"+{C.INDEX_LABEL[key]}", (m.tx + 0.5) * C.TILE, m.ty * C.TILE - 30, C.INDEX_COLOR[key])
 
     # ---- desenho --------------------------------------------------------------
+    def hovered_machine(self):
+        cx, cy = self.cam
+        return self.state.machine_at_point(self.mouse[0] + cx, self.mouse[1] + cy)
+
     def hint(self) -> str | None:
         state = self.state
         if self.placing:
             return "Clique para colocar · R gira · Esc cancela"
+        machine = self.hovered_machine()
+        if machine:
+            return "[Clique direito] desmontar" if state.can_dismantle(machine) else "Chegue mais perto pra desmontar"
         if state.nearby_terminal() is not None:
             return "[E] Ler terminal"
         if state.in_base_zone():
@@ -358,6 +478,8 @@ class App:
             ui.draw_terminal(self.terminal_index, self.t)
         elif self.mode == "end":
             ui.draw_end(state, self.t)
+        elif self.mode == "pause":
+            ui.draw_pause(self.pause_screen, self.pause_selected, self.settings)
         if state.fainted:
             ui.draw_faint(state)
         ui.draw_cursor(self.mouse[0] / 2, self.mouse[1] / 2)

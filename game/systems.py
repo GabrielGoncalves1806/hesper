@@ -36,7 +36,14 @@ class Machine:
 
     @property
     def rect(self) -> Rect:
+        """Caixa de colisão (só a base, no chão)."""
         return (self.tx * C.TILE + 4, self.ty * C.TILE + 14, C.TILE - 8, C.TILE - 14)
+
+    @property
+    def sprite_rect(self) -> Rect:
+        """Área que a máquina ocupa na tela (âncora: centro da base do tile). Usada pelo mouse."""
+        w, h = C.MACHINE_SPRITE_SIZE[2 if self.kind.endswith("_t2") else 1]
+        return ((self.tx + 0.5) * C.TILE - w / 2, (self.ty + 1) * C.TILE - h, w, h)
 
 
 @dataclass
@@ -278,6 +285,25 @@ class GameState:
         self.machines.append(Machine(kind, tile[0], tile[1], rotation))
         self.machines_owned[kind] -= 1
         self.events.append(("place", kind, tile))
+        return True
+
+    def machine_at_point(self, px: float, py: float) -> Machine | None:
+        """Máquina desenhada no pixel (px, py) do mundo. Se duas se sobrepõem, a da frente (mais embaixo) ganha."""
+        hits = [m for m in self.machines if overlaps(m.sprite_rect, (px, py, 1, 1))]
+        return max(hits, key=lambda m: m.ty, default=None)
+
+    def can_dismantle(self, machine: Machine) -> bool:
+        px, py = self.player.tile
+        return machine in self.machines and max(abs(machine.tx - px), abs(machine.ty - py)) <= C.PLACE_REACH
+
+    def dismantle(self, machine: Machine) -> bool:
+        """Tira a máquina do mapa e devolve pro estoque de máquinas fabricadas (teclas 1–6).
+        A cápsula não é uma Machine, então nunca entra aqui."""
+        if not self.can_dismantle(machine):
+            return False
+        self.machines.remove(machine)
+        self.machines_owned[machine.kind] += 1
+        self.events.append(("dismantle", machine.kind, (machine.tx, machine.ty)))
         return True
 
     def _update_machines(self, dt: float) -> None:

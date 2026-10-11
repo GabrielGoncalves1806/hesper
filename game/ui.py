@@ -73,6 +73,8 @@ class UI:
         self._tmp: dict[tuple, pygame.Surface] = {}
         self.fabricator_buttons: list[tuple[pygame.Rect, str]] = []   # retângulos clicáveis (coord. da UI)
         self.fabricator_rows: list[tuple[pygame.Rect, str]] = []
+        self.pause_items: list[pygame.Rect] = []      # linhas clicáveis do menu de pausa (coord. da UI)
+        self.pause_sliders: list[pygame.Rect] = []    # barras dos sliders de volume
 
     # ---- primitivas -----------------------------------------------------------
     def begin(self) -> None:
@@ -393,6 +395,83 @@ class UI:
         self.text("Obrigado por testar o v0.1", UW / 2, y + 142, "#a6e07a", self.body, "center")
         if (t * 9) % 10 < 6:
             self.text("[ENTER] CONTINUAR EXPLORANDO", UW / 2, y + h - 18, C.C_TEXT, align="center")
+
+    # ---- menu de pausa ---------------------------------------------------------
+    PAUSE_OPTIONS = ["Continuar", "Volumes", "Controles", "Sair"]
+    VOLUME_ROWS = [("master", "GERAL"), ("sfx", "EFEITOS"), ("ambient", "AMBIENTE")]
+    CONTROLS = [
+        ("WASD / SETAS", "Andar"),
+        ("SEGURAR CLIQUE", "Minerar a parede mirada"),
+        ("E", "Fabricador (na base) · ler terminal"),
+        ("CLIQUE", "Colocar máquina fabricada"),
+        ("R", "Girar a máquina (só visual)"),
+        ("1 A 6", "Escolher máquina já fabricada"),
+        ("CLIQUE DIREITO", "Desmontar máquina (volta pro 1–6)"),
+        ("ESC", "Cancelar / fechar / pausar"),
+        ("F1 · F2", "Debug: tempo x10 · +10.000 Ti"),
+    ]
+
+    def _pause_frame(self, x, y, w, h, title) -> None:
+        self.fill((6, 4, 3, 170), (0, 0, UW, UH))
+        self.surf.fill(pygame.Color("#1b1411"), (x, y, w, h))
+        pygame.draw.rect(self.surf, pygame.Color("#5a4034"), (x, y, w, h), 1)
+        self.surf.fill(pygame.Color("#2a1e19"), (x + 1, y + 1, w - 2, 18))
+        self.surf.fill(pygame.Color(C.C_ACCENT), (x, y, w, 2))
+        self.text(title, x + 8, y + 6, C.C_TI)
+
+    def _menu_row(self, rect: pygame.Rect, selected: bool) -> None:
+        self.surf.fill(pygame.Color("#2c1e18" if selected else "#211915"), rect)
+        pygame.draw.rect(self.surf, pygame.Color(C.C_ACCENT if selected else "#3a2c25"), rect, 1)
+
+    def draw_pause(self, screen: str, selected: int, mix: dict) -> None:
+        """Menu de pausa. screen = 'main', 'volumes' ou 'controls'."""
+        self.pause_items.clear()
+        self.pause_sliders.clear()
+        if screen == "main":
+            x, y, w = 170, 64, 140
+            self._pause_frame(x, y, w, 26 + 22 * len(self.PAUSE_OPTIONS) + 4, "PAUSA")
+            for i, label in enumerate(self.PAUSE_OPTIONS):
+                row = pygame.Rect(x + 8, y + 26 + i * 22, w - 16, 19)
+                self._menu_row(row, i == selected)
+                self.text(label, row.x + 8, row.y + 3, C.C_TEXT if i == selected else "#d9cfc4", self.body)
+                self.pause_items.append(row)
+            self.text("[W/S] ESCOLHE · [ENTER] OK · [ESC] VOLTA", UW / 2, y + 26 + 22 * len(self.PAUSE_OPTIONS) + 10,
+                      C.C_MUTED, align="center")
+        elif screen == "volumes":
+            x, y, w = 120, 60, 240
+            n = len(self.VOLUME_ROWS)
+            self._pause_frame(x, y, w, 26 + 24 * (n + 1) + 4, "VOLUMES")
+            for i, (key, label) in enumerate(self.VOLUME_ROWS):
+                row = pygame.Rect(x + 8, y + 26 + i * 24, w - 16, 21)
+                self._menu_row(row, i == selected)
+                self.text(label, row.x + 8, row.y + 7, C.C_TEXT)
+                bar = pygame.Rect(row.x + 76, row.y + 7, 110, 7)
+                self.surf.fill(pygame.Color("#4a3b2a"), bar)
+                self.surf.fill(pygame.Color("#120d0b"), bar.inflate(-2, -2))
+                fill_w = round((bar.w - 2) * mix[key])
+                self.surf.fill(pygame.Color(C.C_TI), (bar.x + 1, bar.y + 1, fill_w, bar.h - 2))
+                self.surf.fill(pygame.Color(C.C_TEXT), (bar.x + fill_w - 1, bar.y - 2, 3, bar.h + 4))   # puxador
+                self.text(f"{round(mix[key] * 100)}%", row.right - 8, row.y + 7, C.C_TI, align="right")
+                self.pause_items.append(row)
+                self.pause_sliders.append(bar)
+            back = pygame.Rect(x + 8, y + 26 + n * 24, w - 16, 21)
+            self._menu_row(back, selected == n)
+            self.text("Voltar", back.x + 8, back.y + 4, C.C_TEXT, self.body)
+            self.pause_items.append(back)
+            self.text("[W/S] ESCOLHE · [A/D] AJUSTA · [ESC] VOLTA", UW / 2, back.bottom + 10, C.C_MUTED, align="center")
+        else:  # controls
+            x, y, w = 72, 28, 336
+            rows = len(self.CONTROLS)
+            h = 26 + 15 * rows + 30
+            self._pause_frame(x, y, w, h, "CONTROLES")
+            for i, (keys, action) in enumerate(self.CONTROLS):
+                yy = y + 26 + i * 15
+                self.text(keys, x + 12, yy + 3, C.C_TI)
+                self.text(action, x + 112, yy, "#d9cfc4", self.body)
+            back = pygame.Rect(x + 8, y + h - 26, 80, 19)
+            self._menu_row(back, True)
+            self.text("Voltar", back.x + 8, back.y + 3, C.C_TEXT, self.body)
+            self.pause_items.append(back)
 
     # ---- cursor ---------------------------------------------------------------
     def draw_cursor(self, x: float, y: float) -> None:
