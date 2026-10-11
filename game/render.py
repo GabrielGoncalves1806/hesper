@@ -5,7 +5,7 @@ Ordem de cada frame (de trás pra frente, como camadas de papel):
   2. zona de O₂ (círculo tracejado)
   3. objetos ordenados pelo Y do pé (cápsula, máquinas, plantas, player):
      quem está mais embaixo na tela é desenhado por último e fica "na frente"
-  4. efeitos de mineração e fantasma da máquina sendo colocada
+  4. efeitos de mineração, fantasma da máquina sendo colocada e drones voando (por cima de tudo)
   5. luz (escurece tudo e "abre buracos" de luz) e clima do estágio (poeira, névoa, chuva...)
 A UI (HUD, menus) vem depois, no ui.py.
 """
@@ -17,6 +17,7 @@ import pygame
 
 from game import art
 from game import config as C
+from game import drones
 from game.assets import Sprites
 from game.systems import GameState, Mining
 from game.transition import BASE_SOURCE, StageMap
@@ -81,6 +82,8 @@ class Renderer:
         self.bedrock_shade.fill((0, 0, 0, 110))
         self.player_shadow = pygame.Surface((16, 5), pygame.SRCALPHA)
         pygame.draw.ellipse(self.player_shadow, (0, 0, 0, 97), (0, 0, 16, 5))
+        self.drone_shadow = pygame.Surface((12, 5), pygame.SRCALPHA)       # sombra do drone voando
+        pygame.draw.ellipse(self.drone_shadow, (0, 0, 0, 92), (0, 0, 12, 5))   # preto 36%
         self.darkness = pygame.Surface((C.SCREEN_W, C.SCREEN_H), pygame.SRCALPHA)
         self.layer = pygame.Surface((C.SCREEN_W, C.SCREEN_H), pygame.SRCALPHA)   # camada reaproveitável
         self.vignette = art.vignette(C.SCREEN_W, C.SCREEN_H, (0, 0, 0), 128)
@@ -174,6 +177,7 @@ class Renderer:
             self.draw_mining(canvas, state, state.mining, cam)
         if ghost:
             self.draw_ghost(canvas, cam, *ghost, t)
+        self.draw_flying_drones(canvas, state, cam, t)
         self.draw_particles(canvas, cam)
         self.draw_lighting(canvas, state, cam, stage, t)
         self.draw_atmosphere(canvas, stage, t)
@@ -391,6 +395,8 @@ class Renderer:
                 elif m.is_chest:
                     items.append((my, lambda m=m, mx=mx, my=my: self._blit_anchored(
                         canvas, self.chest_surface(m is self.open_chest), mx - cam_x, my - cam_y)))
+                elif m.is_station:
+                    items.append((my, lambda m=m: self.draw_station(canvas, m, cam, t)))
                 else:
                     items.append((my, lambda m=m, mx=mx, my=my: self.draw_machine(canvas, m.kind, mx - cam_x, my - cam_y, self.machine_t, m.rotation)))
 
@@ -449,6 +455,57 @@ class Renderer:
         name = ("chest_open" if opened else "chest") if C.CHEST_SPRITE_APPROVED else None
         return self.surface(name, lambda: art.chest(opened), f"chest#{opened}")[0]
 
+    # ---- estação de drones (game/drones.py) -------------------------------------
+    def station_surface(self) -> pygame.Surface:
+        """drone_station.png (64×72) se aprovado e existir; senão o desenho de fallback."""
+        name = "drone_station" if C.DRONE_SPRITES_APPROVED else None
+        return self.surface(name, art.drone_station, "drone_station#fallback" if name is None else None)[0]
+
+    def drone_frame(self, t: float, offset: int = 0) -> pygame.Surface:
+        """Quadro do drone (16×16) com as hélices girando a ~15 fps. `offset` desencontra os drones."""
+        name = "drone" if C.DRONE_SPRITES_APPROVED else None
+        sheet = self.surface(name, art.drone_sheet, "drone#fallback" if name is None else None)[0]
+        size = C.DRONE_SPRITE
+        frame = (int(t * C.DRONE_FPS) + offset) % (sheet.get_width() // size)
+        return sheet.subsurface((frame * size, 0, size, size))
+
+    def _draw_nugget(self, canvas, drone, x: int, y: int) -> None:
+        """Pepita da cor do minério embaixo do drone carregado. (x, y) = centro do drone na tela."""
+        color, shade = C.ORE_COLORS[drone.resource]
+        canvas.fill(shade, (x - 2, y + 5, 5, 4))
+        canvas.fill(color, (x - 2, y + 5, 4, 3))
+
+    def draw_station(self, canvas, machine, cam, t: float) -> None:
+        """Estação + os drones pousados nos pads (os que estão voando são desenhados depois, por cima)."""
+        ax, ay = machine.anchor
+        self._blit_anchored(canvas, self.station_surface(), ax - cam[0], ay - cam[1])
+        if machine.station is None:
+            return
+        for i, drone in enumerate(machine.station.drones):
+            if drone.in_air:
+                continue
+            x, y = round(drone.x - cam[0]), round(drone.y - cam[1])
+            # pousado as hélices param (quadro 0); entregando, ainda giram
+            frame = self.drone_frame(t, i) if drone.state == drones.DELIVERING else self.drone_frame(0)
+            canvas.blit(frame, (x - 8, y - 8))
+            if drone.cargo:
+                self._draw_nugget(canvas, drone, x, y)
+
+    def draw_flying_drones(self, canvas, state: GameState, cam, t: float) -> None:
+        """Drones no ar: sombra no chão (elipse 12×5, preto 36%) e o drone balançando de leve em cima."""
+        for machine in state.stations:
+            for i, drone in enumerate(machine.station.drones):
+                if not drone.in_air:
+                    continue
+                x, y = round(drone.x - cam[0]), round(drone.y - cam[1])
+                if not (-32 < x < C.SCREEN_W + 32 and -32 < y < C.SCREEN_H + 48):
+                    continue
+                canvas.blit(self.drone_shadow, (x - 6, y + C.DRONE_SHADOW_DROP - 2))
+                bob = round(math.sin(t * 5 + i * 1.7) * 1.5)
+                canvas.blit(self.drone_frame(t, i), (x - 8, y - 8 + bob))
+                if drone.cargo:
+                    self._draw_nugget(canvas, drone, x, y + bob)
+
     def item_icon(self, item: str) -> pygame.Surface:
         """Ícone 32×32 (resolução cheia) de um item do inventário: recurso, drill, baú ou máquina."""
         if item not in self._item_icons:
@@ -459,6 +516,12 @@ class Renderer:
             elif item == "chest":
                 name = "icon_chest" if C.CHEST_SPRITE_APPROVED else None
                 small = self.surface(name, art.chest_icon, "icon_chest#fallback" if name is None else None)[0]
+            elif item == "drone_station":
+                name = "icon_drone_station" if C.DRONE_SPRITES_APPROVED else None
+                small = self.surface(name, art.drone_station_icon,
+                                     "icon_drone_station#fallback" if name is None else None)[0]
+            elif item == "solar" and self.sprites.get("icon_solar"):
+                small = self.sprites.get("icon_solar")
             else:   # máquina sem ícone próprio: o sprite dela encolhido pra caber (sem suavizar)
                 big = self.machine_preview(item)
                 w, h = big.get_size()
@@ -475,6 +538,8 @@ class Renderer:
         """Imagem da máquina pro fabricador (resolução cheia, sem redimensionar com suavização)."""
         if kind == "chest":
             return self.chest_surface()
+        if kind == "drone_station":
+            return self.station_surface()
         if kind == "drill":
             icon = self.sprites.get("icon_drill")
             if icon:
@@ -486,6 +551,12 @@ class Renderer:
     def draw_machine(self, canvas, kind, ax, ay, t, rotation=0, alpha=None) -> None:
         if kind == "chest":                      # baú: sem animação nem rotação (é o fantasma de colocar)
             surf = self.chest_surface().copy()
+            if alpha is not None:
+                surf.set_alpha(alpha)
+            self._blit_anchored(canvas, surf, ax, ay)
+            return
+        if kind == "drone_station":              # estação: idem (fantasma de colocar)
+            surf = self.station_surface().copy()
             if alpha is not None:
                 surf.set_alpha(alpha)
             self._blit_anchored(canvas, surf, ax, ay)
@@ -588,8 +659,8 @@ class Renderer:
                 canvas.fill(color, (x, y, w, h))
         if kind == "drill":
             self.draw_drill(canvas, None, px + size // 2, py + size, t, alpha=128)
-        else:
-            self.draw_machine(canvas, kind, px + T // 2, py + T, t, rotation, alpha=128)
+        else:   # âncora no centro da base (vale pra 1×1 e pra estação 2×2)
+            self.draw_machine(canvas, kind, px + size // 2, py + size, t, rotation, alpha=128)
 
     # ---- partículas (lasquinhas da mineração) ---------------------------------
     def spawn_chips(self, tile: tuple[int, int] | None, color: str, n: int = 10, at=None) -> None:

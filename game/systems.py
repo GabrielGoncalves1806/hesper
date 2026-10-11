@@ -11,6 +11,7 @@ import random
 from dataclasses import dataclass
 
 from game import config as C
+from game import drones
 from game.inventory import Inventory
 from game.energy import PowerAlert, PowerReport, power_report
 from game.player import Player, Rect, overlaps
@@ -37,6 +38,8 @@ class Machine:
     timer: float = 0.0            # segundos acumulados pra próxima unidade
     # só o baú usa este: os 24 slots dele (criado no place)
     storage: Inventory | None = None
+    # só a estação de drones usa este: buffer + drones (game/drones.py, criado no place)
+    station: drones.Station | None = None
 
     @property
     def type(self) -> C.MachineType:
@@ -53,6 +56,10 @@ class Machine:
     @property
     def is_chest(self) -> bool:
         return self.kind == "chest"
+
+    @property
+    def is_station(self) -> bool:
+        return self.kind == "drone_station"
 
     @property
     def full(self) -> bool:
@@ -81,6 +88,8 @@ class Machine:
             w, h = C.DRILL_SPRITE_SIZE
         elif self.is_chest:
             w, h = C.CHEST_SPRITE_SIZE
+        elif self.is_station:
+            w, h = C.DRONE_STATION_SPRITE_SIZE
         else:
             w, h = C.MACHINE_SPRITE_SIZE[2 if self.kind.endswith("_t2") else 1]
         ax, ay = self.anchor
@@ -179,6 +188,7 @@ class GameState:
         self.drills_placed = 0                         # quantas vezes já colocou uma drill (só cresce)
         self.drill_collected = {r: 0 for r in C.RESOURCES}   # total já coletado de drills (só cresce)
         self.crafted = {k: 0 for k in C.MACHINES}            # quantas de cada já fabricou (só cresce)
+        self.drone_deliveries = 0                      # entregas feitas por drones (só cresce)
         self.power_alert = PowerAlert()                # quando tocar o power_low (game/energy.py)
         self.events: list[tuple] = []
 
@@ -201,6 +211,10 @@ class GameState:
     @property
     def drills(self) -> list[Machine]:
         return [m for m in self.machines if m.is_drill]
+
+    @property
+    def stations(self) -> list[Machine]:
+        return [m for m in self.machines if m.is_station]
 
     def dist_to_base(self) -> float:
         return math.hypot(self.player.x - C.BASE_CENTER[0], self.player.y - C.BASE_CENTER[1])
@@ -377,7 +391,7 @@ class GameState:
         if kind == "drill":
             if vein is None or (vein.tx, vein.ty) != tile:
                 return False
-        elif vein is not None:            # veio fica livre pra drill
+        elif any(self.world.vein_at(*t) for t in machine.tiles):   # veio fica livre pra drill
             return False
         for t in machine.tiles:
             if self.world.get(*t) != C.FLOOR or t in C.POD_TILES or self.machine_at(t):
@@ -404,6 +418,8 @@ class GameState:
             self.drills_placed += 1
         if machine.is_chest:
             machine.storage = Inventory(C.CHEST_SLOTS)
+        if machine.is_station:
+            machine.station = drones.new_station(machine)
         self.machines.append(machine)
         self.transition_sources.add(tuple(tile))
         if slot is not None:
@@ -433,9 +449,14 @@ class GameState:
         near = [c for c in self.chests if self.drill_distance(c) <= C.CHEST_REACH]
         return min(near, key=self.drill_distance, default=None)
 
+    def nearby_station(self) -> Machine | None:
+        """Estação de drones ao alcance do E, só se tiver algo no buffer (senão o E abre o fabricador)."""
+        near = [m for m in self.stations if m.station.stored and self.drill_distance(m) <= C.STATION_REACH]
+        return min(near, key=self.drill_distance, default=None)
+
     def interaction(self) -> tuple[str, object] | None:
-        """O que o E faz aqui: ("terminal", índice), ("drill", máquina) ou ("chest", máquina),
-        o que estiver mais perto."""
+        """O que o E faz aqui: ("terminal", índice), ("drill", máquina), ("chest", máquina) ou
+        ("station", máquina), o que estiver mais perto."""
         options = []
         terminal = self.nearby_terminal()
         if terminal is not None:
@@ -446,6 +467,9 @@ class GameState:
         chest = self.nearby_chest()
         if chest is not None:
             options.append((self.drill_distance(chest), "chest", chest))
+        station = self.nearby_station()
+        if station is not None:
+            options.append((self.drill_distance(station), "station", station))
         if not options:
             return None
         _, kind, target = min(options, key=lambda o: o[0])
@@ -465,6 +489,22 @@ class GameState:
         self.drill_collected[drill.resource] += amount
         self.events.append(("drill_collect", drill.resource, amount, drill.anchor))
         return amount
+
+    def collect_station(self, machine: Machine) -> int:
+        """Leva o buffer da estação pro inventário (o que não couber fica nela). Devolve quanto coletou."""
+        buffer = machine.station.buffer
+        total = 0
+        for resource in list(buffer):
+            amount = buffer[resource] - self.inventory.add(resource, buffer[resource])
+            buffer[resource] -= amount
+            if buffer[resource] == 0:
+                del buffer[resource]
+            if amount:
+                total += amount
+                self.events.append(("station_collect", resource, amount, machine.anchor))
+        if buffer:
+            self.events.append(("inv_full",))
+        return total
 
     def _update_drill(self, drill: Machine, dt: float) -> None:
         if drill.full:
@@ -496,6 +536,8 @@ class GameState:
         if machine.is_chest and not machine.storage.is_empty():
             self.events.append(("chest_not_empty",))
             return False
+        if machine.is_station:                       # buffer + carga dos drones: ou cabe tudo, ou nada muda
+            return self._dismantle_station(machine)
         if machine.is_drill and machine.stored:      # o que a drill guardou vai pro inventário
             self.collect(machine)
             if machine.stored:                       # não coube tudo: a drill fica (o collect já avisou)
@@ -503,6 +545,21 @@ class GameState:
         if not self.inventory.has_space(machine.kind):
             self.events.append(("inv_full",))
             return False
+        self.machines.remove(machine)
+        self.inventory.add(machine.kind, 1)
+        self.events.append(("dismantle", machine.kind, (machine.tx, machine.ty)))
+        return True
+
+    def _dismantle_station(self, machine: Machine) -> bool:
+        """Estação: o buffer e a carga dos drones vão pro inventário junto com a estação.
+        Se não couber tudo, ela fica no lugar (com o aviso de inventário cheio), sem perder nada."""
+        contents = drones.recall_cargo(machine.station)
+        trial = self.inventory.copy()
+        if any(trial.add(r, n) for r, n in contents.items()) or not trial.has_space(machine.kind):
+            self.events.append(("inv_full",))
+            return False
+        for r, n in contents.items():
+            self.inventory.add(r, n)
         self.machines.remove(machine)
         self.inventory.add(machine.kind, 1)
         self.events.append(("dismantle", machine.kind, (machine.tx, machine.ty)))
@@ -516,8 +573,11 @@ class GameState:
         for m in self.machines:
             if m.is_drill:
                 self._update_drill(m, work_dt)
-            elif m.type.index is not None:   # painel solar e baú não somam Ti
+            elif m.type.index is not None:   # painel solar, baú e estação não somam Ti
                 self.indices[m.type.index] += m.type.rate * work_dt
+        stations = self.stations
+        if stations:                         # drones (game/drones.py): no déficit só voam mais devagar
+            self.drone_deliveries += drones.update_stations(stations, self.drills, self.chests, work_dt, self.events)
         self._check_stage()
 
     def _check_stage(self) -> None:

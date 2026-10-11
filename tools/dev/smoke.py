@@ -612,6 +612,106 @@ def check_drill_feature(bot) -> None:
     bot.frames(0.1)
 
 
+def shot_zoom(bot, name: str, world_xy, w: int = 240, h: int = 135, k: int = 3) -> None:
+    """Recorte w×h da tela em volta de um ponto do mundo, ampliado k× (drone é pequeno: 16 px)."""
+    cx, cy = bot.app.cam
+    x = max(0, min(C.SCREEN_W - w, int(world_xy[0] - cx - w / 2)))
+    y = max(0, min(C.SCREEN_H - h, int(world_xy[1] - cy - h / 2)))
+    crop = bot.app.canvas.subsurface((x, y, w, h)).copy()
+    pygame.image.save(pygame.transform.scale_by(crop, k), str(OUT / name))
+    print(f"  screenshot: reports/dev/{name}  (recorte ampliado {k}×)")
+
+
+def check_drones(bot) -> None:
+    """Marco 3: fabrica a estação, coloca perto do baú da base, drones buscam a drill voando por cima
+    de uma parede e entregam no baú. Prints: drones_estacao, drones_voando, drones_entrega."""
+    from game import drones
+    s, app = bot.state, bot.app
+    assert s.recipe_status("drone_station") != "locked"
+    bot.teleport((64, 65))
+    s.o2 = C.O2_MAX
+    bot.frames(0.1)
+    give(s, iron=60, silicon=40, ice=20)
+    assert s.craft("drone_station")
+    chest = s.chests[0]
+    # canto 2×2 livre perto do baú (até 3 tiles), com o player parado logo abaixo
+    site = None
+    for ty in range(chest.ty - 3, chest.ty + 3):
+        for tx in range(chest.tx - 4, chest.tx + 4):
+            s.player.x, s.player.y = (tx + 1) * C.TILE, (ty + 3) * C.TILE + 8
+            if s.can_place("drone_station", (tx, ty)) and drones.gap_tiles(type("M", (), {"tx": tx, "ty": ty, "size": 2})(), chest) <= 3:
+                site = (tx, ty)
+                break
+        if site:
+            break
+    assert site, "sem lugar pra estação perto do baú"
+    bot.frames(0.1)
+    bot.key(hotbar_key(bot, "drone_station"))
+    assert app.placing == "drone_station"
+    bot.click(bot.tile_on_screen(site))
+    station = s.machine_at(site)
+    assert station is not None and station.is_station and len(station.station.drones) == 2
+    assert drones.nearest_chest(station, s.chests) is chest
+    # hover na estação com buffer: dica do HUD
+    station.station.buffer = {"iron": 12}
+    ax, ay = station.anchor
+    s.player.x, s.player.y = ax, ay + 10
+    bot.frames(0.1)
+    camx, camy = app.cam
+    bot.mouse_to((int(ax + 27 - camx), int(ay - 14 - camy)))  # na beirada direita, pra não cobrir os pads
+    bot.frames(0.2)
+    hint = app.hint()          # no déficit de energia entra um "· ritmo N%" no meio
+    assert hint.startswith("Estação: 2 drones · buffer 12/50") and hint.endswith("· [E] coletar"), hint
+    bot.shot("drones_estacao.png")
+    before = s.inventory.count("iron")
+    bot.key(pygame.K_e)                                   # E coleta o buffer
+    assert station.station.stored == 0 and s.inventory.count("iron") == before + 12
+
+    # voo: drill com minério e uma parede no meio do caminho (o drone passa por cima)
+    drill = s.drills[0]
+    drill.stored = 15
+    (sx, sy), (dx, dy) = drones.pad_position(station, 0), drones.hover_position(drill)
+    mid = None
+    for f in (0.5, 0.4, 0.6, 0.3, 0.7):                   # um ponto do caminho sem máquina embaixo
+        x, y = int((sx + (dx - sx) * f) // C.TILE), int((sy + (dy - sy) * f) // C.TILE) + 1
+        block = [(x + i, y + j) for i in (-2, -1, 0, 1, 2) for j in (-1, 0, 1, 2)]
+        if not any(s.machine_at(t) or t in C.POD_TILES for t in block):
+            mid = (x, y)
+            break
+    assert mid, "sem lugar livre no caminho do drone pra parede de teste"
+    carve(s, [(mid[0] + i, mid[1] + j) for i in (-1, 0, 1) for j in (0, 1)], C.ROCK)
+    flyer = None
+    for _ in range(600):
+        s.o2 = C.O2_MAX
+        bot.frames(DT)
+        flyer = next((d for d in station.station.drones if d.state == drones.RETURNING), None)
+        if flyer and math.hypot(flyer.x - (mid[0] + 0.5) * C.TILE, flyer.y + C.DRONE_SHADOW_DROP
+                                - (mid[1] + 0.5) * C.TILE) < 20:
+            break
+    assert flyer is not None and flyer.cargo == 15, flyer
+    s.player.x, s.player.y = (mid[0] + 0.5) * C.TILE + 64, (mid[1] + 3) * C.TILE
+    bot.frames(DT)
+    bot.mouse_to((20, 20))
+    shot_zoom(bot, "drones_voando.png", (flyer.x, flyer.y + 10))
+
+    # entrega no baú: espera o drone pousar e entregar
+    deliveries = s.drone_deliveries
+    in_chest = chest.storage.count(drill.resource)
+    s.player.x, s.player.y = ax + 40, ay + 40
+    for _ in range(600):
+        s.o2 = C.O2_MAX
+        bot.frames(DT)
+        if s.drone_deliveries > deliveries:
+            break
+    bot.frames(0.25)                                       # o "+15" sobe um pouco
+    assert chest.storage.count(drill.resource) == in_chest + 15
+    cxw, cyw = chest.anchor
+    shot_zoom(bot, "drones_entrega.png", ((ax + cxw) / 2, (ay + cyw) / 2 - 30))
+    carve(s, [(mid[0] + i, mid[1] + j) for i in (-1, 0, 1) for j in (0, 1)])
+    bot.teleport((64, 65))
+    bot.frames(0.1)
+
+
 def check_save(bot) -> None:
     """Autosave com o aviso no HUD, "Salvar e sair" pela pausa, tela de título com save e Continuar."""
     s, app = bot.state, bot.app
@@ -765,6 +865,7 @@ def main() -> None:
     bot.key(pygame.K_ESCAPE)
     bot.frames(3.0)                           # deixa o banner do estágio 2 sumir
     check_drill_feature(bot)
+    check_drones(bot)
     check_transition(bot, 2, [("transicao_verde_60.png", 0.60)])
     for _ in range(9):
         bot.key(pygame.K_F2)

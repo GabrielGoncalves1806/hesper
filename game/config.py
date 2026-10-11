@@ -285,7 +285,7 @@ POWER_USE = {
     "o2": 1, "melter": 1, "heater": 2,
     "o2_t2": 3, "melter_t2": 3, "heater_t2": 4,
     "drill": 2,
-    "drone_station": 3,  # Marco 3: a estação ainda não existe, mas o consumo já fica aqui
+    "drone_station": 3,  # estação de drones (Marco 3)
 }
 POWER_GEN = {"solar": 3}  # quanto cada máquina gera (kW)
 ENERGY_TIGHT = 0.8        # consumo ≥ 80% da produção: medidor amarelo ("perto do limite")
@@ -308,7 +308,7 @@ STACK_MACHINE = 5               # máquinas fabricadas viram itens e empilham at
 CHEST_SLOTS = 24                # baú: 3 linhas de 8
 CHEST_REACH = 48                # px entre os pés do player e a base do baú pra abrir com E
 CHEST_SPRITE_SIZE = (32, 40)    # chest.png / chest_open.png (bíblia §8, contrato de assets)
-CHEST_SPRITE_APPROVED = False   # chest/chest_open/icon_chest esperam o ok do dono: até lá, desenho de fallback
+CHEST_SPRITE_APPROVED = True    # chest/chest_open/icon_chest aprovados pelo dono (v0.2); False = desenho de fallback
 NOTICE_TIME = 2.0               # segundos que um aviso ("Inventário cheio") fica na tela
 
 # O baú é uma "máquina" sem índice: não soma Ti, não consome energia, só guarda itens.
@@ -317,3 +317,32 @@ MACHINE_ORDER.insert(MACHINE_ORDER.index("heater") + 1, "chest")   # no fabricad
 
 # Sons novos: o Som ainda vai entregar os .wav. Enquanto o arquivo não existe, o play() fica em silêncio.
 VOLUME.update({"inv_move": 0.5, "chest_open": 0.7, "chest_close": 0.7, "inv_full": 0.5})
+
+# ---------------------------------------------------------------------------
+# Estação de drones (bíblia §8, Marco 3) · a lógica fica em game/drones.py
+# A estação (2×2, em chão livre fora de veio) solta drones que voam em linha reta, por cima das
+# paredes, até as drills; trazem o minério e entregam no baú mais perto da estação (ou no buffer).
+# ---------------------------------------------------------------------------
+DRONE_STATION_COST = {"iron": 20, "silicon": 15, "ice": 5}
+DRONE_STATION_UNLOCK_TI = 10_000   # libera na Névoa, junto com a drill
+DRONES_PER_STATION = 2
+DRONE_RANGE = 30                # tiles, do centro da estação até o centro da drill
+DRONE_SPEED = 4.0               # tiles por segundo (× fator da energia)
+DRONE_MIN_PICKUP = 5            # só busca drill que já tem pelo menos isso guardado
+DRONE_CHEST_RADIUS = 3          # entrega no baú mais perto, a até 3 tiles da estação
+DRONE_PICKUP_TIME = 0.8         # segundos parado em cima da drill "coletando"
+DRONE_DROP_TIME = 0.6           # segundos pousado "entregando"
+STATION_BUFFER = 50             # unidades que a estação guarda quando não tem baú (ou ele está cheio)
+STATION_REACH = 56              # px entre os pés do player e a base da estação pra coletar com E
+DRONE_STATION_SPRITE_SIZE = (64, 72)       # drone_station.png, âncora no centro da base 2×2
+DRONE_PADS = ((18, 44), (46, 44))          # centro de cada pad, relativo ao canto do PNG da estação
+DRONE_SPRITE = 16               # drone.png: 4 quadros de 16×16 lado a lado
+DRONE_FPS = 15
+DRONE_SHADOW_DROP = 18          # a sombra fica 18 px abaixo do centro do drone voando
+DRONE_SPRITES_APPROVED = True   # drone_station/drone/icon_drone_station aprovados (v0.2); False = fallback
+
+MACHINES["drone_station"] = MachineType("drone_station", "Estação de drones", "drones trazem minério",
+                                        DRONE_STATION_COST, None, 0, DRONE_STATION_UNLOCK_TI,
+                                        "drone_station", size=2)
+MACHINE_ORDER.insert(MACHINE_ORDER.index("drill") + 1, "drone_station")   # no fabricador, logo depois da drill
+VOLUME.update({"drone_loop": 0.5, "drone_deliver": 0.8, "solar_hum": 0.5})

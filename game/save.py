@@ -9,14 +9,22 @@ não guarda as 128×128 casas: guarda a seed e só os tiles que ficaram diferent
 Formato do arquivo (JSON):
 
     {
-      "version": 2,              # sobe quando o formato mudar (ver MIGRATIONS)
+      "version": 3,              # sobe quando o formato mudar (ver MIGRATIONS)
       "seed": 7,
       "world":     {...},        # tiles que mudaram
       "player":    {...},        # posição, direção, O₂, desmaio
       "inventory": {"slots": [...]},   # os 16 slots: [item, quantidade] ou null (v2)
-      "machines":  [...],        # máquinas colocadas (conteúdo das drills e os slots dos baús)
+      "machines":  [...],        # máquinas colocadas (conteúdo das drills, slots dos baús e, na
+                                 # estação de drones, "buffer" + "drone_cargo": v3)
       "progress":  {...}         # índices, estágio, objetivos, terminais lidos, tempo de jogo...
     }
+
+Estação de drones (v3): fica dentro da própria máquina, como os slots do baú:
+    {"kind": "drone_station", "tx": .., "ty": .., "rotation": 0,
+     "buffer": {"iron": 12}, "drone_cargo": [["ice", 8], null]}
+Os drones NÃO guardam posição: ao carregar, nascem pousados nos pads. A carga que cada um levava
+vem em "drone_cargo" e ele entrega (baú perto ou buffer) logo no primeiro frame, então nada some.
+O contador de entregas (objetivo) fica em progress["drone_deliveries"].
 
 Como um sistema novo entra no save (baú, energia, drones...):
     1. escreva `coisa_to_dict(state)` e `coisa_from_dict(state, data)` aqui embaixo;
@@ -35,11 +43,12 @@ import tempfile
 from pathlib import Path
 
 from game import config as C
+from game import drones
 from game.inventory import Inventory
 from game.systems import GameState, Machine
 from game.world import World
 
-SAVE_VERSION = 2   # v2: inventário com slots, baús e `crafted` (v1 = contador + machines_owned)
+SAVE_VERSION = 3   # v3: estação de drones · v2: inventário com slots, baús e `crafted` (v1 = contador)
 SAVE_PATH = C.ROOT_DIR / "saves" / "slot1.json"   # o smoke e os testes apontam pra outro lugar
 
 
@@ -132,6 +141,9 @@ def machine_to_dict(m: Machine) -> dict:
         data.update(resource=m.resource, stored=m.stored, timer=m.timer)
     if m.is_chest:
         data["storage"] = m.storage.to_data()
+    if m.is_station:
+        data["buffer"] = dict(m.station.buffer)
+        data["drone_cargo"] = [[d.resource, d.cargo] if d.cargo else None for d in m.station.drones]
     return data
 
 
@@ -144,6 +156,14 @@ def machine_from_dict(data: dict) -> Machine:
                       timer=float(data.get("timer", 0.0)))
     if machine.is_chest:
         machine.storage = slots_from_data(data.get("storage", []), C.CHEST_SLOTS)
+    if machine.is_station:
+        # drones recriados pousados; quem estava carregando volta com a carga e entrega no 1º frame
+        machine.station = drones.new_station(machine)
+        machine.station.buffer = {r: int(n) for r, n in data.get("buffer", {}).items()
+                                  if r in C.RESOURCES and int(n) > 0}
+        for drone, cargo in zip(machine.station.drones, data.get("drone_cargo", [])):
+            if cargo and cargo[0] in C.RESOURCES and int(cargo[1]) > 0:
+                drone.resource, drone.cargo = cargo[0], int(cargo[1])
     return machine
 
 
@@ -167,6 +187,7 @@ def progress_to_dict(state: GameState) -> dict:
         "drills_placed": state.drills_placed,
         "drill_collected": dict(state.drill_collected),
         "crafted": dict(state.crafted),
+        "drone_deliveries": state.drone_deliveries,
         "logs_read": sorted(state.logs_read),
         "transition_sources": sorted([list(t) for t in state.transition_sources]),
     }
@@ -186,6 +207,7 @@ def progress_from_dict(state: GameState, data: dict) -> None:
         state.drill_collected[r] = int(data["drill_collected"].get(r, 0))
     for k in state.crafted:
         state.crafted[k] = int(data["crafted"].get(k, 0))
+    state.drone_deliveries = int(data["drone_deliveries"])
     state.logs_read = {int(i) for i in data["logs_read"] if 0 <= int(i) < len(C.LOGS)}
     state.transition_sources = {(int(x), int(y)) for x, y in data["transition_sources"]}
 
@@ -240,7 +262,14 @@ def _v1_to_v2(data: dict) -> dict:
     return data
 
 
-MIGRATIONS: dict = {1: _v1_to_v2}
+def _v2_to_v3(data: dict) -> dict:
+    """v2 -> v3: chegou a estação de drones. Um save v2 não tem estação nenhuma, então só falta
+    o contador de entregas (zero). As máquinas e o resto continuam iguais."""
+    data["progress"]["drone_deliveries"] = 0
+    return data
+
+
+MIGRATIONS: dict = {1: _v1_to_v2, 2: _v2_to_v3}
 
 
 class SaveError(Exception):

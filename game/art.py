@@ -547,3 +547,53 @@ def chest_icon() -> pygame.Surface:
     _r(s, C.C_ACCENT, 2, 9, 12, 1)
     _r(s, _OUT, 6, 7, 4, 4); _r(s, C.C_TI, 7, 8, 2, 2)
     return s
+
+
+# ---------------------------------------------------------------- estação de drones (Marco 3)
+# Fallback dos sprites drone_station / drone / icon_drone_station (config.DRONE_SPRITES_APPROVED).
+def drone_station() -> pygame.Surface:
+    """Estação 64×72, âncora no centro da base 2×2: plataforma escura com 2 pads (C.DRONE_PADS)."""
+    w, h = C.DRONE_STATION_SPRITE_SIZE
+    s = pygame.Surface((w, h), pygame.SRCALPHA)
+    _ellipse(s, (0, 0, 0, 100), 32, 69, 30, 4)
+    _r(s, _OUT, 1, 26, 62, 42)                                       # corpo
+    _r(s, "#4a4f57", 2, 27, 60, 33); _r(s, "#3b3f46", 2, 58, 60, 2)
+    _r(s, "#b9c0c8", 2, 60, 60, 6)                                   # rodapé claro com faixa
+    for i in range(7):
+        _r(s, C.C_TI if i % 2 == 0 else "#1a1418", 4 + i * 8, 62, 8, 2)
+    _r(s, "#2f3238", 31, 27, 2, 31)                                  # divisória entre os pads
+    for px, py in C.DRONE_PADS:                                      # pads: anel laranja com "H"
+        _ellipse(s, C.C_ACCENT, px, py, 10, 7)
+        _ellipse(s, "#2f3238", px, py, 8, 5)
+        _r(s, "#d9dde2", px - 3, py - 3, 1, 6); _r(s, "#d9dde2", px + 2, py - 3, 1, 6)
+        _r(s, "#d9dde2", px - 3, py, 6, 1)
+    _r(s, _OUT, 6, 13, 18, 14); _r(s, "#d9dde2", 7, 14, 16, 12)      # painelzinho
+    _r(s, "#1b1411", 9, 17, 12, 4); _r(s, C.C_O2, 10, 18, 6, 2)
+    _r(s, _OUT, 49, 2, 5, 25); _r(s, "#b9c0c8", 50, 3, 3, 23)        # antena
+    _r(s, "#ff5a4a", 50, 0, 3, 3)
+    return s
+
+
+def drone_sheet() -> pygame.Surface:
+    """Drone 64×16: 4 quadros de 16×16 com as hélices girando. A sombra quem desenha é o jogo."""
+    sheet = pygame.Surface((64, 16), pygame.SRCALPHA)
+    for f in range(4):
+        x = f * 16
+        _r(sheet, _OUT, x + 4, 5, 8, 7); _r(sheet, "#d9dde2", x + 5, 6, 6, 5)   # corpo
+        _r(sheet, C.C_ACCENT, x + 5, 9, 6, 1)
+        _r(sheet, "#1b1411", x + 6, 7, 4, 2); _r(sheet, C.C_O2, x + 7, 7, 2, 1)  # "olho"
+        for hx, hy in ((1, 3), (11, 3), (1, 12), (11, 12)):                    # 4 hélices
+            if f % 2 == 0:
+                _r(sheet, "#9aa2ab", x + hx, hy, 4, 1)
+            else:
+                _r(sheet, "#9aa2ab", x + hx + 1, hy - 1, 2, 3)
+    return sheet
+
+
+def drone_station_icon() -> pygame.Surface:
+    """Ícone 16×16 da estação (hotbar e inventário)."""
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    _r(s, _OUT, 0, 6, 16, 10); _r(s, "#4a4f57", 1, 7, 14, 8)
+    _r(s, C.C_ACCENT, 3, 9, 4, 3); _r(s, C.C_ACCENT, 9, 9, 4, 3)
+    _r(s, _OUT, 5, 0, 6, 5); _r(s, "#d9dde2", 6, 1, 4, 3)
+    return s

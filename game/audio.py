@@ -8,6 +8,8 @@ Canais reservados (o pygame não usa eles pra efeitos comuns):
     2     = alarme de O₂
     3     = zumbido das máquinas
     4 e 5 = loop das 2 drills trabalhando mais perto
+    6 e 7 = loop dos 2 drones voando mais perto
+    8     = zumbido do painel solar mais perto
 """
 
 import random
@@ -52,6 +54,29 @@ def drill_loop_volume(distance_tiles: float) -> float:
     """Loop da drill: cheio (VOLUME['drill_loop']) até 2 tiles, some a partir de 8 (dica do Som)."""
     k = 1 - (distance_tiles - 2) / 6
     return VOLUME.get("drill_loop", 0.5) * max(0.0, min(1.0, k))
+
+
+def fade_by_distance(distance_tiles: float, full_until: float, silent_from: float) -> float:
+    """1 até `full_until` tiles, cai em linha reta e chega a 0 em `silent_from` tiles."""
+    k = 1 - (distance_tiles - full_until) / (silent_from - full_until)
+    return max(0.0, min(1.0, k))
+
+
+def drone_loop_volume(distance_tiles: float) -> float:
+    """Loop do drone: cheio (0,5) até 3 tiles, some a partir de 10."""
+    return VOLUME.get("drone_loop", 0.5) * fade_by_distance(distance_tiles, 3, 10)
+
+
+def drone_deliver_gain(distance_tiles: float) -> float:
+    """drone_deliver (0,8 no VOLUME) atenuado pela distância: inteiro até 3 tiles, some a partir de 12."""
+    return fade_by_distance(distance_tiles, 3, 12)
+
+
+def solar_hum_volume(distance_tiles: float | None) -> float:
+    """Zumbido do painel solar mais perto: cheio (0,5) até 2 tiles, some a partir de 6."""
+    if distance_tiles is None:
+        return 0.0
+    return VOLUME.get("solar_hum", 0.5) * fade_by_distance(distance_tiles, 2, 6)
 
 
 def hum_volume(distance_tiles: float | None) -> float:
@@ -108,12 +133,16 @@ class Audio:
             if not pygame.mixer.get_init():
                 pygame.mixer.init(44100, -16, 2, 512)
             pygame.mixer.set_num_channels(16)
-            pygame.mixer.set_reserved(6)
+            pygame.mixer.set_reserved(9)
             self.amb = [pygame.mixer.Channel(0), pygame.mixer.Channel(1)]
             self.alarm_channel = pygame.mixer.Channel(2)
             self.hum_channel = pygame.mixer.Channel(3)
             self.drill_channels = [pygame.mixer.Channel(4), pygame.mixer.Channel(5)]
             self._drill_on = [False, False]       # pra pedir o fadeout uma vez só (não reiniciar o fade)
+            self.drone_channels = [pygame.mixer.Channel(6), pygame.mixer.Channel(7)]
+            self._drone_on = [False, False]
+            self.solar_channel = pygame.mixer.Channel(8)
+            self._solar_on = [False]
             self.ok = True
         except pygame.error as err:
             print(f"[audio] sem áudio ({err}). Seguindo em silêncio.")
@@ -183,15 +212,16 @@ class Audio:
         return variants[i]
 
     # ---- efeitos ---------------------------------------------------------------
-    def play(self, name: str, delay: float = 0.0) -> None:
-        if not self.ok:
+    def play(self, name: str, delay: float = 0.0, gain: float = 1.0) -> None:
+        """Toca um efeito. `gain` (0 a 1) abaixa o volume, ex.: som longe do player."""
+        if not self.ok or gain <= 0:
             return
         if delay > 0:
             self._delayed.append([delay, name])
             return
         sound = self._pick(name)
         if sound:
-            volume = VOLUME.get(name, 1.0)
+            volume = VOLUME.get(name, 1.0) * gain
             jitter = VOLUME_JITTER.get(name, 0.0)
             sound.set_volume(volume * self.sfx_gain * random.uniform(1 - jitter, 1 + jitter))
             sound.play()
@@ -222,21 +252,34 @@ class Audio:
 
     def set_drill_loops(self, volumes: list[float]) -> None:
         """Loop da drill em até 2 canais (as 2 trabalhando mais perto). Volume 0 = some com fadeout(400)."""
-        if not self.ok:
-            return
-        sounds = self._get("drill_loop")
+        if self.ok:
+            self._set_loops("drill_loop", self.drill_channels, self._drill_on, volumes)
+
+    def set_drone_loops(self, volumes: list[float]) -> None:
+        """Loop do drone em até 2 canais (os 2 voando mais perto do player)."""
+        if self.ok:
+            self._set_loops("drone_loop", self.drone_channels, self._drone_on, volumes)
+
+    def set_solar_hum(self, volume: float) -> None:
+        """Um canal só, com o volume do painel solar mais perto."""
+        if self.ok:
+            self._set_loops("solar_hum", [self.solar_channel], self._solar_on, [volume])
+
+    def _set_loops(self, name: str, channels, on: list[bool], volumes: list[float]) -> None:
+        """Loop `name` em vários canais, um volume por canal. Volume 0 = some com fadeout(400)."""
+        sounds = self._get(name)
         if not sounds:
             return
-        for i, channel in enumerate(self.drill_channels):
+        for i, channel in enumerate(channels):
             volume = volumes[i] if i < len(volumes) else 0.0
             if volume > 0:
-                if not self._drill_on[i] or not channel.get_busy():
+                if not on[i] or not channel.get_busy():
                     channel.play(sounds[0], loops=-1, fade_ms=200)
-                    self._drill_on[i] = True
+                    on[i] = True
                 channel.set_volume(volume * self.sfx_gain)
-            elif self._drill_on[i]:
-                channel.fadeout(400)          # drill encheu (ou ficou longe): sai suave
-                self._drill_on[i] = False
+            elif on[i]:
+                channel.fadeout(400)          # parou (ou ficou longe): sai suave
+                on[i] = False
 
     # ---- ambiente --------------------------------------------------------------
     def start_ambient(self, stage_key: str) -> None:

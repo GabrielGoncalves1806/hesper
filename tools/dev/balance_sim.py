@@ -26,6 +26,11 @@ Aproximado (o simulador decide no lugar do jogador):
   (`_update_drill`). Na base, antes de sair pra minerar um recurso, ele vai coletar uma drill desse recurso se a
   viagem custar menos do que minerar aquelas unidades no ritmo dele. "Sem drills" = mesma simulação com a receita
   da drill trancada (`--no-drills` / `without_drills`).
+- Drones (Marco 3): depois das drills, o jogador fabrica um baú (se ainda não tiver um na base) e 1 estação de
+  drones encostada nele (até 3 tiles). Os drones são a regra real (`game/drones.py`, rodando dentro do
+  `_update_machines`): buscam as drills, voam e entregam no baú. Toda vez que o jogador está na base, ele esvazia
+  o baú da base e o buffer da estação pro inventário ("drone un."), em vez de ir até a drill.
+  "Sem drones" = mesma simulação com a receita da estação trancada (`--no-drones` / `without_drones`).
 - Energia (Marco 2): a produção das máquinas e das drills já sai no ritmo da energia, porque o simulador usa o
   `_update_machines` e o `ti_rate` reais. O jogador fabrica um painel solar (na base, como outra máquina qualquer)
   sempre que o fator cai abaixo de `PANEL_BELOW`. "Sem energia" = consumo zerado (`--no-energy` / `without_energy`).
@@ -54,6 +59,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from game import config as C  # noqa: E402
+from game import drones  # noqa: E402
 from game.systems import GameState  # noqa: E402
 
 PROPOSAL_PATH = Path(__file__).with_name("balance_proposal.json")
@@ -123,6 +129,7 @@ class Strategy:
     craft_overhead: float = 3.0   # segundos por máquina: menu + andar até o lugar + colocar
     mine_overhead: float = 0.0    # segundos por tile além da dureza: mirar o próximo, reposicionar o mouse
     drills: int = 3               # quantas drills ele monta depois da Névoa (uma por veio)
+    stations: int = 1             # quantas estações de drones ele monta depois das drills
 
 
 STRATEGIES = {
@@ -157,6 +164,7 @@ class Result:
     faints: int = 0
     trips: int = 0
     drill_units: int = 0                             # minério que veio de drills (coletado)
+    drone_units: int = 0                             # minério que os drones trouxeram (pego no baú/estação)
     tiles_mined: int = 0
     units: int = 0                                   # recursos coletados
     time_by: dict = field(default_factory=dict)      # andar / minerar / base / espera
@@ -502,6 +510,81 @@ class Sim:
     def _collect(self, drill):
         self.res.drill_units += self.gs.collect(drill)
 
+    # ---- drones ----
+    def want_station(self) -> bool:
+        """Depois das drills: 1 estação (perto de um baú na base), se a receita já liberou."""
+        if "drone_station" not in C.MACHINES or self.gs.recipe_status("drone_station") == "locked":
+            return False
+        if len(self.gs.drills) < self.s.drills and self.free_vein() is not None:
+            return False                                  # primeiro as drills
+        built = len(self.gs.stations) + self.gs.inventory.count("drone_station")
+        return built < self.s.stations
+
+    def _place_near(self, kind, tiles) -> bool:
+        """Tenta colocar `kind` no primeiro tile de `tiles` que der, com o player parado do lado."""
+        for tx, ty in tiles:
+            for stand in ((tx, ty + 2), (tx + 1, ty + 2), (tx - 1, ty), (tx + 2, ty), (tx, ty - 1), (tx, ty + 1)):
+                if not self._walkable(self._i(*stand)):
+                    continue
+                self.gs.player.x, self.gs.player.y = self._pos(self._i(*stand))
+                if self.gs.place(kind, (tx, ty)):
+                    self._set_player(self._i(*self._xy_spawn()))
+                    self._advance(self.s.craft_overhead)
+                    return True
+        return False
+
+    def _station_spots(self, chest_tile):
+        """Cantos 2×2 de chão livre (fora de veio e da cápsula) a até 3 tiles do baú."""
+        cx, cy = chest_tile
+        spots = []
+        for ty in range(cy - 4, cy + 4):
+            for tx in range(cx - 4, cx + 4):
+                probe = type("Spot", (), {"tx": tx, "ty": ty, "size": 2})()
+                chest = type("Spot", (), {"tx": cx, "ty": cy, "size": 1})()
+                tiles = [(tx + dx, ty + dy) for dx in (0, 1) for dy in (0, 1)]
+                if (drones.gap_tiles(probe, chest) <= C.DRONE_CHEST_RADIUS and (cx, cy) not in tiles
+                        and all(self.world.get(*t) == C.FLOOR and not self.gs.machine_at(t)
+                                and t not in C.POD_TILES and not self.world.vein_at(*t) for t in tiles)):
+                    spots.append((tx, ty))
+        return spots
+
+    def craft_and_place_chest(self) -> bool:
+        """Baú dentro da zona de O₂ (o fabricador enxerga ele), num lugar com espaço pra estação do lado."""
+        self._set_player(self._i(*self._xy_spawn()))
+        if not self.gs.craft("chest"):
+            return False
+        bx, by = C.BASE_CENTER
+        cand = sorted((math.hypot((x + 0.5) * C.TILE - bx, (y + 1) * C.TILE - by), (x, y))
+                      for y in range(by // C.TILE - 6, by // C.TILE + 7) for x in range(bx // C.TILE - 6, bx // C.TILE + 7))
+        tiles = [t for d, t in cand if d <= C.BASE_RADIUS - 8 and self._station_spots(t)]
+        if not self._place_near("chest", tiles):
+            raise AssertionError("não achou lugar pro baú na base")
+        return True
+
+    def craft_and_place_station(self) -> bool:
+        """Fabrica a estação e coloca num 2×2 livre a até 3 tiles do baú da base."""
+        self._set_player(self._i(*self._xy_spawn()))
+        chests = self.gs.base_chests()
+        if not chests or not self.gs.craft("drone_station"):
+            return False
+        if not self._place_near("drone_station", self._station_spots((chests[0].tx, chests[0].ty))):
+            raise AssertionError("não achou lugar pra estação perto do baú da base")
+        return True
+
+    def empty_base_storage(self):
+        """Na base: tira do baú da base e do buffer das estações tudo que é minério (os drones trouxeram)."""
+        got = 0
+        for chest in self.gs.base_chests():
+            for r in C.RESOURCES:
+                n = chest.storage.count(r)
+                if n:
+                    moved = n - self.gs.inventory.add(r, n)
+                    chest.storage.remove(r, moved)
+                    got += moved
+        for m in self.gs.stations:
+            got += self.gs.collect_station(m)
+        self.res.drone_units += got
+
     # ---- ações ----
     def go_base(self):
         """Volta pela trilha mais curta até a zona e espera o O₂ encher."""
@@ -543,7 +626,10 @@ class Sim:
                     and self.world.tiles[y][x + 1] == C.FLOOR]
             cand.sort()
             self.sites = [i for _, i in cand[:40]][::-1]   # pop() pega o mais perto
-        return self.sites.pop()
+        site = self.sites.pop()
+        while self.gs.machine_at(self._xy(site)):           # a estação (2×2) pode ter ocupado o lugar
+            site = self.sites.pop()
+        return site
 
     def _mine(self, i):
         """Minera o tile i parado (tempo real da dureza) e quebra com a regra do jogo."""
@@ -629,10 +715,14 @@ class Sim:
         trip_t0, trip_units = self.t, 0
         while not self.res.finished and self.t < self.max_time:
             try:
+                if self.zone[self.cur] and self.gs.stations:
+                    self.empty_base_storage()
                 if self.want_panel():
                     kind = "solar"
                 elif self.want_drill():
                     kind = "drill"
+                elif self.want_station():
+                    kind = "drone_station" if self.gs.base_chests() else "chest"
                 else:
                     kind = self.choose()
                 if kind is None:
@@ -655,6 +745,10 @@ class Sim:
                     self._not_idle()
                     if kind == "drill":
                         self.craft_and_place_drill()
+                    elif kind == "drone_station":
+                        self.craft_and_place_station()
+                    elif kind == "chest":
+                        self.craft_and_place_chest()
                     else:
                         self.craft_and_place(kind)
                     continue
@@ -717,13 +811,13 @@ def table(title, results, markdown=False):
     marks = ["Ti 500"] + [s.name.capitalize() for s in C.STAGES[1:]]
     kinds = list(C.MACHINES)
     head = ["estratégia", "seed", *marks, "total", "espera total", "maior espera", "desm.", "drill un.",
-            "déficit", "máquinas (" + "/".join(kinds) + ")"]
+            "drone un.", "déficit", "máquinas (" + "/".join(kinds) + ")"]
     rows = []
     for r in results:
         rows.append([r.strategy, str(r.seed), *[fmt(r.milestones.get(m)) for m in marks],
                      fmt(r.total) + ("" if r.finished else " (não acabou)"),
                      fmt(r.idle_total), fmt(r.idle_longest), str(r.faints), str(r.drill_units),
-                     fmt(r.deficit_time), "/".join(str(r.machines[k]) for k in kinds)])
+                     str(r.drone_units), fmt(r.deficit_time), "/".join(str(r.machines[k]) for k in kinds)])
     out = [f"\n{'### ' if markdown else '== '}{title}\n"]
     if markdown:
         out.append("| " + " | ".join(head) + " |")
@@ -749,9 +843,13 @@ def main(argv=None):
     ap.add_argument("--ablate-t2", action="store_true", help="roda também a proposta sem as máquinas nv.2")
     ap.add_argument("--no-drills", action="store_true", help="roda também cada cenário sem drills, pra comparar")
     ap.add_argument("--no-energy", action="store_true", help="roda também sem energia (consumo zero), pra comparar")
+    ap.add_argument("--no-drones", action="store_true", help="roda também sem a estação de drones, pra comparar")
     args = ap.parse_args(argv)
     if args.no_energy:
         print(table("Números atuais SEM energia (antes do Marco 2)", run_suite(without_energy(None), args.seeds),
+                    args.markdown))
+    if args.no_drones:
+        print(table("Números atuais SEM drones (antes do Marco 3)", run_suite(without_drones(None), args.seeds),
                     args.markdown))
     print(table("Números atuais (game/config.py)", run_suite(None, args.seeds), args.markdown))
     if args.no_drills:
@@ -770,6 +868,13 @@ def without_drills(overrides):
     """Mesmos overrides, mas com a receita da drill trancada (o jogo como era antes dos veios)."""
     ov = copy.deepcopy(overrides or {})
     ov.setdefault("MACHINES", {}).setdefault("drill", {})["unlock_ti"] = 10**12
+    return ov
+
+
+def without_drones(overrides):
+    """Mesmos overrides, mas com a receita da estação de drones trancada (o jogo como era antes do Marco 3)."""
+    ov = copy.deepcopy(overrides or {})
+    ov.setdefault("MACHINES", {}).setdefault("drone_station", {})["unlock_ti"] = 10**12
     return ov
 
 

@@ -211,6 +211,8 @@ class App:
                     self.mode = "terminal"
                 elif target and target[0] == "drill":
                     state.collect(target[1])
+                elif target and target[0] == "station":
+                    state.collect_station(target[1])
                 elif target and target[0] == "chest":
                     self.open_chest = self.renderer.open_chest = target[1]
                     self.placing = None
@@ -511,6 +513,17 @@ class App:
             _, resource, amount, (ax, ay) = event
             self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", ax, ay - 88, C.ORE_COLORS[resource][0])
             self.audio.play("drill_collect")          # já tem o "poop" do pickup dentro: não toca os dois
+        elif kind == "station_collect":         # E na estação: igual à coleta da drill
+            _, resource, amount, (ax, ay) = event
+            self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", ax, ay - 80, C.ORE_COLORS[resource][0])
+            self.audio.play("drill_collect")
+        elif kind == "drone_deliver":           # drone entregou no baú (ou no buffer da estação)
+            _, resource, amount, (x, y) = event
+            self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", x, y - 48, C.ORE_COLORS[resource][0])
+            distance = math.hypot(x - self.state.player.x, y - self.state.player.y) / C.TILE
+            self.audio.play("drone_deliver", gain=sound.drone_deliver_gain(distance))
+        elif kind == "station_full":
+            self.show_notice("Estação cheia: coloque um baú perto")
         elif kind == "dismantle":
             _, _, tile = event
             self.renderer.spawn_chips(tile, "#9a9086", 14)       # poeirinha
@@ -556,6 +569,12 @@ class App:
                        for m in state.machines if m.type.index is not None), default=None)
         audio.set_hum(sound.hum_volume(nearest))
         self.update_drills_feedback(dt)
+        # drones: loop pelos 2 voando mais perto · painel solar: zumbido pelo mais perto
+        flying = sorted(math.hypot(d.x - state.player.x, d.y - state.player.y) / C.TILE
+                        for m in state.stations for d in m.station.drones if d.in_air)
+        audio.set_drone_loops([sound.drone_loop_volume(d) for d in flying[:2]])
+        nearest_solar = min((state.drill_distance(m) / C.TILE for m in state.machines if m.kind == "solar"), default=None)
+        audio.set_solar_hum(sound.solar_hum_volume(nearest_solar))
         # ambiente: some no desmaio, abaixa lendo terminal
         audio.duck_ambient(0.0 if state.fainted else 0.6 if self.mode == "terminal" else 1.0)
         audio.update(dt)
@@ -634,6 +653,12 @@ class App:
             if state.power.deficit and not machine.full:
                 content += f" · ritmo {self.power_percent()}%"
             return content + (" · [E] coletar" if state.nearby_drill() is machine and machine.stored else "")
+        if machine and machine.is_station:
+            st = machine.station
+            text = f"Estação: {len(st.drones)} drones · buffer {st.stored}/{C.STATION_BUFFER}"
+            if state.power.deficit:
+                text += f" · ritmo {self.power_percent()}%"
+            return text + (" · [E] coletar" if state.nearby_station() is machine else "")
         if machine and machine.is_chest:
             used = sum(1 for st in machine.storage.slots if st)
             near = state.nearby_chest() is machine
@@ -654,6 +679,8 @@ class App:
             return "[E] Ler terminal"
         if target and target[0] == "chest":
             return "[E] Abrir baú"
+        if target and target[0] == "station":
+            return f"[E] Coletar {target[1].station.stored} da estação"
         if target and target[0] == "drill" and target[1].stored:
             d = target[1]
             return f"[E] Coletar {d.stored} {C.RESOURCE_NAME[d.resource]}"
@@ -754,6 +781,8 @@ class App:
         self.audio.set_alarm(False)          # nada de alarme, zumbido ou drill tocando no menu
         self.audio.set_hum(0.0)
         self.audio.set_drill_loops([])
+        self.audio.set_drone_loops([])
+        self.audio.set_solar_hum(0.0)
         self.audio.duck_ambient(1.0)
         if self.audio.ambient_key != "dead":
             self.audio.start_ambient("dead")

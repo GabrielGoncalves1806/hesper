@@ -140,3 +140,47 @@ Variantes testadas (proposta + drill, total por estratégia):
 Sugestão: **12 Fe + 6 Si, 1 unidade a cada 12 s**. A drill passa a quase se pagar no tempo (o casual fica a ~1 min do
 "sem drills") e rende ~50% mais minério, sem encurtar o jogo. Deixar ela mais forte que isso não acelera o fim,
 porque a viagem pra coletar come o ganho.
+
+## Marco 3 · drones (estação de drones, 2026-10-11)
+
+Comando: `uv run python tools/dev/balance_sim.py --current --no-drones --markdown`. O jogador simulado monta 1 estação depois das 3 drills, com um baú na base a até 3 tiles; ao passar na base, esvazia o baú e o buffer ("drone un.").
+
+### Números atuais SEM drones (antes do Marco 3)
+
+| estratégia | seed | Ti 500 | Névoa | Verde | total | espera total | maior espera | desm. | drill un. | drone un. | déficit | máquinas (o2/melter/heater/o2_t2/melter_t2/heater_t2/drill/solar/chest/drone_station) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| guloso | 1 | 1m49s | 8m48s | 23m34s | 23m34s | 0m48s | 0m48s | 0 | 125 | 0 | 12m00s | 10/2/2/0/0/5/3/11/0/0 |
+| guloso | 2 | 1m51s | 8m28s | 23m00s | 23m00s | 0m00s | 0m00s | 0 | 116 | 0 | 15m15s | 12/0/0/0/1/6/3/11/0/0 |
+| guloso | 3 | 1m53s | 8m38s | 22m42s | 22m42s | 1m02s | 1m02s | 0 | 112 | 0 | 11m33s | 10/2/1/0/1/5/3/11/0/0 |
+| variado | 1 | 1m53s | 9m01s | 25m14s | 25m14s | 0m25s | 0m25s | 0 | 137 | 0 | 16m34s | 5/5/4/2/2/2/3/12/0/0 |
+| variado | 2 | 1m54s | 9m16s | 25m02s | 25m02s | 0m23s | 0m23s | 0 | 136 | 0 | 16m26s | 8/7/3/1/2/2/3/12/0/0 |
+| variado | 3 | 1m54s | 8m58s | 25m09s | 25m09s | 0m42s | 0m42s | 0 | 118 | 0 | 17m03s | 5/7/5/1/2/2/3/12/0/0 |
+| casual | 1 | 2m09s | 10m03s | 28m07s | 28m07s | 0m36s | 0m36s | 0 | 130 | 0 | 19m12s | 5/6/3/2/2/1/3/11/0/0 |
+| casual | 2 | 2m10s | 10m18s | 28m15s | 28m15s | 0m00s | 0m00s | 0 | 132 | 0 | 18m35s | 4/5/4/2/2/2/3/12/0/0 |
+| casual | 3 | 2m11s | 10m02s | 29m36s | 29m36s | 0m25s | 0m25s | 0 | 134 | 0 | 17m31s | 6/5/5/2/1/1/3/11/0/0 |
+
+### Números atuais (game/config.py)
+
+| estratégia | seed | Ti 500 | Névoa | Verde | total | espera total | maior espera | desm. | drill un. | drone un. | déficit | máquinas (o2/melter/heater/o2_t2/melter_t2/heater_t2/drill/solar/chest/drone_station) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| guloso | 1 | 1m49s | 8m48s | 24m29s | 24m29s | 1m16s | 0m48s | 0 | 58 | 146 | 11m07s | 10/0/0/0/1/6/3/13/1/1 |
+| guloso | 2 | 1m51s | 8m28s | 25m19s | 25m19s | 0m00s | 0m00s | 0 | 79 | 130 | 17m36s | 12/0/0/0/1/5/3/12/1/1 |
+| guloso | 3 | 1m53s | 8m38s | 24m12s | 24m12s | 1m26s | 1m02s | 0 | 58 | 143 | 11m31s | 10/1/0/0/0/6/3/12/1/1 |
+| variado | 1 | 1m53s | 9m01s | 26m12s | 26m12s | 0m36s | 0m36s | 0 | 61 | 131 | 19m33s | 5/6/4/1/3/2/3/13/1/1 |
+| variado | 2 | 1m54s | 9m16s | 26m06s | 26m06s | 0m24s | 0m24s | 0 | 58 | 127 | 19m03s | 6/6/3/2/2/2/3/13/1/1 |
+| variado | 3 | 1m54s | 8m58s | 25m47s | 25m47s | 0m54s | 0m54s | 0 | 47 | 136 | 18m47s | 5/5/3/2/3/2/3/13/1/1 |
+| casual | 1 | 2m09s | 10m03s | 29m01s | 29m01s | 0m00s | 0m00s | 0 | 44 | 177 | 20m07s | 6/5/3/2/2/2/3/12/1/1 |
+| casual | 2 | 2m10s | 10m18s | 30m15s | 30m15s | 0m14s | 0m14s | 0 | 62 | 165 | 20m34s | 4/5/4/2/3/1/3/12/1/1 |
+| casual | 3 | 2m11s | 10m02s | 30m32s | 30m32s | 0m33s | 0m33s | 0 | 62 | 155 | 22m13s | 5/6/4/1/2/2/3/12/1/1 |
+
+Médias (3 seeds): sem drones guloso 23m05 · variado 25m08 · casual 28m39 → com drones 24m40 · 26m02 · 29m56.
+
+Leitura: os drones trazem ~130–180 unidades por jogo, mas o jogo fica 1–1,5 min **mais lento**. O gargalo é a
+produção das drills (3 drills = 0,25 unidade/s), não a viagem: os drones só economizam caminhada, e isso não paga
+a estação + baú (46 recursos) e os 3 kW (mais déficit e 1 painel a mais). Testado em memória (não aplicado):
+estação 1 kW → −20 a −30 s; 0 kW → −30 a −55 s; custo 12/8/3 → ~0 a −40 s; 1 kW + 12/8/3 → −15 a −50 s. Nenhum
+deixa o jogo mais rápido que "sem drones". Com 5 drills, só o guloso ganha (25m14 × 26m02).
+
+Proposta (não aplicada, decisão do dono): tratar o drone como conforto (menos caminhada), não como acelerador. Se
+quiser que ele pague: estação 1 kW e custo 12 Fe + 8 Si + 3 gelo, e/ou drones liberando mais drills úteis. A meta
+(20–35 min) continua batida com os drones.

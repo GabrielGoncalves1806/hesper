@@ -52,3 +52,14 @@ def test_drill_loop_volume_by_distance():
 def test_drill_sfx_volumes_from_sound_tips():
     assert C.VOLUME["drill_collect"] == 1.0
     assert 0.6 <= C.VOLUME["drill_full"] <= 0.8
+
+
+def test_drone_and_solar_volumes_by_distance():
+    from game.audio import drone_deliver_gain, drone_loop_volume, solar_hum_volume
+    assert C.VOLUME["drone_loop"] == 0.5 and C.VOLUME["drone_deliver"] == 0.8 and C.VOLUME["solar_hum"] == 0.5
+    assert drone_loop_volume(0) == drone_loop_volume(3) == 0.5        # cheio até 3 tiles
+    assert 0 < drone_loop_volume(6) < 0.5
+    assert drone_loop_volume(10) == 0 and drone_loop_volume(25) == 0  # some a partir de 10
+    assert drone_deliver_gain(2) == 1 and 0 < drone_deliver_gain(7) < 1 and drone_deliver_gain(15) == 0
+    assert solar_hum_volume(None) == 0
+    assert solar_hum_volume(2) == 0.5 and 0 < solar_hum_volume(4) < 0.5 and solar_hum_volume(6) == 0

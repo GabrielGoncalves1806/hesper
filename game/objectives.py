@@ -62,6 +62,9 @@ OBJECTIVES = [
     Objective("Chegue ao estágio Névoa", lambda s: s.stage >= 2),
     Objective("Coloque uma drill num veio", lambda s: s.drills_placed >= 1),
     Objective("Colete minério de uma drill", lambda s: sum(s.drill_collected.values()) >= 1),
+    # drones (bíblia §8, Marco 3): a estação busca o minério das drills sozinha
+    Objective("Fabrique uma estação de drones", lambda s: crafted(s, "drone_station") >= 1),
+    Objective("Receba uma entrega de drone", lambda s: s.drone_deliveries >= 1),
     Objective("Fabrique uma máquina nv.2", lambda s: any(crafted(s, k) >= 1 for k in ("o2_t2", "melter_t2", "heater_t2"))),
     Objective("Deixe o planeta verde", lambda s: s.stage >= 3),
 ]

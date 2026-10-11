@@ -70,6 +70,8 @@ def test_normal_sequence_walks_every_objective(game):
     drill = game.drills[0]
     drill.stored = 3
     assert game.collect(drill) == 3; step()
+    craft_free(game, "drone_station"); step()
+    game.drone_deliveries = 1; step()
     craft_free(game, "melter_t2"); step()
     game.debug_add_ti(100_000); step()          # -> Verde
 
@@ -88,6 +90,8 @@ def test_normal_sequence_walks_every_objective(game):
         "Chegue ao estágio Névoa",
         "Coloque uma drill num veio",
         "Colete minério de uma drill",
+        "Fabrique uma estação de drones",
+        "Receba uma entrega de drone",
         "Fabrique uma máquina nv.2",
         "Deixe o planeta verde",
         None,
@@ -175,12 +179,13 @@ def test_tracker_flashes_completed_objective(game):
 def test_everything_done_list_disappears(game):
     game.mined_total.update(iron=10, silicon=4, ice=10)
     game.fabricator_opened = True
-    for kind in ("o2", "chest", "melter", "heater", "solar", "o2_t2"):
+    for kind in ("o2", "chest", "melter", "heater", "solar", "o2_t2", "drone_station"):
         craft_free(game, kind)
     place_at(game, "o2", (61, 66))
     game.read_terminal(0)
     game.drills_placed = 1
     game.drill_collected["iron"] = 5
+    game.drone_deliveries = 1
     tracker = ObjectiveTracker(game)
     assert current_text(game) == "Chegue a Ti 500"
     game.debug_add_ti(100_000)
