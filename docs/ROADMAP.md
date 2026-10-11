@@ -24,8 +24,8 @@ Detalhes em `GAME_BIBLE.md` §4.
 Detalhes em `GAME_BIBLE.md` §8.
 
 - [x] Marco 1: save/load versionado + tela de título
-- [ ] Marco 1: inventário com 16 slots + hotbar + tela de inventário
-- [ ] Marco 1: baú (24 slots, o fabricador puxa dos baús na base)
+- [x] Marco 1: inventário com 16 slots + hotbar + tela de inventário
+- [x] Marco 1: baú (24 slots, o fabricador puxa dos baús na base)
 - [x] Marco 2: energia global (cápsula 5 kW, painel solar, consumo, déficit proporcional)
 - [ ] Marco 3: estação de drones + drones levando minério das drills pros baús
 - [ ] Assets do v0.2 (sprites e sons) · aprovados pelo dono
