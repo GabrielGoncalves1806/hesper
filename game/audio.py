@@ -7,6 +7,7 @@ Canais reservados (o pygame não usa eles pra efeitos comuns):
     0 e 1 = ambiente A/B (alterna entre eles pra fazer crossfade)
     2     = alarme de O₂
     3     = zumbido das máquinas
+    4 e 5 = loop das 2 drills trabalhando mais perto
 """
 
 import random
@@ -45,6 +46,12 @@ def alarm_should_play(currently_on: bool, o2: float) -> bool:
     if currently_on:
         return o2 < ALARM_OFF_AT
     return o2 < ALARM_ON_BELOW
+
+
+def drill_loop_volume(distance_tiles: float) -> float:
+    """Loop da drill: cheio (VOLUME['drill_loop']) até 2 tiles, some a partir de 8 (dica do Som)."""
+    k = 1 - (distance_tiles - 2) / 6
+    return VOLUME.get("drill_loop", 0.5) * max(0.0, min(1.0, k))
 
 
 def hum_volume(distance_tiles: float | None) -> float:
@@ -101,10 +108,12 @@ class Audio:
             if not pygame.mixer.get_init():
                 pygame.mixer.init(44100, -16, 2, 512)
             pygame.mixer.set_num_channels(16)
-            pygame.mixer.set_reserved(4)
+            pygame.mixer.set_reserved(6)
             self.amb = [pygame.mixer.Channel(0), pygame.mixer.Channel(1)]
             self.alarm_channel = pygame.mixer.Channel(2)
             self.hum_channel = pygame.mixer.Channel(3)
+            self.drill_channels = [pygame.mixer.Channel(4), pygame.mixer.Channel(5)]
+            self._drill_on = [False, False]       # pra pedir o fadeout uma vez só (não reiniciar o fade)
             self.ok = True
         except pygame.error as err:
             print(f"[audio] sem áudio ({err}). Seguindo em silêncio.")
@@ -210,6 +219,24 @@ class Audio:
         if volume > 0 and not self.hum_channel.get_busy():
             self.hum_channel.play(sounds[0], loops=-1)
         self.hum_channel.set_volume(volume * self.sfx_gain)
+
+    def set_drill_loops(self, volumes: list[float]) -> None:
+        """Loop da drill em até 2 canais (as 2 trabalhando mais perto). Volume 0 = some com fadeout(400)."""
+        if not self.ok:
+            return
+        sounds = self._get("drill_loop")
+        if not sounds:
+            return
+        for i, channel in enumerate(self.drill_channels):
+            volume = volumes[i] if i < len(volumes) else 0.0
+            if volume > 0:
+                if not self._drill_on[i] or not channel.get_busy():
+                    channel.play(sounds[0], loops=-1, fade_ms=200)
+                    self._drill_on[i] = True
+                channel.set_volume(volume * self.sfx_gain)
+            elif self._drill_on[i]:
+                channel.fadeout(400)          # drill encheu (ou ficou longe): sai suave
+                self._drill_on[i] = False
 
     # ---- ambiente --------------------------------------------------------------
     def start_ambient(self, stage_key: str) -> None:

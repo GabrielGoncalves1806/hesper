@@ -6,6 +6,7 @@ Usa os drivers "dummy" do SDL (sem vídeo e sem som de verdade). O input é simu
 postando eventos de teclado/mouse na fila do pygame, igual a um jogador de verdade.
 """
 
+import math
 import os
 import sys
 import time
@@ -339,6 +340,93 @@ def check_transition(bot, stage: int, shots: list[tuple[str, float]]) -> None:
     bot.frames(DT)
 
 
+def check_veins(bot) -> None:
+    """Estágio 1: os 3 veios perto da base aparecem; mouse em cima de um mostra a dica."""
+    s, app = bot.state, bot.app
+    cx, cy = C.CRATER_CENTER
+    near = [v for v in s.world.veins if math.hypot(v.tx + 1 - cx, v.ty + 1 - cy) <= 20]
+    assert sorted(v.resource for v in near) == sorted(C.RESOURCES), near
+    # os 3 não cabem juntos na tela (HUD em cima e embaixo): monta um recorte de cada
+    # (a dica "Veio de ... · drill libera na Névoa" é conferida pelo assert)
+    crops = []
+    for vein in sorted(near, key=lambda v: C.RESOURCES.index(v.resource)):
+        s.player.x, s.player.y = (vein.tx + 1) * C.TILE, (vein.ty + 4) * C.TILE   # player logo abaixo do veio
+        bot.frames(0.1)
+        pos = bot.tile_on_screen((vein.tx, vein.ty))
+        bot.mouse_to(pos)
+        bot.frames(0.05)
+        name = C.RESOURCE_NAME[vein.resource]
+        assert app.hint() == f"Veio de {name} · drill libera na Névoa", app.hint()
+        crop = pygame.Surface((240, 200))
+        crop.blit(app.canvas, (0, 0), (pos[0] - 104, pos[1] - 90, 240, 200))
+        crops.append(crop)
+    sheet = pygame.Surface((240 * 3 + 8, 200))
+    for i, c in enumerate(crops):
+        sheet.blit(c, (i * 244, 0))
+    pygame.image.save(pygame.transform.scale_by(sheet, 2), str(OUT / "veios.png"))
+    print("  screenshot: reports/dev/veios.png  (ferro, silício, gelo perto da base, estágio 1)")
+    bot.teleport((64, 65))
+    bot.frames(0.1)
+
+
+def check_drill_feature(bot) -> None:
+    """Névoa: fabrica a drill (tecla 7), fantasma gruda no veio, extrai, enche, coleta com E, desmonta."""
+    s, app = bot.state, bot.app
+    assert s.stage >= 2 and s.recipe_status("drill") != "locked"
+    s.inventory.update(iron=60, silicon=40)
+    bot.teleport((64, 65))
+    bot.frames(0.1)
+    s.craft("drill")
+    s.craft("drill")
+    assert s.machines_owned["drill"] == 2
+    cx, cy = C.CRATER_CENTER
+    vein = min(s.world.veins, key=lambda v: math.hypot(v.tx - cx, v.ty - cy))
+    bot.teleport((vein.tx, vein.ty + 2))          # logo abaixo do veio
+    bot.frames(0.1)
+    bot.key(pygame.K_7)
+    assert app.placing == "drill"
+    # fora de veio: dica e fantasma vermelho
+    bot.mouse_to(bot.tile_on_screen((vein.tx + 3, vein.ty + 3)))
+    assert app.place_target() is None and app.hint() == "Coloque a drill em cima de um veio"
+    # mouse no tile de baixo à direita do veio: o fantasma gruda no canto do veio
+    bot.mouse_to(bot.tile_on_screen((vein.tx + 1, vein.ty + 1)))
+    bot.frames(0.1)
+    assert app.place_target() == (vein.tx, vein.ty) and s.can_place("drill", (vein.tx, vein.ty))
+    bot.shot("drill_colocando.png")
+    bot.click(bot.tile_on_screen((vein.tx + 1, vein.ty + 1)))
+    drill = s.machine_at((vein.tx, vein.ty))
+    assert drill is not None and drill.is_drill
+    bot.key(pygame.K_ESCAPE)                      # larga a segunda drill da mão
+    # deixa trabalhar um pouco (F1 acelera ×10)
+    bot.key(pygame.K_F1)
+    for _ in range(25):                           # com F1 o O₂ também cai ×10: mantém cheio pra não desmaiar
+        s.o2 = C.O2_MAX
+        bot.frames(C.DRILL_INTERVAL / C.DEBUG_TIME_SCALE / 4)
+    bot.key(pygame.K_F1)
+    assert not s.fainted
+    assert 0 < drill.stored < C.DRILL_CAPACITY, drill.stored
+    ax, ay = drill.anchor
+    camx, camy = app.cam
+    bot.mouse_to((int(ax - camx), int(ay - 50 - camy)))
+    bot.frames(0.3)
+    label = C.RESOURCE_NAME[drill.resource]
+    assert app.hint().startswith(f"Drill: {drill.stored}/{C.DRILL_CAPACITY} {label}"), app.hint()
+    bot.shot("drill_trabalhando.png")
+    drill.stored = C.DRILL_CAPACITY - 1
+    s._update_machines(C.DRILL_INTERVAL)          # extrai a última unidade (regra real) e enche
+    assert drill.full
+    bot.frames(0.3)
+    assert app.hint().startswith(f"Drill cheia: {C.DRILL_CAPACITY} {label}"), app.hint()
+    bot.shot("drill_cheia.png")
+    before = s.inventory[drill.resource]
+    bot.key(pygame.K_e)                            # coleta
+    bot.frames(0.3)
+    assert s.inventory[drill.resource] == before + C.DRILL_CAPACITY and drill.stored == 0
+    bot.shot("drill_coletou.png")
+    bot.teleport((64, 65))
+    bot.frames(0.1)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     bot = Bot()
@@ -350,6 +438,7 @@ def main() -> None:
     bot.key(pygame.K_s, hold=0.3)
     bot.frames(0.5)
     bot.shot("stage1.png")
+    check_veins(bot)
 
     print("2) mineração")
     ore = find_ore_with_floor_below(s)
@@ -439,6 +528,7 @@ def main() -> None:
     bot.shot("crafting_stage2.png")
     bot.key(pygame.K_ESCAPE)
     bot.frames(3.0)                           # deixa o banner do estágio 2 sumir
+    check_drill_feature(bot)
     check_transition(bot, 2, [("transicao_verde_60.png", 0.60)])
     for _ in range(9):
         bot.key(pygame.K_F2)

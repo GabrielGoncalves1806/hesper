@@ -33,6 +33,9 @@ VOLUME = {
     "o2_low": 0.9, "o2_refill": 0.65, "faint": 0.7,
     # máquinas: ~30% abaixo do original (1,0)
     "craft": 0.7, "place": 0.7, "place_low": 0.7,   # place_low = "place" mais grave (desmontar)
+    # drill automática (dicas do Som): drill_collect toca NO LUGAR do pickup; drill_full é discreto;
+    # drill_loop é o máximo (colado na drill), cai com a distância até sumir em ~8 tiles
+    "drill_collect": 1.0, "drill_full": 0.7, "drill_loop": 0.5,
     # recompensa: o jingle de estágio continua sendo o som mais alto
     "stage_up": 0.85,
 }
@@ -90,7 +93,8 @@ MINE_REACH = 2              # alcance em tiles (distância de Chebyshev a partir
 MINE_HIT_INTERVAL = 0.25    # som de picareta a cada 0,25 s
 
 RESOURCES = ("iron", "silicon", "ice")
-RESOURCE_LABEL = {"iron": "FERRO", "silicon": "SILICIO", "ice": "GELO"}
+RESOURCE_LABEL = {"iron": "FERRO", "silicon": "SILICIO", "ice": "GELO"}   # rótulos do HUD (Silkscreen)
+RESOURCE_NAME = {"iron": "ferro", "silicon": "silício", "ice": "gelo"}      # em frases (Pixelify, com acento)
 
 # ---------------------------------------------------------------------------
 # Sobrevivência (§4 Sobrevivência)
@@ -115,10 +119,11 @@ class MachineType:
     name: str
     desc: str
     cost: dict          # recurso -> quantidade
-    index: str          # qual índice a máquina aumenta
+    index: str | None   # qual índice a máquina aumenta (None = não soma Ti, ex.: drill)
     rate: float         # quanto soma por segundo
     unlock_ti: int      # Ti necessário pra liberar a receita
     sprite: str         # nome do sprite (§6)
+    size: int = 1       # quantos tiles de lado ela ocupa (drill = 2, em cima de um veio 2×2)
 
 
 MACHINES = {
@@ -132,8 +137,30 @@ MACHINES = {
         MachineType("heater_t2", "Aquecedor nv.2", "+ calor", {"iron": 35, "silicon": 25}, "heat", 30, 10_000, "machine_heater_t2"),
     ]
 }
-MACHINE_ORDER = list(MACHINES)   # ordem no fabricador e nas teclas 1–6
+
+# ---------------------------------------------------------------------------
+# Veios e drill automática (§4 "Veios e drills automáticas")
+# ---------------------------------------------------------------------------
+# Veio = depósito de minério 2×2 no CHÃO (não dá pra minerar na mão). A drill é colocada em
+# cima dele e extrai pra sempre, devagar, até encher; o jogador volta pra coletar com E.
+# Custo e ritmo são chute inicial: quem calibra é o tools/dev/balance_sim.py.
+DRILL_COST = {"iron": 20, "silicon": 10}
+DRILL_UNLOCK_TI = 10_000        # libera no estágio Névoa
+DRILL_INTERVAL = 20.0           # segundos por unidade extraída
+DRILL_CAPACITY = 20             # cheia, para
+DRILL_REACH = 56                # px entre os pés do player e a base da drill pra coletar com E
+DRILL_FULL_NOTICE = 4 * TILE    # chegou perto (px) de uma drill cheia: toca drill_full uma vez
+DRILL_FULL_COOLDOWN = 10.0      # ...e não repete pra mesma drill antes de 10 s
+VEINS_NEAR_BASE = (8, 20)       # 1 veio de cada tipo entre 8 e 20 tiles da base
+VEINS_FAR_PER_TYPE = 5          # mais longe: 5 de cada tipo (total 6 de cada)
+VEINS_FAR_RANGE = (24, 58)      # distância dos veios "de longe" (tiles)
+
+MACHINES["drill"] = MachineType("drill", "Drill automática", "+ minério", DRILL_COST, None, 0,
+                                DRILL_UNLOCK_TI, "machine_drill", size=2)
+
+MACHINE_ORDER = list(MACHINES)   # ordem no fabricador e nas teclas 1–7
 MACHINE_SPRITE_SIZE = {1: (40, 56), 2: (40, 64)}   # tamanho do sprite por nível (usado pro mouse "acertar" a máquina)
+DRILL_SPRITE_SIZE = (64, 80)     # 1 quadro do machine_drill.png (4 quadros na horizontal)
 PLACE_REACH = 4                  # alcance pra colocar máquina (tiles)
 
 # ---------------------------------------------------------------------------

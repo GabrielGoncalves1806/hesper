@@ -443,3 +443,48 @@ def vignette(w: int, h: int, color: tuple[int, int, int], max_alpha: int) -> pyg
             a = min(1.0, max(0.0, (d - 0.45) / 0.55))
             small.set_at((i, j), (*color, int(max_alpha * a)))
     return pygame.transform.smoothscale(small, (w, h))
+
+
+# ---------------------------------------------------------------- veios e drill automática
+def vein(resource: str) -> pygame.Surface:
+    """Veio 2×2 (64×64) no chão: mancha escura com cristais. Overlay transparente (serve nos 3 estágios)."""
+    color, shadow = (Color(c) for c in C.ORE_COLORS[resource])
+    rng = random.Random(f"vein-{resource}")
+    s = pygame.Surface((64, 64), pygame.SRCALPHA)
+    pygame.draw.ellipse(s, (20, 14, 12, 120), (4, 8, 56, 50))
+    pygame.draw.ellipse(s, (20, 14, 12, 90), (10, 14, 44, 38))
+    for _ in range(9):
+        _crystal(s, 10 + rng.randrange(40), 14 + rng.randrange(32), color, shadow, 3 + rng.randrange(4))
+    return s
+
+
+DRILL_FILL_RECT = (48, 47, 7, 12)   # indicador de enchimento dentro do quadro (spec da Designer)
+
+
+def drill_machine() -> pygame.Surface:
+    """Drill automática: folha 256×80 com 4 quadros de 64×80 (broca girando). Âncora: centro da base."""
+    sheet = pygame.Surface((256, 80), pygame.SRCALPHA)
+    for f in range(4):
+        s = pygame.Surface((64, 80), pygame.SRCALPHA)
+        _ellipse(s, (0, 0, 0, 100), 32, 74, 30, 6)
+        for x in (8, 50):                                            # pés
+            _r(s, _OUT, x, 60, 6, 16); _r(s, "#6b717a", x + 1, 61, 4, 14)
+        _r(s, _OUT, 10, 30, 44, 34)                                  # corpo
+        _bands(s, 11, 31, 32, [("#d9dde2", 4), ("#b9c0c8", 22), ("#8c949e", 10), ("#6b717a", 6)])
+        _r(s, C.C_ACCENT, 11, 36, 42, 3); _r(s, "#a8471f", 11, 39, 42, 1)
+        _r(s, _OUT, 47, 46, 9, 14); _r(s, "#1b1411", 48, 47, 7, 12)   # janelinha do indicador (vazia)
+        _r(s, _OUT, 26, 14, 12, 17); _r(s, "#8a929c", 27, 15, 10, 15)   # torre
+        _r(s, _OUT, 24, 4, 16, 11); _r(s, "#3b3f46", 25, 5, 14, 9); _r(s, C.C_TI, 30, 7, 4, 3)
+        _r(s, _OUT, 28, 64, 8, 12)                                    # broca entrando no chão
+        for k in range(3):                                            # rosca girando
+            _r(s, "#b9c0c8" if (k + f) % 2 else "#5d646d", 29, 65 + k * 4, 6, 2)
+        sheet.blit(s, (f * 64, 0))
+    return sheet
+
+
+def drill_icon() -> pygame.Surface:
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    _r(s, _OUT, 3, 4, 10, 9); _r(s, "#b9c0c8", 4, 5, 8, 7); _r(s, C.C_ACCENT, 4, 7, 8, 1)
+    _r(s, _OUT, 6, 0, 4, 5); _r(s, "#8a929c", 7, 1, 2, 4)
+    _r(s, _OUT, 7, 12, 2, 4)
+    return s

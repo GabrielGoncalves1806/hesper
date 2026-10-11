@@ -57,6 +57,8 @@ OBJECTIVES = [
     Objective("Fabrique um Aquecedor", lambda s: crafted(s, "heater") >= 1),
     Objective("Leia um terminal", lambda s: len(s.logs_read) >= 1),
     Objective("Chegue ao estágio Névoa", lambda s: s.stage >= 2),
+    Objective("Coloque uma drill num veio", lambda s: s.drills_placed >= 1),
+    Objective("Colete minério de uma drill", lambda s: sum(s.drill_collected.values()) >= 1),
     Objective("Fabrique uma máquina nv.2", lambda s: any(crafted(s, k) >= 1 for k in ("o2_t2", "melter_t2", "heater_t2"))),
     Objective("Deixe o planeta verde", lambda s: s.stage >= 3),
 ]

@@ -19,7 +19,7 @@ UW, UH = C.UI_W, C.UI_H
 TI_PANEL_W = 160                 # painel do Ti (em cima à direita)
 TI_PANEL_X = UW - 6 - TI_PANEL_W
 SHORT_NAME = {"o2": "O2", "melter": "DERRET.", "heater": "AQUEC.",
-              "o2_t2": "O2 II", "melter_t2": "DERRET. II", "heater_t2": "AQUEC. II"}
+              "o2_t2": "O2 II", "melter_t2": "DERRET. II", "heater_t2": "AQUEC. II", "drill": "DRILL"}
 
 
 # Dígitos 5×7 desenhados à mão, no traço fino da Pixelify. Em 11 px a fonte desenha o "5" igual
@@ -360,8 +360,8 @@ class UI:
     def draw_fabricator(self, state: GameState, selected: int, machine_preview, t: float) -> None:
         """Menu de receitas. `machine_preview(kind)` devolve a imagem da máquina (resolução cheia)."""
         self.fill((8, 5, 4, 158), (0, 0, UW, UH))
-        x, y, w, h = 66, 4, 348, 262
-        row_h = 39       # linha alta o bastante pra prévia das máquinas nv.2 (64 px) caber inteira
+        x, y, w, h = 66, 2, 348, 266
+        row_h = 34       # 7 receitas: a caixa da prévia ocupa a linha toda (68 px reais, nv.2 tem 64)
         self.surf.fill(pygame.Color("#1b1411"), (x, y, w, h))
         pygame.draw.rect(self.surf, pygame.Color("#5a4034"), (x, y, w, h), 1)
         self.surf.fill(pygame.Color("#2a1e19"), (x + 1, y + 1, w - 2, 18))
@@ -372,20 +372,20 @@ class UI:
         for i, kind in enumerate(C.MACHINE_ORDER):
             m = C.MACHINES[kind]
             status = state.recipe_status(kind)
-            ry = y + 22 + i * (row_h + 1)
+            ry = y + 20 + i * (row_h + 1)
             sel = i == selected
             row = pygame.Rect(x + 8, ry, w - 16, row_h)
             self.fabricator_rows.append((row, kind))
             self.surf.fill(pygame.Color("#2c1e18" if sel else "#211915"), row)
             pygame.draw.rect(self.surf, pygame.Color(C.C_ACCENT if sel else "#3a2c25"), row, 1)
-            # prévia da máquina em resolução cheia, sem redimensionar: caixa de 72×74 px reais,
-            # base da máquina 4 px acima do fundo (nv.2 tem 64 px de altura: sobram 6 px em cima)
-            box = pygame.Rect(x + 12, ry + 1, 36, 37)
+            # prévia da máquina em resolução cheia, sem redimensionar: caixa de 72×68 px reais,
+            # base da máquina 2 px acima do fundo (nv.2 tem 64 px de altura: sobram 2 px em cima)
+            box = pygame.Rect(x + 12, ry, 36, row_h)
             self.surf.fill(pygame.Color("#120d0b"), box)
             preview = machine_preview(kind)
             bw2, bh2 = box.w * 2, box.h * 2
             clip = pygame.Surface((bw2, bh2), pygame.SRCALPHA)
-            clip.blit(preview, (bw2 // 2 - preview.get_width() // 2, bh2 - 4 - preview.get_height()))
+            clip.blit(preview, (bw2 // 2 - preview.get_width() // 2, bh2 - 2 - preview.get_height()))
             if status == "locked":   # receita bloqueada: prévia escurecida
                 shade = pygame.Surface((bw2, bh2), pygame.SRCALPHA)
                 shade.fill((18, 13, 11, 184))
@@ -394,19 +394,19 @@ class UI:
 
             locked = status == "locked"
             tx = x + 56
-            name_w = self.text(m.name, tx, ry + 7, "#8a7b70" if locked else C.C_TEXT, self.body_big)
-            self.text(m.desc, tx + 6 + name_w, ry + 7, C.C_MUTED, self.body)
+            name_w = self.text(m.name, tx, ry + 4, "#8a7b70" if locked else C.C_TEXT, self.body_big)
+            self.text(m.desc, tx + 6 + name_w, ry + 4, C.C_MUTED, self.body)
             owned = state.machines_owned[kind]
             if owned:
-                self.text(f"x{owned}", tx + name_w + 6 + self.body.size(m.desc)[0] + 8, ry + 8, C.C_OK)
+                self.text(f"x{owned}", tx + name_w + 6 + self.body.size(m.desc)[0] + 8, ry + 5, C.C_OK)
             cx = tx
             for res, n in m.cost.items():
                 have = state.inventory[res]
                 label = f"{have}/{n} {C.RESOURCE_LABEL[res]}"
                 color = "#6e6058" if locked else C.C_OK if have >= n else C.C_ALERT
-                cx += self.text(label, cx, ry + 25, color) + 8
+                cx += self.text(label, cx, ry + 21, color) + 8
 
-            bx, by, bw, bh = x + w - 86, ry + 10, 72, 20
+            bx, by, bw, bh = x + w - 86, ry + 7, 72, 20
             button = pygame.Rect(bx, by, bw, bh)
             if status == "ok":
                 self.surf.fill(pygame.Color(C.C_ACCENT), button)
@@ -495,8 +495,8 @@ class UI:
         ("E", "Fabricador (na base) · ler terminal"),
         ("CLIQUE", "Colocar máquina fabricada"),
         ("R", "Girar a máquina (só visual)"),
-        ("1 A 6", "Escolher máquina já fabricada"),
-        ("CLIQUE DIREITO", "Desmontar máquina (volta pro 1–6)"),
+        ("1 A 7", "Escolher máquina já fabricada"),
+        ("CLIQUE DIREITO", "Desmontar máquina (volta pro 1–7)"),
         ("ESC", "Cancelar / fechar / pausar"),
         ("F1 · F2", "Debug: tempo x10 · +10.000 Ti"),
     ]

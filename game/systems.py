@@ -26,24 +26,55 @@ class Controls:
 @dataclass
 class Machine:
     kind: str            # chave em config.MACHINES
-    tx: int
+    tx: int              # tile de cima à esquerda (máquina comum ocupa 1 tile; a drill, 2×2)
     ty: int
     rotation: int = 0    # 0..3, só cosmético
+    # só a drill usa estes três:
+    resource: str | None = None   # minério do veio embaixo dela
+    stored: int = 0               # quanto já extraiu e está esperando coleta
+    timer: float = 0.0            # segundos acumulados pra próxima unidade
 
     @property
     def type(self) -> C.MachineType:
         return C.MACHINES[self.kind]
 
     @property
+    def size(self) -> int:
+        return self.type.size
+
+    @property
+    def is_drill(self) -> bool:
+        return self.kind == "drill"
+
+    @property
+    def full(self) -> bool:
+        return self.is_drill and self.stored >= C.DRILL_CAPACITY
+
+    @property
+    def tiles(self) -> list[tuple[int, int]]:
+        return [(self.tx + dx, self.ty + dy) for dy in range(self.size) for dx in range(self.size)]
+
+    @property
+    def anchor(self) -> tuple[float, float]:
+        """Centro da base (pixels do mundo): onde o sprite fica "em pé"."""
+        return (self.tx + self.size / 2) * C.TILE, (self.ty + self.size) * C.TILE
+
+    @property
     def rect(self) -> Rect:
         """Caixa de colisão (só a base, no chão)."""
+        if self.size > 1:
+            return (self.tx * C.TILE + 4, self.ty * C.TILE + 20, self.size * C.TILE - 8, self.size * C.TILE - 20)
         return (self.tx * C.TILE + 4, self.ty * C.TILE + 14, C.TILE - 8, C.TILE - 14)
 
     @property
     def sprite_rect(self) -> Rect:
-        """Área que a máquina ocupa na tela (âncora: centro da base do tile). Usada pelo mouse."""
-        w, h = C.MACHINE_SPRITE_SIZE[2 if self.kind.endswith("_t2") else 1]
-        return ((self.tx + 0.5) * C.TILE - w / 2, (self.ty + 1) * C.TILE - h, w, h)
+        """Área que a máquina ocupa na tela (âncora: centro da base). Usada pelo mouse."""
+        if self.is_drill:
+            w, h = C.DRILL_SPRITE_SIZE
+        else:
+            w, h = C.MACHINE_SPRITE_SIZE[2 if self.kind.endswith("_t2") else 1]
+        ax, ay = self.anchor
+        return (ax - w / 2, ay - h, w, h)
 
 
 @dataclass
@@ -134,6 +165,8 @@ class GameState:
         # pros objetivos (objectives.py): total já minerado (craftar não desconta) e se já abriu o fabricador
         self.mined_total = {r: 0 for r in C.RESOURCES}
         self.fabricator_opened = False
+        self.drills_placed = 0                         # quantas vezes já colocou uma drill (só cresce)
+        self.drill_collected = {r: 0 for r in C.RESOURCES}   # total já coletado de drills (só cresce)
         self.events: list[tuple] = []
 
     # ---- consultas ----------------------------------------------------------
@@ -146,6 +179,10 @@ class GameState:
     def ti_rate(self) -> float:
         return sum(m.type.rate for m in self.machines)
 
+    @property
+    def drills(self) -> list[Machine]:
+        return [m for m in self.machines if m.is_drill]
+
     def dist_to_base(self) -> float:
         return math.hypot(self.player.x - C.BASE_CENTER[0], self.player.y - C.BASE_CENTER[1])
 
@@ -153,8 +190,9 @@ class GameState:
         return self.dist_to_base() <= C.BASE_RADIUS
 
     def machine_at(self, tile: tuple[int, int]) -> Machine | None:
+        """Máquina que ocupa esse tile (a drill ocupa 4)."""
         for m in self.machines:
-            if (m.tx, m.ty) == tile:
+            if tile in m.tiles:
                 return m
         return None
 
@@ -279,25 +317,92 @@ class GameState:
         return True
 
     def can_place(self, kind: str, tile: tuple[int, int]) -> bool:
+        """Máquina comum: 1 tile de chão livre fora de veio. Drill: `tile` tem que ser o canto
+        de cima à esquerda de um veio livre (o App "gruda" o fantasma no veio debaixo do mouse)."""
         tx, ty = tile
         if self.machines_owned.get(kind, 0) <= 0:
             return False
-        if self.world.get(tx, ty) != C.FLOOR or tile in C.POD_TILES or self.machine_at(tile):
+        machine = Machine(kind, tx, ty)
+        vein = self.world.vein_at(tx, ty)
+        if kind == "drill":
+            if vein is None or (vein.tx, vein.ty) != tile:
+                return False
+        elif vein is not None:            # veio fica livre pra drill
             return False
+        for t in machine.tiles:
+            if self.world.get(*t) != C.FLOOR or t in C.POD_TILES or self.machine_at(t):
+                return False
         px, py = self.player.tile
-        if tile == (px, py) or max(abs(tx - px), abs(ty - py)) > C.PLACE_REACH:
+        if (px, py) in machine.tiles:
+            return False
+        if min(max(abs(x - px), abs(y - py)) for x, y in machine.tiles) > C.PLACE_REACH:
             return False
         # não pode prender o player dentro da máquina
-        return not overlaps(self.player.box, Machine(kind, tx, ty).rect)
+        return not overlaps(self.player.box, machine.rect)
 
     def place(self, kind: str, tile: tuple[int, int], rotation: int = 0) -> bool:
         if not self.can_place(kind, tile):
             return False
-        self.machines.append(Machine(kind, tile[0], tile[1], rotation))
+        machine = Machine(kind, tile[0], tile[1], rotation)
+        if machine.is_drill:
+            machine.resource = self.world.vein_at(*tile).resource
+            self.drills_placed += 1
+        self.machines.append(machine)
         self.transition_sources.add(tuple(tile))
         self.machines_owned[kind] -= 1
         self.events.append(("place", kind, tile))
         return True
+
+    # ---- drill automática ---------------------------------------------------
+    def drill_distance(self, drill: Machine) -> float:
+        """Distância (px) dos pés do player até a base da drill."""
+        ax, ay = drill.anchor
+        return math.hypot(self.player.x - ax, self.player.y - (ay - C.TILE / 2))
+
+    def nearby_drill(self) -> Machine | None:
+        """Drill ao alcance do E (a mais perto)."""
+        near = [d for d in self.drills if self.drill_distance(d) <= C.DRILL_REACH]
+        return min(near, key=self.drill_distance, default=None)
+
+    def terminal_distance(self, index: int) -> float:
+        tx, ty = self.world.terminals[index]
+        return math.hypot(self.player.x - (tx + 0.5) * C.TILE, self.player.y - (ty + 1) * C.TILE)
+
+    def interaction(self) -> tuple[str, object] | None:
+        """O que o E faz aqui: ("terminal", índice) ou ("drill", máquina), o que estiver mais perto."""
+        options = []
+        terminal = self.nearby_terminal()
+        if terminal is not None:
+            options.append((self.terminal_distance(terminal), "terminal", terminal))
+        drill = self.nearby_drill()
+        if drill is not None:
+            options.append((self.drill_distance(drill), "drill", drill))
+        if not options:
+            return None
+        _, kind, target = min(options, key=lambda o: o[0])
+        return kind, target
+
+    def collect(self, drill: Machine) -> int:
+        """Leva tudo que a drill guardou pro inventário. Devolve quanto coletou."""
+        amount = drill.stored
+        if amount <= 0:
+            return 0
+        drill.stored = 0
+        self.inventory[drill.resource] += amount
+        self.drill_collected[drill.resource] += amount
+        self.events.append(("drill_collect", drill.resource, amount, drill.anchor))
+        return amount
+
+    def _update_drill(self, drill: Machine, dt: float) -> None:
+        if drill.full:
+            return
+        drill.timer += dt
+        while drill.timer >= C.DRILL_INTERVAL and not drill.full:
+            drill.timer -= C.DRILL_INTERVAL
+            drill.stored += 1
+            if drill.full:
+                drill.timer = 0.0
+                self.events.append(("drill_full", drill.anchor))
 
     def machine_at_point(self, px: float, py: float) -> Machine | None:
         """Máquina desenhada no pixel (px, py) do mundo. Se duas se sobrepõem, a da frente (mais embaixo) ganha."""
@@ -309,10 +414,12 @@ class GameState:
         return machine in self.machines and max(abs(machine.tx - px), abs(machine.ty - py)) <= C.PLACE_REACH
 
     def dismantle(self, machine: Machine) -> bool:
-        """Tira a máquina do mapa e devolve pro estoque de máquinas fabricadas (teclas 1–6).
+        """Tira a máquina do mapa e devolve pro estoque de máquinas fabricadas (teclas 1–7).
         A cápsula não é uma Machine, então nunca entra aqui."""
         if not self.can_dismantle(machine):
             return False
+        if machine.is_drill and machine.stored:      # o que a drill guardou vai pro inventário
+            self.collect(machine)
         self.machines.remove(machine)
         self.machines_owned[machine.kind] += 1
         self.events.append(("dismantle", machine.kind, (machine.tx, machine.ty)))
@@ -320,7 +427,10 @@ class GameState:
 
     def _update_machines(self, dt: float) -> None:
         for m in self.machines:
-            self.indices[m.type.index] += m.type.rate * dt
+            if m.is_drill:
+                self._update_drill(m, dt)
+            else:
+                self.indices[m.type.index] += m.type.rate * dt
         self._check_stage()
 
     def _check_stage(self) -> None:

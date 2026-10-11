@@ -11,6 +11,7 @@ Em "pause" e "end" o mundo fica congelado (O₂, máquinas e Ti param).
 """
 
 import math
+import random
 
 import pygame
 
@@ -31,7 +32,7 @@ MOVE_KEYS = {
     pygame.K_w: (0, -1), pygame.K_UP: (0, -1),
     pygame.K_s: (0, 1), pygame.K_DOWN: (0, 1),
 }
-NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6]
+NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7]
 BANNER_TIME = 3.5          # banner de estágio: entra em 0,4 s, fica, sai em 0,8 s
 BANNER_FADE_IN, BANNER_FADE_OUT = 0.4, 0.8
 END_SCREEN_DELAY = 4.5
@@ -85,6 +86,9 @@ class App:
         self.end_timer: float | None = None
         self.footstep_timer = 0.0
         self.footstep_side = 0
+        self.drills_near: set[tuple[int, int]] = set()          # drills cheias perto do player agora
+        self.drill_full_last: dict[tuple[int, int], float] = {}  # quando avisou "cheia" pela última vez
+        self.drill_dust_timer = 0.0
         self.pause_screen = "main"      # "main", "volumes" ou "controls"
         self.pause_selected = 0
         self.dragging_slider: int | None = None
@@ -167,11 +171,13 @@ class App:
                 self.set_mode("play")
         else:  # play
             if key == pygame.K_e:
-                terminal = state.nearby_terminal()
-                if terminal is not None:
-                    state.read_terminal(terminal)
-                    self.terminal_index = terminal
+                target = state.interaction()      # terminal ou drill, o que estiver mais perto
+                if target and target[0] == "terminal":
+                    state.read_terminal(target[1])
+                    self.terminal_index = target[1]
                     self.mode = "terminal"
+                elif target and target[0] == "drill":
+                    state.collect(target[1])
                 elif state.in_base_zone():
                     self.placing = None
                     self.set_mode("fabricator")
@@ -297,7 +303,8 @@ class App:
                     self.fab_selected = i
         elif self.mode == "play":
             if self.placing:
-                if self.state.place(self.placing, self.mouse_tile(), self.rotation):
+                tile = self.place_target()
+                if tile is not None and self.state.place(self.placing, tile, self.rotation):
                     if self.state.machines_owned[self.placing] == 0:
                         self.placing = None
             else:
@@ -368,6 +375,10 @@ class App:
             x, y = (tile[0] + 0.5) * C.TILE, tile[1] * C.TILE - 8
             self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", x, y, C.ORE_COLORS[resource][0])
             self.audio.play("pickup", delay=0.06)   # 60 ms depois do mine_break, pra não embolar
+        elif kind == "drill_collect":
+            _, resource, amount, (ax, ay) = event
+            self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", ax, ay - 88, C.ORE_COLORS[resource][0])
+            self.audio.play("drill_collect")          # já tem o "poop" do pickup dentro: não toca os dois
         elif kind == "dismantle":
             _, _, tile = event
             self.renderer.spawn_chips(tile, "#9a9086", 14)       # poeirinha
@@ -402,8 +413,9 @@ class App:
         audio.set_alarm(not state.fainted and sound.alarm_should_play(audio.alarm_on, o2_percent))
         # zumbido pela máquina mais próxima
         nearest = min((math.hypot((m.tx + 0.5) * C.TILE - state.player.x, (m.ty + 1) * C.TILE - state.player.y) / C.TILE
-                       for m in state.machines), default=None)
+                       for m in state.machines if not m.is_drill), default=None)
         audio.set_hum(sound.hum_volume(nearest))
+        self.update_drills_feedback(dt)
         # ambiente: some no desmaio, abaixa lendo terminal
         audio.duck_ambient(0.0 if state.fainted else 0.6 if self.mode == "terminal" else 1.0)
         audio.update(dt)
@@ -416,29 +428,81 @@ class App:
         else:
             self.footstep_timer = 0.0
 
+    def update_drills_feedback(self, dt: float) -> None:
+        """Som e poeira das drills: loop pelas 2 trabalhando mais perto, aviso de cheia, poeirinha na base."""
+        state = self.state
+        working = sorted(state.drill_distance(d) / C.TILE for d in state.drills if not d.full)
+        self.audio.set_drill_loops([sound.drill_loop_volume(d) for d in working[:2]])
+        # chegou perto (~4 tiles) de uma drill cheia: avisa uma vez (no máximo a cada 10 s por drill)
+        near_now = set()
+        for d in state.drills:
+            if d.full and state.drill_distance(d) <= C.DRILL_FULL_NOTICE:
+                key = (d.tx, d.ty)
+                near_now.add(key)
+                if key not in self.drills_near and self.t - self.drill_full_last.get(key, -1e9) >= C.DRILL_FULL_COOLDOWN:
+                    self.audio.play("drill_full")
+                    self.drill_full_last[key] = self.t
+        self.drills_near = near_now
+        # poeira saindo da base enquanto perfura (só as que estão na tela)
+        self.drill_dust_timer -= dt
+        if self.drill_dust_timer <= 0:
+            self.drill_dust_timer = 0.12
+            cx, cy = self.cam
+            for d in state.drills:
+                ax, ay = d.anchor
+                if not d.full and -64 < ax - cx < C.SCREEN_W + 64 and -64 < ay - cy < C.SCREEN_H + 64:
+                    side = random.choice((-1, 1))
+                    self.renderer.spawn_chips(None, random.choice(("#9a9086", "#c8c0b4")), 1,
+                                              at=(ax + side * random.uniform(4, 18), ay - 6))
+
     def spawn_machine_floaters(self, dt: float) -> None:
         """De tempos em tempos cada máquina solta um '+O2', '+CALOR' ou '+AGUA' (como no mockup)."""
         period = 4.0
         for i, m in enumerate(self.state.machines):
             phase = (i * 1.37) % period
-            if (self.t - dt + phase) % period > (self.t + phase) % period:
+            if m.type.index is not None and (self.t - dt + phase) % period > (self.t + phase) % period:
                 key = m.type.index
                 self.floaters.add(f"+{C.INDEX_LABEL[key]}", (m.tx + 0.5) * C.TILE, m.ty * C.TILE - 30, C.INDEX_COLOR[key])
 
     # ---- desenho --------------------------------------------------------------
+    def place_target(self) -> tuple[int, int] | None:
+        """Onde a máquina na mão iria. A drill "gruda" no veio debaixo do mouse (canto de cima à esquerda);
+        fora de veio, a drill não tem lugar (None)."""
+        tile = self.mouse_tile()
+        if self.placing != "drill":
+            return tile
+        vein = self.state.world.vein_at(*tile)
+        return (vein.tx, vein.ty) if vein else None
+
     def hovered_machine(self):
         cx, cy = self.cam
         return self.state.machine_at_point(self.mouse[0] + cx, self.mouse[1] + cy)
 
     def hint(self) -> str | None:
         state = self.state
+        if self.placing == "drill" and self.place_target() is None:
+            return "Coloque a drill em cima de um veio"
         if self.placing:
             return "Clique para colocar · R gira · Esc cancela"
         machine = self.hovered_machine()
+        if machine and machine.is_drill:
+            label = C.RESOURCE_NAME[machine.resource]
+            content = (f"Drill cheia: {machine.stored} {label}" if machine.full
+                       else f"Drill: {machine.stored}/{C.DRILL_CAPACITY} {label}")
+            return content + (" · [E] coletar" if state.nearby_drill() is machine and machine.stored else "")
         if machine:
             return "[Clique direito] desmontar" if state.can_dismantle(machine) else "Chegue mais perto pra desmontar"
-        if state.nearby_terminal() is not None:
+        vein = state.world.vein_at(*self.mouse_tile())     # mouse em cima de um veio livre
+        if vein:
+            name = C.RESOURCE_NAME[vein.resource]
+            unlocked = state.recipe_status("drill") != "locked"
+            return f"Veio de {name} · " + ("coloque uma drill" if unlocked else "drill libera na Névoa")
+        target = state.interaction()
+        if target and target[0] == "terminal":
             return "[E] Ler terminal"
+        if target and target[0] == "drill" and target[1].stored:
+            d = target[1]
+            return f"[E] Coletar {d.stored} {C.RESOURCE_NAME[d.resource]}"
         if state.in_base_zone():
             return "[E] Fabricador" if self.t > 6 else "Paredes com cristais têm minério"
         tile = self.mouse_tile()
@@ -451,8 +515,9 @@ class App:
         cam = self.cam
         ghost = None
         if self.placing and self.mode == "play":
-            tile = self.mouse_tile()
-            ghost = (self.placing, tile, self.rotation, state.can_place(self.placing, tile))
+            target = self.place_target()
+            tile = target if target is not None else self.mouse_tile()
+            ghost = (self.placing, tile, self.rotation, target is not None and state.can_place(self.placing, tile))
         self.renderer.draw(canvas, state, cam, self.t, ghost)
 
         critical = state.o2 < C.O2_LOW and not state.fainted
@@ -478,7 +543,7 @@ class App:
         # camada 2: menus e telas por cima do HUD
         ui.begin()
         if self.mode == "fabricator":
-            preview = lambda kind: self.renderer.surface(C.MACHINES[kind].sprite, lambda: art.machine(kind))[0]
+            preview = self.renderer.machine_preview
             ui.draw_fabricator(state, self.fab_selected, preview, self.t)
         elif self.mode == "terminal":
             ui.draw_terminal(self.terminal_index, self.t)

@@ -59,6 +59,13 @@ def test_normal_sequence_walks_every_objective(game):
     craft_free(game, "heater"); step()
     game.read_terminal(0); step()
     game.debug_add_ti(); step()                 # Ti 10.500 -> Névoa
+    vein = game.world.veins[0]                  # drill de verdade num veio de verdade
+    game.player.x, game.player.y = (vein.tx + 0.5) * C.TILE, (vein.ty + 3) * C.TILE - 4
+    craft_free(game, "drill")
+    assert game.place("drill", (vein.tx, vein.ty)); step()
+    drill = game.drills[0]
+    drill.stored = 3
+    assert game.collect(drill) == 3; step()
     craft_free(game, "melter_t2"); step()
     game.debug_add_ti(100_000); step()          # -> Verde
 
@@ -73,6 +80,8 @@ def test_normal_sequence_walks_every_objective(game):
         "Fabrique um Aquecedor",
         "Leia um terminal",
         "Chegue ao estágio Névoa",
+        "Coloque uma drill num veio",
+        "Colete minério de uma drill",
         "Fabrique uma máquina nv.2",
         "Deixe o planeta verde",
         None,
@@ -164,6 +173,8 @@ def test_everything_done_list_disappears(game):
         craft_free(game, kind)
     place_at(game, "o2", (61, 66))
     game.read_terminal(0)
+    game.drills_placed = 1
+    game.drill_collected["iron"] = 5
     tracker = ObjectiveTracker(game)
     assert current_text(game) == "Chegue a Ti 500"
     game.debug_add_ti(100_000)

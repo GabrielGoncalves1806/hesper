@@ -107,3 +107,36 @@ até o Verde, mas o tempo real é ~11 / ~14 min. Sugestão (fora do meu escopo):
 | casual | 1 | 2m54s | 11m08s | 36m25s | 36m25s | 0m44s | 0m44s | 0 | 13/14/11/0/0/0 |
 | casual | 2 | 2m51s | 11m31s | 36m32s | 36m32s | 0m30s | 0m30s | 0 | 13/14/12/0/0/0 |
 | casual | 3 | 2m57s | 11m19s | 36m24s | 36m24s | 0m13s | 0m13s | 0 | 13/15/11/0/0/0 |
+
+## Veios + drill automática (v0.1, Dev)
+
+Gerado com `uv run python tools/dev/balance_sim.py --no-drills` (seeds 1–3). Depois da Névoa as estratégias montam
+até 3 drills (uma por veio, ferro primeiro), cobram a ida e a volta pela distância real andando (com O₂) e voltam pra
+coletar quando a viagem sai mais barata que minerar aquelas unidades. **Nenhum número do `config.py` foi mudado.**
+
+Drill inicial: 20 ferro + 10 silício, 1 unidade a cada 20 s, capacidade 20.
+
+| cenário | guloso | variado | casual | minério vindo de drills (casual) |
+|---|---|---|---|---|
+| números atuais, **sem** drills | 17m49–18m36 | 19m10–19m27 | 22m06–22m28 | — |
+| números atuais, **com** drills | 19m22–20m05 | 21m23–21m35 | 24m44–25m05 | ~75–115 un. |
+| proposta, **sem** drills | 22m48–23m38 | 24m00–24m43 | 27m32–27m52 | — |
+| proposta, **com** drills | 24m17–25m11 | 26m21–26m23 | 29m27–30m02 | ~105–135 un. |
+
+A drill **não** deixa o fim rápido demais. Com os números iniciais ela atrasa o fim em ~2 min: 3 drills custam 90
+unidades mais as viagens, e rendem ~110 unidades até o fim (a fase Névoa→Verde dura ~15 min). Tudo segue dentro da
+faixa de 20–35 min.
+
+Variantes testadas (proposta + drill, total por estratégia):
+
+| drill | guloso | variado | casual |
+|---|---|---|---|
+| 20 Fe + 10 Si, 20 s (inicial) | 24m17–25m11 | 26m21–26m23 | 29m27–30m02 |
+| 12 Fe + 6 Si, 20 s | 23m31–24m10 | 25m25–25m37 | 28m59–29m25 |
+| **12 Fe + 6 Si, 12 s** | 23m12–23m50 | 25m01–25m07 | 28m17–29m15 |
+| 15 Fe + 8 Si, 10 s | 23m37–24m03 | 24m59–25m26 | 28m33–28m42 |
+| 20 Fe + 10 Si, 8 s | 23m35–24m15 | 25m19–25m25 | 28m25–28m40 |
+
+Sugestão: **12 Fe + 6 Si, 1 unidade a cada 12 s**. A drill passa a quase se pagar no tempo (o casual fica a ~1 min do
+"sem drills") e rende ~50% mais minério, sem encurtar o jogo. Deixar ela mais forte que isso não acelera o fim,
+porque a viagem pra coletar come o ganho.

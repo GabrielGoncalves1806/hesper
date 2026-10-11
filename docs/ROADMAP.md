@@ -18,7 +18,7 @@ Detalhes em `GAME_BIBLE.md` §4.
 - [x] Guia de som + efeitos (Som) · aprovado pelo dono
 - [x] Integrar sprites e sons aprovados
 - [x] Polimento: pausa/volumes, objetivos, desmontar, transição gradual, simulador de balanceamento
-- [ ] Veios de minério 2×2 no chão + drill automática (libera na Névoa, coleta manual)
+- [x] Veios de minério 2×2 no chão + drill automática (libera na Névoa, coleta manual)
 
 ## v0.2 · Sobrevivência de verdade
 Save/load, energia (painel solar alimentando máquinas e drills), água e comida, mais recursos e máquinas.

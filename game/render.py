@@ -162,6 +162,7 @@ class Renderer:
         stage = stage_key(state.stage)
         self.stage_map.update(state.ti, [BASE_SOURCE, *state.transition_sources])
         self.draw_floors(canvas, state, cam, stage, t)
+        self.draw_veins(canvas, state, cam)
         self.draw_zone(canvas, cam, t)
         self.draw_walls_and_objects(canvas, state, cam, stage, t)
         if state.mining:
@@ -190,6 +191,14 @@ class Renderer:
                 else:
                     num = self.stage_map.stage_at(tx, ty)   # pode estar "à frente" no meio da transição
                     self._draw_floor(canvas, world, tx, ty, sx, sy, stage_key(num), num, t)
+
+    def draw_veins(self, canvas, state: GameState, cam) -> None:
+        """Veios 2×2: overlay do chão (vale pros 3 estágios), antes das paredes e dos objetos."""
+        for v in state.world.veins:
+            sx, sy = v.tx * T - cam[0], v.ty * T - cam[1]
+            if -64 < sx < C.SCREEN_W and -64 < sy < C.SCREEN_H:
+                surf, _ = self.surface(f"vein_{v.resource}", lambda r=v.resource: art.vein(r))
+                canvas.blit(surf, (sx, sy))
 
     def draw_walls_and_objects(self, canvas, state: GameState, cam, stage: str, t: float) -> None:
         """Passada 2: linha por linha, paredes com topo elevado e objetos ordenados pelo pé."""
@@ -370,9 +379,12 @@ class Renderer:
         items.append((ay, lambda: self._draw_pod(canvas, ax - cam_x, ay - cam_y, t)))
 
         for m in state.machines:
-            mx, my = m.tx * T + T // 2, (m.ty + 1) * T      # âncora: centro do tile, borda de baixo
+            mx, my = m.anchor                                  # centro da base (drill: centro dos 2×2)
             if -64 < mx - cam_x < C.SCREEN_W + 64 and -80 < my - cam_y < C.SCREEN_H + 80:
-                items.append((my, lambda m=m, mx=mx, my=my: self.draw_machine(canvas, m.kind, mx - cam_x, my - cam_y, t, m.rotation)))
+                if m.is_drill:
+                    items.append((my, lambda m=m, mx=mx, my=my: self.draw_drill(canvas, m, mx - cam_x, my - cam_y, t)))
+                else:
+                    items.append((my, lambda m=m, mx=mx, my=my: self.draw_machine(canvas, m.kind, mx - cam_x, my - cam_y, t, m.rotation)))
 
         if self.stage_map.next_stage >= 3:   # plantas nascem junto com a mancha verde
             tx0, ty0 = cam_x // T, cam_y // T
@@ -399,6 +411,40 @@ class Renderer:
         self._blit_anchored(canvas, surf, ax, ay)
         if fallback and (t * 9) % 10 < 5:   # luz da antena piscando
             canvas.fill("#ff5a4a", (round(ax) - 32 + 49, round(ay) - 72 + 1, 3, 3))
+
+    DRILL_FPS = 8
+
+    def drill_frame(self, frame: int) -> pygame.Surface:
+        """Quadro `frame` (0–3) do machine_drill: recorte (64·f, 0, 64, 80) da folha."""
+        sheet, _ = self.surface("machine_drill", art.drill_machine)
+        w, h = C.DRILL_SPRITE_SIZE
+        return sheet.subsurface((frame * w, 0, w, h))
+
+    def draw_drill(self, canvas, drill, ax, ay, t, alpha=None) -> None:
+        """Drill: gira enquanto trabalha (parada no quadro 0 quando cheia) + indicador de enchimento."""
+        w, h = C.DRILL_SPRITE_SIZE
+        working = drill is not None and not drill.full and alpha is None
+        frame = self.drill_frame(int(t * self.DRILL_FPS) % 4 if working else 0)
+        if alpha is not None:
+            frame = frame.copy()
+            frame.set_alpha(alpha)
+        x, y = round(ax) - w // 2, round(ay) - h
+        canvas.blit(frame, (x, y))
+        if drill is not None and drill.stored:
+            # retângulo do indicador dentro do quadro (spec da Designer): enche de baixo pra cima
+            fx, fy, fw, fh = art.DRILL_FILL_RECT
+            level = round(fh * drill.stored / C.DRILL_CAPACITY)
+            canvas.fill(C.ORE_COLORS[drill.resource][0], (x + fx, y + fy + fh - level, fw, level))
+
+    def machine_preview(self, kind: str) -> pygame.Surface:
+        """Imagem da máquina pro fabricador (resolução cheia, sem redimensionar com suavização)."""
+        if kind == "drill":
+            icon = self.sprites.get("icon_drill")
+            if icon:
+                return pygame.transform.scale_by(icon, 3)        # 16×16 → 48×48, pixel a pixel
+            frame = self.drill_frame(0)
+            return frame.subsurface((0, 16, 64, 64))              # sem a cabeça, pra caber na caixinha
+        return self.surface(C.MACHINES[kind].sprite, lambda: art.machine(kind))[0]
 
     def draw_machine(self, canvas, kind, ax, ay, t, rotation=0, alpha=None) -> None:
         name = C.MACHINES[kind].sprite
@@ -485,17 +531,22 @@ class Renderer:
 
     def draw_ghost(self, canvas, cam, kind, tile, rotation, valid, t) -> None:
         px, py = tile[0] * T - cam[0], tile[1] * T - cam[1]
+        size = C.MACHINES[kind].size * T                  # drill ocupa 2×2
         color = (127, 214, 122) if valid else (255, 106, 85)
-        tint = pygame.Surface((T, T), pygame.SRCALPHA)
+        tint = pygame.Surface((size, size), pygame.SRCALPHA)
         tint.fill((*color, 51))
         canvas.blit(tint, (px, py))
         # contorno tracejado andando
         step = int(t * 8) % 8
-        for i in range(0, T - 2, 8):
-            for x, y, w, h in [(px + 1 + (i + step) % (T - 2), py + 1, 4, 2), (px + 1 + (i + step) % (T - 2), py + T - 3, 4, 2),
-                               (px + 1, py + 1 + (i + step) % (T - 2), 2, 4), (px + T - 3, py + 1 + (i + step) % (T - 2), 2, 4)]:
+        for i in range(0, size - 2, 8):
+            k = (i + step) % (size - 2)
+            for x, y, w, h in [(px + 1 + k, py + 1, 4, 2), (px + 1 + k, py + size - 3, 4, 2),
+                               (px + 1, py + 1 + k, 2, 4), (px + size - 3, py + 1 + k, 2, 4)]:
                 canvas.fill(color, (x, y, w, h))
-        self.draw_machine(canvas, kind, px + T // 2, py + T, t, rotation, alpha=128)
+        if kind == "drill":
+            self.draw_drill(canvas, None, px + size // 2, py + size, t, alpha=128)
+        else:
+            self.draw_machine(canvas, kind, px + T // 2, py + T, t, rotation, alpha=128)
 
     # ---- partículas (lasquinhas da mineração) ---------------------------------
     def spawn_chips(self, tile: tuple[int, int] | None, color: str, n: int = 10, at=None) -> None:
@@ -530,6 +581,12 @@ class Renderer:
         machine_light = {"o2": ((89, 208, 230), 80, -30, 0.2), "heater": ((255, 138, 61), 100, -20, 0.3),
                          "melter": ((159, 230, 255), 70, -36, 0.18)}
         for m in state.machines:
+            if m.is_drill:   # luzinha quente na cabeça da drill, só enquanto ela trabalha
+                if m.full:
+                    continue
+                ax, ay = m.anchor
+                lights.append((ax - cam_x, ay - 66 - cam_y, 56, (255, 210, 140), 0.14, 1.0))
+                continue
             rgb, r, dy, a = machine_light[m.kind.removesuffix("_t2")]
             if m.kind.endswith("_t2"):
                 r = int(r * 1.25)

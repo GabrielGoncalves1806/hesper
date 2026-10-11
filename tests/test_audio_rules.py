@@ -38,3 +38,17 @@ def test_resample_changes_length_and_keeps_channels():
     assert len(faster) == 2 * 800
     assert len(slower) == 2 * 1250
     assert resample(stereo, 2, 1.0) == stereo
+
+
+def test_drill_loop_volume_by_distance():
+    from game.audio import drill_loop_volume
+    top = C.VOLUME["drill_loop"]
+    assert top == 0.5
+    assert drill_loop_volume(1) == top and drill_loop_volume(2) == top
+    assert 0 < drill_loop_volume(5) < top
+    assert drill_loop_volume(8) == 0 and drill_loop_volume(30) == 0
+
+
+def test_drill_sfx_volumes_from_sound_tips():
+    assert C.VOLUME["drill_collect"] == 1.0
+    assert 0.6 <= C.VOLUME["drill_full"] <= 0.8

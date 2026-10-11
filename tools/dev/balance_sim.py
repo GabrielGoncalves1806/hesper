@@ -20,6 +20,11 @@ Aproximado (o simulador decide no lugar do jogador):
   Não usamos o `Player.move` frame a frame porque seria ~50× mais lento e o resultado é o mesmo em linha reta.
 - Máquinas colocadas não bloqueiam o caminho no grid (são caixas de 24×18 px num tile de 32: dá pra passar do lado).
 - Craftar e colocar custa um tempo fixo por máquina (`craft_overhead`), cobrindo menu + andar até o lugar.
+- Drills (depois da Névoa): o jogador fabrica até `Strategy.drills` drills e põe cada uma num veio livre alcançável
+  a pé (ferro primeiro). Ir e voltar custa a distância andando real (com O₂). A extração é a regra real do jogo
+  (`_update_drill`). Na base, antes de sair pra minerar um recurso, ele vai coletar uma drill desse recurso se a
+  viagem custar menos do que minerar aquelas unidades no ritmo dele. "Sem drills" = mesma simulação com a receita
+  da drill trancada (`--no-drills` / `without_drills`).
 
 Tempo morto: o jogador só fica parado quando não existe nada útil: (a) a próxima máquina não ficaria pronta antes
 de o Ti bater o fim, (b) ele já tem os recursos e está esperando a receita liberar, ou (c) não há minério alcançável
@@ -112,6 +117,7 @@ class Strategy:
     o2_margin: float = 6.0        # O₂ de sobra que o jogador quer ao chegar na base
     craft_overhead: float = 3.0   # segundos por máquina: menu + andar até o lugar + colocar
     mine_overhead: float = 0.0    # segundos por tile além da dureza: mirar o próximo, reposicionar o mouse
+    drills: int = 3               # quantas drills ele monta depois da Névoa (uma por veio)
 
 
 STRATEGIES = {
@@ -145,6 +151,7 @@ class Result:
     idle_by: dict = field(default_factory=dict)      # motivo -> segundos
     faints: int = 0
     trips: int = 0
+    drill_units: int = 0                             # minério que veio de drills (coletado)
     tiles_mined: int = 0
     units: int = 0                                   # recursos coletados
     time_by: dict = field(default_factory=dict)      # andar / minerar / base / espera
@@ -352,6 +359,11 @@ class Sim:
         self.idle_run = 0.0
 
     # ---- decisões ----
+    @staticmethod
+    def ti_kinds():
+        """Máquinas que somam Ti (a drill não entra na conta de 'qual máquina rende mais Ti')."""
+        return [k for k, m in C.MACHINES.items() if m.index is not None]
+
     def _gather_time(self, kind):
         cost = C.MACHINES[kind].cost
         units = sum(max(0, n - self.gs.inventory[r]) for r, n in cost.items())
@@ -378,7 +390,7 @@ class Sim:
         O jogador se compromete com o alvo até fabricar (senão o guloso fica trocando de ideia toda hora),
         e só repensa quando uma receita nova libera.
         """
-        unlocked_now = tuple(k for k in C.MACHINES if self._unlock_eta(k) == 0)
+        unlocked_now = tuple(k for k in self.ti_kinds() if self._unlock_eta(k) == 0)
         if self.plan is None or unlocked_now != self.plan_unlocked:
             self.plan_unlocked = unlocked_now
             if self.s.pick == "balanced":
@@ -388,21 +400,92 @@ class Sim:
                 self.plan = pool[self.rr % len(pool)]
             else:
                 # guloso: melhor Ti/s por segundo de coleta, aceitando receita que libera antes de juntar tudo
-                cands = [k for k in C.MACHINES if self._unlock_eta(k) <= self._gather_time(k)]
+                cands = [k for k in self.ti_kinds() if self._unlock_eta(k) <= self._gather_time(k)]
                 self.plan = max(cands, key=lambda k: C.MACHINES[k].rate / self._full_time(k))
         rate = self.gs.ti_rate
         if rate <= 0:
             return self.plan
         left = (self.final_ti - self.gs.ti) / rate
-        ready = {k: max(self._gather_time(k), self._unlock_eta(k)) for k in C.MACHINES}
+        ready = {k: max(self._gather_time(k), self._unlock_eta(k)) for k in self.ti_kinds()}
         if ready[self.plan] < left:
             return self.plan
         # Reta final: o plano não fica pronto a tempo. Vale uma máquina mais barata que ainda renda algo?
-        useful = [k for k in C.MACHINES if ready[k] < left]
+        useful = [k for k in self.ti_kinds() if ready[k] < left]
         if not useful:
             return None
         self.plan = max(useful, key=lambda k: C.MACHINES[k].rate * (left - ready[k]))
         return self.plan
+
+    # ---- drills ----
+    def _vein_walk(self, vein):
+        """Tiles andando da zona de O₂ até o lado do veio (INF se ainda não dá pra chegar a pé)."""
+        return min(self.field[self._i(x, y)] for x, y in vein.tiles)
+
+    def _trip_time(self, vein):
+        return 2 * self._vein_walk(vein) * self.tw * self.s.walk_factor + self.s.craft_overhead
+
+    def _trip_fits_o2(self, vein):
+        return self._trip_time(vein) + self.s.o2_margin <= C.O2_MAX / C.O2_DRAIN
+
+    def free_vein(self):
+        """Veio livre alcançável a pé com um tanque de O₂, preferindo tipo ainda sem drill (ferro primeiro)."""
+        taken = {(d.tx, d.ty) for d in self.gs.drills}
+        have = {d.resource for d in self.gs.drills}
+        options = [v for v in self.world.veins if (v.tx, v.ty) not in taken
+                   and self._vein_walk(v) < INF and self._trip_fits_o2(v)]
+        order = {r: i for i, r in enumerate(C.RESOURCES)}
+        return min(options, key=lambda v: (v.resource in have, order[v.resource], self._vein_walk(v)), default=None)
+
+    def want_drill(self) -> bool:
+        if "drill" not in C.MACHINES or self.gs.recipe_status("drill") == "locked":
+            return False
+        built = len(self.gs.drills) + self.gs.machines_owned["drill"]
+        return built < self.s.drills and self.free_vein() is not None
+
+    def _visit_vein(self, vein, action):
+        """Sai da base, vai até o veio (O₂ caindo), faz `action` lá e volta pra base (go_base)."""
+        self._set_player(self._i(*self._xy_spawn()))
+        walk = self._vein_walk(vein) * self.tw * self.s.walk_factor
+        self._advance(walk, outside=True, what="andar")
+        below = (vein.tx, vein.ty + 2)                 # parado logo abaixo do veio (sempre chão)
+        self.gs.player.x, self.gs.player.y = self._pos(self._i(*below))
+        self.cur = self._i(*below)
+        action()
+        self._advance(self.s.craft_overhead / 2, outside=True, what="base")
+        self.go_base()
+
+    def craft_and_place_drill(self):
+        self._set_player(self._i(*self._xy_spawn()))
+        vein = self.free_vein()
+        if vein is None or not self.gs.craft("drill"):
+            return False
+        self._visit_vein(vein, lambda: self._place_drill(vein))
+        return True
+
+    def _place_drill(self, vein):
+        ok = self.gs.place("drill", (vein.tx, vein.ty))
+        assert ok, f"não conseguiu colocar a drill no veio {vein}"
+
+    def collect_trip(self, missing) -> bool:
+        """Na base: vale ir buscar o que uma drill guardou em vez de minerar isso?"""
+        best = None
+        for d in self.gs.drills:
+            if d.resource not in missing or d.stored <= 0:
+                continue
+            vein = self.world.vein_at(d.tx, d.ty)
+            if not self._trip_fits_o2(vein):
+                continue
+            gain = d.stored * self.sec_per_unit - self._trip_time(vein)   # segundos economizados
+            if gain > 0 and (best is None or gain > best[0]):
+                best = (gain, d, vein)
+        if best is None:
+            return False
+        _, drill, vein = best
+        self._visit_vein(vein, lambda: self._collect(drill))
+        return True
+
+    def _collect(self, drill):
+        self.res.drill_units += self.gs.collect(drill)
 
     # ---- ações ----
     def go_base(self):
@@ -526,7 +609,10 @@ class Sim:
         trip_t0, trip_units = self.t, 0
         while not self.res.finished and self.t < self.max_time:
             try:
-                kind = self.choose()
+                if self.want_drill():
+                    kind = "drill"
+                else:
+                    kind = self.choose()
                 if kind is None:
                     if not self.zone[self.cur]:
                         self.go_base()
@@ -545,10 +631,15 @@ class Sim:
                         self._advance(min(self._unlock_eta(kind) + 1e-6, 30.0), idle=True)
                         continue
                     self._not_idle()
-                    self.craft_and_place(kind)
+                    if kind == "drill":
+                        self.craft_and_place_drill()
+                    else:
+                        self.craft_and_place(kind)
                     continue
                 self._not_idle()
                 missing = [r for r, n in C.MACHINES[kind].cost.items() if self.gs.inventory[r] < n]
+                if self.zone[self.cur] and self.collect_trip(missing):
+                    continue
                 got = self.mine_here(missing)
                 if got:
                     trip_units += got
@@ -603,12 +694,13 @@ def fmt(sec):
 def table(title, results, markdown=False):
     marks = ["Ti 500"] + [s.name.capitalize() for s in C.STAGES[1:]]
     kinds = list(C.MACHINES)
-    head = ["estratégia", "seed", *marks, "total", "espera total", "maior espera", "desm.", "máquinas (" + "/".join(kinds) + ")"]
+    head = ["estratégia", "seed", *marks, "total", "espera total", "maior espera", "desm.", "drill un.",
+            "máquinas (" + "/".join(kinds) + ")"]
     rows = []
     for r in results:
         rows.append([r.strategy, str(r.seed), *[fmt(r.milestones.get(m)) for m in marks],
                      fmt(r.total) + ("" if r.finished else " (não acabou)"),
-                     fmt(r.idle_total), fmt(r.idle_longest), str(r.faints),
+                     fmt(r.idle_total), fmt(r.idle_longest), str(r.faints), str(r.drill_units),
                      "/".join(str(r.machines[k]) for k in kinds)])
     out = [f"\n{'### ' if markdown else '== '}{title}\n"]
     if markdown:
@@ -633,21 +725,33 @@ def main(argv=None):
     ap.add_argument("--seeds", type=int, nargs="+", default=[1, 2, 3])
     ap.add_argument("--markdown", action="store_true")
     ap.add_argument("--ablate-t2", action="store_true", help="roda também a proposta sem as máquinas nv.2")
+    ap.add_argument("--no-drills", action="store_true", help="roda também cada cenário sem drills, pra comparar")
     args = ap.parse_args(argv)
     print(table("Números atuais (game/config.py)", run_suite(None, args.seeds), args.markdown))
+    if args.no_drills:
+        print(table("Números atuais SEM drills", run_suite(without_drills(None), args.seeds), args.markdown))
     if not args.current:
         ov = load_overrides(args.overrides)
         print(table(f"Proposta ({args.overrides.name})", run_suite(ov, args.seeds), args.markdown))
+        if args.no_drills:
+            print(table("Proposta SEM drills", run_suite(without_drills(ov), args.seeds), args.markdown))
         if args.ablate_t2:
             print(table("Proposta SEM nv.2 (as nv.2 valem a pena?)", run_suite(without_t2(ov), args.seeds),
                         args.markdown))
+
+
+def without_drills(overrides):
+    """Mesmos overrides, mas com a receita da drill trancada (o jogo como era antes dos veios)."""
+    ov = copy.deepcopy(overrides or {})
+    ov.setdefault("MACHINES", {}).setdefault("drill", {})["unlock_ti"] = 10**12
+    return ov
 
 
 def without_t2(overrides):
     """Mesmos overrides, mas com as receitas da última tier trancadas (nunca liberam)."""
     ov = copy.deepcopy(overrides or {})
     with patched_config(ov):
-        t2 = [k for k, m in C.MACHINES.items() if m.unlock_ti >= C.STAGES[1].ti]
+        t2 = [k for k, m in C.MACHINES.items() if m.unlock_ti >= C.STAGES[1].ti and m.index is not None]
     machines = ov.setdefault("MACHINES", {})
     for k in t2:
         machines.setdefault(k, {})["unlock_ti"] = 10**12
