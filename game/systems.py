@@ -94,10 +94,14 @@ def format_eta(seconds: float) -> str:
 
 
 def eta_label(remaining: float, rate_per_second: float) -> str:
-    """Estimativa de tempo até o próximo estágio, ou um aviso se nada estiver produzindo Ti."""
+    """Estimativa de tempo até o próximo estágio NO RITMO ATUAL, ou um aviso se nada produz Ti.
+
+    É só "falta ÷ taxa de agora". Como a taxa cresce o jogo todo (mais máquinas), o tempo real
+    costuma ser bem menor; por isso o texto avisa "(ritmo atual)" em vez de tentar prever.
+    """
     if rate_per_second <= 1e-6:
         return "coloque máquinas"
-    return format_eta(remaining / rate_per_second)
+    return f"{format_eta(remaining / rate_per_second)} (ritmo atual)"
 
 
 def smooth_rate(previous: float, target: float, dt: float, tau: float = C.RATE_SMOOTHING) -> float:

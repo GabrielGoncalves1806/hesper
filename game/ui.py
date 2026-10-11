@@ -22,6 +22,72 @@ SHORT_NAME = {"o2": "O2", "melter": "DERRET.", "heater": "AQUEC.",
               "o2_t2": "O2 II", "melter_t2": "DERRET. II", "heater_t2": "AQUEC. II"}
 
 
+# Dígitos 5×7 desenhados à mão, no traço fino da Pixelify. Em 11 px a fonte desenha o "5" igual
+# a um "S" (Ti 500 vira "Ti S00"), o "2" parece "Z" e o "6" sai torto.
+DIGITS = {
+    "0": [" ### ", "#   #", "#   #", "#   #", "#   #", "#   #", " ### "],
+    "1": ["  #  ", " ##  ", "  #  ", "  #  ", "  #  ", "  #  ", " ### "],
+    "2": [" ### ", "#   #", "    #", "   # ", "  #  ", " #   ", "#####"],
+    "3": [" ### ", "#   #", "    #", "  ## ", "    #", "#   #", " ### "],
+    "4": ["   # ", "  ## ", " # # ", "#  # ", "#####", "   # ", "   # "],
+    "5": ["#####", "#    ", "#### ", "    #", "    #", "#   #", " ### "],
+    "6": ["  ## ", " #   ", "#    ", "#### ", "#   #", "#   #", " ### "],
+    "7": ["#####", "    #", "   # ", "  #  ", " #   ", " #   ", " #   "],
+    "8": [" ### ", "#   #", "#   #", " ### ", "#   #", "#   #", " ### "],
+    "9": [" ### ", "#   #", "#   #", " ####", "    #", "   # ", " ##  "],
+}
+DIGIT_ADVANCE = 7      # 1 px de margem + 5 px de dígito + 1 de espaço (igual ao avanço da Pixelify)
+
+
+class PixelDigitsFont:
+    """A Pixelify Sans, mas com os números desenhados em pixels (DIGITS).
+
+    Tem os mesmos size() e render() de uma pygame.font.Font, então serve em qualquer lugar onde a
+    fonte era usada (medidas, quebra de linha, HUD, menus). Só os dígitos mudam; as letras são da fonte.
+    """
+
+    def __init__(self, font: pygame.font.Font):
+        self.font = font
+        # topo dos dígitos alinhado com o das letras maiúsculas (7 px acima da linha de base)
+        self.digit_top = max(0, font.get_ascent() - 7)
+
+    @staticmethod
+    def _runs(text: str) -> list[str]:
+        """'Ti 500 x' -> ['Ti ', '500', ' x']: separa sequências de dígitos do resto."""
+        runs: list[str] = []
+        for ch in text:
+            if runs and runs[-1][-1].isdigit() == ch.isdigit():
+                runs[-1] += ch
+            else:
+                runs.append(ch)
+        return runs
+
+    def size(self, text: str) -> tuple[int, int]:
+        width = sum(DIGIT_ADVANCE * len(r) if r[0].isdigit() else self.font.size(r)[0] for r in self._runs(text))
+        return width, self.font.get_height()
+
+    def get_height(self) -> int:
+        return self.font.get_height()
+
+    def render(self, text: str, antialias: bool, color) -> pygame.Surface:
+        if not any(ch.isdigit() for ch in text):
+            return self.font.render(text, antialias, color)
+        surf = pygame.Surface(self.size(text), pygame.SRCALPHA)
+        x = 0
+        for run in self._runs(text):
+            if run[0].isdigit():
+                for ch in run:
+                    for dy, row in enumerate(DIGITS[ch]):
+                        for dx, cell in enumerate(row):
+                            if cell == "#":
+                                surf.fill(color, (x + 1 + dx, self.digit_top + dy, 1, 1))
+                    x += DIGIT_ADVANCE
+            else:
+                surf.blit(self.font.render(run, antialias, color), (x, 0))
+                x += self.font.size(run)[0]     # avança pela medida (a imagem perde o espaço do fim)
+        return surf
+
+
 def fmt(n: float) -> str:
     """12400 -> '12.400' (separador de milhar brasileiro)."""
     return f"{round(n):,}".replace(",", ".")
@@ -67,8 +133,9 @@ class UI:
         self.native: list[tuple[pygame.Surface, tuple[int, int]]] = []
         self.font = load_font("Silkscreen-Regular.ttf", 8, 12)        # rótulos
         self.font_big = load_font("Silkscreen-Regular.ttf", 16, 22)   # títulos
-        self.body = load_font("PixelifySans.ttf", 11, 13)             # textos (11 px: em 10 e 12 o "G" vira "Q")
-        self.body_big = load_font("PixelifySans.ttf", 11, 16)   # títulos: mesmo tamanho (o "G" só fica certo em 11), destaque pela cor
+        # textos: Pixelify 11 px (em 10 e 12 o "G" vira "Q"), com os dígitos desenhados em pixels
+        self.body = PixelDigitsFont(load_font("PixelifySans.ttf", 11, 13))
+        self.body_big = PixelDigitsFont(load_font("PixelifySans.ttf", 11, 16))   # títulos: mesmo tamanho (o "G" só fica certo em 11), destaque pela cor
         self._text_cache: dict[tuple, pygame.Surface] = {}
         self._tmp: dict[tuple, pygame.Surface] = {}
         self.fabricator_buttons: list[tuple[pygame.Rect, str]] = []   # retângulos clicáveis (coord. da UI)

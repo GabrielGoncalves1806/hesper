@@ -36,7 +36,7 @@ def test_eta_with_zero_rate():
 
 
 def test_eta_example():
-    assert eta_label(87_086, 29) == "~50 min"
+    assert eta_label(87_086, 29) == "~50 min (ritmo atual)"   # deixa claro que não é previsão
 
 
 @pytest.mark.parametrize("seconds,text", [
@@ -65,3 +65,19 @@ def test_game_rate_counts_time_scale():
     for _ in range(60 * 20):
         game.update(1 / 60, Controls())
     assert game.smoothed_rate == pytest.approx(3 * C.DEBUG_TIME_SCALE, rel=0.01)
+
+
+def test_pixel_digits_font_measures_and_renders():
+    import os
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    import pygame
+    pygame.font.init()
+    from game.assets import load_font
+    from game.ui import DIGIT_ADVANCE, PixelDigitsFont
+    font = PixelDigitsFont(load_font("PixelifySans.ttf", 11, 13))
+    assert font._runs("Ti 500 ok") == ["Ti ", "500", " ok"]
+    w, h = font.size("Ti 500")
+    assert w == font.font.size("Ti ")[0] + 3 * DIGIT_ADVANCE
+    img = font.render("Ti 500", False, (255, 255, 255))
+    assert img.get_size() == (w, h)
+    assert font.render("sem número", False, (255, 255, 255)).get_width() == font.size("sem número")[0]
