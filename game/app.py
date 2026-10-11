@@ -8,6 +8,7 @@ Game loop (60 vezes por segundo):
 Modos de tela: "play" (jogando), "fabricator" (menu de receitas),
 "terminal" (lendo um log), "pause" (menu do Esc) e "end" (tela de fim do MVP).
 Em "pause" e "end" o mundo fica congelado (O₂, máquinas e Ti param).
+O jogo abre em "title" (tela de título, game/title.py); o save/load fica em game/save.py.
 """
 
 import math
@@ -18,12 +19,14 @@ import pygame
 from game import art
 from game import config as C
 from game import audio as sound
+from game import save
 from game import settings
 from game.assets import Sprites
 from game.audio import Audio
 from game.objectives import ObjectiveTracker
 from game.render import Renderer, stage_key
 from game.systems import Controls, GameState
+from game.title import TitleScreen, draw_saved_notice
 from game.ui import UI, FloatingTexts
 
 MOVE_KEYS = {
@@ -49,7 +52,7 @@ def pick_scale() -> int:
 
 
 class App:
-    def __init__(self, scale: int | None = None):
+    def __init__(self, scale: int | None = None, skip_title: bool = False):
         sound.pre_init()   # configura o mixer antes do pygame.init() (só se o áudio estiver ligado)
         pygame.init()
         self.scale = scale or pick_scale()
@@ -95,6 +98,12 @@ class App:
         self.settings = settings.load()
         self.audio.set_mix(**self.settings)
         self.audio.start_ambient(stage_key(self.state.stage))
+        # save/load e tela de título (game/save.py, game/title.py)
+        self.autosave_timer = 0.0       # segundos jogando (modo "play") desde o último save
+        self.saved_notice = 0.0         # quanto falta do aviso "Jogo salvo" no HUD
+        self.title = TitleScreen(self.ui, self.renderer, self.audio.play)
+        if not skip_title:              # skip_title: entra direto num jogo novo (testes)
+            self.open_title()
 
     # ---- loop -----------------------------------------------------------------
     def run(self) -> None:
@@ -106,7 +115,10 @@ class App:
     def step(self, dt: float) -> None:
         self.handle_events()
         self.update(dt)
-        self.draw()
+        if self.mode == "title":
+            self.draw_title()
+        else:
+            self.draw()
         pygame.display.flip()
 
     # ---- input ----------------------------------------------------------------
@@ -122,7 +134,7 @@ class App:
     def handle_events(self) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                self.running = False
+                self.quit_game()
             elif event.type == pygame.KEYDOWN:
                 self.keys_down.add(event.key)
                 self.on_key(event.key)
@@ -132,6 +144,8 @@ class App:
                 self.mouse = (event.pos[0] // self.scale, event.pos[1] // self.scale)
                 if self.mode == "pause":
                     self.pause_hover()
+                elif self.mode == "title":
+                    self.title.hover(self.mouse[0] / 2, self.mouse[1] / 2)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 self.mouse = (event.pos[0] // self.scale, event.pos[1] // self.scale)
                 self.on_click(event.button)
@@ -142,6 +156,9 @@ class App:
                     settings.save(self.settings)
 
     def on_key(self, key: int) -> None:
+        if self.mode == "title":
+            self.on_title_action(self.title.on_key(key))
+            return
         state = self.state
         if key == pygame.K_F1:
             state.toggle_time_scale()
@@ -233,9 +250,12 @@ class App:
             elif option == "Controles":
                 self.pause_screen, self.pause_selected = "controls", 0
                 self.audio.play("ui_open")
+            elif option == "Salvar e sair":
+                self.save_game()
+                self.open_title()
             else:  # Sair
                 settings.save(self.settings)
-                self.running = False
+                self.quit_game()
         elif self.pause_screen == "volumes" and index < len(UI.VOLUME_ROWS):
             self.pause_selected = index
         else:   # "Voltar" (volumes ou controles)
@@ -276,6 +296,10 @@ class App:
                 return
 
     def on_click(self, button: int) -> None:
+        if self.mode == "title":
+            if button == 1:
+                self.on_title_action(self.title.click(self.mouse[0] / 2, self.mouse[1] / 2))
+            return
         if self.mode == "pause":
             if button == 1:
                 self.on_pause_click()
@@ -334,6 +358,10 @@ class App:
     def update(self, dt: float) -> None:
         dt = min(dt, C.MAX_DT)
         self.t += dt
+        if self.mode == "title":            # nenhum jogo rodando: só o som
+            self.audio.update(dt)
+            return
+        self.update_autosave(dt)
         if self.mode == "pause":            # congelado: só o som continua (pra ouvir o slider mexendo)
             self.audio.update(dt)
             return
@@ -535,6 +563,8 @@ class App:
         ui.draw_hud(state, self.t, self.hint() if self.mode == "play" else None, icons)
         if not critical:   # com O₂ crítico o aviso grande ocupa essa área (e o foco é voltar pra base)
             ui.draw_objectives(self.objectives.lines(state))
+        if self.saved_notice > 0:
+            draw_saved_notice(ui, self.saved_notice)
         if self.banner_time < BANNER_TIME:
             alpha = min(1.0, self.banner_time / BANNER_FADE_IN, (BANNER_TIME - self.banner_time) / BANNER_FADE_OUT)
             ui.draw_banner(self.banner_stage, alpha)
@@ -564,3 +594,74 @@ class App:
 
     def screenshot(self, path: str) -> None:
         pygame.image.save(self.canvas, path)
+
+    # ---- save/load e tela de título (game/save.py, game/title.py) --------------
+    def open_title(self) -> None:
+        """Vai pra tela de título. Lê o save do disco (se tiver um válido, aparece "Continuar")."""
+        self.title.open(save.load_game())
+        self.mode = "title"
+        self.placing = None
+        self.mouse_held = False
+        self.keys_down.clear()
+        self.audio.set_alarm(False)          # nada de alarme, zumbido ou drill tocando no menu
+        self.audio.set_hum(0.0)
+        self.audio.set_drill_loops([])
+        self.audio.duck_ambient(1.0)
+        if self.audio.ambient_key != "dead":
+            self.audio.start_ambient("dead")
+
+    def on_title_action(self, action: str | None) -> None:
+        if action == "continue":
+            self.start_game(self.title.saved)
+        elif action == "new":
+            self.start_game(save.new_state())
+            self.save_game(notify=False)     # o save antigo (se existia) é substituído na hora
+        elif action == "quit":
+            self.quit_game()
+
+    def start_game(self, state: GameState) -> None:
+        """Começa a jogar com `state` (novo ou carregado): zera tudo que é do App e não do jogo."""
+        self.state = state
+        self.objectives = ObjectiveTracker(state)
+        self.floaters = FloatingTexts()
+        self.renderer.particles.clear()
+        self.placing, self.rotation, self.mouse_held = None, 0, False
+        self.banner_stage, self.banner_time, self.end_timer = state.stage, 0.0, None
+        self.drills_near.clear()
+        self.drill_full_last.clear()
+        self.autosave_timer, self.saved_notice = 0.0, 0.0
+        self.mode = "play"
+        self.audio.play("ui_close")
+        if self.audio.ambient_key != stage_key(state.stage):
+            self.audio.start_ambient(stage_key(state.stage))
+
+    def save_game(self, notify: bool = True) -> bool:
+        """Salva agora. `notify` mostra o "Jogo salvo" no HUD e toca o som de save."""
+        ok = save.write_save(self.state)
+        self.autosave_timer = 0.0
+        if ok and notify:
+            self.saved_notice = C.SAVED_NOTICE_TIME
+            self.audio.play("save")
+        return ok
+
+    def update_autosave(self, dt: float) -> None:
+        """Autosave a cada AUTOSAVE_INTERVAL de jogo. Só conta jogando (pausa e menus não contam)."""
+        self.saved_notice = max(0.0, self.saved_notice - dt)
+        if self.mode != "play":
+            return
+        self.autosave_timer += dt
+        if self.autosave_timer >= C.AUTOSAVE_INTERVAL:
+            self.save_game()
+
+    def quit_game(self) -> None:
+        """Fecha o jogo (janela ou "Sair"), salvando antes se tiver um jogo rolando."""
+        if self.mode != "title":
+            self.save_game(notify=False)
+        self.running = False
+
+    def draw_title(self) -> None:
+        self.title.draw(self.canvas, self.t, self.mouse)
+        if self.scale == 1:
+            self.window.blit(self.canvas, (0, 0))
+        else:
+            self.window.blit(pygame.transform.scale(self.canvas, self.window.get_size()), (0, 0))

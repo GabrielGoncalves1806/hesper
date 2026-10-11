@@ -21,12 +21,15 @@ sys.path.insert(0, str(ROOT))
 import pygame  # noqa: E402
 
 from game import config as C  # noqa: E402
+from game import save  # noqa: E402
 from game import settings  # noqa: E402
 from game.app import App  # noqa: E402
 
 # o smoke mexe nos volumes: grava num arquivo temporário, nunca no settings.json de verdade
 import tempfile  # noqa: E402
 settings.SETTINGS_PATH = Path(tempfile.gettempdir()) / "hesper_smoke_settings.json"
+# ...e o save também: o smoke nunca deixa um saves/slot1.json de verdade pra trás
+save.SAVE_PATH = Path(tempfile.gettempdir()) / "hesper_smoke_save" / "slot1.json"
 
 OUT = ROOT / "reports" / "dev"
 DT = 1 / 60
@@ -34,9 +37,17 @@ DT = 1 / 60
 
 class Bot:
     def __init__(self):
+        save.SAVE_PATH.unlink(missing_ok=True)
         self.app = App(scale=1)
-        self.state = self.app.state
         self.frame_times: list[float] = []
+        # o jogo abre na tela de título: sem save, só "Novo jogo" e "Sair"
+        assert self.app.mode == "title"
+        assert [label for _, label in self.app.title.options()] == ["Novo jogo", "Sair"]
+        self.frames(0.5)
+        self.shot("titulo.png")
+        self.key(pygame.K_RETURN)               # "Novo jogo" já vem selecionado
+        assert self.app.mode == "play"
+        self.state = self.app.state
 
     def frames(self, seconds: float) -> None:
         for _ in range(max(1, round(seconds / DT))):
@@ -427,6 +438,55 @@ def check_drill_feature(bot) -> None:
     bot.frames(0.1)
 
 
+def check_save(bot) -> None:
+    """Autosave com o aviso no HUD, "Salvar e sair" pela pausa, tela de título com save e Continuar."""
+    s, app = bot.state, bot.app
+    bot.teleport((64, 66))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+    # autosave: só conta jogando (pausado o relógio não anda)
+    app.autosave_timer = C.AUTOSAVE_INTERVAL - 0.1
+    bot.key(pygame.K_ESCAPE)
+    bot.frames(0.5)
+    assert app.autosave_timer < C.AUTOSAVE_INTERVAL and app.saved_notice == 0, "pausa não pode contar pro autosave"
+    bot.key(pygame.K_ESCAPE)
+    save.SAVE_PATH.unlink(missing_ok=True)
+    bot.frames(0.3)
+    assert save.SAVE_PATH.exists() and app.saved_notice > 0, "o autosave devia ter salvo"
+    bot.shot("salvo.png")
+    bot.frames(C.SAVED_NOTICE_TIME)
+    assert app.saved_notice == 0
+    # "Salvar e sair" (4ª opção da pausa) volta pra tela de título
+    bot.key(pygame.K_ESCAPE)
+    for _ in range(3):
+        bot.key(pygame.K_s)
+    assert app.ui.PAUSE_OPTIONS[app.pause_selected] == "Salvar e sair"
+    bot.key(pygame.K_RETURN)
+    assert app.mode == "title"
+    saved = app.title.saved
+    assert saved is not None and saved is not s
+    assert saved.world.tiles == s.world.tiles and saved.inventory == s.inventory
+    assert saved.ti == s.ti and len(saved.machines) == len(s.machines) and saved.logs_read == s.logs_read
+    assert [label for _, label in app.title.options()] == ["Continuar", "Novo jogo", "Sair"]
+    bot.frames(0.5)
+    bot.shot("titulo_continuar.png")
+    # "Novo jogo" com save existente: pede confirmação; Esc volta
+    bot.key(pygame.K_s)
+    bot.key(pygame.K_RETURN)
+    assert app.title.confirming and app.mode == "title"
+    bot.frames(0.2)
+    bot.shot("titulo_confirmar.png")
+    bot.key(pygame.K_ESCAPE)
+    assert not app.title.confirming
+    # Continuar pelo mouse
+    row = app.title.items[0]
+    bot.click((row.centerx * 2, row.centery * 2))
+    assert app.mode == "play" and app.state is saved
+    bot.frames(0.5)
+    bot.state = app.state
+    save.SAVE_PATH.unlink(missing_ok=True)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     bot = Bot()
@@ -542,6 +602,9 @@ def main() -> None:
     bot.key(pygame.K_a, hold=1.0)
     bot.frames(1.0)
     bot.shot("stage3_explorando.png")
+
+    print("7) save/load e tela de título")
+    check_save(bot)
 
     # folha ampliada (4×) com o player de fallback: parado e andando, nas 3 direções
     from game import art
