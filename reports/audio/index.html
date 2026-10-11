@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Som</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Pixelify+Sans:wght@400;600&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#15100e; --panel:#1e1714; --panel2:#251c18; --line:#3a2c25; --fg:#efe5da; --muted:#a8968a;
+  --rust:#e2733a; --cyan:#59d0e6; --gold:#f2c46d; --ok:#7fd67a; --red:#ff6a55; --moss:#7fbf5a;
+  --f-label:"Silkscreen",ui-monospace,monospace;
+  --f-display:"Pixelify Sans",ui-monospace,monospace;
+  --f-body:"IBM Plex Sans",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 var(--f-body);padding-inline:16px}
+.wrap{max-width:1180px;margin:0 auto;padding-block:48px 80px}
+a{color:var(--cyan)}
+.eyebrow{font:400 12px var(--f-label);letter-spacing:.08em;text-transform:uppercase;color:var(--rust)}
+h1{font:600 clamp(34px,6vw,58px)/1.05 var(--f-display);margin:12px 0 16px;text-wrap:balance}
+h2{font:600 26px/1.2 var(--f-display);margin:0 0 6px}
+h3{font:600 18px/1.25 var(--f-display);margin:0}
+.lede{color:var(--muted);font-size:16px;margin:0;max-width:68ch}
+.note{margin-top:20px;border-left:3px solid var(--gold);background:var(--panel);padding:12px 16px;max-width:820px;color:var(--fg)}
+.note b{color:var(--gold);font-weight:600}
+.stats{display:flex;flex-wrap:wrap;gap:2px;margin-top:28px;border:1px solid var(--line);width:fit-content;max-width:100%}
+.stat{background:var(--panel);padding:10px 16px;min-width:120px}
+.stat b{display:block;font:600 22px var(--f-display)}
+.stat span{font:400 10px var(--f-label);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.stat .ok{color:var(--ok)}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px;margin-top:24px}
+nav.toc a{font:400 11px var(--f-label);text-transform:uppercase;letter-spacing:.06em;color:var(--fg);text-decoration:none;border:1px solid var(--line);padding:4px 10px}
+nav.toc a:hover{border-color:var(--rust);color:var(--rust)}
+section{margin-top:64px}
+.sec-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:20px}
+.sec-head .num{font:400 12px var(--f-label);color:var(--rust)}
+.sec-head p{margin:0;color:var(--muted);flex-basis:100%}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.fname{font:500 14px var(--f-mono);color:var(--fg);word-break:break-all}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font:400 10px var(--f-label);text-transform:uppercase;letter-spacing:.05em;padding:1px 7px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.tag.loop{color:var(--cyan);border-color:#2c5560}
+canvas.wave{width:100%;height:44px;display:block;background:var(--panel2);image-rendering:pixelated}
+audio{width:100%;height:36px}
+.when{font:400 11px var(--f-label);color:var(--gold);text-transform:uppercase;letter-spacing:.04em}
+.what{margin:0;color:var(--muted);font-size:14px}
+.stages{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;border:1px solid var(--line)}
+.stage{background:var(--panel);padding:18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.stage .sw{display:flex;gap:3px}
+.stage .sw i{width:18px;height:18px;display:block}
+.stage .lbl{font:400 10px var(--f-label);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.stage p{margin:0;color:var(--muted);font-size:14px}
+.stage ul{margin:0;padding-left:18px;font-size:14px}
+.stage li{margin:2px 0}
+.stage .feel{color:var(--fg);font-family:var(--f-display);font-size:17px}
+.arrow{font:400 11px var(--f-label);color:var(--rust);margin:14px 0 0;text-transform:uppercase;letter-spacing:.05em}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:400 10px var(--f-label);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:400}
+td code,p code,li code{font:500 13px var(--f-mono);color:var(--cyan)}
+.tbl{overflow-x:auto;border:1px solid var(--line);background:var(--panel)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;margin-top:16px}
+.box{background:var(--panel);border:1px solid var(--line);padding:16px 18px;min-width:0}
+.box h3{margin-bottom:8px}
+.box p,.box li{color:var(--muted);font-size:14px}
+.box ul{padding-left:18px;margin:8px 0 0}
+pre{background:#100c0a;border:1px solid var(--line);padding:12px 14px;overflow-x:auto;font:400 12.5px/1.55 var(--f-mono);color:#e8dccf;margin:10px 0 0}
+.pass{color:var(--ok)} .warn{color:var(--gold)}
+footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+@media (max-width:760px){.stages{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Hesper · report de som · v0.1</div>
+    <h1>Som do planeta</h1>
+    <p class="lede">Os 19 arquivos do contrato de áudio da bíblia (§6), todos gerados por síntese procedural com seed fixa em <code>tools/audio/build_audio.py</code>. A estética é 8/16-bit refinada: osciladores limitados em banda, ruído filtrado, envelopes, varreduras de pitch e um reverb de cratera. Dá o play em cada um, os loops tocam em repetição pra tu ouvir a emenda.</p>
+    <div class="note"><b>Aviso honesto:</b> quem gerou esses sons não consegue ouvir. Tudo foi validado por análise (formato, duração, pico, loudness aproximado, espectro por banda e teste de clique na emenda dos loops), mas o julgamento estético final é do teu ouvido. Se algum som incomodar, diz qual e o que incomoda (agudo demais, longo demais, grave demais) que dá pra ajustar rápido: é só mexer num número do script e rodar de novo.</div>
+    <div class="stats">
+      <div class="stat"><b>19</b><span>arquivos</span></div>
+      <div class="stat"><b>44,1k · 16b · mono</b><span>formato</span></div>
+      <div class="stat"><b class="ok" id="st-peak">≤ −1 dBFS</b><span>pico máximo</span></div>
+      <div class="stat"><b class="ok">5 / 5</b><span>loops sem estalo</span></div>
+    </div>
+    <nav class="toc">
+      <a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
+      <a href="#maquinas">Máquinas</a><a href="#ambiente">Ambiente</a><a href="#recompensa">Recompensa</a>
+      <a href="#direcao">Direção de ambientação</a><a href="#integracao">Integração</a><a href="#checagens">Checagens</a>
+    </nav>
+  </header>
+
+  <div id="groups"></div>
+
+  <section id="direcao">
+    <div class="sec-head"><span class="num">07</span><h2>Direção de ambientação</h2>
+      <p>Os três ambientes são o mesmo lugar ouvido em momentos diferentes. Mesma tônica (Lá) do começo ao fim, mesmo vento, mesmo reverb de cratera. O que muda é o que tem vida dentro dele.</p></div>
+    <div class="stages">
+      <div class="stage">
+        <div class="sw"><i style="background:#7b402c"></i><i style="background:#4b3332"></i><i style="background:#e8a066"></i></div>
+        <span class="lbl">1 · Morto · Ti 0</span>
+        <h3>Solidão seca</h3>
+        <p class="feel">"Tem ninguém aqui. Teve, mas não tem mais."</p>
+        <ul>
+          <li>Vento seco e granulado, rajadas que clareiam o som e trazem poeira estalando no visor.</li>
+          <li>Drone grave em Lá1 + Mi2 (quinta vazia), com batimento lento: frio, sem terça, sem resposta.</li>
+          <li>Uma vez por volta, um gemido metálico muito distante: o que sobrou da Colônia Hesper. Quase subliminar.</li>
+          <li>Reverb largo e escuro. Nada vivo.</li>
+        </ul>
+      </div>
+      <div class="stage">
+        <div class="sw"><i style="background:#6e5a4f"></i><i style="background:#4a4447"></i><i style="background:#3f7690"></i></div>
+        <span class="lbl">2 · Névoa · Ti 10.000</span>
+        <h3>Primeiras chuvas</h3>
+        <p class="feel">"Alguma coisa mudou no ar."</p>
+        <ul>
+          <li>O vento continua, mas abafado e úmido (menos agudo, rajadas mais lentas).</li>
+          <li>Chuva fina constante e gotas pingando em poças, com eco: a água é a novidade.</li>
+          <li>O drone sobe uma oitava e abre: Lá2 + Mi3 + Si3 (sus2). Ainda sem terça, mas já não é vazio.</li>
+          <li>Reverb maior e mais úmido.</li>
+        </ul>
+      </div>
+      <div class="stage">
+        <div class="sw"><i style="background:#4d7a39"></i><i style="background:#2c7ea6"></i><i style="background:#79b04f"></i></div>
+        <span class="lbl">3 · Primeiro verde · Ti 100.000</span>
+        <h3>Aconchego</h3>
+        <p class="feel">"Tu fez isso aqui ficar vivo."</p>
+        <ul>
+          <li>O vento vira brisa, com farfalhar de folhas nas rajadas.</li>
+          <li>Insetos alienígenas (trilos pulsados) e pássaros com glissando, poucos e espaçados: vida discreta, não floresta tropical.</li>
+          <li>Pad harmônico calmo alternando Lá add9 e Ré maj7. Agora tem terça maior: é a primeira vez que o planeta soa "feliz".</li>
+          <li>O <code>stage_up</code> é em Lá maior, então o jingle cai certinho dentro desse ambiente.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="arrow">Evolução: ar seco → água → vida · quinta vazia → sus2 → acorde maior · reverb escuro → úmido → aberto</p>
+    <div class="tbl" style="margin-top:16px">
+      <table>
+        <thead><tr><th>Camada</th><th>Morto</th><th>Névoa</th><th>Verde</th></tr></thead>
+        <tbody>
+          <tr><td>Vento</td><td>forte, seco, rajadas brilhantes</td><td>médio, abafado</td><td>brisa leve + folhas</td></tr>
+          <tr><td>Água</td><td>nenhuma</td><td>chuva fina + gotas</td><td>(fica implícita nos lagos)</td></tr>
+          <tr><td>Vida</td><td>nenhuma (só o eco da colônia)</td><td>nenhuma</td><td>insetos e pássaros alienígenas</td></tr>
+          <tr><td>Harmonia</td><td>Lá1 + Mi2, drone</td><td>Lá2 + Mi3 + Si3, drone respirando</td><td>pad Lá add9 ↔ Ré maj7</td></tr>
+          <tr><td>Reverb</td><td>2,6 s, escuro</td><td>3,0 s, úmido</td><td>2,2 s, mais claro</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="integracao">
+    <div class="sec-head"><span class="num">08</span><h2>Integração pro Dev</h2>
+      <p>Os arquivos já saem equilibrados entre si (loudness normalizado por grupo), então o volume no jogo pode partir de multiplicadores simples por categoria.</p></div>
+
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Grupo</th><th>Arquivos</th><th>Volume sugerido (<code>set_volume</code>)</th><th>Observação</th></tr></thead>
+        <tbody>
+          <tr><td>Mineração</td><td><code>mine_hit</code> <code>mine_break</code> <code>pickup</code></td><td>1,0</td><td><code>mine_hit</code> já sai uns 5 dB abaixo do <code>mine_break</code>, de propósito.</td></tr>
+          <tr><td>Passos</td><td><code>footstep_0/1</code></td><td>0,6–0,8</td><td>alternar 0 e 1 a cada passo.</td></tr>
+          <tr><td>Interface</td><td><code>ui_*</code> <code>terminal_open</code></td><td>0,8</td><td></td></tr>
+          <tr><td>Sobrevivência</td><td><code>o2_low</code> <code>o2_refill</code> <code>faint</code></td><td>0,8–1,0</td><td>o alarme não deve ficar abaixo de 0,6, senão perde a função.</td></tr>
+          <tr><td>Máquinas</td><td><code>craft</code> <code>place</code></td><td>1,0</td><td></td></tr>
+          <tr><td>Zumbido</td><td><code>machine_hum</code></td><td>0 a 0,6 pela distância</td><td>um canal só pra todas as máquinas, volume pela máquina mais próxima (1 em até 2 tiles, 0 a partir de 8).</td></tr>
+          <tr><td>Ambiente</td><td><code>amb_*</code></td><td>0,7</td><td>já saem ~8–10 dB abaixo dos sfx.</td></tr>
+          <tr><td>Recompensa</td><td><code>stage_up</code></td><td>1,0</td><td>é o som mais alto do jogo, de propósito.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid2">
+      <div class="box">
+        <h3>Variar o pitch</h3>
+        <p>pygame não muda pitch em tempo real, então o jeito simples é gerar 3–5 variações no load (reamostrando com numpy via <code>pygame.sndarray</code>) e sortear, sem repetir a mesma duas vezes seguidas.</p>
+        <ul>
+          <li><code>mine_hit</code>: ±5% (fatores 0,95 · 0,98 · 1,0 · 1,03 · 1,06) e volume ±10%. É o que mais importa.</li>
+          <li><code>footstep_0/1</code>: ±4%.</li>
+          <li><code>mine_break</code>: ±4%, e opcionalmente mais grave pra rocha comum e mais agudo pro gelo.</li>
+          <li><code>pickup</code>: ±3%, ou subir um pouquinho a cada coleta seguida (combo) e resetar depois de 1 s parado.</li>
+          <li><code>ui_click</code>: ±2%. O resto (jingles, alarme, ambientes) fica sem variação.</li>
+        </ul>
+<pre>import numpy as np, pygame
+
+def pitch_variants(snd, factors=(0.95, 0.98, 1.0, 1.03, 1.06)):
+    arr = pygame.sndarray.array(snd)            # (n,) ou (n, canais)
+    out = []
+    for f in factors:
+        n = int(len(arr) / f)
+        idx = np.linspace(0, len(arr) - 1, n)
+        res = np.stack([np.interp(idx, np.arange(len(arr)), arr[..., c])
+                        for c in range(arr.shape[1])], axis=1) if arr.ndim == 2 \
+              else np.interp(idx, np.arange(len(arr)), arr)
+        out.append(pygame.sndarray.make_sound(res.astype(arr.dtype)))
+    return out</pre>
+      </div>
+      <div class="box">
+        <h3>Troca de estágio e crossfade</h3>
+        <p>Reserve dois canais pro ambiente (A e B) e alterne entre eles.</p>
+        <ul>
+          <li>Ao trocar de estágio: toca <code>stage_up</code>, baixa o ambiente atual pra ~40% durante o jingle (~4,5 s).</li>
+          <li>Depois faz crossfade de 6–8 s: o canal novo entra com <code>play(amb_novo, loops=-1, fade_ms=7000)</code> e o antigo sai com <code>fadeout(7000)</code>.</li>
+          <li>Os ambientes têm 32 s e emendam sozinhos, não precisa de crossfade no próprio loop.</li>
+          <li>Começar o ambiente com <code>fade_ms=2000</code> ao abrir o jogo.</li>
+        </ul>
+<pre>pygame.mixer.pre_init(44100, -16, 2, 512)   # buffer baixo: mine_hit sem atraso
+pygame.init()
+pygame.mixer.set_num_channels(16)
+pygame.mixer.set_reserved(4)   # 0,1 = ambiente A/B · 2 = alarme · 3 = zumbido
+AMB = [pygame.mixer.Channel(0), pygame.mixer.Channel(1)]
+
+def trocar_ambiente(novo, atual_idx):
+    prox = 1 - atual_idx
+    AMB[atual_idx].fadeout(7000)
+    AMB[prox].set_volume(0.7)
+    AMB[prox].play(novo, loops=-1, fade_ms=7000)
+    return prox</pre>
+      </div>
+      <div class="box">
+        <h3>Alarme e base</h3>
+        <ul>
+          <li><code>o2_low</code>: <code>play(loops=-1)</code> no canal reservado quando O₂ &lt; 25%. Pra parar, usar histerese (para em ≥ 27%) senão ele liga e desliga na borda. Sair com <code>fadeout(300)</code>.</li>
+          <li>Entrou na zona da base: para o alarme e toca <code>o2_refill</code> uma vez (não a cada frame dentro da zona).</li>
+          <li>Desmaio: para o alarme, toca <code>faint</code> junto com o fade preto e baixa o ambiente pra 0 em ~2 s. Ao acordar, ambiente volta com <code>fade_ms=2500</code> e toca <code>o2_refill</code>.</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>Ritmo dos sfx</h3>
+        <ul>
+          <li><code>mine_hit</code> tem 0,16 s, cabe folgado no intervalo de 0,25 s. No frame em que o tile quebra, toca <code>mine_break</code> no lugar do hit.</li>
+          <li><code>pickup</code> soa melhor ~60 ms depois do <code>mine_break</code>, pra não embolar o ataque dos dois.</li>
+          <li>Passos: um a cada ~0,3 s andando, alternando 0 e 1.</li>
+          <li><code>terminal_open</code>: vale baixar o ambiente pra ~60% enquanto o log tá aberto (o texto é o momento de mistério).</li>
+          <li><code>craft</code> tem 2 s com a cauda: pode tocar no clique de fabricar sem esperar.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="checagens">
+    <div class="sec-head"><span class="num">09</span><h2>Checagens</h2>
+      <p>Rodadas com <code>python3 tools/audio/check_audio.py</code> depois de gerar tudo do zero. Pico e loudness abaixo vêm direto dos arquivos.</p></div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Arquivo</th><th>Duração</th><th>Pico</th><th>Loudness aprox.</th><th>Emenda (loops)</th></tr></thead>
+        <tbody id="checks"></tbody>
+      </table>
+    </div>
+    <div class="grid2">
+      <div class="box">
+        <h3>Como os loops emendam</h3>
+        <p>Nenhum loop usa crossfade: eles são construídos periódicos. Todo ruído é filtrado no domínio da frequência de forma circular, toda frequência fixa tem número inteiro de ciclos no comprimento do loop, rajadas/gotas/pássaros que passam do fim continuam no começo e o reverb é convolução circular. A amostra depois da última é, matematicamente, a primeira.</p>
+        <p>Validação: o salto entre a última e a primeira amostra é comparado com todos os saltos entre amostras vizinhas do arquivo (precisa ficar abaixo do percentil 99), e a energia de agudos numa janela de 3 ms em cima da emenda é comparada com o resto do arquivo (também abaixo do percentil 99). Os 5 loops passaram.</p>
+      </div>
+      <div class="box">
+        <h3>Loudness</h3>
+        <p>Medida aproximada estilo LUFS (ponderação K simplificada). Sfx: máximo em janela de 400 ms. Loops: média do arquivo todo. Não é medidor certificado, serve pra equilibrar os arquivos entre si.</p>
+        <p>Alvos: <span class="warn">stage_up</span> −14 · impactos −17 · interface −22 · <code>mine_hit</code> −22 · passos −27 · ambientes −27 · zumbido −30.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Gerado por <code>tools/audio/build_audio.py</code> (seed 1337, só numpy). Pra regerar: <code>python3 tools/audio/build_audio.py</code> e depois <code>python3 tools/audio/check_audio.py</code>. Os números deste report vêm de <code>audio_meta.js</code>, escrito pelo próprio script.
+  </footer>
+</div>
+
+<script src="audio_meta.js"></script>
+<script>
+const GROUPS = [
+  { id:"mineracao", title:"Mineração", color:"#e8a066",
+    intro:"O som que o jogador mais vai ouvir. Prioridade: curto, grave o bastante pra ter peso, sem agudo que canse.",
+    items:[
+      ["mine_hit","A cada ~0,25 s enquanto segura o clique","Toc seco de ferramenta na rocha: um baque grave curto, um estalo e um tink metálico baixinho. Feito pra aguentar 500 repetições."],
+      ["mine_break","Quando o tile quebra","A rocha cede: baque, crack e pedrinhas caindo, com um eco curto de cratera."],
+      ["pickup","Ganhou recurso","Blip de duas notas subindo (Mi → Si): o \"guardei\" pequeno e positivo."],
+    ]},
+  { id:"interface", title:"Interface", color:"#59d0e6",
+    intro:"Bipes de computador de bordo: quadrados suavizados, sempre em Lá/Mi pra combinar com o resto.",
+    items:[
+      ["ui_open","Abriu o fabricador (E)","Dois bipes subindo (Lá → Mi). Abriu."],
+      ["ui_close","Fechou o menu","Os mesmos dois bipes descendo (Mi → Lá). Fechou."],
+      ["ui_click","Clique em botão/receita","Tique curtinho e seco, sem agudo agressivo."],
+      ["terminal_open","Abriu um terminal de lore","CRT ligando, rajada de bipes de dados e um acorde menor que fica no ar: tem coisa errada nessa história."],
+    ]},
+  { id:"sobrevivencia", title:"Sobrevivência", color:"#ff6a55",
+    intro:"O ir e voltar do O₂. Urgência sem estresse: o desmaio não pune, então o som também não grita.",
+    items:[
+      ["o2_low","Loop enquanto O₂ < 25%","\"Ba-dum\" descendente (Fá → Dó) com pausa longa. Urgente, mas com timbre redondo e silêncio entre os bipes pra não irritar."],
+      ["o2_refill","Entrou na zona da base","Ar entrando no traje (um chiado que clareia) e um arpejo de Lá maior: alívio."],
+      ["faint","O₂ zerou, desmaio","Tom descendo e ficando enjoado, ar escapando, coração desacelerando até sumir no reverb."],
+      ["footstep_0","Passos (alternado com o 1)","Bota no cascalho fino: crocância com um baque leve."],
+      ["footstep_1","Passos (alternado com o 0)","Mesma bota, outra pisada, um tom mais grave."],
+    ]},
+  { id:"maquinas", title:"Máquinas", color:"#c3d1e2",
+    intro:"Metal, servo e eletricidade. A base tem que soar viva e segura.",
+    items:[
+      ["craft","Fabricou uma máquina","Duas batidas metálicas, servo girando e um sino em quinta no final: montagem concluída."],
+      ["place","Colocou a máquina no chão","Peso apoiando, clunk de metal, pneumático assentando e a trava fechando."],
+      ["machine_hum","Loop perto de máquinas","Zumbido elétrico de 60 Hz com harmônicos, ventoinha e uma pulsação lenta. Discreto, de fundo."],
+    ]},
+  { id:"ambiente", title:"Ambiente", color:"#7fbf5a",
+    intro:"Um loop por estágio, 32 s cada, todos em Lá. Detalhes na seção de direção de ambientação.",
+    items:[
+      ["amb_dead","Estágio 1 · Morto (Ti 0)","Vento seco, rajadas com poeira estalando no visor, drone grave solitário e um gemido metálico distante da colônia."],
+      ["amb_mist","Estágio 2 · Névoa (Ti 10.000)","Vento úmido e abafado, chuva fina, gotas pingando em poças com eco e um drone mais aberto."],
+      ["amb_green","Estágio 3 · Primeiro verde (Ti 100.000)","Brisa, folhas, insetos e pássaros alienígenas discretos e um pad calmo em Lá maior."],
+    ]},
+  { id:"recompensa", title:"Recompensa", color:"#f2c46d",
+    intro:"A grande recompensa do jogo. É o único som que pode ser grande.",
+    items:[
+      ["stage_up","Mudou de estágio (\"ESTÁGIO 2 · PRIMEIRAS CHUVAS\")","Arpejo I → IV → V → I em Lá maior, nota final segurada com vibrato, pad e uma cascata de brilho: o planeta respondeu."],
+    ]},
+];
+
+const META = window.AUDIO_META || {};
+const fmtDur = s => s == null ? "—" : (s < 10 ? s.toFixed(2) : s.toFixed(1)).replace(".", ",") + " s";
+const fmtDb = d => d == null ? "—" : d.toFixed(1).replace(".", ",").replace("-", "−") + " dB";
+
+function drawWave(canvas, peaks, color){
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth || 300, h = canvas.clientHeight || 44;
+  canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.fillStyle = "#3a2c25"; ctx.fillRect(0, h / 2, w, 1);
+  if (!peaks) return;
+  const n = peaks.length, bw = w / n;
+  ctx.fillStyle = color;
+  for (let i = 0; i < n; i++){
+    const v = Math.max(1, peaks[i] / 0.9 * (h / 2 - 2));
+    ctx.fillRect(Math.floor(i * bw), Math.round(h / 2 - v), Math.max(1, Math.ceil(bw) - 1), Math.round(v * 2));
+  }
+}
+
+const root = document.getElementById("groups");
+const checks = document.getElementById("checks");
+GROUPS.forEach((g, gi) => {
+  const sec = document.createElement("section");
+  sec.id = g.id;
+  sec.innerHTML = `<div class="sec-head"><span class="num">0${gi + 1}</span><h2>${g.title}</h2><p>${g.intro}</p></div><div class="cards"></div>`;
+  const cards = sec.querySelector(".cards");
+  g.items.forEach(([name, when, what]) => {
+    const m = META[name] || {};
+    const loop = m.loop ?? /^(amb_|o2_low|machine_hum)/.test(name);
+    const card = document.createElement("article");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="card-top"><span class="fname">${name}.wav</span>
+        <span class="tags">${loop ? '<span class="tag loop">loop</span>' : '<span class="tag">sfx</span>'}
+        <span class="tag">${fmtDur(m.duration)}</span><span class="tag">pico ${fmtDb(m.peak_db)}</span></span></div>
+      <canvas class="wave" aria-hidden="true"></canvas>
+      <audio controls preload="metadata" ${loop ? "loop" : ""} src="../../assets/audio/${name}.wav"></audio>
+      <div class="when">${when}</div>
+      <p class="what">${what}</p>`;
+    cards.appendChild(card);
+    const cv = card.querySelector("canvas");
+    requestAnimationFrame(() => drawWave(cv, m.wave, g.color));
+    window.addEventListener("resize", () => drawWave(cv, m.wave, g.color));
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td><code>${name}.wav</code></td><td>${fmtDur(m.duration)}</td><td class="pass">${fmtDb(m.peak_db)}</td><td>${fmtDb(m.loudness_db)}</td><td>${loop && m.seam_lsb != null ? `<span class="pass">OK · salto ${m.seam_lsb} lsb (percentil ${String(m.seam_pct).replace(".", ",")} dos saltos normais)</span>` : "—"}</td>`;
+    checks.appendChild(tr);
+  });
+  root.appendChild(sec);
+});
+// só uma faixa tocando por vez
+document.addEventListener("play", e => {
+  document.querySelectorAll("audio").forEach(a => { if (a !== e.target) a.pause(); });
+}, true);
+</script>
+</body>
+</html>
