@@ -88,9 +88,10 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Hesper · report de som · v4</div>
+    <div class="eyebrow">Hesper · report de som · v5</div>
     <h1>Som do planeta</h1>
     <p class="lede">Os 19 arquivos do contrato de áudio da bíblia (§6), todos gerados por síntese procedural com seed fixa em <code>tools/audio/build_audio.py</code>. A estética é 8/16-bit refinada: osciladores limitados em banda, ruído filtrado, envelopes, varreduras de pitch e um reverb de cratera. Dá o play em cada um, os loops tocam em repetição pra tu ouvir a emenda.</p>
+    <div class="note" style="border-left-color:#c3d1e2"><b style="color:#c3d1e2">v5:</b> três sons novos da drill automática (§4 "Veios e drills automáticas"), na seção <a href="#drill">Drill</a>: <code>drill_loop</code> (loop), <code>drill_collect</code> e <code>drill_full</code>. Nenhum som existente mudou (conferido por md5).</div>
     <div class="note" style="border-left-color:var(--gold)"><b>v4:</b> nada oficial mudou. Tem 6 candidatas novas pro <code>mine_hit</code> (3 sintéticas mais rochosas e 3 gravadas do Kenney, CC0) e uma bônus pro <code>mine_break</code>, lado a lado com a v3 em <a href="#escolha">Escolha o som de mineração</a>.</div>
     <div class="note" style="border-left-color:var(--ok)"><b style="color:var(--ok)">v3, o que mudou:</b> só os dois sons de mineração. O <code>mine_hit</code> deixou de ser "tambor": saiu o seno grave, agora é um "tchk" seco de 60 ms feito só de ruído (clique de 1–2 ms, rajada de 1–5 kHz, um "toc" pétreo amortecido de 600–1500 Hz e 2–3 lascas). O <code>mine_break</code> deixou de ser "latinha": saiu todo componente tonal e todo filtro estreito. Agora é estalo de rachadura, baque surdo de ruído abaixo de 350 Hz, pedaços e entulho caindo com filtros largos e corte aleatório por grão (0,8–4 kHz), em tempo irregular, e um rabo de poeira bem baixo. O resto é igual à v2.</div>
     <div class="note" style="border-left-color:var(--cyan)"><b style="color:var(--cyan)">v2, o que mudou:</b> ambientes refeitos pra soar mais espaciais. Saíram vento, chiado, chuva e poeira (a fatia de energia acima de 2,5 kHz caiu de −12 a −16 dB pra −35 a −66 dB do total) e saíram os pássaros e insetos do verde. Agora é drone/pad longo, reverb de cauda longa e brilhos lentos, e a diferença entre estágios vem da harmonia. O <code>mine_break</code> virou rocha esfarelando (impacto curto + cascalho caindo em tempo irregular, sem notas). O <code>pickup</code> virou um "poop" de bolha de 110 ms. O resto não mudou.</div>
@@ -103,7 +104,7 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
     </div>
     <nav class="toc">
       <a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
-      <a href="#maquinas">Máquinas</a><a href="#ambiente">Ambiente</a><a href="#recompensa">Recompensa</a>
+      <a href="#maquinas">Máquinas</a><a href="#drill">Drill</a><a href="#ambiente">Ambiente</a><a href="#recompensa">Recompensa</a>
       <a href="#direcao">Direção de ambientação</a><a href="#integracao">Integração</a><a href="#checagens">Checagens</a>
     </nav>
   </header>
@@ -118,7 +119,7 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
   <div id="groups"></div>
 
   <section id="direcao">
-    <div class="sec-head"><span class="num">07</span><h2>Direção de ambientação</h2>
+    <div class="sec-head"><span class="num">08</span><h2>Direção de ambientação</h2>
       <p>Os três ambientes são o mesmo lugar ouvido em momentos diferentes, agora com cara de ambient de jogo espacial: calmo, amplo, solitário. O protagonista é um drone/pad longo com reverb de cauda longa e brilhos agudos que surgem e somem devagar. Ruído quase não tem: só uma camada bem baixa e escura no fundo. Mesma tônica (Lá) do começo ao fim. A diferença entre os estágios vem da harmonia e do timbre, não de bichos ou clima.</p></div>
     <div class="stages">
       <div class="stage">
@@ -174,7 +175,7 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
   </section>
 
   <section id="integracao">
-    <div class="sec-head"><span class="num">08</span><h2>Integração pro Dev</h2>
+    <div class="sec-head"><span class="num">09</span><h2>Integração pro Dev</h2>
       <p>Os arquivos já saem equilibrados entre si (loudness normalizado por grupo), então o volume no jogo pode partir de multiplicadores simples por categoria.</p></div>
 
     <div class="tbl">
@@ -187,6 +188,9 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
           <tr><td>Sobrevivência</td><td><code>o2_low</code> <code>o2_refill</code> <code>faint</code></td><td>0,8–1,0</td><td>o alarme não deve ficar abaixo de 0,6, senão perde a função.</td></tr>
           <tr><td>Máquinas</td><td><code>craft</code> <code>place</code></td><td>1,0</td><td></td></tr>
           <tr><td>Zumbido</td><td><code>machine_hum</code></td><td>0 a 0,6 pela distância</td><td>um canal só pra todas as máquinas, volume pela máquina mais próxima (1 em até 2 tiles, 0 a partir de 8).</td></tr>
+          <tr><td>Drill</td><td><code>drill_loop</code></td><td>0 a 0,5 pela distância</td><td>mesmo esquema do zumbido: um canal pra drill mais próxima (cheio até 2 tiles, zero a partir de ~8). Para com <code>fadeout(400)</code> quando a drill enche. Com várias drills, não toca uma por drill: no máximo 2 canais (as 2 mais próximas).</td></tr>
+          <tr><td>Drill</td><td><code>drill_collect</code></td><td>1,0</td><td>no lugar do <code>pickup</code> (já tem o "poop" dentro). Não tocar os dois juntos.</td></tr>
+          <tr><td>Drill</td><td><code>drill_full</code></td><td>0,6–0,8</td><td>uma vez ao entrar no raio (~4 tiles) de uma drill cheia, com intervalo mínimo de ~10 s pra mesma drill.</td></tr>
           <tr><td>Ambiente</td><td><code>amb_*</code></td><td>0,7</td><td>já saem ~8–10 dB abaixo dos sfx.</td></tr>
           <tr><td>Recompensa</td><td><code>stage_up</code></td><td>1,0</td><td>é o som mais alto do jogo, de propósito.</td></tr>
         </tbody>
@@ -262,7 +266,7 @@ def trocar_ambiente(novo, atual_idx):
   </section>
 
   <section id="checagens">
-    <div class="sec-head"><span class="num">09</span><h2>Checagens</h2>
+    <div class="sec-head"><span class="num">10</span><h2>Checagens</h2>
       <p>Rodadas com <code>python3 tools/audio/check_audio.py</code> depois de gerar tudo do zero. Pico e loudness abaixo vêm direto dos arquivos.</p></div>
     <div class="tbl">
       <table>
@@ -323,6 +327,13 @@ const GROUPS = [
       ["place","Colocou a máquina no chão","Peso apoiando, clunk de metal, pneumático assentando e a trava fechando."],
       ["machine_hum","Loop perto de máquinas","Zumbido elétrico de 60 Hz com harmônicos, ventoinha e uma pulsação lenta. Discreto, de fundo."],
     ]},
+  { id:"drill", title:"Drill", color:"#a6ecff",
+    intro:"A drill automática em cima do veio. Mecânica e trabalhando, mas de fundo: várias tocando juntas não podem cansar. Nada metálico estridente, nada de tambor.",
+    items:[
+      ["drill_loop","Loop perto de uma drill trabalhando (volume pela distância). Para quando ela enche","Motor elétrico grave e estável e a rosca raspando pedra a 2,5 voltas por segundo, com pedrinhas sendo moídas no pico de cada volta."],
+      ["drill_collect","E perto da drill: coletou o conteúdo","Clique da trava, despejo de pedrinhas e minério caindo no coletor e o mesmo \"poop\" do pickup no final, pra fechar como recompensa."],
+      ["drill_full","Chegou perto de uma drill cheia","Dois bipes suaves subindo (Mi → Lá), bem baixos. Só um lembrete."],
+    ]},
   { id:"ambiente", title:"Ambiente", color:"#7fbf5a",
     intro:"Um loop por estágio, 32 s cada, todos em Lá. Detalhes na seção de direção de ambientação.",
     items:[
@@ -366,7 +377,7 @@ GROUPS.forEach((g, gi) => {
   const cards = sec.querySelector(".cards");
   g.items.forEach(([name, when, what]) => {
     const m = META[name] || {};
-    const loop = m.loop ?? /^(amb_|o2_low|machine_hum)/.test(name);
+    const loop = m.loop ?? /^(amb_|o2_low|machine_hum|drill_loop)/.test(name);
     const card = document.createElement("article");
     card.className = "card";
     card.innerHTML = `

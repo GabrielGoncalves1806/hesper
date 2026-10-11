@@ -24,7 +24,8 @@ CONTRACT = {
     "mine_hit": False, "mine_break": False, "pickup": False, "craft": False, "place": False,
     "ui_open": False, "ui_close": False, "ui_click": False, "o2_low": True, "o2_refill": False,
     "faint": False, "terminal_open": False, "stage_up": False, "footstep_0": False,
-    "footstep_1": False, "machine_hum": True, "amb_dead": True, "amb_mist": True, "amb_green": True,
+    "footstep_1": False, "machine_hum": True, "drill_loop": True, "drill_collect": False,
+    "drill_full": False, "amb_dead": True, "amb_mist": True, "amb_green": True,
 }
 BANDS = [(20, 150), (150, 600), (600, 2500), (2500, 8000), (8000, 22050)]
 

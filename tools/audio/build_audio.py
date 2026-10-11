@@ -649,6 +649,75 @@ def amb_green(rng):
 
 
 # ---------------------------------------------------------------------------
+# v5: drill automática
+# ---------------------------------------------------------------------------
+
+def loop_drill(rng):
+    """Motor elétrico grave e estável + rosca raspando pedra a 2,5 voltas/s.
+    Periódico em L = 3,2 s (8 voltas): frequências com ciclos inteiros, ruído
+    filtrado de forma circular e grãos de pedra que dão a volta no começo."""
+    L = 3.2
+    n = ns(L)
+    t = tvec(n)
+    rot = 2.5                                                    # voltas por segundo (8 em L)
+    # motor: fundamental grave com poucos harmônicos e um leve "ronco" na rotação
+    motor = np.zeros(n)
+    for k, a in ((1, 1.0), (2, 0.45), (3, 0.2), (4, 0.1), (6, 0.04)):
+        motor += a * np.sin(2 * np.pi * fr(82.5 * k, L) * t + rng.uniform(0, 2 * np.pi))
+    motor *= 1 + 0.06 * np.sin(2 * np.pi * rot * t)
+    motor = norm_rms(motor)
+    # rosca raspando: ruído médio, banda larga, que incha uma vez por volta
+    turn = (0.5 - 0.5 * np.cos(2 * np.pi * rot * t)) ** 2
+    scrape = norm_rms(filt(rng.standard_normal(n), 350, 2200, 2, circular=True)) * (0.25 + 0.75 * turn)
+    # pedrinhas sendo moídas: grãos curtos, mais densos no pico de cada volta
+    grains = np.zeros(n)
+    for c in range(8):
+        for _ in range(int(rng.integers(5, 9))):
+            at = (c + 0.5 + rng.normal(0, 0.12)) / rot
+            hi = rng.uniform(700, 2800)
+            g = noise_burst(rng, hi / 4, hi, 0.0005, rng.uniform(0.002, 0.006), 0.02, order=1)
+            add_circ(grains, g * rng.uniform(0.3, 1.0), ns(at) % n)
+    grains = norm_rms(grains)
+    rumble = norm_rms(filt(rng.standard_normal(n), 30, 220, 2, circular=True))
+    x = motor * 0.5 + scrape * 0.32 + grains * 0.22 + rumble * 0.25
+    return filt(x, 35, 4000, 2, circular=True)
+
+
+def sfx_drill_collect(rng):
+    """Clique da trava, despejo de pedrinhas/minério num coletor e o "poop" da coleta."""
+    tr = Track()
+    tr.add(noise_burst(rng, 1500, 6000, 0.0002, 0.0015, 0.01, order=1), 0, 0.6)       # trava abrindo
+    tr.add(noise_burst(rng, None, 450, 0.001, 0.012, 0.06, order=2), 0.002, 0.5)      # tranco mecânico
+    tr.add(noise_burst(rng, 1500, 6000, 0.0002, 0.0012, 0.01, order=1), 0.045, 0.35)  # segundo clique
+    t = 0.06                                                                          # despejo
+    while True:
+        u = (t - 0.06) / 0.34
+        t += rng.exponential(1 / (20 + 220 * np.sin(np.pi * min(u, 1)) ** 1.5))
+        if t > 0.42:
+            break
+        hi = rng.uniform(800, 4000)
+        env = np.sin(np.pi * min((t - 0.06) / 0.36, 1)) ** 0.7
+        tr.add(noise_burst(rng, hi / 4, hi, 0.0003, rng.uniform(0.0015, 0.005), 0.025, order=1),
+               t, 0.5 * env * rng.uniform(0.3, 1.0))
+    n = ns(0.36)
+    pile = filt(rng.standard_normal(n), 80, 600, 2) * bump(n, 0.3)                    # monte assentando
+    tr.add(pile, 0.07, 0.12)
+    tr.add(sfx_pickup(rng), 0.4, 0.45)                                                 # recompensa
+    return reverb(tr.render(), rng, decay=0.3, mix=0.1, lp=4000)
+
+
+def sfx_drill_full(rng):
+    """Dois bipes suaves subindo, Mi5 -> Lá5. Seno com um tico de triângulo."""
+    tr = Track()
+    for m, at in ((76, 0.0), (81, 0.13)):
+        f = midi(m)
+        nn = ns(0.22)
+        x = np.sin(phase_of(f, nn)) + 0.25 * bl_wave(f, nn, "tri", 3000)
+        tr.add(x * perc(nn, 0.008, 0.06) * np.clip((0.22 - tvec(nn)) / 0.05, 0, 1), at, 0.6)
+    return reverb(echo(tr.render(), 0.16, 0.18, taps=2, lp=2500), rng, decay=0.6, mix=0.15, lp=4000)
+
+
+# ---------------------------------------------------------------------------
 # masterização, medição e escrita
 # ---------------------------------------------------------------------------
 
@@ -692,6 +761,9 @@ SOUNDS = {
     "footstep_0": (sfx_footstep_0, False, -27.0),
     "footstep_1": (sfx_footstep_1, False, -27.0),
     "machine_hum": (loop_machine_hum, True, -30.0),
+    "drill_loop": (loop_drill, True, -29.0),
+    "drill_collect": (sfx_drill_collect, False, -19.0),
+    "drill_full": (sfx_drill_full, False, -27.0),
     "amb_dead": (amb_dead, True, -27.0),
     "amb_mist": (amb_mist, True, -27.0),
     "amb_green": (amb_green, True, -27.0),
