@@ -200,3 +200,73 @@ WAV, 44,1 kHz, 16-bit, mono. Loops precisam emendar sem estalo.
 | `reports/mockups/` | referência, ninguém edita |
 
 Ninguém mexe na pasta do outro. Dúvida ou conflito vai pro gerente.
+
+## 8. Escopo do v0.2: "a base ganha vida"
+
+Tema: **automação**. O jogador monta um sistema que trabalha por ele, e o resto do v0.2 existe pra sustentar isso.
+Decisões do dono: inventário com slots (a mochila de upgrade fica pra depois), automação com **drones** (sem esteiras), **energia global sem fios**, e água e comida ficam no v0.3.
+Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/dev/balance_sim.py`.
+
+### Marco 1 · Fundação
+**Save/load**
+- Um slot em `saves/slot1.json` (no `.gitignore`), em JSON **versionado** (`"version": N`), com migração simples quando o formato mudar.
+- **Salva só o que muda**: o mundo é gerado pela seed, então o save guarda os tiles minerados e não o mapa inteiro. Também guarda: player (posição, direção, O₂), inventário e baús, máquinas e drills (com o conteúdo), índices e Ti, objetivos, terminais lidos, fontes da transição, energia e tempo de jogo.
+- **Autosave** a cada 2 min e ao sair. No menu de pausa entra "Salvar e sair".
+- **Tela de título** mínima: nome do jogo, "Continuar" (só se existir save), "Novo jogo" (pede confirmação se já existir save) e "Sair".
+- Cada sistema novo do v0.2 tem que entrar no save, com teste de ida e volta (salvar → carregar → estado igual).
+
+**Inventário com slots**
+- O player tem **16 slots**. Recursos empilham até **50** por slot; máquinas fabricadas viram **itens** e empilham até **5**.
+- **Hotbar** de 8 slots no rodapé central. Teclas **1–8** ou a rodinha do mouse selecionam. Se o item selecionado for máquina, o jogo entra no modo de colocar. Isso substitui o estoque de máquinas atual (teclas 1–7).
+- **Tela de inventário (Tab)**: grade dos 16 slots e a hotbar. Clique pega e solta a pilha, e clique direito pega metade.
+- **Inventário cheio**: o minério minerado **não é coletado**, e aparece o aviso "Inventário cheio" (o tile quebra mesmo assim).
+- O **fabricador** usa o que está no inventário **e nos baús dentro da zona da base**.
+- Futuro (fora do v0.2): **mochila** que aumenta os slots.
+
+**Baú**
+- Craftável desde o início, custa **6 ferro**. Tem **24 slots** e ocupa 1 tile. **E** abre e mostra o baú ao lado do inventário. Clique move a pilha e **Shift+clique** move tudo daquele tipo.
+- Desmontar o baú só funciona se ele estiver vazio (aparece um aviso se não estiver).
+
+### Marco 2 · Energia (global, sem fios)
+- A energia é um **pool global**: a produção total (kW) contra o consumo total. O HUD mostra um medidor "⚡ produção / consumo".
+- **Cápsula**: gera **5 kW** fixos, pro começo do jogo funcionar.
+- **Painel solar**: +3 kW, custa 8 ferro + 6 silício, libera com Ti 0. Ocupa 1 tile.
+- **Consumo**: Gerador de O₂ 1 · Derretedor 1 · Aquecedor 2 · máquinas nv.2 3/3/4 · Drill 2 · Estação de drones 3 (kW). O baú não consome.
+- **Déficit**: todos os consumidores rodam no ritmo `produção / consumo` (desaceleração proporcional), e o medidor fica vermelho. Não há corte total.
+- No v0.2 não tem bateria nem ciclo dia/noite (ficam pra depois).
+
+### Marco 3 · Automação com drones
+- **Estação de drones**: libera na Névoa (Ti 10.000), custa 20 ferro + 15 silício + 5 gelo e ocupa 2×2. Vem com **2 drones**, tem alcance de **30 tiles** e consome 3 kW.
+- **Ciclo do drone**: decola, voa **em linha reta por cima das paredes** até uma drill dentro do alcance que tenha **≥ 5 unidades**, coleta tudo e voa de volta. Entrega no **baú mais próximo, a até 3 tiles da estação** (se não houver baú, ou se ele estiver cheio, guarda no buffer interno da estação, de 50 unidades, e mostra o aviso). Velocidade de ~4 tiles/s.
+- **Prioridade**: a drill mais cheia primeiro, e um drone por drill de cada vez.
+- **Visual**: drone pequeno voando com sombra no chão. A estação mostra os drones pousados.
+- Sem energia suficiente, os drones voam mais devagar, na mesma proporção do déficit.
+- Futuro: upgrade de estação (mais drones e mais alcance).
+
+### Marco 4 · Polimento
+- Rodar o simulador de novo com inventário, energia e drones, e ajustar até bater a meta de tempo.
+- Playtest do dono. Os assets novos só entram depois de aprovados.
+
+### Assets novos do v0.2 (contrato)
+| Sprite | Tamanho | Observação |
+|---|---|---|
+| `chest.png` | 32×40 | baú, ancorado no centro da base |
+| `chest_open.png` | 32×40 | baú aberto |
+| `solar_panel.png` | 32×40 | painel solar |
+| `drone_station.png` | 64×72 | estação 2×2, com espaço pros drones pousados (documentar os pontos de pouso) |
+| `drone.png` | 64×16 | 4 quadros de 16×16 com as hélices girando. O jogo desenha a sombra |
+| `icon_chest.png` `icon_solar.png` `icon_drone_station.png` | 16×16 | ícones de item |
+| `ui_slot.png` | 20×20 | moldura de slot do inventário/hotbar (opcional; se faltar, o jogo desenha) |
+
+| Áudio | Tipo | Quando toca |
+|---|---|---|
+| `chest_open.wav` `chest_close.wav` | sfx | abrir e fechar o baú |
+| `inv_move.wav` | sfx curto | mover uma pilha no inventário |
+| `inv_full.wav` | sfx discreto | tentou coletar com o inventário cheio |
+| `power_low.wav` | sfx | o déficit de energia começou (uma vez) |
+| `solar_hum.wav` | loop baixíssimo | perto de painéis |
+| `drone_loop.wav` | loop | drone voando (volume pela distância) |
+| `drone_deliver.wav` | sfx | o drone entregou carga |
+| `save.wav` | sfx discreto | salvou o jogo (autosave e manual) |
+
+**Regra de aprovação:** os assets novos são entregues em `assets/sprites/_pending/` e `assets/audio/_pending/`. O gerente só move pra pasta oficial depois que o dono aprovar o report. Até lá, o jogo usa o fallback.

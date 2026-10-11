@@ -1,6 +1,6 @@
 # Roadmap
 
-## v0.1 · MVP (em andamento: reaberto pras drills)
+## v0.1 · MVP ✓ (tag v0.1)
 Detalhes em `GAME_BIBLE.md` §4.
 
 - [x] Janela 960×540 escalada, game loop com delta time
@@ -20,14 +20,19 @@ Detalhes em `GAME_BIBLE.md` §4.
 - [x] Polimento: pausa/volumes, objetivos, desmontar, transição gradual, simulador de balanceamento
 - [x] Veios de minério 2×2 no chão + drill automática (libera na Névoa, coleta manual)
 
-## v0.2 · Sobrevivência de verdade
-Save/load, energia (painel solar alimentando máquinas e drills), água e comida, mais recursos e máquinas.
+## v0.2 · A base ganha vida (automação) · em andamento
+Detalhes em `GAME_BIBLE.md` §8.
 
-## Futuro
-Drones de logística (levam o minério das drills pra base).
+- [ ] Marco 1: save/load versionado + tela de título
+- [ ] Marco 1: inventário com 16 slots + hotbar + tela de inventário
+- [ ] Marco 1: baú (24 slots, o fabricador puxa dos baús na base)
+- [ ] Marco 2: energia global (cápsula 5 kW, painel solar, consumo, déficit proporcional)
+- [ ] Marco 3: estação de drones + drones levando minério das drills pros baús
+- [ ] Assets do v0.2 (sprites e sons) · aprovados pelo dono
+- [ ] Marco 4: balanceamento com o simulador + playtest
 
 ## v0.3 · Pegada Core Keeper
-Escuridão com raio de luz, mundo em chunks maior, biomas de caverna, superfície × subsolo.
+Água e comida (barras de sobrevivência). Escuridão com raio de luz, mundo em chunks maior, biomas de caverna, superfície × subsolo.
 
 ## v0.4 · Perigo e lore
 Inimigos, combate, primeiro boss, ruínas da Colônia Hesper.
