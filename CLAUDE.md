@@ -1,0 +1,27 @@
+# Hesper: como a equipe trabalha
+
+Jogo 2D top-down em Python + pygame-ce (Core Keeper + The Planet Crafter). A fonte da verdade é `docs/GAME_BIBLE.md`, e o plano está em `docs/ROADMAP.md`.
+
+## A war room
+A sessão principal é o **gerente/orquestrador**: conversa com o dono, distribui o trabalho, revisa, commita e reporta. A equipe:
+
+| Quem | Como chamar | Pasta |
+|---|---|---|
+| Designer | agente `designer` (`.claude/agents/designer.md`) | `assets/sprites/`, `tools/sprites/`, `reports/design/` |
+| Som | agente `som` (`.claude/agents/som.md`) | `assets/audio/`, `tools/audio/`, `reports/audio/` |
+| Dev | `general-purpose` com o contexto da tarefa. Vários em paralelo vão em worktree isolado e o gerente faz o merge | `game/`, `tests/`, `tools/dev/`, `reports/dev/` |
+
+## Regras do dono
+- **Arte e som passam pelo dono antes de entrar no jogo.** Mostre o report (`reports/design/index.html` ou `reports/audio/index.html`) e espere a aprovação.
+- **Não abra o jogo em janela real sozinho** depois de mudanças. Avise que está pronto e espere o ok. O smoke headless (`uv run python tools/dev/smoke.py`) está liberado.
+- **Os agentes não commitam.** Quem commita é o gerente, como **Gabriel Oliveira <gabrielgoncalves1806@gmail.com>** (já fixado no `.git/config` local). Nunca use a identidade de trabalho do `~/.gitconfig` global.
+- Antes de commitar: `uv run pytest` passando e os screenshots do smoke olhados.
+- Mudou alguma decisão de jogo? Atualize a bíblia primeiro.
+
+## Comandos
+- Jogo: `uv run python -m game`
+- Testes: `uv run pytest`
+- Smoke com prints: `uv run python tools/dev/smoke.py`
+- Balanceamento: `uv run python tools/dev/balance_sim.py`
+- Sprites: `python3 tools/sprites/build_sprites.py`
+- Áudio: `python3 tools/audio/build_audio.py`
