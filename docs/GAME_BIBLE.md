@@ -132,6 +132,8 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 |---|---|---|
 | `player_{down,up,side}.png` | 32×32 | parado, olhando pra baixo / cima / direita (o jogo espelha `side` pra esquerda) |
 | `player_walk_{down,up,side}.png` | 128×32 | 4 quadros de 32×32 na horizontal |
+| `drill_side.png` | 96×16 | broca na mão, olhando pra direita (o jogo espelha). 4 quadros de 24×16 girando, só tocados enquanto minera |
+| `drill_down.png` `drill_up.png` | 64×24 | 4 quadros de 16×24 · ponto de pega relativo ao quadro do player documentado no report |
 | `floor_{stage}_{0..3}.png` | 32×32 | 4 variações · stage = `dead`, `mist`, `green` |
 | `wall_{stage}_{0..2}.png` | 32×32 | topo da rocha, 3 variações |
 | `wall_face_{stage}.png` | 32×24 | face frontal alta. Quando o tile abaixo é chão, o tile da parede mostra os 8 px de cima do `wall_{stage}_N` + essa face de 24 px |

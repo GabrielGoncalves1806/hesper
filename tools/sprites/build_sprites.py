@@ -316,49 +316,69 @@ FH = 24  # altura da face
 
 
 def make_face(stage: str) -> Canvas:
-    """Paredão de 32x24 em lajes verticais: lábio claro no topo, fendas verticais, estratos,
-    saliências com luz/sombra e tom escurecendo em faixas pra baixo. Emenda na horizontal."""
+    """Paredão de rocha 32x24: blocos irregulares (Voronoi achatado, periódico na horizontal),
+    estratos horizontais quebrados, fissuras diagonais, luz em cima e sombra embaixo de cada bloco,
+    escurecendo pro pé. Usa a mesma família de cores do topo do estágio."""
     P, seed = STAGES[stage], STAGE_SEED[stage]
     X = FACE_EXTRA[stage]
-    ramp = [X["faceL"], P["rockDot"], P["face"], X["faceD"], X["faceDD"]]  # claro -> escuro
-    band_of = lambda y: 0 if y < 9 else 1 if y < 15 else 2 if y < 20 else 3
-    lighter = lambda y: C(P["rock"]) if band_of(y) == 0 else C(ramp[band_of(y) - 1])
-    darker = lambda y: C(ramp[band_of(y) + 1])
+    ramp = [P["rockHi"], P["rock2"], P["rock"], P["rockDot"], P["face"], X["faceD"], X["faceDD"]]
+    # pontos dos blocos: 3 "camadas" horizontais com tamanhos variados (estratos)
+    pts = []
+    rng_i = 0
+    for layer, (yc, n) in enumerate(((3.5, 3), (10.5, 4), (17.5, 3), (24.0, 4))):
+        for i in range(n):
+            rng_i += 1
+            x = (i + 0.2 + hsh(rng_i, 1, seed) * 0.6) * T / n
+            y = yc + (hsh(rng_i, 2, seed) - 0.5) * 3.0
+            pts.append((x, y, layer))
+    ys, xs = np.mgrid[0:FH, 0:T] + 0.5
+    best = np.full((FH, T), 1e9)
+    cell = np.zeros((FH, T), int)
+    jit = np.array([[vnoise(x * 0.45, y * 0.45, seed + 5) for x in range(T)] for y in range(FH)])
+    for k, (px_, py_, _) in enumerate(pts):
+        dx = np.abs(xs - px_)
+        dx = np.minimum(dx, T - dx)               # distância periódica na horizontal
+        d = np.sqrt((dx * 0.6) ** 2 + ((ys - py_) * 1.5) ** 2) + jit * 1.2
+        m = d < best
+        best[m] = d[m]
+        cell[m] = k
     cv = Canvas(T, FH)
+    # tom base: escurece com a profundidade; cada bloco varia ±1
     for y in range(FH):
-        cv.rect(0, y, T, 1, C(ramp[band_of(y)]))
-    # bordas das faixas serrilhadas em degrau (padrão fixo, não ruído)
-    for y in (9, 15, 20):
+        base = 1 if y < 4 else 2 if y < 9 else 3 if y < 14 else 4 if y < 19 else 5
         for x in range(T):
-            if (x // 3 + y) % 3 == 0:
-                cv.px(x, y, C(ramp[band_of(y - 1)]))
-    # lajes verticais separadas por fendas
-    cuts = [0, 11, 17, 26]
-    for i, cx in enumerate(cuts):
-        jog = 9 + (i * 5) % 7          # altura onde a fenda dá um passo pro lado
-        for y in range(2, FH - 1):
-            x = cx + (1 if y >= jog else 0) + (1 if y >= jog + 6 and i % 2 else 0)
+            k = cell[y, x]
+            lvl = base + (1 if hsh(k, 7, seed) < 0.35 else 0)
+            cv.px(x, y, C(ramp[min(6, lvl)]))
+    lvl_at = lambda y: 1 if y < 4 else 2 if y < 9 else 3 if y < 14 else 4 if y < 19 else 5
+    up = np.roll(cell, 1, 0); up[0] = cell[0]
+    down = np.roll(cell, -1, 0); down[-1] = cell[-1]
+    left = np.roll(cell, 1, 1)
+    for y in range(FH):
+        for x in range(T):
+            if down[y, x] != cell[y, x]:
+                cv.px(x, y, C(X["faceDD"]))                       # junta/sombra embaixo do bloco
+            elif up[y, x] != cell[y, x] or y == 0:
+                cv.px(x, y, C(ramp[max(0, lvl_at(y) - 2)]))      # luz no topo do bloco
+            elif left[y, x] != cell[y, x]:
+                cv.px(x, y, C(ramp[min(6, lvl_at(y) + 1)]))      # junta lateral, curta e irregular
+    # fissuras diagonais dentro dos blocos
+    for i, (fx, fy, ln, dirx) in enumerate(((6, 4, 4, 1), (24, 12, 4, -1))):
+        x, y = fx, fy
+        for j in range(ln):
             cv.px(x, y, C(X["faceDD"]), wrap=True)
-            cv.px(x + 1, y, lighter(y), wrap=True)         # aresta iluminada à direita da fenda
-            cv.px(x - 1, y, darker(y), wrap=True)          # lado sombreado à esquerda
-    # estratos: uma rachadura horizontal por laje, com luz logo abaixo
-    for (a, b), sy in zip(zip(cuts, cuts[1:] + [32]), (12, 7, 14, 10)):
-        for x in range(a + 3, b - 2):
-            cv.px(x, sy, C(X["faceDD"]))
-            cv.px(x, sy + 1, lighter(sy + 1))
-    # saliências (pedras salientes)
-    for sx, sy, w in ((4, 4, 4), (21, 3, 3), (12, 16, 4), (28, 13, 3)):
-        cv.rect(sx, sy, w, 1, lighter(sy))
-        cv.rect(sx, sy + 1, w, 1, C(ramp[band_of(sy)]))
-        cv.rect(sx, sy + 2, w, 1, C(X["faceDD"]))
-        cv.px(sx, sy, C(P["rockHi"]) if sy < 9 else lighter(sy))
-    # lábio do topo
+            cv.px(x + (1 if dirx < 0 else -1), y, C(ramp[max(0, lvl_at(y) - 1)]), wrap=True)
+            y += 1
+            if j % 2 == 0 or hsh(i, j, seed) < 0.4:
+                x += dirx
+    # lábio do topo, casando com o topo da rocha
     cv.rect(0, 0, T, 1, C(P["rockHi"]))
-    cv.rect(0, 1, T, 1, C(P["rock"]))
     for x in range(T):
-        if (x * 7) % 5 == 0:
-            cv.px(x, 2, C(P["rockDot"]))
+        if hsh(x, 9, seed) < 0.5:
+            cv.px(x, 1, C(P["rock2"]))
     cv.rect(0, FH - 1, T, 1, C(X["faceDD"]))
+    for x, y in ((3, 3), (17, 2), (25, 9), (10, 8)):
+        cv.px(x, y, C(P["rockHi"]))
     if "moss" in P:
         for x in range(T):
             cv.px(x, 0, C(P["moss2"] if hsh(x, 3, seed) < 0.5 else P["moss"]))
@@ -375,7 +395,7 @@ def make_face(stage: str) -> Canvas:
                 if y in (5, 11):
                     x += 1 if vx % 2 else -1
             cv.px(x, 1 + ln, C(P["moss2"]), wrap=True)
-        for mx, my, w in ((6, 13, 3), (19, 8, 3)):
+        for mx, my, w in ((7, 12, 3), (18, 8, 3)):
             cv.rect(mx, my, w, 1, C(P["moss"]))
             cv.px(mx + 1, my - 1, C(P["moss2"]))
     return cv
@@ -681,6 +701,192 @@ def make_walk(view: str) -> Canvas:
     for f, (bob, ll, lr, al, ar, st, sw) in enumerate(WALK[view]):
         sheet.paste(astronaut(view, bob, ll, lr, al, ar, st, sw), f * 32, 0)
     return sheet
+
+
+# ---------------------------------------------------------------- broca (v2.1)
+
+DR = dict(w="#f4f4f8", l="#d3d8e6", s="#9aa2bf", d="#6a7194", g="#3b3f46", gl="#5a6069",
+          o="#e2733a", oh="#f29a62", od="#a8471f", led="#7fd67a", ledh="#d6ffd0",
+          m0="#f2f5fa", m1="#bcc4d2", m2="#8b94a8", m3="#555d72")
+DRILL_LINE = "#1b1630"
+SHAKE = [(0, 0), (0, 1), (1, 0), (0, -1)]  # tremor de 1 px por quadro
+
+
+def _dp(cv, x, y, c):
+    cv.px(x, y, C(DR[c]))
+
+
+def _dr(cv, x, y, w, h, c):
+    cv.rect(x, y, w, h, C(DR[c]))
+
+
+def spiral_bit(cv: Canvas, axis: str, base, center, length, half0, f):
+    """Ponta cônica com rosca. axis 'x': base em x=base indo pra +x; 'y+': pra baixo; 'y-': pra cima.
+    A rosca são listras diagonais que andam 1 px por quadro (gira); o reflexo corre pela ponta."""
+    for i in range(length):
+        half = max(0, round(half0 * (1 - i / length)))
+        for j in range(-half, half + 1):
+            # posição ao longo do eixo (i) e através (j)
+            band = (i + (j if axis != "y-" else -j) - f) % 4
+            edge_light = j == -half
+            edge_dark = j == half
+            if band == 0:
+                c = "m3"
+            elif band == 1:
+                c = "m0" if j < 0 else "m1"
+            elif edge_dark:
+                c = "m2"
+            else:
+                c = "m1" if j <= 0 else "m2"
+            if edge_light and band != 0:
+                c = "m0" if band == 1 else "m1"
+            if axis == "x":
+                _dp(cv, base + i, center + j, c)
+            elif axis == "y+":
+                _dp(cv, center + j, base + i, c)
+            else:
+                _dp(cv, center + j, base - i, c)
+    # reflexo correndo pela ponta
+    k = (f * 2) % max(2, length - 2)
+    hj = -max(0, round(half0 * (1 - k / length))) + 1
+    if axis == "x":
+        _dp(cv, base + k, center + hj, "m0")
+        _dp(cv, base + k + 1, center + hj, "m0")
+    elif axis == "y+":
+        _dp(cv, center + hj, base + k, "m0")
+        _dp(cv, center + hj, base + k + 1, "m0")
+    else:
+        _dp(cv, center + hj, base - k, "m0")
+        _dp(cv, center + hj, base - k - 1, "m0")
+
+
+def drill_layer(w, h, draw) -> Canvas:
+    p = Canvas(w, h)
+    draw(p)
+    p.outline(C(DRILL_LINE))
+    return p
+
+
+def drill_frame(view: str, f: int) -> Canvas:
+    sx, sy = SHAKE[f]
+    if view == "side":
+        cv = Canvas(24, 16)
+
+        def grip(p):
+            _dr(p, 5 + sx, 9 + sy, 3, 5, "g")
+            _dr(p, 5 + sx, 9 + sy, 1, 5, "gl")
+
+        def body(p):
+            x, y = 1 + sx, 3 + sy
+            _dr(p, x, y, 10, 7, "w")
+            _dr(p, x, y + 5, 10, 2, "s")
+            _dr(p, x, y + 4, 10, 1, "l")
+            _dr(p, x + 3, y + 2, 5, 2, "o")
+            _dr(p, x + 3, y + 2, 5, 1, "oh")
+            _dp(p, x + 1, y + 1, "led")
+            _dp(p, x + 1, y + 2, "ledh" if f % 2 == 0 else "led")
+            _dr(p, x + 9, y, 1, 7, "d")
+            p.a[y, x] = 0
+            p.a[y + 6, x] = 0
+
+        def collar(p):
+            _dr(p, 11 + sx, 3 + sy, 2, 7, "g")
+            _dr(p, 11 + sx, 3 + sy, 2, 1, "gl")
+
+        def bit(p):
+            spiral_bit(p, "x", 13 + sx, 6 + sy, 9, 3, f)
+
+        for d in (grip, body, collar, bit):
+            cv.paste(drill_layer(24, 16, d), 0, 0)
+        return cv
+    cv = Canvas(16, 24)
+    if view == "down":
+        def body(p):
+            x, y = 4 + sx, 1 + sy
+            _dr(p, x, y, 7, 10, "w")
+            _dr(p, x + 5, y, 2, 10, "s")
+            _dr(p, x + 4, y, 1, 10, "l")
+            _dr(p, x + 1, y + 3, 4, 4, "o")
+            _dr(p, x + 1, y + 3, 1, 4, "oh")
+            _dp(p, x + 1, y + 1, "ledh" if f % 2 == 0 else "led")
+            _dr(p, x, y + 9, 7, 1, "d")
+            p.a[y, x] = 0
+            p.a[y, x + 6] = 0
+
+        def grip(p):
+            _dr(p, 11 + sx, 3 + sy, 3, 5, "g")
+            _dr(p, 11 + sx, 3 + sy, 3, 1, "gl")
+
+        def collar(p):
+            _dr(p, 4 + sx, 11 + sy, 7, 2, "g")
+            _dr(p, 4 + sx, 11 + sy, 1, 2, "gl")
+
+        def bit(p):
+            spiral_bit(p, "y+", 13 + sy, 7 + sx, 9, 3, f)
+
+        for d in (grip, body, collar, bit):
+            cv.paste(drill_layer(16, 24, d), 0, 0)
+        return cv
+    # up: a broca aponta pra cima; o corpo fica quase todo atrás do astronauta
+    def body(p):
+        x, y = 5 + sx, 13 + sy
+        _dr(p, x, y, 7, 9, "w")
+        _dr(p, x + 5, y, 2, 9, "s")
+        _dr(p, x + 1, y + 3, 4, 3, "o")
+        _dp(p, x + 1, y + 1, "ledh" if f % 2 == 0 else "led")
+
+    def grip(p):
+        _dr(p, 2 + sx, 15 + sy, 3, 5, "g")
+
+    def collar(p):
+        _dr(p, 5 + sx, 11 + sy, 7, 2, "g")
+        _dr(p, 5 + sx, 11 + sy, 1, 2, "gl")
+
+    def bit(p):
+        spiral_bit(p, "y-", 10 + sy, 8 + sx, 9, 3, f)
+
+    for d in (grip, body, collar, bit):
+        cv.paste(drill_layer(16, 24, d), 0, 0)
+    return cv
+
+
+def make_drill(view: str) -> Canvas:
+    w, h = (24, 16) if view == "side" else (16, 24)
+    sheet = Canvas(w * 4, h)
+    for f in range(4):
+        sheet.paste(drill_frame(view, f), f * w, 0)
+    return sheet
+
+
+# offset do quadro da broca relativo ao canto sup. esquerdo do quadro do player (32x32) + ordem
+DRILL_OFFSET = {"side": ((12, 13), "depois"), "down": ((13, 16), "depois"), "up": ((20, 4), "antes")}
+
+
+def make_drill_preview(spr: dict[str, Image.Image]) -> Image.Image:
+    """Player parado + broca (quadro 0) nas 3 direções, ampliado 6x, sobre o chão do estágio morto."""
+    cells = []
+    for view in ("side", "down", "up"):
+        cell = Image.new("RGBA", (64, 56), (0, 0, 0, 0))
+        for yy in range(0, 56, 32):
+            for xx in range(0, 64, 32):
+                cell.alpha_composite(spr["floor_dead_0.png"], (xx, yy))
+        ox, oy = 16, 14
+        sh = Canvas(20, 7)
+        sh.ellipse(10, 3.5, 8, 2.5, SHADOW)
+        cell.alpha_composite(sh.image(), (ox + 6, oy + 28))
+        (dx, dy), order = DRILL_OFFSET[view]
+        w = 24 if view == "side" else 16
+        d = spr[f"drill_{view}.png"].crop((0, 0, w, spr[f"drill_{view}.png"].height))
+        if order == "antes":
+            cell.alpha_composite(d, (ox + dx, oy + dy))
+        cell.alpha_composite(spr[f"player_{view}.png"], (ox, oy))
+        if order == "depois":
+            cell.alpha_composite(d, (ox + dx, oy + dy))
+        cells.append(cell)
+    out = Image.new("RGBA", (64 * 3 + 8, 56), (21, 16, 14, 255))
+    for i, c in enumerate(cells):
+        out.alpha_composite(c, (i * 68, 0))
+    return out.resize((out.width * 6, out.height * 6), Image.NEAREST).convert("RGB")
 
 
 # ---------------------------------------------------------------- cápsula
@@ -1064,6 +1270,7 @@ def build_sprites() -> dict[str, Canvas]:
     for view in ("down", "up", "side"):
         out[f"player_{view}.png"] = make_player(view)
         out[f"player_walk_{view}.png"] = make_walk(view)
+        out[f"drill_{view}.png"] = make_drill(view)
     for st in STAGES:
         for v in range(4):
             out[f"floor_{st}_{v}.png"] = make_floor(st, v)
@@ -1130,10 +1337,20 @@ def is_wall(t):
 
 
 def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
+    """Renderer mínimo com a regra v2.1 (estilo Core Keeper):
+    1) chão e água; 2) linha por linha, de cima pra baixo: paredes da linha (topo elevado em y-24,
+    minério junto do topo, face em y+8 se embaixo é chão, terminal) e depois os objetos ancorados nessa linha."""
     seed = 7
     g = gen_world(seed)
     add_water(g, seed, {"dead": 0.16, "mist": 0.3, "green": 0.4}[stage])
-    # terminal: uma parede com chão embaixo, na borda esquerda de cima
+    # túnel vertical de 1 tile saindo da cratera pra cima, e um pilar isolado com o player logo acima
+    for y in (0, 1):
+        g[y][14] = FL
+    PILLAR = (21, 10)
+    for c in ((20, 9), (21, 9), (22, 9), (20, 10), (22, 10), (20, 11), (21, 11), (22, 11)):
+        g[c[1]][c[0]] = FL
+    g[PILLAR[1]][PILLAR[0]] = RK
+    # terminal: parede com chão embaixo, na borda esquerda de cima
     term = None
     for y in range(1, GH - 1):
         for x in range(4, 10):
@@ -1143,34 +1360,22 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
     img = Image.new("RGBA", (GW * T, GH * T), (0, 0, 0, 255))
     shade = Image.new("RGBA", (T, 10), (0, 0, 0, 84))
     shade_b = Image.new("RGBA", (T, 6), (0, 0, 0, 40))
-    shade2 = Image.new("RGBA", (4, T), (0, 0, 0, 40))
     ore_name = {FE: "ore_iron.png", SI: "ore_silicon.png", IC: "ore_ice.png"}
+    # 1) chão e água
     for y in range(GH):
         for x in range(GW):
             t, px, py = g[y][x], x * T, y * T
             if is_wall(t):
-                v = int(hsh(x, y, 91) * 3)
-                img.alpha_composite(spr[f"wall_{stage}_{v}.png"], (px, py))
-                below = g[y + 1][x] if y + 1 < GH else RK
-                if not is_wall(below):
-                    img.alpha_composite(spr[f"wall_face_{stage}.png"], (px, py + 8))
-                if t in ore_name:
-                    img.alpha_composite(spr[ore_name[t]], (px, py))
+                continue
+            if t == WA:
+                img.alpha_composite(spr[f"water_{stage}.png"], (px, py))
             else:
-                if t == WA:
-                    img.alpha_composite(spr[f"water_{stage}.png"], (px, py))
-                else:
-                    v = int(hsh(x, y, 77) * 4)
-                    img.alpha_composite(spr[f"floor_{stage}_{v}.png"], (px, py))
-                if y > 0 and is_wall(g[y - 1][x]):
-                    img.alpha_composite(shade, (px, py))
-                    img.alpha_composite(shade_b, (px, py + 10))
-                if x > 0 and is_wall(g[y][x - 1]):
-                    img.alpha_composite(shade2, (px, py))
-    if term:
-        img.alpha_composite(spr["terminal.png"], (term[0] * T, term[1] * T))
+                img.alpha_composite(spr[f"floor_{stage}_{int(hsh(x, y, 77) * 4)}.png"], (px, py))
+            if y > 0 and is_wall(g[y - 1][x]):
+                img.alpha_composite(shade, (px, py))
+                img.alpha_composite(shade_b, (px, py + 10))
 
-    # objetos ancorados no centro da base, ordenados por y
+    # objetos ancorados no centro da base
     objs = []
 
     def obj(name, ax, ay):
@@ -1194,7 +1399,8 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
         obj("machine_melter_t2.png", 17 * T + 16, 10 * T)
         obj("machine_o2_t2.png", 12 * T + 16, 11 * T)
         obj("machine_heater_t2.png", 15 * T + 16, 11 * T)
-        occupied = {(11, 8), (17, 7), (17, 9), (12, 10), (15, 10), (14, 7), (15, 7), (14, 8), (15, 8)}
+        occupied = {(11, 8), (17, 7), (17, 9), (12, 10), (15, 10), (14, 7), (15, 7), (14, 8), (15, 8),
+                    (20, 9), (21, 9), (22, 9), (14, 0), (14, 1)}
         for y in range(GH):
             for x in range(GW):
                 if g[y][x] != FL or (x, y) in occupied:
@@ -1205,23 +1411,47 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
                     k = hsh(x, y, 98)
                     name = "plant_bush.png" if k < 0.4 else "plant_tree.png" if k < 0.68 else "plant_flower.png"
                     obj(name, x * T + 16, y * T + 30)
-    # player com sombra (o jogo desenha a sombra)
-    pxy = {"dead": (19 * T + 20, 10 * T + 22), "mist": (19 * T + 16, 9 * T + 6), "green": (19 * T + 6, 9 * T + 12)}[stage]
-    objs.append((pxy[1], "player", pxy[0]))
-    objs.sort(key=lambda o: o[0])
-    for ay, name, ax in objs:
-        if name == "player":
+    # player logo acima do pilar: o topo elevado do pilar esconde metade dele
+    objs.append((PILLAR[1] * T - 8, "player", PILLAR[0] * T + 16))
+    if stage != "dead":  # um segundo astronauta dentro do túnel
+        objs.append((2 * T - 4, "player2", 14 * T + 16))
+
+    def draw_obj(ay, name, ax):
+        if name.startswith("player"):
             sh = Canvas(20, 7)
             sh.ellipse(10, 3.5, 8, 2.5, SHADOW)
             img.alpha_composite(sh.image(), (ax - 10, ay - 4))
-            p = {"dead": spr["player_side.png"],
-                 "mist": spr["player_walk_down.png"].crop((0, 0, 32, 32)),
-                 "green": spr["player_side.png"].transpose(Image.FLIP_LEFT_RIGHT)}[stage]
+            if name == "player2":
+                p = spr["player_walk_up.png"].crop((32, 0, 64, 32))
+            else:
+                p = {"dead": spr["player_down.png"],
+                     "mist": spr["player_walk_side.png"].crop((0, 0, 32, 32)),
+                     "green": spr["player_side.png"].transpose(Image.FLIP_LEFT_RIGHT)}[stage]
             img.alpha_composite(p, (ax - 16, ay - 32))
-            continue
+            return
         s = spr[name]
         img.alpha_composite(s, (ax - s.width // 2, ay - s.height))
+
+    # 2) linhas de cima pra baixo
+    for y in range(GH):
+        for x in range(GW):
+            t, px, py = g[y][x], x * T, y * T
+            if not is_wall(t):
+                continue
+            top = spr[f"wall_{stage}_{int(hsh(x, y, 91) * 3)}.png"]
+            img.alpha_composite(top, (px, py - 24))
+            if t in ore_name:
+                img.alpha_composite(spr[ore_name[t]], (px, py - 24))
+            if y + 1 >= GH:  # fora do mapa da prévia: continua rocha
+                img.alpha_composite(spr[f"wall_{stage}_{int(hsh(x, y + 1, 91) * 3)}.png"], (px, py + 8))
+            elif not is_wall(g[y + 1][x]):
+                img.alpha_composite(spr[f"wall_face_{stage}.png"], (px, py + 8))
+            if term == (x, y):
+                img.alpha_composite(spr["terminal.png"], (px, py))
+        for o in sorted(o for o in objs if (o[0] - 1) // T == y):
+            draw_obj(*o)
     return img.crop((0, 0, 960, 540)).convert("RGB")
+
 
 
 # ---------------------------------------------------------------- report HTML
@@ -1239,6 +1469,7 @@ GROUPS = [
     ("Máquinas nv.1", "obj", ["machine_o2.png", "machine_heater.png", "machine_melter.png"]),
     ("Máquinas nv.2", "obj", ["machine_o2_t2.png", "machine_heater_t2.png", "machine_melter_t2.png"]),
     ("Plantas (estágio verde)", "obj", ["plant_bush.png", "plant_tree.png", "plant_flower.png"]),
+    ("Broca (4 quadros, animada a 12 fps ao lado)", "drill", ["drill_side.png", "drill_down.png", "drill_up.png"]),
 ]
 
 def colors_of(imgs: list[Image.Image]) -> list[str]:
@@ -1262,7 +1493,7 @@ def build_report(spr: dict[str, Image.Image]):
         ("Tiles · névoa", [k for k in spr if "_mist" in k]),
         ("Tiles · verde", [k for k in spr if "_green" in k]),
         ("Minérios e ícones", [k for k in spr if k.startswith(("ore_", "icon_"))]),
-        ("Astronauta", [k for k in spr if k.startswith("player")]),
+        ("Astronauta e broca", [k for k in spr if k.startswith(("player", "drill"))]),
         ("Cápsula, máquinas e terminal", [k for k in spr if k.startswith(("pod", "machine", "terminal"))]),
         ("Plantas", [k for k in spr if k.startswith("plant_")]),
     ]
@@ -1276,7 +1507,7 @@ def build_report(spr: dict[str, Image.Image]):
         )
         pal_html.append(f'<div class="pal"><h3>{title} <span>{len(cols)} cores</span></h3><ul>{sw}</ul></div>')
 
-    scale = {"tile": 4, "obj": 4, "icon": 8, "char": 6, "face": 8}
+    scale = {"tile": 4, "obj": 4, "icon": 8, "char": 6, "face": 8, "drill": 8}
     groups_html = []
     for title, kind, names in GROUPS:
         cards = []
@@ -1284,9 +1515,11 @@ def build_report(spr: dict[str, Image.Image]):
             im = spr[n]
             s = scale[kind]
             extra = ""
-            if n.startswith("player_walk"):
-                extra = (f'<div class="anim" title="animação a 8 fps" style="width:{32 * s}px;height:{32 * s}px;--end:-{128 * s}px;'
-                         f'background-image:url(../../assets/sprites/{n});background-size:{128 * s}px {32 * s}px"></div>')
+            if n.startswith(("player_walk", "drill_")):
+                fw, fh = im.width // 4, im.height
+                cls = "anim fast" if n.startswith("drill_") else "anim"
+                extra = (f'<div class="{cls}" style="width:{fw * s}px;height:{fh * s}px;--end:-{im.width * s}px;'
+                         f'background-image:url(../../assets/sprites/{n});background-size:{im.width * s}px {fh * s}px"></div>')
             cards.append(
                 f'<figure class="spr"><div class="chk">'
                 f'{extra}<img src="../../assets/sprites/{n}" width="{im.width * s}" height="{im.height * s}" alt="{n}"></div>'
@@ -1298,8 +1531,8 @@ def build_report(spr: dict[str, Image.Image]):
         f'<figure class="pv"><img src="preview_{st}.png" width="960" height="540" alt="Prévia {lab}">'
         f'<figcaption><b>{lab}</b><span>{sub}</span></figcaption></figure>'
         for st, lab, sub in (
-            ("dead", "1 · Morto", "máquinas nv.1, poucas poças"),
-            ("mist", "2 · Névoa", "nv.1 + nv.2 misturadas, poças maiores, player no quadro 1 da caminhada pra baixo"),
+            ("dead", "1 · Morto", "máquinas nv.1, poucas poças, player logo acima do pilar isolado"),
+            ("mist", "2 · Névoa", "nv.1 + nv.2 misturadas, poças maiores, um astronauta subindo pelo túnel de 1 tile e outro meio escondido atrás do pilar"),
             ("green", "3 · Primeiro verde", "só nv.2, lagos, arbustos, árvores e flores"),
         )
     )
@@ -1307,8 +1540,8 @@ def build_report(spr: dict[str, Image.Image]):
     notes = [
         ("Tiles sem costura",
          "Chão e água usam ruído periódico de 32 px. Os pontos da borda são iguais em todas as variações do mesmo estágio, então qualquer variação encosta em qualquer outra sem emenda. As pedras da parede ficam dentro do tile (1 px de folga) sobre um fundo granulado que também emenda."),
-        ("Paredes altas (v2)",
-         "A face agora tem 24 px e vira um paredão: lábio claro no topo, estratos horizontais, rachas verticais, saliências com luz em cima e sombra embaixo, e o tom escurecendo em faixas até o pé. No verde, musgo na borda e cipós descendo. O topo da rocha continua sem borda desenhada, porque isso depende do vizinho."),
+        ("Paredes altas (v2.1)",
+         "A face de 32×24 agora é feita de blocos de rocha irregulares e achatados, em três ou quatro estratos horizontais quebrados, com fissuras diagonais. Cada bloco tem luz no topo e uma junta escura embaixo, e o tom escurece em faixas até o pé, usando as mesmas cores do topo da rocha do estágio. Não existe junta vertical regular, que era o que fazia parecer tábua de cerca. No verde, o musgo na borda e os cipós continuam. Com o topo elevado (y−24), o maciço fica com 56 px de altura visível."),
         ("Minério",
          "Cada minério tem uma silhueta própria, além da cor: ferro em cristais baixos e largos, silício em lascas altas, gelo em cubos. Dá pra distinguir até em tela pequena ou pra quem tem daltonismo. Numa parede com face, o overlay de 32×32 cai por cima da faixa de topo e da face, então os cristais aparecem brotando do paredão."),
         ("Astronauta chibi (v2)",
@@ -1325,8 +1558,9 @@ def build_report(spr: dict[str, Image.Image]):
     integ = [
         "Âncora dos objetos (pod, máquinas, plantas, terminal): centro da base do PNG. Blit em <code>(ax − w/2, ay − h)</code>, com <code>ax</code> = centro do tile e <code>ay</code> = borda de baixo do tile ocupado. O pod tem 64 px e ocupa 2 tiles: <code>ax</code> = linha entre os dois tiles.",
         "Máquinas: nv.1 sempre 40×56, nv.2 sempre 40×64 (canvas fixo, a máquina centralizada). Assim a âncora não muda quando faz upgrade.",
-        "Ordem de desenho por tile: chão ou água → <code>wall_{stage}_N</code> (32×32 em <code>y</code>) → se o tile de baixo não for parede, <code>wall_face_{stage}</code> (32×24) em <code>y + 8</code>, cobrindo as linhas 8–31 → overlay de minério em <code>y</code> → terminal. Depois os objetos e o player ordenados por <code>ay</code>.",
-        "Sombra no chão logo abaixo de uma parede (usada nas prévias, vende a altura): retângulo preto 32×10 com alpha 84 e mais 32×6 com alpha 40 logo abaixo. À direita de uma parede, 4×32 com alpha 40.",
+        "Regra de desenho v2.1, no estilo Core Keeper: (1) todo o chão e a água primeiro. (2) Depois, linha por linha de cima pra baixo: pra cada parede da linha, o topo <code>wall_{stage}_N</code> em <code>(x, y − 24)</code> e o overlay de minério no mesmo lugar; se o tile de baixo não for parede, <code>wall_face_{stage}</code> em <code>(x, y + 8)</code>; e o terminal em <code>(x, y)</code>. Em seguida, os objetos e o player cuja âncora cai nessa linha. Assim o topo da parede da linha de baixo cobre os pés de quem está logo acima, como na prévia com o pilar.",
+        "Túnel de 1 tile: na vertical fica bonito (prévias). Na horizontal, o topo elevado da parede de baixo cobre 24 dos 32 px do corredor; é o comportamento normal do Core Keeper, mas fica avisado.",
+        "Sombra no chão logo abaixo de uma face (usada nas prévias): retângulo preto 32×10 com alpha 84 e mais 32×6 com alpha 40 logo abaixo.",
         "Player: quadros de 32×32 com os pés na linha 30 (a 31 é o contorno da bota). Blit em <code>(ax − 16, ay − 32)</code>. <code>side</code> olha pra direita; espelhe pra esquerda. Caminhadas: 4 quadros de 32×32 na horizontal.",
         "Carregar com <code>convert_alpha()</code>. Nada de <code>smoothscale</code>: escala inteira só no final, na janela.",
     ]
@@ -1392,16 +1626,25 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 .v2 ul{{margin:8px 0 0;padding-left:18px;color:var(--muted)}}
 .v2 li{{margin-bottom:6px}}
 .v2 li b{{color:var(--fg)}}
+.anim.fast{{animation-duration:.3s}}
+.tb{{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:12px}}
+.tb th,.tb td{{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line)}}
+.tb th{{font:11px var(--f-label);color:var(--muted)}}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v2</div>
+  <div class="eyebrow">Hesper · Designer · v2.1</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
   <div class="status"><span class="chip ok">{len(spr)} arquivos · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span></div>
-  <div class="v2"><b>v2 · o que mudou</b><ul>
+  <div class="v2"><b>v2.1 · o que mudou</b><ul>
+    <li><b>Face da parede refeita</b> (mesmos 32×24): agora são blocos de rocha irregulares com estratos horizontais e fissuras diagonais, sem as juntas verticais que pareciam tábua.</li>
+    <li><b>Regra de desenho nova:</b> o topo da parede sobe pra <code>y − 24</code>, a face fica em <code>y + 8</code>, e as linhas são desenhadas de cima pra baixo. As prévias mostram um túnel de 1 tile, um pilar isolado e o player meio escondido atrás dele.</li>
+    <li><b>Broca nova:</b> <code>drill_side</code> (96×16), <code>drill_down</code> e <code>drill_up</code> (64×24), com 4 quadros de espiral girando e tremor de 1 px. Offsets e ordem de desenho estão na seção Broca.</li>
+  </ul></div>
+  <div class="v2" style="opacity:.75"><b>v2 · antes disso</b><ul>
     <li><b>Paredes mais altas:</b> a face foi de 32×12 pra <b>32×24</b>. Quando o tile de baixo é chão, a parede mostra 8 px do topo da rocha e um paredão de 24 px, com borda clara, estratos, rachas verticais e saliências, escurecendo pra baixo. No verde tem musgo e cipós. A sombra no chão ficou mais longa.</li>
     <li><b>Astronauta novo, chibi:</b> 32×32, capacete grande com visor escuro e reflexo, traje branco com vermelho e mochila. Tem 3 direções paradas (<code>player_down/up/side</code>) e 3 caminhadas de 4 quadros (<code>player_walk_*</code>). <code>player.png</code> e <code>player_walk.png</code> saíram do contrato.</li>
     <li>As prévias foram refeitas com a regra nova. Chão, água, minério, máquinas, pod e plantas não mudaram.</li>
@@ -1411,6 +1654,18 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 <section><h2>Prévia das cenas (960×540, tamanho real)</h2><div class="pvs">{previews}</div></section>
 
 {"".join(groups_html)}
+
+<section><h2>Broca · encaixe na mão</h2>
+<figure class="pv"><img src="drill_preview.png" width="1200" height="336" alt="Player com a broca nas 3 direções, 6×"><figcaption><b>Lado · baixo · cima</b><span>player parado + quadro 0 da broca, ampliado 6×</span></figcaption></figure>
+<div class="box dev" style="margin-top:18px"><h3>Offsets pro Dev</h3>
+<table class="tb"><thead><tr><th>Direção</th><th>Sprite (quadro)</th><th>Offset do blit (x, y)</th><th>Ordem</th></tr></thead><tbody>
+{"".join(f"<tr><td>{v}</td><td><code>drill_{v}.png</code> ({'24×16' if v == 'side' else '16×24'})</td><td><code>({o[0][0]}, {o[0][1]})</code></td><td>{'<b>antes</b> do player (fica atrás)' if o[1] == 'antes' else '<b>depois</b> do player (fica na frente)'}</td></tr>" for v, o in DRILL_OFFSET.items())}
+</tbody></table>
+<ul><li>O offset é medido a partir do canto superior esquerdo do quadro do player (32×32): <code>broca = (px + dx, py + dy)</code>.</li>
+<li>Lado espelhado (pra esquerda): espelhe a broca também e use <code>dx' = 32 − dx − 24</code>, que dá <code>{32 - DRILL_OFFSET["side"][0][0] - 24}</code>; o <code>dy</code> não muda.</li>
+<li>O quadro da broca é independente do quadro do player. Toque os 4 quadros em loop a ~12–15 fps enquanto o botão estiver pressionado. O tremor de 1 px já está nos quadros.</li>
+<li>A ponta de <code>drill_down</code> passa 16 px pra baixo do quadro do player e a de <code>drill_side</code> passa 4 px pra direita: é de propósito, ela entra no tile que está sendo minerado. Faíscas e lascas são do jogo.</li></ul></div>
+</section>
 
 <section><h2>Paleta usada</h2><p class="lede" style="margin-bottom:16px">Extraída dos PNGs gerados (cores opacas, da mais escura pra mais clara). A base é a paleta da bíblia §3 e os tons auxiliares do mockup; a sombra no chão é preto a 36%.</p><div class="pals">{"".join(pal_html)}</div></section>
 
@@ -1436,6 +1691,7 @@ def main():
     spr = {n: Image.open(OUT / n).convert("RGBA") for n in canv}
     for st in STAGES:
         render_scene(st, spr).save(REP / f"preview_{st}.png")
+    make_drill_preview(spr).save(REP / "drill_preview.png")
     build_report(spr)
     print(f"{len(canv)} sprites em {OUT.relative_to(ROOT)}, 3 prévias + index.html em {REP.relative_to(ROOT)}")
 
