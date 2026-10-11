@@ -60,6 +60,44 @@ def stage_for_ti(ti: float) -> int:
     return stage
 
 
+# ---- quanto falta pro próximo estágio (funções puras, testadas em tests/test_progress.py) ----
+def stage_progress(ti: float) -> tuple[C.Stage | None, float, float]:
+    """(próximo estágio, progresso de 0 a 1 DENTRO do estágio atual, Ti que falta).
+
+    O progresso é relativo ao estágio atual: no estágio 2 (10k → 100k) com Ti 12.914 dá ~3%.
+    No último estágio devolve (None, 1.0, 0).
+    """
+    current = C.STAGES[stage_for_ti(ti) - 1]
+    if current.number == len(C.STAGES):
+        return None, 1.0, 0.0
+    nxt = C.STAGES[current.number]
+    fraction = (ti - current.ti) / (nxt.ti - current.ti)
+    return nxt, max(0.0, min(1.0, fraction)), max(0.0, nxt.ti - ti)
+
+
+def format_eta(seconds: float) -> str:
+    """Tempo amigável: '~45 s', '~12 min', '~1 h 20 min', '~2 h'."""
+    if seconds < 59.5:
+        return f"~{max(1, round(seconds))} s"
+    minutes = round(seconds / 60)
+    if minutes < 60:
+        return f"~{minutes} min"
+    hours, minutes = divmod(minutes, 60)
+    return f"~{hours} h" if minutes == 0 else f"~{hours} h {minutes} min"
+
+
+def eta_label(remaining: float, rate_per_second: float) -> str:
+    """Estimativa de tempo até o próximo estágio, ou um aviso se nada estiver produzindo Ti."""
+    if rate_per_second <= 1e-6:
+        return "coloque máquinas"
+    return format_eta(remaining / rate_per_second)
+
+
+def smooth_rate(previous: float, target: float, dt: float, tau: float = C.RATE_SMOOTHING) -> float:
+    """Média móvel exponencial: anda em direção ao alvo sem pular (tau = 'memória' em segundos)."""
+    return previous + (target - previous) * (1 - math.exp(-dt / tau))
+
+
 class GameState:
     def __init__(self, seed: int = C.WORLD_SEED, rng: random.Random | None = None):
         self.world = World.generate(seed)
@@ -78,6 +116,7 @@ class GameState:
         self.play_time = 0.0
         self.logs_read: set[int] = set()
         self.was_in_base = True
+        self.smoothed_rate = 0.0       # taxa de Ti por segundo (real), suavizada pra estimativa do HUD
         self.events: list[tuple] = []
 
     # ---- consultas ----------------------------------------------------------
@@ -128,6 +167,8 @@ class GameState:
             self._update_mining(dt, controls.mine_tile)
             self._update_o2(sim_dt)
         self._update_machines(sim_dt)
+        # taxa efetiva em segundos reais (com F1 ligado, as máquinas rendem 10×)
+        self.smoothed_rate = smooth_rate(self.smoothed_rate, self.ti_rate * self.time_scale, dt)
 
     # ---- mineração ----------------------------------------------------------
     def can_mine(self, tile: tuple[int, int]) -> bool:

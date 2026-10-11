@@ -145,13 +145,16 @@ class Stage:
     ti: int             # Ti mínimo
     title: str
     subtitle: str
+    name: str           # nome curto, usado no HUD ("PRÓXIMO: NÉVOA")
 
 
 STAGES = [
-    Stage(1, "dead", 0, "ESTÁGIO 1 · MORTO", "Planeta sem ar. Por enquanto."),
-    Stage(2, "mist", 10_000, "ESTÁGIO 2 · PRIMEIRAS CHUVAS", "Máquinas nv.2 liberadas"),
-    Stage(3, "green", 100_000, "ESTÁGIO 3 · PRIMEIRO VERDE", "Ti 100.000 · fim do MVP"),
+    Stage(1, "dead", 0, "ESTÁGIO 1 · MORTO", "Planeta sem ar. Por enquanto.", "MORTO"),
+    Stage(2, "mist", 10_000, "ESTÁGIO 2 · PRIMEIRAS CHUVAS", "Máquinas nv.2 liberadas", "NÉVOA"),
+    Stage(3, "green", 100_000, "ESTÁGIO 3 · PRIMEIRO VERDE", "Ti 100.000 · fim do MVP", "VERDE"),
 ]
+
+RATE_SMOOTHING = 3.0   # segundos da média móvel da taxa de Ti usada na estimativa "~50 min"
 
 # Água: quanto mais baixo o limiar, menos poças. Estágio 1 tem "poucas poças" (§3).
 WATER_THRESHOLD = {1: 0.10, 2: 0.24, 3: 0.33}

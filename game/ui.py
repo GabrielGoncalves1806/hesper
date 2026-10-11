@@ -13,9 +13,11 @@ import pygame
 
 from game import config as C
 from game.assets import load_font
-from game.systems import GameState
+from game.systems import GameState, eta_label, stage_progress
 
 UW, UH = C.UI_W, C.UI_H
+TI_PANEL_W = 160                 # painel do Ti (em cima à direita)
+TI_PANEL_X = UW - 6 - TI_PANEL_W
 SHORT_NAME = {"o2": "O2", "melter": "DERRET.", "heater": "AQUEC.",
               "o2_t2": "O2 II", "melter_t2": "DERRET. II", "heater_t2": "AQUEC. II"}
 
@@ -145,19 +147,7 @@ class UI:
         self.text(f"{round(o2 * 100)}%", 30, 21, "#ff8a7a" if crit else "#a8c9d2")
 
         # painel do Ti
-        px = UW - 146
-        self.panel(px, 6, 140, 50)
-        self.text("TI", px + 6, 10, C.C_TI)
-        rate = state.ti_rate * state.time_scale
-        if rate:
-            self.text(f"+{fmt_rate(rate)}/S", px + 22, 10, C.C_OK)
-        self.text(fmt(state.ti), px + 134, 10, C.C_TI, align="right")
-        self.fill((255, 255, 255, 30), (px + 6, 20, 128, 1))
-        for i, key in enumerate(("o2", "heat", "water")):
-            yy = 24 + i * 10
-            self.surf.fill(pygame.Color(C.INDEX_COLOR[key]), (px + 6, yy + 2, 4, 4))
-            self.text(C.INDEX_LABEL[key], px + 14, yy, "#d9cfc4")
-            self.text(f"{fmt(state.indices[key])} {C.INDEX_UNIT[key]}", px + 134, yy, C.C_TEXT, align="right")
+        self.draw_ti_panel(state)
 
         # inventário
         self.panel(6, UH - 26, 232, 20)
@@ -184,6 +174,69 @@ class UI:
 
         if state.time_scale != 1:
             self.text(f"DEBUG · TEMPO x{state.time_scale}", UW // 2, 8, C.C_TI, align="center")
+
+    def draw_ti_panel(self, state: GameState) -> None:
+        """Ti total, os 3 índices e, embaixo, quanto falta pro próximo estágio."""
+        px, w = TI_PANEL_X, TI_PANEL_W
+        right = px + w - 6            # borda direita do texto
+        inner = w - 12                # largura útil
+        nxt, fraction, remaining = stage_progress(state.ti)
+        eta = eta_label(remaining, state.smoothed_rate)
+        line2 = f"faltam {fmt(remaining)} · {eta}"
+        wrap_eta = self.body.size(line2)[0] > inner      # não coube: o tempo desce pra uma 3ª linha
+        h = 64 if nxt is None else 90 if wrap_eta else 78
+        self.panel(px, 6, w, h)
+
+        self.text("TI", px + 6, 10, C.C_TI)
+        rate = state.ti_rate * state.time_scale
+        if rate:
+            self.text(f"+{fmt_rate(rate)}/S", px + 22, 10, C.C_OK)
+        self.text(fmt(state.ti), right, 10, C.C_TI, align="right")
+        self.fill((255, 255, 255, 30), (px + 6, 20, inner, 1))
+        for i, key in enumerate(("o2", "heat", "water")):
+            yy = 24 + i * 10
+            self.surf.fill(pygame.Color(C.INDEX_COLOR[key]), (px + 6, yy + 2, 4, 4))
+            self.text(C.INDEX_LABEL[key], px + 14, yy, "#d9cfc4")
+            self.text(f"{fmt(state.indices[key])} {C.INDEX_UNIT[key]}", right, yy, C.C_TEXT, align="right")
+
+        # ---- próximo estágio
+        self.fill((255, 255, 255, 30), (px + 6, 55, inner, 1))
+        if nxt is None:
+            done = C.STAGE_COLOR[3]
+            label_w = self.text("PLANETA VERDE", px + 6, 59, done)
+            self.draw_check(px + 6 + label_w + 5, 59, done)   # a fonte não tem "✓": desenhamos um
+            return
+        label_w = self.text(f"PRÓXIMO: {nxt.name}", px + 6, 59, C.C_TEXT)
+        percent = f"{int(fraction * 100)}%"
+        pct_w = self.text(percent, right, 59, C.C_TI, align="right")
+        bar_x = px + 6 + label_w + 5
+        bar_w = right - pct_w - 5 - bar_x
+        self.surf.fill(pygame.Color("#4a3b2a"), (bar_x, 60, bar_w, 6))          # trilho (visível mesmo em 0%)
+        self.surf.fill(pygame.Color("#1b1411"), (bar_x + 1, 61, bar_w - 2, 4))
+        self.surf.fill(pygame.Color(C.C_TI), (bar_x + 1, 61, round((bar_w - 2) * fraction), 4))
+        if wrap_eta:
+            self.text(f"faltam {fmt(remaining)}", px + 6, 68, C.C_MUTED, self.body)
+            self.text_tilde(eta, px + 6, 80, C.C_MUTED)
+        else:
+            self.text_tilde(line2, px + 6, 68, C.C_MUTED)
+
+    def text_tilde(self, s: str, x: int, y: int, color: str) -> None:
+        """Texto da Pixelify com "~" desenhado à mão: em 11 px o til da fonte vira um borrão."""
+        parts = s.split("~")
+        for i, part in enumerate(parts):
+            if i > 0:
+                for dx, dy in [(0, 1), (1, 0), (2, 0), (3, 1), (4, 1), (5, 0)]:     # zigue-zague de 6×2
+                    self.surf.fill((0, 0, 0), (x + dx + 1, y + 6 + dy + 1, 1, 1))
+                    self.surf.fill(pygame.Color(color), (x + dx, y + 6 + dy, 1, 1))
+                x += 8
+            if part:
+                x += self.text(part, x, y, color, self.body)
+
+    def draw_check(self, x: int, y: int, color: str) -> None:
+        """Tique ✓ de pixels (7×6)."""
+        c = pygame.Color(color)
+        for dx, dy in [(0, 3), (1, 4), (2, 5), (3, 4), (4, 3), (5, 2), (6, 1), (1, 3), (2, 4), (3, 3), (4, 2), (5, 1), (6, 0)]:
+            self.surf.fill(c, (x + dx, y + dy, 1, 1))
 
     def draw_floaters(self, floaters: FloatingTexts, cam: tuple[int, int]) -> None:
         for text, x, y, color, life in floaters.items:
@@ -290,8 +343,8 @@ class UI:
             self.text("[E] CONTINUAR", dx + dw - 10, dy + dh - 13, C.C_TERMINAL, align="right")
 
     # ---- banner de estágio ----------------------------------------------------
-    # Vão livre no topo, entre o painel de O₂ (x 6–118) e o do Ti (x 334–474), em coordenadas da UI.
-    BANNER_GAP = (118, 334)
+    # Vão livre no topo, entre o painel de O₂ (x 6–118) e o do Ti, em coordenadas da UI.
+    BANNER_GAP = (118, TI_PANEL_X)
 
     def draw_banner(self, stage: int, alpha: float) -> None:
         """Faixa compacta no topo da tela (fora da área de jogo): título em cima, subtítulo embaixo."""

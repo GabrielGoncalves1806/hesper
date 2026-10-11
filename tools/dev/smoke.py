@@ -298,6 +298,7 @@ def main() -> None:
     bot.key(pygame.K_F2)
     bot.frames(1.0)
     assert s.stage == 2
+    s.indices["o2"] += 12_914 - s.ti          # exemplo do dono: Ti 12.914 = ~3% do estágio 2
     bot.key(pygame.K_d, hold=0.5)
     bot.shot("stage2.png")
     s.inventory.update(iron=40, silicon=30, ice=20)
