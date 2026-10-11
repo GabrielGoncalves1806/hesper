@@ -889,6 +889,226 @@ def make_drill_preview(spr: dict[str, Image.Image]) -> Image.Image:
     return out.resize((out.width * 6, out.height * 6), Image.NEAREST).convert("RGB")
 
 
+# ---------------------------------------------------------------- veios e drill automática (v2.2)
+
+VEIN_SOIL = (0, 0, 0, 72)       # terra remexida: escurece qualquer chão (1 nível de alpha)
+VEIN_PIT = (0, 0, 0, 128)       # miolo mais fundo, em volta dos cristais
+RUBBLE = ["#4a3f3a", "#6b5d55", "#8a7b70"]  # cascalho neutro, funciona nos 3 chãos
+
+VEIN_LAYOUT = {
+    # (x, base_y, w, h, tipo), de trás pra frente
+    "iron": [(17, 27, 9, 10, "point"), (27, 24, 11, 13, "point"), (38, 28, 8, 8, "point"),
+             (12, 36, 7, 7, "point"), (21, 40, 10, 11, "point"), (33, 42, 12, 12, "point"),
+             (44, 39, 7, 7, "point"), (27, 49, 8, 7, "point"), (17, 48, 6, 5, "point"), (40, 50, 6, 5, "point")],
+    "silicon": [(19, 28, 5, 13, "point"), (26, 26, 6, 18, "point"), (34, 27, 5, 12, "point"),
+                (40, 33, 4, 9, "point"), (13, 37, 4, 9, "point"), (22, 43, 6, 16, "point"),
+                (31, 45, 7, 20, "point"), (40, 47, 5, 12, "point"), (16, 49, 4, 7, "point"), (47, 45, 3, 6, "point")],
+    "ice": [(18, 28, 9, 9, "cube"), (29, 25, 10, 10, "cube"), (40, 31, 7, 7, "cube"),
+            (12, 38, 7, 7, "cube"), (21, 43, 11, 11, "cube"), (34, 44, 10, 10, "cube"),
+            (44, 46, 7, 7, "cube"), (28, 51, 7, 6, "cube"), (16, 51, 5, 5, "cube")],
+}
+
+
+def vein_mask(seed, rx, ry, cx=32, cy=36, wob=0.22):
+    ys, xs = np.mgrid[0:64, 0:64] + 0.5
+    ang = np.arctan2(ys - cy, xs - cx)
+    r = np.hypot((xs - cx) / rx, (ys - cy) / ry)
+    # borda orgânica: raio varia com o ângulo (soma de senos com fase da seed)
+    k = 1 + wob * (0.55 * np.sin(3 * ang + seed) + 0.3 * np.sin(5 * ang + seed * 2.1) + 0.15 * np.sin(9 * ang + seed * 0.7))
+    return r <= k
+
+
+def make_vein(name: str) -> Canvas:
+    O = ORES[name]
+    sd = {"iron": 1.3, "silicon": 2.9, "ice": 4.4}[name]
+    cv = Canvas(64, 64)
+    soil = vein_mask(sd, 29, 25)
+    pit = vein_mask(sd + 1, 19, 15, wob=0.18)
+    cv.a[soil] = VEIN_SOIL
+    cv.a[pit] = VEIN_PIT
+    # rachaduras saindo do miolo
+    for i in range(7):
+        a = sd + i * 0.9
+        x, y = 32 + math.cos(a) * 15, 36 + math.sin(a) * 12
+        for j in range(5 + i % 3):
+            xi, yi = int(x), int(y)
+            if 0 <= xi < 64 and 0 <= yi < 64 and soil[yi, xi]:
+                cv.px(xi, yi, C("#241c18"))
+            x += math.cos(a) * 1.4 + (hsh(i, j, 5) - 0.5)
+            y += math.sin(a) * 1.0
+    # cascalho na terra remexida
+    for i in range(26):
+        x, y = int(hsh(i, 1, int(sd * 10)) * 64), int(hsh(i, 2, int(sd * 10)) * 64)
+        if not soil[y, x] or pit[y, x]:
+            continue
+        w = 1 + (i % 3 == 0)
+        cv.rect(x, y, w + 1, 1, C(RUBBLE[1]))
+        cv.px(x, y, C(RUBBLE[2]))
+        cv.rect(x, y + 1, w + 1, 1, C(RUBBLE[0]))
+    # lascas do minério espalhadas (dão a cor do veio de longe)
+    for i in range(14):
+        x, y = int(hsh(i, 3, int(sd * 10)) * 64), int(hsh(i, 4, int(sd * 10)) * 64)
+        if not soil[y, x]:
+            continue
+        cv.rect(x, y, 2, 1, C(O["light"]))
+        cv.px(x + 1, y, C(O["dark"]))
+        cv.px(x, y + 1, C(O["line"]))
+        cv.px(x + 1, y + 1, C(O["line"]))
+    # afloramento: cristais grandes com contorno próprio
+    for x, yb, w, h, k in VEIN_LAYOUT[name]:
+        gem(cv, x, yb, w, h, O, k)
+    for x, y in ((24, 20), (41, 24), (11, 31), (50, 41), (30, 56)):
+        if soil[y, x]:
+            cv.px(x, y, C(O["hi"]))
+    return cv
+
+
+def make_machine_drill(f: int) -> Canvas:
+    """Drill automática 64x80, um quadro. Chão (centro dos 2x2) em y=48; base na última linha."""
+    cv = Canvas(64, 80)
+    sx, sy = SHAKE[f]
+    cv.ellipse(32, 73, 31, 6, SHADOW)
+    # buraco onde a broca entra
+    cv.ellipse(32, 60, 9, 3.5, C("#140f0d"))
+    cv.rect(26, 58, 12, 1, C("#2a201c"))
+
+    def L(draw):
+        cv.paste(drill_layer(64, 80, draw), 0, 0)
+
+    # moldura no chão (vazada: o veio aparece no meio)
+    def frame_back(p):
+        _dr(p, 6, 30, 52, 3, "s")
+        _dr(p, 6, 30, 52, 1, "l")
+        _dr(p, 4, 30, 3, 40, "s")
+        _dr(p, 4, 30, 1, 40, "l")
+        _dr(p, 57, 30, 3, 40, "d")
+        _dr(p, 59, 30, 1, 40, "g")
+    L(frame_back)
+
+    # pernas da torre (A), da carcaça até os cantos de trás
+    def struts(p):
+        for (x0, y0, x1, y1) in ((20, 22, 7, 31), (43, 22, 56, 31)):
+            n = max(abs(x1 - x0), abs(y1 - y0))
+            for i in range(n + 1):
+                x = round(x0 + (x1 - x0) * i / n)
+                y = round(y0 + (y1 - y0) * i / n)
+                _dr(p, x, y, 2, 2, "d")
+                _dp(p, x, y, "s")
+    L(struts)
+
+    # eixo e broca girando pra baixo
+    def shaft(p):
+        _dr(p, 29, 26 + sy, 6, 22, "s")
+        _dr(p, 29, 26 + sy, 1, 22, "l")
+        _dr(p, 34, 26 + sy, 1, 22, "d")
+        for yy in range(26, 48):
+            if (yy + f * 2) % 6 == 0:          # marcas do eixo correndo = giro
+                _dr(p, 30, yy + sy, 4, 1, "g")
+        _dr(p, 25, 45 + sy, 14, 3, "g")
+        _dr(p, 25, 45 + sy, 14, 1, "gl")
+    L(shaft)
+
+    def bit(p):
+        spiral_bit(p, "y+", 48 + sy, 32, 13, 5, f)
+    L(bit)
+    # lábio da frente do buraco (a ponta "entra" no chão)
+    cv.rect(25, 61, 14, 1, C("#2a201c"))
+    cv.rect(27, 62, 10, 1, C("#4a3f3a"))
+
+    # carcaça (cabeça da drill), estilo das máquinas: cilindro em faixas + faixa laranja + LED
+    def head(p):
+        x, y = 17 + sx, 3 + sy
+        p.rect(x, y + 3, 30, 22, C(INK))
+        p.bands(x + 1, y + 4, 20, [("#f4f6f8", 3), ("#e1e5ea", 12), ("#c8cdd4", 8), ("#abb2bb", 4), ("#8c949e", 2)])
+        for i, n in enumerate((6, 3, 1)):                    # tampa arredondada
+            p.rect(x + n, y + i, 30 - 2 * n, 1, C(INK))
+            if i:
+                p.rect(x + n + 1, y + i, 28 - 2 * n, 1, C("#eef1f4"))
+        p.rect(x + 1, y + 3, 28, 1, C("#e1e5ea"))
+        p.rect(x + 1, y + 13, 28, 4, C("#e2733a"))
+        p.rect(x + 1, y + 13, 28, 1, C("#f29a62"))
+        p.rect(x + 1, y + 16, 28, 1, C("#a8471f"))
+        p.rect(x + 1, y + 22, 28, 2, C("#6b717a"))
+        p.rect(x + 1, y + 22, 28, 1, C("#8c949e"))
+        p.rect(x + 4, y + 7, 2, 2, C("#7fd67a" if f % 2 == 0 else "#2f5a2c"))   # LED
+        p.px(x + 4, y + 7, C("#d6ffd0") if f % 2 == 0 else C("#2f5a2c"))
+        for i in range(3):                                   # grade
+            p.rect(x + 9, y + 6 + i * 2, 12, 1, C("#8c949e"))
+        p.rect(x + 23, y + 6, 4, 4, C("#34444f"))
+        p.rect(x + 24, y + 7, 2, 1, C("#59d0e6"))
+    L(head)
+
+    # caçamba com visor de nível (o jogo pinta o enchimento dentro do visor)
+    def hopper(p):
+        x, y = 44, 38
+        _dr(p, x, y, 15, 24, "s")
+        _dr(p, x, y, 15, 2, "w")
+        _dr(p, x, y, 1, 24, "l")
+        _dr(p, x + 14, y + 2, 1, 22, "d")
+        _dr(p, x, y + 4, 15, 2, "o")
+        _dr(p, x, y + 4, 15, 1, "oh")
+        p.rect(x + 3, y + 8, 9, 14, C(INK))                  # moldura do visor
+        p.rect(x + 4, y + 9, 7, 12, C("#14202b"))            # interior vazio (área do indicador)
+        p.rect(x + 4, y + 9, 1, 12, C("#1f3140"))
+        p.rect(x + 2, y + 23, 11, 1, C("#6b717a"))
+    L(hopper)
+
+    # trilho da frente e pés (por cima de tudo, mais perto da câmera)
+    def frame_front(p):
+        _dr(p, 4, 66, 56, 2, "l")
+        _dr(p, 4, 68, 56, 3, "d")
+        _dr(p, 4, 66, 56, 1, "w")
+        for fx in (2, 54):
+            _dr(p, fx, 64, 8, 9, "g")
+            _dr(p, fx, 64, 8, 2, "o")
+            _dr(p, fx, 64, 8, 1, "oh")
+            _dr(p, fx, 70, 8, 3, "gl")
+        for fx in (2, 54):
+            _dr(p, fx + 1, 27, 6, 6, "g")
+            _dr(p, fx + 1, 27, 6, 2, "o")
+    L(frame_front)
+    return cv
+
+
+# retângulo do indicador de nível dentro de cada quadro de 64x80 (x, y, w, h); enche de baixo pra cima
+DRILL_GAUGE = (48, 47, 7, 12)
+
+
+def make_machine_drill_sheet() -> Canvas:
+    sheet = Canvas(256, 80)
+    for f in range(4):
+        sheet.paste(make_machine_drill(f), f * 64, 0)
+    return sheet
+
+
+def make_icon_drill() -> Canvas:
+    cv = Canvas(16, 16)
+
+    def L(draw):
+        cv.paste(drill_layer(16, 16, draw), 0, 0)
+
+    def base(p):
+        _dr(p, 1, 12, 14, 2, "d")
+        _dr(p, 1, 12, 14, 1, "l")
+
+    def bit(p):
+        _dr(p, 7, 7, 2, 2, "g")
+        spiral_bit(p, "y+", 9, 8, 6, 2, 0)
+
+    def head(p):
+        _dr(p, 3, 1, 10, 6, "w")
+        _dr(p, 11, 1, 2, 6, "s")
+        _dr(p, 3, 4, 10, 2, "o")
+        _dr(p, 3, 4, 10, 1, "oh")
+        _dp(p, 4, 2, "led")
+        p.a[1, 3] = 0
+        p.a[1, 12] = 0
+    L(base)
+    L(bit)
+    L(head)
+    return cv
+
+
 # ---------------------------------------------------------------- cápsula
 
 def make_pod() -> Canvas:
@@ -1281,6 +1501,10 @@ def build_sprites() -> dict[str, Canvas]:
     for o in ("iron", "silicon", "ice"):
         out[f"ore_{o}.png"] = make_ore(o)
         out[f"icon_{o}.png"] = make_icon(o)
+    for o in ("iron", "silicon", "ice"):
+        out[f"vein_{o}.png"] = make_vein(o)
+    out["machine_drill.png"] = make_machine_drill_sheet()
+    out["icon_drill.png"] = make_icon_drill()
     out["pod.png"] = make_pod()
     out["machine_o2.png"] = m_o2(1)
     out["machine_heater.png"] = m_heater(1)
@@ -1350,6 +1574,13 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
     for c in ((20, 9), (21, 9), (22, 9), (20, 10), (22, 10), (20, 11), (21, 11), (22, 11)):
         g[c[1]][c[0]] = FL
     g[PILLAR[1]][PILLAR[0]] = RK
+    # veios 2x2 no chão (a água não cobre veio)
+    VEINS = {(9, 4): "iron", (20, 7): "silicon", (7, 8): "ice"}
+    vein_cells = set()
+    for (vx, vy) in VEINS:
+        for c in ((vx, vy), (vx + 1, vy), (vx, vy + 1), (vx + 1, vy + 1)):
+            g[c[1]][c[0]] = FL
+            vein_cells.add(c)
     # terminal: parede com chão embaixo, na borda esquerda de cima
     term = None
     for y in range(1, GH - 1):
@@ -1374,6 +1605,8 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
             if y > 0 and is_wall(g[y - 1][x]):
                 img.alpha_composite(shade, (px, py))
                 img.alpha_composite(shade_b, (px, py + 10))
+    for (vx, vy), ore in VEINS.items():          # veio = camada de chão, antes de tudo
+        img.alpha_composite(spr[f"vein_{ore}.png"], (vx * T, vy * T))
 
     # objetos ancorados no centro da base
     objs = []
@@ -1393,6 +1626,7 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
         obj("machine_melter_t2.png", 17 * T + 16, 10 * T)
         obj("machine_o2.png", 12 * T + 16, 11 * T)
         obj("machine_heater_t2.png", 15 * T + 16, 11 * T)
+        obj("machine_drill.png#0", 21 * T, 9 * T)        # drill em cima do veio de silício
     else:
         obj("machine_o2_t2.png", 11 * T + 16, 9 * T)
         obj("machine_heater_t2.png", 17 * T + 16, 8 * T)
@@ -1400,7 +1634,8 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
         obj("machine_o2_t2.png", 12 * T + 16, 11 * T)
         obj("machine_heater_t2.png", 15 * T + 16, 11 * T)
         occupied = {(11, 8), (17, 7), (17, 9), (12, 10), (15, 10), (14, 7), (15, 7), (14, 8), (15, 8),
-                    (20, 9), (21, 9), (22, 9), (14, 0), (14, 1)}
+                    (20, 9), (21, 9), (22, 9), (14, 0), (14, 1)} | vein_cells
+        obj("machine_drill.png#2", 21 * T, 9 * T)
         for y in range(GH):
             for x in range(GW):
                 if g[y][x] != FL or (x, y) in occupied:
@@ -1429,7 +1664,11 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
                      "green": spr["player_side.png"].transpose(Image.FLIP_LEFT_RIGHT)}[stage]
             img.alpha_composite(p, (ax - 16, ay - 32))
             return
-        s = spr[name]
+        if "#" in name:  # sheet de animação: recorta o quadro
+            n, fr = name.split("#")
+            s = spr[n].crop((int(fr) * 64, 0, int(fr) * 64 + 64, 80))
+        else:
+            s = spr[name]
         img.alpha_composite(s, (ax - s.width // 2, ay - s.height))
 
     # 2) linhas de cima pra baixo
@@ -1464,11 +1703,13 @@ GROUPS = [
     ("Parede (topo)", "tile", [f"wall_{s}_{v}.png" for s in STAGES for v in range(3)]),
     ("Água", "tile", [f"water_{s}.png" for s in STAGES]),
     ("Minérios (overlay)", "tile", ["ore_iron.png", "ore_silicon.png", "ore_ice.png"]),
-    ("Ícones", "icon", ["icon_iron.png", "icon_silicon.png", "icon_ice.png"]),
+    ("Veios no chão (2×2, overlay)", "tile", ["vein_iron.png", "vein_silicon.png", "vein_ice.png"]),
+    ("Ícones", "icon", ["icon_iron.png", "icon_silicon.png", "icon_ice.png", "icon_drill.png"]),
     ("Cápsula e terminal", "obj", ["pod.png", "terminal.png"]),
     ("Máquinas nv.1", "obj", ["machine_o2.png", "machine_heater.png", "machine_melter.png"]),
     ("Máquinas nv.2", "obj", ["machine_o2_t2.png", "machine_heater_t2.png", "machine_melter_t2.png"]),
     ("Plantas (estágio verde)", "obj", ["plant_bush.png", "plant_tree.png", "plant_flower.png"]),
+    ("Drill automática (4 quadros, animada a 8 fps ao lado)", "obj", ["machine_drill.png"]),
     ("Broca (4 quadros, animada a 12 fps ao lado)", "drill", ["drill_side.png", "drill_down.png", "drill_up.png"]),
 ]
 
@@ -1492,7 +1733,7 @@ def build_report(spr: dict[str, Image.Image]):
         ("Tiles · morto", [k for k in spr if k.endswith(".png") and "_dead" in k]),
         ("Tiles · névoa", [k for k in spr if "_mist" in k]),
         ("Tiles · verde", [k for k in spr if "_green" in k]),
-        ("Minérios e ícones", [k for k in spr if k.startswith(("ore_", "icon_"))]),
+        ("Minérios, veios e ícones", [k for k in spr if k.startswith(("ore_", "icon_", "vein_"))]),
         ("Astronauta e broca", [k for k in spr if k.startswith(("player", "drill"))]),
         ("Cápsula, máquinas e terminal", [k for k in spr if k.startswith(("pod", "machine", "terminal"))]),
         ("Plantas", [k for k in spr if k.startswith("plant_")]),
@@ -1515,7 +1756,7 @@ def build_report(spr: dict[str, Image.Image]):
             im = spr[n]
             s = scale[kind]
             extra = ""
-            if n.startswith(("player_walk", "drill_")):
+            if n.startswith(("player_walk", "drill_", "machine_drill")):
                 fw, fh = im.width // 4, im.height
                 cls = "anim fast" if n.startswith("drill_") else "anim"
                 extra = (f'<div class="{cls}" style="width:{fw * s}px;height:{fh * s}px;--end:-{im.width * s}px;'
@@ -1635,11 +1876,16 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v2.1</div>
+  <div class="eyebrow">Hesper · Designer · v2.2</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
   <div class="status"><span class="chip ok">{len(spr)} arquivos · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span></div>
-  <div class="v2"><b>v2.1 · o que mudou</b><ul>
+  <div class="v2"><b>v2.2 · o que mudou</b><ul>
+    <li><b>Veios no chão:</b> <code>vein_iron</code>, <code>vein_silicon</code> e <code>vein_ice</code> (64×64, 2×2 tiles). São overlays transparentes: um afloramento de cristais no mesmo idioma dos minérios da parede, em cima de uma mancha de terra remexida com borda orgânica, rachaduras, cascalho e lascas. A mancha é preto translúcido, então funciona sobre o chão dos 3 estágios.</li>
+    <li><b>Drill automática:</b> <code>machine_drill</code> (256×80, 4 quadros de 64×80). Tem uma moldura vazada sobre o veio, a cabeça no estilo das máquinas e um eixo com broca girando enterrada no chão. A caçamba tem um visor onde o jogo pinta o nível. Âncora e retângulo do indicador estão na tabela da seção da drill.</li>
+    <li><b>Ícone:</b> <code>icon_drill</code> (16×16). As prévias ganharam um veio de cada tipo; a drill aparece em cima do veio de silício na Névoa e no Verde (no Morto ela ainda não foi liberada).</li>
+  </ul></div>
+  <div class="v2" style="opacity:.75"><b>v2.1</b><ul>
     <li><b>Face da parede refeita</b> (mesmos 32×24): agora são blocos de rocha irregulares com estratos horizontais e fissuras diagonais, sem as juntas verticais que pareciam tábua.</li>
     <li><b>Regra de desenho nova:</b> o topo da parede sobe pra <code>y − 24</code>, a face fica em <code>y + 8</code>, e as linhas são desenhadas de cima pra baixo. As prévias mostram um túnel de 1 tile, um pilar isolado e o player meio escondido atrás dele.</li>
     <li><b>Broca nova:</b> <code>drill_side</code> (96×16), <code>drill_down</code> e <code>drill_up</code> (64×24), com 4 quadros de espiral girando e tremor de 1 px. Offsets e ordem de desenho estão na seção Broca.</li>
@@ -1654,6 +1900,15 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 <section><h2>Prévia das cenas (960×540, tamanho real)</h2><div class="pvs">{previews}</div></section>
 
 {"".join(groups_html)}
+
+<section><h2>Drill automática · pro Dev</h2>
+<div class="box dev"><table class="tb"><thead><tr><th>Item</th><th>Valor</th></tr></thead><tbody>
+<tr><td>Quadro</td><td><code>machine_drill.png</code>: 4 quadros de 64×80 na horizontal; quadro <code>f</code> = recorte <code>(64·f, 0, 64, 80)</code>. Tocar a ~8 fps enquanto trabalha; parada (cheia) = quadro 0 fixo.</td></tr>
+<tr><td>Âncora</td><td>Centro da base dos 2×2: <code>ax = (vx + 1)·32</code>, <code>ay = (vy + 2)·32</code>, com <code>(vx, vy)</code> = tile de cima/esquerda do veio. Blit em <code>(ax − 32, ay − 80)</code>. Os 64×64 de baixo do quadro casam com os 2×2; os 16 px de cima são a cabeça, que sobe pro tile de cima.</td></tr>
+<tr><td>Indicador de nível</td><td>Retângulo <code>(x, y, w, h) = {DRILL_GAUGE}</code> dentro do quadro. Encher de baixo pra cima: <code>altura = round(h · conteúdo/20)</code>, desenhar em <code>(x, y + h − altura, w, altura)</code> com a cor do minério (ferro <code>#e8a066</code>, silício <code>#c3d1e2</code>, gelo <code>#a6ecff</code>). Vazio já vem pintado de azul-escuro no PNG.</td></tr>
+<tr><td>Ordem de desenho</td><td>O veio é chão: desenha junto com o chão, antes de paredes e objetos, em <code>(vx·32, vy·32)</code>. A drill é objeto: entra na ordenação por <code>ay</code> com o resto. O veio continua visível pela moldura vazada.</td></tr>
+</tbody></table></div>
+</section>
 
 <section><h2>Broca · encaixe na mão</h2>
 <figure class="pv"><img src="drill_preview.png" width="1200" height="336" alt="Player com a broca nas 3 direções, 6×"><figcaption><b>Lado · baixo · cima</b><span>player parado + quadro 0 da broca, ampliado 6×</span></figcaption></figure>
