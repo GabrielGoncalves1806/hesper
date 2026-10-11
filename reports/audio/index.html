@@ -81,9 +81,10 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Hesper · report de som · v2</div>
+    <div class="eyebrow">Hesper · report de som · v3</div>
     <h1>Som do planeta</h1>
     <p class="lede">Os 19 arquivos do contrato de áudio da bíblia (§6), todos gerados por síntese procedural com seed fixa em <code>tools/audio/build_audio.py</code>. A estética é 8/16-bit refinada: osciladores limitados em banda, ruído filtrado, envelopes, varreduras de pitch e um reverb de cratera. Dá o play em cada um, os loops tocam em repetição pra tu ouvir a emenda.</p>
+    <div class="note" style="border-left-color:var(--ok)"><b style="color:var(--ok)">v3, o que mudou:</b> só os dois sons de mineração. O <code>mine_hit</code> deixou de ser "tambor": saiu o seno grave, agora é um "tchk" seco de 60 ms feito só de ruído (clique de 1–2 ms, rajada de 1–5 kHz, um "toc" pétreo amortecido de 600–1500 Hz e 2–3 lascas). O <code>mine_break</code> deixou de ser "latinha": saiu todo componente tonal e todo filtro estreito. Agora é estalo de rachadura, baque surdo de ruído abaixo de 350 Hz, pedaços e entulho caindo com filtros largos e corte aleatório por grão (0,8–4 kHz), em tempo irregular, e um rabo de poeira bem baixo. O resto é igual à v2.</div>
     <div class="note" style="border-left-color:var(--cyan)"><b style="color:var(--cyan)">v2, o que mudou:</b> ambientes refeitos pra soar mais espaciais. Saíram vento, chiado, chuva e poeira (a fatia de energia acima de 2,5 kHz caiu de −12 a −16 dB pra −35 a −66 dB do total) e saíram os pássaros e insetos do verde. Agora é drone/pad longo, reverb de cauda longa e brilhos lentos, e a diferença entre estágios vem da harmonia. O <code>mine_break</code> virou rocha esfarelando (impacto curto + cascalho caindo em tempo irregular, sem notas). O <code>pickup</code> virou um "poop" de bolha de 110 ms. O resto não mudou.</div>
     <div class="note"><b>Aviso honesto:</b> quem gerou esses sons não consegue ouvir. Tudo foi validado por análise (formato, duração, pico, loudness aproximado, espectro por banda e teste de clique na emenda dos loops), mas o julgamento estético final é do teu ouvido. Se algum som incomodar, diz qual e o que incomoda (agudo demais, longo demais, grave demais) que dá pra ajustar rápido: é só mexer num número do script e rodar de novo.</div>
     <div class="stats">
@@ -235,7 +236,7 @@ def trocar_ambiente(novo, atual_idx):
       <div class="box">
         <h3>Ritmo dos sfx</h3>
         <ul>
-          <li><code>mine_hit</code> tem 0,16 s, cabe folgado no intervalo de 0,25 s. No frame em que o tile quebra, toca <code>mine_break</code> no lugar do hit.</li>
+          <li><code>mine_hit</code> tem 0,06 s, cabe folgado no intervalo de 0,25 s. No frame em que o tile quebra, toca <code>mine_break</code> no lugar do hit.</li>
           <li><code>pickup</code> soa melhor ~60 ms depois do <code>mine_break</code>, pra não embolar o ataque dos dois.</li>
           <li>Passos: um a cada ~0,3 s andando, alternando 0 e 1.</li>
           <li><code>terminal_open</code>: vale baixar o ambiente pra ~60% enquanto o log tá aberto (o texto é o momento de mistério).</li>
@@ -277,10 +278,10 @@ def trocar_ambiente(novo, atual_idx):
 <script>
 const GROUPS = [
   { id:"mineracao", title:"Mineração", color:"#e8a066",
-    intro:"O som que o jogador mais vai ouvir. Prioridade: curto, grave o bastante pra ter peso, sem agudo que canse.",
+    intro:"O som que o jogador mais vai ouvir. Prioridade: curto, seco e sem nota nenhuma, pra não cansar.",
     items:[
-      ["mine_hit","A cada ~0,25 s enquanto segura o clique","Toc seco de ferramenta na rocha: um baque grave curto, um estalo e um tink metálico baixinho. Feito pra aguentar 500 repetições."],
-      ["mine_break","Quando o tile quebra","Rocha esfarelando: um impacto curto e depois cascalho caindo em tempo irregular, cada vez mais esparso. Só ruído filtrado, nada tonal."],
+      ["mine_hit","A cada ~0,25 s enquanto segura o clique","\"Tchk\" seco de ferramenta na pedra: clique rápido, rajada curta de ruído médio-agudo e duas ou três lascas. Sem grave e sem nota, pra aguentar 500 repetições."],
+      ["mine_break","Quando o tile quebra","Rocha se partindo: estalo da rachadura, baque surdo do bloco e pedras caindo em chão de terra, cada vez mais esparsas, com um pouco de poeira no final. Só ruído com filtros largos, nada tonal."],
       ["pickup","Ganhou recurso","Um \"poop\" de bolha: seno curto com o pitch subindo rápido. Discreto e gostoso de repetir."],
     ]},
   { id:"interface", title:"Interface", color:"#59d0e6",

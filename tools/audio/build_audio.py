@@ -288,38 +288,48 @@ def plink(rng, f0: float, dur: float = 0.06) -> np.ndarray:
 # sfx
 # ---------------------------------------------------------------------------
 
+def soft_sat(x: np.ndarray, drive: float) -> np.ndarray:
+    """Saturação suave (tanh) pra domar o pico de transientes de ruído. Em sinal
+    só de ruído não cria tom nenhum, só segura o pico e deixa o corpo aparecer."""
+    x = x / np.max(np.abs(x))
+    return np.tanh(drive * x) / np.tanh(drive)
+
+
 def sfx_mine_hit(rng):
+    """v3: ferramenta batendo em pedra, "tchk" seco. Só ruído com filtros de banda
+    larga (Q baixo, sem ressonância): nada de seno, nada de grave com pitch."""
     tr = Track()
-    tr.add(thump(rng, 230, 115, 0.018, 0.045, 0.16), 0, 1.0)            # "toc" grave da rocha
-    tr.add(noise_burst(rng, 1300, 4200, 0.0005, 0.009, 0.06), 0, 0.7)  # estalo do impacto
-    tr.add(noise_burst(rng, 350, 1400, 0.001, 0.035, 0.14), 0.002, 0.35)  # cascalho
-    tr.add(chip_note(1180, 0.05, "tri", 5000, decay=0.018, release=0.01), 0, 0.18)  # "tink" da ferramenta
-    return tr.render()
+    tr.add(noise_burst(rng, 2000, 8000, 0.0002, 0.0005, 0.004, order=1), 0, 0.7)        # clique 1-2 ms
+    tr.add(noise_burst(rng, 1000, 5000, 0.0004, 0.011, 0.06, order=2), 0, 0.8)          # rajada 1-5 kHz
+    tr.add(noise_burst(rng, 600, 1500, 0.0004, 0.005, 0.03, order=1), 0, 0.7)          # "toc" pétreo amortecido
+    for _ in range(int(rng.integers(2, 4))):                                            # lascas
+        tr.add(noise_burst(rng, 1500, 6000, 0.0002, rng.uniform(0.0012, 0.0025), 0.012, order=2),
+               rng.uniform(0.014, 0.045), rng.uniform(0.2, 0.35))
+    return soft_sat(tr.render(), 2.0)
 
 
 def sfx_mine_break(rng):
-    """v2: rocha esfarelando. Impacto curto de ruído e depois cascalho caindo em tempo
-    irregular (processo de Poisson com taxa caindo), sem notas tonais."""
+    """v3: rocha se partindo e desmoronando em chão de terra. Zero componente tonal:
+    só ruído com filtros de 1ª ordem (Q baixo), cortes aleatórios por grão."""
     tr = Track()
-    tr.add(noise_burst(rng, 180, 2800, 0.0008, 0.03, 0.15), 0, 1.0)     # impacto
-    tr.add(thump(rng, 110, 55, 0.02, 0.05, 0.2), 0, 0.45)                # peso, curto
-    for _ in range(5):                                                   # pedaços maiores
-        c = rng.uniform(400, 1200)
-        tr.add(noise_burst(rng, c * 0.5, c * 2, 0.0005, rng.uniform(0.006, 0.014), 0.05),
-               rng.uniform(0.01, 0.12), rng.uniform(0.3, 0.55))
-    t = 0.03
-    while True:                                                          # cascalho fino
-        rate = 140 * np.exp(-t / 0.18) + 12
-        t += rng.exponential(1 / rate)
-        if t > 0.55:
+    tr.add(noise_burst(rng, 300, 10000, 0.0002, 0.003, 0.02, order=1), 0, 0.45)          # estalo da rachadura
+    tr.add(noise_burst(rng, None, 350, 0.002, 0.04, 0.22, order=2), 0.002, 1.6)         # baque surdo do bloco
+    for _ in range(5):                                                                  # pedaços maiores
+        hi = rng.uniform(600, 1500)
+        tr.add(noise_burst(rng, hi / 5, hi, 0.0005, rng.uniform(0.008, 0.015), 0.06, order=1),
+               rng.uniform(0.02, 0.14), rng.uniform(0.6, 0.9))
+    t = 0.015
+    while True:                                                                         # entulho caindo
+        t += rng.exponential(1 / (160 * np.exp(-t / 0.15) + 10))
+        if t > 0.6:
             break
-        c = rng.uniform(1200, 5500)
-        amp = 0.45 * np.exp(-t / 0.22) * rng.uniform(0.3, 1.0)
-        tr.add(noise_burst(rng, c * 0.6, c * 1.5, 0.0003, rng.uniform(0.0015, 0.005), 0.02), t, amp)
-    n = ns(0.5)                                                          # areia escorrendo
-    sand = filt(rng.standard_normal(n), 1500, 6000) * bump(n, 0.12) * np.exp(-tvec(n) / 0.2)
-    tr.add(sand, 0.03, 0.07)
-    return reverb(tr.render(), rng, decay=0.35, mix=0.12, lp=4000)
+        hi = rng.uniform(800, 4000)
+        amp = np.exp(-t / 0.2) * rng.uniform(0.3, 0.9)
+        tr.add(noise_burst(rng, hi / 4, hi, 0.0003, rng.uniform(0.0015, 0.006), 0.025, order=1), t, amp)
+    n = ns(0.6)                                                                         # rabo de poeira
+    dust = filt(rng.standard_normal(n), 300, 3000, 1) * np.minimum(1, tvec(n) / 0.03) * np.exp(-tvec(n) / 0.25)
+    tr.add(dust, 0.02, 0.035)
+    return reverb(soft_sat(tr.render(), 2.5), rng, decay=0.3, mix=0.1, lp=4000)
 
 
 def sfx_pickup(rng):
