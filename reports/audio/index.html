@@ -74,6 +74,13 @@ td code,p code,li code{font:500 13px var(--f-mono);color:var(--cyan)}
 .box ul{padding-left:18px;margin:8px 0 0}
 pre{background:#100c0a;border:1px solid var(--line);padding:12px 14px;overflow-x:auto;font:400 12.5px/1.55 var(--f-mono);color:#e8dccf;margin:10px 0 0}
 .pass{color:var(--ok)} .warn{color:var(--gold)}
+.pick{border:1px solid var(--gold);background:linear-gradient(180deg,#2a1f14,var(--panel));padding:20px;margin-top:40px}
+.pick h2{color:var(--gold)}
+.pick .lede2{color:var(--muted);margin:4px 0 16px;max-width:75ch}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:400 11px var(--f-label);text-transform:uppercase;letter-spacing:.05em;background:var(--panel2);color:var(--fg);border:1px solid var(--line);padding:6px 10px;cursor:pointer}
+.btn:hover{border-color:var(--gold);color:var(--gold)}
+.tag.src{color:var(--gold);border-color:#5a4524}
 footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
 @media (max-width:760px){.stages{grid-template-columns:1fr}}
 </style>
@@ -81,9 +88,10 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Hesper · report de som · v3</div>
+    <div class="eyebrow">Hesper · report de som · v4</div>
     <h1>Som do planeta</h1>
     <p class="lede">Os 19 arquivos do contrato de áudio da bíblia (§6), todos gerados por síntese procedural com seed fixa em <code>tools/audio/build_audio.py</code>. A estética é 8/16-bit refinada: osciladores limitados em banda, ruído filtrado, envelopes, varreduras de pitch e um reverb de cratera. Dá o play em cada um, os loops tocam em repetição pra tu ouvir a emenda.</p>
+    <div class="note" style="border-left-color:var(--gold)"><b>v4:</b> nada oficial mudou. Tem 6 candidatas novas pro <code>mine_hit</code> (3 sintéticas mais rochosas e 3 gravadas do Kenney, CC0) e uma bônus pro <code>mine_break</code>, lado a lado com a v3 em <a href="#escolha">Escolha o som de mineração</a>.</div>
     <div class="note" style="border-left-color:var(--ok)"><b style="color:var(--ok)">v3, o que mudou:</b> só os dois sons de mineração. O <code>mine_hit</code> deixou de ser "tambor": saiu o seno grave, agora é um "tchk" seco de 60 ms feito só de ruído (clique de 1–2 ms, rajada de 1–5 kHz, um "toc" pétreo amortecido de 600–1500 Hz e 2–3 lascas). O <code>mine_break</code> deixou de ser "latinha": saiu todo componente tonal e todo filtro estreito. Agora é estalo de rachadura, baque surdo de ruído abaixo de 350 Hz, pedaços e entulho caindo com filtros largos e corte aleatório por grão (0,8–4 kHz), em tempo irregular, e um rabo de poeira bem baixo. O resto é igual à v2.</div>
     <div class="note" style="border-left-color:var(--cyan)"><b style="color:var(--cyan)">v2, o que mudou:</b> ambientes refeitos pra soar mais espaciais. Saíram vento, chiado, chuva e poeira (a fatia de energia acima de 2,5 kHz caiu de −12 a −16 dB pra −35 a −66 dB do total) e saíram os pássaros e insetos do verde. Agora é drone/pad longo, reverb de cauda longa e brilhos lentos, e a diferença entre estágios vem da harmonia. O <code>mine_break</code> virou rocha esfarelando (impacto curto + cascalho caindo em tempo irregular, sem notas). O <code>pickup</code> virou um "poop" de bolha de 110 ms. O resto não mudou.</div>
     <div class="note"><b>Aviso honesto:</b> quem gerou esses sons não consegue ouvir. Tudo foi validado por análise (formato, duração, pico, loudness aproximado, espectro por banda e teste de clique na emenda dos loops), mas o julgamento estético final é do teu ouvido. Se algum som incomodar, diz qual e o que incomoda (agudo demais, longo demais, grave demais) que dá pra ajustar rápido: é só mexer num número do script e rodar de novo.</div>
@@ -99,6 +107,13 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
       <a href="#direcao">Direção de ambientação</a><a href="#integracao">Integração</a><a href="#checagens">Checagens</a>
     </nav>
   </header>
+
+
+  <section class="pick" id="escolha">
+    <div class="sec-head" style="border-color:#5a4524"><span class="num">v4</span><h2>Escolha o som de mineração</h2>
+      <p>O <code>mine_hit.wav</code> oficial continua sendo o da v3 até tu escolher. Opção A é síntese nova, mais rochosa: corpo médio de ruído, rajada de microestalos e pedrisco depois, sem seno nenhum. Opção B são gravações reais do pack Impact Sounds do Kenney (CC0, domínio público), recortadas e niveladas no mesmo volume. Os botões tocam 4 golpes a cada 0,25 s, como segurando o clique, e o segundo botão termina com a quebra. Diz qual código tu quer (ex.: "A2") que eu promovo pra oficial.</p></div>
+    <div class="cards" id="cands"></div>
+  </section>
 
   <div id="groups"></div>
 
@@ -371,6 +386,49 @@ GROUPS.forEach((g, gi) => {
     checks.appendChild(tr);
   });
   root.appendChild(sec);
+});
+
+// ---- v4: candidatas de mineração ----
+const CANDS = [
+  ["mine_hit", "mine_hit.wav", "v3 atual (oficial)", "Síntese v3", "O \"tchk\" seco de ruído agudo. Fica aqui só pra comparar."],
+  ["cand:mine_hit_A1", "candidates/mine_hit_A1.wav", "A1 · pedra equilibrada", "Síntese v4", "Toc de ruído com corpo médio (300 Hz a 2 kHz), rajada de microestalos e pedrisco curto. Sem tom nenhum."],
+  ["cand:mine_hit_A2", "candidates/mine_hit_A2.wav", "A2 · pedra pesada", "Síntese v4", "Mais corpo e mais grãos, mais escura e densa. Bloco grosso de rocha."],
+  ["cand:mine_hit_A3", "candidates/mine_hit_A3.wav", "A3 · pedra seca", "Síntese v4", "Mais curta e mais crocante, menos peso. Fica entre a v3 e a A1."],
+  ["cand:mine_hit_B1", "candidates/mine_hit_B1.wav", "B1 · Kenney cru", "Kenney · impactMining_001 · CC0", "Picareta de verdade, quase sem tratamento. Tem bastante grave e um brilho metálico leve da ferramenta."],
+  ["cand:mine_hit_B2", "candidates/mine_hit_B2.wav", "B2 · Kenney sem boom", "Kenney · impactMining_004 · CC0", "Gravação com o grave cortado (passa-alta 180 Hz) pra não virar tambor. Mais pedra, menos baque."],
+  ["cand:mine_hit_B3", "candidates/mine_hit_B3.wav", "B3 · Kenney meio-termo", "Kenney · impactMining_002 · CC0", "Outra gravação, com corte de grave mais leve (100 Hz)."],
+  ["cand:mine_break_B1", "candidates/mine_break_B1.wav", "Bônus · quebra B1", "Kenney impactMining_003 (CC0) + v3", "Pra quebra: golpe gravado do Kenney por cima do desmoronamento sintético da v3. Compara com o mine_break oficial nos botões \"+ quebra\"."],
+];
+const BREAK_OFFICIAL = "../../assets/audio/mine_break.wav";
+function playBurst(src, times, then){
+  for (let i = 0; i < times; i++) setTimeout(() => { new Audio(src).play().catch(() => {}); }, i * 250);
+  if (then) setTimeout(() => { new Audio(then).play().catch(() => {}); }, times * 250);
+}
+const candRoot = document.getElementById("cands");
+CANDS.forEach(([key, file, title, src, desc]) => {
+  const m = META[key] || {};
+  const url = "../../assets/audio/" + file;
+  const isBreak = file.includes("mine_break");
+  const card = document.createElement("article");
+  card.className = "card";
+  card.innerHTML = `
+    <div class="card-top"><span class="fname">${title}</span>
+      <span class="tags"><span class="tag src">${src}</span><span class="tag">${fmtDur(m.duration)}</span><span class="tag">pico ${fmtDb(m.peak_db)}</span></span></div>
+    <canvas class="wave" aria-hidden="true"></canvas>
+    <audio controls preload="auto" src="${url}"></audio>
+    <div class="btns">${isBreak
+      ? `<button class="btn" data-a>4× v3 + esta quebra</button><button class="btn" data-b>4× v3 + quebra oficial</button>`
+      : `<button class="btn" data-a>▶ minerar 4×</button><button class="btn" data-b>4× + quebra</button>`}</div>
+    <div class="when">${file}</div>
+    <p class="what">${desc}</p>`;
+  candRoot.appendChild(card);
+  const cv = card.querySelector("canvas");
+  const color = key === "mine_hit" ? "#a8968a" : (src.startsWith("Kenney") ? "#59d0e6" : "#e8a066");
+  requestAnimationFrame(() => drawWave(cv, m.wave, color));
+  window.addEventListener("resize", () => drawWave(cv, m.wave, color));
+  const hitV3 = "../../assets/audio/mine_hit.wav";
+  card.querySelector("[data-a]").onclick = () => isBreak ? playBurst(hitV3, 4, url) : playBurst(url, 4);
+  card.querySelector("[data-b]").onclick = () => isBreak ? playBurst(hitV3, 4, BREAK_OFFICIAL) : playBurst(url, 4, BREAK_OFFICIAL);
 });
 // só uma faixa tocando por vez
 document.addEventListener("play", e => {

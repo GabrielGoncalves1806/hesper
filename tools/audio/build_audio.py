@@ -738,6 +738,107 @@ def waveform_peaks(xi: np.ndarray, bins: int = 160) -> list[float]:
     return [round(float(x[a:b].max()) if b > a else 0.0, 3) for a, b in zip(edges[:-1], edges[1:])]
 
 
+# ---------------------------------------------------------------------------
+# v4: candidatas pro som de mineração (o dono escolhe no report)
+# ---------------------------------------------------------------------------
+
+CAND_DIR = OUT_DIR / "candidates"
+VENDOR = Path(__file__).resolve().parent / "vendor" / "kenney_impact" / "Audio"
+
+
+def rock_hit(rng, body=(300, 2000), body_decay=0.018, grains=30, spread=0.025, crumble=6,
+             low=0.3, bright=6000.0):
+    """Impacto de pedra: "toc/crack" de ruído com corpo médio (banda larga, sem tom),
+    rajada de microestalos sobrepostos e um pedrisco curto esmigalhando depois."""
+    tr = Track()
+    tr.add(noise_burst(rng, 1500, bright + 1000, 0.0002, 0.0018, 0.012, order=1), 0, 0.45)   # crack
+    tr.add(noise_burst(rng, body[0], body[1], 0.0005, body_decay, 0.09, order=2), 0, 1.0)     # corpo médio
+    tr.add(noise_burst(rng, None, 420, 0.001, 0.014, 0.07, order=2), 0, low)                  # peso (ruído, não seno)
+    for _ in range(grains):                                                                   # microestalos
+        at = float(rng.gamma(1.5, spread / 3))
+        hi = rng.uniform(1200, bright)
+        tr.add(noise_burst(rng, hi / 4, hi, 0.0002, rng.uniform(0.0005, 0.002), 0.008, order=1),
+               at, rng.uniform(0.1, 0.35) * np.exp(-at / 0.03))
+    for _ in range(crumble):                                                                  # pedrisco
+        at = rng.uniform(0.035, 0.13)
+        hi = rng.uniform(1000, 4000)
+        tr.add(noise_burst(rng, hi / 4, hi, 0.0003, rng.uniform(0.0015, 0.004), 0.015, order=1),
+               at, rng.uniform(0.08, 0.2) * np.exp(-(at - 0.035) / 0.06))
+    return soft_sat(reverb(tr.render(), rng, decay=0.15, mix=0.08, lp=3500), 2.0)
+
+
+def cand_A1(rng):
+    return rock_hit(rng)
+
+
+def cand_A2(rng):
+    return rock_hit(rng, body=(250, 1500), body_decay=0.025, grains=40, crumble=9, low=0.45, bright=4500)
+
+
+def cand_A3(rng):
+    return rock_hit(rng, body=(400, 2500), body_decay=0.012, grains=22, spread=0.015, crumble=4,
+                    low=0.2, bright=7000)
+
+
+def kenney(file: str):
+    """Decodifica um .ogg do pack do Kenney (CC0) pra mono 44,1 kHz via ffmpeg.
+    Se o pack ou o ffmpeg não existirem, devolve None e a candidata é pulada."""
+    import shutil
+    import subprocess
+    p = VENDOR / f"{file}.ogg"
+    if not p.exists() or not shutil.which("ffmpeg"):
+        return None
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(p), "-ac", "1", "-ar", str(SR),
+                          "-f", "s16le", "-"], capture_output=True, check=True).stdout
+    return np.frombuffer(raw, "<i2").astype(float) / 32768
+
+
+def kenney_cut(file: str, trim: float, hp=None):
+    x = kenney(file)
+    if x is None:
+        return None
+    x = x[: ns(trim)].copy()
+    if hp:
+        x = filt(x, hp, None, 2)
+    fo = ns(0.04)
+    x[-fo:] *= np.linspace(1, 0, fo) ** 2
+    return x
+
+
+def cand_B1(rng):
+    return kenney_cut("impactMining_001", 0.28, hp=40)
+
+
+def cand_B2(rng):
+    return kenney_cut("impactMining_004", 0.25, hp=180)
+
+
+def cand_B3(rng):
+    return kenney_cut("impactMining_002", 0.25, hp=100)
+
+
+def cand_break_B1(rng):
+    k = kenney_cut("impactMining_003", 0.55, hp=40)
+    if k is None:
+        return None
+    tr = Track()
+    tr.add(k, 0, 1.0)
+    tr.add(sfx_mine_break(rng_for("mine_break")), 0.01, 0.6)
+    return tr.render()
+
+
+CANDIDATES = {
+    # nome: (função, alvo de loudness)
+    "mine_hit_A1": (cand_A1, -22.0),
+    "mine_hit_A2": (cand_A2, -22.0),
+    "mine_hit_A3": (cand_A3, -22.0),
+    "mine_hit_B1": (cand_B1, -22.0),
+    "mine_hit_B2": (cand_B2, -22.0),
+    "mine_hit_B3": (cand_B3, -22.0),
+    "mine_break_B1": (cand_break_B1, -17.0),
+}
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
@@ -763,6 +864,22 @@ def main() -> None:
             meta[name]["seam_lsb"] = jump
             meta[name]["seam_pct"] = round(float(100 * np.mean(adj < jump)), 1)
         print(f"{name + '.wav':<20}{len(xi) / SR:>8.2f}{peak_db:>11.2f}{loud:>9.1f}")
+    CAND_DIR.mkdir(parents=True, exist_ok=True)
+    for name, (fn, target) in CANDIDATES.items():
+        x = fn(rng_for(name))
+        if x is None:
+            print(f"{name}: pulada (pack do Kenney ou ffmpeg ausente)")
+            continue
+        xi = write_wav(CAND_DIR / f"{name}.wav", finalize(x, False, target))
+        xf = xi.astype(float) / 32768
+        peak_db = 20 * np.log10(np.max(np.abs(xf)) + 1e-12)
+        loud = loudness(xf, False)
+        meta["cand:" + name] = {
+            "file": f"candidates/{name}.wav", "loop": False, "duration": round(len(xi) / SR, 3),
+            "peak_db": round(float(peak_db), 2), "loudness_db": round(float(loud), 1),
+            "wave": waveform_peaks(xi),
+        }
+        print(f"{'candidates/' + name + '.wav':<20}{len(xi) / SR:>8.2f}{peak_db:>11.2f}{loud:>9.1f}")
     (REPORT_DIR / "audio_meta.js").write_text(
         "// gerado por tools/audio/build_audio.py, não editar\nwindow.AUDIO_META = "
         + json.dumps(meta, ensure_ascii=False) + ";\n",

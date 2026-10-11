@@ -83,6 +83,18 @@ def main() -> int:
                 fails.append(f"{name}: emenda suspeita ({seam})")
         print(f"{name:<18}{f'{sr}/{bits}b/{ch}ch':>14}{len(x) / sr:>7.2f}{peak:>8.2f}{rms:>8.1f}"
               f"{centroid:>7.0f}  {bands:<46}{seam}")
+    # candidatas (fora do contrato): só formato, pico e clipping
+    cands = sorted((AUDIO / "candidates").glob("*.wav"))
+    if cands:
+        print("\ncandidatas:")
+    for path in cands:
+        (sr, bits, ch), d = load(path)
+        x = d.astype(float) / 32768
+        peak = 20 * np.log10(np.max(np.abs(x)) + 1e-12)
+        bad = (sr, bits, ch) != (44100, 16, 1) or peak > -1.0 or np.any(np.abs(d.astype(int)) >= 32767)
+        if bad:
+            fails.append(f"candidates/{path.name}: formato/pico")
+        print(f"  {path.name:<20}{f'{sr}/{bits}b/{ch}ch':>14}{len(x) / sr:>7.2f}{peak:>8.2f}  {'OK' if not bad else 'FALHOU'}")
     print()
     if fails:
         print("FALHAS:")
