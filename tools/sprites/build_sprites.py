@@ -1978,6 +1978,13 @@ def make_ui_slot() -> Canvas:
 
 
 def build_pending() -> dict[str, Canvas]:
+    """Assets novos aguardando aprovação do dono: vão pra assets/sprites/_pending/.
+    Depois de aprovados, saem daqui e entram em build_v02()/build_sprites() (pasta oficial)."""
+    return {}
+
+
+def build_v02() -> dict[str, Canvas]:
+    """Sprites do v0.2, aprovados na v3.2."""
     return {
         "chest.png": make_chest(False),
         "chest_open.png": make_chest(True),
@@ -2024,6 +2031,7 @@ def build_sprites() -> dict[str, Canvas]:
     out["plant_bush.png"] = make_bush()
     out["plant_tree.png"] = make_tree()
     out["plant_flower.png"] = make_flower()
+    out.update(build_v02())
     return out
 
 
@@ -2165,7 +2173,7 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
     def draw_obj(ay, name, ax):
         if name.startswith("landed:"):
             _, lx, ly = name.split(":")
-            img.alpha_composite(spr["_pending/drone.png"].crop((0, 0, 16, 16)), (int(lx) - 8, int(ly) - 10))
+            img.alpha_composite(spr["drone.png"].crop((0, 0, 16, 16)), (int(lx) - 8, int(ly) - 10))
             return
         if name.startswith("player"):
             sh = Canvas(20, 7)
@@ -2188,12 +2196,12 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
 
     # v0.2 (pendentes): baú, painéis solares e estação de drones na base
     for sx_ in (11, 12, 13):
-        obj("_pending/solar_panel.png", sx_ * T + 16, 6 * T)
-    obj("_pending/chest_open.png" if stage == "green" else "_pending/chest.png", 15 * T + 16, 6 * T)
+        obj("solar_panel.png", sx_ * T + 16, 6 * T)
+    obj("chest_open.png" if stage == "green" else "chest.png", 15 * T + 16, 6 * T)
     flying = []
     if stage != "dead":                       # a estação só libera na Névoa
         st_ax, st_ay = 17 * T, 6 * T
-        obj("_pending/drone_station.png", st_ax, st_ay)
+        obj("drone_station.png", st_ax, st_ay)
         sx0, sy0 = st_ax - 32, st_ay - 72
         # um drone pousado no pad 1; o outro está voando
         objs.append((st_ay + 0.5, f"landed:{sx0 + STATION_PADS[0][0]}:{sy0 + STATION_PADS[0][1]}", 0))
@@ -2223,7 +2231,7 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
         sh = Canvas(14, 6)
         sh.ellipse(7, 3, 6, 2.5, SHADOW)
         img.alpha_composite(sh.image(), (dx - 7, dy + 18 - 3))
-        img.alpha_composite(spr["_pending/drone.png"].crop((f * 16, 0, f * 16 + 16, 16)), (dx - 8, dy - 8))
+        img.alpha_composite(spr["drone.png"].crop((f * 16, 0, f * 16 + 16, 16)), (dx - 8, dy - 8))
     return img.crop((0, 0, 960, 540)).convert("RGB")
 
 
@@ -2244,9 +2252,9 @@ GROUPS = [
     ("Máquinas nv.1", "obj", ["machine_o2.png", "machine_heater.png", "machine_melter.png"]),
     ("Máquinas nv.2", "obj", ["machine_o2_t2.png", "machine_heater_t2.png", "machine_melter_t2.png"]),
     ("Plantas (estágio verde)", "obj", ["plant_bush.png", "plant_tree.png", "plant_flower.png"]),
-    ("v0.2 · baú, painel e estação (pendentes)", "obj", ["_pending/chest.png", "_pending/chest_open.png", "_pending/solar_panel.png", "_pending/drone_station.png"]),
-    ("v0.2 · drone (4 quadros, animado a 15 fps ao lado)", "drone", ["_pending/drone.png"]),
-    ("v0.2 · ícones e slot (pendentes)", "icon", ["_pending/icon_chest.png", "_pending/icon_solar.png", "_pending/icon_drone_station.png", "_pending/ui_slot.png"]),
+    ("v0.2 · baú, painel e estação", "obj", ["chest.png", "chest_open.png", "solar_panel.png", "drone_station.png"]),
+    ("v0.2 · drone (4 quadros, animado a 15 fps ao lado)", "drone", ["drone.png"]),
+    ("v0.2 · ícones e slot", "icon", ["icon_chest.png", "icon_solar.png", "icon_drone_station.png", "ui_slot.png"]),
     ("Drill automática (4 quadros, animada a 8 fps ao lado)", "obj", ["machine_drill.png"]),
     ("Broca (4 quadros, animada a 12 fps ao lado)", "drill", ["drill_side.png", "drill_down.png", "drill_up.png"]),
 ]
@@ -2275,11 +2283,14 @@ def build_report(spr: dict[str, Image.Image]):
         ("Astronauta e broca", [k for k in spr if k.startswith(("player", "drill"))]),
         ("Cápsula, máquinas e terminal", [k for k in spr if k.startswith(("pod", "machine", "terminal"))]),
         ("Plantas", [k for k in spr if k.startswith("plant_")]),
-        ("v0.2 · pendentes", [k for k in spr if k.startswith("_pending/")]),
+        ("v0.2 · baú, painel, estação, drone, ícones e slot", [k for k in build_v02()]),
+        ("Pendentes", [k for k in spr if k.startswith("_pending/")]),
     ]
     total = set()
     pal_html = []
     for title, names in pal_sets:
+        if not names:
+            continue
         cols = colors_of([spr[n] for n in names])
         total.update(cols)
         sw = "".join(
@@ -2295,9 +2306,9 @@ def build_report(spr: dict[str, Image.Image]):
             im = spr[n]
             s = scale[kind]
             extra = ""
-            if n.startswith(("player_walk", "drill_", "machine_drill", "_pending/drone.png")):
+            if n.startswith(("player_walk", "drill_", "machine_drill", "drone.png")):
                 fw, fh = im.width // 4, im.height
-                cls = "anim fast" if n.startswith(("drill_", "_pending/drone")) else "anim"
+                cls = "anim fast" if n.startswith(("drill_", "drone")) else "anim"
                 extra = (f'<div class="{cls}" style="width:{fw * s}px;height:{fh * s}px;--end:-{im.width * s}px;'
                          f'background-image:url(../../assets/sprites/{n});background-size:{im.width * s}px {fh * s}px"></div>')
             cards.append(
@@ -2328,12 +2339,12 @@ def build_report(spr: dict[str, Image.Image]):
     cmp_html = "".join(cmp_items)
     chest_items = []
     for n in ("chest", "chest_open", "icon_chest"):
-        im = spr[f"_pending/{n}.png"]
+        im = spr[f"{n}.png"]
         sc = 8 if n.startswith("icon") else 5
         w, h = im.width * sc, im.height * sc
         b_html = (f'<div>antes<img src="before/{n}_v30.png" width="{w}" height="{h}" alt="{n} antes"></div>'
                   if (REP / "before" / f"{n}_v30.png").exists() else "")
-        chest_items.append(f'<figure><div class="pair">{b_html}<div>depois<img src="../../assets/sprites/_pending/{n}.png" width="{w}" height="{h}" alt="{n} depois"></div></div><figcaption>_pending/{n}.png · {sc}×</figcaption></figure>')
+        chest_items.append(f'<figure><div class="pair">{b_html}<div>depois<img src="../../assets/sprites/{n}.png" width="{w}" height="{h}" alt="{n} depois"></div></div><figcaption>{n}.png · {sc}×</figcaption></figure>')
     chest_cmp = "".join(chest_items)
     n_pending = sum(1 for k in spr if k.startswith("_pending/"))
     n_official = len(spr) - n_pending
@@ -2442,11 +2453,24 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v3.1 (v0.2)</div>
+  <div class="eyebrow">Hesper · Designer · v3.2 (v0.2)</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
   <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span></div>
-  <div class="v2"><b>v3.1 (v0.2) · baú refeito</b><ul>
+  <div class="v2"><b>v3.2 · sprites do v0.2 aprovados</b><ul>
+    <li>O dono aprovou os 9 sprites do v0.2, e eles foram promovidos pra pasta oficial <code>assets/sprites/</code>:
+      <ul>
+        <li><code>chest</code> e <code>chest_open</code>;</li>
+        <li><code>solar_panel</code>;</li>
+        <li><code>drone_station</code> e <code>drone</code>;</li>
+        <li><code>icon_chest</code>, <code>icon_solar</code> e <code>icon_drone_station</code>;</li>
+        <li><code>ui_slot</code>.</li>
+      </ul>
+      Os bytes são os mesmos da v3.1 (md5 conferido).</li>
+    <li>O contrato oficial agora tem 67 arquivos (58 + 9). A pasta <code>_pending/</code> foi removida; o script volta a criá-la só quando houver algo novo pra aprovar.</li>
+    <li>As âncoras e os pontos de pouso estão na tabela "v0.2 · pro Dev" e não mudaram.</li>
+  </ul></div>
+  <div class="v2" style="opacity:.75"><b>v3.1 (v0.2) · baú refeito</b><ul>
     <li><b>Novo baú:</b> <code>chest</code>, <code>chest_open</code> e <code>icon_chest</code> agora são um container de carga industrial: bloco de metal robusto, um pouco mais alto que largo.
       <ul>
         <li>Fechado: topo com nervuras e engates de empilhar, cantoneiras reforçadas com rebites e pés. A frente inteira é uma porta corrugada de duas folhas, com faixa laranja tipo stencil, duas barras de trava com alavanca e LED verde.</li>
@@ -2559,8 +2583,9 @@ def main():
     canv = build_sprites()
     for name, cv in canv.items():
         cv.save(name)
-    PENDING.mkdir(parents=True, exist_ok=True)
     pend = build_pending()
+    if pend:
+        PENDING.mkdir(parents=True, exist_ok=True)
     for name, cv in pend.items():
         cv.image().save(PENDING / name)
     spr = {n: Image.open(OUT / n).convert("RGBA") for n in canv}
@@ -2569,8 +2594,8 @@ def main():
         render_scene(st, spr).save(REP / f"preview_{st}.png")
     make_drill_preview(spr).save(REP / "drill_preview.png")
     build_report(spr)
-    print(f"{len(canv)} sprites oficiais em {OUT.relative_to(ROOT)}, {len(pend)} pendentes em "
-          f"{PENDING.relative_to(ROOT)}, 3 prévias + index.html em {REP.relative_to(ROOT)}")
+    print(f"{len(canv)} sprites oficiais em {OUT.relative_to(ROOT)}, {len(pend)} pendentes, "
+          f"3 prévias + index.html em {REP.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
