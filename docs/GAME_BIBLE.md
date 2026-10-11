@@ -103,6 +103,23 @@ Ti = O₂ (ppq) + Calor (pK) + Água (ppm). Cada máquina colocada soma por segu
 
 Meta: ~25 min de jogo até o fim do MVP. **Os números são chute e vão ser ajustados jogando.**
 
+### Veios e drills automáticas
+- **Veios**: depósitos de minério **no chão**, de **2×2 tiles**, de ferro, silício ou gelo, gerados com a seed do mapa.
+  - Perto da base (até ~20 tiles) há 1 de cada tipo. Mais longe há mais veios.
+  - Parte deles fica em bolsões escavados dentro da rocha, pra serem achados cavando.
+  - Aparecem desde o estágio 1 e não somem nos estágios seguintes (a água não cobre veio).
+  - **Não dá pra minerar veio na mão.**
+  - Com o mouse em cima, a dica diz "Veio de <minério> · drill libera na Névoa" (ou "Coloque uma drill", depois de liberada).
+- **Drill**: máquina craftada no fabricador, **liberada no estágio Névoa (Ti 10.000)**. Só pode ser colocada **exatamente em cima de um veio livre** (ocupa os 2×2).
+  - Extrai o minério do veio **pra sempre**, ~1 unidade a cada 20 s.
+  - Guarda até **20** unidades. Cheia, para.
+  - **O jogador precisa ir buscar:** com **E** perto da drill, coleta tudo pro inventário.
+  - Com o mouse em cima, mostra o conteúdo ("12/20 ferro").
+  - Pode ser desmontada com clique direito. Volta pro estoque, e o conteúdo vai pro inventário.
+  - Não soma Ti.
+  - Custo e ritmo finais quem define é o simulador de balanceamento (`tools/dev/balance_sim.py`).
+- Futuro (fora do escopo): drones de logística levando o minério das drills pra base.
+
 ### Estágios de terraformação
 | Estágio | Ti | O que muda |
 |---|---|---|
@@ -144,6 +161,9 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 | `machine_o2.png` `machine_heater.png` `machine_melter.png` | até 40×56 | nível 1 |
 | `machine_o2_t2.png` `machine_heater_t2.png` `machine_melter_t2.png` | até 40×64 | nível 2 |
 | `terminal.png` | 32×32 | terminal de parede |
+| `vein_iron.png` `vein_silicon.png` `vein_ice.png` | 64×64 | veio 2×2 no chão. Overlay transparente que funciona sobre o chão dos 3 estágios |
+| `machine_drill.png` | 256×80 | drill automática: 4 quadros de 64×80 (broca girando), ocupa 2×2 tiles, ancorada no centro da base dos 2×2 |
+| `icon_drill.png` | 16×16 | ícone (estoque de máquinas e fabricador) |
 | `plant_bush.png` `plant_tree.png` `plant_flower.png` | até 32×40 | estágio verde |
 
 ### Áudio: `assets/audio/` (Som)
@@ -164,6 +184,9 @@ WAV, 44,1 kHz, 16-bit, mono. Loops precisam emendar sem estalo.
 | `stage_up.wav` | sfx/jingle | mudou de estágio |
 | `footstep_0.wav` `footstep_1.wav` | sfx | passos alternados |
 | `machine_hum.wav` | loop | perto de máquinas |
+| `drill_loop.wav` | loop | perto de uma drill trabalhando (volume pela distância). Some quando ela enche |
+| `drill_collect.wav` | sfx | coletou o conteúdo de uma drill |
+| `drill_full.wav` | sfx | discreto, quando o jogador chega perto de uma drill cheia |
 | `amb_dead.wav` `amb_mist.wav` `amb_green.wav` | loop 20–40 s | ambiente de cada estágio |
 
 ## 7. Organização da equipe
