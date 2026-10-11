@@ -124,6 +124,9 @@ class GameState:
         self.logs_read: set[int] = set()
         self.was_in_base = True
         self.smoothed_rate = 0.0       # taxa de Ti por segundo (real), suavizada pra estimativa do HUD
+        # pros objetivos (objectives.py): total já minerado (craftar não desconta) e se já abriu o fabricador
+        self.mined_total = {r: 0 for r in C.RESOURCES}
+        self.fabricator_opened = False
         self.events: list[tuple] = []
 
     # ---- consultas ----------------------------------------------------------
@@ -209,6 +212,7 @@ class GameState:
         if resource:
             amount = self.rng.randint(C.DROP_MIN, C.DROP_MAX)
             self.inventory[resource] += amount
+            self.mined_total[resource] += amount
             self.events.append(("pickup", tile, resource, amount))
 
     # ---- oxigênio -----------------------------------------------------------

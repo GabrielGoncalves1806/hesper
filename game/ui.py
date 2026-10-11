@@ -240,6 +240,29 @@ class UI:
         for dx, dy in [(0, 3), (1, 4), (2, 5), (3, 4), (4, 3), (5, 2), (6, 1), (1, 3), (2, 4), (3, 3), (4, 2), (5, 1), (6, 0)]:
             self.surf.fill(c, (x + dx, y + dy, 1, 1))
 
+    # ---- objetivos (tutorial leve, lógica em objectives.py) -------------------
+    def draw_objectives(self, lines) -> None:
+        """Painel logo abaixo do de O₂: 'OBJETIVO' + até 2 linhas (concluído/atual/próximo)."""
+        if not lines:
+            return
+        x, y = 6, 40                              # O₂ ocupa y 6–32 e o banner de estágio vai até y 36
+        w = max(112, max(self.body.size(line.text)[0] for line in lines) + 26)
+        h = 15 + 13 * len(lines)
+        self.panel(x, y, w, h)
+        self.text("OBJETIVO", x + 6, y + 4, C.C_ACCENT)
+        for i, line in enumerate(lines):
+            ly = y + 13 + i * 13
+            if line.style == "done":              # acabou de cumprir: verde com ✓
+                self.fill((127, 214, 122, 40), (x + 2, ly + 1, w - 4, 12))
+                self.draw_check(x + 6, ly + 4, C.C_OK)
+                self.text(line.text, x + 16, ly, C.C_OK, self.body)
+            elif line.style == "current":
+                self.surf.fill(pygame.Color(C.C_TI), (x + 8, ly + 5, 3, 3))
+                self.text(line.text, x + 16, ly, C.C_TEXT, self.body)
+            else:                                 # próximo: esmaecido
+                self.surf.fill(pygame.Color("#5a4a40"), (x + 8, ly + 5, 3, 3))
+                self.text(line.text, x + 16, ly, "#7a6c62", self.body)
+
     def draw_floaters(self, floaters: FloatingTexts, cam: tuple[int, int]) -> None:
         for text, x, y, color, life in floaters.items:
             sx, sy = (x - cam[0]) / 2, (y - cam[1]) / 2

@@ -306,12 +306,24 @@ def check_dismantle(bot) -> None:
     s.place(kind, (66, 66))      # devolve a máquina pro resto do smoke
 
 
+def check_objectives_midway(bot) -> None:
+    """Objetivos no meio do caminho: com ferro e silício 'minerados', o atual vira "Chegue a Ti 500"."""
+    s = bot.state
+    s.mined_total.update(iron=10, silicon=4)     # o bot pôs recurso direto no inventário, sem minerar
+    bot.frames(1.6)                              # deixa passar o ✓ verde do objetivo concluído
+    assert s.ti < 500 and s.fabricator_opened
+    shown = bot.app.objectives.lines(s)
+    assert shown[0].text == "Chegue a Ti 500", shown
+    bot.shot("objetivos_meio.png")
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     bot = Bot()
     s = bot.state
     print("1) pouso")
     bot.frames(1.0)
+    bot.shot("objetivos.png")           # objetivos na tela: começa em "Minere ferro (0/10)"
     bot.key(pygame.K_d, hold=0.6)       # anda um pouco pra direita
     bot.key(pygame.K_s, hold=0.3)
     bot.frames(0.5)
@@ -360,6 +372,7 @@ def main() -> None:
     print(f"  máquinas colocadas: {[m.kind for m in s.machines]}")
     bot.frames(2.0)
     bot.shot("base.png")
+    check_objectives_midway(bot)
     check_directions_and_order(bot)
     check_walls_and_hover(bot)
     check_drill(bot)
