@@ -22,8 +22,8 @@ FLASH_TIME = 1.4            # segundos que o objetivo concluído fica na tela (v
 
 
 def crafted(state: GameState, kind: str) -> int:
-    """Quantas máquinas desse tipo o jogador já fabricou (guardadas + colocadas no mundo)."""
-    return state.machines_owned[kind] + sum(1 for m in state.machines if m.kind == kind)
+    """Quantas máquinas desse tipo o jogador já fabricou (só cresce: desmontar/colocar não desconta)."""
+    return state.crafted[kind]
 
 
 def placed_near_base(state: GameState, kind: str) -> bool:
@@ -52,6 +52,7 @@ OBJECTIVES = [
     Objective("Abra o fabricador na base [E]", lambda s: s.fabricator_opened),
     Objective("Fabrique um Gerador de O2", lambda s: crafted(s, "o2") >= 1),
     Objective("Coloque o gerador perto da base", lambda s: placed_near_base(s, "o2")),
+    Objective("Fabrique um baú", lambda s: crafted(s, "chest") >= 1),
     Objective("Minere gelo e fabrique um Derretedor", lambda s: crafted(s, "melter") >= 1),
     Objective("Chegue a Ti 500", lambda s: s.ti >= 500),
     Objective("Fabrique um Aquecedor", lambda s: crafted(s, "heater") >= 1),

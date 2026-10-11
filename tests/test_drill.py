@@ -7,6 +7,7 @@ import pytest
 from game import config as C
 from game.systems import Controls, GameState
 from game.world import World
+from tests.helpers import give
 
 DT = 1 / 60
 
@@ -68,7 +69,7 @@ def test_vein_is_floor_not_minable_no_water_no_plants(world):
 def mist_game() -> GameState:
     game = GameState(rng=random.Random(5))
     game.debug_add_ti()                                   # Ti 10.000: drill liberada
-    game.inventory.update(iron=200, silicon=200, ice=200)
+    give(game, iron=200, silicon=200, ice=200)
     return game
 
 
@@ -78,7 +79,7 @@ def stand_below(game, vein):
 
 def test_drill_unlocks_in_mist():
     game = GameState(rng=random.Random(5))
-    game.inventory.update(iron=200, silicon=200)
+    give(game, iron=200, silicon=200)
     assert game.recipe_status("drill") == "locked"
     game.debug_add_ti()
     assert game.recipe_status("drill") == "ok"
@@ -96,7 +97,7 @@ def test_drill_only_on_free_vein_origin():
     drill = game.drills[0]
     assert drill.resource == vein.resource and set(drill.tiles) == set(vein.tiles)
     assert all(game.machine_at(t) is drill for t in vein.tiles)    # ocupa os 2×2
-    game.machines_owned["drill"] += 1                              # mais uma no estoque
+    give(game, drill=1)                                            # mais uma no inventário
     assert not game.can_place("drill", (vein.tx, vein.ty))         # veio ocupado
 
 
@@ -145,11 +146,11 @@ def test_collect_with_e_goes_to_inventory():
     game = mist_game()
     drill = place_drill(game)
     drill.stored = 12
-    iron_before = dict(game.inventory)
+    iron_before = game.inventory.counts()
     assert game.interaction() == ("drill", drill)
     assert game.collect(drill) == 12
     assert drill.stored == 0
-    assert game.inventory[drill.resource] == iron_before[drill.resource] + 12
+    assert game.inventory.count(drill.resource) == iron_before[drill.resource] + 12
     assert game.drill_collected[drill.resource] == 12
     assert ("drill_collect", drill.resource, 12, drill.anchor) in game.pop_events()
     assert game.collect(drill) == 0                                # vazia: nada
@@ -177,10 +178,10 @@ def test_dismantle_returns_drill_and_content():
     game = mist_game()
     drill = place_drill(game)
     drill.stored = 7
-    before = game.inventory[drill.resource]
+    before = game.inventory.count(drill.resource)
     assert game.dismantle(drill)
-    assert game.machines_owned["drill"] == 1 and not game.drills
-    assert game.inventory[drill.resource] == before + 7
+    assert game.inventory.count("drill") == 1 and not game.drills
+    assert game.inventory.count(drill.resource) == before + 7
     vein = game.world.veins[0]
     assert game.place("drill", (vein.tx, vein.ty))                 # recoloca no mesmo veio
     assert game.drills[0].stored == 0

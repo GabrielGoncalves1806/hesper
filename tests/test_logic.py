@@ -7,6 +7,7 @@ import pytest
 from game import config as C
 from game.systems import Controls, GameState, stage_for_ti
 from game.world import World
+from tests.helpers import give
 
 DT = 1 / 60
 
@@ -100,14 +101,14 @@ def test_ore_drops_1_to_2(kind, resource):
         game = GameState(rng=random.Random(seed))
         tile = put_wall_next_to_player(game, kind)
         run(game, 1.5, Controls(mine_tile=tile))
-        assert 1 <= game.inventory[resource] <= 2
+        assert 1 <= game.inventory.count(resource) <= 2
 
 
 def test_rock_drops_nothing(game):
     tile = put_wall_next_to_player(game, C.ROCK)
     run(game, 1.0, Controls(mine_tile=tile))
     assert game.world.get(*tile) == C.FLOOR
-    assert sum(game.inventory.values()) == 0
+    assert game.inventory.is_empty()
 
 
 def test_switching_target_resets_progress(game):
@@ -146,8 +147,7 @@ def test_o2_refills_inside_base(game):
 
 
 def test_faint_and_respawn_keeps_inventory(game):
-    game.inventory["iron"] = 7
-    game.machines_owned["o2"] = 1
+    give(game, iron=7, o2=1)
     teleport_outside_base(game)
     game.o2 = 0.5
     run(game, 0.6)
@@ -157,28 +157,27 @@ def test_faint_and_respawn_keeps_inventory(game):
     assert game.o2 == C.O2_MAX
     run(game, C.FAINT_DURATION)
     assert not game.fainted
-    assert game.inventory["iron"] == 7 and game.machines_owned["o2"] == 1
+    assert game.inventory.count("iron") == 7 and game.inventory.count("o2") == 1
 
 
 # ---------------------------------------------------------------- fabricador
 def test_craft_consumes_resources(game):
-    game.inventory.update(iron=12, silicon=5)
+    give(game, iron=12, silicon=5)
     assert game.recipe_status("o2") == "ok"
     assert game.craft("o2")
-    assert game.inventory == {"iron": 2, "silicon": 1, "ice": 0}
-    assert game.machines_owned["o2"] == 1
+    assert game.inventory.counts() == {"iron": 2, "silicon": 1, "o2": 1}
 
 
 def test_craft_fails_without_resources(game):
-    game.inventory.update(iron=6, ice=9)
+    give(game, iron=6, ice=9)
     assert game.recipe_status("melter") == "missing"
     assert game.missing_resource("melter") == "ice"
     assert not game.craft("melter")
-    assert game.inventory["iron"] == 6
+    assert game.inventory.count("iron") == 6
 
 
 def test_recipes_locked_by_ti(game):
-    game.inventory.update(iron=100, silicon=100, ice=100)
+    give(game, iron=100, silicon=100, ice=100)
     assert game.recipe_status("heater") == "locked"
     assert not game.craft("heater")
     game.indices["o2"] = 500
@@ -189,26 +188,26 @@ def test_recipes_locked_by_ti(game):
 
 
 def test_craft_only_in_base(game):
-    game.inventory.update(iron=50, silicon=50)
+    give(game, iron=50, silicon=50)
     teleport_outside_base(game)
     assert not game.craft("o2")
 
 
 def test_place_machine(game):
-    game.inventory.update(iron=10, silicon=4)
+    give(game, iron=10, silicon=4)
     game.craft("o2")
     px, py = game.player.tile
     assert not game.can_place("o2", (px, py))            # em cima do player, não
     assert not game.can_place("o2", C.POD_TILES[0])      # em cima da cápsula, não
     assert not game.can_place("o2", (px + 10, py))       # longe demais, não
     assert game.place("o2", (px + 2, py))
-    assert game.machines_owned["o2"] == 0
+    assert game.inventory.count("o2") == 0
     assert not game.place("o2", (px - 2, py))            # acabou o estoque
 
 
 # ---------------------------------------------------------------- Ti e estágios
 def test_machines_raise_their_index(game):
-    game.inventory.update(iron=100, silicon=100, ice=100)
+    give(game, iron=100, silicon=100, ice=100)
     px, py = game.player.tile
     for kind, dx in [("o2", 2), ("melter", -2)]:
         game.craft(kind)
@@ -221,7 +220,7 @@ def test_machines_raise_their_index(game):
 
 
 def test_time_scale_speeds_up_machines(game):
-    game.inventory.update(iron=10, silicon=4)
+    give(game, iron=10, silicon=4)
     game.craft("o2")
     px, py = game.player.tile
     game.place("o2", (px + 2, py))
@@ -294,7 +293,7 @@ def test_no_water_in_stage1_but_water_later():
 
 # ---------------------------------------------------------------- desmontar
 def placed(game, kind="o2", dx=2):
-    game.inventory.update(iron=100, silicon=100, ice=100)
+    give(game, iron=100, silicon=100, ice=100)
     game.craft(kind)
     px, py = game.player.tile
     game.place(kind, (px + dx, py))
@@ -303,11 +302,11 @@ def placed(game, kind="o2", dx=2):
 
 def test_dismantle_returns_machine_to_stock_and_stops_index(game):
     m = placed(game)
-    assert game.machines_owned["o2"] == 0
+    assert game.inventory.count("o2") == 0
     run(game, 1)
     o2_before = game.indices["o2"]
     assert game.dismantle(m)
-    assert m not in game.machines and game.machines_owned["o2"] == 1
+    assert m not in game.machines and game.inventory.count("o2") == 1
     assert ("dismantle", "o2", (m.tx, m.ty)) in game.pop_events()
     run(game, 2)
     assert game.indices["o2"] == o2_before        # parou de somar

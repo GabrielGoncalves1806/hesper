@@ -89,6 +89,8 @@ class Renderer:
         self.fog_gradient = self._vertical_gradient((220, 230, 235), 51, 13)
         self.fog_blob = art.radial(180, (230, 236, 240), 70)
         self.dust = [self._dot((240, 170, 120, 128)), self._dot((255, 210, 170, 178))]
+        self.open_chest = None                   # baú aberto agora (o App avisa): desenha com a tampa aberta
+        self._item_icons: dict[str, pygame.Surface] = {}
 
     # ---- utilitários ----------------------------------------------------------
     @staticmethod
@@ -383,6 +385,9 @@ class Renderer:
             if -64 < mx - cam_x < C.SCREEN_W + 64 and -80 < my - cam_y < C.SCREEN_H + 80:
                 if m.is_drill:
                     items.append((my, lambda m=m, mx=mx, my=my: self.draw_drill(canvas, m, mx - cam_x, my - cam_y, t)))
+                elif m.is_chest:
+                    items.append((my, lambda m=m, mx=mx, my=my: self._blit_anchored(
+                        canvas, self.chest_surface(m is self.open_chest), mx - cam_x, my - cam_y)))
                 else:
                     items.append((my, lambda m=m, mx=mx, my=my: self.draw_machine(canvas, m.kind, mx - cam_x, my - cam_y, t, m.rotation)))
 
@@ -436,8 +441,37 @@ class Renderer:
             level = round(fh * drill.stored / C.DRILL_CAPACITY)
             canvas.fill(C.ORE_COLORS[drill.resource][0], (x + fx, y + fy + fh - level, fw, level))
 
+    def chest_surface(self, opened: bool = False) -> pygame.Surface:
+        """Baú fechado ou aberto. Enquanto o sprite não for aprovado, sempre o desenho de fallback."""
+        name = ("chest_open" if opened else "chest") if C.CHEST_SPRITE_APPROVED else None
+        return self.surface(name, lambda: art.chest(opened), f"chest#{opened}")[0]
+
+    def item_icon(self, item: str) -> pygame.Surface:
+        """Ícone 32×32 (resolução cheia) de um item do inventário: recurso, drill, baú ou máquina."""
+        if item not in self._item_icons:
+            if item in C.RESOURCES:
+                small = self.surface(f"icon_{item}", lambda: art.icon(item))[0]
+            elif item == "drill":
+                small = self.surface("icon_drill", art.drill_icon)[0]
+            elif item == "chest":
+                name = "icon_chest" if C.CHEST_SPRITE_APPROVED else None
+                small = self.surface(name, art.chest_icon, "icon_chest#fallback" if name is None else None)[0]
+            else:   # máquina sem ícone próprio: o sprite dela encolhido pra caber (sem suavizar)
+                big = self.machine_preview(item)
+                w, h = big.get_size()
+                k = 30 / max(w, h)
+                small = pygame.transform.scale(big, (max(1, round(w * k)), max(1, round(h * k))))
+                icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+                icon.blit(small, (16 - small.get_width() // 2, 31 - small.get_height()))
+                self._item_icons[item] = icon
+                return icon
+            self._item_icons[item] = pygame.transform.scale_by(small, 2)   # 16×16 → 32×32, pixel a pixel
+        return self._item_icons[item]
+
     def machine_preview(self, kind: str) -> pygame.Surface:
         """Imagem da máquina pro fabricador (resolução cheia, sem redimensionar com suavização)."""
+        if kind == "chest":
+            return self.chest_surface()
         if kind == "drill":
             icon = self.sprites.get("icon_drill")
             if icon:
@@ -447,6 +481,12 @@ class Renderer:
         return self.surface(C.MACHINES[kind].sprite, lambda: art.machine(kind))[0]
 
     def draw_machine(self, canvas, kind, ax, ay, t, rotation=0, alpha=None) -> None:
+        if kind == "chest":                      # baú: sem animação nem rotação (é o fantasma de colocar)
+            surf = self.chest_surface().copy()
+            if alpha is not None:
+                surf.set_alpha(alpha)
+            self._blit_anchored(canvas, surf, ax, ay)
+            return
         name = C.MACHINES[kind].sprite
         surf, fallback = self.surface(name, lambda: art.machine(kind))
         if alpha is not None:
@@ -586,6 +626,8 @@ class Renderer:
                     continue
                 ax, ay = m.anchor
                 lights.append((ax - cam_x, ay - 66 - cam_y, 56, (255, 210, 140), 0.14, 1.0))
+                continue
+            if m.is_chest:   # o baú não tem luz
                 continue
             rgb, r, dy, a = machine_light[m.kind.removesuffix("_t2")]
             if m.kind.endswith("_t2"):

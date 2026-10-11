@@ -366,7 +366,7 @@ class Sim:
 
     def _gather_time(self, kind):
         cost = C.MACHINES[kind].cost
-        units = sum(max(0, n - self.gs.inventory[r]) for r, n in cost.items())
+        units = sum(max(0, n - self.gs.inventory.count(r)) for r, n in cost.items())
         return units * self.sec_per_unit + self.s.craft_overhead
 
     def _unlock_eta(self, kind):
@@ -439,7 +439,7 @@ class Sim:
     def want_drill(self) -> bool:
         if "drill" not in C.MACHINES or self.gs.recipe_status("drill") == "locked":
             return False
-        built = len(self.gs.drills) + self.gs.machines_owned["drill"]
+        built = len(self.gs.drills) + self.gs.inventory.count("drill")
         return built < self.s.drills and self.free_vein() is not None
 
     def _visit_vein(self, vein, action):
@@ -536,13 +536,13 @@ class Sim:
         assert self.gs.can_mine((x, y)), "fora do alcance"
         self._advance(C.MINE_TIME[kind] + self.s.mine_overhead, outside=not self.zone[self.cur], what="minerar")
         res = C.ORE_TILES.get(kind)
-        before = dict(self.gs.inventory)
+        before = self._units()
         self.gs._break_tile((x, y), kind)
         self.res.tiles_mined += 1
         if res:
             self._bump_near(res, x, y, -1)
         self._opened(i)
-        return sum(self.gs.inventory.values()) - sum(before.values())
+        return self._units() - before
 
     def search(self, wanted):
         """Dijkstra (tempo) do tile atual até um tile de onde dá pra minerar um minério `wanted` e voltar com O₂."""
@@ -601,8 +601,12 @@ class Sim:
             self._advance(step * self.tw * self.s.walk_factor, outside=not self.zone[i], what="andar")
             self._set_player(i)
 
+    def _units(self):
+        """Recursos no inventário (o inventário tem slots; as máquinas-item não contam aqui)."""
+        return sum(self.gs.inventory.count(r) for r in C.RESOURCES)
+
     def affordable(self, kind):
-        return all(self.gs.inventory[r] >= n for r, n in C.MACHINES[kind].cost.items())
+        return all(self.gs.inventory.count(r) >= n for r, n in C.MACHINES[kind].cost.items())
 
     # ---- laço principal ----
     def run(self) -> Result:
@@ -637,7 +641,7 @@ class Sim:
                         self.craft_and_place(kind)
                     continue
                 self._not_idle()
-                missing = [r for r, n in C.MACHINES[kind].cost.items() if self.gs.inventory[r] < n]
+                missing = [r for r, n in C.MACHINES[kind].cost.items() if self.gs.inventory.count(r) < n]
                 if self.zone[self.cur] and self.collect_trip(missing):
                     continue
                 got = self.mine_here(missing)
@@ -656,14 +660,14 @@ class Sim:
                     continue
                 if self.zone[self.cur]:
                     self.res.trips += 1
-                before = sum(self.gs.inventory.values())
+                before = self._units()
                 self.walk_path(path)
-                trip_units += sum(self.gs.inventory.values()) - before
+                trip_units += self._units() - before
             except Fainted:
                 self._update_pace(trip_t0, trip_units)
                 trip_t0, trip_units = self.t, 0
         self.res.total = self.t
-        self.res.units = sum(self.gs.inventory.values()) + sum(
+        self.res.units = self._units() + sum(
             sum(C.MACHINES[m.kind].cost.values()) for m in self.gs.machines)
         self.res.machines = {k: sum(1 for m in self.gs.machines if m.kind == k) for k in C.MACHINES}
         return self.res

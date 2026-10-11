@@ -6,8 +6,10 @@ Game loop (60 vezes por segundo):
     3. draw()           desenha mundo + UI numa tela de 960×540 e estica pra janela
 
 Modos de tela: "play" (jogando), "fabricator" (menu de receitas),
-"terminal" (lendo um log), "pause" (menu do Esc) e "end" (tela de fim do MVP).
-Em "pause" e "end" o mundo fica congelado (O₂, máquinas e Ti param).
+"terminal" (lendo um log), "inventory" (Tab), "chest" (baú aberto com E),
+"pause" (menu do Esc) e "end" (tela de fim do MVP).
+Em "pause" e "end" o mundo fica congelado (O₂, máquinas e Ti param). No fabricador, no terminal,
+no inventário e no baú o mundo continua (o player só fica parado), como em Core Keeper e Planet Crafter.
 """
 
 import math
@@ -21,6 +23,7 @@ from game import audio as sound
 from game import settings
 from game.assets import Sprites
 from game.audio import Audio
+from game.inventory import Stack
 from game.objectives import ObjectiveTracker
 from game.render import Renderer, stage_key
 from game.systems import Controls, GameState
@@ -32,7 +35,8 @@ MOVE_KEYS = {
     pygame.K_w: (0, -1), pygame.K_UP: (0, -1),
     pygame.K_s: (0, 1), pygame.K_DOWN: (0, 1),
 }
-NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7]
+NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8]
+INVENTORY_MODES = ("inventory", "chest")
 BANNER_TIME = 3.5          # banner de estágio: entra em 0,4 s, fica, sai em 0,8 s
 BANNER_FADE_IN, BANNER_FADE_OUT = 0.4, 0.8
 END_SCREEN_DELAY = 4.5
@@ -77,7 +81,12 @@ class App:
         self.keys_down: set[int] = set()
         self.mouse = (C.SCREEN_W // 2, C.SCREEN_H // 2)   # em pixels da tela interna (960×540)
         self.mouse_held = False
-        self.placing: str | None = None                   # máquina sendo posicionada
+        self.placing: str | None = None                   # máquina sendo posicionada (a do slot selecionado)
+        self.hotbar_selected = 0                          # slot da hotbar escolhido (0 a 7, teclas 1–8)
+        self.held: Stack | None = None                    # pilha presa no cursor na tela de inventário
+        self.open_chest = None                            # baú aberto (Machine), no modo "chest"
+        self.notice: str | None = None                    # aviso curto ("Inventário cheio")
+        self.notice_time = 0.0
         self.rotation = 0
         self.fab_selected = 0
         self.terminal_index = 0
@@ -135,6 +144,9 @@ class App:
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 self.mouse = (event.pos[0] // self.scale, event.pos[1] // self.scale)
                 self.on_click(event.button)
+            elif event.type == pygame.MOUSEWHEEL and self.mode == "play" and not self.state.fainted:
+                # rodinha pra baixo = próximo slot (y < 0), pra cima = anterior
+                self.select_hotbar((self.hotbar_selected + (1 if event.y < 0 else -1)) % C.HOTBAR_SLOTS)
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 self.mouse_held = False
                 if self.dragging_slider is not None:
@@ -166,6 +178,9 @@ class App:
         elif self.mode == "terminal":
             if key in (pygame.K_e, pygame.K_ESCAPE, pygame.K_RETURN):
                 self.set_mode("play")
+        elif self.mode in INVENTORY_MODES:
+            if key in (pygame.K_TAB, pygame.K_ESCAPE, pygame.K_e):
+                self.close_inventory()
         elif self.mode == "end":
             if key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_ESCAPE):
                 self.set_mode("play")
@@ -178,6 +193,12 @@ class App:
                     self.mode = "terminal"
                 elif target and target[0] == "drill":
                     state.collect(target[1])
+                elif target and target[0] == "chest":
+                    self.open_chest = self.renderer.open_chest = target[1]
+                    self.placing = None
+                    self.mode = "chest"
+                    self.mouse_held = False
+                    self.audio.play("chest_open")
                 elif state.in_base_zone():
                     self.placing = None
                     self.set_mode("fabricator")
@@ -189,11 +210,71 @@ class App:
                 self.open_pause()
             elif key == pygame.K_r and self.placing:
                 self.rotation = (self.rotation + 1) % 4
+            elif key == pygame.K_TAB:
+                self.placing = None
+                self.set_mode("inventory")
             elif key in NUMBER_KEYS:
-                kind = C.MACHINE_ORDER[NUMBER_KEYS.index(key)]
-                if state.machines_owned[kind] > 0:
-                    self.placing = kind
-                    self.audio.play("ui_click")
+                self.select_hotbar(NUMBER_KEYS.index(key))
+
+    # ---- hotbar e inventário ----------------------------------------------------
+    def select_hotbar(self, index: int) -> None:
+        """Escolhe o slot da hotbar. Se tiver máquina nele, já entra no modo de colocar."""
+        self.hotbar_selected = index
+        stack = self.state.inventory.slots[index]
+        self.placing = stack.item if stack and stack.item in C.MACHINES else None
+        self.audio.play("ui_click")
+
+    def show_notice(self, text: str) -> None:
+        self.notice, self.notice_time = text, C.NOTICE_TIME
+
+    def other_side(self, inv):
+        """Shift+clique: o inventário do outro lado (player <-> baú). None se só o Tab estiver aberto."""
+        if self.open_chest is None:
+            return None
+        return self.open_chest.storage if inv is self.state.inventory else self.state.inventory
+
+    def on_inventory_click(self, button: int) -> None:
+        """Clique na tela de inventário/baú: pega e solta pilhas (a "mão" é self.held)."""
+        ux, uy = self.mouse[0] / 2, self.mouse[1] / 2
+        hit = next(((inv, i) for rect, inv, i in self.ui.slot_rects if rect.collidepoint(ux, uy)), None)
+        if hit is None:
+            return
+        inv, i = hit
+        shift = bool(pygame.key.get_mods() & pygame.KMOD_SHIFT) or bool({pygame.K_LSHIFT, pygame.K_RSHIFT} & self.keys_down)
+        target = self.other_side(inv)
+        before = ((self.held.item, self.held.count) if self.held else None, inv.to_data())
+        if button == 1 and shift and target is not None and self.held is None:
+            inv.quick_move(i, target)                    # todas as pilhas desse item vão pro outro lado
+        elif button == 1:
+            self.held = inv.put(i, self.held)            # mão vazia pega; mão cheia solta/junta/troca
+        elif self.held is None:
+            self.held = inv.take_half(i)                 # direito com a mão vazia: pega metade
+        else:                                            # direito com a mão cheia: solta 1 unidade
+            slot = inv.slots[i]
+            if slot is None or (slot.item == self.held.item and slot.room > 0):
+                inv.put(i, Stack(self.held.item, 1))
+                self.held.count -= 1
+                if self.held.count == 0:
+                    self.held = None
+        after = ((self.held.item, self.held.count) if self.held else None, inv.to_data())
+        if after != before:
+            self.audio.play("inv_move")
+
+    def stash_held(self) -> bool:
+        """Devolve a pilha da mão pro inventário (ou pro baú aberto). False se não coube tudo."""
+        if self.held is None:
+            return True
+        left = self.state.inventory.add(self.held.item, self.held.count)
+        if left and self.open_chest is not None:
+            left = self.open_chest.storage.add(self.held.item, left)
+        self.held = Stack(self.held.item, left) if left else None
+        return self.held is None
+
+    def close_inventory(self) -> None:
+        if not self.stash_held():
+            self.show_notice("Sem espaço pro item na mão")
+            return
+        self.set_mode("play")
 
     # ---- menu de pausa ---------------------------------------------------------
     def open_pause(self) -> None:
@@ -282,6 +363,10 @@ class App:
             return
         if self.state.fainted:
             return
+        if self.mode in INVENTORY_MODES:
+            if button in (1, 3):
+                self.on_inventory_click(button)
+            return
         if button == 3 and self.placing:   # botão direito também cancela
             self.placing = None
             return
@@ -298,29 +383,41 @@ class App:
                 if rect.collidepoint(ux, uy):
                     self.try_craft(kind)
                     return
-            for i, (rect, _) in enumerate(self.ui.fabricator_rows):
+            for rect, kind in self.ui.fabricator_rows:     # a lista pode estar rolada: acha pelo tipo
                 if rect.collidepoint(ux, uy):
-                    self.fab_selected = i
+                    self.fab_selected = C.MACHINE_ORDER.index(kind)
         elif self.mode == "play":
             if self.placing:
                 tile = self.place_target()
-                if tile is not None and self.state.place(self.placing, tile, self.rotation):
-                    if self.state.machines_owned[self.placing] == 0:
+                if tile is not None and self.state.place(self.placing, tile, self.rotation, self.hotbar_selected):
+                    if self.state.inventory.slots[self.hotbar_selected] is None:   # acabou a pilha do slot
                         self.placing = None
             else:
                 self.mouse_held = True
 
     def set_mode(self, mode: str) -> None:
+        if self.mode in INVENTORY_MODES and mode != self.mode:
+            self.stash_held()            # devolve a pilha da mão (se não couber, ela espera o próximo Tab)
+            if self.mode == "chest":     # fechou o baú: som próprio no lugar do ui_close
+                self.audio.play("chest_close")
+                self.open_chest = self.renderer.open_chest = None
+                self.mode = mode
+                self.mouse_held = False
+                return
         if mode != self.mode:
-            self.audio.play("ui_open" if mode in ("fabricator", "pause") else "ui_close")
+            self.audio.play("ui_open" if mode in ("fabricator", "pause", "inventory") else "ui_close")
         self.mode = mode
         self.mouse_held = False
 
     def try_craft(self, kind: str) -> None:
         if self.state.craft(kind):
-            self.placing = kind      # fabricou: já entra no modo de colocar
             self.rotation = 0
             self.set_mode("play")
+            # fabricou: se a máquina caiu na hotbar, seleciona o slot e já entra no modo de colocar
+            slots = self.state.inventory.slots[:C.HOTBAR_SLOTS]
+            index = next((i for i, st in enumerate(slots) if st and st.item == kind), None)
+            if index is not None:
+                self.select_hotbar(index)
 
     def controls(self) -> Controls:
         if self.mode != "play":
@@ -339,6 +436,11 @@ class App:
             return
         if self.mode != "end":
             self.state.update(dt, self.controls())
+        # a máquina na mão tem que continuar no slot selecionado (pode ter sido movida no Tab)
+        stack = self.state.inventory.slots[self.hotbar_selected]
+        if self.placing and (stack is None or stack.item != self.placing):
+            self.placing = None
+        self.notice_time = max(0.0, self.notice_time - dt)
         self.banner_time += dt
         self.floaters.update(dt)
         self.renderer.update_particles(dt)
@@ -384,6 +486,12 @@ class App:
             self.renderer.spawn_chips(tile, "#9a9086", 14)       # poeirinha
             self.renderer.spawn_chips(tile, "#c8c0b4", 8)
             self.audio.play("place_low")
+        elif kind == "inv_full":
+            if self.notice != "Inventário cheio" or self.notice_time < C.NOTICE_TIME - 0.5:
+                self.audio.play("inv_full")          # não repete o som no mesmo meio segundo
+            self.show_notice("Inventário cheio")
+        elif kind == "chest_not_empty":
+            self.show_notice("Esvazie o baú antes de desmontar")
         elif kind == "craft":
             self.audio.play("craft")
         elif kind == "place":
@@ -413,7 +521,7 @@ class App:
         audio.set_alarm(not state.fainted and sound.alarm_should_play(audio.alarm_on, o2_percent))
         # zumbido pela máquina mais próxima
         nearest = min((math.hypot((m.tx + 0.5) * C.TILE - state.player.x, (m.ty + 1) * C.TILE - state.player.y) / C.TILE
-                       for m in state.machines if not m.is_drill), default=None)
+                       for m in state.machines if not m.is_drill and not m.is_chest), default=None)
         audio.set_hum(sound.hum_volume(nearest))
         self.update_drills_feedback(dt)
         # ambiente: some no desmaio, abaixa lendo terminal
@@ -490,6 +598,10 @@ class App:
             content = (f"Drill cheia: {machine.stored} {label}" if machine.full
                        else f"Drill: {machine.stored}/{C.DRILL_CAPACITY} {label}")
             return content + (" · [E] coletar" if state.nearby_drill() is machine and machine.stored else "")
+        if machine and machine.is_chest:
+            used = sum(1 for st in machine.storage.slots if st)
+            near = state.nearby_chest() is machine
+            return f"Baú ({used}/{C.CHEST_SLOTS})" + (" · [E] abrir" if near else "")
         if machine:
             return "[Clique direito] desmontar" if state.can_dismantle(machine) else "Chegue mais perto pra desmontar"
         vein = state.world.vein_at(*self.mouse_tile())     # mouse em cima de um veio livre
@@ -500,6 +612,8 @@ class App:
         target = state.interaction()
         if target and target[0] == "terminal":
             return "[E] Ler terminal"
+        if target and target[0] == "chest":
+            return "[E] Abrir baú"
         if target and target[0] == "drill" and target[1].stored:
             d = target[1]
             return f"[E] Coletar {d.stored} {C.RESOURCE_NAME[d.resource]}"
@@ -533,6 +647,7 @@ class App:
             ui.draw_o2_critical(state, self.t, cam)
         icons = {r: self.renderer.surface(f"icon_{r}", lambda r=r: art.icon(r))[0] for r in C.RESOURCES}
         ui.draw_hud(state, self.t, self.hint() if self.mode == "play" else None, icons)
+        ui.draw_hotbar(state.inventory, self.hotbar_selected, self.renderer.item_icon)
         if not critical:   # com O₂ crítico o aviso grande ocupa essa área (e o foco é voltar pra base)
             ui.draw_objectives(self.objectives.lines(state))
         if self.banner_time < BANNER_TIME:
@@ -541,6 +656,7 @@ class App:
         ui.finish(canvas)
 
         # camada 2: menus e telas por cima do HUD
+        mouse_ui = (self.mouse[0] / 2, self.mouse[1] / 2)
         ui.begin()
         if self.mode == "fabricator":
             preview = self.renderer.machine_preview
@@ -551,10 +667,26 @@ class App:
             ui.draw_end(state, self.t)
         elif self.mode == "pause":
             ui.draw_pause(self.pause_screen, self.pause_selected, self.settings)
+        elif self.mode in INVENTORY_MODES:
+            chest = self.open_chest.storage if self.open_chest else None
+            ui.draw_inventory(state.inventory, chest, self.hotbar_selected, self.renderer.item_icon, mouse_ui)
+        if self.notice_time > 0 and self.mode not in INVENTORY_MODES:   # por cima do fabricador também
+            ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4))
         if state.fainted:
             ui.draw_faint(state)
-        ui.draw_cursor(self.mouse[0] / 2, self.mouse[1] / 2)
+        if self.mode not in INVENTORY_MODES:
+            ui.draw_cursor(*mouse_ui)
         ui.finish(canvas)
+
+        # camada 3 (só no inventário): pilha na mão ou tooltip, aviso e cursor, por cima dos ícones dos slots
+        if self.mode in INVENTORY_MODES:
+            ui.begin()
+            hovered = next((inv.slots[i] for rect, inv, i in ui.slot_rects if rect.collidepoint(mouse_ui)), None)
+            ui.draw_held_and_tooltip(self.held, hovered, mouse_ui, self.renderer.item_icon)
+            if self.notice_time > 0:
+                ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4))
+            ui.draw_cursor(*mouse_ui)
+            ui.finish(canvas)
 
         # Copiar uma superfície sem alfa pra janela grava alfa 255 (opaco) em todos os pixels.
         if self.scale == 1:

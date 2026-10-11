@@ -22,9 +22,11 @@ uv run python -m game --scale 2   # força o zoom da janela (padrão: o maior qu
 | Minerar | segurar o botão esquerdo do mouse em cima da parede (alcance 2 tiles) |
 | Fabricador | E (só dentro do círculo azul da base) · W/S escolhe · clique ou Enter fabrica |
 | Colocar máquina | depois de fabricar, clique no chão · R gira · Esc ou botão direito cancela |
-| Escolher máquina já fabricada | 1 a 7 (aparece no HUD, em cima do inventário) |
+| Hotbar | 1 a 8 ou a rodinha do mouse escolhem o slot · se for máquina, já entra no modo de colocar |
+| Inventário | Tab · clique pega/solta a pilha · clique direito pega metade |
+| Baú | E perto dele · Shift+clique manda a pilha (e as iguais) pro outro lado · o fabricador usa o que está nos baús da base |
 | Coletar drill | E perto dela (leva o minério que ela extraiu pro inventário) |
-| Desmontar máquina | clique direito em cima dela (volta pro estoque, teclas 1 a 7) |
+| Desmontar máquina | clique direito em cima dela (volta pro inventário; baú só vazio) |
 | Pausa | Esc (Continuar, Volumes, Controles, Sair) · os volumes ficam salvos em `settings.json` |
 | Ler terminal | E perto dele |
 | Debug | F1 acelera o tempo ×10 (O₂ e máquinas) · F2 soma +10.000 Ti |
