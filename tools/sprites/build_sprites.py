@@ -1651,62 +1651,92 @@ def _m(cv, x, y, w, h, c):
 
 
 def make_chest(open_: bool) -> Canvas:
-    """Baú 32x40: tampa (topo) + frente em faixas; base em y=38 (sombra no rodapé)."""
+    """Container de carga 32x40 (v3.1): bloco de metal com topo visível, frente corrugada,
+    cantoneiras reforçadas, pés de empilhamento, porta com alavanca e LED. Base na última linha útil."""
     cv = Canvas(32, 40)
     cv.ellipse(16, 37.5, 15, 2.5, SHADOW)
-    # corpo (frente)
-    _m(cv, 2, 20, 28, 18, INK)
-    cv.bands(3, 21, 16, [(MT["l"], 3), (MT["m"], 14), (MT["s"], 6), (MT["d"], 3)])
-    _m(cv, 3, 36, 26, 1, "g")
-    _m(cv, 3, 27, 26, 3, "o")
-    _m(cv, 3, 27, 26, 1, "oh")
-    _m(cv, 3, 29, 26, 1, "od")
-    for cx in (3, 26):                                  # cantoneiras
-        _m(cv, cx, 21, 3, 15, "k")
-        _m(cv, cx, 21, 1, 15, "g")
-    _m(cv, 14, 25, 4, 6, INK)                           # trava
-    _m(cv, 15, 26, 2, 4, "k")
-    _m(cv, 15, 26, 1, 1, "d")
-    _m(cv, 7, 23, 2, 2, "led")
-    cv.px(7, 23, C(MT["ledh"]))
-    _m(cv, 3, 33, 26, 1, "s")
+    body = Canvas(32, 40)
+    # topo (vista de cima, curto) com nervuras transversais e cantos de engate
+    body.rect(4, 4, 24, 7, C(MT["l"]))
+    for x in range(5, 27, 3):
+        body.rect(x, 4, 1, 6, C(MT["m"]))
+    body.rect(4, 4, 24, 1, C(MT["w"]))
+    body.rect(4, 10, 24, 1, C(MT["s"]))
+    # cantoneiras (colunas reforçadas) com rebites
+    for cx in (3, 25):
+        body.rect(cx, 3, 4, 32, C(MT["k"]))
+        body.rect(cx, 3, 1, 32, C(MT["g"]))
+        body.rect(cx + 3, 3, 1, 32, C(MT["kk"]))
+        for ry in (14, 22, 30):
+            body.px(cx + 1, ry, C(MT["d"]))
+        body.rect(cx, 3, 4, 2, C(MT["kk"]))              # engate de empilhar (canto de cima)
+    body.rect(3, 3, 26, 1, C(MT["g"]))
+    # trilho de cima da frente
+    body.rect(7, 11, 18, 2, C(MT["g"]))
+    body.rect(7, 11, 18, 1, C(MT["d"]))
+    # base e pés
+    body.rect(3, 33, 26, 2, C(MT["k"]))
+    body.rect(3, 33, 26, 1, C(MT["g"]))
+    for fx in (3, 25):
+        body.rect(fx, 35, 4, 2, C(MT["kk"]))
     if not open_:
-        # tampa vista de cima (fechada)
-        _m(cv, 2, 11, 28, 10, INK)
-        _m(cv, 3, 12, 26, 8, "w")
-        _m(cv, 3, 17, 26, 3, "l")
-        _m(cv, 27, 12, 2, 8, "m")
-        _m(cv, 3, 19, 26, 1, "s")
-        _m(cv, 6, 14, 20, 1, "m")                       # vinco
-        _m(cv, 13, 12, 6, 8, "o")
-        _m(cv, 13, 12, 6, 1, "oh")
-        _m(cv, 18, 12, 1, 8, "od")
-        for cx in (3, 26):
-            _m(cv, cx, 12, 3, 8, "k")
-            _m(cv, cx, 12, 1, 8, "g")
+        # porta = frente inteira, corrugada (frisos verticais fortes)
+        for x in range(7, 25):
+            c = MT["w"] if x % 2 == 0 else MT["s"]
+            body.rect(x, 13, 1, 20, C(c))
+        body.rect(7, 32, 18, 1, C(MT["d"]))
+        body.rect(15, 13, 1, 20, C(MT["k"]))             # junta das duas folhas
+        # faixa/stencil laranja
+        body.rect(7, 15, 18, 3, C(MT["o"]))
+        body.rect(7, 15, 18, 1, C(MT["oh"]))
+        body.rect(7, 17, 18, 1, C(MT["od"]))
+        body.rect(9, 16, 1, 1, C(MT["w"])); body.rect(11, 16, 2, 1, C(MT["w"]))
+        # barras de travamento + alavancas
+        for rx in (11, 19):
+            body.rect(rx, 18, 1, 14, C(MT["k"]))
+            body.rect(rx - 1, 25, 3, 2, C(MT["kk"]))
+            body.rect(rx + 1, 25, 2, 1, C(MT["o"]))
+        # LED de status
+        body.rect(22, 20, 2, 2, C(MT["led"]))
+        body.px(22, 20, C(MT["ledh"]))
+        body.outline(C(OUTLINE))
+        cv.paste(body, 0, 0)
         return cv
-    # aberto: boca do baú com o interior e a tampa levantada pra trás
-    _m(cv, 2, 14, 28, 7, INK)
-    _m(cv, 3, 15, 26, 5, "#1d2026")
-    _m(cv, 3, 19, 26, 1, "#2a2e36")
-    # conteúdo: pepitas de cobre, lasca de silício, cubo de gelo
-    paint_piece(cv, shape_lump(5, 4, 1), 6, 14, ORE_STYLE["iron"], "nug", 1)
-    paint_piece(cv, shape_block(4, 4, 0), 17, 14, ORE_STYLE["ice"], "cube", 1)
-    paint_piece(cv, shape_shard(3, 5, 1), 11, 13, ORE_STYLE["silicon"], "shard", 1)
-    paint_piece(cv, shape_lump(4, 3, 0), 22, 15, ORE_STYLE["iron"], "nug", 1)
-    # borda da boca
-    _m(cv, 2, 20, 28, 1, INK)
-    _m(cv, 3, 20, 26, 1, "k")
-    # tampa aberta (vemos a parte de dentro, escura, inclinada pra trás)
-    _m(cv, 2, 2, 28, 12, INK)
-    _m(cv, 3, 3, 26, 10, "#4a4f57")
-    _m(cv, 3, 3, 26, 2, "g")
-    _m(cv, 5, 6, 22, 5, "#3b3f46")
-    _m(cv, 5, 6, 22, 1, "#2a2d33")
-    _m(cv, 13, 11, 6, 2, "o")
-    for cx in (3, 26):
-        _m(cv, cx, 3, 3, 10, "k")
-    _m(cv, 3, 12, 26, 1, "kk")
+    # aberto: porta girada pra esquerda (vista de lado, fina) e o interior com prateleiras
+    body.rect(7, 13, 18, 20, C("#1a1c22"))
+    body.rect(8, 13, 16, 19, C("#262a32"))
+    body.rect(8, 13, 16, 2, C("#14161b"))                # sombra do teto
+    for sy in (20, 26):                                   # prateleiras
+        body.rect(8, sy, 16, 1, C(MT["s"]))
+        body.rect(8, sy + 1, 16, 1, C("#14161b"))
+    body.rect(8, 31, 16, 1, C(MT["g"]))                  # piso
+    body.rect(22, 15, 2, 2, C("#59d0e6"))                # LED ciano
+    body.px(22, 15, C("#d8fbff"))
+    body.outline(C(OUTLINE))
+    cv.paste(body, 0, 0)
+    # conteúdo nas prateleiras (estilo v2.3)
+    paint_piece(cv, shape_lump(4, 3, 1), 9, 16, ORE_STYLE["iron"], "nug", 1)
+    paint_piece(cv, shape_lump(3, 3, 0), 14, 16, ORE_STYLE["iron"], "nug", 1)
+    paint_piece(cv, shape_block(3, 3, 0), 19, 16, ORE_STYLE["ice"], "cube", 1)
+    paint_piece(cv, shape_shard(2, 3, 1), 10, 21, ORE_STYLE["silicon"], "shard", 1)
+    paint_piece(cv, shape_shard(2, 3, 1), 13, 21, ORE_STYLE["silicon"], "shard", 1)
+    crate = Canvas(32, 40)                                # caixinha
+    crate.rect(17, 22, 5, 3, C(MT["l"]))
+    crate.rect(17, 22, 5, 1, C(MT["w"]))
+    crate.rect(19, 22, 1, 3, C(MT["o"]))
+    crate.outline(C(OUTLINE))
+    cv.paste(crate, 0, 0)
+    paint_piece(cv, shape_block(3, 3, 0), 10, 27, ORE_STYLE["ice"], "cube", 1)
+    paint_piece(cv, shape_lump(3, 2, 1), 16, 28, ORE_STYLE["iron"], "nug", 1)
+    # porta aberta: painel fino girado pra fora, à esquerda, sobre a cantoneira
+    door = Canvas(32, 40)
+    for i, y0 in enumerate(range(15, 33)):
+        door.rect(0, y0 - (1 if i < 2 else 0), 4, 1, C(MT["l"] if i % 2 else MT["m"]))
+    door.rect(0, 14, 4, 1, C(MT["w"]))
+    door.rect(3, 15, 1, 17, C(MT["s"]))
+    door.rect(1, 22, 2, 3, C(MT["o"]))
+    door.outline(C(OUTLINE))
+    cv.paste(door, 0, 0)
     return cv
 
 
@@ -1862,22 +1892,25 @@ def make_drone_sheet() -> Canvas:
 
 
 def make_icon_chest() -> Canvas:
+    """Container visto de frente: frente corrugada, faixa laranja, barras de trava, LED, cantoneiras e pés."""
     cv = Canvas(16, 16)
     lay = Canvas(16, 16)
-    lay.rect(2, 5, 12, 4, C(MT["w"]))
-    lay.rect(2, 8, 12, 1, C(MT["m"]))
-    lay.rect(2, 9, 12, 5, C(MT["l"]))
-    lay.rect(2, 10, 12, 2, C(MT["o"]))
-    lay.rect(2, 10, 12, 1, C(MT["oh"]))
-    lay.rect(12, 5, 2, 9, C(MT["s"]))
-    lay.rect(2, 13, 12, 1, C(MT["d"]))
-    lay.rect(7, 9, 2, 3, C(MT["k"]))
-    lay.px(3, 6, C(MT["led"]))
-    lay.a[5, 2] = 0
-    lay.a[5, 13] = 0
+    lay.rect(2, 1, 12, 2, C(MT["l"]))
+    lay.rect(2, 1, 12, 1, C(MT["w"]))
+    for x in range(4, 12):
+        lay.rect(x, 3, 1, 9, C(MT["w"] if x % 2 == 0 else MT["s"]))
+    lay.rect(4, 4, 8, 2, C(MT["o"]))
+    lay.rect(4, 4, 8, 1, C(MT["oh"]))
+    for rx in (6, 9):
+        lay.rect(rx, 6, 1, 6, C(MT["k"]))
+    lay.px(7, 9, C(MT["o"])); lay.px(10, 9, C(MT["o"]))
+    lay.px(11, 7, C(MT["led"]))
+    for cx in (2, 12):
+        lay.rect(cx, 1, 2, 12, C(MT["k"]))
+        lay.rect(cx, 1, 1, 12, C(MT["g"]))
+    lay.rect(2, 12, 12, 1, C(MT["k"]))
+    lay.rect(2, 13, 2, 1, C(MT["kk"])); lay.rect(12, 13, 2, 1, C(MT["kk"]))
     lay.outline(C(OUTLINE))
-    a = lay.a; op = a[:, :, 3] == 255; below = np.zeros_like(op); below[1:] = op[:-1]
-    a[below & ~op] = C(OUTLINE)
     cv.paste(lay, 0, 0)
     return cv
 
@@ -2293,6 +2326,15 @@ def build_report(spr: dict[str, Image.Image]):
         b_html = (f'<div>antes<img src="before/{n}.png" width="{w}" height="{h}" alt="{n} antes"></div>' if before else "")
         cmp_items.append(f'<figure><div class="pair">{b_html}<div>depois<img src="../../assets/sprites/{n}.png" width="{w}" height="{h}" alt="{n} depois"></div></div><figcaption>{n}.png · {sc}×</figcaption></figure>')
     cmp_html = "".join(cmp_items)
+    chest_items = []
+    for n in ("chest", "chest_open", "icon_chest"):
+        im = spr[f"_pending/{n}.png"]
+        sc = 8 if n.startswith("icon") else 5
+        w, h = im.width * sc, im.height * sc
+        b_html = (f'<div>antes<img src="before/{n}_v30.png" width="{w}" height="{h}" alt="{n} antes"></div>'
+                  if (REP / "before" / f"{n}_v30.png").exists() else "")
+        chest_items.append(f'<figure><div class="pair">{b_html}<div>depois<img src="../../assets/sprites/_pending/{n}.png" width="{w}" height="{h}" alt="{n} depois"></div></div><figcaption>_pending/{n}.png · {sc}×</figcaption></figure>')
+    chest_cmp = "".join(chest_items)
     n_pending = sum(1 for k in spr if k.startswith("_pending/"))
     n_official = len(spr) - n_pending
 
@@ -2400,11 +2442,20 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v3.0 (v0.2)</div>
+  <div class="eyebrow">Hesper · Designer · v3.1 (v0.2)</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
   <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span></div>
-  <div class="v2"><b>v3.0 (v0.2) · sprites novos, aguardando aprovação</b><ul>
+  <div class="v2"><b>v3.1 (v0.2) · baú refeito</b><ul>
+    <li><b>Novo baú:</b> <code>chest</code>, <code>chest_open</code> e <code>icon_chest</code> agora são um container de carga industrial: bloco de metal robusto, um pouco mais alto que largo.
+      <ul>
+        <li>Fechado: topo com nervuras e engates de empilhar, cantoneiras reforçadas com rebites e pés. A frente inteira é uma porta corrugada de duas folhas, com faixa laranja tipo stencil, duas barras de trava com alavanca e LED verde.</li>
+        <li>Aberto: a folha gira pra esquerda e aparece o interior escuro com 2 prateleiras, pepitas v2.3 e uma caixinha. O LED fica ciano.</li>
+      </ul></li>
+    <li>Tamanho e âncora não mudaram: 32×40, blit em <code>(tx·32, (ty+1)·32 − 40)</code>. Os outros pendentes e os 58 oficiais também não mudaram.</li>
+    <li>O antes × depois do baú está logo abaixo das prévias.</li>
+  </ul></div>
+  <div class="v2" style="opacity:.75"><b>v3.0 (v0.2) · sprites novos, aguardando aprovação</b><ul>
     <li><b>Assets novos</b> em <code>assets/sprites/_pending/</code>, que o jogo ainda não usa:
       <ul>
         <li>baú fechado e aberto (<code>chest</code>, <code>chest_open</code>);</li>
@@ -2448,6 +2499,8 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 </header>
 
 <section><h2>Prévia das cenas (960×540, tamanho real)</h2><div class="pvs">{previews}</div></section>
+
+<section><h2>Baú · antes (v3.0) × depois (v3.1)</h2><div class="cmp">{chest_cmp}</div></section>
 
 <section><h2>Minérios · antes (v2.2) × depois (v2.3)</h2><div class="cmp">{cmp_html}</div></section>
 
