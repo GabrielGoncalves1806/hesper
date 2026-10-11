@@ -265,3 +265,10 @@ TRANSITION_FRONT_POWER = 8      # quão no fim é esse disparo (maior = mais con
 TRANSITION_NOISE_SCALE = 0.11   # tamanho das "manchas" do ruído (menor = manchas maiores)
 TRANSITION_WOBBLE = 0.7         # quanto o ruído estica/encolhe a distância (0 = círculo perfeito)
 TRANSITION_GRAIN = 1.5          # sorteio por tile na fronteira, em tiles (esfarela a borda)
+
+# ---------------------------------------------------------------------------
+# Save/load e tela de título (game/save.py, game/title.py)
+# ---------------------------------------------------------------------------
+AUTOSAVE_INTERVAL = 120.0   # autosave a cada 2 min jogando (pausa, menus e tela de título não contam)
+SAVED_NOTICE_TIME = 2.0     # quanto tempo o aviso "Jogo salvo" fica no HUD (segundos)
+VOLUME["save"] = 0.6        # som discreto ao salvar (sem o arquivo save.wav, fica em silêncio)

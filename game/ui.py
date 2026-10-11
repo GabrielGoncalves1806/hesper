@@ -487,7 +487,7 @@ class UI:
             self.text("[ENTER] CONTINUAR EXPLORANDO", UW / 2, y + h - 18, C.C_TEXT, align="center")
 
     # ---- menu de pausa ---------------------------------------------------------
-    PAUSE_OPTIONS = ["Continuar", "Volumes", "Controles", "Sair"]
+    PAUSE_OPTIONS = ["Continuar", "Volumes", "Controles", "Salvar e sair", "Sair"]
     VOLUME_ROWS = [("master", "GERAL"), ("sfx", "EFEITOS"), ("ambient", "AMBIENTE")]
     CONTROLS = [
         ("WASD / SETAS", "Andar"),
