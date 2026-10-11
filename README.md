@@ -46,7 +46,7 @@ assim o jogo anda na mesma velocidade num PC rápido ou lento. O código separa 
 | `game/player.py` | o astronauta: posição, direção (baixo/cima/esquerda/direita) e movimento com colisão |
 | `game/systems.py` | as regras (`GameState`): mineração, O₂, desmaio, fabricador, máquinas, Ti e estágios. **Python puro, sem pygame**, por isso dá pra testar fácil |
 | `game/app.py` | o game loop: transforma teclado/mouse num `Controls`, chama `GameState.update(dt, controls)`, reage aos eventos (som, textos flutuantes, banner) e manda desenhar |
-| `game/render.py` | desenha o mundo: só os tiles visíveis, objetos ordenados pelo Y do pé (quem está mais embaixo fica na frente), luz e clima do estágio |
+| `game/render.py` | desenha o mundo: só os tiles visíveis, paredes altas, objetos por profundidade, luz e clima do estágio |
 | `game/ui.py` | HUD, fabricador, terminal, banner, O₂ crítico, desmaio e tela de fim (desenhado em 480×270 e esticado 2×, igual ao mockup) |
 | `game/art.py` | os desenhos "de retângulos" usados enquanto não tem sprite aprovado |
 | `game/assets.py` | carrega sprites e fontes; se o PNG não existir, devolve nada e o jogo usa o desenho de fallback |
@@ -56,13 +56,28 @@ O fluxo de um frame: `App.handle_events()` → `App.update(dt)` (que chama `Game
 (que chama `Renderer.draw` e depois a `UI`). O `GameState` nunca toca som nem desenha: ele só anota o que aconteceu
 numa lista de eventos (`"break"`, `"pickup"`, `"stage_up"`...) e o `App` decide o que fazer com isso.
 
+### Paredes altas e profundidade
+
+Cada parede tem altura: o topo da rocha é desenhado 24 px **acima** do tile dela e, se embaixo tem chão,
+a face frontal aparece embaixo do topo. Por isso o desenho é feito em duas passadas:
+
+1. todo o chão e a água;
+2. linha por linha, de cima pra baixo: as paredes da linha e depois os objetos (player, máquinas, cápsula,
+   plantas) cujo pé está nessa linha.
+
+Assim, quem anda logo acima de uma parede fica meio escondido atrás do topo dela (estilo Core Keeper).
+Quando isso acontece com o player, o jogo redesenha ele translúcido por cima, pra ele nunca sumir num túnel.
+A ordem é calculada por `build_draw_list` (em `render.py`), uma função pura com testes.
+A colisão continua sendo o tile: a altura é só visual. O mouse mira no que está à vista (`World.visual_tile_at`).
+
 ## Assets
 
 Sprites e sons ficam em `assets/` e seguem o contrato da bíblia (§6). Eles só entram no jogo depois de aprovados,
 pelas flags em `game/config.py`:
 
-- `ENABLE_SPRITES = True`: os sprites do design v2 foram aprovados e estão ligados.
-- `ENABLE_AUDIO = False`: o código de som está pronto, mas os sons ainda estão em revisão.
+- `ENABLE_SPRITES = True`: os sprites aprovados (design v2.1) estão ligados.
+- `ENABLE_AUDIO = True`: os sons aprovados (som v3) estão ligados. Os volumes de cada categoria ficam
+  em `VOLUME` no `config.py`, comentados, pra ajustar depois de cada playtest.
 
 Com uma flag ligada e algum arquivo faltando, o jogo continua funcionando com o desenho de fallback (ou em silêncio).
 Pra ver o jogo só com o fallback de retângulos, é só desligar `ENABLE_SPRITES`.

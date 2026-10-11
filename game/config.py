@@ -19,6 +19,27 @@ AUDIO_DIR = ROOT_DIR / "assets" / "audio"
 FONTS_DIR = Path(__file__).resolve().parent / "fonts"
 
 # ---------------------------------------------------------------------------
+# Volumes do som (0 = mudo, 1 = volume do arquivo). Ajuste aqui depois de cada playtest.
+# Os arquivos já vêm equilibrados entre si; isso é só o multiplicador por categoria.
+# ---------------------------------------------------------------------------
+VOLUME = {
+    # mineração: playtest 1 achou alto ("muito alto de quebrar") -> bem mais baixo
+    "mine_hit": 0.5, "mine_break": 0.45, "pickup": 0.7,
+    # passos: playtest 1 achou alto ("andar") -> bem mais baixo
+    "footstep_0": 0.3, "footstep_1": 0.3,
+    # interface: ~30% abaixo do volume original (0,8)
+    "ui_open": 0.56, "ui_close": 0.56, "ui_click": 0.56, "terminal_open": 0.56,
+    # sobrevivência: o alarme fica alto de propósito (abaixo de 0,6 ele perde a função)
+    "o2_low": 0.9, "o2_refill": 0.65, "faint": 0.7,
+    # máquinas: ~30% abaixo do original (1,0)
+    "craft": 0.7, "place": 0.7,
+    # recompensa: o jingle de estágio continua sendo o som mais alto
+    "stage_up": 0.85,
+}
+AMBIENT_VOLUME = 0.7    # ambiente: o dono gostou, NÃO mexer sem pedir
+HUM_MAX_VOLUME = 0.6    # zumbido das máquinas quando o player está colado nelas
+
+# ---------------------------------------------------------------------------
 # Tela e tempo
 # ---------------------------------------------------------------------------
 SCREEN_W, SCREEN_H = 960, 540   # resolução interna (30×17 tiles)
@@ -32,6 +53,7 @@ DEBUG_TI_BONUS = 10_000         # F2: soma isso no Ti
 # Mundo
 # ---------------------------------------------------------------------------
 TILE = 32
+WALL_LIFT = 24                  # o topo da parede é desenhado 24 px acima do tile (dá altura, estilo Core Keeper)
 WORLD_W = WORLD_H = 128
 WORLD_SEED = 7
 CRATER_CENTER = (64, 64)        # em tiles

@@ -232,6 +232,27 @@ def player_walk(view: str) -> pygame.Surface:
     return sheet
 
 
+def drill(view: str) -> pygame.Surface:
+    """Broca de fallback no mesmo formato da folha do contrato (§6): 4 quadros girando.
+
+    side: 96×16 (quadros 24×16, ponta pra direita) · down/up: 64×24 (quadros 16×24, ponta pra baixo/cima).
+    """
+    vertical = view != "side"
+    fw, fh = (16, 24) if vertical else (24, 16)
+    sheet = pygame.Surface((fw * 4, fh), pygame.SRCALPHA)
+    for i in range(4):
+        f = pygame.Surface((24, 16), pygame.SRCALPHA)        # desenha deitado e gira se precisar
+        _r(f, _OUT, 0, 3, 14, 9); _r(f, "#d9dde2", 1, 4, 12, 7); _r(f, C.C_ACCENT, 3, 6, 7, 2)
+        _r(f, _OUT, 4, 11, 4, 4); _r(f, _PACK, 5, 11, 2, 3)                         # cabo
+        _r(f, "#8a929c", 14, 4, 6, 7); _r(f, "#b9c0c8", 20, 6, 3, 3); _r(f, "#e9edf1", 23, 7, 1, 1)
+        for k in range(3):                                                           # rosca girando
+            _r(f, "#5d646d", 14 + (k * 3 + i) % 8, 4 + (k % 2), 1, 6)
+        if vertical:
+            f = pygame.transform.rotate(f, -90 if view == "down" else 90)
+        sheet.blit(f, (i * fw, 0))
+    return sheet
+
+
 # ---------------------------------------------------------------- cápsula
 def pod() -> pygame.Surface:
     """Cápsula 64×72. Base do desenho em y=70."""

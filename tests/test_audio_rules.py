@@ -6,9 +6,13 @@ from game import config as C
 from game.audio import HUM_MAX_VOLUME, alarm_should_play, hum_volume, resample
 
 
-def test_audio_and_sprites_flags():
-    assert C.ENABLE_AUDIO is True       # som v3 aprovado
-    assert C.ENABLE_SPRITES is True     # sprites v2 aprovados
+def test_volume_table():
+    v = C.VOLUME
+    assert v["o2_low"] >= 0.6                         # alarme precisa continuar audível
+    assert v["footstep_0"] <= 0.35 and v["footstep_1"] <= 0.35
+    assert v["mine_break"] <= 0.5 and v["mine_hit"] <= 0.5
+    assert C.AMBIENT_VOLUME == 0.7                    # o dono gostou do ambiente: não mexer
+    assert all(0 <= x <= 1 for x in v.values())
 
 
 def test_alarm_hysteresis():

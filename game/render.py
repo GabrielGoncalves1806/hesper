@@ -22,7 +22,30 @@ from game.systems import GameState, Mining
 from game.world import hash01
 
 T = C.TILE
-WALL_TOP = 8   # quantos px do topo da rocha aparecem acima da face (face = 24 px, §6)
+WALL_LIFT = C.WALL_LIFT   # o topo da parede é desenhado 24 px acima do tile (altura, estilo Core Keeper)
+FACE_Y = 8       # a face (32×24) começa 8 px abaixo do topo do tile e vai até a borda de baixo
+
+
+def build_draw_list(world, objects, tx0: int, tx1: int, ty0: int, ty1: int) -> list[tuple]:
+    """Ordem de desenho por profundidade (função pura, testável sem tela).
+
+    Percorre as linhas de cima pra baixo. Em cada linha: primeiro as paredes da linha,
+    depois os objetos cujo pé (`ay`) cai nessa linha, do mais alto pro mais baixo.
+    Como o topo de uma parede invade 24 px a linha de cima, quem anda logo acima dela
+    é desenhado antes e fica meio escondido atrás do topo.
+
+    objects: lista de (ay, qualquer_coisa). Devolve ("wall", tx, ty) e ("obj", qualquer_coisa).
+    """
+    by_row: dict[int, list] = {}
+    for ay, obj in objects:
+        by_row.setdefault(int((ay - 1) // T), []).append((ay, obj))
+    wall_rows = range(ty0, ty1 + 1)
+    order = []
+    for row in sorted(set(wall_rows) | set(by_row)):
+        if row in wall_rows:
+            order += [("wall", tx, row) for tx in range(tx0, tx1 + 1) if world.is_solid(tx, row)]
+        order += [("obj", obj) for _, obj in sorted(by_row.get(row, []), key=lambda o: o[0])]
+    return order
 
 
 def stage_key(stage: int) -> str:
@@ -44,6 +67,10 @@ class Renderer:
         self.water_top.fill((0, 0, 0, 72))
         self.water_left = pygame.Surface((2, T), pygame.SRCALPHA)
         self.water_left.fill((0, 0, 0, 46))
+        self.outline_h = pygame.Surface((T, 1), pygame.SRCALPHA)
+        self.outline_h.fill((0, 0, 0, 90))
+        self.outline_v = pygame.Surface((1, T), pygame.SRCALPHA)
+        self.outline_v.fill((0, 0, 0, 70))
         self.bedrock_shade = pygame.Surface((T, T), pygame.SRCALPHA)
         self.bedrock_shade.fill((0, 0, 0, 110))
         self.player_shadow = pygame.Surface((16, 5), pygame.SRCALPHA)
@@ -130,11 +157,11 @@ class Renderer:
     def draw(self, canvas: pygame.Surface, state: GameState, cam: tuple[int, int], t: float,
              ghost: tuple[str, tuple[int, int], int, bool] | None = None) -> None:
         stage = stage_key(state.stage)
-        self.draw_tiles(canvas, state, cam, stage, t)
+        self.draw_floors(canvas, state, cam, stage, t)
         self.draw_zone(canvas, cam, t)
+        self.draw_walls_and_objects(canvas, state, cam, stage, t)
         if state.mining:
             self.draw_mining(canvas, state, state.mining, cam)
-        self.draw_objects(canvas, state, cam, stage, t)
         if ghost:
             self.draw_ghost(canvas, cam, *ghost, t)
         self.draw_particles(canvas, cam)
@@ -142,47 +169,98 @@ class Renderer:
         self.draw_atmosphere(canvas, stage, t)
 
     # ---- tiles ----------------------------------------------------------------
-    def draw_tiles(self, canvas, state: GameState, cam, stage: str, t: float) -> None:
-        world = state.world
+    def visible_tiles(self, cam) -> tuple[int, int, int, int]:
         cam_x, cam_y = cam
-        tx0, ty0 = cam_x // T, cam_y // T
-        tx1, ty1 = (cam_x + C.SCREEN_W) // T, (cam_y + C.SCREEN_H) // T
+        return cam_x // T, (cam_x + C.SCREEN_W) // T, cam_y // T, (cam_y + C.SCREEN_H) // T
+
+    def draw_floors(self, canvas, state: GameState, cam, stage: str, t: float) -> None:
+        """Passada 1: todo o chão e a água visíveis (as paredes vêm depois, por cima)."""
+        world = state.world
+        tx0, tx1, ty0, ty1 = self.visible_tiles(cam)
+        backstop = C.PALETTES[stage]["face_dark"]
         for ty in range(ty0, ty1 + 1):
             for tx in range(tx0, tx1 + 1):
-                sx, sy = tx * T - cam_x, ty * T - cam_y
+                sx, sy = tx * T - cam[0], ty * T - cam[1]
                 if world.is_solid(tx, ty):
-                    self._draw_wall(canvas, world, tx, ty, sx, sy, stage)
+                    canvas.fill(backstop, (sx, sy, T, T))   # fundo escuro (só aparece na borda do mapa)
                 else:
                     self._draw_floor(canvas, world, tx, ty, sx, sy, stage, state.stage, t)
 
+    def draw_walls_and_objects(self, canvas, state: GameState, cam, stage: str, t: float) -> None:
+        """Passada 2: linha por linha, paredes com topo elevado e objetos ordenados pelo pé."""
+        tx0, tx1, ty0, ty1 = self.visible_tiles(cam)
+        objects = self.collect_objects(canvas, state, cam, t)
+        # +1 linha embaixo: o topo elevado de uma parede logo abaixo da tela ainda aparece
+        for item in build_draw_list(state.world, objects, tx0, tx1, ty0, ty1 + 1):
+            if item[0] == "wall":
+                _, tx, ty = item
+                self._draw_wall(canvas, state.world, tx, ty, tx * T - cam[0], ty * T - cam[1], stage)
+            else:
+                item[1]()
+        self._draw_player_silhouette(canvas, state, cam)
+        # Broca da frente (lado e baixo) por cima de tudo: ela encosta no tile que está sendo minerado,
+        # e esse tile pode ser uma parede desenhada depois do player (minerando pra baixo).
+        if state.mining:
+            frame, (dx, dy), behind = self.drill_sprite(state, t)
+            if not behind:
+                p = state.player
+                canvas.blit(frame, (round(p.x - cam[0]) + dx, round(p.y - cam[1]) + dy))
+
+    def player_occluded(self, state: GameState) -> bool:
+        """O topo elevado de alguma parede da linha de baixo está cobrindo o player?"""
+        p = state.player
+        row_below = int((p.y - 1) // T) + 1
+        cols = {int((p.x - 10) // T), int((p.x + 9) // T)}
+        return any(state.world.is_solid(tx, row_below) for tx in cols)
+
+    def _draw_player_silhouette(self, canvas, state: GameState, cam) -> None:
+        """Player escondido atrás de parede (ex.: túnel de 1 tile): redesenha ele translúcido por cima,
+        tipo raio-x, pra nunca perder o personagem de vista. A ilusão de profundidade continua."""
+        if not self.player_occluded(state):
+            return
+        surf, flip = self._player_frame(state)
+        ghost = (pygame.transform.flip(surf, True, False) if flip else surf.copy())
+        ghost.set_alpha(95)
+        p = state.player
+        canvas.blit(ghost, (round(p.x - cam[0]) - ghost.get_width() // 2, round(p.y - cam[1]) - ghost.get_height()))
+
     def _draw_wall(self, canvas, world, tx, ty, sx, sy, stage) -> None:
+        """Parede alta: topo 32×32 em (x, y-24) e, se embaixo tem chão, face 32×24 em (x, y+8)."""
         P = C.PALETTES[stage]
         kind = world.get(tx, ty)
         v = int(hash01(tx, ty, 3) * 3)
+        top_y = sy - WALL_LIFT
         surf, fallback = self.surface(f"wall_{stage}_{v}", lambda: art.wall(stage, v))
-        canvas.blit(surf, (sx, sy))
-        has_face = not world.is_solid(tx, ty + 1)
-        top = WALL_TOP if has_face else T   # com chão embaixo, só 8 px de topo aparecem
-        if fallback:   # bordas iluminadas onde a parede encontra o chão (os PNGs não precisam)
-            if not world.is_solid(tx, ty - 1):
-                canvas.fill(P["edge"], (sx, sy, T, 2))
-            if not world.is_solid(tx - 1, ty):
-                canvas.fill(P["edge"], (sx, sy, 1, top))
-            if not world.is_solid(tx + 1, ty):
-                canvas.fill(P["rock_dot"], (sx + T - 1, sy, 1, top))
-        if fallback and stage == "green" and hash01(tx, ty, 70) < 0.5:
-            canvas.blit(self.surface(None, lambda: art.moss(v), f"moss#{v}")[0], (sx, sy))
-        if has_face:
-            canvas.blit(self.surface(f"wall_face_{stage}", lambda: art.wall_face(stage))[0], (sx, sy + WALL_TOP))
-        # minério e terminal vêm depois da face: ficam visíveis "cravados" na parede
+        canvas.blit(surf, (sx, top_y))
+        open_up = not world.is_solid(tx, ty - 1)
+        open_left = not world.is_solid(tx - 1, ty)
+        open_right = not world.is_solid(tx + 1, ty)
+        if fallback:   # bordas iluminadas onde o topo encontra o vazio (os PNGs não precisam)
+            if open_up:
+                canvas.fill(P["edge"], (sx, top_y, T, 2))
+            if open_left:
+                canvas.fill(P["edge"], (sx, top_y, 1, T))
+            if open_right:
+                canvas.fill(P["rock_dot"], (sx + T - 1, top_y, 1, T))
+            if stage == "green" and hash01(tx, ty, 70) < 0.5:
+                canvas.blit(self.surface(None, lambda: art.moss(v), f"moss#{v}")[0], (sx, top_y))
+        else:          # contorno escuro fininho: separa o topo elevado do chão atrás dele
+            if open_up:
+                canvas.blit(self.outline_h, (sx, top_y))
+            if open_left:
+                canvas.blit(self.outline_v, (sx, top_y))
+            if open_right:
+                canvas.blit(self.outline_v, (sx + T - 1, top_y))
         resource = C.ORE_TILES.get(kind)
-        if resource:
+        if resource:   # o minério acompanha o topo elevado
             ov = int(hash01(tx, ty, 80) * 3)
-            canvas.blit(self.surface(f"ore_{resource}", lambda: art.ore(resource, ov), f"ore_{resource}#{ov}")[0], (sx, sy))
+            canvas.blit(self.surface(f"ore_{resource}", lambda: art.ore(resource, ov), f"ore_{resource}#{ov}")[0], (sx, top_y))
         if kind == C.BEDROCK:
-            canvas.blit(self.bedrock_shade, (sx, sy))
-        elif kind == C.TERMINAL:
-            canvas.blit(self.surface("terminal", art.terminal)[0], (sx, sy))
+            canvas.blit(self.bedrock_shade, (sx, top_y))
+        if not world.is_solid(tx, ty + 1):
+            canvas.blit(self.surface(f"wall_face_{stage}", lambda: art.wall_face(stage))[0], (sx, sy + FACE_Y))
+            if kind == C.TERMINAL:   # o terminal fica pendurado na face
+                canvas.blit(self.surface("terminal", art.terminal)[0], (sx, sy))
 
     def _draw_floor(self, canvas, world, tx, ty, sx, sy, stage, stage_num, t) -> None:
         P = C.PALETTES[stage]
@@ -238,7 +316,8 @@ class Renderer:
         canvas.blit(z, (C.BASE_CENTER[0] - c - cam[0], C.BASE_CENTER[1] - c - cam[1]))
 
     # ---- objetos (ordenados por Y) --------------------------------------------
-    def draw_objects(self, canvas, state: GameState, cam, stage: str, t: float) -> None:
+    def collect_objects(self, canvas, state: GameState, cam, t: float) -> list[tuple[float, callable]]:
+        """Tudo que fica em pé no chão, como (ay, função que desenha). Quem ordena é o build_draw_list."""
         cam_x, cam_y = cam
         items: list[tuple[float, callable]] = []
 
@@ -263,9 +342,7 @@ class Renderer:
 
         p = state.player
         items.append((p.y, lambda: self._draw_player(canvas, state, p.x - cam_x, p.y - cam_y, t)))
-
-        for _, draw in sorted(items, key=lambda it: it[0]):
-            draw()
+        return items
 
     def _blit_anchored(self, canvas, surf, ax, ay, flip=False):
         if flip:
@@ -288,28 +365,53 @@ class Renderer:
         if fallback and alpha is None and rotation % 2 == 0:
             art.machine_anim(canvas, kind, round(ax), round(ay), t)
 
-    def _draw_player(self, canvas, state: GameState, x, y, t) -> None:
+    def _player_frame(self, state: GameState) -> tuple[pygame.Surface, bool]:
+        """Quadro atual do player (parado ou andando) e se precisa espelhar (olhando pra esquerda)."""
         p = state.player
-        canvas.blit(self.player_shadow, (round(x) - 8, round(y) - 5))   # elipse 16×5 nos pés (linha 30)
         # "left" usa o sprite de lado espelhado; "right" usa ele direto
         view = "side" if p.direction in ("left", "right") else p.direction
         if p.moving and not state.fainted:
             sheet, _ = self.surface(f"player_walk_{view}", lambda: art.player_walk(view))
             frame = int(p.walk_time * 9) % 4          # ~9 quadros por segundo
-            surf = sheet.subsurface((frame * 32, 0, 32, 32))
-        else:
-            surf, _ = self.surface(f"player_{view}", lambda: art.player(view))
-        self._blit_anchored(canvas, surf, x, y, flip=p.direction == "left")
-        if state.mining and view == "side":   # furadeira na mão (só aparece de lado)
-            d = 1 if p.direction == "right" else -1
-            bx = round(x) + (4 if d > 0 else -17)
-            by = round(y) + 3
-            canvas.fill("#1a1418", (bx, by - 17, 13, 7))
-            canvas.fill("#6b717a", (bx + 1, by - 16, 11, 5))
-            canvas.fill("#8a929c", (bx + 1, by - 16, 11, 1))
-            tip = bx + 12 if d > 0 else bx - 4
-            canvas.fill(C.C_ACCENT, (tip, by - 15, 4, 3))
-            canvas.fill(C.C_TI, (tip + (4 if d > 0 else -2), by - 14, 2, 1))
+            return sheet.subsurface((frame * 32, 0, 32, 32)), p.direction == "left"
+        return self.surface(f"player_{view}", lambda: art.player(view))[0], p.direction == "left"
+
+    def _draw_player(self, canvas, state: GameState, x, y, t) -> None:
+        canvas.blit(self.player_shadow, (round(x) - 8, round(y) - 5))   # elipse 16×5 nos pés (linha 30)
+        surf, flip = self._player_frame(state)
+        drill = self.drill_sprite(state, t) if state.mining else None
+        if drill and drill[2]:          # olhando pra cima: a broca fica atrás do corpo
+            canvas.blit(drill[0], (round(x) + drill[1][0], round(y) + drill[1][1]))
+        self._blit_anchored(canvas, surf, x, y, flip=flip)
+        # a broca da frente (lado/baixo) é desenhada depois das paredes: ver draw_walls_and_objects
+
+    # Onde a broca encaixa, a partir do canto superior esquerdo do quadro 32×32 do player
+    # (px = x - 16, py = y - 32). "behind" = desenhada antes do player. Valores do report da Designer.
+    DRILL_GRIP = {
+        "right": ((12, 13), False),
+        "left": ((-4, 13), False),
+        "down": ((13, 16), False),
+        "up": ((20, 4), True),
+    }
+    DRILL_FPS = 14
+
+    def drill_sprite(self, state: GameState, t: float):
+        """(quadro, deslocamento a partir dos pés, fica atrás?) da broca girando. Loop próprio a 14 fps."""
+        direction = state.player.direction
+        view = "side" if direction in ("left", "right") else direction
+        sheet, _ = self.surface(f"drill_{view}", lambda: art.drill(view))
+        fw = sheet.get_width() // 4
+        frame = sheet.subsurface((int(t * self.DRILL_FPS) % 4 * fw, 0, fw, sheet.get_height()))
+        if direction == "left":
+            frame = pygame.transform.flip(frame, True, False)
+        (gx, gy), behind = self.DRILL_GRIP[direction]
+        return frame, (gx - 16, gy - 32), behind
+
+    def drill_tip(self, state: GameState) -> tuple[float, float]:
+        """Ponta da broca em pixels do mundo (de onde saem as faíscas)."""
+        p = state.player
+        return {"right": (p.x + 20, p.y - 11), "left": (p.x - 20, p.y - 11),
+                "down": (p.x + 5, p.y + 8), "up": (p.x + 12, p.y - 28)}[p.direction]
 
     # ---- mineração e colocação ------------------------------------------------
     def draw_mining(self, canvas, state: GameState, mining: Mining, cam) -> None:
@@ -318,17 +420,19 @@ class Renderer:
         if kind not in C.MINE_TIME:
             return
         prog = mining.progress(kind)
-        px, py = tx * T - cam[0], ty * T - cam[1]
-        # rachaduras aparecendo conforme o progresso
+        px = tx * T - cam[0]
+        py = ty * T - WALL_LIFT - cam[1]                          # topo elevado da parede
+        h = WALL_LIFT + (T if not state.world.is_solid(tx, ty + 1) else FACE_Y)   # topo + face (se tiver)
+        # rachaduras aparecendo no topo conforme o progresso
         cracks = [(4, 3), (5, 4), (6, 5), (7, 6), (8, 7), (9, 8), (9, 9), (8, 10), (8, 11), (7, 12), (7, 13), (6, 14),
                   (10, 8), (11, 8), (12, 7), (13, 7), (14, 7), (15, 8), (16, 9), (17, 10), (18, 10), (19, 11),
                   (20, 12), (21, 12), (22, 13), (16, 6), (17, 5), (18, 4)]
         for cx, cy in cracks[: int(len(cracks) * prog)]:
-            canvas.fill((15, 8, 6), (px + cx, py + cy, 1, 1))
-        # cantoneiras brancas em volta do tile
-        for x, y, w, h in [(-2, -2, 8, 2), (-2, -2, 2, 8), (T - 6, -2, 8, 2), (T, -2, 2, 8),
-                           (-2, T, 8, 2), (-2, T - 6, 2, 8), (T - 6, T, 8, 2), (T, T - 6, 2, 8)]:
-            canvas.fill((255, 255, 255), (px + x, py + y, w, h))
+            canvas.fill((15, 8, 6), (px + cx, py + cy + 6, 1, 1))
+        # cantoneiras brancas em volta da parede inteira
+        for x, y, w, hh in [(-2, -2, 8, 2), (-2, -2, 2, 8), (T - 6, -2, 8, 2), (T, -2, 2, 8),
+                            (-2, h, 8, 2), (-2, h - 6, 2, 8), (T - 6, h, 8, 2), (T, h - 6, 2, 8)]:
+            canvas.fill((255, 255, 255), (px + x, py + y, w, hh))
         # barrinha de progresso
         canvas.fill((0, 0, 0), (px - 4, py - 16, 40, 8))
         canvas.fill(C.C_TI, (px - 2, py - 14, round(36 * prog), 4))
@@ -349,8 +453,9 @@ class Renderer:
         self.draw_machine(canvas, kind, px + T // 2, py + T, t, rotation, alpha=128)
 
     # ---- partículas (lasquinhas da mineração) ---------------------------------
-    def spawn_chips(self, tile: tuple[int, int], color: str, n: int = 10) -> None:
-        cx, cy = (tile[0] + 0.5) * T, (tile[1] + 0.5) * T
+    def spawn_chips(self, tile: tuple[int, int] | None, color: str, n: int = 10, at=None) -> None:
+        """Lasquinhas voando. Saem do centro do tile ou de um ponto `at` (ex.: a ponta da broca)."""
+        cx, cy = at if at else ((tile[0] + 0.5) * T, (tile[1] + 0.5) * T - WALL_LIFT / 2)
         for _ in range(n):
             a = random.uniform(0, math.tau)
             sp = random.uniform(30, 90)

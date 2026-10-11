@@ -114,6 +114,18 @@ class World:
     def is_solid(self, tx: int, ty: int) -> bool:
         return self.get(tx, ty) in C.SOLID_TILES
 
+    def visual_tile_at(self, px: float, py: float) -> tuple[int, int]:
+        """Tile que a pessoa VÊ no pixel (px, py) do mundo.
+
+        O topo de cada parede é desenhado 24 px acima do tile dela, cobrindo a parte de baixo
+        do tile de cima. Então, se o ponto 24 px abaixo cai numa parede, é ela que está à vista.
+        """
+        tx, ty = int(px // C.TILE), int(py // C.TILE)
+        below = int((py + C.WALL_LIFT) // C.TILE)
+        if below != ty and self.is_solid(tx, below):
+            return tx, below
+        return tx, ty
+
     def is_minable(self, tx: int, ty: int) -> bool:
         return self.get(tx, ty) in C.MINE_TIME
 

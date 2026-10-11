@@ -51,7 +51,10 @@ class App:
         self.window = pygame.display.set_mode((C.SCREEN_W * self.scale, C.SCREEN_H * self.scale))
         pygame.display.set_caption("Hesper · v0.1")
         pygame.mouse.set_visible(False)
-        self.canvas = pygame.Surface((C.SCREEN_W, C.SCREEN_H))
+        # Tela interna SEM canal alfa, com máscaras explícitas. Sem isso, no macOS (driver Cocoa)
+        # o Surface herda o formato da janela, que TEM alfa: os blits gravam alfa 0/255 misturado
+        # e o macOS mostra retângulos pretos em volta de sprites (bug do playtest 1).
+        self.canvas = pygame.Surface((C.SCREEN_W, C.SCREEN_H), 0, 32, (0xFF0000, 0x00FF00, 0x0000FF, 0))
         self.clock = pygame.time.Clock()
 
         self.sprites = Sprites()
@@ -99,7 +102,8 @@ class App:
 
     def mouse_tile(self) -> tuple[int, int]:
         cx, cy = self.cam
-        return (self.mouse[0] + cx) // C.TILE, (self.mouse[1] + cy) // C.TILE
+        # mira no que está à vista: o topo elevado de uma parede cobre o tile de cima dela
+        return self.state.world.visual_tile_at(self.mouse[0] + cx, self.mouse[1] + cy)
 
     def handle_events(self) -> None:
         for event in pygame.event.get():
@@ -237,7 +241,9 @@ class App:
         kind = event[0]
         if kind == "mine_hit":
             self.audio.play("mine_hit")
-            self.renderer.spawn_chips(event[1], "#b0704f", 2)
+            # faíscas saindo da ponta da broca
+            self.renderer.spawn_chips(None, "#ffd27a", 2, at=self.renderer.drill_tip(self.state))
+            self.renderer.spawn_chips(None, "#b0704f", 2, at=self.renderer.drill_tip(self.state))
         elif kind == "break":
             _, tile, tile_kind = event
             resource = C.ORE_TILES.get(tile_kind)
@@ -355,10 +361,11 @@ class App:
         ui.draw_cursor(self.mouse[0] / 2, self.mouse[1] / 2)
         ui.finish(canvas)
 
+        # Copiar uma superfície sem alfa pra janela grava alfa 255 (opaco) em todos os pixels.
         if self.scale == 1:
             self.window.blit(canvas, (0, 0))
         else:
-            pygame.transform.scale(canvas, self.window.get_size(), self.window)
+            self.window.blit(pygame.transform.scale(canvas, self.window.get_size()), (0, 0))
 
     def screenshot(self, path: str) -> None:
         pygame.image.save(self.canvas, path)

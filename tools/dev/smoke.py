@@ -91,7 +91,7 @@ def find_ore_with_floor_below(state, kind=C.IRON):
 def crop_around_player(bot, w=96, h=80) -> pygame.Surface:
     cx, cy = bot.app.cam
     x, y = int(bot.state.player.x - cx), int(bot.state.player.y - cy)
-    return bot.app.canvas.subsurface((x - w // 2, y - h + 16, w, h)).copy()
+    return bot.app.canvas.subsurface((x - w // 2, y - h + max(16, h // 3), w, h)).copy()
 
 
 def check_directions_and_order(bot) -> None:
@@ -123,6 +123,93 @@ def check_directions_and_order(bot) -> None:
     print("  screenshot: reports/dev/ordem_desenho.png  (esquerda: player atrás da máquina · direita: na frente)")
     bot.teleport((64, 66))
     bot.frames(0.1)
+
+
+def carve(state, tiles, kind=C.FLOOR):
+    for t in tiles:
+        state.world.set(*t, kind)
+
+
+def check_walls_and_hover(bot) -> None:
+    """Paredes altas, túnel de 1 tile, player escondido atrás do topo e cursor em cima de máquina."""
+    s = bot.state
+    # tela interna sem canal alfa (causa do quadrado preto no macOS, playtest 1)
+    assert bot.app.canvas.get_masks()[3] == 0, "canvas não pode ter canal alfa"
+
+    # 1) túnel horizontal e vertical de 1 tile cavados num maciço, longe da base
+    cx, cy = 64, 96
+    carve(s, [(x, y) for x in range(cx - 8, cx + 9) for y in range(cy - 6, cy + 7)], C.ROCK)
+    carve(s, [(x, cy) for x in range(cx - 7, cx + 1)])                 # túnel horizontal
+    carve(s, [(cx, y) for y in range(cy - 5, cy + 6)])                 # túnel vertical
+    carve(s, [(x, y) for x in range(cx + 3, cx + 8) for y in range(cy + 2, cy + 6)])   # salinha
+    bot.teleport((cx - 4, cy))
+    s.o2 = C.O2_MAX
+    bot.key(pygame.K_a, hold=0.2)
+    bot.frames(0.2)
+    bot.shot("tunel.png")
+
+    # 2) player logo acima de uma parede (pé na linha de cima): metade de baixo escondida
+    s.player.x, s.player.y = (cx + 5 + 0.5) * C.TILE, (cy + 2) * C.TILE - 2
+    carve(s, [(cx + 5, cy + 2)], C.ROCK)
+    bot.frames(0.1)
+    sheet = pygame.Surface((96 * 2, 80))
+    sheet.blit(crop_around_player(bot), (0, 0))
+    carve(s, [(cx + 5, cy + 2)])          # tira a parede: player inteiro, pra comparar
+    bot.frames(DT)
+    sheet.blit(crop_around_player(bot), (96, 0))
+    pygame.image.save(pygame.transform.scale_by(sheet, 3), str(OUT / "atras_da_parede.png"))
+    print("  screenshot: reports/dev/atras_da_parede.png  (esquerda: parede logo abaixo do player · direita: sem parede)")
+    s.o2 = C.O2_MAX
+
+    # 3) cursor em cima de máquina colocada (com e sem fantasma) — playtest 1 mostrou quadrado preto aqui
+    bot.teleport((64, 66))
+    bot.frames(0.1)
+    s.inventory.update(iron=60, silicon=30, ice=40)
+    s.craft("melter")
+    s.place("melter", (62, 67))
+    s.craft("melter")
+    bot.app.placing = "melter"
+    bot.mouse_to(bot.tile_on_screen((62, 67)))          # fantasma em cima da máquina colocada (inválido)
+    bot.frames(0.2)
+    shot_hover = pygame.Surface((240, 120))
+    cxp, cyp = bot.tile_on_screen((62, 67))
+    shot_hover.blit(bot.app.canvas, (0, 0), (cxp - 60, cyp - 80, 120, 120))
+    bot.mouse_to(bot.tile_on_screen((60, 67)))          # fantasma num lugar válido, ao lado
+    bot.frames(0.2)
+    bot.app.placing = None
+    shot_hover.blit(bot.app.canvas, (120, 0), (cxp - 100, cyp - 80, 120, 120))
+    pygame.image.save(pygame.transform.scale_by(shot_hover, 3), str(OUT / "hover_maquina.png"))
+    print("  screenshot: reports/dev/hover_maquina.png  (esquerda: fantasma sobre máquina · direita: fantasma ao lado)")
+    s.machines_owned["melter"] = 0
+
+
+def check_drill(bot) -> None:
+    """Minera nas 4 direções (sem quebrar) e monta reports/dev/broca.png."""
+    s = bot.state
+    cx, cy = 40, 100
+    carve(s, [(x, y) for x in range(cx - 3, cx + 4) for y in range(cy - 3, cy + 4)])          # salinha
+    crops = []
+    for target in [(cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)]:                   # dir, esq, baixo, cima
+        carve(s, [(x, y) for x in range(cx - 3, cx + 4) for y in range(cy - 3, cy + 4)])
+        carve(s, [target], C.ROCK)                         # só a rocha que vai ser minerada
+        bot.teleport((cx, cy))
+        s.o2 = C.O2_MAX
+        bot.frames(0.05)
+        # mira no topo elevado da parede (é onde ela aparece na tela)
+        camx, camy = bot.app.cam
+        pos = (target[0] * C.TILE + 16 - camx, target[1] * C.TILE - 8 - camy)
+        bot.mouse_to(pos)
+        bot.mouse_down(pos)
+        bot.frames(0.3)                                    # rocha quebra em 0,6 s: aqui ainda está inteira
+        assert s.mining and s.mining.tile == target, (s.mining, target)
+        crops.append(crop_around_player(bot, 96, 96))
+        bot.mouse_up(pos)
+        bot.frames(0.05)
+    sheet = pygame.Surface((96 * 4, 96))
+    for i, c in enumerate(crops):
+        sheet.blit(c, (i * 96, 0))
+    pygame.image.save(pygame.transform.scale_by(sheet, 3), str(OUT / "broca.png"))
+    print("  screenshot: reports/dev/broca.png  (direita, esquerda, baixo, cima)")
 
 
 def main() -> None:
@@ -180,6 +267,8 @@ def main() -> None:
     bot.frames(2.0)
     bot.shot("base.png")
     check_directions_and_order(bot)
+    check_walls_and_hover(bot)
+    check_drill(bot)
 
     print("4) terminal")
     tx, ty = s.world.terminals[0]

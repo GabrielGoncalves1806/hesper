@@ -16,17 +16,10 @@ import pygame
 
 from game import config as C
 
-# Volume por categoria (set_volume). Os arquivos já vêm equilibrados entre si.
-VOLUME = {
-    "mine_hit": 1.0, "mine_break": 1.0, "pickup": 1.0,
-    "footstep_0": 0.7, "footstep_1": 0.7,
-    "ui_open": 0.8, "ui_close": 0.8, "ui_click": 0.8, "terminal_open": 0.8,
-    "o2_low": 0.9, "o2_refill": 0.9, "faint": 0.9,
-    "craft": 1.0, "place": 1.0,
-    "stage_up": 1.0,
-}
-AMBIENT_VOLUME = 0.7
-HUM_MAX_VOLUME = 0.6
+# Volumes ficam no config.py (VOLUME, AMBIENT_VOLUME, HUM_MAX_VOLUME), pra ajustar fácil entre playtests.
+VOLUME = C.VOLUME
+AMBIENT_VOLUME = C.AMBIENT_VOLUME
+HUM_MAX_VOLUME = C.HUM_MAX_VOLUME
 
 # Variações de pitch geradas no load (fator de velocidade) pra não soar repetitivo.
 PITCH_VARIANTS = {
