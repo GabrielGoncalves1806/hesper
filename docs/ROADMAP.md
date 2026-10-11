@@ -23,10 +23,10 @@ Detalhes em `GAME_BIBLE.md` §4.
 ## v0.2 · A base ganha vida (automação) · em andamento
 Detalhes em `GAME_BIBLE.md` §8.
 
-- [ ] Marco 1: save/load versionado + tela de título
+- [x] Marco 1: save/load versionado + tela de título
 - [ ] Marco 1: inventário com 16 slots + hotbar + tela de inventário
 - [ ] Marco 1: baú (24 slots, o fabricador puxa dos baús na base)
-- [ ] Marco 2: energia global (cápsula 5 kW, painel solar, consumo, déficit proporcional)
+- [x] Marco 2: energia global (cápsula 5 kW, painel solar, consumo, déficit proporcional)
 - [ ] Marco 3: estação de drones + drones levando minério das drills pros baús
 - [ ] Assets do v0.2 (sprites e sons) · aprovados pelo dono
 - [ ] Marco 4: balanceamento com o simulador + playtest
@@ -39,3 +39,9 @@ Inimigos, combate, primeiro boss, ruínas da Colônia Hesper.
 
 ## v0.5 · Vida
 Fauna e flora surgindo com o Ti, farm, música.
+
+## Futuro
+- Drones: upgrade da estação (mais drones, mais alcance).
+- Mochila (mais slots no inventário).
+- Bateria e ciclo dia/noite.
+- Baú de chão estilo caixa azul baixa e larga (referência: storage do Planet Crafter), talvez como segundo tipo de armazenamento.
