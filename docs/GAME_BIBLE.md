@@ -111,7 +111,7 @@ Meta: ~25 min de jogo até o fim do MVP. **Os números são chute e vão ser aju
   - **Não dá pra minerar veio na mão.**
   - Com o mouse em cima, a dica diz "Veio de <minério> · drill libera na Névoa" (ou "Coloque uma drill", depois de liberada).
 - **Drill**: máquina craftada no fabricador, **liberada no estágio Névoa (Ti 10.000)**. Só pode ser colocada **exatamente em cima de um veio livre** (ocupa os 2×2).
-  - Extrai o minério do veio **pra sempre**, ~1 unidade a cada 20 s.
+  - Extrai o minério do veio **pra sempre**, ~1 unidade a cada 12 s, custo 12 ferro + 6 silício.
   - Guarda até **20** unidades. Cheia, para.
   - **O jogador precisa ir buscar:** com **E** perto da drill, coleta tudo pro inventário.
   - Com o mouse em cima, mostra o conteúdo ("12/20 ferro").

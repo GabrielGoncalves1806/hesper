@@ -144,9 +144,9 @@ MACHINES = {
 # Veio = depósito de minério 2×2 no CHÃO (não dá pra minerar na mão). A drill é colocada em
 # cima dele e extrai pra sempre, devagar, até encher; o jogador volta pra coletar com E.
 # Custo e ritmo são chute inicial: quem calibra é o tools/dev/balance_sim.py.
-DRILL_COST = {"iron": 20, "silicon": 10}
+DRILL_COST = {"iron": 12, "silicon": 6}   # balance_sim: com 20/10 + 20 s a drill não se pagava (aprovado pelo dono)
 DRILL_UNLOCK_TI = 10_000        # libera no estágio Névoa
-DRILL_INTERVAL = 20.0           # segundos por unidade extraída
+DRILL_INTERVAL = 12.0           # segundos por unidade extraída (era 20; ver reports/dev/balance.md)
 DRILL_CAPACITY = 20             # cheia, para
 DRILL_REACH = 56                # px entre os pés do player e a base da drill pra coletar com E
 DRILL_FULL_NOTICE = 4 * TILE    # chegou perto (px) de uma drill cheia: toca drill_full uma vez
