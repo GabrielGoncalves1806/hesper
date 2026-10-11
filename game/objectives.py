@@ -55,6 +55,8 @@ OBJECTIVES = [
     Objective("Minere gelo e fabrique um Derretedor", lambda s: crafted(s, "melter") >= 1),
     Objective("Chegue a Ti 500", lambda s: s.ti >= 500),
     Objective("Fabrique um Aquecedor", lambda s: crafted(s, "heater") >= 1),
+    # energia (bíblia §8): o aquecedor é o ponto em que os 5 kW da cápsula começam a apertar
+    Objective("Fabrique um painel solar", lambda s: crafted(s, "solar") >= 1),
     Objective("Leia um terminal", lambda s: len(s.logs_read) >= 1),
     Objective("Chegue ao estágio Névoa", lambda s: s.stage >= 2),
     Objective("Coloque uma drill num veio", lambda s: s.drills_placed >= 1),

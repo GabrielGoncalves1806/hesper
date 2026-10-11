@@ -20,6 +20,7 @@ from game import art
 from game import config as C
 from game import audio as sound
 from game import save
+from game import energy
 from game import settings
 from game.assets import Sprites
 from game.audio import Audio
@@ -35,7 +36,7 @@ MOVE_KEYS = {
     pygame.K_w: (0, -1), pygame.K_UP: (0, -1),
     pygame.K_s: (0, 1), pygame.K_DOWN: (0, 1),
 }
-NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7]
+NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8]
 BANNER_TIME = 3.5          # banner de estágio: entra em 0,4 s, fica, sai em 0,8 s
 BANNER_FADE_IN, BANNER_FADE_OUT = 0.4, 0.8
 END_SCREEN_DELAY = 4.5
@@ -368,6 +369,7 @@ class App:
         if self.mode != "end":
             self.state.update(dt, self.controls())
         self.banner_time += dt
+        self.renderer.machine_t += dt * self.state.power.factor    # animação das máquinas no ritmo da energia
         self.floaters.update(dt)
         self.renderer.update_particles(dt)
         events = self.state.pop_events()
@@ -414,6 +416,8 @@ class App:
             self.audio.play("place_low")
         elif kind == "craft":
             self.audio.play("craft")
+        elif kind == "power_low":             # o déficit de energia começou (sem o arquivo, fica em silêncio)
+            self.audio.play("power_low")
         elif kind == "place":
             self.audio.play("place")
         elif kind == "refill":
@@ -441,7 +445,7 @@ class App:
         audio.set_alarm(not state.fainted and sound.alarm_should_play(audio.alarm_on, o2_percent))
         # zumbido pela máquina mais próxima
         nearest = min((math.hypot((m.tx + 0.5) * C.TILE - state.player.x, (m.ty + 1) * C.TILE - state.player.y) / C.TILE
-                       for m in state.machines if not m.is_drill), default=None)
+                       for m in state.machines if m.type.index is not None), default=None)
         audio.set_hum(sound.hum_volume(nearest))
         self.update_drills_feedback(dt)
         # ambiente: some no desmaio, abaixa lendo terminal
@@ -474,7 +478,7 @@ class App:
         # poeira saindo da base enquanto perfura (só as que estão na tela)
         self.drill_dust_timer -= dt
         if self.drill_dust_timer <= 0:
-            self.drill_dust_timer = 0.12
+            self.drill_dust_timer = 0.12 / max(0.2, state.power.factor)   # no déficit, menos poeira
             cx, cy = self.cam
             for d in state.drills:
                 ax, ay = d.anchor
@@ -486,9 +490,11 @@ class App:
     def spawn_machine_floaters(self, dt: float) -> None:
         """De tempos em tempos cada máquina solta um '+O2', '+CALOR' ou '+AGUA' (como no mockup)."""
         period = 4.0
+        t = self.renderer.machine_t          # relógio das máquinas: no déficit, os "+O2" saem mais espaçados
+        dt = dt * self.state.power.factor
         for i, m in enumerate(self.state.machines):
             phase = (i * 1.37) % period
-            if m.type.index is not None and (self.t - dt + phase) % period > (self.t + phase) % period:
+            if m.type.index is not None and (t - dt + phase) % period > (t + phase) % period:
                 key = m.type.index
                 self.floaters.add(f"+{C.INDEX_LABEL[key]}", (m.tx + 0.5) * C.TILE, m.ty * C.TILE - 30, C.INDEX_COLOR[key])
 
@@ -517,8 +523,14 @@ class App:
             label = C.RESOURCE_NAME[machine.resource]
             content = (f"Drill cheia: {machine.stored} {label}" if machine.full
                        else f"Drill: {machine.stored}/{C.DRILL_CAPACITY} {label}")
+            if state.power.deficit and not machine.full:
+                content += f" · ritmo {self.power_percent()}%"
             return content + (" · [E] coletar" if state.nearby_drill() is machine and machine.stored else "")
         if machine:
+            if state.power.deficit and energy.machine_use(machine.kind) > 0:     # no déficit: mostra o ritmo
+                rhythm = f"Ritmo {self.power_percent()}%"
+                return (f"{rhythm} · [Clique direito] desmontar" if state.can_dismantle(machine)
+                        else f"{rhythm} (falta energia)")
             return "[Clique direito] desmontar" if state.can_dismantle(machine) else "Chegue mais perto pra desmontar"
         vein = state.world.vein_at(*self.mouse_tile())     # mouse em cima de um veio livre
         if vein:
@@ -537,6 +549,10 @@ class App:
         if state.world.is_minable(*tile):
             return "Segure o clique para minerar" if state.can_mine(tile) else "Chegue mais perto pra minerar"
         return None
+
+    def power_percent(self) -> int:
+        """Ritmo atual das máquinas em % (arredondado pra baixo: 62,5% vira 62%)."""
+        return int(self.state.power.factor * 100)
 
     def draw(self) -> None:
         state, canvas, ui = self.state, self.canvas, self.ui

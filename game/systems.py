@@ -11,6 +11,7 @@ import random
 from dataclasses import dataclass
 
 from game import config as C
+from game.energy import PowerAlert, PowerReport, power_report
 from game.player import Player, Rect, overlaps
 from game.world import World
 
@@ -167,6 +168,7 @@ class GameState:
         self.fabricator_opened = False
         self.drills_placed = 0                         # quantas vezes já colocou uma drill (só cresce)
         self.drill_collected = {r: 0 for r in C.RESOURCES}   # total já coletado de drills (só cresce)
+        self.power_alert = PowerAlert()                # quando tocar o power_low (game/energy.py)
         self.events: list[tuple] = []
 
     # ---- consultas ----------------------------------------------------------
@@ -177,7 +179,13 @@ class GameState:
 
     @property
     def ti_rate(self) -> float:
-        return sum(m.type.rate for m in self.machines)
+        """Ti por segundo, já com o ritmo da energia (no déficit, todas rendem menos)."""
+        return sum(m.type.rate for m in self.machines) * self.power.factor
+
+    @property
+    def power(self) -> PowerReport:
+        """Energia agora: produção, consumo e o fator (ritmo) de todas as máquinas. Ver game/energy.py."""
+        return power_report(m.kind for m in self.machines)
 
     @property
     def drills(self) -> list[Machine]:
@@ -426,11 +434,15 @@ class GameState:
         return True
 
     def _update_machines(self, dt: float) -> None:
+        power = self.power
+        if self.power_alert.update(power.deficit, dt):
+            self.events.append(("power_low",))
+        work_dt = dt * power.factor          # sem energia suficiente, tudo anda mais devagar
         for m in self.machines:
             if m.is_drill:
-                self._update_drill(m, dt)
-            else:
-                self.indices[m.type.index] += m.type.rate * dt
+                self._update_drill(m, work_dt)
+            elif m.type.index is not None:   # painel solar não soma Ti
+                self.indices[m.type.index] += m.type.rate * work_dt
         self._check_stage()
 
     def _check_stage(self) -> None:

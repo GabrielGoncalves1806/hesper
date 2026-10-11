@@ -318,6 +318,47 @@ def check_dismantle(bot) -> None:
     s.place(kind, (66, 66))      # devolve a máquina pro resto do smoke
 
 
+def check_energy(bot) -> None:
+    """Energia (Marco 2): painel solar pela tecla 8, medidor verde/amarelo e, forçando um déficit,
+    medidor vermelho + aviso + ritmo no hover + power_low disparado uma vez."""
+    from game.systems import Machine
+    s, app = bot.state, bot.app
+    bot.teleport((64, 66))
+    bot.frames(0.1)
+    s.inventory.update(iron=max(8, s.inventory["iron"]), silicon=max(6, s.inventory["silicon"]))
+    assert s.craft("solar")
+    bot.key(pygame.K_8)
+    assert app.placing == "solar"
+    spot = next(t for t in [(62, 67), (61, 68), (63, 68), (60, 67), (66, 68)] if s.can_place("solar", t))
+    bot.click(bot.tile_on_screen(spot))
+    panel = s.machine_at(spot)
+    assert panel is not None and panel.kind == "solar", "o painel devia ter sido colocado"
+    assert s.power.production == C.POD_POWER + 3 and not s.power.deficit
+    bot.mouse_to(bot.tile_on_screen((64, 69)))
+    bot.frames(0.5)
+    bot.shot("energia_ok.png")
+
+    # déficit forçado: máquinas nv.2 direto no mundo (o teste é do HUD, não do fabricador)
+    free = [(x, y) for y in range(67, 71) for x in range(58, 71)
+            if s.world.get(x, y) == C.FLOOR and not s.machine_at((x, y)) and (x, y) not in C.POD_TILES
+            and s.world.vein_at(x, y) is None and (x, y) != s.player.tile]
+    extra = [Machine("heater_t2", *t) for t in free[::3][:3]]
+    s.machines += extra
+    assert s.power.deficit and s.power_alert.armed
+    bot.frames(0.6)
+    assert not s.power_alert.armed, "o power_low devia ter disparado"
+    m = extra[0]
+    camx, camy = app.cam
+    bot.mouse_to((int((m.tx + 0.5) * C.TILE - camx), int((m.ty + 1) * C.TILE - 30 - camy)))
+    bot.frames(0.3)
+    percent = int(s.power.factor * 100)
+    assert app.hint().startswith(f"Ritmo {percent}%"), app.hint()
+    bot.shot("energia_deficit.png")
+    for machine in extra:
+        s.machines.remove(machine)
+    bot.frames(0.1)
+
+
 def check_objectives_midway(bot) -> None:
     """Objetivos no meio do caminho: com ferro e silício 'minerados', o atual vira "Chegue a Ti 500"."""
     s = bot.state
@@ -549,6 +590,7 @@ def main() -> None:
     check_drill(bot)
     check_pause(bot)
     check_dismantle(bot)
+    check_energy(bot)
     check_transition(bot, 1, [("transicao_25.png", 0.25), ("transicao_60.png", 0.60), ("transicao_90.png", 0.90)])
 
     print("4) terminal")
