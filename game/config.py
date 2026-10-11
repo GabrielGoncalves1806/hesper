@@ -156,8 +156,8 @@ STAGES = [
 
 RATE_SMOOTHING = 3.0   # segundos da média móvel da taxa de Ti usada na estimativa "~50 min"
 
-# Água: quanto mais baixo o limiar, menos poças. Estágio 1 tem "poucas poças" (§3).
-WATER_THRESHOLD = {1: 0.10, 2: 0.24, 3: 0.33}
+# Água: quanto mais baixo o limiar, menos poças. Só aparece a partir da Névoa (§3).
+WATER_THRESHOLD = {1: 0.0, 2: 0.24, 3: 0.33}   # estágio 1 (Morto) não tem água nenhuma (§3)
 PLANT_CHANCE = 0.11   # estágio 3: chance de um tile de chão ter planta
 
 # ---------------------------------------------------------------------------

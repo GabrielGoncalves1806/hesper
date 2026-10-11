@@ -134,8 +134,8 @@ class World:
         return math.hypot(tx + 0.5 - cx, ty + 0.5 - cy)
 
     def is_water(self, tx: int, ty: int, stage: int) -> bool:
-        """Poça cosmética (dá pra andar por cima). Aparece em chão 'baixo' e cresce com o estágio."""
-        if self.get(tx, ty) != C.FLOOR or self.dist_from_center(tx, ty) < 7:
+        """Poça cosmética (dá pra andar por cima). Só a partir da Névoa, em chão 'baixo', e cresce com o estágio."""
+        if stage < 2 or self.get(tx, ty) != C.FLOOR or self.dist_from_center(tx, ty) < 7:
             return False
         return self.lowness[ty][tx] < C.WATER_THRESHOLD[stage]
 

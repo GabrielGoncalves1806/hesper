@@ -46,7 +46,7 @@ Referência obrigatória: `reports/mockups/mockups.html` (abre no navegador).
 | Rocha topo | `#4b3332` `#563a38` | `#4a4447` `#544d50` | `#4b4a45` `#55544e` |
 | Rocha luz/sombra | `#6e4b47` / `#352323` | `#6c6467` / `#343033` | `#6d6c64` / `#353530` |
 | Face da parede | `#2f1f1f` | `#2b272a` | `#2c2c28` |
-| Água | (poucas poças) `#3d6f86` | `#3f7690` | `#2c7ea6` |
+| Água | **nenhuma** (sem atmosfera não há água líquida) | `#3f7690` | `#2c7ea6` |
 | Extra | poeira laranja no ar | névoa + chuva fina | grama `#79b04f`, musgo `#5c9a43` |
 
 **Minérios:** ferro `#e8a066` (sombra `#a5582c`), silício `#c3d1e2` (`#7d8ca3`), gelo `#a6ecff` (`#4fb3d6`).

@@ -281,3 +281,12 @@ def test_mining_turns_player_to_target(game):
     game.world.set(px, py + 1, C.ROCK)
     run(game, 0.1, Controls(mine_tile=(px, py + 1)))
     assert game.player.direction == "down"       # ...minerou embaixo, virou pra baixo
+
+
+def test_no_water_in_stage1_but_water_later():
+    w = World.generate()
+    tiles = [(x, y) for y in range(128) for x in range(128)]
+    assert not any(w.is_water(x, y, 1) for x, y in tiles)       # Morto: nenhuma poça
+    stage2 = {t for t in tiles if w.is_water(*t, 2)}
+    stage3 = {t for t in tiles if w.is_water(*t, 3)}
+    assert stage2 and stage2 <= stage3                         # Névoa tem poças; Verde mantém e cresce
