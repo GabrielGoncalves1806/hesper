@@ -1962,6 +1962,61 @@ def make_icon_station() -> Canvas:
     return cv
 
 
+def make_icon_drone() -> Canvas:
+    """Ícone de item do drone (parado): corpo branco com faixa laranja e visor ciano,
+    4 braços com hélices paradas e pezinhos de pouso. Contorno #1b1630, como os outros ícones."""
+    cv = Canvas(16, 16)
+    rig = Canvas(16, 16)
+    for (rx, ry) in ((2, 3), (13, 3), (2, 10), (13, 10)):
+        x, y = 7 + (rx > 7), 6 + (ry > 6)
+        while (x, y) != (rx, ry):                       # braço
+            rig.px(x, y, C(MT["k"]))
+            x += (rx > x) - (rx < x)
+            y += (ry > y) - (ry < y)
+        rig.rect(rx - 2, ry - 1, 5, 1, C("#dfe5ee"))     # hélice parada (pás na horizontal)
+        rig.px(rx - 2, ry - 1, C("#aab3c2"))
+        rig.px(rx + 2, ry - 1, C("#aab3c2"))
+        rig.px(rx, ry, C(MT["kk"]))                     # cubo do rotor
+    rig.rect(5, 12, 1, 2, C(MT["g"]))                   # pezinhos
+    rig.rect(10, 12, 1, 2, C(MT["g"]))
+    rig.rect(4, 13, 3, 1, C(MT["k"]))
+    rig.rect(9, 13, 3, 1, C(MT["k"]))
+    rig.outline(C(OUTLINE))
+    cv.paste(rig, 0, 0)
+    body = Canvas(16, 16)
+    body.rect(4, 4, 8, 8, C(MT["w"]))
+    body.rect(4, 10, 8, 2, C(MT["m"]))
+    body.rect(10, 5, 2, 7, C(MT["s"]))
+    body.rect(4, 7, 8, 2, C(MT["o"]))
+    body.rect(4, 7, 8, 1, C(MT["oh"]))
+    body.rect(6, 4, 4, 2, C("#2b7f99"))
+    body.rect(6, 4, 2, 1, C("#59d0e6"))
+    body.px(6, 4, C("#d8fbff"))
+    body.px(10, 10, C(MT["led"]))
+    for x, y in ((4, 4), (11, 4), (4, 11), (11, 11)):
+        body.a[y, x] = 0
+    body.outline(C(OUTLINE))
+    cv.paste(body, 0, 0)
+    return cv
+
+
+def make_slot_preview(spr: dict[str, Image.Image], icon_key: str, ref_key: str) -> Image.Image:
+    """ui_slot + ícone em 1x, 2x e 3x (o jogo escala slot e ícone juntos; ícone em (2,2) no slot 1x)."""
+    slot = spr["ui_slot.png"]
+    out = Image.new("RGBA", (12 + 2 * (20 + 40 + 60 + 3 * 12 + 12), 60 + 24), C("#15100e"))
+    x = 12
+    for key in (icon_key, ref_key):
+        for k in (1, 2, 3):
+            sl = slot.resize((20 * k, 20 * k), Image.NEAREST)
+            ic = spr[key].resize((16 * k, 16 * k), Image.NEAREST)
+            y = 12 + (60 - 20 * k)
+            out.alpha_composite(sl, (x, y))
+            out.alpha_composite(ic, (x + 2 * k, y + 2 * k))
+            x += 20 * k + 12
+        x += 12
+    return out
+
+
 def make_ui_slot() -> Canvas:
     cv = Canvas(20, 20)
     cv.rect(0, 0, 20, 20, C("#4a382f"))
@@ -1995,6 +2050,7 @@ def build_v02() -> dict[str, Canvas]:
         "icon_solar.png": make_icon_solar(),
         "icon_drone_station.png": make_icon_station(),
         "ui_slot.png": make_ui_slot(),
+        "icon_drone.png": make_icon_drone(),          # aprovado na v3.3
     }
 
 
@@ -2252,6 +2308,7 @@ GROUPS = [
     ("Máquinas nv.1", "obj", ["machine_o2.png", "machine_heater.png", "machine_melter.png"]),
     ("Máquinas nv.2", "obj", ["machine_o2_t2.png", "machine_heater_t2.png", "machine_melter_t2.png"]),
     ("Plantas (estágio verde)", "obj", ["plant_bush.png", "plant_tree.png", "plant_flower.png"]),
+    ("Ícone de item do drone (v3.3, ao lado dos outros ícones de item)", "icon", ["icon_drone.png", "icon_drone_station.png", "icon_chest.png", "icon_solar.png", "icon_drill.png"]),
     ("v0.2 · baú, painel e estação", "obj", ["chest.png", "chest_open.png", "solar_panel.png", "drone_station.png"]),
     ("v0.2 · drone (4 quadros, animado a 15 fps ao lado)", "drone", ["drone.png"]),
     ("v0.2 · ícones e slot", "icon", ["icon_chest.png", "icon_solar.png", "icon_drone_station.png", "ui_slot.png"]),
@@ -2346,6 +2403,7 @@ def build_report(spr: dict[str, Image.Image]):
                   if (REP / "before" / f"{n}_v30.png").exists() else "")
         chest_items.append(f'<figure><div class="pair">{b_html}<div>depois<img src="../../assets/sprites/{n}.png" width="{w}" height="{h}" alt="{n} depois"></div></div><figcaption>{n}.png · {sc}×</figcaption></figure>')
     chest_cmp = "".join(chest_items)
+    slot_w, slot_h = Image.open(REP / "slot_preview.png").size if (REP / "slot_preview.png").exists() else (0, 0)
     n_pending = sum(1 for k in spr if k.startswith("_pending/"))
     n_official = len(spr) - n_pending
 
@@ -2453,11 +2511,17 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v3.2 (v0.2)</div>
+  <div class="eyebrow">Hesper · Designer · v3.3 (v0.2)</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
   <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span></div>
-  <div class="v2"><b>v3.2 · sprites do v0.2 aprovados</b><ul>
+  <div class="v2"><b>v3.3 · aprovado: ícone de item do drone</b><ul>
+    <li><b>Novo:</b> <code>assets/sprites/icon_drone.png</code> (16×16). Agora o drone é um item que se fabrica e se coloca na estação, então ganhou ícone próprio. O dono aprovou, e ele foi promovido pra pasta oficial com os mesmos bytes (md5 conferido). O contrato oficial passou a ter 68 arquivos.</li>
+    <li><b>Visual:</b> é o mesmo drone do <code>drone.png</code>, parado: corpo branco com faixa laranja, visor ciano e LED verde, 4 braços com hélices paradas e pezinhos de pouso. Tem contorno <code>#1b1630</code> e segue a família dos outros ícones de item.</li>
+    <li><b>Onde ver:</b> ampliado ao lado dos outros ícones de item, logo abaixo das prévias, e dentro do <code>ui_slot</code> em 1×, 2× e 3× (o tamanho em que o jogo desenha).</li>
+    <li>Os outros 67 sprites oficiais não mudaram (md5 conferido). A pasta <code>_pending/</code> foi removida.</li>
+  </ul></div>
+  <div class="v2" style="opacity:.75"><b>v3.2 · sprites do v0.2 aprovados</b><ul>
     <li>O dono aprovou os 9 sprites do v0.2, e eles foram promovidos pra pasta oficial <code>assets/sprites/</code>:
       <ul>
         <li><code>chest</code> e <code>chest_open</code>;</li>
@@ -2523,6 +2587,13 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 </header>
 
 <section><h2>Prévia das cenas (960×540, tamanho real)</h2><div class="pvs">{previews}</div></section>
+
+<section><h2>Ícone do drone no slot do inventário</h2>
+<p class="lede" style="margin-bottom:14px">Imagem em tamanho real (1 pixel da imagem = 1 pixel da tela): <code>ui_slot</code> com o ícone em 1×, 2× e 3×, do jeito que o jogo escala os dois juntos. À direita, o <code>icon_chest</code> aprovado na mesma escala, pra comparar.</p>
+<img src="slot_preview.png" width="{slot_w}" height="{slot_h}" alt="Ícone do drone no slot em 1×, 2× e 3×" style="image-rendering:pixelated;display:block;max-width:100%;border:1px solid var(--line)">
+<p class="lede" style="margin-top:10px">A mesma imagem ampliada 3×, pra conferir os pixels:</p>
+<img src="slot_preview.png" width="{slot_w * 3}" height="{slot_h * 3}" alt="Prévia do slot ampliada 3×" style="image-rendering:pixelated;display:block;max-width:100%;border:1px solid var(--line)">
+</section>
 
 <section><h2>Baú · antes (v3.0) × depois (v3.1)</h2><div class="cmp">{chest_cmp}</div></section>
 
@@ -2593,6 +2664,7 @@ def main():
     for st in STAGES:
         render_scene(st, spr).save(REP / f"preview_{st}.png")
     make_drill_preview(spr).save(REP / "drill_preview.png")
+    make_slot_preview(spr, "icon_drone.png", "icon_chest.png").save(REP / "slot_preview.png")
     build_report(spr)
     print(f"{len(canv)} sprites oficiais em {OUT.relative_to(ROOT)}, {len(pend)} pendentes, "
           f"3 prévias + index.html em {REP.relative_to(ROOT)}")
