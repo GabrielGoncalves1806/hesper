@@ -360,6 +360,8 @@ class App:
             state.toggle_time_scale()
         elif key == pygame.K_F2:
             state.debug_add_ti()
+        elif key == pygame.K_F3:
+            state.toggle_fast()
         if state.fainted:
             return
 

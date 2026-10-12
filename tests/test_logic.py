@@ -232,6 +232,32 @@ def test_time_scale_speeds_up_machines(game):
     assert game.indices["o2"] == pytest.approx(30, abs=0.2)
 
 
+def test_f3_fast_mode_off_by_default_keeps_normal_speeds(game):
+    assert not game.fast
+    assert game.player_speed == C.PLAYER_SPEED and game.mine_speed == 1.0
+    y0 = game.player.y
+    run(game, 0.5, Controls(move_y=1))                     # área da cápsula: areia limpa embaixo
+    assert game.player.y - y0 == pytest.approx(C.PLAYER_SPEED * 0.5, abs=1)
+
+
+def test_f3_fast_mode_doubles_walk_and_mines_5x_faster(game):
+    game.toggle_fast()
+    assert game.fast and C.DEBUG_SPEED == 2.0 and C.DEBUG_MINE == 5.0
+    assert game.player_speed == C.PLAYER_SPEED * C.DEBUG_SPEED
+    y0 = game.player.y
+    run(game, 0.5, Controls(move_y=1))
+    assert game.player.y - y0 == pytest.approx(C.PLAYER_SPEED * C.DEBUG_SPEED * 0.5, abs=1)
+    for kind in (C.ROCK, C.IRON, C.SMALL_ICE):              # parede, minério e rocha pequena
+        tile = put_wall_next_to_player(game, kind)
+        run(game, C.MINE_TIME[kind] / C.DEBUG_MINE + 2 * DT, Controls(mine_tile=tile))
+        assert game.world.get(*tile) == game.world.floor_kind
+    game.toggle_fast()                                      # F3 de novo: volta ao normal
+    assert not game.fast and game.player_speed == C.PLAYER_SPEED and game.mine_speed == 1.0
+    tile = put_wall_next_to_player(game, C.ROCK)
+    run(game, C.MINE_TIME[C.ROCK] / 2, Controls(mine_tile=tile))
+    assert game.world.get(*tile) == C.ROCK
+
+
 def test_stage_thresholds():
     assert stage_for_ti(0) == 1
     assert stage_for_ti(9_999) == 1

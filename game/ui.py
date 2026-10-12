@@ -348,8 +348,10 @@ class UI:
             self.panel(self.w - 6 - w, y, w, 20)
             self.text(hint, self.w - 13, y + 4, C.C_TEXT, self.body, "right")
 
-        if state.time_scale != 1:
-            self.text(f"DEBUG · TEMPO x{state.time_scale}", self.w // 2, 8, C.C_TI, align="center")
+        debug = ([f"DEBUG · TEMPO x{state.time_scale}"] if state.time_scale != 1 else []) \
+            + ([f"DEBUG · RAPIDO x{C.DEBUG_SPEED:g} · BROCA x{C.DEBUG_MINE:g}"] if state.fast else [])
+        for i, line in enumerate(debug):          # F1 e F3: uma linha cada, no topo (não alcança o painel do Ti)
+            self.text(line, self.w // 2, 8 + 10 * i, C.C_TI, align="center")
 
     def draw_ti_panel(self, state: GameState) -> None:
         """Ti total, os 3 índices e, embaixo, quanto falta pro próximo estágio."""
@@ -1315,7 +1317,7 @@ class UI:
         ("+ / -", "Aproximar / afastar (ou Ctrl+rodinha)"),
         ("F11 · ALT+ENTER", "Tela cheia"),
         ("ESC > OPÇÕES", "Tamanho da interface (HUD e menus)"),
-        ("F1 · F2", "Debug: tempo x10 · +10.000 Ti"),
+        ("F1 · F2 · F3", "Debug: tempo x10 · +10.000 Ti · rápido"),
     ]
 
     def _pause_frame(self, x, y, w, h, title) -> None:

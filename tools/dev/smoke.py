@@ -766,6 +766,11 @@ def check_drill_feature(bot) -> None:
     bot.key(pygame.K_ESCAPE)                      # larga a segunda drill da mão
     # deixa trabalhar um pouco (F1 acelera ×10)
     bot.key(pygame.K_F1)
+    bot.key(pygame.K_F3)                          # F3: modo rápido (player ×2, broca ×5), junto com o F1 no topo
+    assert s.fast and s.player_speed == C.PLAYER_SPEED * C.DEBUG_SPEED
+    bot.shot("debug_hud.png")
+    bot.key(pygame.K_F3)
+    assert not s.fast
     for _ in range(25):                           # com F1 o O₂ também cai ×10: mantém cheio pra não desmaiar
         s.o2 = C.O2_MAX
         bot.frames(C.DRILL_INTERVAL / C.DEBUG_TIME_SCALE / 4)
