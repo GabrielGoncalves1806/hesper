@@ -319,3 +319,28 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 | `save.wav` | sfx discreto | salvou o jogo (autosave e manual) |
 
 **Regra de aprovação:** os assets novos são entregues em `assets/sprites/_pending/` e `assets/audio/_pending/`. O gerente só move pra pasta oficial depois que o dono aprovar o report. Até lá, o jogo usa o fallback.
+
+## 9. Escopo do v0.3: "superfície"
+
+Design completo e aprovado: `docs/superpowers/specs/2026-10-12-v03-superficie-design.md`. Resumo das decisões:
+
+- **Duas camadas**, em mapas separados:
+  - **Superfície**: deserto aberto de 192×192, com a cápsula no centro, recursos soltos que reaparecem, rochas pequenas, morros, cordilheira na borda, **3 a 5 veios só** e destroços.
+  - **Caverna**: 128×128, escura, com minério abundante e veios comuns. Gerada pelo `world.py` de hoje.
+  - Troca de camada por uma **rampa na cratera**, com E e fade.
+- **A base fica na superfície.** A terraformação aparece no deserto; a caverna não muda com o Ti.
+- **O₂**: só na zona da base. Fora dela, 100 s; com o **tanque de O₂** (equipamento, num slot novo), ~220 s.
+- **Luz na caverna**:
+  - lanterna do capacete (~4 tiles);
+  - **luminária**: 1 Fe + 1 Si, ~5 tiles, sem energia;
+  - luz fraca das máquinas;
+  - pontinho de brilho nos minérios.
+- **Destroços** (6 a 8): nave de carga, módulo da colônia e sonda. Têm caixa de saque (só tirar, conteúdo fixo), terminal com LOG e **projetos**.
+- **Projetos** liberam receitas na hora em que tu pega: tanque de O₂, **scanner de navegação** (minimapa com névoa de guerra, M abre o mapa), luminária melhor e, se der tempo, drill nv.2.
+- **Drones só atendem a superfície** no v0.3. O **elevador de carga** na cratera entra no v0.4.
+- **Energia continua global** (vale pras duas camadas).
+- **Save v6**: exige novo jogo, sem migração do v5.
+- **Marcos**: 1 Superfície · 2 Caverna · 3 Destroços/projetos/tanque/scanner · 4 Polimento.
+- **Fora do v0.3**:
+  - v0.4: biomas de caverna, mochila, drill melhor, peças raras e elevador de carga;
+  - depois: água e comida.

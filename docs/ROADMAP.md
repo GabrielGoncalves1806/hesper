@@ -35,18 +35,27 @@ Detalhes em `GAME_BIBLE.md` §8.
 - [x] Fabricador com abas, scroll e fabricar em lote
 - [x] Marco 4: balanceamento (painel solar 4 kW) + polimento + playtest do dono
 
-## v0.3 · Pegada Core Keeper
-Água e comida (barras de sobrevivência). Escuridão com raio de luz, mundo em chunks maior, biomas de caverna, superfície × subsolo.
+## v0.3 · Superfície · planejado
+Detalhes em `GAME_BIBLE.md` §9 e no design `docs/superpowers/specs/2026-10-12-v03-superficie-design.md`. Novo jogo obrigatório.
 
-## v0.4 · Perigo e lore
+- [ ] Marco 1: superfície (deserto 192×192, cápsula no centro, recursos soltos, rochas, morros, veios raros, terraformação no deserto)
+- [ ] Marco 2: caverna (rampa na cratera, mapa separado e escuro, lanterna, luminárias, brilho nos minérios)
+- [ ] Marco 3: destroços, projetos, tanque de O₂ (slot de equipamento) e scanner com minimapa
+- [ ] Assets do v0.3 (sprites e sons) · aprovação do dono
+- [ ] Marco 4: polimento + playtest
+
+## v0.4 · Fundo
+Biomas de caverna, mochila, drill melhor, peças raras dos destroços, elevador de carga (drones atendem a caverna).
+
+## v0.5 · Perigo e lore
 Inimigos, combate, primeiro boss, ruínas da Colônia Hesper.
 
-## v0.5 · Vida
+## v0.6 · Vida
 Fauna e flora surgindo com o Ti, farm, música.
 
 ## Futuro
+- Água e comida (barras de sobrevivência).
 - Drones: upgrade da estação (mais drones, drones mais rápidos).
 - Versão pra celular (navegador via pygbag + controles de toque), decidir se vira plataforma principal.
-- Mochila (mais slots no inventário).
 - Bateria e ciclo dia/noite.
 - Baú de chão estilo caixa azul baixa e larga (referência: storage do Planet Crafter), talvez como segundo tipo de armazenamento.
