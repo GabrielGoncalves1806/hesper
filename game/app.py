@@ -813,7 +813,7 @@ class App:
             self.audio.play("drill_collect")
         elif kind == "drone_deliver":           # drone entregou no baú (ou no buffer da estação)
             _, resource, amount, (x, y) = event
-            self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", x, y - 48, C.ORE_COLORS[resource][0])
+            self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", x, y - 78, C.ORE_COLORS[resource][0])   # acima do rótulo do baú
             distance = math.hypot(x - self.state.player.x, y - self.state.player.y) / C.TILE
             self.audio.play("drone_deliver", gain=sound.drone_deliver_gain(distance))
         elif kind == "station_full":
@@ -1047,8 +1047,9 @@ class App:
         elif self.mode in INVENTORY_MODES:
             side = self.open_chest or self.open_station
             status = self.station_status() if self.open_station is not None else ""
+            station_info = self.hovered_slot_label(mouse_ui) if self.open_station is not None else None
             ui.draw_inventory(state.inventory, side, self.hotbar_selected, self.renderer.item_icon, mouse_ui,
-                              self.t, self.name_edit, status)
+                              self.t, self.name_edit, status, station_info)
         if self.notice_time > 0 and self.mode not in INVENTORY_MODES:   # por cima do fabricador também
             ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4))
         if state.fainted:
@@ -1060,10 +1061,12 @@ class App:
         # camada 3 (só no inventário): pilha na mão ou tooltip, aviso e cursor, por cima dos ícones dos slots
         if self.mode in INVENTORY_MODES:
             ui.begin()
-            label = None if self.name_edit is not None else self.hovered_slot_label(mouse_ui)
+            # na estação a dica vai numa linha do painel (station_info), não flutuando por cima do texto
+            label = None if self.name_edit is not None or self.open_station is not None \
+                else self.hovered_slot_label(mouse_ui)
             ui.draw_held_and_tooltip(self.held, label, mouse_ui, self.renderer.item_icon)
             if self.notice_time > 0:
-                ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4))
+                ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4), ui.notice_y)
             ui.draw_cursor(*mouse_ui)
             ui.finish(canvas)
 

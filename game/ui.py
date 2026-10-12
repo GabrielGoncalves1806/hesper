@@ -166,6 +166,7 @@ class UI:
         self.buffer_rects: list[tuple[pygame.Rect, str]] = []
         self.panel_buttons: list[tuple[pygame.Rect, str]] = []   # "take_all", "store_all", "take_buffer"
         self.name_rect: pygame.Rect | None = None                 # nome do baú (clique = editar)
+        self.notice_y = HOTBAR_Y - 58                             # altura do aviso nos painéis (draw_inventory)
         self.filter_buttons: list[tuple[pygame.Rect, str]] = []   # seletor de filtro do baú: (retângulo, filtro)
         self.slot_img = Sprites().get("ui_slot")      # moldura opcional (bíblia §8); sem ela, desenhamos
 
@@ -550,15 +551,16 @@ class UI:
             self.text(str(i + 1), x + SLOT / 2 + 1, HOTBAR_Y - 10, C.C_TI if i == selected else C.C_MUTED, align="center")
             self.draw_slot(x, HOTBAR_Y, inventory.slots[i], item_icon, selected=i == selected)
 
-    def draw_notice(self, text: str, alpha: float) -> None:
-        """Aviso curto no meio da tela, acima da hotbar ("Inventário cheio")."""
+    def draw_notice(self, text: str, alpha: float, y: int | None = None) -> None:
+        """Aviso curto no meio da tela, acima da hotbar ("Inventário cheio"). `y` muda a altura (nos
+        painéis de inventário ele vai abaixo da linha de ajuda, pra não cobrir texto)."""
         w = self.body.size(text)[0] + 16
         layer = pygame.Surface((w, 18), pygame.SRCALPHA)
         self.panel(0, 0, w, 18, (40, 12, 9, 225), target=layer)
         layer.fill(pygame.Color(C.C_ALERT), (0, 0, w, 1))
         self.text(text, w / 2, 3, "#ffd0c8", self.body, "center", target=layer)
         layer.set_alpha(int(255 * alpha))
-        self.surf.blit(layer, (UW // 2 - w // 2, HOTBAR_Y - 58))
+        self.surf.blit(layer, (UW // 2 - w // 2, HOTBAR_Y - 58 if y is None else y))
 
     def draw_toast(self, text: str, alpha: float) -> None:
         """Aviso neutro e rápido no topo do centro ("Zoom 1,5×", "Tela cheia")."""
@@ -587,7 +589,8 @@ class UI:
         self.text(title, x + 8, y + 6, color)
 
     def draw_inventory(self, inventory: Inventory, side, hotbar_selected: int, item_icon,
-                       mouse: tuple[float, float], t: float = 0.0, editing=None, status: str = "") -> None:
+                       mouse: tuple[float, float], t: float = 0.0, editing=None, status: str = "",
+                       info: str | None = None) -> None:
         """Tela do Tab (só o inventário) ou com um painel do lado: baú ou estação de drones.
 
         `side` = None (Tab) ou a Machine aberta (baú ou estação). `editing` = TextField do nome do
@@ -623,9 +626,10 @@ class UI:
             keys = ("DIGITE O NOME · [ENTER] OK · [ESC] CANCELA" if editing is not None else
                     "[CLIQUE] PILHA · [DIREITO] 1 · [SHIFT+CLIQUE] TODAS · [ESC] FECHA")
         else:
-            self._station_panel(side, x + pw + 10, y, pw, h, item_icon, mouse, status)
+            self._station_panel(side, x + pw + 10, y, pw, h, item_icon, mouse, status, info)
             keys = "[CLIQUE] PILHA/DRONE · [DIREITO] 1 · [ESC] FECHA"
         self.text(keys, UW / 2, y + h + 6, C.C_MUTED, align="center")
+        self.notice_y = y + h + 18                     # aviso ("Inventário cheio") logo abaixo da linha de ajuda
 
     def _button(self, rect: pygame.Rect, label: str, action: str, mouse, enabled: bool = True) -> None:
         """Botão pequeno de painel ("Pegar tudo"). Só entra em `panel_buttons` se estiver ativo."""
@@ -680,7 +684,8 @@ class UI:
         self._button(pygame.Rect(cx + 8, by, take_w, 15), "Pegar tudo", "take_all", mouse, not box.is_empty())
         self._button(pygame.Rect(cx + 8 + GRID_W - store_w, by, store_w, 15), "Guardar recursos", "store_all", mouse)
 
-    def _station_panel(self, machine, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str) -> None:
+    def _station_panel(self, machine, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str,
+                       info: str | None = None) -> None:
         """Estação: os 4 slots de drone (travados em voo), o buffer como slots (só tirar) e o estado."""
         st = machine.station
         self._window(cx, y, pw, h, "ESTAÇÃO DE DRONES", C.C_O2)
@@ -688,9 +693,10 @@ class UI:
         self.text("DRONES", cx + 8, y + 24, C.C_MUTED)
         self.text(f"ALCANCE {C.DRONE_RANGE} TILES", cx + pw - 8, y + 24, C.C_MUTED, align="right")
         n = C.STATION_DRONE_SLOTS
-        step = (GRID_W - 2 * 10 - SLOT) // (n - 1)        # espalhados na largura: cabe "POUSADO" embaixo de cada
+        margin = 6
+        step = (GRID_W - 2 * margin - SLOT) // (n - 1)    # espalhados na largura: cabe "POUSADO" embaixo de cada
         for slot in range(n):
-            sx, sy = cx + 8 + 10 + slot * step, y + 33
+            sx, sy = cx + 8 + margin + slot * step, y + 33
             rect = pygame.Rect(sx, sy, SLOT, SLOT)
             drone = st.drone_in(slot)
             self.draw_slot(sx, sy, None, item_icon, hover=rect.collidepoint(mouse))
@@ -719,6 +725,8 @@ class UI:
                 self.buffer_rects.append((rect, stack.item))
         self._button(pygame.Rect(cx + 8 + 3 * SLOT_STEP + 6, by + 12, GRID_W - 3 * SLOT_STEP - 6, 15),
                      "Pegar tudo", "take_buffer", mouse, st.stored > 0)
+        if info:                                       # o que está debaixo do mouse (no lugar do tooltip)
+            self.text(info, cx + 8, y + h - 30, C.C_TI, self.body)
         self.text(status, cx + 8, y + h - 16, "#d9cfc4", self.body)
 
     # ---- filtro do baú pros drones (bloco autocontido: desenho + hit-test) ---------
@@ -764,7 +772,8 @@ class UI:
     def draw_chest_labels(self, chests, cam: tuple[int, int], zoom: float, icons: dict) -> None:
         """Rótulo em cima de cada baú de `chests`: preso no mundo (acompanha o zoom), letra de tamanho fixo.
         `icons`: ícones 16×16 dos minérios (desenhados em resolução cheia, 8 px na UI)."""
-        for chest in chests:
+        placed: list[pygame.Rect] = []
+        for chest in sorted(chests, key=lambda c: -c.anchor[1]):  # o da frente primeiro; os de trás sobem
             parts = self.chest_label_parts(chest)
             widths = [8 if kind == "icon" else self.body.size(value)[0] for kind, value in parts]
             w = sum(widths) + 3 * (len(parts) - 1) + 8
@@ -772,6 +781,9 @@ class UI:
             top = ay - C.CHEST_SPRITE_SIZE[1] - 2                 # logo acima da tampa (mundo)
             sx, sy = (ax - cam[0]) * zoom / 2, (top - cam[1]) * zoom / 2
             x, y = int(sx - w / 2), int(sy - 15)
+            while any(r.colliderect((x, y, w, 14)) for r in placed):   # baús vizinhos: empilha
+                y -= 15
+            placed.append(pygame.Rect(x, y, w, 14))
             if not (-w < x < UW and -14 < y < UH):
                 continue
             self.panel(x, y, w, 14, (14, 10, 9, 210))
