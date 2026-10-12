@@ -137,7 +137,7 @@ def find_ore_with_floor_below(state, kind=C.IRON):
 def crop_around_player(bot, w=96, h=80) -> pygame.Surface:
     cx, cy = bot.app.cam
     x, y = int(bot.state.player.x - cx), int(bot.state.player.y - cy)
-    return bot.app.canvas.subsurface((x - w // 2, y - h + max(16, h // 3), w, h)).copy()
+    return bot.app.frame.subsurface((x - w // 2, y - h + max(16, h // 3), w, h)).copy()
 
 
 def check_directions_and_order(bot) -> None:
@@ -220,11 +220,11 @@ def check_walls_and_hover(bot) -> None:
     bot.frames(0.2)
     shot_hover = pygame.Surface((240, 120))
     cxp, cyp = bot.tile_on_screen((62, 67))
-    shot_hover.blit(bot.app.canvas, (0, 0), (cxp - 60, cyp - 80, 120, 120))
+    shot_hover.blit(bot.app.frame, (0, 0), (cxp - 60, cyp - 80, 120, 120))
     bot.mouse_to(bot.tile_on_screen((60, 67)))          # fantasma num lugar válido, ao lado
     bot.frames(0.2)
     bot.app.placing = None
-    shot_hover.blit(bot.app.canvas, (120, 0), (cxp - 100, cyp - 80, 120, 120))
+    shot_hover.blit(bot.app.frame, (120, 0), (cxp - 100, cyp - 80, 120, 120))
     pygame.image.save(pygame.transform.scale_by(shot_hover, 3), str(OUT / "hover_maquina.png"))
     print("  screenshot: reports/dev/hover_maquina.png  (esquerda: fantasma sobre máquina · direita: fantasma ao lado)")
     s.inventory.remove("melter", 99)
@@ -390,11 +390,11 @@ def check_zoom_and_fullscreen(bot) -> None:
     assert app.placing is None
     s.inventory.remove("o2", 1)
     # o HUD não muda de tamanho: a hotbar fica no mesmo lugar em qualquer zoom (compara a faixa de baixo)
-    hud_zoom = app.canvas.subsurface((0, C.SCREEN_H - 60, C.SCREEN_W, 60)).copy()
+    hud_zoom = app.frame.subsurface((0, C.SCREEN_H - 60, C.SCREEN_W, 60)).copy()
     bot.key(pygame.K_KP_MINUS)
     bot.key(pygame.K_MINUS)
     assert app.zoom == 1.0
-    hud_normal = app.canvas.subsurface((0, C.SCREEN_H - 60, C.SCREEN_W, 60)).copy()
+    hud_normal = app.frame.subsurface((0, C.SCREEN_H - 60, C.SCREEN_W, 60)).copy()
     hotbar = pygame.Rect(C.SCREEN_W // 2 - 180, 10, 360, 50)
     same = sum(hud_zoom.get_at((x, y)) == hud_normal.get_at((x, y))
                for x in range(hotbar.x, hotbar.right, 3) for y in range(hotbar.y, hotbar.bottom, 3))
@@ -711,7 +711,7 @@ def check_veins(bot) -> None:
         name = C.RESOURCE_NAME[vein.resource]
         assert app.hint() == f"Veio de {name} · drill libera na Névoa", app.hint()
         crop = pygame.Surface((240, 200))
-        crop.blit(app.canvas, (0, 0), (pos[0] - 104, pos[1] - 90, 240, 200))
+        crop.blit(app.frame, (0, 0), (pos[0] - 104, pos[1] - 90, 240, 200))
         crops.append(crop)
     sheet = pygame.Surface((240 * 3 + 8, 200))
     for i, c in enumerate(crops):
@@ -785,7 +785,7 @@ def shot_zoom(bot, name: str, world_xy, w: int = 240, h: int = 135, k: int = 3) 
     cx, cy = bot.app.cam
     x = max(0, min(C.SCREEN_W - w, int(world_xy[0] - cx - w / 2)))
     y = max(0, min(C.SCREEN_H - h, int(world_xy[1] - cy - h / 2)))
-    crop = bot.app.canvas.subsurface((x, y, w, h)).copy()
+    crop = bot.app.frame.subsurface((x, y, w, h)).copy()
     pygame.image.save(pygame.transform.scale_by(crop, k), str(OUT / name))
     print(f"  screenshot: reports/dev/{name}  (recorte ampliado {k}×)")
 
@@ -1139,6 +1139,136 @@ def check_polish(bot) -> None:
     bot.frames(0.1)
 
 
+def ui_to_window(app, rect) -> tuple[int, int]:
+    """Centro de um retângulo da UI (px da UI) em px da janela, no tamanho de interface atual."""
+    from game import viewport
+    (x, y, _, _), k, _ = viewport.ui_layout(app.window.get_size(), app.settings["ui_size"])
+    return round(x + rect.centerx * k), round(y + rect.centery * k)
+
+
+def check_ui_size(bot) -> None:
+    """Opções > Interface (Grande/Média/Pequena) numa janela 1920×1080: o HUD encolhe, o mundo não muda,
+    o mouse acerta botões/slots/abas em qualquer tamanho e também com tarja (4:3).
+    Prints: hud_grande, hud_media, hud_pequena, hud_pequena_bau, titulo_pequena, hud_pequena_4x3."""
+    from game import viewport
+    s, app = bot.state, bot.app
+    settings.SETTINGS_PATH.unlink(missing_ok=True)
+    app.scale = 2
+    app.window = app.open_window(False)
+    assert app.window.get_size() == (1920, 1080), app.window.get_size()
+    bot.teleport((64, 66))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+    # pela pausa: Opções > INTERFACE, D diminui (Média -> Pequena), A aumenta
+    assert app.settings["ui_size"] == "media"
+    bot.key(pygame.K_ESCAPE)
+    bot.key(pygame.K_s)
+    bot.key(pygame.K_RETURN)
+    assert app.pause_screen == "volumes"
+    for _ in range(len(app.ui.VOLUME_ROWS) + 2):
+        bot.key(pygame.K_s)
+    bot.key(pygame.K_d)
+    assert app.settings["ui_size"] == "pequena" and settings.load()["ui_size"] == "pequena"
+    bot.frames(DT)
+    bot.shot("pausa_opcoes_pequena.png")
+    # mouse na Pequena: clica no "Voltar" (último item) pela posição na janela
+    back = app.ui.pause_items[-1]
+    bot.click(ui_to_window(app, back))
+    assert app.pause_screen == "main"
+    bot.key(pygame.K_ESCAPE)
+    assert app.mode == "play"
+
+    # mundo igual nos 3 tamanhos: a câmera e o mouse do mundo não dependem da interface
+    tile = (66, 64)
+    hover = bot.tile_on_screen(tile)
+    times = {}
+    for ui_size in ("grande", "media", "pequena"):
+        app.set_ui_size(ui_size)
+        (x, y, _, _), k, size = viewport.ui_layout(app.window.get_size(), ui_size)
+        bot.mouse_to((hover[0] * 2, hover[1] * 2))            # janela 2× o canvas
+        assert app.mouse_tile() == tile, (ui_size, app.mouse_tile())
+        app.floaters.add("+15 FERRO", s.player.x, s.player.y - 40, C.ORE_COLORS["iron"][0])
+        app.show_toast(f"Interface {viewport.UI_SIZE_LABEL[ui_size].lower()}")
+        start = len(bot.frame_times)
+        bot.frames(0.6)
+        times[ui_size] = 1000 * sum(bot.frame_times[start:]) / (len(bot.frame_times) - start)
+        assert app.ui.surf.get_size() == size and app.ui.k == k
+        # painel do Ti encosta na borda direita da janela (6 px da UI de margem)
+        right = app.ui.ti_panel_x + 160
+        assert round(right * k) == 1920 - round(6 * k), (ui_size, right, k)
+        bot.shot(f"hud_{ui_size}.png")
+    print("  interface 1920×1080, ms/frame: " + " · ".join(f"{n} {v:.1f}" for n, v in times.items()))
+
+    # Pequena: fabricador (clique na aba) e baú (clique no slot transfere)
+    app.set_ui_size("pequena")
+    bot.teleport((64, 65))
+    bot.frames(0.2)
+    bot.key(pygame.K_e)
+    assert app.mode == "fabricator"
+    bot.frames(DT)
+    tab_rect, tab_index = app.ui.fabricator_tabs[1]
+    bot.click(ui_to_window(app, tab_rect))
+    assert app.fab.tab == tab_index, "clique na aba do fabricador (Pequena)"
+    bot.shot("hud_pequena_fabricador.png")
+    bot.key(pygame.K_e)
+    assert app.mode == "play"
+
+    chest = s.chests[0]
+    ax, ay = chest.anchor
+    s.player.x, s.player.y = ax, ay + 10
+    bot.frames(0.1)
+    bot.key(pygame.K_e)
+    assert app.mode == "chest"
+    bot.frames(DT)
+    s.inventory.add("iron", 5)
+    slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "iron")
+    rect = next(r for r, inv, i in app.ui.slot_rects if inv is s.inventory and i == slot)
+    before = chest.storage.count("iron")
+    bot.click(ui_to_window(app, rect))
+    assert chest.storage.count("iron") > before, "clique no slot do inventário devia mandar pro baú (Pequena)"
+    box_slot = next(i for i, st in enumerate(chest.storage.slots) if st and st.item == "iron")
+    rect = next(r for r, inv, i in app.ui.slot_rects if inv is chest.storage and i == box_slot)
+    bot.mouse_to(ui_to_window(app, rect))                  # tooltip do slot do baú
+    bot.frames(0.1)
+    bot.shot("hud_pequena_bau.png")
+    bot.key(pygame.K_ESCAPE)
+    assert app.mode == "play"
+
+    # título na Pequena (e o clique no menu dele)
+    saved_state = app.state
+    app.open_title()
+    bot.frames(0.3)
+    row = app.title.items[0]
+    bot.mouse_to(ui_to_window(app, row))
+    assert app.title.selected == 0
+    bot.shot("titulo_pequena.png")
+    app.start_game(saved_state)
+    bot.frames(0.2)
+
+    # tela cheia 4:3 (1024×768, tarja em cima e embaixo): clique da pausa no lugar certo
+    bot.key(pygame.K_F11)
+    assert app.window.get_size() != (1920, 1080)
+    bot.key(pygame.K_ESCAPE)
+    options = app.ui.pause_items[1]
+    bot.mouse_to(ui_to_window(app, options))
+    assert app.pause_selected == 1
+    bot.shot("hud_pequena_4x3.png")
+    bot.click(ui_to_window(app, options))
+    assert app.pause_screen == "volumes"
+    bot.key(pygame.K_ESCAPE)
+    bot.key(pygame.K_ESCAPE)
+    bot.key(pygame.K_F11)
+    assert app.mode == "play"
+
+    # volta pro tamanho do resto do smoke
+    app.set_ui_size(settings.DEFAULTS["ui_size"])
+    app.scale = 1
+    app.window = app.open_window(False)
+    app.toast_time = 0.0
+    bot.frames(0.1)
+    settings.SETTINGS_PATH.unlink(missing_ok=True)
+
+
 def check_save(bot) -> None:
     """Autosave com o aviso no HUD, "Salvar e sair" pela pausa, tela de título com save e Continuar."""
     s, app = bot.state, bot.app
@@ -1310,7 +1440,10 @@ def main() -> None:
     bot.frames(1.0)
     bot.shot("stage3_explorando.png")
 
-    print("7) save/load e tela de título")
+    print("7) tamanho da interface")
+    check_ui_size(bot)
+
+    print("8) save/load e tela de título")
     check_save(bot)
 
     # folha ampliada (4×) com o player de fallback: parado e andando, nas 3 direções

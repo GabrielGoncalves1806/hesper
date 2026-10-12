@@ -5,7 +5,8 @@ O App (app.py) só repassa teclado/mouse pra cá e recebe de volta uma ação:
 
 Fundo: a cratera do estágio 1 desenhada pelo próprio Renderer, com a câmera passeando devagar,
 borrada (diminui a imagem 4× e estica de volta: blur barato) e escurecida, com poeira por cima.
-Igual ao resto da UI, menus e textos são desenhados em 480×270 e esticados 2×.
+Igual ao resto da UI, menus e textos são desenhados em px da UI (480×270 no Grande, mais no Média e no
+Pequena) e esticados direto na janela: tudo centralizado pelo ui.w/ui.h.
 """
 
 import math
@@ -16,14 +17,14 @@ from game import config as C
 from game import save
 from game.assets import load_font
 from game.systems import GameState
-from game.ui import UH, UW, fmt
+from game.ui import fmt
 from game.world import hash01
 
 UP_KEYS = (pygame.K_w, pygame.K_UP)
 DOWN_KEYS = (pygame.K_s, pygame.K_DOWN)
 OK_KEYS = (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE)
 
-MENU_X, MENU_W, MENU_Y = 140, 200, 132   # caixa do menu (coordenadas da UI, 480×270)
+MENU_W, MENU_Y = 200, 132                # caixa do menu (no Grande, 480×270: x 140)
 ROW_H, ROW_GAP = 19, 22
 BLUR = 4                                 # quanto o fundo é reduzido antes de esticar (maior = mais borrado)
 
@@ -38,6 +39,7 @@ class TitleScreen:
         self.confirming = False         # "Novo jogo" com save existente: pedindo confirmação
         self.selected = 0
         self.items: list[pygame.Rect] = []    # linhas clicáveis (coordenadas da UI)
+        self.ox = self.oy = 0                 # deslocamento pro centro (a UI pode ser maior que 480×270)
         self._background: GameState | None = None
         self._shade = pygame.Surface((C.SCREEN_W, C.SCREEN_H), pygame.SRCALPHA)
         self._shade.fill((10, 5, 4, 135))
@@ -111,9 +113,11 @@ class TitleScreen:
         canvas.blit(pygame.transform.smoothscale(small, (C.SCREEN_W, C.SCREEN_H)), (0, 0))
         canvas.blit(self._shade, (0, 0))
 
-    def draw(self, canvas: pygame.Surface, t: float, mouse: tuple[int, int]) -> None:
+    def draw(self, target: pygame.Surface, t: float, mouse_ui: tuple[float, float]) -> None:
+        """Menus e textos (o fundo vem antes, no draw_background). `target` é a janela, `mouse_ui`
+        o mouse em px da UI."""
         ui = self.ui
-        self.draw_background(canvas, t)
+        self.ox, self.oy = ui.center_offset       # o bloco logo + menu fica no meio da tela
         ui.begin()
         self._draw_dust(t)
         self._draw_logo()
@@ -121,16 +125,21 @@ class TitleScreen:
             self._draw_confirm()
         else:
             self._draw_menu()
-        ui.text("[W/S] ESCOLHE · [ENTER] OK", UW / 2, UH - 16, C.C_MUTED, align="center")
-        ui.draw_cursor(mouse[0] / 2, mouse[1] / 2)
-        ui.finish(canvas)
+        ui.text("[W/S] ESCOLHE · [ENTER] OK", ui.w / 2, ui.h - 16, C.C_MUTED, align="center")
+        ui.draw_cursor(*mouse_ui)
+        ui.finish(target)
+
+    @property
+    def menu_x(self) -> int:
+        return (self.ui.w - MENU_W) // 2
 
     def _draw_dust(self, t: float) -> None:
         """Poeira laranja nítida passando na frente do fundo borrado."""
         for i in range(55):
             speed = 6 + 14 * hash01(i, 2, 31)
-            x = (hash01(i, 1, 31) * UW + t * speed) % UW
-            y = hash01(i, 3, 31) * UH + math.sin(t * 0.8 + i) * 4
+            w, h = self.ui.w, self.ui.h
+            x = (hash01(i, 1, 31) * w + t * speed) % w
+            y = hash01(i, 3, 31) * h + math.sin(t * 0.8 + i) * 4
             alpha = 70 + int(120 * hash01(i, 4, 31))
             self.ui.fill((226, 160, 110, alpha), (int(x), int(y), 1 + (i % 5 == 0), 1))
 
@@ -141,20 +150,21 @@ class TitleScreen:
         shadows = [font.render(ch, False, (0, 0, 0)) for ch in "HESPER"]
         spacing = 6
         total = sum(img.get_width() for img in letters) + spacing * (len(letters) - 1)
-        x, y = UW // 2 - total // 2, 44
+        cx = self.ui.w // 2
+        x, y = cx - total // 2, 44 + self.oy
         for img, shadow in zip(letters, shadows):
             shadow.set_alpha(170)
             surf.blit(shadow, (x + 2, y + 2))
             surf.blit(img, (x, y))
             x += img.get_width() + spacing
         line_y = y + letters[0].get_height() + 2
-        surf.fill(pygame.Color(C.C_ACCENT), (UW // 2 - 40, line_y, 80, 2))
-        self.ui.text("Planeta sem ar. Por enquanto.", UW / 2, line_y + 8, "#d9cfc4", self.ui.body, "center")
+        surf.fill(pygame.Color(C.C_ACCENT), (cx - 40, line_y, 80, 2))
+        self.ui.text("Planeta sem ar. Por enquanto.", cx, line_y + 8, "#d9cfc4", self.ui.body, "center")
 
     def _row(self, i: int, label: str, y: int) -> pygame.Rect:
         """Uma linha de menu no estilo do menu de pausa."""
         ui = self.ui
-        row = pygame.Rect(MENU_X + 8, y, MENU_W - 16, ROW_H)
+        row = pygame.Rect(self.menu_x + 8, y, MENU_W - 16, ROW_H)
         selected = i == self.selected
         ui.surf.fill(pygame.Color("#2c1e18" if selected else "#211915"), row)
         pygame.draw.rect(ui.surf, pygame.Color(C.C_ACCENT if selected else "#3a2c25"), row, 1)
@@ -164,17 +174,19 @@ class TitleScreen:
 
     def _box(self, y: int, h: int, title: str | None = None) -> None:
         ui = self.ui
-        ui.panel(MENU_X, y, MENU_W, h, (20, 14, 12, 225))
-        ui.surf.fill(pygame.Color(C.C_ACCENT), (MENU_X, y, MENU_W, 2))
+        x = self.menu_x
+        ui.panel(x, y, MENU_W, h, (20, 14, 12, 225))
+        ui.surf.fill(pygame.Color(C.C_ACCENT), (x, y, MENU_W, 2))
         if title:
-            ui.text(title, MENU_X + 8, y + 7, C.C_TI)
+            ui.text(title, x + 8, y + 7, C.C_TI)
 
     def _draw_menu(self) -> None:
         self.items = []
         options = self.options()
-        self._box(MENU_Y, 8 + ROW_GAP * len(options) + 2)
+        top = MENU_Y + self.oy
+        self._box(top, 8 + ROW_GAP * len(options) + 2)
         for i, (action, label) in enumerate(options):
-            row = self._row(i, label, MENU_Y + 8 + i * ROW_GAP)
+            row = self._row(i, label, top + 8 + i * ROW_GAP)
             if action == "continue":     # resumo do save, à direita da linha
                 minutes = int(self.saved.play_time // 60)
                 info = f"TI {fmt(self.saved.ti)} · {minutes} MIN"
@@ -183,10 +195,10 @@ class TitleScreen:
 
     def _draw_confirm(self) -> None:
         self.items = []
-        y = MENU_Y - 8
+        y = MENU_Y - 8 + self.oy
         h = 46 + ROW_GAP * 2 + 2
         self._box(y, h, "NOVO JOGO")
-        self.ui.text("O save atual vai ser apagado.", MENU_X + 8, y + 20, "#d9cfc4", self.ui.body)
+        self.ui.text("O save atual vai ser apagado.", self.menu_x + 8, y + 20, "#d9cfc4", self.ui.body)
         for i, (_, label) in enumerate(self.options()):
             self._row(i, label, y + 38 + i * ROW_GAP)
 
@@ -202,7 +214,7 @@ def draw_saved_notice(ui, time_left: float) -> None:
     _check(layer, 6, 6)
     ui.text(label, 17, 2, C.C_OK, ui.body, target=layer)
     layer.set_alpha(int(255 * alpha))
-    ui.surf.blit(layer, (UW - 6 - w, 100))
+    ui.surf.blit(layer, (ui.w - 6 - w, 100))   # encostado na borda direita, embaixo do painel do Ti
 
 
 def _check(surf: pygame.Surface, x: int, y: int) -> None:

@@ -74,6 +74,7 @@ Referência obrigatória: `reports/mockups/mockups.html` (abre no navegador).
 | Ler terminal | E perto do terminal |
 | Zoom do mundo | + / - (ou = e o teclado numérico) · Ctrl+rodinha (Cmd no Mac) · níveis 0,75× · 1× · 1,5× · 2× (padrão 1×). Só o mundo aproxima: HUD e menus ficam do mesmo tamanho |
 | Tela cheia | F11 ou Alt+Enter · também em Pausa > Opções. Usa a resolução do monitor mantendo 16:9 (tarja preta se sobrar) |
+| Tamanho da interface | Pausa > Opções > **Interface: Grande / Média / Pequena** (padrão **Média**, salvo em `settings.json`). Muda só HUD, menus, inventários, fabricador, título, terminal, avisos e tooltips; o mundo continua no zoom escolhido. Grande = a UI de sempre (480×270 esticada pra tela); Média ≈ 75% disso; Pequena ≈ 50%. Em Média/Pequena a escala é inteira (letra pixel art limpa) e nunca menor que 1 px de imagem por px de tela: em 1920×1080 dá 4 / 3 / 2 px por px da UI; numa janela de 960×540 os três ficam iguais. Os painéis se ancoram nos cantos/centro. Textos presos no mundo (+15 FERRO, nome do baú) acompanham o mundo na posição e a interface no tamanho da letra |
 | Debug (dev) | F1 acelera o tempo ×10 · F2 +10.000 Ti |
 
 ### Mineração

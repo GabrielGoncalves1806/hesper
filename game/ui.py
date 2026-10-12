@@ -1,10 +1,15 @@
 """Interface: HUD, fabricador, terminal, banner de estágio, O₂ crítico, desmaio e tela de fim.
 
-Igual ao mockup, a UI é desenhada numa superfície de 480×270 (metade da tela)
-e depois esticada 2× sem suavizar. Isso deixa as fontes pixeladas nítidas e
-permite copiar as coordenadas do mockup quase direto.
-Algumas coisas precisam da resolução cheia (ícones 16×16, prévia das máquinas):
-essas vão pra lista `self.native`, desenhada por cima depois da escala.
+Igual ao mockup, a UI é desenhada numa superfície pequena em "px da UI" e depois esticada sem
+suavizar, direto na janela. Isso deixa as fontes pixeladas nítidas e permite copiar as
+coordenadas do mockup quase direto.
+O tamanho dessa superfície (self.w × self.h) depende do "Tamanho da interface" (Opções):
+480×270 no Grande (o tamanho de sempre) e maior no Média/Pequena, que encolhem tudo na tela.
+Por isso nada aqui usa posição absoluta da tela: os painéis se ancoram nos cantos/centro pelo
+self.w/self.h (contas em game/viewport.py: ui_layout).
+Algumas coisas precisam de mais resolução (ícones 16×16 desenhados a 32×32, prévia das máquinas):
+essas vão pra lista `self.native`, em coordenadas de 2 px por px da UI, desenhada por cima depois
+da escala.
 """
 
 import math
@@ -19,14 +24,12 @@ from game.floaters import LANE_PX, FloatingTexts
 from game.inventory import Inventory, Stack
 from game.systems import GameState, eta_label, stage_progress
 
-UW, UH = C.UI_W, C.UI_H
-TI_PANEL_W = 160                 # painel do Ti (em cima à direita)
-TI_PANEL_X = UW - 6 - TI_PANEL_W
+UW, UH = C.UI_W, C.UI_H           # tamanho da UI no Grande (e o mínimo em qualquer tamanho)
+TI_PANEL_W = 160                 # painel do Ti (em cima à direita, encostado na borda: ti_panel_x)
 # inventário e hotbar (coordenadas da UI, metade da tela): slot de 20×20 (= ui_slot.png) com 2 de vão
 SLOT, SLOT_GAP = 20, 2
 SLOT_STEP = SLOT + SLOT_GAP
 GRID_W = 8 * SLOT_STEP - SLOT_GAP                # 8 colunas = 174
-HOTBAR_X, HOTBAR_Y = (UW - GRID_W) // 2, UH - 6 - SLOT
 # seletor "Drones entregam" do baú (draw_chest_filter): uma linha logo abaixo do título do painel
 FILTER_ROW = 22                                  # altura que a linha ocupa (o grid do baú desce isso)
 FILTER_BTN = 18                                  # botão com ícone: 18×18 (ícone 16 + 1 de borda)
@@ -132,7 +135,12 @@ def wrap(font: pygame.font.Font, text: str, max_w: int) -> list[str]:
 
 class UI:
     def __init__(self):
-        self.surf = pygame.Surface((UW, UH), pygame.SRCALPHA)
+        # tamanho lógico (px da UI) e onde ela aparece na janela: set_layout() muda isso a cada frame
+        self.w, self.h = UW, UH
+        self.origin = (0, 0)              # canto da área de jogo (letterbox) na janela
+        self.k = 2.0                      # px da janela por px da UI
+        self.canvas_k = 0.5               # px da UI por px do canvas (texto preso no mundo)
+        self.surf = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
         self.native: list[tuple[pygame.Surface, tuple[int, int]]] = []
         self.font = load_font("Silkscreen-Regular.ttf", 8, 12)        # rótulos
         self.font_big = load_font("Silkscreen-Regular.ttf", 16, 22)   # títulos
@@ -153,19 +161,81 @@ class UI:
         self.buffer_rects: list[tuple[pygame.Rect, str]] = []
         self.panel_buttons: list[tuple[pygame.Rect, str]] = []   # "take_all", "store_all", "take_buffer"
         self.name_rect: pygame.Rect | None = None                 # nome do baú (clique = editar)
-        self.notice_y = HOTBAR_Y - 58                             # altura do aviso nos painéis (draw_inventory)
+        self.notice_y = self.hotbar_y - 58                             # altura do aviso nos painéis (draw_inventory)
         self.filter_buttons: list[tuple[pygame.Rect, str]] = []   # seletor de filtro do baú: (retângulo, filtro)
         self.slot_img = Sprites().get("ui_slot")      # moldura opcional (bíblia §8); sem ela, desenhamos
+
+    # ---- tamanho e âncoras -------------------------------------------------------
+    def set_layout(self, rect: tuple[int, int, int, int], k: float, size: tuple[int, int]) -> None:
+        """Onde a UI aparece na janela (`rect` = área de jogo), a escala `k` e o tamanho lógico.
+        Vem de game/viewport.ui_layout. Muda o self.w/self.h: tudo se ancora por eles."""
+        self.origin, self.k = (rect[0], rect[1]), k
+        self.canvas_k = rect[2] / C.SCREEN_W / k
+        if size != (self.w, self.h):
+            self.w, self.h = size
+            self.surf = pygame.Surface(size, pygame.SRCALPHA)
+            self.notice_y = self.hotbar_y - 58
+
+    @property
+    def ti_panel_x(self) -> int:
+        return self.w - 6 - TI_PANEL_W
+
+    @property
+    def hotbar_x(self) -> int:
+        return (self.w - GRID_W) // 2
+
+    @property
+    def hotbar_y(self) -> int:
+        return self.h - 6 - SLOT
+
+    @property
+    def center_offset(self) -> tuple[int, int]:
+        """Quanto somar nas coordenadas de um painel feito pra 480×270 pra ele ficar no centro."""
+        return (self.w - UW) // 2, (self.h - UH) // 2
+
+    def world_to_ui(self, pos: tuple[float, float], cam: tuple[int, int], zoom: float) -> tuple[float, float]:
+        """Ponto do mundo -> px da UI (floaters, rótulo do baú, seta da base)."""
+        k = zoom * self.canvas_k
+        return (pos[0] - cam[0]) * k, (pos[1] - cam[1]) * k
 
     # ---- primitivas -----------------------------------------------------------
     def begin(self) -> None:
         self.surf.fill((0, 0, 0, 0))
         self.native.clear()
 
-    def finish(self, canvas: pygame.Surface) -> None:
-        canvas.blit(pygame.transform.scale(self.surf, (C.SCREEN_W, C.SCREEN_H)), (0, 0))
-        for surf, pos in self.native:
-            canvas.blit(surf, pos)
+    # Fatias da UI esticadas uma a uma em finish(): o HUD é quase todo transparente, então esticar
+    # só o que tem desenho (os cantos, a hotbar) poupa muito trabalho numa janela 1920×1080.
+    TILES = (4, 4)
+
+    def finish(self, target: pygame.Surface) -> None:
+        """Estica a camada (sem suavizar) e desenha na janela `target`, dentro da área de jogo,
+        com os ícones da lista `native` por cima. Desenha direto na janela (que é opaca): nenhuma
+        camada alfa intermediária, então o painel semitransparente mistura igual a sempre."""
+        ox, oy = self.origin
+        k = self.k
+        clip = target.get_clip()
+        target.set_clip(pygame.Rect(ox, oy, round(self.w * k), round(self.h * k)).clip(clip))
+        if k == int(k):
+            k_int = int(k)
+            cols, rows = self.TILES
+            tw, th = -(-self.w // cols), -(-self.h // rows)
+            for ty in range(0, self.h, th):
+                for tx in range(0, self.w, tw):
+                    tile = self.surf.subsurface((tx, ty, min(tw, self.w - tx), min(th, self.h - ty)))
+                    used = tile.get_bounding_rect()
+                    if used.w and used.h:
+                        part = tile.subsurface(used)
+                        target.blit(pygame.transform.scale_by(part, k_int),
+                                    (ox + (tx + used.x) * k_int, oy + (ty + used.y) * k_int))
+        else:                                  # escala quebrada (janela de tamanho livre): estica tudo junto
+            target.blit(pygame.transform.scale(self.surf, (round(self.w * k), round(self.h * k))), (ox, oy))
+        s = k / 2                              # a lista native é em 2 px por px da UI
+        for surf, (nx, ny) in self.native:
+            if s != 1:
+                surf = pygame.transform.scale(surf, (max(1, round(surf.get_width() * s)),
+                                                     max(1, round(surf.get_height() * s))))
+            target.blit(surf, (ox + round(nx * s), oy + round(ny * s)))
+        target.set_clip(clip)
 
     def _render(self, font, text, color) -> pygame.Surface:
         key = (id(font), text, color)
@@ -236,25 +306,25 @@ class UI:
         # resumo do inventário (total de cada recurso, somando as pilhas); os slots ficam na hotbar e no Tab
         counts = [str(state.inventory.count(res)) for res in C.RESOURCES]
         w = 6 + sum(14 + self.font.size(n)[0] + 6 for n in counts)
-        self.panel(6, UH - 26, w, 20)
+        self.panel(6, self.h - 26, w, 20)
         x = 12
         for res, n in zip(C.RESOURCES, counts):
-            self.native.append((icons[res], (x * 2, (UH - 20) * 2)))
-            x += 14 + self.text(n, x + 12, UH - 20, C.C_TEXT) + 6
+            self.native.append((icons[res], (x * 2, (self.h - 20) * 2)))
+            x += 14 + self.text(n, x + 12, self.h - 20, C.C_TEXT) + 6
 
         if hint:
             w = self.body.size(hint)[0] + 14
             # dica embaixo à direita; se for comprida e encostar na hotbar, sobe uma linha
-            y = UH - 26 if UW - 6 - w >= HOTBAR_X + GRID_W + 6 else HOTBAR_Y - 34
-            self.panel(UW - 6 - w, y, w, 20)
-            self.text(hint, UW - 13, y + 4, C.C_TEXT, self.body, "right")
+            y = self.h - 26 if self.w - 6 - w >= self.hotbar_x + GRID_W + 6 else self.hotbar_y - 34
+            self.panel(self.w - 6 - w, y, w, 20)
+            self.text(hint, self.w - 13, y + 4, C.C_TEXT, self.body, "right")
 
         if state.time_scale != 1:
-            self.text(f"DEBUG · TEMPO x{state.time_scale}", UW // 2, 8, C.C_TI, align="center")
+            self.text(f"DEBUG · TEMPO x{state.time_scale}", self.w // 2, 8, C.C_TI, align="center")
 
     def draw_ti_panel(self, state: GameState) -> None:
         """Ti total, os 3 índices e, embaixo, quanto falta pro próximo estágio."""
-        px, w = TI_PANEL_X, TI_PANEL_W
+        px, w = self.ti_panel_x, TI_PANEL_W
         right = px + w - 6            # borda direita do texto
         inner = w - 12                # largura útil
         nxt, fraction, remaining = stage_progress(state.ti)
@@ -308,7 +378,7 @@ class UI:
         """
         power = state.power
         color = self.ENERGY_COLOR[power.level]
-        px, w = TI_PANEL_X, TI_PANEL_W
+        px, w = self.ti_panel_x, TI_PANEL_W
         right = px + w - 6
         y = getattr(self, "ti_panel_bottom", 84) + 4
         warning = []
@@ -386,26 +456,30 @@ class UI:
                 self.text(line.text, x + 16, ly, "#7a6c62", self.body)
 
     def draw_floaters(self, floaters: FloatingTexts, cam: tuple[int, int], zoom: float = 1.0) -> None:
-        """Textos presos num ponto do mundo: a posição acompanha o zoom, o tamanho da letra não."""
+        """Textos presos num ponto do mundo: a posição acompanha o zoom, o tamanho da letra não
+        (a letra segue o tamanho da interface, igual ao resto do texto)."""
         for f in floaters.items:
             # a faixa (lane) é em px da UI: a distância entre as linhas não muda com o zoom
-            sx, sy = (f.x - cam[0]) * zoom / 2, (f.y - cam[1]) * zoom / 2 - f.lane * LANE_PX
-            if -40 < sx < UW + 40 and -20 < sy < UH + 20:
+            sx, sy = self.world_to_ui((f.x, f.y), cam, zoom)
+            sy -= f.lane * LANE_PX
+            if -40 < sx < self.w + 40 and -20 < sy < self.h + 20:
                 self.text(f.text, sx, sy, f.color, align="center")
 
     # ---- O₂ crítico -----------------------------------------------------------
     def draw_o2_critical(self, state: GameState, t: float, cam: tuple[int, int]) -> None:
         tick = t * 9
         if tick % 8 < 5:
-            self.text("OXIGENIO CRITICO", UW / 2, 62, "#ff5a4a", self.font_big, "center")
+            self.text("OXIGENIO CRITICO", self.w / 2, 62, "#ff5a4a", self.font_big, "center")
         meters = round(state.dist_to_base() / C.TILE)
-        self.text(f"Volte para a base · {meters} m", UW / 2, 84, "#ffd0c8", self.body, "center")
+        self.text(f"Volte para a base · {meters} m", self.w / 2, 84, "#ffd0c8", self.body, "center")
         # seta apontando pra base, numa elipse em volta do centro da tela
-        px, py = (state.player.x - cam[0]) / 2, (state.player.y - 16 - cam[1]) / 2
-        bx, by = (C.BASE_CENTER[0] - cam[0]) / 2, (C.BASE_CENTER[1] - cam[1]) / 2
+        # só a direção importa (o zoom não muda o ângulo); a elipse acompanha o tamanho da área de jogo
+        px, py = state.player.x - cam[0], state.player.y - 16 - cam[1]
+        bx, by = C.BASE_CENTER[0] - cam[0], C.BASE_CENTER[1] - cam[1]
         ang = math.atan2(by - py, bx - px)
         wobble = math.sin(t * 7) * 3
-        cx, cy = UW / 2 + math.cos(ang) * (200 + wobble), UH / 2 + math.sin(ang) * (105 + wobble)
+        rx, ry = 200 * self.w / UW, 105 * self.h / UH
+        cx, cy = self.w / 2 + math.cos(ang) * (rx + wobble), self.h / 2 + math.sin(ang) * (ry + wobble)
         tip = (cx + math.cos(ang) * 8, cy + math.sin(ang) * 8)
         left = (cx + math.cos(ang + 2.4) * 9, cy + math.sin(ang + 2.4) * 9)
         right = (cx + math.cos(ang - 2.4) * 9, cy + math.sin(ang - 2.4) * 9)
@@ -417,8 +491,9 @@ class UI:
     def draw_fabricator(self, state: GameState, menu, machine_preview, t: float) -> None:
         """Menu de receitas com abas (`menu`: game/fabricator.FabMenu). `machine_preview(kind)` devolve
         a imagem da máquina (resolução cheia). Hit-test: fabricator_tabs, fabricator_rows, fabricator_buttons."""
-        self.fill((8, 5, 4, 158), (0, 0, UW, UH))
-        x, y, w, h = 40, 1, 400, 268
+        self.fill((8, 5, 4, 158), (0, 0, self.w, self.h))
+        w, h = 400, 268
+        x, y = (self.w - w) // 2, (self.h - h) // 2       # no centro (no Grande: 40, 1)
         list_y = y + 38                                 # título (18) + abas (16) + respiro
         footer_y = y + h - 14                           # linha de ajuda embaixo
         row_h = (footer_y - 2 - list_y) // menu.visible - 1
@@ -556,11 +631,11 @@ class UI:
     def draw_hotbar(self, inventory: Inventory, selected: int, item_icon) -> None:
         """Os 8 primeiros slots do inventário no rodapé central, com o número da tecla (em cima de
         cada slot, pra não cobrir o ícone) e o selecionado destacado."""
-        self.panel(HOTBAR_X - 3, HOTBAR_Y - 11, GRID_W + 6, SLOT + 14)
+        self.panel(self.hotbar_x - 3, self.hotbar_y - 11, GRID_W + 6, SLOT + 14)
         for i in range(C.HOTBAR_SLOTS):
-            x = HOTBAR_X + i * SLOT_STEP
-            self.text(str(i + 1), x + SLOT / 2 + 1, HOTBAR_Y - 10, C.C_TI if i == selected else C.C_MUTED, align="center")
-            self.draw_slot(x, HOTBAR_Y, inventory.slots[i], item_icon, selected=i == selected)
+            x = self.hotbar_x + i * SLOT_STEP
+            self.text(str(i + 1), x + SLOT / 2 + 1, self.hotbar_y - 10, C.C_TI if i == selected else C.C_MUTED, align="center")
+            self.draw_slot(x, self.hotbar_y, inventory.slots[i], item_icon, selected=i == selected)
 
     def draw_notice(self, text: str, alpha: float, y: int | None = None) -> None:
         """Aviso curto no meio da tela, acima da hotbar ("Inventário cheio"). `y` muda a altura (nos
@@ -571,7 +646,7 @@ class UI:
         layer.fill(pygame.Color(C.C_ALERT), (0, 0, w, 1))
         self.text(text, w / 2, 3, "#ffd0c8", self.body, "center", target=layer)
         layer.set_alpha(int(255 * alpha))
-        self.surf.blit(layer, (UW // 2 - w // 2, HOTBAR_Y - 58 if y is None else y))
+        self.surf.blit(layer, (self.w // 2 - w // 2, self.hotbar_y - 58 if y is None else y))
 
     def draw_toast(self, text: str, alpha: float) -> None:
         """Aviso neutro e rápido no topo do centro ("Zoom 1,5×", "Tela cheia")."""
@@ -582,7 +657,7 @@ class UI:
         layer.fill(pygame.Color(C.C_ACCENT), (0, 0, w, 1))
         self.text(text, w / 2, 4, C.C_TEXT, target=layer, align="center")
         layer.set_alpha(int(255 * alpha))
-        self.surf.blit(layer, (UW // 2 - w // 2, 40))   # logo abaixo do banner de estágio
+        self.surf.blit(layer, (self.w // 2 - w // 2, 40))   # logo abaixo do banner de estágio
 
     def _grid(self, inv: Inventory, indexes: list[int], x: int, y: int, item_icon, mouse, selected=None) -> None:
         """Desenha os slots `indexes` de `inv` em linhas de 8, a partir de (x, y), e guarda os retângulos."""
@@ -613,14 +688,14 @@ class UI:
         self.panel_buttons.clear()
         self.filter_buttons.clear()
         self.name_rect = None
-        self.fill((8, 5, 4, 158), (0, 0, UW, UH))
+        self.fill((8, 5, 4, 158), (0, 0, self.w, self.h))
         pw = GRID_W + 16
         ph_inv = 20 + 6 + SLOT + 14 + SLOT + 8                  # título, mochila, rótulo HOTBAR, hotbar
         ph_side = 20 + 6 + FILTER_ROW + 3 * SLOT_STEP - SLOT_GAP + 6 + 14 + 8   # baú: filtro, 3 linhas e botões
         total_w = pw if side is None else 2 * pw + 10
-        x = (UW - total_w) // 2
+        x = (self.w - total_w) // 2
         h = ph_inv if side is None else max(ph_inv, ph_side)
-        y = (UH - h) // 2 - 16
+        y = (self.h - h) // 2 - 16
 
         self._window(x, y, pw, h, "INVENTÁRIO", C.C_TI)
         used = sum(1 for s in inventory.slots if s)
@@ -639,7 +714,7 @@ class UI:
         else:
             self._station_panel(side, x + pw + 10, y, pw, h, item_icon, mouse, status, info)
             keys = "[CLIQUE] PILHA/DRONE · [DIREITO] 1 · [ESC] FECHA"
-        self.text(keys, UW / 2, y + h + 6, C.C_MUTED, align="center")
+        self.text(keys, self.w / 2, y + h + 6, C.C_MUTED, align="center")
         self.notice_y = y + h + 18                     # aviso ("Inventário cheio") logo abaixo da linha de ajuda
 
     def _button(self, rect: pygame.Rect, label: str, action: str, mouse, enabled: bool = True) -> None:
@@ -790,12 +865,12 @@ class UI:
             w = sum(widths) + 3 * (len(parts) - 1) + 8
             ax, ay = chest.anchor
             top = ay - C.CHEST_SPRITE_SIZE[1] - 2                 # logo acima da tampa (mundo)
-            sx, sy = (ax - cam[0]) * zoom / 2, (top - cam[1]) * zoom / 2
+            sx, sy = self.world_to_ui((ax, top), cam, zoom)
             x, y = int(sx - w / 2), int(sy - 15)
             while any(r.colliderect((x, y, w, 14)) for r in placed):   # baús vizinhos: empilha
                 y -= 15
             placed.append(pygame.Rect(x, y, w, 14))
-            if not (-w < x < UW and -14 < y < UH):
+            if not (-w < x < self.w and -14 < y < self.h):
                 continue
             self.panel(x, y, w, 14, (14, 10, 9, 210))
             px = x + 4
@@ -816,7 +891,7 @@ class UI:
                 self.native_text(str(held.count), mx + 20, my + 14, C.C_TEXT, "right")
         elif label:
             w = self.body.size(label)[0] + 12
-            tx, ty = min(mx + 8, UW - w - 2), my - 18
+            tx, ty = min(mx + 8, self.w - w - 2), my - 18
             self.panel(tx, ty, w, 16, (14, 10, 9, 235))
             self.text(label, tx + 6, ty + 2, C.C_TEXT, self.body)
 
@@ -828,7 +903,8 @@ class UI:
 
     # ---- terminal -------------------------------------------------------------
     def draw_terminal(self, index: int, t: float) -> None:
-        dx, dy, dw, dh = 18, UH - 100, UW - 36, 92
+        dw, dh = min(self.w - 36, 560), 92        # largura limitada: linha comprida demais cansa de ler
+        dx, dy = (self.w - dw) // 2, self.h - 100
         self.panel(dx, dy, dw, dh, (10, 16, 13, 237))
         self.surf.fill(pygame.Color(C.C_TERMINAL), (dx, dy, dw, 2))
         self.text(f"TERMINAL · COLONIA HESPER · LOG 0{index + 1}", dx + 10, dy + 8, C.C_TERMINAL)
@@ -838,8 +914,10 @@ class UI:
             self.text("[E] CONTINUAR", dx + dw - 10, dy + dh - 13, C.C_TERMINAL, align="right")
 
     # ---- banner de estágio ----------------------------------------------------
-    # Vão livre no topo, entre o painel de O₂ (x 6–118) e o do Ti, em coordenadas da UI.
-    BANNER_GAP = (118, TI_PANEL_X)
+    @property
+    def BANNER_GAP(self) -> tuple[int, int]:
+        """Vão livre no topo, entre o painel de O₂ (x 6–118) e o do Ti, em coordenadas da UI."""
+        return 118, self.ti_panel_x
 
     def draw_banner(self, stage: int, alpha: float) -> None:
         """Faixa compacta no topo da tela (fora da área de jogo): título em cima, subtítulo embaixo."""
@@ -863,21 +941,22 @@ class UI:
         ft = state.faint_time
         a = ft / C.FAINT_RESPAWN_AT if ft < C.FAINT_RESPAWN_AT else (C.FAINT_DURATION - ft) / (C.FAINT_DURATION - C.FAINT_RESPAWN_AT)
         a = max(0.0, min(1.0, a))
-        self.fill((0, 0, 0, int(255 * a)), (0, 0, UW, UH))
+        self.fill((0, 0, 0, int(255 * a)), (0, 0, self.w, self.h))
         if a > 0.6:
-            self.text("Tu apagou. Acordando na cápsula...", UW / 2, UH / 2 - 6, "#d9cfc4", self.body, "center")
+            self.text("Tu apagou. Acordando na cápsula...", self.w / 2, self.h / 2 - 6, "#d9cfc4", self.body, "center")
 
     # ---- fim do MVP -----------------------------------------------------------
     def draw_end(self, state: GameState, t: float) -> None:
-        self.fill((6, 12, 6, 200), (0, 0, UW, UH))
-        x, y, w, h = 70, 40, 340, 190
+        self.fill((6, 12, 6, 200), (0, 0, self.w, self.h))
+        w, h = 340, 190
+        x, y = (self.w - w) // 2, (self.h - h) // 2          # no centro (no Grande: 70, 40)
         self.panel(x, y, w, h, (16, 22, 14, 240))
         self.surf.fill(pygame.Color(C.STAGE_COLOR[3]), (x, y, w, 2))
-        self.text("FIM DO MVP", UW / 2, y + 14, C.STAGE_COLOR[3], self.font_big, "center")
+        self.text("FIM DO MVP", self.w / 2, y + 14, C.STAGE_COLOR[3], self.font_big, "center")
         body = ("O primeiro verde brotou na cratera. A Colônia Hesper tentou e sumiu; "
                 "tu chegou até aqui. O que tem dentro do gelo fica pra próxima.")
         for i, line in enumerate(wrap(self.body, body, w - 40)):
-            self.text(line, UW / 2, y + 42 + i * 13, "#d6eadf", self.body, "center")
+            self.text(line, self.w / 2, y + 42 + i * 13, "#d6eadf", self.body, "center")
         minutes, seconds = divmod(int(state.play_time), 60)
         stats = [("TEMPO", f"{minutes}:{seconds:02d}"), ("MAQUINAS", str(len(state.machines))),
                  ("TI", fmt(state.ti)), ("LOGS", f"{len(state.logs_read)}/{len(C.LOGS)}")]
@@ -885,9 +964,9 @@ class UI:
             sx = x + 30 + i * 74
             self.text(label, sx + 30, y + 100, C.C_MUTED, align="center")
             self.text(value, sx + 30, y + 112, C.C_TI, self.body_big, "center")
-        self.text("Obrigado por testar o v0.1", UW / 2, y + 142, "#a6e07a", self.body, "center")
+        self.text("Obrigado por testar o v0.1", self.w / 2, y + 142, "#a6e07a", self.body, "center")
         if (t * 9) % 10 < 6:
-            self.text("[ENTER] CONTINUAR EXPLORANDO", UW / 2, y + h - 18, C.C_TEXT, align="center")
+            self.text("[ENTER] CONTINUAR EXPLORANDO", self.w / 2, y + h - 18, C.C_TEXT, align="center")
 
     # ---- menu de pausa ---------------------------------------------------------
     PAUSE_OPTIONS = ["Continuar", "Opções", "Controles", "Salvar e sair", "Sair"]
@@ -904,11 +983,12 @@ class UI:
         ("ESC", "Cancelar / fechar / pausar"),
         ("+ / -", "Aproximar / afastar (ou Ctrl+rodinha)"),
         ("F11 · ALT+ENTER", "Tela cheia"),
+        ("ESC > OPÇÕES", "Tamanho da interface (HUD e menus)"),
         ("F1 · F2", "Debug: tempo x10 · +10.000 Ti"),
     ]
 
     def _pause_frame(self, x, y, w, h, title) -> None:
-        self.fill((6, 4, 3, 170), (0, 0, UW, UH))
+        self.fill((6, 4, 3, 170), (0, 0, self.w, self.h))
         self.surf.fill(pygame.Color("#1b1411"), (x, y, w, h))
         pygame.draw.rect(self.surf, pygame.Color("#5a4034"), (x, y, w, h), 1)
         self.surf.fill(pygame.Color("#2a1e19"), (x + 1, y + 1, w - 2, 18))
@@ -919,25 +999,32 @@ class UI:
         self.surf.fill(pygame.Color("#2c1e18" if selected else "#211915"), rect)
         pygame.draw.rect(self.surf, pygame.Color(C.C_ACCENT if selected else "#3a2c25"), rect, 1)
 
-    def draw_pause(self, screen: str, selected: int, mix: dict, zoom_label: str = "1×") -> None:
-        """Menu de pausa. screen = 'main', 'volumes' (Opções: volumes, tela cheia, zoom) ou 'controls'.
-        `mix` é o dicionário das settings (volumes + "fullscreen")."""
+    # linhas de "escolha" das Opções, depois dos volumes (Enter/clique/A/D trocam o valor)
+    OPTION_ROWS = ("TELA CHEIA", "ZOOM", "INTERFACE")
+
+    def draw_pause(self, screen: str, selected: int, mix: dict, zoom_label: str = "1×",
+                   ui_label: str = "MÉDIA") -> None:
+        """Menu de pausa. screen = 'main', 'volumes' (Opções: volumes, tela cheia, zoom, interface)
+        ou 'controls'. `mix` é o dicionário das settings (volumes + "fullscreen")."""
         self.pause_items.clear()
         self.pause_sliders.clear()
         if screen == "main":
-            x, y, w = 170, 64, 140
+            ox, oy = self.center_offset                   # menus feitos pra 480×270, centralizados
+            x, y, w = 170 + ox, 64 + oy, 140
             self._pause_frame(x, y, w, 26 + 22 * len(self.PAUSE_OPTIONS) + 4, "PAUSA")
             for i, label in enumerate(self.PAUSE_OPTIONS):
                 row = pygame.Rect(x + 8, y + 26 + i * 22, w - 16, 19)
                 self._menu_row(row, i == selected)
                 self.text(label, row.x + 8, row.y + 3, C.C_TEXT if i == selected else "#d9cfc4", self.body)
                 self.pause_items.append(row)
-            self.text("[W/S] ESCOLHE · [ENTER] OK · [ESC] VOLTA", UW / 2, y + 26 + 22 * len(self.PAUSE_OPTIONS) + 10,
+            self.text("[W/S] ESCOLHE · [ENTER] OK · [ESC] VOLTA", self.w / 2, y + 26 + 22 * len(self.PAUSE_OPTIONS) + 10,
                       C.C_MUTED, align="center")
         elif screen == "volumes":
-            x, y, w = 120, 60, 240
+            ox, oy = self.center_offset
+            x, y, w = 120 + ox, 60 + oy - 12, 240         # uma linha a mais (interface): sobe 12
             n = len(self.VOLUME_ROWS)
-            self._pause_frame(x, y, w, 26 + 24 * (n + 3) + 4, "OPÇÕES")
+            m = len(self.OPTION_ROWS)
+            self._pause_frame(x, y, w, 26 + 24 * (n + m + 1) + 4, "OPÇÕES")
             for i, (key, label) in enumerate(self.VOLUME_ROWS):
                 row = pygame.Rect(x + 8, y + 26 + i * 24, w - 16, 21)
                 self._menu_row(row, i == selected)
@@ -951,24 +1038,24 @@ class UI:
                 self.text(f"{round(mix[key] * 100)}%", row.right - 8, row.y + 7, C.C_TI, align="right")
                 self.pause_items.append(row)
                 self.pause_sliders.append(bar)
-            # tela cheia e zoom: Enter/clique alternam, A/D também
-            for i, (label, value) in enumerate((("TELA CHEIA", "SIM" if mix.get("fullscreen") else "NÃO"),
-                                                ("ZOOM", zoom_label)), start=n):
+            # tela cheia, zoom e interface: Enter/clique alternam, A/D também
+            values = ("SIM" if mix.get("fullscreen") else "NÃO", zoom_label, ui_label)
+            for i, (label, value) in enumerate(zip(self.OPTION_ROWS, values), start=n):
                 row = pygame.Rect(x + 8, y + 26 + i * 24, w - 16, 21)
                 self._menu_row(row, i == selected)
                 self.text(label, row.x + 8, row.y + 7, C.C_TEXT)
                 self.text(f"< {value} >" if i == selected else value, row.right - 8, row.y + 5, C.C_TI,
                           self.body, align="right")
                 self.pause_items.append(row)
-            back = pygame.Rect(x + 8, y + 26 + (n + 2) * 24, w - 16, 21)
-            self._menu_row(back, selected == n + 2)
+            back = pygame.Rect(x + 8, y + 26 + (n + m) * 24, w - 16, 21)
+            self._menu_row(back, selected == n + m)
             self.text("Voltar", back.x + 8, back.y + 4, C.C_TEXT, self.body)
             self.pause_items.append(back)
-            self.text("[W/S] ESCOLHE · [A/D] AJUSTA · [ESC] VOLTA", UW / 2, back.bottom + 10, C.C_MUTED, align="center")
+            self.text("[W/S] ESCOLHE · [A/D] AJUSTA · [ESC] VOLTA", self.w / 2, back.bottom + 10, C.C_MUTED, align="center")
         else:  # controls
-            x, y, w = 72, 28, 336
             rows = len(self.CONTROLS)
             h = 26 + 15 * rows + 30
+            x, y, w = (self.w - 336) // 2, (self.h - h) // 2, 336
             self._pause_frame(x, y, w, h, "CONTROLES")
             for i, (keys, action) in enumerate(self.CONTROLS):
                 yy = y + 26 + i * 15

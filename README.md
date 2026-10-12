@@ -30,9 +30,10 @@ uv run python -m game --scale 2   # força o zoom da janela (padrão: o maior qu
 | Drone | item do fabricador (6 ferro + 4 silício, libera na Névoa) · não vai pro chão: vai num slot da estação |
 | Coletar drill | E perto dela (leva o minério que ela extraiu pro inventário) |
 | Desmontar máquina | clique direito em cima dela (volta pro inventário; baú só vazio; a estação devolve junto os drones e o minério) |
-| Pausa | Esc (Continuar, Opções, Controles, Salvar e sair, Sair) · em Opções ficam volumes, tela cheia e zoom, salvos em `settings.json` |
+| Pausa | Esc (Continuar, Opções, Controles, Salvar e sair, Sair) · em Opções ficam volumes, tela cheia, zoom e tamanho da interface, salvos em `settings.json` |
 | Zoom do mundo | + / - (ou = e o teclado numérico) · Ctrl+rodinha (Cmd no Mac) · 0,75× · 1× · 1,5× · 2× · HUD e menus não mudam de tamanho |
 | Tela cheia | F11 ou Alt+Enter (resolução do monitor, 16:9 com tarja preta se precisar) |
+| Tamanho da interface | Pausa > Opções > Interface: Grande (a de sempre) · Média (~75%, padrão) · Pequena (~50%) · só HUD e menus mudam, o mundo não · em janela pequena (960×540) os três ficam iguais |
 | Ler terminal | E perto dele |
 | Debug | F1 acelera o tempo ×10 (O₂ e máquinas) · F2 soma +10.000 Ti |
 

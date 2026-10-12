@@ -3,12 +3,13 @@
 Game loop (60 vezes por segundo):
     1. handle_events()  lê teclado/mouse e decide o que cada tecla faz no modo atual
     2. update(dt)       manda os controles pro GameState e reage aos eventos dele
-    3. draw()           desenha mundo + UI numa tela de 960×540 e estica pra janela
+    3. draw()           desenha o mundo numa tela de 960×540, estica pra janela e põe a UI por cima
 
 Tela e zoom (game/viewport.py): o mundo é desenhado numa "visão" de 960×540 / zoom px e esticado
-pra 960×540 (sem suavizar); a UI vem por cima, sempre do mesmo tamanho. A tela de 960×540 é
-esticada pra janela mantendo 16:9 (na tela cheia sobra tarja preta se o monitor não for 16:9).
-F11 ou Alt+Enter alternam a tela cheia; +/- ou Ctrl+rodinha mudam o zoom.
+pra 960×540 (sem suavizar). A tela de 960×540 é esticada pra janela mantendo 16:9 (na tela cheia
+sobra tarja preta se o monitor não for 16:9). A UI (HUD e menus) é desenhada depois, direto na
+janela, no tamanho escolhido em Opções > Interface (Grande/Média/Pequena): ela não muda com o zoom
+e o mundo não muda com ela. F11 ou Alt+Enter alternam a tela cheia; +/- ou Ctrl+rodinha mudam o zoom.
 
 Modos de tela: "play" (jogando), "fabricator" (menu de receitas),
 "terminal" (lendo um log), "inventory" (Tab), "chest" (baú aberto com E), "station" (estação com E),
@@ -110,7 +111,8 @@ class App:
         self.t = 0.0
         self.mode = "play"
         self.keys_down: set[int] = set()
-        self.mouse = (C.SCREEN_W // 2, C.SCREEN_H // 2)   # em pixels da tela interna (960×540)
+        self.mouse = (C.SCREEN_W // 2, C.SCREEN_H // 2)   # em pixels da tela interna (960×540): mundo
+        self.mouse_window = (self.window.get_width() // 2, self.window.get_height() // 2)   # px da janela
         self.mouse_held = False
         self.placing: str | None = None                   # máquina sendo posicionada (a do slot selecionado)
         self.hotbar_selected = 0                          # slot da hotbar escolhido (0 a 7, teclas 1–8)
@@ -221,8 +223,34 @@ class App:
     def window_to_canvas(self, pos: tuple[int, int]) -> tuple[int, int]:
         return viewport.window_to_canvas(pos, self.window.get_size())
 
+    # ---- tamanho da interface ----------------------------------------------------
+    @property
+    def mouse_ui(self) -> tuple[float, float]:
+        """O mouse em px da UI (hit-test de botões, slots, abas, sliders), no tamanho de interface atual."""
+        return viewport.window_to_ui(self.mouse_window, self.window.get_size(), self.settings["ui_size"])
+
+    def apply_ui_layout(self) -> None:
+        """Passa pra UI onde ela fica na janela e o tamanho lógico (muda com a janela e com a opção)."""
+        self.ui.set_layout(*viewport.ui_layout(self.window.get_size(), self.settings["ui_size"]))
+
+    def set_ui_size(self, ui_size: str) -> None:
+        self.settings = settings.clean({**self.settings, "ui_size": ui_size})
+        settings.save(self.settings)
+        self.apply_ui_layout()
+
+    def ui_size_step(self, step: int) -> None:
+        sizes = viewport.UI_SIZES
+        self.set_ui_size(sizes[(sizes.index(self.settings["ui_size"]) + step) % len(sizes)])
+        self.audio.play("ui_click")
+
+    @property
+    def frame(self) -> pygame.Surface:
+        """A área de jogo na janela (sem a tarja), com mundo + UI: o que aparece pro jogador."""
+        return self.window.subsurface(viewport.letterbox(self.window.get_size()))
+
     def present(self) -> None:
-        """Estica a tela de 960×540 pra janela mantendo 16:9 (tarja preta no que sobrar), sem suavizar."""
+        """Estica o mundo (960×540) pra janela mantendo 16:9 (tarja preta no que sobrar), sem suavizar.
+        A UI vem depois, por cima, direto na janela (ui.finish)."""
         x, y, w, h = viewport.letterbox(self.window.get_size())
         if (x, y) != (0, 0):
             self.window.fill((0, 0, 0))          # tarja preta (monitor que não é 16:9)
@@ -262,12 +290,14 @@ class App:
             elif event.type == pygame.KEYUP:
                 self.keys_down.discard(event.key)
             elif event.type == pygame.MOUSEMOTION:
+                self.mouse_window = event.pos
                 self.mouse = self.window_to_canvas(event.pos)
                 if self.mode == "pause":
                     self.pause_hover()
                 elif self.mode == "title":
-                    self.title.hover(self.mouse[0] / 2, self.mouse[1] / 2)
+                    self.title.hover(*self.mouse_ui)
             elif event.type == pygame.MOUSEBUTTONDOWN:
+                self.mouse_window = event.pos
                 self.mouse = self.window_to_canvas(event.pos)
                 self.on_click(event.button)
             elif event.type == pygame.MOUSEWHEEL and self.mode != "title" and self.zoom_modifier():
@@ -398,7 +428,7 @@ class App:
     def on_inventory_click(self, button: int) -> None:
         """Clique na tela de inventário (Tab): pega e solta pilhas (a "mão" é self.held).
         Com baú ou estação aberta, o clique transfere pro outro lado (on_panel_click)."""
-        ux, uy = self.mouse[0] / 2, self.mouse[1] / 2
+        ux, uy = self.mouse_ui
         if self.mode in PANEL_MODES:
             self.on_panel_click(button, (ux, uy))
             return
@@ -559,7 +589,7 @@ class App:
 
     def on_chest_filter_click(self) -> bool:
         """Clique no seletor "Drones trazem" do baú aberto: troca o filtro. True se acertou um botão."""
-        value = self.ui.chest_filter_at((self.mouse[0] / 2, self.mouse[1] / 2))
+        value = self.ui.chest_filter_at(self.mouse_ui)
         if value is None or self.open_chest is None:
             return False
         if value != self.open_chest.filter:
@@ -598,7 +628,8 @@ class App:
         self.set_mode("pause")
 
     def pause_item_count(self) -> int:
-        return {"main": len(UI.PAUSE_OPTIONS), "volumes": len(UI.VOLUME_ROWS) + 3, "controls": 1}[self.pause_screen]
+        volumes = len(UI.VOLUME_ROWS) + len(UI.OPTION_ROWS) + 1     # + "Voltar"
+        return {"main": len(UI.PAUSE_OPTIONS), "volumes": volumes, "controls": 1}[self.pause_screen]
 
     def on_pause_key(self, key: int) -> None:
         if key in (pygame.K_w, pygame.K_UP, pygame.K_s, pygame.K_DOWN):
@@ -617,6 +648,8 @@ class App:
             elif self.pause_selected == n + 1:        # zoom: A afasta, D aproxima
                 self.set_zoom(viewport.step_zoom(self.zoom, -1 if left else 1), notify=False)
                 self.audio.play("ui_click")
+            elif self.pause_selected == n + 2:        # interface: A aumenta, D diminui (ordem da lista)
+                self.ui_size_step(-1 if left else 1)
         elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
             self.pause_activate(self.pause_selected)
         elif key == pygame.K_ESCAPE:
@@ -654,6 +687,9 @@ class App:
             levels = C.ZOOM_LEVELS
             self.set_zoom(levels[(levels.index(self.zoom) + 1) % len(levels)], notify=False)
             self.audio.play("ui_click")
+        elif self.pause_screen == "volumes" and index == len(UI.VOLUME_ROWS) + 2:   # interface: dá a volta
+            self.pause_selected = index
+            self.ui_size_step(1)
         else:   # "Voltar" (volumes ou controles)
             self.pause_screen, self.pause_selected = "main", 0
             self.audio.play("ui_close")
@@ -666,7 +702,7 @@ class App:
             settings.save(self.settings)
 
     def pause_hover(self) -> None:
-        ux, uy = self.mouse[0] / 2, self.mouse[1] / 2
+        ux, uy = self.mouse_ui
         if self.dragging_slider is not None:
             bar = self.ui.pause_sliders[self.dragging_slider]
             key = UI.VOLUME_ROWS[self.dragging_slider][0]
@@ -679,7 +715,7 @@ class App:
                 self.pause_selected = i
 
     def on_pause_click(self) -> None:
-        ux, uy = self.mouse[0] / 2, self.mouse[1] / 2
+        ux, uy = self.mouse_ui
         for i, bar in enumerate(self.ui.pause_sliders):
             if bar.inflate(4, 8).collidepoint(ux, uy):     # área de clique um pouco maior que a barra
                 self.dragging_slider = i
@@ -694,7 +730,7 @@ class App:
     def on_click(self, button: int) -> None:
         if self.mode == "title":
             if button == 1:
-                self.on_title_action(self.title.click(self.mouse[0] / 2, self.mouse[1] / 2))
+                self.on_title_action(self.title.click(*self.mouse_ui))
             return
         if self.mode == "pause":
             if button == 1:
@@ -717,7 +753,7 @@ class App:
         if button != 1:
             return
         if self.mode == "fabricator":
-            ux, uy = self.mouse[0] // 2, self.mouse[1] // 2
+            ux, uy = self.mouse_ui
             for rect, kind in self.ui.fabricator_buttons:
                 if rect.collidepoint(ux, uy):
                     self.try_craft(kind, batch=self.shift_held())
@@ -1068,6 +1104,9 @@ class App:
             pulse = 0.5 + 0.12 * math.sin(self.t * 6.3)
             self.red_vignette.set_alpha(int(255 * pulse))
             canvas.blit(self.red_vignette, (0, 0))
+        self.present()                     # mundo na janela; as camadas da UI vão por cima
+        window = self.window
+        self.apply_ui_layout()
 
         # camada 1: HUD e textos flutuantes
         ui.begin()
@@ -1088,10 +1127,10 @@ class App:
         if self.banner_time < BANNER_TIME:
             alpha = min(1.0, self.banner_time / BANNER_FADE_IN, (BANNER_TIME - self.banner_time) / BANNER_FADE_OUT)
             ui.draw_banner(self.banner_stage, alpha)
-        ui.finish(canvas)
+        ui.finish(window)
 
         # camada 2: menus e telas por cima do HUD
-        mouse_ui = (self.mouse[0] / 2, self.mouse[1] / 2)
+        mouse_ui = self.mouse_ui
         ui.begin()
         if self.mode == "fabricator":
             preview = self.renderer.machine_preview
@@ -1101,7 +1140,8 @@ class App:
         elif self.mode == "end":
             ui.draw_end(state, self.t)
         elif self.mode == "pause":
-            ui.draw_pause(self.pause_screen, self.pause_selected, self.settings, viewport_label(self.zoom))
+            ui.draw_pause(self.pause_screen, self.pause_selected, self.settings, viewport_label(self.zoom),
+                          viewport.UI_SIZE_LABEL[self.settings["ui_size"]])
         elif self.mode in INVENTORY_MODES:
             side = self.open_chest or self.open_station
             status = self.station_status() if self.open_station is not None else ""
@@ -1114,7 +1154,7 @@ class App:
             ui.draw_faint(state)
         if self.mode not in INVENTORY_MODES:
             ui.draw_cursor(*mouse_ui)
-        ui.finish(canvas)
+        ui.finish(window)
 
         # camada 3 (só no inventário): pilha na mão ou tooltip, aviso e cursor, por cima dos ícones dos slots
         if self.mode in INVENTORY_MODES:
@@ -1126,12 +1166,11 @@ class App:
             if self.notice_time > 0:
                 ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4), ui.notice_y)
             ui.draw_cursor(*mouse_ui)
-            ui.finish(canvas)
-
-        self.present()
+            ui.finish(window)
 
     def screenshot(self, path: str) -> None:
-        pygame.image.save(self.canvas, path)
+        """Salva o que o jogador vê (mundo + UI), sem a tarja preta."""
+        pygame.image.save(self.frame, path)
 
     # ---- save/load e tela de título (game/save.py, game/title.py) --------------
     def open_title(self) -> None:
@@ -1203,5 +1242,7 @@ class App:
         self.running = False
 
     def draw_title(self) -> None:
-        self.title.draw(self.canvas, self.t, self.mouse)
+        self.title.draw_background(self.canvas, self.t)
         self.present()
+        self.apply_ui_layout()
+        self.title.draw(self.window, self.t, self.mouse_ui)

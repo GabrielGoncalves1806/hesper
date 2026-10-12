@@ -1,4 +1,4 @@
-"""Preferências do jogador que sobrevivem entre sessões: volumes, tela cheia e zoom.
+"""Preferências do jogador que sobrevivem entre sessões: volumes, tela cheia, zoom e tamanho da interface.
 
 Fica num settings.json na raiz do projeto (no .gitignore). Se o arquivo não existir
 ou estiver estragado, usa o padrão e segue o jogo sem reclamar.
@@ -8,17 +8,22 @@ import json
 from pathlib import Path
 
 from game import config as C
+from game.viewport import UI_SIZES    # "grande", "media", "pequena"
 
 VOLUME_KEYS = ("master", "sfx", "ambient")   # multiplicadores de 0 a 1
 # padrão de quem nunca mexeu: efeitos em 40% e ambiente em 50% (no 100% o dono achou alto demais)
-DEFAULTS = {"master": 1.0, "sfx": 0.4, "ambient": 0.5, "fullscreen": False, "zoom": C.ZOOM_DEFAULT}
+# interface "media": em 1920×1080 dá escala inteira 3 (fonte limpa) e o HUD em 75% do Grande, que era
+# o que o dono achava gigante; em janela pequena (960×540) ela fica igual à Grande (game/viewport.py)
+DEFAULTS = {"master": 1.0, "sfx": 0.4, "ambient": 0.5, "fullscreen": False, "zoom": C.ZOOM_DEFAULT,
+            "ui_size": "media"}
 SETTINGS_PATH = C.ROOT_DIR / "settings.json"
 
 
 def clean(data) -> dict:
     """Só aceita as chaves conhecidas, com valores válidos. O resto vira padrão.
 
-    Volumes: números entre 0 e 1. Tela cheia: true/false. Zoom: um dos C.ZOOM_LEVELS."""
+    Volumes: números entre 0 e 1. Tela cheia: true/false. Zoom: um dos C.ZOOM_LEVELS.
+    Interface: "grande", "media" ou "pequena" (arquivo antigo, sem o campo, fica no padrão)."""
     result = dict(DEFAULTS)
     if isinstance(data, dict):
         for key in VOLUME_KEYS:
@@ -30,6 +35,8 @@ def clean(data) -> dict:
         zoom = data.get("zoom")
         if isinstance(zoom, (int, float)) and not isinstance(zoom, bool) and float(zoom) in C.ZOOM_LEVELS:
             result["zoom"] = float(zoom)
+        if data.get("ui_size") in UI_SIZES:
+            result["ui_size"] = data["ui_size"]
     return result
 
 

@@ -17,7 +17,7 @@ def test_corrupted_file_uses_defaults(tmp_path):
 
 def test_save_and_load_roundtrip(tmp_path):
     path = tmp_path / "settings.json"
-    values = {"master": 0.5, "sfx": 0.3, "ambient": 0.9, "fullscreen": True, "zoom": 1.5}
+    values = {"master": 0.5, "sfx": 0.3, "ambient": 0.9, "fullscreen": True, "zoom": 1.5, "ui_size": "pequena"}
     settings.save(values, path)
     assert settings.load(path) == values
 
