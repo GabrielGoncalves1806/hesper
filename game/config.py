@@ -317,6 +317,7 @@ CHEST_SPRITE_APPROVED = True    # chest/chest_open/icon_chest aprovados pelo don
 NOTICE_TIME = 2.0               # segundos que um aviso ("Inventário cheio") fica na tela
 
 # O baú é uma "máquina" sem índice: não soma Ti, não consome energia, só guarda itens.
+CHEST_FILTERS = ("all",) + RESOURCES   # o que os drones entregam no baú ("all" = qualquer minério)
 MACHINES["chest"] = MachineType("chest", "Baú", "guarda 24 pilhas", {"iron": 6}, None, 0, 0, "chest")
 MACHINE_ORDER.insert(MACHINE_ORDER.index("heater") + 1, "chest")   # no fabricador, junto das receitas do começo
 
@@ -326,7 +327,7 @@ VOLUME.update({"inv_move": 0.5, "chest_open": 0.7, "chest_close": 0.7, "inv_full
 # ---------------------------------------------------------------------------
 # Estação de drones (bíblia §8, Marco 3) · a lógica fica em game/drones.py
 # A estação (2×2, em chão livre fora de veio) solta drones que voam em linha reta, por cima das
-# paredes, até as drills; trazem o minério e entregam no baú mais perto da estação (ou no buffer).
+# paredes, até as drills; trazem o minério e entregam nos baús perto da estação, pelo filtro (ou no buffer).
 # ---------------------------------------------------------------------------
 DRONE_STATION_COST = {"iron": 20, "silicon": 15, "ice": 5}
 DRONE_STATION_UNLOCK_TI = 10_000   # libera na Névoa, junto com a drill
@@ -334,7 +335,7 @@ DRONES_PER_STATION = 2
 DRONE_RANGE = 30                # tiles, do centro da estação até o centro da drill
 DRONE_SPEED = 4.0               # tiles por segundo (× fator da energia)
 DRONE_MIN_PICKUP = 5            # só busca drill que já tem pelo menos isso guardado
-DRONE_CHEST_RADIUS = 3          # entrega no baú mais perto, a até 3 tiles da estação
+DRONE_CHEST_RADIUS = 6          # entrega nos baús a até 6 tiles da estação (filtrado > "all" > buffer)
 DRONE_PICKUP_TIME = 0.8         # segundos parado em cima da drill "coletando"
 DRONE_DROP_TIME = 0.6           # segundos pousado "entregando"
 STATION_BUFFER = 50             # unidades que a estação guarda quando não tem baú (ou ele está cheio)

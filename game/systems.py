@@ -38,6 +38,8 @@ class Machine:
     timer: float = 0.0            # segundos acumulados pra próxima unidade
     # só o baú usa este: os 24 slots dele (criado no place)
     storage: Inventory | None = None
+    # só o baú: que minério os drones entregam nele ("all" ou um id de C.RESOURCES). O player guarda qualquer coisa.
+    filter: str = "all"
     # só a estação de drones usa este: buffer + drones (game/drones.py, criado no place)
     station: drones.Station | None = None
 

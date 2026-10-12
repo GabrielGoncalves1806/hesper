@@ -26,6 +26,9 @@ Os drones NÃO guardam posição: ao carregar, nascem pousados nos pads. A carga
 vem em "drone_cargo" e ele entrega (baú perto ou buffer) logo no primeiro frame, então nada some.
 O contador de entregas (objetivo) fica em progress["drone_deliveries"].
 
+Baú: {"kind": "chest", ..., "storage": [...], "filter": "iron"}. "filter" é o minério que os drones
+entregam nele ("all", "iron", "silicon" ou "ice"); save sem o campo carrega como "all".
+
 Como um sistema novo entra no save (baú, energia, drones...):
     1. escreva `coisa_to_dict(state)` e `coisa_from_dict(state, data)` aqui embaixo;
     2. acrescente ("coisa", coisa_to_dict, coisa_from_dict) em SECTIONS;
@@ -141,6 +144,7 @@ def machine_to_dict(m: Machine) -> dict:
         data.update(resource=m.resource, stored=m.stored, timer=m.timer)
     if m.is_chest:
         data["storage"] = m.storage.to_data()
+        data["filter"] = m.filter
     if m.is_station:
         data["buffer"] = dict(m.station.buffer)
         data["drone_cargo"] = [[d.resource, d.cargo] if d.cargo else None for d in m.station.drones]
@@ -156,6 +160,8 @@ def machine_from_dict(data: dict) -> Machine:
                       timer=float(data.get("timer", 0.0)))
     if machine.is_chest:
         machine.storage = slots_from_data(data.get("storage", []), C.CHEST_SLOTS)
+        chest_filter = data.get("filter", "all")          # saves antigos não têm o campo: "all"
+        machine.filter = chest_filter if chest_filter in C.CHEST_FILTERS else "all"
     if machine.is_station:
         # drones recriados pousados; quem estava carregando volta com a carga e entrega no 1º frame
         machine.station = drones.new_station(machine)

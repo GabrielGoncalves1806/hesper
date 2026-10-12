@@ -170,10 +170,10 @@ def test_drill_dismantled_on_the_way_sends_the_drone_back_empty(game):
 
 
 # ---------------------------------------------------------------- entrega
-def test_delivers_to_the_nearest_chest_within_3_tiles(game):
+def test_delivers_to_the_nearest_chest_within_6_tiles(game):
     st = add_station(game)
-    far = add_chest(game, (ST[0] - 4, ST[1]))           # 4 tiles da borda: longe demais
-    near = add_chest(game, (ST[0] + 4, ST[1] + 1))      # 3 tiles da borda direita (que é tx+1): ainda vale
+    far = add_chest(game, (ST[0] - 7, ST[1]))           # 7 tiles da borda: longe demais
+    near = add_chest(game, (ST[0] + 7, ST[1] + 1))      # 6 tiles da borda direita (que é tx+1): ainda vale
     add_drill(game, 6, stored=12, resource="ice")
     run(game, 8)
     assert near.storage.count("ice") == 12 and far.storage.is_empty()

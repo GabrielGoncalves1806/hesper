@@ -239,7 +239,8 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 
 ### Marco 3 · Automação com drones
 - **Estação de drones**: libera na Névoa (Ti 10.000), custa 20 ferro + 15 silício + 5 gelo e ocupa 2×2. Vem com **2 drones**, tem alcance de **30 tiles** e consome 3 kW.
-- **Ciclo do drone**: decola, voa **em linha reta por cima das paredes** até uma drill dentro do alcance que tenha **≥ 5 unidades**, coleta tudo e voa de volta. Entrega no **baú mais próximo, a até 3 tiles da estação** (se não houver baú, ou se ele estiver cheio, guarda no buffer interno da estação, de 50 unidades, e mostra o aviso). Velocidade de ~4 tiles/s.
+- **Ciclo do drone**: decola, voa **em linha reta por cima das paredes** até uma drill dentro do alcance que tenha **≥ 5 unidades**, coleta tudo e voa de volta. Entrega nos **baús a até 6 tiles da estação** (se não houver baú com espaço, guarda no buffer interno da estação, de 50 unidades, e mostra o aviso quando ele enche). Velocidade de ~4 tiles/s.
+- **Filtro do baú**: cada baú tem um filtro **Tudo / Ferro / Silício / Gelo** (padrão Tudo), escolhido no painel do baú ("Drones trazem"). Ordem de entrega: primeiro um baú filtrado pro minério da carga, depois um baú "Tudo", senão o buffer; empate vai pro mais perto da estação. Baú filtrado pra outro minério nunca recebe. Carga maior que o espaço é dividida (o que cabe num baú, o resto no próximo ou no buffer; nada some). O filtro vale só pros drones: o jogador guarda qualquer coisa à mão. No mundo, um rótulo pequeno com o ícone do minério aparece em cima do baú filtrado quando o mouse está nele ou o jogador está perto. O filtro vai no save (save antigo carrega como "Tudo").
 - **Prioridade**: a drill mais cheia primeiro, e um drone por drill de cada vez.
 - **Visual**: drone pequeno voando com sombra no chão. A estação mostra os drones pousados.
 - Sem energia suficiente, os drones voam mais devagar, na mesma proporção do déficit.

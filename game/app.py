@@ -376,6 +376,24 @@ class App:
         if after != before:
             self.audio.play("inv_move")
 
+    def on_chest_filter_click(self) -> bool:
+        """Clique no seletor "Drones trazem" do baú aberto: troca o filtro. True se acertou um botão."""
+        value = self.ui.chest_filter_at((self.mouse[0] / 2, self.mouse[1] / 2))
+        if value is None or self.open_chest is None:
+            return False
+        if value != self.open_chest.filter:
+            self.open_chest.filter = value
+            self.audio.play("ui_click")
+        return True
+
+    def labeled_chests(self) -> list:
+        """Baús que mostram o rótulo flutuante: o que está debaixo do mouse e o que está perto do player."""
+        found = []
+        for chest in (self.hovered_machine(), self.state.nearby_chest()):
+            if chest is not None and chest.is_chest and not any(chest is c for c in found):
+                found.append(chest)
+        return found
+
     def stash_held(self) -> bool:
         """Devolve a pilha da mão pro inventário (ou pro baú aberto). False se não coube tudo."""
         if self.held is None:
@@ -503,6 +521,8 @@ class App:
         if self.state.fainted:
             return
         if self.mode in INVENTORY_MODES:
+            if button == 1 and self.on_chest_filter_click():
+                return
             if button in (1, 3):
                 self.on_inventory_click(button)
             return
@@ -832,10 +852,12 @@ class App:
 
         # camada 1: HUD e textos flutuantes
         ui.begin()
+        icons = {r: self.renderer.surface(f"icon_{r}", lambda r=r: art.icon(r))[0] for r in C.RESOURCES}
+        if self.mode == "play":
+            ui.draw_chest_labels(self.labeled_chests(), cam, self.zoom, icons)
         ui.draw_floaters(self.floaters, cam, self.zoom)
         if critical:
             ui.draw_o2_critical(state, self.t, cam)
-        icons = {r: self.renderer.surface(f"icon_{r}", lambda r=r: art.icon(r))[0] for r in C.RESOURCES}
         ui.draw_hud(state, self.t, self.hint() if self.mode == "play" else None, icons)
         ui.draw_hotbar(state.inventory, self.hotbar_selected, self.renderer.item_icon)
         if not critical:   # com O₂ crítico o aviso grande ocupa essa área (e o foco é voltar pra base)
@@ -863,7 +885,8 @@ class App:
             ui.draw_pause(self.pause_screen, self.pause_selected, self.settings, viewport_label(self.zoom))
         elif self.mode in INVENTORY_MODES:
             chest = self.open_chest.storage if self.open_chest else None
-            ui.draw_inventory(state.inventory, chest, self.hotbar_selected, self.renderer.item_icon, mouse_ui)
+            ui.draw_inventory(state.inventory, chest, self.hotbar_selected, self.renderer.item_icon, mouse_ui,
+                              self.open_chest.filter if self.open_chest else None)
         if self.notice_time > 0 and self.mode not in INVENTORY_MODES:   # por cima do fabricador também
             ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4))
         if state.fainted:

@@ -762,7 +762,7 @@ def check_drones(bot) -> None:
     give(s, iron=60, silicon=40, ice=20)
     assert s.craft("drone_station")
     chest = s.chests[0]
-    # canto 2×2 livre perto do baú (até 3 tiles), com o player parado logo abaixo
+    # canto 2×2 livre perto do baú (até 3 tiles, dentro do raio de entrega de 6), com o player parado logo abaixo
     site = None
     for ty in range(chest.ty - 3, chest.ty + 3):
         for tx in range(chest.tx - 4, chest.tx + 4):
@@ -779,7 +779,7 @@ def check_drones(bot) -> None:
     bot.click(bot.tile_on_screen(site))
     station = s.machine_at(site)
     assert station is not None and station.is_station and len(station.station.drones) == 2
-    assert drones.nearest_chest(station, s.chests) is chest
+    assert drones.pick_delivery_chest(station, s.chests, "iron") is chest
     # hover na estação com buffer: dica do HUD
     station.station.buffer = {"iron": 12}
     ax, ay = station.anchor
@@ -837,6 +837,44 @@ def check_drones(bot) -> None:
     shot_zoom(bot, "drones_entrega.png", ((ax + cxw) / 2, (ay + cyw) / 2 - 30))
     carve(s, [(mid[0] + i, mid[1] + j) for i in (-1, 0, 1) for j in (0, 1)])
     bot.teleport((64, 65))
+    bot.frames(0.1)
+
+
+def check_chest_filter(bot) -> None:
+    """Filtro do baú pros drones: clica em "ferro" no seletor do painel e mostra o rótulo no mundo.
+    Prints: bau_filtro (painel com o seletor), bau_rotulo (recorte do rótulo em cima do baú)."""
+    s, app = bot.state, bot.app
+    chest = s.chests[0]
+    assert chest.filter == "all"
+    ax, ay = chest.anchor
+    s.player.x, s.player.y = ax, ay + 10
+    s.o2 = C.O2_MAX
+    bot.frames(0.1)
+    assert s.interaction() == ("chest", chest)
+    bot.key(pygame.K_e)
+    assert app.mode == "chest"
+    bot.frames(DT)
+    rect = next(r for r, value in app.ui.filter_buttons if value == "iron")
+    bot.click((rect.centerx * 2, rect.centery * 2))
+    assert chest.filter == "iron" and app.mode == "chest" and app.held is None
+    other = next(r for r, value in app.ui.filter_buttons if value == "ice")
+    bot.mouse_to((other.centerx * 2, other.centery * 2))    # hover num botão inativo
+    bot.frames(0.1)
+    bot.shot("bau_filtro.png")
+    bot.key(pygame.K_ESCAPE)
+    assert app.mode == "play"
+    # rótulo no mundo: player perto (sem o mouse em cima)
+    bot.mouse_to((20, 20))
+    bot.frames(0.1)
+    assert chest in app.labeled_chests()
+    shot_zoom(bot, "bau_rotulo.png", (ax, ay - 30), w=160, h=90)
+    bot.shot("bau_rotulo_tela.png")
+    # zoom 2: o rótulo continua em cima do baú
+    zoom = app.zoom
+    app.set_zoom(2.0, notify=False)
+    bot.frames(0.1)
+    bot.shot("bau_rotulo_zoom2.png")
+    app.set_zoom(zoom, notify=False)
     bot.frames(0.1)
 
 
@@ -995,6 +1033,7 @@ def main() -> None:
     bot.frames(3.0)                           # deixa o banner do estágio 2 sumir
     check_drill_feature(bot)
     check_drones(bot)
+    check_chest_filter(bot)
     check_transition(bot, 2, [("transicao_verde_60.png", 0.60)])
     for _ in range(9):
         bot.key(pygame.K_F2)
