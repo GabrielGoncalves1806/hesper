@@ -253,13 +253,31 @@ class World:
         cx, cy = self.center
         return math.hypot(tx + 0.5 - cx, ty + 0.5 - cy)
 
+    def _low_wet(self, tx: int, ty: int, stage: int) -> bool:
+        """Água "crua": chão baixo o bastante pro estágio (antes da suavização do is_water)."""
+        if stage < 2 or not (0 <= tx < self.width and 0 <= ty < self.height):
+            return False
+        if self.lowness[ty][tx] >= C.WATER_THRESHOLD[stage]:   # o teste mais barato primeiro
+            return False
+        if not self.is_floor(tx, ty) or (tx, ty) in self._vein_tiles:   # água não cobre veio
+            return False
+        return self.dist_from_center(tx, ty) >= 7
+
     def is_water(self, tx: int, ty: int, stage: int) -> bool:
-        """Poça cosmética (dá pra andar por cima). Só a partir da Névoa, em chão 'baixo', e cresce com o estágio."""
-        if stage < 2 or not self.is_floor(tx, ty) or self.dist_from_center(tx, ty) < 7:
+        """Poça cosmética (dá pra andar por cima). Só a partir da Névoa, em chão 'baixo', e cresce com o estágio.
+
+        Suavização (pra não sair água em xadrez ou ligada só pela quina): um tile de água crua só fica
+        se tem um vizinho de lado que também é água, OU se é uma gota sozinha (nenhuma água nem nas
+        diagonais). A checagem da gota olha o estágio 3, assim a água de um estágio está sempre dentro
+        da do estágio seguinte (pickups e plantas usam `is_water(..., 3)` como "lago futuro")."""
+        if not self._low_wet(tx, ty, stage):
             return False
-        if (tx, ty) in self._vein_tiles:      # água não cobre veio
-            return False
-        return self.lowness[ty][tx] < C.WATER_THRESHOLD[stage]
+        low = self._low_wet
+        if low(tx - 1, ty, stage) or low(tx + 1, ty, stage) or low(tx, ty - 1, stage) or low(tx, ty + 1, stage):
+            return True
+        top = max(C.WATER_THRESHOLD)
+        return not (low(tx - 1, ty - 1, top) or low(tx + 1, ty - 1, top)
+                    or low(tx - 1, ty + 1, top) or low(tx + 1, ty + 1, top))
 
     def plant_at(self, tx: int, ty: int) -> str | None:
         """Planta decorativa do estágio 3 (sem colisão). Retorna 'bush', 'tree', 'flower' ou None."""

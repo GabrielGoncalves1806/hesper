@@ -371,7 +371,6 @@ Entregues em `_pending/` até o dono aprovar. Os morros usam a arte de parede qu
 | `pickup_iron.png` `pickup_silicon.png` `pickup_ice.png` | 16×16 | recurso solto no chão, legível de longe, com sombrinha no chão |
 | `crater.png` | 96×96 | cratera 3×3 fechada (Marco 1), escura no centro, borda de rocha |
 | `crater_ramp.png` | 96×96 | a mesma cratera com a rampa de descida aberta (usada no Marco 2) |
-| `water_auto_{mist,green}.png` | 64×96 | autotile de água no layout A2 do RPG Maker (minitiles 16×16): poça isolada, cantos internos e bloco 2×3 de bordas. Margem de lama/terra molhada, fora dela transparente |
 
 | Áudio | Tipo | Quando toca |
 |---|---|---|

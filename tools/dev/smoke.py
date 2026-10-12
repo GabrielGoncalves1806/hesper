@@ -1629,6 +1629,64 @@ def check_surface(bot) -> None:
     bot.frames(0.2)
 
 
+def water_ponds(world, stage: int) -> list[list[tuple[int, int]]]:
+    """Poças (componentes de água ligados pelos lados) da camada, no estágio dado."""
+    wet = {(x, y) for y in range(world.height) for x in range(world.width) if world.is_water(x, y, stage)}
+    ponds, seen = [], set()
+    for start in wet:
+        if start in seen:
+            continue
+        seen.add(start)
+        comp, stack = [], [start]
+        while stack:
+            x, y = stack.pop()
+            comp.append((x, y))
+            for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                if n in wet and n not in seen:
+                    seen.add(n)
+                    stack.append(n)
+        ponds.append(comp)
+    return ponds
+
+
+def check_water(bot, stage: int) -> None:
+    """Água com autotile (poça de cantos redondos, não quadrado): recorte de uma poça pequena na Névoa,
+    de um lago no Verde e a tela inteira em volta do lago, além da conta de quantos tiles compostos há."""
+    s, app = bot.state, bot.app
+    w = s.world
+    key = C.STAGES[stage - 1].key
+    back = (s.player.x, s.player.y)
+    zoom_before = app.zoom
+    app.set_zoom(1.0, notify=False)
+    ponds = water_ponds(w, stage)
+    near = lambda comp: min(w.dist_from_center(*t) for t in comp)    # noqa: E731
+    assert ponds, f"nenhuma poça no estágio {stage}"
+    diag_only = [t for comp in ponds if len(comp) == 1 for t in comp
+                 if any(w.is_water(t[0] + dx, t[1] + dy, stage) for dx in (-1, 1) for dy in (-1, 1))]
+    assert not diag_only, f"água ligada só pela quina: {diag_only[:5]}"
+    if key == "mist":
+        comp = min((c for c in ponds if 3 <= len(c) <= 8), key=near)
+        name, crop = "agua_poca_mist.png", (200, 140)
+    else:
+        comp = min((c for c in ponds if len(c) >= 25), key=near)
+        name, crop = "agua_lago_green.png", (360, 240)
+    xs, ys = [t[0] for t in comp], [t[1] for t in comp]
+    mid = ((min(xs) + max(xs)) // 2, (min(ys) + max(ys)) // 2)
+    bot.teleport((mid[0], max(ys) + 2))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+    world_xy = ((min(xs) + max(xs) + 1) / 2 * C.TILE, (min(ys) + max(ys) + 1) / 2 * C.TILE)
+    shot_zoom(bot, name, world_xy, w=crop[0], h=crop[1], k=2)
+    print(f"  {len(ponds)} poças no estágio {key} · essa tem {len(comp)} tiles · "
+          f"{len(app.renderer.water_tiles)} tiles de água compostos em cache")
+    if key == "green":
+        bot.shot("agua_tela.png")
+    s.player.x, s.player.y = back
+    app.set_zoom(zoom_before, notify=False)
+    s.o2 = C.O2_MAX
+    bot.frames(0.1)
+
+
 def check_old_save_title(bot) -> None:
     """Save do v0.2 (versão 5): a tela de título não carrega, avisa e só deixa começar um novo jogo."""
     app = bot.app
@@ -1748,6 +1806,7 @@ def main() -> None:
     s.indices["o2"] += 12_914 - s.ti          # exemplo do dono: Ti 12.914 = ~3% do estágio 2
     bot.key(pygame.K_d, hold=0.5)
     bot.shot("stage2.png")
+    check_water(bot, 2)
     give(s, iron=40, silicon=30, ice=20)
     bot.key(pygame.K_e)
     bot.frames(0.2)
@@ -1772,6 +1831,7 @@ def main() -> None:
     bot.key(pygame.K_a, hold=1.0)
     bot.frames(1.0)
     bot.shot("stage3_explorando.png")
+    check_water(bot, 3)
 
     print("7) tamanho da interface")
     check_ui_size(bot)

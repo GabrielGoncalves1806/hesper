@@ -18,6 +18,7 @@ import random
 import pygame
 
 from game import art
+from game import autotile
 from game import config as C
 from game import drones
 from game import energy
@@ -74,10 +75,8 @@ class Renderer:
         self.shadow_top = self._alpha_strips(T, [(10, 84), (6, 40)])   # sombra que a parede joga no chão
         self.shadow_left = pygame.Surface((4, T), pygame.SRCALPHA)
         self.shadow_left.fill((0, 0, 0, 40))
-        self.water_top = pygame.Surface((T, 4), pygame.SRCALPHA)
-        self.water_top.fill((0, 0, 0, 72))
-        self.water_left = pygame.Surface((2, T), pygame.SRCALPHA)
-        self.water_left.fill((0, 0, 0, 46))
+        self.water_tiles = autotile.WaterTiles()   # tiles de água já montados (≤ 47 por estágio)
+        self._wet_memo: dict[tuple[int, int], bool] = {}   # água por tile, zerado a cada frame
         self.outline_h = pygame.Surface((T, 1), pygame.SRCALPHA)
         self.outline_h.fill((0, 0, 0, 90))
         self.outline_v = pygame.Surface((1, T), pygame.SRCALPHA)
@@ -216,6 +215,7 @@ class Renderer:
         world = state.world
         tx0, tx1, ty0, ty1 = self.visible_tiles(cam)
         backstop = C.PALETTES[stage]["face_dark"]
+        self._wet_memo.clear()   # cada vizinho é consultado por até 9 tiles: guarda só neste frame
         for ty in range(ty0, ty1 + 1):
             for tx in range(tx0, tx1 + 1):
                 sx, sy = tx * T - cam[0], ty * T - cam[1]
@@ -317,7 +317,6 @@ class Renderer:
                     canvas.blit(self.outline_of("terminal", term), (sx - 1, sy - 1))
 
     def _draw_floor(self, canvas, world, tx, ty, sx, sy, stage, stage_num, t) -> None:
-        P = C.PALETTES[stage]
         # deserto: areia com a variação da Designer (dunas em faixas); FLOOR (caverna) com o sorteio de sempre
         if world.sand_variants is not None and world.get(tx, ty) != C.FLOOR and 0 <= ty < world.height \
                 and 0 <= tx < world.width:
@@ -329,39 +328,53 @@ class Renderer:
         canvas.blit(self.surface(*sprite(stage))[0], (sx, sy))
         if self.stage_map.step > 0:
             self._blend_edges(canvas, world, tx, ty, sx, sy, stage_num, False, sprite)
-        # cada vizinho é água (ou não) no estágio visual DELE (na transição, pode ser outro)
-        wet = lambda x, y: world.is_water(x, y, self.stage_map.stage_at(x, y))   # noqa: E731
-        if wet(tx, ty):
-            up, down = wet(tx, ty - 1), wet(tx, ty + 1)
-            left, right = wet(tx - 1, ty), wet(tx + 1, ty)
-            water, fallback = self.surface(f"water_{stage}", lambda: art.water(stage))
-            if not fallback:
-                canvas.blit(water, (sx, sy))   # sprite aprovado: tile quadrado, sem borda
-            else:
-                # Fallback: a água encolhe 3 px nos lados sem água vizinha (vira poça, não quadrado).
-                l, r = (0 if left else 3), (0 if right else 3)
-                u, d = (0 if up else 3), (0 if down else 3)
-                canvas.blit(water, (sx + l, sy + u), (l, u, T - l - r, T - u - d))
-            if fallback:
-                # água funda: só no miolo dos lagos (os 8 vizinhos também são água)
-                if up and down and left and right and all(
-                        wet(tx + dx, ty + dy) for dx, dy in ((-1, -1), (1, -1), (-1, 1), (1, 1))):
-                    canvas.fill(P["water_d"], (sx, sy, T, T))
-                if not up:
-                    canvas.blit(self.water_top, (sx + l, sy + u), (0, 0, T - l - r, 4))
-                    canvas.fill(P["foam"], (sx + l, sy + u + 4, T - l - r, 1))
-                if not left:
-                    canvas.blit(self.water_left, (sx + l, sy + u), (0, 0, 2, T - u - d))
-            # reflexos que andam devagar
-            h = hash01(tx, ty, 5)
-            o = int((t * 5.4 + h * 24) % 24)
-            canvas.fill((170, 214, 230), (sx + 4 + o, sy + 10 + int(h * 12), 5, 1))
-            canvas.fill((170, 214, 230), (sx + 4 + (o + 12) % 22, sy + 21 + int(h * 5), 4, 1))
+        if self._wet(world, tx, ty):
+            self._draw_water(canvas, world, tx, ty, sx, sy, stage, t)
         # sombra que a parede projeta no chão
         if world.is_wall(tx, ty - 1):
             canvas.blit(self.shadow_top, (sx, sy))
         if world.is_wall(tx - 1, ty):
             canvas.blit(self.shadow_left, (sx, sy))
+
+    # ---- água (autotile A2, ver game/autotile.py) ------------------------------
+    def _wet(self, world, x: int, y: int) -> bool:
+        """Água no tile, no estágio visual DELE (na transição, o vizinho pode estar em outro estágio)."""
+        key = (x, y)
+        wet = self._wet_memo.get(key)
+        if wet is None:
+            wet = self._wet_memo[key] = world.is_water(x, y, self.stage_map.stage_at(x, y))
+        return wet
+
+    def water_atlas(self, stage: str) -> tuple[pygame.Surface, bool]:
+        """Atlas A2 64×96 do estágio: o sprite water_auto_{stage}.png da Designer ou o gerado por código
+        a partir do water_{stage}. Devolve (atlas, é_fallback)."""
+        key = ("water_atlas", stage)
+        if key not in self._fx:
+            sprite = self.sprites.get(f"water_auto_{stage}")
+            if sprite is not None:
+                self._fx[key] = (sprite, False)
+            else:
+                texture = self.surface(f"water_{stage}", lambda: art.water(stage))[0]
+                self._fx[key] = (autotile.build_atlas(texture, stage), True)
+        return self._fx[key]
+
+    def _draw_water(self, canvas, world, tx, ty, sx, sy, stage: str, t: float) -> None:
+        key = autotile.tile_key(lambda x, y: self._wet(world, x, y), tx, ty)
+        atlas = self.water_atlas(stage)[0]
+        canvas.blit(self.water_tiles.get(stage, atlas, key), (sx, sy))
+        # reflexos que andam devagar, sem passar pra areia: encolhem do lado onde a margem está
+        tl, tr, bl, br = key
+        left = 6 if autotile.OUTER in (tl, bl) or autotile.VEDGE in (tl, bl) else 0
+        right = 26 if autotile.OUTER in (tr, br) or autotile.VEDGE in (tr, br) else T
+        top = 8 if autotile.OUTER in (tl, tr) or autotile.HEDGE in (tl, tr) else 0
+        bottom = 24 if autotile.OUTER in (bl, br) or autotile.HEDGE in (bl, br) else T
+        area = pygame.Rect(sx + left, sy + top, right - left, bottom - top)
+        h = hash01(tx, ty, 5)
+        o = int((t * 5.4 + h * 24) % 24)
+        for rect in ((sx + 4 + o, sy + 10 + int(h * 12), 5, 1), (sx + 4 + (o + 12) % 22, sy + 21 + int(h * 5), 4, 1)):
+            clipped = area.clip(rect)
+            if clipped.w:
+                canvas.fill((170, 214, 230), clipped)
 
     # Ordem de "pontilhado" (Bayer 4×4): espalha os pixels da mistura sem formar listras.
     BAYER = ((0, 8, 2, 10), (12, 4, 14, 6), (3, 11, 1, 9), (15, 7, 13, 5))
