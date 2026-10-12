@@ -379,7 +379,7 @@ Entregues em `_pending/` até o dono aprovar. Os morros usam a arte de parede qu
 Recursos soltos usam o `pickup.wav` já aprovado; rochas usam `mine_hit`/`mine_break`.
 
 ### Assets do Marco 2 · Caverna (contrato)
-A caverna usa a arte de chão e parede do estágio **névoa** já aprovada (`floor_mist_*`, `wall_mist_*`, `wall_face_mist`), sempre, sem mudar com o Ti (rocha fria). Sem água na caverna.
+**Sprites aprovados (Designer v5.0) e promovidos pra `assets/sprites/`.** A caverna usa a arte de chão e parede do estágio **névoa** já aprovada (`floor_mist_*`, `wall_mist_*`, `wall_face_mist`), sempre, sem mudar com o Ti (rocha fria). Sem água na caverna.
 
 | Sprite | Tamanho | Observação |
 |---|---|---|
@@ -409,6 +409,8 @@ A caverna usa a arte de chão e parede do estágio **névoa** já aprovada (`flo
 - **Duração** (simulador, estratégia nova "caverna" = o casual que só minera na caverna, drills nos veios de lá, sem drones): **31–37 min** nos números atuais (casual da superfície: 34–42), 37–38 min na proposta. A viagem custa ~20 "tiles" de cada lado (cratera + fade). Nenhum ajuste de número foi preciso.
 
 ### Assets do Marco 3 · Destroços (contrato)
+**Sprites aprovados (Designer v5.0) e promovidos pra `assets/sprites/`.**
+
 | Sprite | Tamanho | Observação |
 |---|---|---|
 | `wreck_cargo.png` | 128×112 | nave de carga caída, ocupa 4×3 tiles, meio enterrada na areia, ancorada no centro da base |
@@ -429,7 +431,7 @@ A caverna usa a arte de chão e parede do estágio **névoa** já aprovada (`flo
 Sem sprite novo no contrato pra **luminária forte**: o jogo procura `lamp_t2.png` (16×32) e `icon_lamp_t2.png` (16×16) e, sem eles, usa o desenho de fallback (cúpula branca-fria). Fica pra Designer se o dono quiser.
 
 ### Marco 3 · como ficou na implementação (números de partida, ajustáveis em `game/config.py`)
-- **Destroços** (`game/wrecks.py`): 6 a 8 por seed, centros de `WRECK_DIST` = 30 a 84 tiles da base, distâncias sempre crescentes, ≥ 14 tiles entre eles, com 2 tiles de areia livre em volta (sem morro, veio, cratera, borda, zona da base e sem rocha pequena). A área vira tile `WRECK` (sólido baixo, não minera; o sprite é um objeto ordenado pelo pé) e a caixa vira `LOOT_CRATE`. Âncoras e caixas como no contrato da Designer (v5.0). Sprites ainda em `_pending/`: o jogo usa o desenho de fallback do `art.py` até a promoção.
+- **Destroços** (`game/wrecks.py`): 6 a 8 por seed, centros de `WRECK_DIST` = 30 a 84 tiles da base, distâncias sempre crescentes, ≥ 14 tiles entre eles, com 2 tiles de areia livre em volta (sem morro, veio, cratera, borda, zona da base e sem rocha pequena). A área vira tile `WRECK` (sólido baixo, não minera; o sprite é um objeto ordenado pelo pé) e a caixa vira `LOOT_CRATE`. Âncoras e caixas como no contrato da Designer (v5.0). Sprites aprovados pelo dono (Designer v5.0) e promovidos pra `assets/sprites/`; o desenho do `art.py` só entra se o PNG faltar.
 - **Ordem por distância** *(dono: revisar)*: nave de carga (projeto do **tanque de O₂** + LOG 04), sonda, módulo da colônia (projeto do **scanner** + LOG 05), nave (projeto da **luminária forte**), sonda (LOG 06), [nave e sonda extras com 7 ou 8], módulo (LOG 07, o mais longe).
 - **Caixa de saque**: 8 slots, E abre (alcance 48 px), só tirar (esquerdo pilha, direito 1, **Pegar tudo**). Saque pela seed e fixo: nave 14–20 ferro, 8–12 silício, 6–10 gelo; módulo 8–12 / 4–7 / 3–5; sonda 2–4 / 1–3 / 0–2. Vazia troca o sprite e a dica vira "Caixa vazia". Som `crate_open` 0,9 (vazia: ~0,6); fechar: `chest_close`.
 - **Projetos** *(dono: revisar)*: o projeto sai **sozinho ao abrir a caixa** (não ocupa espaço), libera a receita na hora e mostra "PROJETO: <NOME> · receita liberada no fabricador" por 3,5 s; `blueprint_found` 0,4 s depois do `crate_open`, ambiente a 60% por 2 s. Receita sem projeto aparece no fabricador como **"??? · projeto não encontrado"** (prévia apagada, botão "SEM PROJETO").

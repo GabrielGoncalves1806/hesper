@@ -2785,7 +2785,7 @@ def make_water_demo(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
     return img.convert("RGB")
 
 
-# ---------------------------------------------------------------- v5.0 (pendente): v0.3 · Marco 2 (caverna)
+# ---------------------------------------------------------------- v5.0 (aprovado): v0.3 · Marco 2 (caverna)
 
 LAMP = dict(hi="#fffbe8", l="#ffe9a8", m="#ffd27a", d="#f2a64a", dd="#c9742f")
 LAMP_BULB = (8, 6)          # centro da lâmpada no lamp.png (pro Dev ancorar a luz)
@@ -3003,7 +3003,7 @@ def make_cave_ramp_up() -> Canvas:
     return cv
 
 
-# ---------------------------------------------------------------- v5.0 (pendente): v0.3 · Marco 3 (destroços)
+# ---------------------------------------------------------------- v5.0 (aprovado): v0.3 · Marco 3 (destroços)
 
 WK = dict(roof="#efe7d4", roofS="#d6ccb4", hi="#fbf7ec", face="#e3d9c3", faceS="#cfc4ab", seam="#bdb197",
           low="#b3a78d", dirty="#a39780", fo="#d39065", foh="#e6b08a", fod="#a8663f",
@@ -3575,8 +3575,12 @@ WRECK_INFO = {
 
 def build_pending() -> dict[str, Canvas]:
     """Assets novos aguardando aprovação do dono: vão pra assets/sprites/_pending/.
-    Depois de aprovados, saem daqui e entram em build_v02()/build_v03()/build_sprites() (pasta oficial).
-    v5.0: Marco 2 (caverna) e Marco 3 (destroços) do v0.3."""
+    Depois de aprovados, saem daqui e entram em build_v02()/build_v03()/build_v05()/build_sprites() (pasta oficial)."""
+    return {}
+
+
+def build_v05() -> dict[str, Canvas]:
+    """Sprites do v0.3 · Marco 2 (caverna) e Marco 3 (destroços), aprovados na v5.0."""
     return {
         "lamp.png": make_lamp(),
         "icon_lamp.png": make_icon_lamp(),
@@ -3668,6 +3672,7 @@ def build_sprites() -> dict[str, Canvas]:
     out["plant_flower.png"] = make_flower()
     out.update(build_v02())
     out.update(build_v03())
+    out.update(build_v05())
     return out
 
 
@@ -4095,7 +4100,7 @@ def render_cave(spr: dict[str, Image.Image], dark=True) -> Image.Image:
     """Caverna (128x128 no jogo) com a mesma ordem de desenho: chão névoa e veio; linhas de cima pra baixo
     (topo da parede em y−24, minério, face em y+8, terminal) e os objetos da linha (rampa, luminárias, baú,
     drill, player). Depois a escuridão (luzes: rampa, luminárias, capacete, drill) e o brilho dos minérios."""
-    P = "_pending/"
+    P = ""
     g = gen_cave()
     img = Image.new("RGBA", (GW * T, GH * T), (0, 0, 0, 255))
     shade = Image.new("RGBA", (T, 10), (0, 0, 0, 84))
@@ -4190,7 +4195,7 @@ WRECK_SCENE = {   # tile de cima/esquerda de cada destroço na prévia e se a ca
 
 def render_wrecks(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
     """Deserto com os 3 destroços e as caixas, mesma ordem de desenho da superfície."""
-    P = "_pending/"
+    P = ""
     hills = {(9, 11), (10, 11), (11, 11), (12, 11), (8, 12), (9, 12), (10, 12), (11, 12), (12, 12), (10, 13), (11, 13)}
     water = set()
     if stage == "mist":
@@ -4477,7 +4482,7 @@ def build_surface_report(spr: dict[str, Image.Image], scale: dict[str, int]) -> 
 
 def make_icons_slot_v50(spr: dict[str, Image.Image]) -> Image.Image:
     """Ícones novos no ui_slot em 1x, 2x e 3x (como o jogo escala), com 2 ícones aprovados no fim pra comparar."""
-    P = "_pending/"
+    P = ""
     keys = [P + "icon_lamp.png", P + "icon_blueprint.png", P + "icon_o2_tank.png", P + "icon_scanner.png",
             "icon_chest.png", "icon_iron.png"]
     slot = spr["ui_slot.png"]
@@ -4495,9 +4500,9 @@ def make_icons_slot_v50(spr: dict[str, Image.Image]) -> Image.Image:
 
 
 def build_v50_report(spr: dict[str, Image.Image]) -> str:
-    """Seção v5.0 (pendente): Marco 2 (caverna) e Marco 3 (destroços) do v0.3."""
-    P = "_pending/"
-    if P + "lamp.png" not in spr:
+    """Seção v5.0 (aprovada): Marco 2 (caverna) e Marco 3 (destroços) do v0.3."""
+    P = ""
+    if "lamp.png" not in spr:
         return ""
 
     def card(n, s, src=None):
@@ -4521,7 +4526,7 @@ def build_v50_report(spr: dict[str, Image.Image]) -> str:
     cr = spr["crater_ramp.png"]
     ramp_cmp = (f'<figure><div class="pair"><div>crater_ramp (aprovada, superfície)<img src="../../assets/sprites/crater_ramp.png" '
                 f'width="{cr.width * 4}" height="{cr.height * 4}" alt="crater_ramp"></div>'
-                f'<div>cave_ramp_up (nova, caverna)<img src="../../assets/sprites/_pending/cave_ramp_up.png" width="{cr.width * 4}" '
+                f'<div>cave_ramp_up (nova, caverna)<img src="../../assets/sprites/cave_ramp_up.png" width="{cr.width * 4}" '
                 f'height="{cr.height * 4}" alt="cave_ramp_up"></div></div><figcaption>descer × subir · 96×96 · 4×</figcaption></figure>')
     m2 = card(P + "lamp.png", 8) + card(P + "icon_lamp.png", 8)
     m3w = card(P + "wreck_cargo.png", 4) + card(P + "wreck_module.png", 4) + card(P + "wreck_probe.png", 4)
@@ -4604,7 +4609,7 @@ def build_v50_report(spr: dict[str, Image.Image]) -> str:
 <section><h2>v5.0 · Pro Dev integrar (caverna e destroços)</h2>
 <div class="box dev"><table class="tb"><thead><tr><th>Sprite</th><th>Tamanho</th><th>Âncora · colisão · interação</th></tr></thead><tbody>{dev}</tbody></table>
 <h3>Ordem de desenho</h3>{order}
-<p class="lede">Tudo em <code>assets/sprites/_pending/</code> até tu aprovar; o jogo continua no fallback. <b>Desvios do contrato:</b> nenhum (nomes e tamanhos exatamente como na bíblia §9).</p></div>
+<p class="lede">Aprovado pelo dono e promovido pra <code>assets/sprites/</code>: o jogo carrega esses PNGs no lugar do fallback do <code>art.py</code>. <b>Desvios do contrato:</b> nenhum (nomes e tamanhos exatamente como na bíblia §9).</p></div>
 </section>"""
 
 
@@ -4625,6 +4630,7 @@ def build_report(spr: dict[str, Image.Image]):
         ("v0.3 · areia", [k for k in build_v03() if k.startswith("sand_")]),
         ("v0.3 · rocha, pickups, cratera e cápsula",
          [k for k in build_v03() if not k.startswith("sand_")] + ["pod.png"]),
+        ("v0.3 · caverna e destroços (v5.0)", [k for k in build_v05()]),
         ("Pendentes", [k for k in spr if k.startswith("_pending/")]),
     ]
     total = set()
@@ -4792,32 +4798,26 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 .tb{{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:12px}}
 .tb th,.tb td{{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line)}}
 .tb th{{font:11px var(--f-label);color:var(--muted)}}
-.crate-anim{{image-rendering:pixelated;background:url(../../assets/sprites/_pending/loot_crate.png) 0 0/192px 192px;animation:crate 2.4s steps(1) infinite;outline:1px dashed var(--gold);outline-offset:2px}}
-@keyframes crate{{0%{{background-image:url(../../assets/sprites/_pending/loot_crate.png)}}50%{{background-image:url(../../assets/sprites/_pending/loot_crate_empty.png)}}}}
+.crate-anim{{image-rendering:pixelated;background:url(../../assets/sprites/loot_crate.png) 0 0/192px 192px;animation:crate 2.4s steps(1) infinite;outline:1px dashed var(--gold);outline-offset:2px}}
+@keyframes crate{{0%{{background-image:url(../../assets/sprites/loot_crate.png)}}50%{{background-image:url(../../assets/sprites/loot_crate_empty.png)}}}}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v5.0 (v0.3 · caverna e destroços, pendente)</div>
+  <div class="eyebrow">Hesper · Designer · v5.0 (v0.3 · caverna e destroços, aprovado)</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
   <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span><span class="chip">pod largo guardado em _future/ (fora do contrato)</span></div>
-  <div class="v2"><b>v5.0 · caverna e destroços (pendente)</b><ul>
-    <li><b>Marco 2 · caverna</b>, em <code>assets/sprites/_pending/</code>:
+  <div class="v2"><b>v5.0 · aprovado</b><ul>
+    <li><b>O dono aprovou a v5.0 inteira</b>, e os 11 sprites foram promovidos de <code>_pending/</code> pra pasta oficial <code>assets/sprites/</code> com os mesmos bytes da entrega pendente (md5 conferido). O jogo agora carrega eles no lugar do fallback do <code>art.py</code>:
       <ul>
-        <li><code>lamp</code> (16×32): luminária de chão, família das máquinas, lâmpada quente acesa;</li>
-        <li><code>icon_lamp</code> (16×16);</li>
-        <li><code>cave_ramp_up</code> (96×96): a contraparte da <code>crater_ramp</code>, com a escada subindo pra uma boca de luz.</li>
+        <li><b>Marco 2 · caverna:</b> <code>lamp</code> (16×32), <code>icon_lamp</code> (16×16) e <code>cave_ramp_up</code> (96×96);</li>
+        <li><b>Marco 3 · destroços:</b> <code>wreck_cargo</code> (128×112), <code>wreck_module</code> (96×88), <code>wreck_probe</code> (64×64), <code>loot_crate</code> e <code>loot_crate_empty</code> (32×32), <code>icon_blueprint</code>, <code>icon_o2_tank</code> e <code>icon_scanner</code> (16×16).</li>
       </ul></li>
-    <li><b>Marco 3 · destroços</b>, também em <code>_pending/</code>:
-      <ul>
-        <li><code>wreck_cargo</code> (128×112), <code>wreck_module</code> (96×88, com terminal) e <code>wreck_probe</code> (64×64);</li>
-        <li><code>loot_crate</code> e <code>loot_crate_empty</code> (32×32);</li>
-        <li><code>icon_blueprint</code>, <code>icon_o2_tank</code> e <code>icon_scanner</code> (16×16).</li>
-      </ul></li>
-    <li><b>Prévias novas:</b> <code>preview_cave</code>, com uma escuridão aproximada que usa o mesmo algoritmo do jogo (e a mesma cena sem escuridão), e <code>preview_wrecks_{{dead,mist,green}}</code>, com os 3 destroços e as caixas nos 3 chãos.</li>
-    <li>Os 88 oficiais <b>não mudaram</b> (md5 conferido). Não teve desvio do contrato. Âncoras, colisão, caixa, terminal, chegada da rampa e a luz sugerida da rampa estão em "v5.0 · Pro Dev integrar".</li>
+    <li>O contrato oficial passou a ter 99 arquivos (88 + 11). Os outros 88 oficiais e o <code>_future/pod_wide</code> não mudaram (md5 conferido), e a pasta <code>_pending/</code> foi removida.</li>
+    <li>A luminária forte (<code>lamp_t2</code>, <code>icon_lamp_t2</code>) continua fora do contrato: o jogo usa o desenho de fallback.</li>
+    <li>Âncoras, colisão, caixa, terminal, chegada da rampa e a luz sugerida da rampa continuam em "v5.0 · Pro Dev integrar".</li>
   </ul></div>
   <div class="v2" style="opacity:.75"><b>v4.1 · aprovado</b><ul>
     <li><b>O dono aprovou</b>, e os sprites foram promovidos pra <code>assets/sprites/</code> com os mesmos bytes da entrega pendente (md5 conferido):
@@ -5006,7 +5006,7 @@ def main():
         for st in ("mist", "green"):
             if f"water_auto_{st}.png" in spr:
                 make_water_demo(st, spr).save(REP / f"water_demo_{st}.png")
-    if "_pending/lamp.png" in spr:                                 # v5.0: caverna e destroços
+    if "lamp.png" in spr:                                          # v5.0: caverna e destroços
         render_cave(spr).save(REP / "preview_cave.png")
         render_cave(spr, dark=False).save(REP / "preview_cave_lit.png")
         for st in STAGES:

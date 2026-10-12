@@ -566,7 +566,7 @@ class Renderer:
 
     def crater_surface(self, surface_layer: bool = True) -> tuple[pygame.Surface, str]:
         """A rampa da camada (96×96) e a chave dela: na superfície a cratera com a rampa de descida aberta
-        (crater_ramp), na caverna a rampa de subida (cave_ramp_up, pendente: fallback art.cave_ramp_up)."""
+        (crater_ramp), na caverna a rampa de subida (cave_ramp_up, com fallback art.cave_ramp_up)."""
         if surface_layer:
             return self.surface("crater_ramp", lambda: art.crater(open_ramp=True))[0], "crater_ramp"
         return self.surface("cave_ramp_up", art.cave_ramp_up)[0], "cave_ramp_up"
@@ -577,7 +577,7 @@ class Renderer:
             canvas.blit(self.outline_of(("ramp", key), surf), (x - 1, y - 1))
 
     def wreck_surface(self, kind: str) -> pygame.Surface:
-        """wreck_{cargo,module,probe}.png (pendentes) ou o desenho de fallback (art.wreck)."""
+        """wreck_{cargo,module,probe}.png ou o desenho de fallback (art.wreck)."""
         from game.wrecks import SPECS
         return self.surface(SPECS[kind].sprite, lambda: art.wreck(kind))[0]
 

@@ -756,7 +756,7 @@ def drone_station_icon() -> pygame.Surface:
 
 # ---------------------------------------------------------------- destroços (v0.3 Marco 3)
 # Fallback dos sprites wreck_cargo / wreck_module / wreck_probe / loot_crate(_empty) e dos ícones novos,
-# enquanto os PNGs da Designer estão em _pending/. Mesmos tamanhos e âncoras do contrato (game/wrecks.py).
+# usado só se o PNG da Designer faltar. Mesmos tamanhos e âncoras do contrato (game/wrecks.py).
 _HULL, _HULL_SH, _HULL_D, _HULL_HI = "#e6dcc4", "#c2b596", "#8f8468", "#f6f0e2"
 _SAND_PILE = (150, 92, 58, 210)
 
