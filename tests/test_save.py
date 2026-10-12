@@ -62,7 +62,7 @@ def rich_state() -> GameState:
     state.inventory.move(state.inventory.slots.index(Stack("melter", 2)), 6)
     state.inventory.slots[12] = Stack("o2_t2", 1)         # na mochila
     state.crafted.update(o2=2, heater=1, drill=1, melter=2, chest=1, o2_t2=1)
-    # Marco 3: caixa da nave saqueada (projeto + um pouco de ferro), tanque equipado, explorado, LOG 04
+    # Marco 3: caixa da nave saqueada (projeto + um pouco de ferro), tanque equipado, explorado, registro da VÉSPER-7
     crate = state.crates[state.world.wrecks[0].crate]
     state.open_crate(crate)
     iron = next(k for k, s in enumerate(crate.storage.slots) if s and s.item == "iron")
@@ -72,6 +72,8 @@ def rich_state() -> GameState:
     state.equipped_ever.add("o2_tank")
     state.wrecks_visited.add(0)
     state.read_log(3)
+    state.read_log(0)
+    state.reread_log(0)                                   # aba LOGs: o 0 já foi aberto por lá, o 3 segue "NOVO"
     state.surface.explored.reveal_rect(96, 96, 20, 12)
     state.surface.explored.reveal_circle(150.5, 40.5, 6)
     state.player.x, state.player.y = 102.5 * C.TILE, 112.25 * C.TILE
@@ -98,7 +100,7 @@ def snapshot(state: GameState) -> dict:
         "mined_total": dict(state.mined_total), "fabricator_opened": state.fabricator_opened,
         "drills_placed": state.drills_placed, "drill_collected": dict(state.drill_collected),
         "lamps_placed": state.lamps_placed,
-        "logs_read": set(state.logs_read), "transition_sources": set(state.transition_sources),
+        "logs_read": set(state.logs_read), "logs_seen": set(state.logs_seen), "transition_sources": set(state.transition_sources),
         "crates": {k: {t: (c.storage.to_data(), c.opened) for t, c in layer.crates.items()}
                    for k, layer in state.layers.items()},
         "explored": {k: bytes(layer.explored.bits) for k, layer in state.layers.items()},

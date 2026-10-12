@@ -268,6 +268,7 @@ def progress_to_dict(state: GameState) -> dict:
         "drones_docked": state.drones_docked,
         "lamps_placed": state.lamps_placed,
         "logs_read": sorted(state.logs_read),
+        "logs_seen": sorted(state.logs_seen),           # aba LOGs: já abertos por lá (sem "NOVO")
         # Marco 3
         "blueprints": sorted(state.blueprints),
         "equipment": state.equipment.to_data(),
@@ -295,6 +296,9 @@ def progress_from_dict(state: GameState, data: dict) -> None:
     state.drones_docked = int(data["drones_docked"])
     state.lamps_placed = int(data.get("lamps_placed", 0))     # Marco 2: save v6 do Marco 1 não tem
     state.logs_read = {int(i) for i in data["logs_read"] if 0 <= int(i) < len(C.LOGS)}
+    # aba LOGs: save v6 de antes dela não tem o campo, e aí todo LOG lido conta como visto (sem "NOVO")
+    seen = data.get("logs_seen")
+    state.logs_seen = set(state.logs_read) if seen is None else {int(i) for i in seen if int(i) in state.logs_read}
     state.transition_sources = {(int(x), int(y)) for x, y in data["transition_sources"]}
     # Marco 3 (save do Marco 1/2 não tem: começa sem projeto, sem equipamento, nenhum destroço visitado)
     state.blueprints = {b for b in data.get("blueprints", []) if b in C.BLUEPRINTS}

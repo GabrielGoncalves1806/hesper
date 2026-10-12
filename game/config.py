@@ -265,14 +265,14 @@ LOGS = [
     "Dia 212. O derretedor 4 parou de novo. A Dra. Ilves jura que o gelo daqui não é só água, "
     "que tem alguma coisa dentro dele. Ninguém quis ouvir. Amanhã a gente desce pro nível 2 de qualquer jeito.",
 ]
-# LOGs 04–07 (v0.3 Marco 3): ficam nos destroços da superfície. Texto do gerente, AINDA EM RASCUNHO
-# (docs/lore/logs_v03_rascunho.md, aguardando o dono): pra trocar, é só mexer nas strings aqui.
+# LOGs dos destroços (v0.3 Marco 3, aprovados pelo dono · docs/lore/logs_v03_rascunho.md).
+# Os índices em LOGS nunca mudam (o save guarda índices): o número que o jogador vê sai da cronologia (LOG_ORDER).
 LOGS += [
-    "Cargueira VÉSPER-7, manifesto de retorno. Carga: 12 toneladas de gelo de núcleo, lacrado em contêiner "
+    "Dia 188. Cargueira VÉSPER-7, manifesto de retorno. Carga: 12 toneladas de gelo de núcleo, lacrado em contêiner "
     "frio, prioridade da diretoria. Motivo do retorno: tripulação pediu pra não levar. Pedido negado.",
-    "Dia 140. A Dra. Ilves colocou uma amostra do gelo do nível 2 no microscópio e ficou em silêncio a tarde "
+    "Dia 140. A Dra. Ilves colocou uma amostra do gelo do fundo da cratera no microscópio e ficou em silêncio a tarde "
     "inteira. À noite ela trancou o laboratório e levou a chave. Disse só: 'cresce quando ninguém olha'.",
-    "Sonda de mapeamento S-3. Leitura térmica anômala abaixo da cratera principal: o calor sobe sozinho, sem "
+    "Dia 41. Sonda de mapeamento S-3. Leitura térmica anômala abaixo da cratera principal: o calor sobe sozinho, sem "
     "fonte conhecida. Recomendação automática: não perfurar. Status da recomendação: ignorada.",
     "Dia 230. Última mensagem da Colônia Hesper. Desligamos os derretedores. Todos. Se alguém achar isto: "
     "o planeta não está morto. Ele está esperando. Não acorde o gelo.",
@@ -281,6 +281,21 @@ LOGS += [
 LOG_TITLES = ["TERMINAL · COLONIA HESPER"] * 3 + [
     "REGISTRO DE BORDO · VÉSPER-7", "TERMINAL · MODULO DA COLONIA",
     "SONDA S-3 · LEITURA AUTOMATICA", "TERMINAL · MODULO DA COLONIA"]
+# Dia da história de cada LOG (mesma ordem do LOGS). A aba LOGs do inventário lista nessa ordem, e o
+# "LOG 01".."LOG 07" exibido é a posição cronológica (não o índice em LOGS).
+LOG_DAYS = [3, 97, 212, 188, 140, 41, 230]
+LOG_ORDER = sorted(range(len(LOGS)), key=LOG_DAYS.__getitem__)   # índices em LOGS, do dia mais cedo pro mais tarde
+
+
+def log_number(log: int) -> int:
+    """Número exibido do LOG `log` (índice em LOGS): a posição dele na cronologia, a partir de 1."""
+    return LOG_ORDER.index(log) + 1
+
+
+def log_label(log: int) -> str:
+    """"LOG 01".."LOG 07" do LOG `log` (índice em LOGS)."""
+    return f"LOG {log_number(log):02d}"
+
 TERMINAL_REACH = 48   # px entre os pés do player e a base do terminal
 
 # Rampa entre as camadas (v0.3 Marco 2 · game/layers.py e GameState.start_ramp)

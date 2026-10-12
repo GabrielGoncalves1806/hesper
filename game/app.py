@@ -136,6 +136,9 @@ class App:
         self.rotation = 0
         self.fab = FabMenu()            # aba, seleção e rolagem do fabricador (game/fabricator.py)
         self.terminal_index = 0
+        self.inv_tab = 0                # Tab: 0 = Inventário, 1 = LOGs
+        self.log_selected = 0           # aba LOGs: linha escolhida (posição na cronologia) e a 1ª visível
+        self.log_first = 0
         self.banner_stage = 1
         self.banner_time = 0.0
         self.end_timer: float | None = None
@@ -314,6 +317,8 @@ class App:
                 self.on_click(event.button)
             elif event.type == pygame.MOUSEWHEEL and self.mode != "title" and self.zoom_modifier():
                 self.zoom_step(1 if event.y > 0 else -1)        # Ctrl+rodinha pra cima = aproxima
+            elif event.type == pygame.MOUSEWHEEL and self.mode == "inventory" and self.inv_tab == 1:
+                self.scroll_logs(-1 if event.y > 0 else 1)      # rodinha rola a aba LOGs (se não couber)
             elif event.type == pygame.MOUSEWHEEL and self.mode == "fabricator":
                 self.fab.scroll(-1 if event.y > 0 else 1)       # rodinha rola a lista de receitas
             elif event.type == pygame.MOUSEWHEEL and self.mode == "play" and not self.state.fainted \
@@ -380,6 +385,10 @@ class App:
         elif self.mode in INVENTORY_MODES:
             if key in (pygame.K_TAB, pygame.K_ESCAPE, pygame.K_e):
                 self.close_inventory()
+            elif self.mode == "inventory" and key in (pygame.K_a, pygame.K_LEFT, pygame.K_d, pygame.K_RIGHT):
+                self.switch_inv_tab(1 - self.inv_tab)          # só 2 abas: A e D trocam
+            elif self.mode == "inventory" and self.inv_tab == 1:
+                self.on_logs_key(key)
         elif self.mode == "end":
             if key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_ESCAPE):
                 self.set_mode("play")
@@ -427,6 +436,7 @@ class App:
                 self.rotation = (self.rotation + 1) % 4
             elif key == pygame.K_TAB:
                 self.placing = None
+                self.inv_tab = 0                     # o Tab sempre abre na aba Inventário
                 self.set_mode("inventory")
             elif key == pygame.K_m:
                 self.open_map()
@@ -454,6 +464,10 @@ class App:
 
     def close_terminal(self) -> None:
         crate, self.after_terminal = self.after_terminal, None
+        if crate == "logs":                      # aberto pela aba LOGs do Tab: volta pra ela
+            self.mode = "inventory"
+            self.mouse_held = False
+            return
         if crate is not None:
             self.mode = "play"
             self.show_crate(crate)
@@ -476,6 +490,73 @@ class App:
         self.placing = None
         self.mode = "crate"
         self.mouse_held = False
+
+    # ---- aba LOGs do Tab ------------------------------------------------------------
+    def switch_inv_tab(self, tab: int) -> None:
+        """Troca a aba do Tab. Indo pros LOGs, a pilha da mão volta pro inventário antes (sem lugar: fica)."""
+        if tab == self.inv_tab:
+            return
+        if tab == 1 and not self.stash_held():
+            self.show_notice("Sem espaço pro item na mão")
+            return
+        self.inv_tab = tab
+        if tab == 1:                             # começa no 1º NOVO (ou no 1º lido)
+            entries = self.state.log_entries()
+            pick = next((i for i, e in enumerate(entries) if e[3]), None)
+            if pick is None:
+                pick = next((i for i, e in enumerate(entries) if e[2]), 0)
+            self.log_selected = pick
+            self.scroll_logs(0)
+        self.audio.play("ui_click")
+
+    def on_logs_key(self, key: int) -> None:
+        """W/S escolhem a linha (pulando os não achados), Enter/Espaço leem de novo."""
+        entries = self.state.log_entries()
+        if key in (pygame.K_w, pygame.K_UP, pygame.K_s, pygame.K_DOWN):
+            step = -1 if key in (pygame.K_w, pygame.K_UP) else 1
+            i = self.log_selected + step
+            while 0 <= i < len(entries) and not entries[i][2]:
+                i += step
+            if 0 <= i < len(entries):
+                self.log_selected = i
+                self.scroll_logs(0)
+                self.audio.play("ui_click")
+        elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            log, _, read, _ = entries[self.log_selected]
+            if read:
+                self.reopen_log(log)
+
+    def scroll_logs(self, step: int) -> None:
+        """Rola a aba LOGs (rodinha) e mantém a linha escolhida visível (só rola quando não cabem todas)."""
+        rows, n = self.ui.log_visible, len(C.LOGS)
+        self.log_first = max(0, min(n - rows, self.log_first + step))
+        if self.log_selected < self.log_first:
+            self.log_first = self.log_selected
+        elif self.log_selected >= self.log_first + rows:
+            self.log_first = self.log_selected - rows + 1
+
+    def reopen_log(self, log: int) -> None:
+        """Clique num LOG lido da aba: a mesma tela de leitura do terminal; fechar volta pra aba LOGs."""
+        if self.state.reread_log(log) is None:
+            return
+        self.log_selected = C.LOG_ORDER.index(log)
+        self.terminal_index = log
+        self.after_terminal = "logs"
+        self.mode = "terminal"
+        self.mouse_held = False
+
+    def on_logs_click(self, pos) -> bool:
+        """Clique nas abas do Tab ou numa linha da aba LOGs. Devolve True se usou o clique."""
+        tab = next((i for rect, i in self.ui.inv_tab_rects if rect.collidepoint(pos)), None)
+        if tab is not None:
+            self.switch_inv_tab(tab)
+            return True
+        if self.inv_tab != 1:
+            return False
+        log = next((lg for rect, lg in self.ui.log_rows if rect.collidepoint(pos)), None)
+        if log is not None:
+            self.reopen_log(log)
+        return True
 
     def open_map(self) -> None:
         if not self.state.has_scanner:
@@ -510,6 +591,10 @@ class App:
         ux, uy = self.mouse_ui
         if self.mode in PANEL_MODES:
             self.on_panel_click(button, (ux, uy))
+            return
+        if self.mode == "inventory" and button == 1 and self.on_logs_click((ux, uy)):
+            return
+        if self.mode == "inventory" and self.inv_tab == 1:      # aba LOGs: sem slots
             return
         if self.mode == "inventory" and self.on_equip_click(button, (ux, uy)):
             return
@@ -1418,6 +1503,8 @@ class App:
         elif self.mode == "pause":
             ui.draw_pause(self.pause_screen, self.pause_selected, self.settings, viewport_label(self.zoom),
                           viewport.UI_SIZE_LABEL[self.settings["ui_size"]], self.controls_page)
+        elif self.mode == "inventory" and self.inv_tab == 1:
+            ui.draw_logs(state, self.log_selected, self.log_first, mouse_ui)
         elif self.mode in INVENTORY_MODES:
             side = self.open_chest or self.open_drill or self.open_station or self.open_crate
             status = (self.station_status() if self.open_station is not None
@@ -1425,7 +1512,8 @@ class App:
             station_info = self.hovered_slot_label(mouse_ui) if self.open_station is not None else None
             ui.draw_inventory(state.inventory, side, self.hotbar_selected, self.renderer.item_icon, mouse_ui,
                               self.t, self.name_edit, status, station_info,
-                              equipment=state.equipment if self.mode == "inventory" else None)
+                              equipment=state.equipment if self.mode == "inventory" else None,
+                              state=state if self.mode == "inventory" else None)
         if self.notice_time > 0 and self.mode not in INVENTORY_MODES:   # por cima do fabricador também
             ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4))
         if state.fainted:

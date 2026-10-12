@@ -8,8 +8,9 @@ Duas partes:
     - ESTADO (muda jogando): `make_crates(world, seed)` cria uma `Crate` por destroço, com o saque sorteado
       pela seed (fixo, não reabastece). Quem guarda é a camada (`Layer.crates`), igual aos soltos.
 
-Ordem por distância (rank 0 = o mais perto): nave (tanque de O₂ + LOG 04), sonda, módulo (scanner + LOG 05),
-nave (luminária forte), sonda (LOG 06), [nave, sonda extras quando há 7 ou 8] e módulo (LOG 07, o mais longe).
+Ordem por distância (rank 0 = o mais perto): nave (tanque de O₂ + LOGS[3]), sonda, módulo (scanner + LOGS[4]),
+nave (luminária forte), sonda (LOGS[5]), [nave, sonda extras quando há 7 ou 8] e módulo (LOGS[6], o mais longe).
+O número que o jogador vê ("LOG 05") é a posição na cronologia (config.LOG_ORDER), não o índice.
 
 Python puro (sem pygame), testado em tests/test_wrecks.py.
 """
@@ -109,15 +110,15 @@ def kinds_for(n: int) -> list[str]:
 def extras_for(rank: int, n: int) -> tuple[int | None, str | None]:
     """(LOG, projeto) do destroço de posição `rank` (de n)."""
     if rank == 0:
-        return 3, "o2_tank"            # LOG 04 · o primeiro grande achado
+        return 3, "o2_tank"            # VÉSPER-7 (exibido LOG 05) · o primeiro grande achado
     if rank == 2:
-        return 4, "scanner"            # LOG 05 · o segundo
+        return 4, "scanner"            # dia 140 (exibido LOG 04) · o segundo
     if rank == 3:
         return None, "lamp_t2"
     if rank == 4:
-        return 5, None                 # LOG 06 · sonda longe
+        return 5, None                 # sonda S-3 (exibido LOG 02) · sonda longe
     if rank == n - 1:
-        return 6, None                 # LOG 07 · o mais longe de todos
+        return 6, None                 # dia 230 (exibido LOG 07) · o mais longe de todos
     return None, None
 
 

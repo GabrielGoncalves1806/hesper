@@ -245,6 +245,7 @@ class GameState:
         self.time_scale = 1            # F1 muda pra 10
         self.play_time = 0.0
         self.logs_read: set[int] = set()
+        self.logs_seen: set[int] = set()   # LOGs já abertos pela aba LOGs do inventário (os outros lidos = "NOVO")
         self.was_in_base = True
         self.smoothed_rate = 0.0       # taxa de Ti por segundo (real), suavizada pra estimativa do HUD
         # pros objetivos (objectives.py): total já minerado (craftar não desconta) e se já abriu o fabricador
@@ -966,7 +967,7 @@ class GameState:
         return None
 
     def read_terminal(self, index: int) -> str:
-        """Terminal da caverna `index` (0 a 2) = LOG 01 a 03."""
+        """Terminal da caverna `index` (0 a 2) = índice 0 a 2 em LOGS (exibidos como LOG 01, 03 e 06)."""
         return self.read_log(index)
 
     def read_log(self, log: int) -> str:
@@ -974,6 +975,24 @@ class GameState:
         self.logs_read.add(log)
         self.events.append(("terminal", log))
         return C.LOGS[log]
+
+    def log_entries(self) -> list[tuple[int, int, bool, bool]]:
+        """Aba LOGs do inventário, na ordem cronológica: (índice em LOGS, número exibido, lido, novo).
+        Novo = lido mas ainda não aberto pela aba."""
+        return [(log, n, log in self.logs_read, log in self.logs_read and log not in self.logs_seen)
+                for n, log in enumerate(C.LOG_ORDER, 1)]
+
+    @property
+    def new_logs(self) -> int:
+        """Quantos LOGs lidos ainda não foram abertos pela aba (marca "NOVO")."""
+        return len(self.logs_read - self.logs_seen)
+
+    def reread_log(self, log: int) -> str | None:
+        """Reabre pela aba LOGs um LOG já lido (tira o "NOVO"). Não lido: None (a aba não revela)."""
+        if log not in self.logs_read:
+            return None
+        self.logs_seen.add(log)
+        return self.read_log(log)
 
     # ---- destroços (v0.3 Marco 3 · game/wrecks.py) ---------------------------------
     @property

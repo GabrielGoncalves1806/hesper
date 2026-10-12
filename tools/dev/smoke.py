@@ -1355,6 +1355,41 @@ def ui_to_window(app, rect) -> tuple[int, int]:
     return round(x + rect.centerx * k), round(y + rect.centery * k)
 
 
+def check_inventory_logs(bot) -> None:
+    """Tab > aba LOGs nos 3 tamanhos de interface (janela 1920×1080): ordem da história, lidos clicáveis,
+    não achados "???", um "NOVO". Clique na aba e numa linha pela posição na janela; fechar a leitura volta
+    pra aba. Prints: inventario_abas_<tamanho>.png e inventario_logs_<tamanho>.png."""
+    s, app = bot.state, bot.app
+    read_before, seen_before = set(s.logs_read), set(s.logs_seen)
+    # achados: dias 3, 41, 97 (já abertos pela aba) e 188 (NOVO); faltam 140, 212 e 230
+    s.logs_read = {0, 5, 1, 3}
+    s.logs_seen = {0, 5, 1}
+    for ui_size in ("grande", "media", "pequena"):
+        app.set_ui_size(ui_size)
+        bot.key(pygame.K_TAB)
+        assert app.mode == "inventory" and app.inv_tab == 0
+        bot.frames(DT)
+        bot.shot(f"inventario_abas_{ui_size}.png")
+        tab = next(r for r, i in app.ui.inv_tab_rects if i == 1)
+        bot.click(ui_to_window(app, tab))
+        assert app.inv_tab == 1, f"clique na aba LOGs ({ui_size})"
+        bot.frames(DT)
+        assert [lg for _, lg in app.ui.log_rows] == [0, 5, 1, 3]      # só os lidos, na ordem da história
+        assert len(app.ui.log_rows) == 4 and app.ui.log_visible == len(C.LOGS)
+        bot.shot(f"inventario_logs_{ui_size}.png")
+        if ui_size == "pequena":                   # clique no NOVO: abre a leitura, fechar volta pra aba
+            row = next(r for r, lg in app.ui.log_rows if lg == 3)
+            bot.click(ui_to_window(app, row))
+            assert app.mode == "terminal" and app.terminal_index == 3 and 3 in s.logs_seen
+            bot.frames(0.2)
+            bot.shot("inventario_logs_leitura.png")
+            bot.key(pygame.K_e)
+            assert app.mode == "inventory" and app.inv_tab == 1 and s.new_logs == 0
+        bot.key(pygame.K_TAB)
+        assert app.mode == "play"
+    s.logs_read, s.logs_seen = read_before, seen_before
+
+
 def check_ui_size(bot) -> None:
     """Opções > Interface (Grande/Média/Pequena) numa janela 1920×1080: o HUD encolhe, o mundo não muda,
     o mouse acerta botões/slots/abas em qualquer tamanho e também com tarja (4:3).
@@ -1468,6 +1503,8 @@ def check_ui_size(bot) -> None:
     bot.key(pygame.K_ESCAPE)
     bot.key(pygame.K_F11)
     assert app.mode == "play"
+
+    check_inventory_logs(bot)
 
     # volta pro tamanho do resto do smoke
     app.set_ui_size(settings.DEFAULTS["ui_size"])

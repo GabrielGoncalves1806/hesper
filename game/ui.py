@@ -41,6 +41,11 @@ BATCH_BTN_W = 17                                 # botões do lote: 1 / 5 / 10 /
 SIDE_GRID_Y = 22
 SIDE_BUTTONS_Y = SIDE_GRID_Y + 3 * (20 + 2) - 2 + 5
 SIDE_LOGI_Y = SIDE_BUTTONS_Y + 15 + 4
+# abas do Tab (Inventário / LOGs), no estilo das abas do fabricador
+INV_TABS_H = 17                                  # faixa das abas embaixo do título (aba de 15 + linha + respiro)
+LOG_ROW_H, LOG_ROW_STEP = 15, 16                 # linha da aba LOGs e o passo entre elas
+# altura da janela do Tab na aba Inventário (título, abas, mochila, HOTBAR, TRAJE): a aba LOGs usa pro mesmo topo
+TAB_INV_H = 20 + INV_TABS_H + 6 + SLOT + 14 + SLOT + 8 + 14 + SLOT + 2
 
 
 # Dígitos 5×7 desenhados à mão, no traço fino da Pixelify. Em 11 px a fonte desenha o "5" igual
@@ -179,6 +184,9 @@ class UI:
         self.logistics_buttons: list[tuple[pygame.Rect, tuple[str, object]]] = []
         self.slot_img = Sprites().get("ui_slot")      # moldura opcional (bíblia §8); sem ela, desenhamos
         self.equip_rects: list[tuple[pygame.Rect, str]] = []      # slots de equipamento (Tab): (retângulo, tipo)
+        self.inv_tab_rects: list[tuple[pygame.Rect, int]] = []    # abas do Tab: (retângulo, 0 Inventário / 1 LOGs)
+        self.log_rows: list[tuple[pygame.Rect, int]] = []         # aba LOGs: linhas clicáveis (retângulo, índice em LOGS)
+        self.log_visible = len(C.LOGS)                             # quantas linhas da aba LOGs couberam no último desenho
         self.energy_bottom = 110                                   # onde acaba o medidor de energia (minimapa embaixo)
         self.right_bottom = 110                                    # onde acaba a coluna da direita ("Jogo salvo" embaixo)
 
@@ -728,8 +736,9 @@ class UI:
 
     def draw_inventory(self, inventory: Inventory, side, hotbar_selected: int, item_icon,
                        mouse: tuple[float, float], t: float = 0.0, editing=None, status: str = "",
-                       info: str | None = None, equipment=None) -> None:
+                       info: str | None = None, equipment=None, state: GameState | None = None) -> None:
         """Tela do Tab (só o inventário) ou com um painel do lado: baú ou estação de drones.
+        No Tab, com `state`, ganha as abas Inventário / LOGs no topo (a aba LOGs é draw_logs).
 
         `side` = None (Tab) ou a Machine aberta (baú ou estação). `editing` = TextField do nome do
         baú sendo editado (ou None). `status` = linha de estado da estação ("2 drones · 1 kW").
@@ -740,10 +749,14 @@ class UI:
         self.panel_buttons.clear()
         self.logistics_buttons.clear()
         self.equip_rects.clear()
+        self.inv_tab_rects.clear()
+        self.log_rows.clear()
         self.name_rect = None
         self.fill((8, 5, 4, 158), (0, 0, self.w, self.h))
         pw = GRID_W + 16
-        ph_inv = 20 + 6 + SLOT + 14 + SLOT + 8                  # título, mochila, rótulo HOTBAR, hotbar
+        tabbed = side is None and state is not None             # Tab: abas Inventário / LOGs no topo
+        top = 20 + (INV_TABS_H if tabbed else 0)                # onde começa a mochila (título + abas)
+        ph_inv = top + 6 + SLOT + 14 + SLOT + 8                 # título, mochila, rótulo HOTBAR, hotbar
         if side is None and equipment is not None:
             ph_inv += 14 + SLOT + 2                             # Marco 3: rótulo TRAJE + slots de equipamento
         ph_side = SIDE_LOGI_Y + LOGI_H + 5                      # baú/drill: grade, botões e a seção DRONES
@@ -753,20 +766,27 @@ class UI:
             ph_side = SIDE_GRID_Y + SLOT + 6 + 26 + 15 + 8
         h = ph_inv if side is None else max(ph_inv, ph_side)
         y = (self.h - h) // 2 - 16
+        if tabbed:                                              # topo no mesmo lugar nas duas abas
+            y = self.inv_tabs_top(h)
 
         self._window(x, y, pw, h, "INVENTÁRIO", C.C_TI)
         used = sum(1 for s in inventory.slots if s)
         self.text(f"{used}/{len(inventory)}", x + pw - 8, y + 6, C.C_MUTED, align="right")
+        if tabbed:
+            self._inventory_tabs(x, y, pw, 0, state, mouse)
         hb = C.HOTBAR_SLOTS
-        self._grid(inventory, list(range(hb, len(inventory))), x + 8, y + 26, item_icon, mouse)
-        self.text("HOTBAR", x + 8, y + 26 + SLOT + 4, C.C_MUTED)
-        self._grid(inventory, list(range(hb)), x + 8, y + 26 + SLOT + 14, item_icon, mouse, hotbar_selected)
+        gy = y + top + 6
+        self._grid(inventory, list(range(hb, len(inventory))), x + 8, gy, item_icon, mouse)
+        self.text("HOTBAR", x + 8, gy + SLOT + 4, C.C_MUTED)
+        self._grid(inventory, list(range(hb)), x + 8, gy + SLOT + 14, item_icon, mouse, hotbar_selected)
         if side is None and equipment is not None:
-            self._equipment_row(equipment, x + 8, y + 26 + 2 * SLOT + 14 + 6, item_icon, mouse)
+            self._equipment_row(equipment, x + 8, gy + 2 * SLOT + 14 + 6, item_icon, mouse)
 
         if side is None:
             keys = ("[CLIQUE] PEGA/SOLTA · [DIREITO] METADE · [ESC] FECHA" if equipment is None else
                     "[CLIQUE] PEGA/SOLTA · EQUIPA · [DIREITO] METADE · [ESC] FECHA")
+            if tabbed:
+                keys = "[CLIQUE] PEGA/SOLTA · EQUIPA · [DIREITO] METADE · [A/D] ABA · [ESC] FECHA"
         elif isinstance(side, Crate):
             self._crate_panel(side, x + pw + 10, y, pw, h, item_icon, mouse)
             keys = "[CLIQUE] TIRA A PILHA · [DIREITO] 1 · [ESC] FECHA"
@@ -784,6 +804,101 @@ class UI:
         self.notice_y = self.panel_notice_y(y, y + h + 18)
 
     NOTICE_H = 18                                      # altura do aviso (draw_notice)
+
+    # ---- abas do Tab: Inventário / LOGs ------------------------------------------
+    INV_TAB_LABELS = ("Inventário", "LOGs")
+
+    def inv_tabs_top(self, h: int) -> int:
+        """y do topo da janela do Tab: o mesmo nas duas abas (sai da mais alta), pra as abas não pularem."""
+        tallest = max(h, self.logs_window_size()[1])
+        return max(4, (self.h - tallest) // 2 - 16)
+
+    def _inventory_tabs(self, x: int, y: int, w: int, active: int, state: GameState, mouse) -> None:
+        """Abas embaixo do título, iguais às do fabricador. A de LOGs leva o contador (3/7) e um ponto
+        laranja se tem LOG lido que ainda não foi aberto por ela."""
+        self.inv_tab_rects.clear()
+        found = len(state.logs_read)
+        labels = [self.INV_TAB_LABELS[0], f"{self.INV_TAB_LABELS[1]} {found}/{len(C.LOGS)}"]
+        tx = x + 8
+        for i, label in enumerate(labels):
+            dot = i == 1 and state.new_logs > 0
+            tw = self.body.size(label)[0] + 10 + (5 if dot else 0)
+            rect = pygame.Rect(tx, y + 20, tw, 15)
+            on = i == active
+            hover = not on and rect.collidepoint(mouse)
+            self.surf.fill(pygame.Color("#2c1e18" if on else "#211915" if hover else "#160f0d"), rect)
+            pygame.draw.rect(self.surf, pygame.Color(C.C_ACCENT if on else "#3a2c25"), rect, 1)
+            if on:                                      # a aba ativa "abre" pro conteúdo
+                self.surf.fill(pygame.Color("#2c1e18"), (rect.x + 1, rect.bottom - 1, rect.w - 2, 2))
+            self.text(label, rect.x + 5, rect.y + 1, C.C_TEXT if on else C.C_MUTED, self.body)
+            if dot:
+                self.surf.fill(pygame.Color(C.C_ACCENT), (rect.right - 7, rect.y + 6, 3, 3))
+            self.inv_tab_rects.append((rect, i))
+            tx += tw + 3
+        pygame.draw.line(self.surf, pygame.Color("#3a2c25"), (x + 8, y + 34), (x + w - 9, y + 34))
+
+    NEW_TAG = "NOVO"
+
+    def log_row_text(self, log: int, number: int, read: bool) -> str:
+        """"LOG 03 · Dia 97 · <título>" (lido) ou "LOG 03 · ???" (não achado: não revela dia nem título)."""
+        if not read:
+            return f"LOG {number:02d} · ???"
+        return f"LOG {number:02d} · Dia {C.LOG_DAYS[log]} · {C.LOG_TITLES[log]}"
+
+    def logs_window_size(self) -> tuple[int, int]:
+        """(largura, altura) da janela da aba LOGs. A largura sai do texto mais comprido de TODOS os LOGs (lidos
+        ou não), então não muda conforme acha; se a altura não cabe na tela, mostra menos linhas (rola)."""
+        tag_w = self.font.size(self.NEW_TAG)[0] + 6
+        text_w = max(self.body.size(self.log_row_text(log, n, True))[0] for n, log in enumerate(C.LOG_ORDER, 1))
+        w = min(self.w - 8, max(GRID_W + 16, 8 + 6 + text_w + 8 + tag_w + 6 + 8 + 4))
+        room = self.h - 20 - INV_TABS_H - 6 - 6 - 40       # tela menos título, abas, margens e ajuda/hotbar
+        rows = max(1, min(len(C.LOGS), room // LOG_ROW_STEP))
+        self.log_visible = rows
+        return w, 20 + INV_TABS_H + 4 + rows * LOG_ROW_STEP + 4
+
+    def draw_logs(self, state: GameState, selected: int, first: int, mouse) -> None:
+        """Aba LOGs do Tab: os LOGs na ordem da história (config.LOG_ORDER). Lido = "LOG 0N · Dia X · título"
+        e clicável (abre a tela de leitura); não achado = "LOG 0N · ???" apagado. "NOVO" nos lidos que a aba
+        ainda não abriu. `selected`/`first` = linha escolhida (W/S) e a primeira visível (rolagem).
+        Hit-test: log_rows (só os lidos) e inv_tab_rects."""
+        self.slot_rects.clear()
+        self.equip_rects.clear()
+        self.log_rows.clear()
+        self.fill((8, 5, 4, 158), (0, 0, self.w, self.h))
+        w, h = self.logs_window_size()
+        x = (self.w - w) // 2
+        y = self.inv_tabs_top(TAB_INV_H)               # mesmo topo da aba Inventário
+        self._window(x, y, w, h, "LOGS ENCONTRADOS", C.C_TERMINAL)
+        self._inventory_tabs(x, y, w, 1, state, mouse)
+        entries = state.log_entries()
+        rows = self.log_visible
+        first = max(0, min(first, len(entries) - rows))
+        list_y = y + 20 + INV_TABS_H + 4
+        tag_w = self.font.size(self.NEW_TAG)[0] + 6
+        for k, (log, number, read, new) in enumerate(entries[first:first + rows]):
+            i = first + k
+            row = pygame.Rect(x + 8, list_y + k * LOG_ROW_STEP, w - 16 - (5 if rows < len(entries) else 0), LOG_ROW_H)
+            hover = read and row.collidepoint(mouse)
+            sel = i == selected
+            self.surf.fill(pygame.Color("#2c1e18" if hover or (sel and read) else "#211915" if read else "#171110"), row)
+            pygame.draw.rect(self.surf, pygame.Color(C.C_ACCENT if sel else "#3a2c25" if read else "#261c18"), row, 1)
+            color = C.C_TEXT if read else "#5a4a40"
+            self.text(self.log_row_text(log, number, read), row.x + 6, row.y, color, self.body)
+            if new:                                     # selo "NOVO" encostado na direita
+                tag = pygame.Rect(row.right - 4 - tag_w, row.y + 3, tag_w, 9)
+                self.surf.fill(pygame.Color(C.C_ACCENT), tag)
+                self.text(self.NEW_TAG, tag.centerx, tag.y - 2, "#1b1411", align="center")   # letra de 5 px no meio
+            if read:
+                self.log_rows.append((row, log))
+        if rows < len(entries):                         # barra de rolagem na margem direita
+            track = pygame.Rect(x + w - 10, list_y, 3, rows * LOG_ROW_STEP - 1)
+            self.surf.fill(pygame.Color("#120d0b"), track)
+            thumb_h = max(8, round(track.h * rows / len(entries)))
+            thumb_y = track.y + round((track.h - thumb_h) * first / max(1, len(entries) - rows))
+            self.surf.fill(pygame.Color(C.C_ACCENT), (track.x, thumb_y, 3, thumb_h))
+        keys = "[CLIQUE/ENTER] LÊ DE NOVO · [W/S] ESCOLHE · [A/D] ABA · [ESC] FECHA"
+        self.text(keys, self.w / 2, y + h + 6, C.C_MUTED, align="center")
+        self.notice_y = self.panel_notice_y(y, y + h + 18)
 
     def _equipment_row(self, equipment, x: int, y: int, item_icon, mouse) -> None:
         """TRAJE: um slot por equipamento (tanque, scanner). Vazio mostra o ícone apagado como dica."""
@@ -1108,7 +1223,7 @@ class UI:
         dx, dy = (self.w - dw) // 2, self.h - 100
         self.panel(dx, dy, dw, dh, (10, 16, 13, 237))
         self.surf.fill(pygame.Color(C.C_TERMINAL), (dx, dy, dw, 2))
-        self.text(f"{C.LOG_TITLES[index]} · LOG 0{index + 1}", dx + 10, dy + 8, C.C_TERMINAL)
+        self.text(f"{C.LOG_TITLES[index]} · {C.log_label(index)}", dx + 10, dy + 8, C.C_TERMINAL)
         for i, line in enumerate(wrap(self.body, C.LOGS[index], dw - 20)):
             self.text(line, dx + 10, dy + 22 + i * 13, "#d6eadf", self.body)
         if (t * 9) % 10 < 6:
@@ -1194,7 +1309,7 @@ class UI:
         ("1 A 8 · RODINHA", "Escolher slot da hotbar"),
         ("CLIQUE · R", "Colocar a máquina da hotbar · girar"),
         ("M", "Mapa (com o scanner de navegação)"),
-        ("TAB", "Inventário"),
+        ("TAB", "Inventário e LOGs (A/D troca a aba)"),
         ("CLIQUE DIREITO", "Desmontar (volta pro inventário)"),
         ("ESC", "Cancelar / fechar / pausar"),
         ("+ / -", "Aproximar / afastar (ou Ctrl+rodinha)"),

@@ -21,13 +21,15 @@ e vê o planeta **mudar visualmente** conforme o índice de terraformação (Ti)
 - O jogador é um terraformador enviado depois, numa cápsula (a base inicial).
 - No MVP a lore aparece em **3 terminais** escondidos nas paredes:
 
-| Log | Texto |
+| Log (exibido) | Texto |
 |---|---|
 | LOG 01 | "Dia 3. Pouso perfeito. A cratera é maior do que as sondas mostraram. Começamos a montar os geradores amanhã." |
-| LOG 02 | "Dia 97. O índice subiu rápido demais esse mês. A Dra. Ilves pediu pra desacelerar. A diretoria disse que o cronograma não espera." |
-| LOG 03 | "Dia 212. O derretedor 4 parou de novo. A Dra. Ilves jura que o gelo daqui não é só água, que tem alguma coisa dentro dele. Ninguém quis ouvir. Amanhã a gente desce pro nível 2 de qualquer jeito." |
+| LOG 03 | "Dia 97. O índice subiu rápido demais esse mês. A Dra. Ilves pediu pra desacelerar. A diretoria disse que o cronograma não espera." |
+| LOG 06 | "Dia 212. O derretedor 4 parou de novo. A Dra. Ilves jura que o gelo daqui não é só água, que tem alguma coisa dentro dele. Ninguém quis ouvir. Amanhã a gente desce pro nível 2 de qualquer jeito." |
 
 O mistério do gelo **não se resolve no MVP**. É gancho pro futuro.
+
+**Numeração = cronologia da história** (v0.3): o número que o jogador vê ("LOG 01".."LOG 07") é a posição do LOG na linha do tempo, não a ordem em que ele acha. Cada LOG tem um dia (`LOG_DAYS` no `config.py`, mesma ordem de `LOGS`) e `LOG_ORDER` ordena por ele. Os índices em `LOGS` nunca mudam (o save guarda índices). Com os 4 dos destroços (ver §9, Marco 3): dias 3, 41, 97, 140, 188, 212 e 230. Todo texto de LOG começa com "Dia N.". Os lidos ficam na **aba LOGs** do inventário (Tab) pra reler.
 
 ## 3. Direção visual
 
@@ -432,10 +434,10 @@ Sem sprite novo no contrato pra **luminária forte**: o jogo procura `lamp_t2.pn
 
 ### Marco 3 · como ficou na implementação (números de partida, ajustáveis em `game/config.py`)
 - **Destroços** (`game/wrecks.py`): 6 a 8 por seed, centros de `WRECK_DIST` = 30 a 84 tiles da base, distâncias sempre crescentes, ≥ 14 tiles entre eles, com 2 tiles de areia livre em volta (sem morro, veio, cratera, borda, zona da base e sem rocha pequena). A área vira tile `WRECK` (sólido baixo, não minera; o sprite é um objeto ordenado pelo pé) e a caixa vira `LOOT_CRATE`. Âncoras e caixas como no contrato da Designer (v5.0). Sprites aprovados pelo dono (Designer v5.0) e promovidos pra `assets/sprites/`; o desenho do `art.py` só entra se o PNG faltar.
-- **Ordem por distância** *(dono: revisar)*: nave de carga (projeto do **tanque de O₂** + LOG 04), sonda, módulo da colônia (projeto do **scanner** + LOG 05), nave (projeto da **luminária forte**), sonda (LOG 06), [nave e sonda extras com 7 ou 8], módulo (LOG 07, o mais longe).
+- **Ordem por distância** *(dono: revisar)*: nave de carga (projeto do **tanque de O₂** + registro da VÉSPER-7, dia 188 = LOG 05), sonda, módulo da colônia (projeto do **scanner** + dia 140 = LOG 04), nave (projeto da **luminária forte**), sonda (S-3, dia 41 = LOG 02), [nave e sonda extras com 7 ou 8], módulo (dia 230 = LOG 07, o mais longe). Números exibidos pela cronologia (§2).
 - **Caixa de saque**: 8 slots, E abre (alcance 48 px), só tirar (esquerdo pilha, direito 1, **Pegar tudo**). Saque pela seed e fixo: nave 14–20 ferro, 8–12 silício, 6–10 gelo; módulo 8–12 / 4–7 / 3–5; sonda 2–4 / 1–3 / 0–2. Vazia troca o sprite e a dica vira "Caixa vazia". Som `crate_open` 0,9 (vazia: ~0,6); fechar: `chest_close`.
 - **Projetos** *(dono: revisar)*: o projeto sai **sozinho ao abrir a caixa** (não ocupa espaço), libera a receita na hora e mostra "PROJETO: <NOME> · receita liberada no fabricador" por 3,5 s; `blueprint_found` 0,4 s depois do `crate_open`, ambiente a 60% por 2 s. Receita sem projeto aparece no fabricador como **"??? · projeto não encontrado"** (prévia apagada, botão "SEM PROJETO").
-- **LOGs 04–07**: textos do rascunho (`docs/lore/logs_v03_rascunho.md`, ainda pendentes do dono), num bloco só no `config.py` (`LOGS` + `LOG_TITLES`). O módulo tem terminal (E no tile do terminal, lido do tile de baixo); a **nave e a sonda** (sem terminal no sprite) mostram o registro de bordo na tela de terminal na 1ª vez que a caixa abre, e o painel da caixa ganha **Ler registro**. *(Dono: revisar.)*
+- **LOGs dos destroços** (índices 3–6 em `LOGS`): **aprovados pelo dono** (`docs/lore/logs_v03_rascunho.md`), num bloco só no `config.py` (`LOGS` + `LOG_TITLES` + `LOG_DAYS`). O módulo tem terminal (E no tile do terminal, lido do tile de baixo); a **nave e a sonda** (sem terminal no sprite) mostram o registro de bordo na tela de terminal na 1ª vez que a caixa abre, e o painel da caixa ganha **Ler registro**. *(Dono: revisar.)*
 - **Equipamento** (`game/equipment.py`) *(dono: revisar)*: aba nova do fabricador **"Traje"**; slots tipados **TANQUE** e **SCANNER** embaixo da hotbar, no Tab. Clique num equipamento do inventário equipa (troca com o do slot); clique no slot tira (som `inv_move`); soltar o item da mão no slot também equipa (som `equip` 0,7). Não vai pra hotbar nem pro chão.
 - **Tanque de O₂**: 10 Fe + 6 Si + 4 gelo, depois do projeto. Equipado, O₂ máximo **220 s**; a barra é proporcional ao máximo e mostra os segundos + "TANQUE". O alarme e a tela vermelha continuam nos 25 s restantes. Tirar o tanque corta o O₂ pra 100.
 - **Scanner de navegação** *(dono: revisar)*: equipamento, 4 Fe + 4 Si depois do projeto. Equipado: **minimapa** 64×64 tiles no canto direito (embaixo da energia) e **M** abre o mapa grande da camada (som `map_open` 0,6, no máximo 1 a cada 0,3 s; fecha com M/Esc/Tab/E). Sem scanner, M só avisa.
@@ -454,3 +456,10 @@ Sem sprite novo no contrato pra **luminária forte**: o jogo procura `lamp_t2.pn
 - **Controles da pausa**: largura pelo texto mais comprido; quando as linhas não cabem na altura (Grande, 480×270), 2 páginas equilibradas com `<` `1/2` `>` e A/D.
 - **Save na rampa**: grava o destino (ver Marco 2).
 - **Revisão de prints**: fabricador alarga pra 6 abas caberem (a "Traje" saía da moldura); aviso de projeto cabe no vão do topo (no Grande sem o ícone) em vez de cobrir o painel do Ti; Opções da pausa com a ajuda dentro da moldura, acima da hotbar; seta do O₂ crítico não desce na hotbar; "Jogo salvo" logo abaixo da coluna da direita (cobria o medidor de energia); textos flutuantes escolhem a faixa pelo lugar na tela (não encavalam mais com vizinhos nascidos noutra altura).
+
+### Aba LOGs do inventário (decisão do dono)
+- O **Tab** ganha abas no topo, no estilo do fabricador: **Inventário** e **LOGs N/7** (contador de achados; ponto laranja se tem LOG lido ainda não aberto pela aba). Clique na aba ou **A/D** trocam; o Tab sempre abre no Inventário. Ir pros LOGs devolve a pilha da mão pro inventário (sem espaço: não troca e avisa).
+- Lista com os 7 na **ordem da história** (`LOG_ORDER`, ver §2). Achado: "LOG 0N · Dia X · <título>", clicável (ou W/S + Enter), abre a mesma tela de leitura do terminal e, ao fechar, volta pra aba. Não achado: "LOG 0N · ???" apagado, sem dia nem título, não clicável. W/S pulam os não achados.
+- **NOVO**: selo laranja nos lidos (terminal, módulo ou registro de bordo) que ainda não foram abertos pela aba. Save v6 ganha `progress.logs_seen`; save v6 de antes, sem o campo, carrega com todos os lidos contando como vistos (sem NOVO).
+- A janela da aba LOGs tem a largura do texto mais comprido de todos os LOGs (não muda conforme acha) e o mesmo topo da aba Inventário; se não couber na altura, mostra menos linhas e rola (rodinha/W/S). Nos 3 tamanhos de interface couberam as 7.
+- Controles: "TAB · Inventário e LOGs (A/D troca a aba)".
