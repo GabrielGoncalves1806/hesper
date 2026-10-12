@@ -253,12 +253,13 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
   - **Drone em voo**: o slot dele fica **travado** (marcado "VOO") e não pode ser tirado até ele pousar. **Drone pousado** pode ser tirado: volta pro inventário como item e some do mundo (se estiver segurando carga, a carga vai junto pro inventário; não cabendo tudo, ele fica).
   - Botão **Pegar tudo** leva o buffer pro inventário.
 - **Desmontar a estação** devolve a estação, **todos os drones** (os em voo cancelam a viagem) e todo o minério (buffer + carga de cada drone) pro inventário. Ou cabe tudo, ou ela fica no lugar com o aviso de inventário cheio: nada some.
-- **Ciclo do drone**: decola, voa **em linha reta por cima das paredes** até uma drill dentro do alcance que tenha **≥ 5 unidades**, coleta tudo e voa de volta. Entrega no **baú mais próximo, a até 3 tiles da estação** (se não houver baú, ou se ele estiver cheio, guarda no buffer interno da estação, de 50 unidades no total, e mostra o aviso). Velocidade de ~4 tiles/s.
+- **Ciclo do drone**: decola, voa **em linha reta por cima das paredes** até uma drill dentro do alcance que tenha **≥ 5 unidades**, coleta tudo e voa de volta. Entrega nos **baús a até 6 tiles da estação** (se não houver baú com espaço, guarda no buffer interno da estação, de 50 unidades no total, e mostra o aviso quando ele enche). Velocidade de ~4 tiles/s.
+- **Filtro do baú**: cada baú tem um filtro **Tudo / Ferro / Silício / Gelo** (padrão Tudo), escolhido no painel do baú ("Drones trazem"). Ordem de entrega: primeiro um baú filtrado pro minério da carga, depois um baú "Tudo", senão o buffer; empate vai pro mais perto da estação. Baú filtrado pra outro minério nunca recebe. Carga maior que o espaço é dividida (o que cabe num baú, o resto no próximo ou no buffer; nada some). O filtro vale só pros drones: o jogador guarda qualquer coisa à mão. No mundo, o rótulo flutuante do baú é um só: [ícone do minério filtrado] Nome (sem filtro, só o nome). O filtro vai no save (save antigo carrega como "Tudo").
 - **Prioridade**: a drill mais cheia primeiro, e um drone por drill de cada vez.
 - **Visual**: drone pequeno voando com sombra no chão. A estação mostra os drones pousados (slots 1 e 2 nos pads; 3 e 4 estacionados na frente deles).
 - Sem energia suficiente, os drones voam mais devagar, na mesma proporção do déficit.
 - Futuro: upgrade de estação (mais slots e mais alcance).
-- Save **v4**: baús ganham `name`; a estação guarda os 4 slots de drone. Migração v3→v4: baús viram "Baú" e cada estação existente ganha **2 drones** nos slots 1 e 2 (ninguém perde o que tinha).
+- Save **v4**: baús ganham `name` e `filter`; a estação guarda os 4 slots de drone. Migração v3→v4: baús viram "Baú" com filtro "Tudo" e cada estação existente ganha **2 drones** nos slots 1 e 2 (ninguém perde o que tinha).
 
 ### Marco 4 · Polimento
 - Rodar o simulador de novo com inventário, energia e drones, e ajustar até bater a meta de tempo.

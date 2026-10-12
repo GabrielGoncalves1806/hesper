@@ -39,6 +39,8 @@ class Machine:
     # só o baú usa estes: os 24 slots dele (criado no place) e o nome que o jogador deu
     storage: Inventory | None = None
     name: str | None = None
+    # só o baú: que minério os drones entregam nele ("all" ou um id de C.RESOURCES). O player guarda qualquer coisa.
+    filter: str = "all"
     # só a estação de drones usa este: buffer + drones (game/drones.py, criado no place)
     station: drones.Station | None = None
 

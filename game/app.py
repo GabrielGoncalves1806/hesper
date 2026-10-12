@@ -409,6 +409,8 @@ class App:
             if ui.name_rect is not None and ui.name_rect.collidepoint(pos):
                 return
             self.finish_name_edit(confirm=True)
+        if button == 1 and self.on_chest_filter_click():   # seletor "Drones trazem" do baú
+            return
         if button == 1:
             for rect, action in ui.panel_buttons:
                 if rect.collidepoint(pos):
@@ -533,6 +535,24 @@ class App:
         if flying:
             text += f" · {flying} em voo"
         return text + f" · {fmt_kw(kw)} kW"
+
+    def on_chest_filter_click(self) -> bool:
+        """Clique no seletor "Drones trazem" do baú aberto: troca o filtro. True se acertou um botão."""
+        value = self.ui.chest_filter_at((self.mouse[0] / 2, self.mouse[1] / 2))
+        if value is None or self.open_chest is None:
+            return False
+        if value != self.open_chest.filter:
+            self.open_chest.filter = value
+            self.audio.play("ui_click")
+        return True
+
+    def labeled_chests(self) -> list:
+        """Baús que mostram o rótulo flutuante ([ícone do filtro] Nome): os no alcance do E e o debaixo do mouse."""
+        found = []
+        for chest in (self.hovered_machine(), *self.state.chests_showing_name()):
+            if chest is not None and chest.is_chest and not any(chest is c for c in found):
+                found.append(chest)
+        return found
 
     def stash_held(self) -> bool:
         """Devolve a pilha da mão pro inventário (ou pro baú aberto). False se não coube tudo."""
@@ -993,12 +1013,12 @@ class App:
 
         # camada 1: HUD e textos flutuantes
         ui.begin()
+        icons = {r: self.renderer.surface(f"icon_{r}", lambda r=r: art.icon(r))[0] for r in C.RESOURCES}
         if self.mode == "play":
-            ui.draw_world_labels(self.chest_labels(), cam, self.zoom)
+            ui.draw_chest_labels(self.labeled_chests(), cam, self.zoom, icons)
         ui.draw_floaters(self.floaters, cam, self.zoom)
         if critical:
             ui.draw_o2_critical(state, self.t, cam)
-        icons = {r: self.renderer.surface(f"icon_{r}", lambda r=r: art.icon(r))[0] for r in C.RESOURCES}
         ui.draw_hud(state, self.t, self.hint() if self.mode == "play" else None, icons)
         ui.draw_hotbar(state.inventory, self.hotbar_selected, self.renderer.item_icon)
         if not critical:   # com O₂ crítico o aviso grande ocupa essa área (e o foco é voltar pra base)
@@ -1048,15 +1068,6 @@ class App:
             ui.finish(canvas)
 
         self.present()
-
-    def chest_labels(self) -> list[tuple[str, float, float]]:
-        """Nome dos baús que flutua no mundo: os no alcance do E e o que está debaixo do mouse."""
-        chests = self.state.chests_showing_name()
-        hovered = self.hovered_machine()
-        if hovered is not None and hovered.is_chest and hovered not in chests:
-            chests.append(hovered)
-        h = C.CHEST_SPRITE_SIZE[1]
-        return [(c.name or C.CHEST_DEFAULT_NAME, c.anchor[0], c.anchor[1] - h - 2) for c in chests]
 
     def screenshot(self, path: str) -> None:
         pygame.image.save(self.canvas, path)

@@ -19,7 +19,8 @@ Formato do arquivo (JSON):
       "progress":  {...}         # índices, estágio, objetivos, terminais lidos, tempo de jogo...
     }
 
-Baú (v4): {"kind": "chest", ..., "storage": [...], "name": "Minério"}.
+Baú (v4): {"kind": "chest", ..., "storage": [...], "name": "Minério", "filter": "iron"}.
+"filter" é o minério que os drones entregam nele ("all", "iron", "silicon" ou "ice"); sem o campo, "all".
 
 Estação de drones (v4): fica dentro da própria máquina, como os slots do baú:
     {"kind": "drone_station", "tx": .., "ty": .., "rotation": 0,
@@ -52,7 +53,7 @@ from game.inventory import Inventory
 from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 
-SAVE_VERSION = 4   # v4: nome do baú, drone vira item (4 slots na estação) · v3: estação de drones
+SAVE_VERSION = 4   # v4: nome e filtro do baú, drone vira item (4 slots na estação) · v3: estação de drones
                    # v2: inventário com slots, baús e `crafted` (v1 = contador)
 SAVE_PATH = C.ROOT_DIR / "saves" / "slot1.json"   # o smoke e os testes apontam pra outro lugar
 
@@ -147,6 +148,7 @@ def machine_to_dict(m: Machine) -> dict:
     if m.is_chest:
         data["storage"] = m.storage.to_data()
         data["name"] = m.name or C.CHEST_DEFAULT_NAME
+        data["filter"] = m.filter
     if m.is_station:
         data["buffer"] = dict(m.station.buffer)
         slots = [m.station.drone_in(i) for i in range(C.STATION_DRONE_SLOTS)]
@@ -166,6 +168,8 @@ def machine_from_dict(data: dict) -> Machine:
     if machine.is_chest:
         machine.storage = slots_from_data(data.get("storage", []), C.CHEST_SLOTS)
         machine.name = clean_chest_name(data.get("name", C.CHEST_DEFAULT_NAME))
+        chest_filter = data.get("filter", "all")          # saves antigos não têm o campo: "all"
+        machine.filter = chest_filter if chest_filter in C.CHEST_FILTERS else "all"
     if machine.is_station:
         # drones recriados pousados no slot deles; quem estava carregando volta com a carga e entrega no 1º frame
         machine.station = drones.new_station(machine)
@@ -285,13 +289,14 @@ def _v2_to_v3(data: dict) -> dict:
 
 
 def _v3_to_v4(data: dict) -> dict:
-    """v3 -> v4: baú ganhou nome e o drone virou item (a estação tem 4 slots e vem vazia).
+    """v3 -> v4: baú ganhou nome e filtro pros drones ("all"), e o drone virou item (a estação tem 4 slots e vem vazia).
     Pra ninguém perder o que tinha: todo baú vira "Baú" e toda estação ganha 2 drones nos slots 1 e 2
     (os mesmos 2 que vinham de graça), com a carga que eles levavam ("drone_cargo" do v3)."""
     has_station = False
     for m in data["machines"]:
         if m.get("kind") == "chest":
             m.setdefault("name", C.CHEST_DEFAULT_NAME)
+            m.setdefault("filter", "all")
         elif m.get("kind") == "drone_station":
             has_station = True
             cargo = list(m.pop("drone_cargo", None) or [])[:2]

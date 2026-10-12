@@ -25,6 +25,11 @@ SLOT, SLOT_GAP = 20, 2
 SLOT_STEP = SLOT + SLOT_GAP
 GRID_W = 8 * SLOT_STEP - SLOT_GAP                # 8 colunas = 174
 HOTBAR_X, HOTBAR_Y = (UW - GRID_W) // 2, UH - 6 - SLOT
+# seletor "Drones entregam" do baú (draw_chest_filter): uma linha logo abaixo do título do painel
+FILTER_ROW = 22                                  # altura que a linha ocupa (o grid do baú desce isso)
+FILTER_BTN = 18                                  # botão com ícone: 18×18 (ícone 16 + 1 de borda)
+FILTER_ALL_W = 26                                # botão "TUDO"
+FILTER_NAME = {"all": "TUDO", **C.RESOURCE_LABEL}
 
 
 # Dígitos 5×7 desenhados à mão, no traço fino da Pixelify. Em 11 px a fonte desenha o "5" igual
@@ -161,6 +166,7 @@ class UI:
         self.buffer_rects: list[tuple[pygame.Rect, str]] = []
         self.panel_buttons: list[tuple[pygame.Rect, str]] = []   # "take_all", "store_all", "take_buffer"
         self.name_rect: pygame.Rect | None = None                 # nome do baú (clique = editar)
+        self.filter_buttons: list[tuple[pygame.Rect, str]] = []   # seletor de filtro do baú: (retângulo, filtro)
         self.slot_img = Sprites().get("ui_slot")      # moldura opcional (bíblia §8); sem ela, desenhamos
 
     # ---- primitivas -----------------------------------------------------------
@@ -591,11 +597,12 @@ class UI:
         self.bay_rects.clear()
         self.buffer_rects.clear()
         self.panel_buttons.clear()
+        self.filter_buttons.clear()
         self.name_rect = None
         self.fill((8, 5, 4, 158), (0, 0, UW, UH))
         pw = GRID_W + 16
         ph_inv = 20 + 6 + SLOT + 14 + SLOT + 8                  # título, mochila, rótulo HOTBAR, hotbar
-        ph_side = 20 + 6 + 3 * SLOT_STEP - SLOT_GAP + 6 + 14 + 8   # baú: 3 linhas + botões (= estação)
+        ph_side = 20 + 6 + FILTER_ROW + 3 * SLOT_STEP - SLOT_GAP + 6 + 14 + 8   # baú: filtro, 3 linhas e botões
         total_w = pw if side is None else 2 * pw + 10
         x = (UW - total_w) // 2
         h = ph_inv if side is None else max(ph_inv, ph_side)
@@ -664,8 +671,9 @@ class UI:
             self.text(name, cx + 8, y + 4, C.C_ACCENT, self.body)
             self._pencil(cx + 13 + w, y + 7, C.C_TI if hover else C.C_MUTED)
             self.name_rect = rect
-        self._grid(box, list(range(len(box))), cx + 8, y + 26, item_icon, mouse)
-        by = y + 26 + 3 * SLOT_STEP - SLOT_GAP + 5
+        self.draw_chest_filter(cx + 8, y + 22, pw - 16, chest.filter, item_icon, mouse)
+        self._grid(box, list(range(len(box))), cx + 8, y + 26 + FILTER_ROW, item_icon, mouse)
+        by = y + 26 + FILTER_ROW + 3 * SLOT_STEP - SLOT_GAP + 5
         # largura pelo texto (o "Guardar recursos" é mais comprido): um encostado em cada ponta da grade
         take_w = self.font.size("PEGAR TUDO")[0] + 12
         store_w = self.font.size("GUARDAR RECURSOS")[0] + 12
@@ -713,6 +721,68 @@ class UI:
                      "Pegar tudo", "take_buffer", mouse, st.stored > 0)
         self.text(status, cx + 8, y + h - 16, "#d9cfc4", self.body)
 
+    # ---- filtro do baú pros drones (bloco autocontido: desenho + hit-test) ---------
+    def draw_chest_filter(self, x: int, y: int, w: int, current: str, item_icon, mouse) -> None:
+        """Linha "DRONES TRAZEM: [TUDO] [ferro] [silício] [gelo]" a partir de (x, y), largura `w`.
+        O ativo fica com a borda laranja. Guarda os botões em `filter_buttons` (ver chest_filter_at)."""
+        self.fill((0, 0, 0, 70), (x, y, w, FILTER_BTN + 2))
+        self.text("DRONES TRAZEM:", x + 3, y + 6, C.C_MUTED)
+        bx = x + w - 1 - FILTER_ALL_W - len(C.RESOURCES) * (FILTER_BTN + 2)
+        for value in C.CHEST_FILTERS:
+            bw = FILTER_ALL_W if value == "all" else FILTER_BTN
+            rect = pygame.Rect(bx, y + 1, bw, FILTER_BTN)
+            active, hover = value == current, rect.collidepoint(mouse)
+            self.surf.fill(pygame.Color("#3a2a22" if active else "#120d0b"), rect)
+            if hover and not active:
+                self.fill((255, 255, 255, 30), rect.inflate(-2, -2))
+            pygame.draw.rect(self.surf, pygame.Color(C.C_ACCENT if active else "#3a2c25"), rect, 1)
+            if value == "all":
+                self.text("TUDO", rect.centerx + 1, y + 6, C.C_TEXT if active else C.C_MUTED, align="center")
+            else:
+                icon = item_icon(value)
+                if not active:                      # inativo: ícone apagado, o ativo salta aos olhos
+                    icon = icon.copy()
+                    icon.set_alpha(150)
+                self.native.append((icon, (rect.x * 2 + 2, rect.y * 2 + 2)))
+            self.filter_buttons.append((rect, value))
+            bx += bw + 2
+
+    def chest_filter_at(self, pos) -> str | None:
+        """Qual filtro está debaixo de `pos` (coordenadas da UI), ou None."""
+        return next((value for rect, value in self.filter_buttons if rect.collidepoint(pos)), None)
+
+    # ---- rótulo flutuante do baú no mundo: [ícone do filtro] Nome ------------------
+    @staticmethod
+    def chest_label_parts(chest) -> list[tuple[str, str]]:
+        """O que vai no rótulo em cima do baú: [("icon", minério)] se tiver filtro, e ("text", nome)."""
+        parts = []
+        if chest.filter != "all":
+            parts.append(("icon", chest.filter))
+        parts.append(("text", chest.name or C.CHEST_DEFAULT_NAME))
+        return parts
+
+    def draw_chest_labels(self, chests, cam: tuple[int, int], zoom: float, icons: dict) -> None:
+        """Rótulo em cima de cada baú de `chests`: preso no mundo (acompanha o zoom), letra de tamanho fixo.
+        `icons`: ícones 16×16 dos minérios (desenhados em resolução cheia, 8 px na UI)."""
+        for chest in chests:
+            parts = self.chest_label_parts(chest)
+            widths = [8 if kind == "icon" else self.body.size(value)[0] for kind, value in parts]
+            w = sum(widths) + 3 * (len(parts) - 1) + 8
+            ax, ay = chest.anchor
+            top = ay - C.CHEST_SPRITE_SIZE[1] - 2                 # logo acima da tampa (mundo)
+            sx, sy = (ax - cam[0]) * zoom / 2, (top - cam[1]) * zoom / 2
+            x, y = int(sx - w / 2), int(sy - 15)
+            if not (-w < x < UW and -14 < y < UH):
+                continue
+            self.panel(x, y, w, 14, (14, 10, 9, 210))
+            px = x + 4
+            for (kind, value), pw in zip(parts, widths):
+                if kind == "icon":
+                    self.native.append((icons[value], (px * 2, (y + 3) * 2)))
+                else:
+                    self.text(value, px, y + 1, C.C_TEXT, self.body)
+                px += pw + 3
+
     def draw_held_and_tooltip(self, held: Stack | None, label: str | None, mouse, item_icon) -> None:
         """Por cima de tudo: a pilha presa no cursor ou, sem nada na mão, o texto do slot debaixo do
         mouse (nome · quantidade, ou o estado do drone)."""
@@ -726,19 +796,6 @@ class UI:
             tx, ty = min(mx + 8, UW - w - 2), my - 18
             self.panel(tx, ty, w, 16, (14, 10, 9, 235))
             self.text(label, tx + 6, ty + 2, C.C_TEXT, self.body)
-
-    def draw_world_labels(self, labels, cam: tuple[int, int], zoom: float = 1.0) -> None:
-        """Nomes flutuando em cima de coisas do mundo (o nome do baú). `labels` = [(texto, x, y)] com
-        (x, y) = ponto do mundo logo acima do sprite. Igual aos floaters: a posição acompanha o zoom,
-        o tamanho da letra não."""
-        for text, x, y in labels:
-            sx, sy = (x - cam[0]) * zoom / 2, (y - cam[1]) * zoom / 2
-            w = self.body.size(text)[0] + 8
-            if not (-w < sx < UW + w and 0 < sy < UH + 20):
-                continue
-            bx, by = int(sx - w / 2), int(sy - 15)
-            self.panel(bx, by, w, 14, (14, 10, 9, 200))
-            self.text(text, sx, by + 1, C.C_TEXT, self.body, "center")
 
     def _arrow(self, cx: int, y: int, up: bool) -> None:
         """Setinha de 5×3 (tem mais receita pra cima/baixo)."""

@@ -12,8 +12,10 @@ Ciclo de um drone (o `state` dele):
     pousado ──acha drill──> indo ──chegou──> coletando ──pegou──> voltando ──pousou──> entregando ──> pousado
     (landed)                (outbound)       (collecting)         (returning)          (delivering)
 
-Entrega: primeiro no baú escolhido por `pick_delivery_chest` (hoje: o mais perto da estação, a até
-3 tiles), até onde couber; o resto vai pro buffer interno da estação (50 unidades). Se nem o buffer tiver lugar, o drone fica pousado segurando
+Entrega (pick_delivery_chest): entre os baús a até 6 tiles da estação, primeiro um com filtro igual
+ao minério da carga, depois um "all", sempre o mais perto e só se tiver espaço; baú filtrado pra outro
+minério nunca recebe. A carga é dividida entre quantos baús precisar e o resto vai pro buffer interno
+da estação (50 unidades). Se nem o buffer tiver lugar, o drone fica pousado segurando
 a carga (aparece a pepita nele) e tenta de novo a cada frame. Com o buffer cheio e sem baú com espaço,
 nenhum drone decola.
 
@@ -180,24 +182,25 @@ def pick_drill(machine, drills, claimed: set[int]):
     return max(options, key=lambda d: (d.stored, -tile_distance(machine, d)), default=None)
 
 
-def nearest_chest(machine, chests):
-    """Baú mais perto da estação, a até DRONE_CHEST_RADIUS tiles (ou None)."""
-    near = [c for c in chests if gap_tiles(machine, c) <= C.DRONE_CHEST_RADIUS]
-    return min(near, key=lambda c: (gap_tiles(machine, c), tile_distance(machine, c)), default=None)
+def pick_delivery_chest(station, chests, resource: str, radius: int = C.DRONE_CHEST_RADIUS):
+    """Em qual baú o drone entrega `resource` agora (ou None = vai pro buffer da estação).
 
-
-def pick_delivery_chest(machine, chests, resource: str | None = None):
-    """O baú onde o drone entrega a carga (`resource` = minério dela; None = qualquer um).
-    Hoje: o mais perto da estação, a até DRONE_CHEST_RADIUS tiles. Ponto único da regra de entrega."""
-    return nearest_chest(machine, chests)
+    Só conta baú a até `radius` tiles da estação e com espaço pra esse minério. Prioridade: filtro
+    igual ao minério > filtro "all"; empate: o mais perto da estação. Baú filtrado pra outro minério
+    nunca recebe. Carga maior que o espaço: quem chama entrega o que cabe e chama de novo (o baú
+    cheio sai da lista sozinho)."""
+    options = [c for c in chests
+               if c.filter in (resource, "all") and gap_tiles(station, c) <= radius
+               and c.storage.space_for(resource) > 0]
+    return min(options, key=lambda c: (c.filter != resource, gap_tiles(station, c), tile_distance(station, c)),
+               default=None)
 
 
 def can_accept(machine, chests) -> bool:
-    """Ainda tem onde guardar minério? (lugar no buffer, ou o baú de entrega tem espaço pra algum minério)"""
+    """Ainda tem onde guardar minério? (lugar no buffer, ou algum baú perto aceita algum minério)"""
     if machine.station.room > 0:
         return True
-    chest = pick_delivery_chest(machine, chests)
-    return chest is not None and any(chest.storage.space_for(r) > 0 for r in C.RESOURCES)
+    return any(pick_delivery_chest(machine, chests, r) is not None for r in C.RESOURCES)
 
 
 # ---------------------------------------------------------------- ciclo
@@ -220,16 +223,19 @@ def _fly(drone: Drone, tx: float, ty: float, dt: float) -> bool:
 
 
 def unload(machine, drone: Drone, chests, events: list) -> int:
-    """Entrega a carga do drone: baú de entrega (pick_delivery_chest) primeiro, depois o buffer.
+    """Entrega a carga do drone: baús perto (pick_delivery_chest, quantos precisar), depois o buffer.
     O que não couber fica no drone. Devolve quanto entregou."""
     if drone.cargo <= 0:
         return 0
     resource, amount = drone.resource, drone.cargo
-    chest = pick_delivery_chest(machine, chests, resource)
-    to_chest = 0
-    if chest is not None:
+    to_chest, first_chest = 0, None
+    while amount > 0:
+        chest = pick_delivery_chest(machine, chests, resource)
+        if chest is None:
+            break
         left = chest.storage.add(resource, amount)
-        to_chest, amount = amount - left, left
+        to_chest, amount = to_chest + amount - left, left
+        first_chest = first_chest or chest
     to_buffer = amount - machine.station.add(resource, amount)
     amount -= to_buffer
     drone.cargo = amount
@@ -237,7 +243,7 @@ def unload(machine, drone: Drone, chests, events: list) -> int:
         drone.resource = None
     delivered = to_chest + to_buffer
     if delivered:
-        where = chest.anchor if to_chest else machine.anchor
+        where = first_chest.anchor if to_chest else machine.anchor
         events.append(("drone_deliver", resource, delivered, where))
     return delivered
 

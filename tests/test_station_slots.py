@@ -156,6 +156,7 @@ def v3_save() -> dict:
     data["version"] = 3
     for md in data["machines"]:
         md.pop("name", None)
+        md.pop("filter", None)                                          # o v3 não tinha nome nem filtro
         if md["kind"] == "drone_station":
             md.pop("drones")
             md["drone_cargo"] = [["ice", 4], None]                     # o formato do v3
@@ -168,7 +169,7 @@ def test_migration_v3_to_v4_names_chests_and_gives_two_drones(tmp_path):
     path.write_text(json.dumps(v3_save()), encoding="utf-8")
     loaded = save.load_game(path)
     assert loaded is not None
-    assert loaded.chests[0].name == "Baú"
+    assert loaded.chests[0].name == "Baú" and loaded.chests[0].filter == "all"
     st = loaded.stations[0]
     assert [d.pad for d in st.station.drones] == [0, 1]
     assert st.station.drones[0].cargo == 4 and st.station.drones[0].resource == "ice"
@@ -177,6 +178,7 @@ def test_migration_v3_to_v4_names_chests_and_gives_two_drones(tmp_path):
     save.write_save(loaded, path)
     data = json.loads(path.read_text(encoding="utf-8"))
     assert data["version"] == 4
+    assert next(m for m in data["machines"] if m["kind"] == "chest")["filter"] == "all"
     assert next(m for m in data["machines"] if m["kind"] == "drone_station")["drones"] == \
         [["ice", 4], [None, 0], None, None]
 
