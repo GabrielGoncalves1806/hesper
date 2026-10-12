@@ -184,3 +184,21 @@ deixa o jogo mais rápido que "sem drones". Com 5 drills, só o guloso ganha (25
 Proposta (não aplicada, decisão do dono): tratar o drone como conforto (menos caminhada), não como acelerador. Se
 quiser que ele pague: estação 1 kW e custo 12 Fe + 8 Si + 3 gelo, e/ou drones liberando mais drills úteis. A meta
 (20–35 min) continua batida com os drones.
+
+## Marco 3 · logística estilo Planet Crafter (2026-10-12)
+
+Mudança: drones atendem o mapa todo, cada baú/drill diz o que Envia/Recebe e o lote (padrão 10), velocidade 4 → 6 tiles/s.
+No sim, cada drill colocada é configurada com Envia = o minério dela (a drill nova vem sem nada) e o baú da base com
+Recebe = ferro, silício e gelo. Comando: `uv run python tools/dev/balance_sim.py --current --no-drones`.
+
+| estratégia | sem drones (média 3 seeds) | com drones | diferença | drone un. (seeds 1/2/3) |
+|---|---|---|---|---|
+| guloso | 21m39 | 22m52 | +1m13 | 80 / 70 / 80 |
+| variado | 23m34 | 24m51 | +1m17 | 110 / 80 / 100 |
+| casual | 26m57 | 28m36 | +1m39 | 140 / 120 / 120 |
+
+Velocidade 4 tiles/s no lugar de 6: guloso 22m52 · variado 24m51 · casual 28m31 (igual). O gargalo continua sendo
+a produção das 3 drills, não o voo; os 6 tiles/s são pra viagem não ficar chata de olhar (drill a 40 tiles da base:
+~13 s ida e volta em vez de 20 s). Leitura igual à anterior: drone é conforto (menos caminhada), não acelerador, e
+a meta (20–35 min) continua batida. Comparado ao Marco 3 antigo (24m40 · 26m02 · 29m56 com drones), o jogo com
+drones ficou ~1–1,5 min mais rápido.

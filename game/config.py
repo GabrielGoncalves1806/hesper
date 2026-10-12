@@ -148,13 +148,14 @@ MACHINES = {
 # Veios e drill automática (§4 "Veios e drills automáticas")
 # ---------------------------------------------------------------------------
 # Veio = depósito de minério 2×2 no CHÃO (não dá pra minerar na mão). A drill é colocada em
-# cima dele e extrai pra sempre, devagar, até encher; o jogador volta pra coletar com E.
+# cima dele e extrai pra sempre, devagar, até encher (inventário de 1 slot); E abre o painel, Shift+E coleta.
 # Custo e ritmo são chute inicial: quem calibra é o tools/dev/balance_sim.py.
 DRILL_COST = {"iron": 12, "silicon": 6}   # balance_sim: com 20/10 + 20 s a drill não se pagava (aprovado pelo dono)
 DRILL_UNLOCK_TI = 10_000        # libera no estágio Névoa
 DRILL_INTERVAL = 12.0           # segundos por unidade extraída (era 20; ver reports/dev/balance.md)
 DRILL_CAPACITY = 20             # cheia, para
-DRILL_REACH = 56                # px entre os pés do player e a base da drill pra coletar com E
+DRILL_SLOTS = 1                 # inventário da drill: 1 slot, só do minério dela (o limite é o DRILL_CAPACITY)
+DRILL_REACH = 56                # px entre os pés do player e a base da drill pro E (painel) e Shift+E (coleta)
 DRILL_FULL_NOTICE = 4 * TILE    # chegou perto (px) de uma drill cheia: toca drill_full uma vez
 DRILL_FULL_COOLDOWN = 10.0      # ...e não repete pra mesma drill antes de 10 s
 VEINS_NEAR_BASE = (8, 20)       # 1 veio de cada tipo entre 8 e 20 tiles da base
@@ -321,7 +322,6 @@ CHEST_NAME_MAX = 16             # máximo de caracteres no nome do baú
 CHEST_NAME_BLINK = 1.0          # segundos de um ciclo do cursor piscando na edição do nome
 
 # O baú é uma "máquina" sem índice: não soma Ti, não consome energia, só guarda itens.
-CHEST_FILTERS = ("all",) + RESOURCES   # o que os drones entregam no baú ("all" = qualquer minério)
 MACHINES["chest"] = MachineType("chest", "Baú", "guarda 24 pilhas", {"iron": 6}, None, 0, 0, "chest")
 MACHINE_ORDER.insert(MACHINE_ORDER.index("heater") + 1, "chest")   # no fabricador, junto das receitas do começo
 
@@ -330,22 +330,25 @@ VOLUME.update({"inv_move": 0.5, "chest_open": 0.7, "chest_close": 0.7, "inv_full
 
 # ---------------------------------------------------------------------------
 # Estação de drones (bíblia §8, Marco 3) · a lógica fica em game/drones.py
-# A estação (2×2, em chão livre fora de veio) solta drones que voam em linha reta, por cima das
-# paredes, até as drills; trazem o minério e entregam nos baús perto da estação, pelo filtro (ou no buffer).
+# A estação (2×2, em chão livre fora de veio) é a casa dos drones: eles voam em linha reta, por cima das
+# paredes, de um inventário que Envia um item pra outro que Recebe esse item (baús e drills, mapa inteiro).
 # ---------------------------------------------------------------------------
 DRONE_STATION_COST = {"iron": 12, "silicon": 8, "ice": 3}   # vem VAZIA: os drones são fabricados à parte
 DRONE_STATION_UNLOCK_TI = 10_000   # libera na Névoa, junto com a drill
 STATION_DRONE_SLOTS = 4         # slots de drone da estação (1 drone por slot = 1 drone ativo)
 DRONE_COST = {"iron": 6, "silicon": 4}   # o item drone (fabricador), libera junto com a estação
 CRAFT_BATCH = 5                 # Shift+Enter / Shift+clique no fabricador: fabrica até 5 de uma vez
-DRONE_RANGE = 30                # tiles, do centro da estação até o centro da drill
-DRONE_SPEED = 4.0               # tiles por segundo (× fator da energia)
-DRONE_MIN_PICKUP = 5            # só busca drill que já tem pelo menos isso guardado
-DRONE_CHEST_RADIUS = 6          # entrega nos baús a até 6 tiles da estação (filtrado > "all" > buffer)
-DRONE_PICKUP_TIME = 0.8         # segundos parado em cima da drill "coletando"
-DRONE_DROP_TIME = 0.6           # segundos pousado "entregando"
-STATION_BUFFER = 50             # unidades que a estação guarda quando não tem baú (ou ele está cheio)
-STATION_REACH = 56              # px entre os pés do player e a base da estação pra coletar com E
+# Sem alcance: os drones atendem o mapa inteiro (logística estilo Planet Crafter, bíblia §8).
+DRONE_SPEED = 6.0               # tiles por segundo (× fator da energia). Era 4: com o mapa todo, ~13 s numa viagem de 80 tiles
+DRONE_PICKUP_TIME = 0.8         # segundos parado em cima da origem "pegando"
+DRONE_DROP_TIME = 0.6           # segundos parado em cima do destino "soltando"
+DRONE_IDLE_RETRY = 0.5          # drone pousado sem tarefa procura de novo a cada 0,5 s
+# Logística (baú e drill): o que os drones tiram (Envia) e trazem (Recebe), e o lote por viagem.
+LOGISTIC_ITEMS = RESOURCES      # itens com toggle no painel (conjunto de ids: dá pra crescer depois)
+DRONE_BATCH_OPTIONS = (1, 5, 10, 20)
+DRONE_BATCH_DEFAULT = 10
+STATION_BUFFER = 50             # legado (save ≤ v4): o buffer não recebe mais nada, só dá pra tirar as sobras
+STATION_REACH = 56              # px entre os pés do player e a base da estação pro E (painel)
 DRONE_STATION_SPRITE_SIZE = (64, 72)       # drone_station.png, âncora no centro da base 2×2
 # Onde cada slot pousa, relativo ao canto do PNG da estação: slots 1 e 2 nos pads (H), 3 e 4 "estacionados"
 # um pouco à frente e à direita (o PNG só tem 2 pads; o drone da frente cobre metade do de trás).

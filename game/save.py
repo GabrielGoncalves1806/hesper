@@ -9,25 +9,29 @@ não guarda as 128×128 casas: guarda a seed e só os tiles que ficaram diferent
 Formato do arquivo (JSON):
 
     {
-      "version": 4,              # sobe quando o formato mudar (ver MIGRATIONS)
+      "version": 5,              # sobe quando o formato mudar (ver MIGRATIONS)
       "seed": 7,
       "world":     {...},        # tiles que mudaram
       "player":    {...},        # posição, direção, O₂, desmaio
       "inventory": {"slots": [...]},   # os 16 slots: [item, quantidade] ou null (v2)
-      "machines":  [...],        # máquinas colocadas (conteúdo das drills, slots e nome dos baús e,
-                                 # na estação de drones, "buffer" + os 4 slots de drone: v4)
+      "machines":  [...],        # máquinas colocadas (inventário de baús e drills, nome do baú, logística
+                                 # Envia/Recebe/Lote: v5; na estação, "buffer" + os 4 slots de drone: v4)
       "progress":  {...}         # índices, estágio, objetivos, terminais lidos, tempo de jogo...
     }
 
-Baú (v4): {"kind": "chest", ..., "storage": [...], "name": "Minério", "filter": "iron"}.
-"filter" é o minério que os drones entregam nele ("all", "iron", "silicon" ou "ice"); sem o campo, "all".
+Baú (v5): {"kind": "chest", ..., "storage": [...], "name": "Minério",
+            "sends": ["ice"], "receives": ["iron", "silicon"], "batch": 10}
+Drill (v5): {"kind": "drill", ..., "resource": "iron", "timer": 3.2, "storage": [["iron", 12]],
+             "sends": ["iron"], "receives": [], "batch": 10}
+"sends"/"receives" = logística dos drones (Envia/Recebe, ids de C.LOGISTIC_ITEMS); "batch" = lote por viagem.
 
 Estação de drones (v4): fica dentro da própria máquina, como os slots do baú:
     {"kind": "drone_station", "tx": .., "ty": .., "rotation": 0,
      "buffer": {"iron": 12}, "drones": [["ice", 8], [null, 0], null, null]}
 "drones" são os 4 slots: null = slot vazio; [minério, carga] = tem drone (carga 0 = vazio).
-Os drones NÃO guardam posição: ao carregar, nascem pousados nos pads. A carga que cada um levava
-vem junto e ele entrega (baú perto ou buffer) logo no primeiro frame, então nada some.
+Os drones NÃO guardam posição nem tarefa: ao carregar, nascem pousados nos pads. A carga que cada um
+levava vem junto e ele sai pra entregar num inventário que Recebe aquele item, então nada some.
+"buffer" é legado (≤ v4): não recebe mais nada, só dá pra tirar as sobras.
 O contador de entregas (objetivo) fica em progress["drone_deliveries"], e o de drones colocados
 numa estação em progress["drones_docked"].
 
@@ -53,7 +57,8 @@ from game.inventory import Inventory
 from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 
-SAVE_VERSION = 4   # v4: nome e filtro do baú, drone vira item (4 slots na estação) · v3: estação de drones
+SAVE_VERSION = 5   # v5: logística (Envia/Recebe/Lote) em baús e drills, drill com inventário
+                   # v4: nome e filtro do baú, drone vira item (4 slots na estação) · v3: estação de drones
                    # v2: inventário com slots, baús e `crafted` (v1 = contador)
 SAVE_PATH = C.ROOT_DIR / "saves" / "slot1.json"   # o smoke e os testes apontam pra outro lugar
 
@@ -144,11 +149,14 @@ def inventory_from_dict(state: GameState, data: dict) -> None:
 def machine_to_dict(m: Machine) -> dict:
     data = {"kind": m.kind, "tx": m.tx, "ty": m.ty, "rotation": m.rotation}
     if m.is_drill:
-        data.update(resource=m.resource, stored=m.stored, timer=m.timer)
+        data.update(resource=m.resource, timer=m.timer)
     if m.is_chest:
-        data["storage"] = m.storage.to_data()
         data["name"] = m.name or C.CHEST_DEFAULT_NAME
-        data["filter"] = m.filter
+    if m.is_logistic:
+        data["storage"] = m.storage.to_data()
+        data["sends"] = [i for i in C.LOGISTIC_ITEMS if i in m.sends]
+        data["receives"] = [i for i in C.LOGISTIC_ITEMS if i in m.receives]
+        data["batch"] = m.batch
     if m.is_station:
         data["buffer"] = dict(m.station.buffer)
         slots = [m.station.drone_in(i) for i in range(C.STATION_DRONE_SLOTS)]
@@ -161,15 +169,25 @@ def machine_from_dict(data: dict) -> Machine:
     if kind not in C.MACHINES:
         raise ValueError(f"máquina desconhecida: {kind!r}")
     machine = Machine(kind, int(data["tx"]), int(data["ty"]), int(data["rotation"]) % 4,
-                      resource=data.get("resource"), stored=int(data.get("stored", 0)),
-                      timer=float(data.get("timer", 0.0)))
+                      resource=data.get("resource"), timer=float(data.get("timer", 0.0)))
     if not machine.type.placeable:
         raise ValueError(f"{kind!r} não é máquina de chão")
     if machine.is_chest:
         machine.storage = slots_from_data(data.get("storage", []), C.CHEST_SLOTS)
         machine.name = clean_chest_name(data.get("name", C.CHEST_DEFAULT_NAME))
-        chest_filter = data.get("filter", "all")          # saves antigos não têm o campo: "all"
-        machine.filter = chest_filter if chest_filter in C.CHEST_FILTERS else "all"
+    if machine.is_drill:
+        if machine.resource not in C.RESOURCES:
+            raise ValueError(f"drill sem minério: {machine.resource!r}")
+        # a drill só guarda o minério dela, até a capacidade
+        amount = sum(int(d[1]) for d in data.get("storage", []) if d and d[0] == machine.resource)
+        machine.stored = min(amount, C.DRILL_CAPACITY)
+    if machine.is_logistic:
+        # o que não pode (item desconhecido, a drill recebendo, o mesmo item dos dois lados) é ignorado
+        machine.sends = {i for i in data.get("sends", []) if drones.can_send(machine, i)}
+        machine.receives = {i for i in data.get("receives", [])
+                            if drones.can_receive(machine, i) and i not in machine.sends}
+        batch = data.get("batch", C.DRONE_BATCH_DEFAULT)
+        machine.batch = batch if batch in C.DRONE_BATCH_OPTIONS else C.DRONE_BATCH_DEFAULT
     if machine.is_station:
         # drones recriados pousados no slot deles; quem estava carregando volta com a carga e entrega no 1º frame
         machine.station = drones.new_station(machine)
@@ -306,7 +324,29 @@ def _v3_to_v4(data: dict) -> dict:
     return data
 
 
-MIGRATIONS: dict = {1: _v1_to_v2, 2: _v2_to_v3, 3: _v3_to_v4}
+def _v4_to_v5(data: dict) -> dict:
+    """v4 -> v5: logística estilo Planet Crafter (Envia/Recebe/Lote) e a drill com inventário.
+    Pra base que já funcionava continuar funcionando:
+    - baú: filtro "all" -> Recebe {ferro, silício, gelo}; filtro X -> Recebe {X}; Envia nada; lote 10;
+    - drill: o contador "stored" vira o inventário de 1 slot, e Envia = o minério dela (drill NOVA vem sem nada);
+    - estação: igual (o buffer vira as sobras tiráveis; drone com carga continua com ela)."""
+    for m in data["machines"]:
+        if m.get("kind") == "chest":
+            old = m.pop("filter", "all")
+            m["receives"] = list(C.RESOURCES) if old == "all" else [old] if old in C.RESOURCES else []
+            m["sends"] = []
+            m["batch"] = C.DRONE_BATCH_DEFAULT
+        elif m.get("kind") == "drill":
+            stored = int(m.pop("stored", 0))
+            res = m.get("resource")
+            m["storage"] = [[res, stored]] if stored > 0 else [None]
+            m["sends"] = [res] if res in C.RESOURCES else []
+            m["receives"] = []
+            m["batch"] = C.DRONE_BATCH_DEFAULT
+    return data
+
+
+MIGRATIONS: dict = {1: _v1_to_v2, 2: _v2_to_v3, 3: _v3_to_v4, 4: _v4_to_v5}
 
 
 class SaveError(Exception):

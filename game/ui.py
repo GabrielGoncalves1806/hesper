@@ -30,11 +30,16 @@ TI_PANEL_W = 160                 # painel do Ti (em cima à direita, encostado n
 SLOT, SLOT_GAP = 20, 2
 SLOT_STEP = SLOT + SLOT_GAP
 GRID_W = 8 * SLOT_STEP - SLOT_GAP                # 8 colunas = 174
-# seletor "Drones entregam" do baú (draw_chest_filter): uma linha logo abaixo do título do painel
-FILTER_ROW = 22                                  # altura que a linha ocupa (o grid do baú desce isso)
-FILTER_BTN = 18                                  # botão com ícone: 18×18 (ícone 16 + 1 de borda)
-FILTER_ALL_W = 26                                # botão "TUDO"
-FILTER_NAME = {"all": "TUDO", **C.RESOURCE_LABEL}
+# seção "DRONES" dos painéis de baú e drill (draw_logistics): Envia, Recebe e Lote
+LOGI_ROW = 20                                    # passo entre as linhas ENVIA / RECEBE / LOTE
+LOGI_H = 13 + 3 * LOGI_ROW - 2                   # altura da seção: cabeçalho + 3 linhas de botões
+LOGI_BTN = 18                                    # toggle com ícone: 18×18 (ícone 16 + 1 de borda)
+LOGI_LABEL_W = 42                                # coluna dos rótulos "ENVIA" / "RECEBE"
+BATCH_BTN_W = 17                                 # botões do lote: 1 / 5 / 10 / 20
+# painel do lado (baú/drill): título, grade de 3 linhas, botões e a seção DRONES
+SIDE_GRID_Y = 22
+SIDE_BUTTONS_Y = SIDE_GRID_Y + 3 * (20 + 2) - 2 + 5
+SIDE_LOGI_Y = SIDE_BUTTONS_Y + 15 + 4
 
 
 # Dígitos 5×7 desenhados à mão, no traço fino da Pixelify. Em 11 px a fonte desenha o "5" igual
@@ -161,8 +166,9 @@ class UI:
         self.buffer_rects: list[tuple[pygame.Rect, str]] = []
         self.panel_buttons: list[tuple[pygame.Rect, str]] = []   # "take_all", "store_all", "take_buffer"
         self.name_rect: pygame.Rect | None = None                 # nome do baú (clique = editar)
-        self.notice_y = self.hotbar_y - 58                             # altura do aviso nos painéis (draw_inventory)
-        self.filter_buttons: list[tuple[pygame.Rect, str]] = []   # seletor de filtro do baú: (retângulo, filtro)
+        self.notice_y = self.hotbar_y - 58                            # altura do aviso nos painéis (draw_inventory)
+        # seção DRONES do baú/drill: (retângulo, ("send"|"recv", item) ou ("batch", n))
+        self.logistics_buttons: list[tuple[pygame.Rect, tuple[str, object]]] = []
         self.slot_img = Sprites().get("ui_slot")      # moldura opcional (bíblia §8); sem ela, desenhamos
 
     # ---- tamanho e âncoras -------------------------------------------------------
@@ -686,12 +692,12 @@ class UI:
         self.bay_rects.clear()
         self.buffer_rects.clear()
         self.panel_buttons.clear()
-        self.filter_buttons.clear()
+        self.logistics_buttons.clear()
         self.name_rect = None
         self.fill((8, 5, 4, 158), (0, 0, self.w, self.h))
         pw = GRID_W + 16
         ph_inv = 20 + 6 + SLOT + 14 + SLOT + 8                  # título, mochila, rótulo HOTBAR, hotbar
-        ph_side = 20 + 6 + FILTER_ROW + 3 * SLOT_STEP - SLOT_GAP + 6 + 14 + 8   # baú: filtro, 3 linhas e botões
+        ph_side = SIDE_LOGI_Y + LOGI_H + 5                      # baú/drill: grade, botões e a seção DRONES
         total_w = pw if side is None else 2 * pw + 10
         x = (self.w - total_w) // 2
         h = ph_inv if side is None else max(ph_inv, ph_side)
@@ -711,6 +717,9 @@ class UI:
             self._chest_panel(side, x + pw + 10, y, pw, h, item_icon, mouse, t, editing)
             keys = ("DIGITE O NOME · [ENTER] OK · [ESC] CANCELA" if editing is not None else
                     "[CLIQUE] PILHA · [DIREITO] 1 · [SHIFT+CLIQUE] TODAS · [ESC] FECHA")
+        elif side.is_drill:
+            self._drill_panel(side, x + pw + 10, y, pw, h, item_icon, mouse, status)
+            keys = "[CLIQUE] TIRA A PILHA · [DIREITO] 1 · [ESC] FECHA"
         else:
             self._station_panel(side, x + pw + 10, y, pw, h, item_icon, mouse, status, info)
             keys = "[CLIQUE] PILHA/DRONE · [DIREITO] 1 · [ESC] FECHA"
@@ -771,14 +780,36 @@ class UI:
             self.text(name, cx + 8, y + 4, C.C_ACCENT, self.body)
             self._pencil(cx + 13 + w, y + 7, C.C_TI if hover else C.C_MUTED)
             self.name_rect = rect
-        self.draw_chest_filter(cx + 8, y + 22, pw - 16, chest.filter, item_icon, mouse)
-        self._grid(box, list(range(len(box))), cx + 8, y + 26 + FILTER_ROW, item_icon, mouse)
-        by = y + 26 + FILTER_ROW + 3 * SLOT_STEP - SLOT_GAP + 5
+        self._grid(box, list(range(len(box))), cx + 8, y + SIDE_GRID_Y, item_icon, mouse)
+        by = y + SIDE_BUTTONS_Y
         # largura pelo texto (o "Guardar recursos" é mais comprido): um encostado em cada ponta da grade
         take_w = self.font.size("PEGAR TUDO")[0] + 12
         store_w = self.font.size("GUARDAR RECURSOS")[0] + 12
         self._button(pygame.Rect(cx + 8, by, take_w, 15), "Pegar tudo", "take_all", mouse, not box.is_empty())
         self._button(pygame.Rect(cx + 8 + GRID_W - store_w, by, store_w, 15), "Guardar recursos", "store_all", mouse)
+        self.draw_logistics(cx + 8, y + SIDE_LOGI_Y, GRID_W, chest, item_icon, mouse)
+
+    def _drill_panel(self, drill, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str) -> None:
+        """Drill: o inventário dela (1 slot, só tirar), quanto encheu, Pegar tudo e a seção DRONES."""
+        ore = C.RESOURCE_NAME[drill.resource]
+        self._window(cx, y, pw, h, f"DRILL · {ore.upper()}", C.C_ACCENT)
+        self.text(f"{drill.stored}/{C.DRILL_CAPACITY}", cx + pw - 8, y + 6, C.C_MUTED, align="right")
+        self._grid(drill.storage, list(range(len(drill.storage))), cx + 8, y + SIDE_GRID_Y + 4, item_icon, mouse)
+        # barra de enchimento do lado do slot, na cor do minério (cheia: verde)
+        bx, bw = cx + 8 + SLOT_STEP + 4, GRID_W - SLOT_STEP - 4
+        fill = drill.stored / C.DRILL_CAPACITY
+        self.surf.fill(pygame.Color("#120d0b"), (bx, y + SIDE_GRID_Y + 6, bw, 6))
+        pygame.draw.rect(self.surf, pygame.Color("#3a2c25"), (bx, y + SIDE_GRID_Y + 6, bw, 6), 1)
+        if fill > 0:
+            color = "#7ad46a" if drill.full else C.ORE_COLORS[drill.resource][0]
+            self.surf.fill(pygame.Color(color), (bx + 1, y + SIDE_GRID_Y + 7, round((bw - 2) * fill), 4))
+        self.text(status, bx, y + SIDE_GRID_Y + 15, C.C_ALERT if drill.full else C.C_MUTED)
+        for k, line in enumerate(wrap(self.body, "Os drones levam daqui o que estiver marcado em ENVIA.",
+                                      GRID_W)[:2]):
+            self.text(line, cx + 8, y + SIDE_GRID_Y + 36 + k * 12, "#a89a8e", self.body)
+        self._button(pygame.Rect(cx + 8, y + SIDE_BUTTONS_Y, self.font.size("PEGAR TUDO")[0] + 12, 15),
+                     "Pegar tudo", "take_drill", mouse, drill.stored > 0)
+        self.draw_logistics(cx + 8, y + SIDE_LOGI_Y, GRID_W, drill, item_icon, mouse)
 
     def _station_panel(self, machine, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str,
                        info: str | None = None) -> None:
@@ -787,7 +818,7 @@ class UI:
         self._window(cx, y, pw, h, "ESTAÇÃO DE DRONES", C.C_O2)
         self.text(f"{len(st.drones)}/{C.STATION_DRONE_SLOTS}", cx + pw - 8, y + 6, C.C_MUTED, align="right")
         self.text("DRONES", cx + 8, y + 24, C.C_MUTED)
-        self.text(f"ALCANCE {C.DRONE_RANGE} TILES", cx + pw - 8, y + 24, C.C_MUTED, align="right")
+        self.text("ALCANCE: MAPA TODO", cx + pw - 8, y + 24, C.C_MUTED, align="right")
         n = C.STATION_DRONE_SLOTS
         margin = 6
         step = (GRID_W - 2 * margin - SLOT) // (n - 1)    # espalhados na largura: cabe "POUSADO" embaixo de cada
@@ -810,60 +841,105 @@ class UI:
                 self.text("VAZIO", sx + SLOT / 2, sy + SLOT + 2, "#5a4a40", align="center")
             self.bay_rects.append((rect, slot))
         by = y + 72
-        self.text(f"BUFFER {st.stored}/{C.STATION_BUFFER}", cx + 8, by, C.C_ALERT if st.full else C.C_MUTED)
         stacks = st.buffer_stacks()
-        for k in range(len(C.RESOURCES)):
-            sx, sy = cx + 8 + k * SLOT_STEP, by + 10
-            rect = pygame.Rect(sx, sy, SLOT, SLOT)
-            stack = Stack(*stacks[k]) if k < len(stacks) else None
-            self.draw_slot(sx, sy, stack, item_icon, hover=stack is not None and rect.collidepoint(mouse))
-            if stack is not None:
-                self.buffer_rects.append((rect, stack.item))
-        self._button(pygame.Rect(cx + 8 + 3 * SLOT_STEP + 6, by + 12, GRID_W - 3 * SLOT_STEP - 6, 15),
-                     "Pegar tudo", "take_buffer", mouse, st.stored > 0)
+        if stacks:                                     # sobras do buffer antigo (save ≤ v4): só tirar
+            self.text("SOBRAS (SÓ TIRAR)", cx + 8, by, C.C_MUTED)
+            for k in range(len(C.RESOURCES)):
+                sx, sy = cx + 8 + k * SLOT_STEP, by + 10
+                rect = pygame.Rect(sx, sy, SLOT, SLOT)
+                stack = Stack(*stacks[k]) if k < len(stacks) else None
+                self.draw_slot(sx, sy, stack, item_icon, hover=stack is not None and rect.collidepoint(mouse))
+                if stack is not None:
+                    self.buffer_rects.append((rect, stack.item))
+            self._button(pygame.Rect(cx + 8 + 3 * SLOT_STEP + 6, by + 12, GRID_W - 3 * SLOT_STEP - 6, 15),
+                         "Pegar tudo", "take_buffer", mouse, True)
+        else:                                          # o lugar vira a dica de como a logística funciona
+            tip = ("Os drones levam itens de quem ENVIA pra quem RECEBE, no mapa todo. "
+                   "Configure no painel de cada baú e drill (seção DRONES).")
+            for k, line in enumerate(wrap(self.body, tip, GRID_W)):
+                self.text(line, cx + 8, by + k * 12, "#a89a8e", self.body)
         if info:                                       # o que está debaixo do mouse (no lugar do tooltip)
             self.text(info, cx + 8, y + h - 30, C.C_TI, self.body)
         self.text(status, cx + 8, y + h - 16, "#d9cfc4", self.body)
 
-    # ---- filtro do baú pros drones (bloco autocontido: desenho + hit-test) ---------
-    def draw_chest_filter(self, x: int, y: int, w: int, current: str, item_icon, mouse) -> None:
-        """Linha "DRONES TRAZEM: [TUDO] [ferro] [silício] [gelo]" a partir de (x, y), largura `w`.
-        O ativo fica com a borda laranja. Guarda os botões em `filter_buttons` (ver chest_filter_at)."""
-        self.fill((0, 0, 0, 70), (x, y, w, FILTER_BTN + 2))
-        self.text("DRONES TRAZEM:", x + 3, y + 6, C.C_MUTED)
-        bx = x + w - 1 - FILTER_ALL_W - len(C.RESOURCES) * (FILTER_BTN + 2)
-        for value in C.CHEST_FILTERS:
-            bw = FILTER_ALL_W if value == "all" else FILTER_BTN
-            rect = pygame.Rect(bx, y + 1, bw, FILTER_BTN)
-            active, hover = value == current, rect.collidepoint(mouse)
+    # ---- seção DRONES do baú/drill: Envia, Recebe e Lote (bloco autocontido: desenho + hit-test) ----
+    def _toggle(self, rect: pygame.Rect, item: str, active: bool, color: str, item_icon, mouse) -> None:
+        """Botão 18×18 com o ícone do item: ativo com fundo e borda na cor da linha, inativo apagado."""
+        hover = rect.collidepoint(mouse)
+        self.surf.fill(pygame.Color("#33261e" if active else "#120d0b"), rect)
+        if hover:
+            self.fill((255, 255, 255, 30), rect.inflate(-2, -2))
+        pygame.draw.rect(self.surf, pygame.Color(color if active else "#3a2c25"), rect, 1)
+        icon = item_icon(item)
+        if not active:
+            icon = icon.copy()
+            icon.set_alpha(95)
+        self.native.append((icon, (rect.x * 2 + 2, rect.y * 2 + 2)))
+
+    def draw_logistics(self, x: int, y: int, w: int, machine, item_icon, mouse) -> None:
+        """Seção "DRONES" a partir de (x, y), largura `w`, altura LOGI_H, uma coisa por linha:
+
+            DRONES                          NADA CONFIGURADO
+            ENVIA            [fe][si][ge]
+            RECEBE           [fe][si][ge]
+            LOTE POR VIAGEM  [1][5][10][20]
+
+        A drill pula o RECEBE (ela só produz) e só mostra o minério dela no ENVIA.
+        Guarda os botões em `logistics_buttons`."""
+        from game import drones                      # (import local: a UI não depende da lógica no topo)
+        self.fill((255, 255, 255, 28), (x, y, w, 1))
+        self.text("DRONES", x, y + 4, C.C_O2)
+        if not drones.configured(machine):
+            self.text("NADA CONFIGURADO", x + w, y + 4, C.C_TI, align="right")
+        col = x + self.font.size("LOTE POR VIAGEM")[0] + 8     # todos os botões começam na mesma coluna
+        ry = y + 13
+        rows = [("ENVIA", "send", machine.sends, C.C_ACCENT, drones.can_send)]
+        if not machine.is_drill:
+            rows.append(("RECEBE", "recv", machine.receives, C.C_O2, drones.can_receive))
+        for label, kind, chosen, color, allowed in rows:
+            self.text(label, x, ry + 6, C.C_MUTED)
+            for k, item in enumerate(i for i in C.LOGISTIC_ITEMS if allowed(machine, i)):
+                rect = pygame.Rect(col + k * (LOGI_BTN + 2), ry, LOGI_BTN, LOGI_BTN)
+                self._toggle(rect, item, item in chosen, color, item_icon, mouse)
+                self.logistics_buttons.append((rect, (kind, item)))
+            ry += LOGI_ROW
+        self.text("LOTE POR VIAGEM", x, ry + 6, C.C_MUTED)
+        for k, amount in enumerate(C.DRONE_BATCH_OPTIONS):
+            rect = pygame.Rect(col + k * (BATCH_BTN_W + 2), ry, BATCH_BTN_W, LOGI_BTN)
+            active, hover = amount == machine.batch, rect.collidepoint(mouse)
             self.surf.fill(pygame.Color("#3a2a22" if active else "#120d0b"), rect)
             if hover and not active:
                 self.fill((255, 255, 255, 30), rect.inflate(-2, -2))
-            pygame.draw.rect(self.surf, pygame.Color(C.C_ACCENT if active else "#3a2c25"), rect, 1)
-            if value == "all":
-                self.text("TUDO", rect.centerx + 1, y + 6, C.C_TEXT if active else C.C_MUTED, align="center")
-            else:
-                icon = item_icon(value)
-                if not active:                      # inativo: ícone apagado, o ativo salta aos olhos
-                    icon = icon.copy()
-                    icon.set_alpha(150)
-                self.native.append((icon, (rect.x * 2 + 2, rect.y * 2 + 2)))
-            self.filter_buttons.append((rect, value))
-            bx += bw + 2
+            pygame.draw.rect(self.surf, pygame.Color(C.C_TI if active else "#3a2c25"), rect, 1)
+            self.text(str(amount), rect.centerx + 1, rect.y + 6, C.C_TEXT if active else C.C_MUTED, align="center")
+            self.logistics_buttons.append((rect, ("batch", amount)))
 
-    def chest_filter_at(self, pos) -> str | None:
-        """Qual filtro está debaixo de `pos` (coordenadas da UI), ou None."""
-        return next((value for rect, value in self.filter_buttons if rect.collidepoint(pos)), None)
+    def logistics_at(self, pos) -> tuple[str, object] | None:
+        """Qual botão da seção DRONES está debaixo de `pos` (coordenadas da UI): ("send", item),
+        ("recv", item), ("batch", n) ou None."""
+        return next((value for rect, value in self.logistics_buttons if rect.collidepoint(pos)), None)
 
-    # ---- rótulo flutuante do baú no mundo: [ícone do filtro] Nome ------------------
+    # ---- rótulo flutuante do baú no mundo: ↓[recebe] ↑[envia] Nome ------------------
     @staticmethod
     def chest_label_parts(chest) -> list[tuple[str, str]]:
-        """O que vai no rótulo em cima do baú: [("icon", minério)] se tiver filtro, e ("text", nome)."""
+        """O que vai no rótulo em cima do baú: ("arrow", "down") + ícones do que recebe, ("arrow", "up")
+        + ícones do que envia, e ("text", nome). Sem configuração, só o nome."""
         parts = []
-        if chest.filter != "all":
-            parts.append(("icon", chest.filter))
+        for arrow, chosen in (("down", chest.receives), ("up", chest.sends)):
+            items = [i for i in C.LOGISTIC_ITEMS if i in chosen]
+            if items:
+                parts.append(("arrow", arrow))
+                parts += [("icon", i) for i in items]
         parts.append(("text", chest.name or C.CHEST_DEFAULT_NAME))
         return parts
+
+    def _label_arrow(self, x: int, y: int, down: bool) -> None:
+        """Setinha 5×6 do rótulo: ↓ (recebe, azul) ou ↑ (envia, laranja)."""
+        color = pygame.Color(C.C_O2 if down else C.C_ACCENT)
+        self.surf.fill(color, (x + 2, y + (0 if down else 2), 1, 4))
+        for k in range(3):
+            row = k if not down else 2 - k
+            self.surf.fill(color, (x + 2 - row, y + (3 + k if down else k), 2 * row + 1, 1))
 
     def draw_chest_labels(self, chests, cam: tuple[int, int], zoom: float, icons: dict) -> None:
         """Rótulo em cima de cada baú de `chests`: preso no mundo (acompanha o zoom), letra de tamanho fixo.
@@ -871,8 +947,11 @@ class UI:
         placed: list[pygame.Rect] = []
         for chest in sorted(chests, key=lambda c: -c.anchor[1]):  # o da frente primeiro; os de trás sobem
             parts = self.chest_label_parts(chest)
-            widths = [8 if kind == "icon" else self.body.size(value)[0] for kind, value in parts]
-            w = sum(widths) + 3 * (len(parts) - 1) + 8
+            widths = [8 if kind == "icon" else 5 if kind == "arrow" else self.body.size(value)[0]
+                      for kind, value in parts]
+            gaps = [1 if kind == "arrow" or (kind == "icon" and nxt[0] == "icon") else 3
+                    for (kind, _), nxt in zip(parts, parts[1:])]
+            w = sum(widths) + sum(gaps) + 8
             ax, ay = chest.anchor
             top = ay - C.CHEST_SPRITE_SIZE[1] - 2                 # logo acima da tampa (mundo)
             sx, sy = self.world_to_ui((ax, top), cam, zoom)
@@ -884,12 +963,14 @@ class UI:
                 continue
             self.panel(x, y, w, 14, (14, 10, 9, 210))
             px = x + 4
-            for (kind, value), pw in zip(parts, widths):
+            for n, ((kind, value), pw) in enumerate(zip(parts, widths)):
                 if kind == "icon":
                     self.native.append((icons[value], (px * 2, (y + 3) * 2)))
+                elif kind == "arrow":
+                    self._label_arrow(px, y + 4, value == "down")
                 else:
                     self.text(value, px, y + 1, C.C_TEXT, self.body)
-                px += pw + 3
+                px += pw + (gaps[n] if n < len(gaps) else 0)
 
     def draw_held_and_tooltip(self, held: Stack | None, label: str | None, mouse, item_icon) -> None:
         """Por cima de tudo: a pilha presa no cursor ou, sem nada na mão, o texto do slot debaixo do
@@ -900,8 +981,16 @@ class UI:
             if held.count > 1:
                 self.native_text(str(held.count), mx + 20, my + 14, C.C_TEXT, "right")
         elif label:
+            # ancorado no elemento debaixo do mouse (slot ou botão da seção DRONES): logo acima dele, ou
+            # abaixo se não couber, pra nunca cobrir a própria linha
             w = self.body.size(label)[0] + 12
-            tx, ty = min(mx + 8, self.w - w - 2), my - 18
+            under = next((r for r in [*(r for r, _, _ in self.slot_rects), *(r for r, _ in self.logistics_buttons)]
+                          if r.collidepoint(mouse)), None)
+            if under is None:
+                tx, ty = min(mx + 8, self.w - w - 2), my - 18
+            else:
+                tx = max(2, min(under.x, self.w - w - 2))
+                ty = under.top - 18 if under.top - 18 >= 2 else under.bottom + 2
             self.panel(tx, ty, w, 16, (14, 10, 9, 235))
             self.text(label, tx + 6, ty + 2, C.C_TEXT, self.body)
 
@@ -984,7 +1073,8 @@ class UI:
     CONTROLS = [
         ("WASD / SETAS", "Andar"),
         ("SEGURAR CLIQUE", "Minerar a parede mirada"),
-        ("E", "Fabricador (na base) · terminal · baú · estação"),
+        ("E", "Fabricador · terminal · baú · drill · estação"),
+        ("SHIFT+E", "Coletar a drill sem abrir o painel"),
         ("1 A 8 · RODINHA", "Escolher slot da hotbar"),
         ("CLIQUE", "Colocar a máquina da hotbar"),
         ("R", "Girar a máquina (só visual)"),
