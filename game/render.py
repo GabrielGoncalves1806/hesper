@@ -93,6 +93,9 @@ class Renderer:
         self.fog_blob = art.radial(180, (230, 236, 240), 70)
         self.dust = [self._dot((240, 170, 120, 128)), self._dot((255, 210, 170, 178))]
         self.open_chest = None                   # baú aberto agora (o App avisa): desenha com a tampa aberta
+        self.highlight = None                    # alvo do E (o App avisa): Machine ou ("terminal", índice)
+        self._drone_offsets: dict[int, tuple[float, float]] = {}   # deslocamento visual suavizado por drone
+        self._drone_t: float | None = None
         self._item_icons: dict[str, pygame.Surface] = {}
 
     # ---- utilitários ----------------------------------------------------------
@@ -306,7 +309,10 @@ class Renderer:
         if not world.is_solid(tx, ty + 1):
             canvas.blit(self.surface(f"wall_face_{stage}", lambda: art.wall_face(stage))[0], (sx, sy + FACE_Y))
             if kind == C.TERMINAL:   # o terminal fica pendurado na face
-                canvas.blit(self.surface("terminal", art.terminal)[0], (sx, sy))
+                term = self.surface("terminal", art.terminal)[0]
+                canvas.blit(term, (sx, sy))
+                if self.highlight is not None and self.highlight == ("terminal", (tx, ty)):
+                    canvas.blit(self.outline_of("terminal", term), (sx - 1, sy - 1))
 
     def _draw_floor(self, canvas, world, tx, ty, sx, sy, stage, stage_num, t) -> None:
         P = C.PALETTES[stage]
@@ -418,6 +424,9 @@ class Renderer:
                     items.append((my, lambda m=m: self.draw_station(canvas, m, cam, t)))
                 else:
                     items.append((my, lambda m=m, mx=mx, my=my: self.draw_machine(canvas, m.kind, mx - cam_x, my - cam_y, self.machine_t, m.rotation)))
+                if m is self.highlight:   # alvo do E: contorno logo depois dele (quem está na frente cobre)
+                    items.append((my, lambda m=m, mx=mx, my=my: self._blit_anchored(
+                        canvas, self.highlight_outline(m), mx - cam_x, my - cam_y + 1)))
 
         if self.stage_map.next_stage >= 3:   # plantas nascem junto com a mancha verde
             tx0, ty0 = cam_x // T, cam_y // T
@@ -433,6 +442,30 @@ class Renderer:
         p = state.player
         items.append((p.y, lambda: self._draw_player(canvas, state, p.x - cam_x, p.y - cam_y, t)))
         return items
+
+    HIGHLIGHT_RGBA = (255, 236, 176, 150)   # contorno do alvo do E: creme claro, meio transparente
+
+    def outline_of(self, key, surf: pygame.Surface) -> pygame.Surface:
+        """Contorno de 1 px em volta da silhueta de `surf` (2 px maior em cada eixo), no cache por `key`."""
+        cache_key = ("outline", key)
+        if cache_key not in self._fx:
+            mask = pygame.mask.from_surface(surf, 40)
+            w, h = surf.get_size()
+            grown = pygame.mask.Mask((w + 2, h + 2))
+            for off in ((0, 1), (2, 1), (1, 0), (1, 2)):
+                grown.draw(mask, off)
+            grown.erase(mask, (1, 1))
+            self._fx[cache_key] = grown.to_surface(setcolor=self.HIGHLIGHT_RGBA, unsetcolor=(0, 0, 0, 0))
+        return self._fx[cache_key]
+
+    def highlight_outline(self, machine) -> pygame.Surface:
+        """Contorno do sprite da máquina (drill no quadro 0: a silhueta não muda girando)."""
+        if machine.is_drill:
+            return self.outline_of("drill", self.drill_frame(0))
+        if machine.is_chest:
+            opened = machine is self.open_chest
+            return self.outline_of(("chest", opened), self.chest_surface(opened))
+        return self.outline_of("station", self.station_surface())
 
     def _blit_anchored(self, canvas, surf, ax, ay, flip=False):
         if flip:
@@ -522,24 +555,35 @@ class Renderer:
         return self._fx[key]
 
     def draw_flying_drones(self, canvas, state: GameState, cam, t: float) -> None:
-        """Drones no ar: sombra no chão (elipse 12×5, preto 36%) e o drone balançando de leve em cima."""
+        """Drones no ar: sombra no chão (elipse 12×5, preto 36%) e o drone balançando de leve em cima.
+        Cada um vai na faixa dele (drones.visual_offset): de lado na rota, um pouco mais alto ou mais
+        baixo, e num ponto próprio em volta do alvo. Só o desenho: a posição lógica é a mesma."""
+        dt = 0.0 if self._drone_t is None else max(0.0, min(0.1, t - self._drone_t))
+        self._drone_t = t
+        offsets = {}
         for machine in state.stations:
-            for i, drone in enumerate(machine.station.drones):
+            for drone in machine.station.drones:
                 if not drone.in_air:
                     continue
-                x, y = round(drone.x - cam[0]), round(drone.y - cam[1])
+                key = id(drone)
+                goal = drones.visual_offset(machine, drone)
+                ox, oy = offsets[key] = drones.ease(self._drone_offsets.get(key, goal), goal, dt)
+                # decolando/pousando (lift < 1): a sombra vem de debaixo dele, maior e mais escura,
+                # e vai se afastando e encolhendo conforme sobe (o inverso no pouso). A faixa entra junto
+                # com a subida, então ele sai e chega no pad certinho.
+                lift = drones.lift(machine, drone)
+                x = round(drone.x + ox * lift - cam[0])
+                y = round(drone.y + oy * lift - cam[1])
                 if not (-32 < x < self.view_w + 32 and -32 < y < self.view_h + 48):
                     continue
-                # decolando/pousando (lift < 1): a sombra vem de debaixo dele, maior e mais escura,
-                # e vai se afastando e encolhendo conforme sobe (o inverso no pouso)
-                lift = drones.lift(machine, drone)
                 shadow = self.drone_shadow_at(lift)
                 drop = round(LANDED_SHADOW_DROP + (C.DRONE_SHADOW_DROP - LANDED_SHADOW_DROP) * lift)
                 canvas.blit(shadow, (x - shadow.get_width() // 2, y + drop - shadow.get_height() // 2))
-                bob = round(math.sin(t * 5 + i * 1.7) * 1.5 * lift)
-                canvas.blit(self.drone_frame(t, i), (x - 8, y - 8 + bob))
+                bob = round(math.sin(t * 5 + drone.pad * 1.7) * 1.5 * lift - drones.altitude(drone) * lift)
+                canvas.blit(self.drone_frame(t, drone.pad), (x - 8, y - 8 + bob))
                 if drone.cargo:
                     self._draw_nugget(canvas, drone, x, y + bob)
+        self._drone_offsets = offsets
 
     def item_icon(self, item: str) -> pygame.Surface:
         """Ícone 32×32 (resolução cheia) de um item do inventário: recurso, drill, baú ou máquina."""

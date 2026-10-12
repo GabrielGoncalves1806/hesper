@@ -515,9 +515,35 @@ class GameState:
         near = [m for m in self.stations if self.drill_distance(m) <= C.STATION_REACH]
         return min(near, key=self.drill_distance, default=None)
 
-    def interaction(self) -> tuple[str, object] | None:
+    def interactable_at(self, px: float, py: float) -> tuple[str, object] | None:
+        """O que dá pra abrir com E debaixo do pixel (px, py) do mundo: ("drill"/"chest"/"station",
+        máquina) ou ("terminal", índice). Sem checar alcance (isso é com o `in_reach`)."""
+        machine = self.machine_at_point(px, py)
+        if machine is not None:
+            for kind, flag in (("drill", machine.is_drill), ("chest", machine.is_chest),
+                               ("station", machine.is_station)):
+                if flag:
+                    return kind, machine
+            return None                                  # O2, aquecedor...: o E não abre nada
+        tiles = {self.world.visual_tile_at(px, py), (int(px // C.TILE), int(py // C.TILE))}
+        for i, tile in enumerate(self.world.terminals):
+            if tuple(tile) in tiles:
+                return "terminal", i
+        return None
+
+    def in_reach(self, kind: str, target) -> bool:
+        """O alvo está no alcance do E? (mesmas distâncias do "mais perto")"""
+        if kind == "terminal":
+            return self.terminal_distance(target) <= C.TERMINAL_REACH
+        reach = {"drill": C.DRILL_REACH, "chest": C.CHEST_REACH, "station": C.STATION_REACH}[kind]
+        return any(m is target for m in self.machines) and self.drill_distance(target) <= reach
+
+    def interaction(self, hover: tuple[str, object] | None = None) -> tuple[str, object] | None:
         """O que o E faz aqui: ("terminal", índice), ("drill", máquina), ("chest", máquina) ou
-        ("station", máquina), o que estiver mais perto."""
+        ("station", máquina). Se `hover` (o que está debaixo do mouse, de `interactable_at`) estiver no
+        alcance, é ele; senão, o que estiver mais perto do player."""
+        if hover is not None and self.in_reach(*hover):
+            return hover
         options = []
         terminal = self.nearby_terminal()
         if terminal is not None:

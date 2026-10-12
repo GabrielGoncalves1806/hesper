@@ -137,6 +137,70 @@ def lift(machine, drone: Drone) -> float:
     return min(1.0, math.hypot(drone.x - px, drone.y - py) / ramp)
 
 
+# ---------------------------------------------------------------- só visual: drones na mesma rota
+# Vários drones indo pro mesmo lugar voariam no mesmo ponto e pareceriam um só. Cada um ganha uma
+# "faixa" estável pelo slot dele: um deslocamento de lado (perpendicular ao voo), uma altura e, parado
+# em cima de um inventário, um ponto diferente em volta do alvo. Só o desenho muda: (x, y) do drone, a
+# chegada e o resto da lógica continuam iguais. Quem suaviza a troca de um pro outro é o render.py.
+# Formação em losango, por slot: (de lado, pra frente) em px, relativo à direção do voo. Os dois primeiros
+# lado a lado (16 px = um drone), o 3º atrás e o 4º na frente, no meio.
+FORMATION = ((-8.0, 0.0), (8.0, 0.0), (0.0, -13.0), (0.0, 13.0))
+ALTITUDES = (0, 3, 6, 2)          # px a mais de altura (o drone sobe, a sombra fica no chão), por slot
+# Pegando/soltando: cada slot num ponto em volta do alvo (visão de cima: elipse mais larga que alta).
+SPOT_RX, SPOT_RY = 13.0, 8.0
+SPOT_ANGLES = (math.pi, 0.0, -math.pi / 2, math.pi / 2)   # esquerda, direita, atrás (em cima), na frente
+EASE_RATE = 6.0                   # por segundo: quão rápido o desenho troca de faixa/ponto
+
+
+def _station_jitter(machine) -> float:
+    """-1, 0 ou 1, fixo por estação: drones do mesmo slot em estações diferentes não ficam colados."""
+    return float((machine.tx * 7 + machine.ty * 13) % 3 - 1)
+
+
+def flight_target(machine, drone: Drone) -> tuple[float, float] | None:
+    """Pra onde o drone está voando agora (None: parado no ar pegando/soltando, ou pousado)."""
+    if drone.state == OUTBOUND and drone.source is not None:
+        return hover_position(drone.source)
+    if drone.state == CARRYING and drone.dest is not None:
+        return hover_position(drone.dest)
+    if drone.state == RETURNING:
+        return pad_position(machine, drone.pad)
+    return None
+
+
+def visual_offset(machine, drone: Drone) -> tuple[float, float]:
+    """Deslocamento (px do mundo) que o desenho do drone QUER ter: o lugar dele na formação (de lado e
+    pra frente/trás, pelo slot) enquanto voa, ou o ponto dele em volta do alvo enquanto pega/solta.
+    Pousado: (0, 0). Não mexe no drone."""
+    if not drone.in_air:
+        return 0.0, 0.0
+    jitter = _station_jitter(machine)
+    slot = drone.pad % len(FORMATION)
+    target = flight_target(machine, drone)
+    if target is not None:
+        dx, dy = target[0] - drone.x, target[1] - drone.y
+        dist = math.hypot(dx, dy)
+        if dist > 1e-6:
+            ux, uy = dx / dist, dy / dist                 # pra frente
+            side, ahead = FORMATION[slot]
+            side += jitter * 2
+            return -uy * side + ux * ahead, ux * side + uy * ahead
+    angle = SPOT_ANGLES[slot] + jitter * 0.3
+    return math.cos(angle) * SPOT_RX, math.sin(angle) * SPOT_RY
+
+
+def altitude(drone: Drone) -> int:
+    """Altura extra (px) do desenho do drone, pelo slot."""
+    return ALTITUDES[drone.pad % len(ALTITUDES)]
+
+
+def ease(current: tuple[float, float], goal: tuple[float, float], dt: float,
+         rate: float = EASE_RATE) -> tuple[float, float]:
+    """Anda de `current` pra `goal` suavemente (exponencial): nada de pulo quando o drone troca de rota."""
+    k = 1.0 - math.exp(-rate * max(0.0, dt))
+    return current[0] + (goal[0] - current[0]) * k, current[1] + (goal[1] - current[1]) * k
+
+
 def tile_distance(a, b) -> float:
     """Distância (tiles) entre os centros de duas máquinas."""
     (ax, ay), (bx, by) = center(a), center(b)

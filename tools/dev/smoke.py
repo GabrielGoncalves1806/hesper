@@ -1102,6 +1102,113 @@ def check_logistics(bot) -> None:
     bot.frames(0.1)
 
 
+def check_final_polish(bot) -> None:
+    """Polimento final do v0.2: E abre o que está debaixo do mouse (com contorno), drones na mesma rota
+    separados e floaters desviando do rótulo do baú. Prints: e_mouse, drones_separados, rotulo_floater."""
+    from game import drones, viewport
+    from game.systems import Machine
+    s, app = bot.state, bot.app
+    bot.teleport((64, 65))
+    s.o2 = C.O2_MAX
+    bot.frames(0.1)
+    chest = s.chests[0]
+    ax, ay = chest.anchor
+
+    def mouse_on(machine):
+        x, y, w, h = machine.sprite_rect
+        pos = viewport.world_to_canvas((x + w / 2, y + h / 2), app.cam, app.zoom)
+        bot.mouse_to((round(pos[0]), round(pos[1])))
+        bot.frames(DT)
+
+    # 1) dois baús no alcance: sem mouse, o E abre o mais perto; com o mouse no outro, abre o outro
+    other = None
+    for t in ((chest.tx + 1, chest.ty), (chest.tx - 1, chest.ty)):
+        if not s.machine_at(t) and s.world.get(*t) == C.FLOOR and t not in C.POD_TILES:
+            other = Machine("chest", *t, name="Ferro")
+            s.machines.append(other)
+            break
+    assert other is not None
+    s.player.x, s.player.y = ax, ay + 10
+    bot.mouse_to((20, 20))
+    bot.frames(DT)
+    assert app.e_target() == ("chest", chest), app.e_target()
+    mouse_on(other)
+    assert s.in_reach("chest", other)
+    assert app.e_target() == ("chest", other) and app.renderer.highlight is other
+    assert app.hint().endswith("· [E] abrir"), app.hint()
+    shot_zoom(bot, "e_mouse.png", (ax, ay - 20), w=160, h=90, k=4)
+    bot.key(pygame.K_e)
+    assert app.mode == "chest" and app.open_chest is other
+    bot.key(pygame.K_ESCAPE)
+    assert app.mode == "play"
+    bot.mouse_to((20, 20))
+    bot.frames(DT)
+    assert app.hint() == f"[E] Abrir baú: {chest.name}", app.hint()
+    s.machines.remove(other)
+
+    # 2) quatro drones na mesma rota (mesmo ponto lógico): cada um na faixa dele
+    station = s.stations[0]
+    while station.station.free_slots():
+        drones.dock(station, station.station)
+    chest.receives.add("iron")
+    start = (ax - 8 * C.TILE, ay + 3 * C.TILE)                    # embaixo à esquerda (longe do HUD)
+    for k, d in enumerate(station.station.drones):
+        d.state, d.dest, d.resource, d.cargo = drones.CARRYING, chest, "iron", 1
+        d.x, d.y = start[0] + k * 3, start[1] + k                  # praticamente o mesmo ponto
+    s.player.x, s.player.y = ax, ay + 2 * C.TILE
+    bot.mouse_to((20, 20))
+    bot.frames(0.35)
+    lead = station.station.drones[0]
+    cx, cy = bot.app.cam
+    z = bot.app.zoom
+    def crop(world_xy, w=150, h=100):
+        x = max(0, min(C.SCREEN_W - w, int((world_xy[0] - cx) * z - w / 2)))
+        y = max(0, min(C.SCREEN_H - h, int((world_xy[1] - cy) * z - h / 2)))
+        return bot.app.frame.subsurface((x, y, w, h)).copy()
+    flying = crop((lead.x, lead.y + 8))
+    spread = {(round(d.x), round(d.y)) for d in station.station.drones}
+    print(f"  drones na rota: {len(spread)} posições lógicas quase iguais, desenho separado por faixa")
+    for _ in range(int(3 / DT)):                                  # espera eles soltarem em cima do baú
+        s.o2 = C.O2_MAX
+        bot.frames(DT)
+        if all(d.state == drones.DROPPING for d in station.station.drones):
+            break
+    bot.frames(0.25)
+    over = crop((ax, ay - 50))
+    sheet = pygame.Surface((300 + 6, 100), 0, flying)
+    sheet.fill((20, 20, 20))
+    sheet.blit(flying, (0, 0))
+    sheet.blit(over, (156, 0))
+    pygame.image.save(pygame.transform.scale_by(sheet, 3), str(OUT / "drones_separados.png"))
+    print("  screenshot: reports/dev/drones_separados.png  (esquerda: 4 drones na mesma rota · direita: soltando no baú)")
+    for _ in range(int(15 / DT)):                                 # deixa pousar e volta pra 2 drones
+        s.o2 = C.O2_MAX
+        bot.frames(DT)
+        if all(d.state == drones.LANDED for d in station.station.drones):
+            break
+    for d in list(station.station.drones)[2:]:
+        d.state, d.source, d.dest, d.cargo, d.resource = drones.LANDED, None, None, 0, None
+        drones.undock(station.station, d.pad)
+
+    # 3) rótulo do baú x floaters: quem ia passar por trás do rótulo nasce acima dele
+    s.player.x, s.player.y = ax + 8, ay + 12
+    bot.frames(0.5)                                               # a câmera chega no player
+    mouse_on(chest)
+    assert chest in app.labeled_chests()
+    app.floaters.items.clear()
+    app.floaters.add("+10 SILICIO", ax, ay - 78, C.ORE_COLORS["silicon"][0])   # entrega do drone
+    app.floaters.add("+O2", ax + 6, ay - 30, C.INDEX_COLOR["o2"])              # máquina logo embaixo
+    app.floaters.add("+5 FERRO", ax - 4, ay - 46, C.ORE_COLORS["iron"][0])
+    bot.frames(0.35)
+    assert chest in app.labeled_chests()
+    label = app.ui.chest_label_rects[0]
+    print(f"  rótulo do baú (UI): {tuple(label)} · floaters: {[f.text for f in app.floaters.items]}")
+    shot_zoom(bot, "rotulo_floater.png", (ax, ay - 70), w=220, h=150, k=3)
+    bot.mouse_to((20, 20))
+    bot.teleport((64, 65))
+    bot.frames(0.1)
+
+
 def shift_key(bot, key: int) -> None:
     """Tecla com o Shift segurado (Shift+Enter no fabricador)."""
     pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_LSHIFT, mod=0, unicode="", scancode=0))
@@ -1511,6 +1618,7 @@ def main() -> None:
     check_drones(bot)
     check_logistics(bot)
     check_polish(bot)
+    check_final_polish(bot)
     check_transition(bot, 2, [("transicao_verde_60.png", 0.60)])
     for _ in range(9):
         bot.key(pygame.K_F2)

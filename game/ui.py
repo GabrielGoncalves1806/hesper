@@ -20,7 +20,7 @@ from game import config as C
 from game import energy
 from game.assets import Sprites, load_font
 from game.fabricator import tab_kinds
-from game.floaters import LANE_PX, FloatingTexts
+from game.floaters import LANE_PX, RISE, FloatingTexts, dodge_labels
 from game.inventory import Inventory, Stack
 from game.systems import GameState, eta_label, stage_progress
 
@@ -147,6 +147,9 @@ class UI:
         self.canvas_k = 0.5               # px da UI por px do canvas (texto preso no mundo)
         self.surf = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
         self.native: list[tuple[pygame.Surface, tuple[int, int]]] = []
+        self.chest_label_rects: list[pygame.Rect] = []   # rótulos de baú deste frame (os floaters desviam)
+        self._dodge: dict[int, float] = {}                # desvio de cada floater (uid) do rótulo atual
+        self._dodge_key = None
         self.font = load_font("Silkscreen-Regular.ttf", 8, 12)        # rótulos
         self.font_big = load_font("Silkscreen-Regular.ttf", 16, 22)   # títulos
         # textos: Pixelify 11 px (em 10 e 12 o "G" vira "Q"), com os dígitos desenhados em pixels
@@ -461,13 +464,29 @@ class UI:
                 self.surf.fill(pygame.Color("#5a4a40"), (x + 8, ly + 5, 3, 3))
                 self.text(line.text, x + 16, ly, "#7a6c62", self.body)
 
-    def draw_floaters(self, floaters: FloatingTexts, cam: tuple[int, int], zoom: float = 1.0) -> None:
+    def draw_floaters(self, floaters: FloatingTexts, cam: tuple[int, int], zoom: float = 1.0,
+                      labels: list[pygame.Rect] = ()) -> None:
         """Textos presos num ponto do mundo: a posição acompanha o zoom, o tamanho da letra não
-        (a letra segue o tamanho da interface, igual ao resto do texto)."""
+        (a letra segue o tamanho da interface, igual ao resto do texto). `labels`: rótulos de baú já
+        desenhados neste frame; quem ia passar por trás deles nasce/fica acima (dodge_labels). O desvio
+        de cada floater é decidido uma vez e guardado enquanto o mesmo rótulo estiver na tela."""
+        k = zoom * self.canvas_k
+        h = self.font.get_height()
+        pos, boxes = {}, {}
         for f in floaters.items:
             # a faixa (lane) é em px da UI: a distância entre as linhas não muda com o zoom
             sx, sy = self.world_to_ui((f.x, f.y), cam, zoom)
             sy -= f.lane * LANE_PX
+            half = self.font.size(f.text)[0] / 2
+            pos[f.uid] = (f, sx, sy)
+            boxes[f.uid] = (sx - half, sx + half, sy, RISE * max(0.0, f.life) * k, h)
+        key = (tuple((r.w, r.h) for r in labels), round(zoom, 3))
+        if not labels or key != self._dodge_key:
+            self._dodge, self._dodge_key = {}, key
+        if labels:
+            self._dodge = dodge_labels(boxes, [(r.left, r.top, r.right, r.bottom) for r in labels], self._dodge)
+        for fid, (f, sx, sy) in pos.items():
+            sy -= self._dodge.get(fid, 0.0)
             if -40 < sx < self.w + 40 and -20 < sy < self.h + 20:
                 self.text(f.text, sx, sy, f.color, align="center")
 
@@ -945,6 +964,7 @@ class UI:
         """Rótulo em cima de cada baú de `chests`: preso no mundo (acompanha o zoom), letra de tamanho fixo.
         `icons`: ícones 16×16 dos minérios (desenhados em resolução cheia, 8 px na UI)."""
         placed: list[pygame.Rect] = []
+        self.chest_label_rects = []                       # os desenhados agora (os floaters desviam deles)
         for chest in sorted(chests, key=lambda c: -c.anchor[1]):  # o da frente primeiro; os de trás sobem
             parts = self.chest_label_parts(chest)
             widths = [8 if kind == "icon" else 5 if kind == "arrow" else self.body.size(value)[0]
@@ -961,6 +981,7 @@ class UI:
             placed.append(pygame.Rect(x, y, w, 14))
             if not (-w < x < self.w and -14 < y < self.h):
                 continue
+            self.chest_label_rects.append(pygame.Rect(x, y, w, 14))
             self.panel(x, y, w, 14, (14, 10, 9, 210))
             px = x + 4
             for n, ((kind, value), pw) in enumerate(zip(parts, widths)):
@@ -1073,7 +1094,7 @@ class UI:
     CONTROLS = [
         ("WASD / SETAS", "Andar"),
         ("SEGURAR CLIQUE", "Minerar a parede mirada"),
-        ("E", "Fabricador · terminal · baú · drill · estação"),
+        ("E", "Abrir o que está no mouse (ou o mais perto)"),
         ("SHIFT+E", "Coletar a drill sem abrir o painel"),
         ("1 A 8 · RODINHA", "Escolher slot da hotbar"),
         ("CLIQUE", "Colocar a máquina da hotbar"),

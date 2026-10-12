@@ -36,6 +36,7 @@ uv run python -m game --scale 2   # força o zoom da janela (padrão: o maior qu
 | Tela cheia | F11 ou Alt+Enter (resolução do monitor, 16:9 com tarja preta se precisar) |
 | Tamanho da interface | Pausa > Opções > Interface: Grande (a de sempre) · Média (~75%, padrão) · Pequena (~50%) · só HUD e menus mudam, o mundo não · em janela pequena (960×540) os três ficam iguais |
 | Ler terminal | E perto dele |
+| E (interagir) | abre o que está **debaixo do mouse** (baú, drill, estação, terminal) se estiver no alcance; senão o mais perto · Shift+E na drill segue a mesma regra · o alvo ganha um contorno e o texto do canto diz o que o E vai abrir |
 | Debug | F1 acelera o tempo ×10 (O₂ e máquinas) · F2 soma +10.000 Ti |
 
 ## Testes

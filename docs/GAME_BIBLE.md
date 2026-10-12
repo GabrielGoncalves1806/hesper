@@ -72,6 +72,7 @@ Referência obrigatória: `reports/mockups/mockups.html` (abre no navegador).
 | Abrir/fechar fabricador | E (só na zona da base) |
 | Colocar máquina | clique esquerdo com máquina selecionada · R gira (cosmético) · Esc cancela |
 | Ler terminal | E perto do terminal |
+| Interagir (E) | Abre o que está **debaixo do mouse** (baú, drill, estação ou terminal) se estiver no alcance do E; senão, o mais perto do player; sem nada no alcance, na base abre o fabricador. Vale igual pro **Shift+E** na drill. O alvo ganha um **contorno claro** e o texto do canto mostra o que o E vai abrir (com o mouse numa máquina que o E não vai abrir, o canto diz qual ele abre) |
 | Zoom do mundo | + / - (ou = e o teclado numérico) · Ctrl+rodinha (Cmd no Mac) · níveis 0,75× · 1× · 1,5× · 2× (padrão 1×). Só o mundo aproxima: HUD e menus ficam do mesmo tamanho |
 | Tela cheia | F11 ou Alt+Enter · também em Pausa > Opções. Usa a resolução do monitor mantendo 16:9 (tarja preta se sobrar) |
 | Tamanho da interface | Pausa > Opções > **Interface: Grande / Média / Pequena** (padrão **Média**, salvo em `settings.json`). Muda só HUD, menus, inventários, fabricador, título, terminal, avisos e tooltips; o mundo continua no zoom escolhido. Grande = a UI de sempre (480×270 esticada pra tela); Média ≈ 75% disso; Pequena ≈ 50%. Em Média/Pequena a escala é inteira (letra pixel art limpa) e nunca menor que 1 px de imagem por px de tela: em 1920×1080 dá 4 / 3 / 2 px por px da UI; numa janela de 960×540 os três ficam iguais. Os painéis se ancoram nos cantos/centro. Textos presos no mundo (+15 FERRO, nome do baú) acompanham o mundo na posição e a interface no tamanho da letra |
@@ -263,7 +264,7 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 - **LOTE**: quanto um drone tira **deste** inventário por viagem: **1 / 5 / 10 / 20** (padrão 10). Vale pro inventário que envia.
 - **Padrões**: baú novo e **drill nova** vêm com Envia = nada e Recebe = nada (igual ao Planet Crafter). O jogador vai lá e configura. Enquanto nada estiver marcado, a seção mostra a dica "NADA CONFIGURADO".
 - **Drill**: só tem **ENVIA** (com o minério dela) e **LOTE**. Não tem Recebe (no lugar aparece "NÃO RECEBE"): ela tem 1 slot só do minério dela, e receber outra coisa travaria a extração.
-- No mundo, o rótulo flutuante do baú mostra o que ele recebe e envia junto do nome: **↓[ícones] ↑[ícones] Nome** (sem configuração, só o nome).
+- No mundo, o rótulo flutuante do baú mostra o que ele recebe e envia junto do nome: **↓[ícones] ↑[ícones] Nome** (sem configuração, só o nome). Os textos que sobem ("+10 SILÍCIO", "+O2") não passam por trás do rótulo: quem ia cruzar ele fica logo acima (e acima dos outros que já desviaram, sem encavalar).
 - A configuração vale só pros drones: o jogador guarda e tira qualquer coisa à mão.
 
 **Tarefa do drone** (um drone livre, pousado na estação):
@@ -277,6 +278,7 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 - **Velocidade**: **6 tiles/s** (era 4). Com o mapa todo, a viagem típica (drill a 40 tiles da base, entregando num baú da base) é ~80 tiles: 20 s a 4 tiles/s, ~13 s a 6. Até a borda do mapa (~60 tiles da base) a ida dura ~10 s em vez de 15. Uma drill enche um lote de 10 em 120 s, então 1 drone dá conta de várias drills.
 - Sem energia suficiente, os drones voam mais devagar, na mesma proporção do déficit.
 - **Visual**: drone pequeno voando com sombra no chão. A estação mostra os drones pousados (slots 1 e 2 nos pads; 3 e 4 estacionados na frente deles).
+- **Drones na mesma rota não se empilham** (só no desenho; posição lógica e chegada não mudam): voando, cada drone vai no lugar dele numa formação em losango pelo slot (1 e 2 lado a lado, 3 atrás, 4 na frente), com altura e balanço um pouco diferentes; pegando/soltando, cada slot fica num ponto próprio em volta do alvo. A troca entre um e outro é suave, e na decolagem/pouso a formação entra/sai junto com a subida (ele sai e chega no pad certinho).
 - Futuro: upgrade de estação (mais slots), mais itens nos toggles (máquinas, drones).
 - Save **v4**: baús ganham `name`; a estação guarda os 4 slots de drone. Migração v3→v4: baús viram "Baú" e cada estação existente ganha **2 drones** nos slots 1 e 2.
 - Save **v5**: baús e drills ganham `sends`, `receives` e `batch`; a drill guarda o inventário (`storage`) no lugar do contador. Migração v4→v5 (ninguém perde a base que já funcionava): baú com filtro "Tudo" → Recebe {ferro, silício, gelo}; filtro X → Recebe {X}; Envia nada. **Drills existentes** ganham o inventário com o estoque atual e **Envia = o minério delas** (drill nova continua vindo sem nada). Drone com carga continua com ela e entrega assim que achar um destino. O buffer da estação vira as "sobras" tiráveis.

@@ -372,7 +372,7 @@ class App:
                 self.set_mode("play")
         else:  # play
             if key == pygame.K_e:
-                target = state.interaction()      # terminal ou drill, o que estiver mais perto
+                target = self.e_target()          # o do mouse (no alcance) ou o mais perto
                 if target and target[0] == "terminal":
                     state.read_terminal(target[1])
                     self.terminal_index = target[1]
@@ -1045,6 +1045,11 @@ class App:
     def hovered_machine(self):
         return self.state.machine_at_point(*self.mouse_world())
 
+    def e_target(self) -> tuple[str, object] | None:
+        """O que o E abre agora: o interagível debaixo do mouse, se estiver no alcance; senão o mais
+        perto do player (None = nada; aí, na base, o E abre o fabricador)."""
+        return self.state.interaction(self.state.interactable_at(*self.mouse_world()))
+
     def hint(self) -> str | None:
         state = self.state
         if self.placing == "drill" and self.place_target() is None:
@@ -1054,13 +1059,16 @@ class App:
         if self.placing:
             return "Clique para colocar · R gira · Esc cancela"
         machine = self.hovered_machine()
+        target = self.e_target()
+        # mouse numa máquina que o E não vai abrir (longe, ou outra está no alcance): diz qual ele abre
+        other = f" · {self.e_label(target)}" if target and target[1] is not machine else ""
         if machine and machine.is_drill:
             label = C.RESOURCE_NAME[machine.resource]
             content = (f"Drill cheia: {machine.stored} {label}" if machine.full
                        else f"Drill: {machine.stored}/{C.DRILL_CAPACITY} {label}")
             if state.power.deficit and not machine.full:
                 content += f" · ritmo {self.power_percent()}%"
-            return content + (" · [E] abrir · [Shift+E] coletar" if state.nearby_drill() is machine else "")
+            return content + (" · [E] abrir · [Shift+E] coletar" if target and target[1] is machine else other)
         if machine and machine.is_station:
             st = machine.station
             text = f"Estação: {len(st.drones)}/{C.STATION_DRONE_SLOTS} drones"
@@ -1068,11 +1076,11 @@ class App:
                 text += f" · sobras {st.stored}"
             if state.power.deficit:
                 text += f" · ritmo {self.power_percent()}%"
-            return text + (" · [E] abrir" if state.nearby_station() is machine else "")
+            return text + (" · [E] abrir" if target and target[1] is machine else other)
         if machine and machine.is_chest:
             used = sum(1 for st in machine.storage.slots if st)
-            near = state.nearby_chest() is machine
-            return f"{machine.name or C.CHEST_DEFAULT_NAME} ({used}/{C.CHEST_SLOTS})" + (" · [E] abrir" if near else "")
+            mine = target is not None and target[1] is machine
+            return f"{machine.name or C.CHEST_DEFAULT_NAME} ({used}/{C.CHEST_SLOTS})" + (" · [E] abrir" if mine else other)
         if machine:
             if state.power.deficit and energy.machine_use(machine.kind) > 0:     # no déficit: mostra o ritmo
                 rhythm = f"Ritmo {self.power_percent()}%"
@@ -1084,23 +1092,38 @@ class App:
             name = C.RESOURCE_NAME[vein.resource]
             unlocked = state.recipe_status("drill") != "locked"
             return f"Veio de {name} · " + ("coloque uma drill" if unlocked else "drill libera na Névoa")
-        target = state.interaction()
-        if target and target[0] == "terminal":
-            return "[E] Ler terminal"
-        if target and target[0] == "chest":
-            return "[E] Abrir baú"
-        if target and target[0] == "station":
-            return "[E] Estação de drones" if target[1].station.drones else "[E] Estação: coloque drones"
-        if target and target[0] == "drill":
-            d = target[1]
-            return f"[E] Drill · [Shift+E] coletar {d.stored} {C.RESOURCE_NAME[d.resource]}" if d.stored \
-                else "[E] Abrir drill"
+        if target:
+            return self.e_label(target)
         if state.in_base_zone():
             return "[E] Fabricador" if self.t > 6 else "Paredes com cristais têm minério"
         tile = self.mouse_tile()
         if state.world.is_minable(*tile):
             return "Segure o clique para minerar" if state.can_mine(tile) else "Chegue mais perto pra minerar"
         return None
+
+    def highlight_target(self):
+        """O que ganha o contorno no mundo: o alvo do E, só jogando (sem máquina na mão)."""
+        if self.mode != "play" or self.placing or self.state.fainted:
+            return None
+        target = self.e_target()
+        if target is None:
+            return None
+        if target[0] == "terminal":
+            return "terminal", tuple(self.state.world.terminals[target[1]])
+        return target[1]
+
+    def e_label(self, target: tuple[str, object]) -> str:
+        """Texto do canto pro alvo do E ("[E] Abrir baú", "[E] Ler terminal"...)."""
+        kind, obj = target
+        if kind == "terminal":
+            return "[E] Ler terminal"
+        if kind == "chest":
+            name = obj.name or C.CHEST_DEFAULT_NAME
+            return "[E] Abrir baú" if name == C.CHEST_DEFAULT_NAME else f"[E] Abrir baú: {name}"
+        if kind == "station":
+            return "[E] Estação de drones" if obj.station.drones else "[E] Estação: coloque drones"
+        return (f"[E] Drill · [Shift+E] coletar {obj.stored} {C.RESOURCE_NAME[obj.resource]}" if obj.stored
+                else "[E] Abrir drill")
 
     def power_percent(self) -> int:
         """Ritmo atual das máquinas em % (arredondado pra baixo: 62,5% vira 62%)."""
@@ -1110,6 +1133,7 @@ class App:
         state, canvas, ui = self.state, self.canvas, self.ui
         cam = self.cam
         ghost = None
+        self.renderer.highlight = self.highlight_target()
         if self.placing and self.mode == "play":
             target = self.place_target()
             tile = target if target is not None else self.mouse_tile()
@@ -1134,9 +1158,11 @@ class App:
         # camada 1: HUD e textos flutuantes
         ui.begin()
         icons = {r: self.renderer.surface(f"icon_{r}", lambda r=r: art.icon(r))[0] for r in C.RESOURCES}
+        labels = []
         if self.mode == "play":
             ui.draw_chest_labels(self.labeled_chests(), cam, self.zoom, icons)
-        ui.draw_floaters(self.floaters, cam, self.zoom)
+            labels = ui.chest_label_rects
+        ui.draw_floaters(self.floaters, cam, self.zoom, labels)
         if critical:
             ui.draw_o2_critical(state, self.t, cam)
         ui.draw_hud(state, self.t, self.hint() if self.mode == "play" else None, icons)
