@@ -507,18 +507,13 @@ def check_inventory_and_chest(bot) -> None:
     assert app.mode == "chest"
     bot.frames(DT)
     inv, box = s.inventory, chest.storage
-    # clique: pega a pilha de 50 ferro e solta num slot vazio do baú
+    # clique esquerdo (estilo Planet Crafter): a pilha de 50 ferro vai inteira pro baú
     iron_slot = inv.slots.index(next(st for st in inv.slots if st and st.item == "iron" and st.count == 50))
     bot.click(slot_pos(bot, inv, iron_slot))
-    assert app.held is not None and app.held.count == 50
-    bot.click(slot_pos(bot, box, 5))
-    assert app.held is None and box.slots[5].count == 50
-    # clique direito: pega metade do gelo do baú (37 -> pega 19) e larga no inventário
+    assert app.held is None and inv.slots[iron_slot] is None and box.count("iron") == 50
+    # clique direito no gelo do baú: 1 unidade vem pro inventário
     right_click(bot, slot_pos(bot, box, 0))
-    assert app.held.item == "ice" and app.held.count == 19 and box.slots[0].count == 18
-    free = inv.slots.index(None)
-    bot.click(slot_pos(bot, inv, free))
-    assert inv.slots[free].item == "ice" and app.held is None
+    assert box.slots[0].count == 36 and inv.count("ice") == 25
     # Shift+clique no silício do inventário: vai tudo pro baú
     silicon_slot = inv.slots.index(next(st for st in inv.slots if st and st.item == "silicon"))
     pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_LSHIFT, mod=pygame.KMOD_LSHIFT, unicode="", scancode=0))
@@ -527,16 +522,59 @@ def check_inventory_and_chest(bot) -> None:
     pygame.event.post(pygame.event.Event(pygame.KEYUP, key=pygame.K_LSHIFT, mod=0, unicode="", scancode=0))
     bot.frames(DT)
     assert inv.count("silicon") == 0 and box.count("silicon") == 30
-    # print com uma pilha na mão (2 geradores)
-    o2_slot = inv.slots.index(next(st for st in inv.slots if st and st.item == "o2"))
-    bot.click(slot_pos(bot, inv, o2_slot))
-    bot.mouse_to((slot_pos(bot, box, 13)[0] + 6, slot_pos(bot, box, 13)[1] + 4))
+    # print com o tooltip em cima do gelo do baú
+    bot.mouse_to(slot_pos(bot, box, 0))
     bot.frames(0.1)
     bot.shot("bau.png")
-    bot.key(pygame.K_ESCAPE)                            # fecha: o que estava na mão volta pro inventário
-    assert app.mode == "play" and app.held is None and inv.count("o2") == 2
+    # Pegar tudo e Guardar recursos (só ferro/silício/gelo: os geradores ficam no inventário)
+    button = {a: r for r, a in app.ui.panel_buttons}
+    bot.click((button["take_all"].centerx * 2, button["take_all"].centery * 2))
+    assert box.is_empty() and inv.count("iron") == 74 and inv.count("melter") == 1
+    button = {a: r for r, a in app.ui.panel_buttons}
+    bot.click((button["store_all"].centerx * 2, button["store_all"].centery * 2))
+    assert inv.counts() == {"o2": 2, "melter": 1}
+    assert box.counts() == {"iron": 74, "silicon": 30, "ice": 61}
 
-    # o fabricador enxerga o baú da base: 24 ferro no inventário (80 - 6 do baú - 50) + 50 no baú
+    # nome do baú: clique no nome, apaga, digita (E, 1 e WASD viram texto, não ação), Enter confirma
+    rect = app.ui.name_rect
+    bot.click((rect.centerx * 2, rect.centery * 2))
+    assert app.name_edit is not None
+    for _ in range(3):
+        bot.key(pygame.K_BACKSPACE)
+    for ch in "Minérios da base 2":                  # 18 caracteres: corta em 16
+        key = {"e": pygame.K_e, "s": pygame.K_s, "a": pygame.K_a, "2": pygame.K_2}.get(ch, 0)
+        if key:
+            pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=key, mod=0, unicode=ch, scancode=0))
+        pygame.event.post(pygame.event.Event(pygame.TEXTINPUT, text=ch))
+        bot.frames(DT)
+    assert app.mode == "chest" and app.name_edit.text == "Minérios da base", app.name_edit.text
+    bot.mouse_to((slot_pos(bot, box, 20)[0], slot_pos(bot, box, 20)[1]))   # mouse longe do campo
+    while app.t % C.CHEST_NAME_BLINK >= C.CHEST_NAME_BLINK / 2 - 0.05:    # print com o cursor aceso
+        bot.frames(DT)
+    bot.shot("bau_nome.png")
+    bot.key(pygame.K_RETURN)
+    assert app.name_edit is None and chest.name == "Minérios da base" and app.mode == "chest"
+    # Esc cancela uma edição sem mudar o nome (e não fecha o baú)
+    bot.click((app.ui.name_rect.centerx * 2, app.ui.name_rect.centery * 2))
+    pygame.event.post(pygame.event.Event(pygame.TEXTINPUT, text="xyz"))
+    bot.frames(DT)
+    bot.key(pygame.K_ESCAPE)
+    assert app.name_edit is None and chest.name == "Minérios da base" and app.mode == "chest"
+    bot.key(pygame.K_ESCAPE)                            # agora fecha
+    assert app.mode == "play" and app.held is None and inv.count("o2") == 2
+    # no mundo: o nome flutua em cima do baú (player no alcance do E)
+    bot.mouse_to((40, 40))
+    bot.frames(0.2)
+    assert ("Minérios da base", *chest.anchor[:1]) == app.chest_labels()[0][:2]
+    shot_zoom(bot, "bau_nome_mundo.png", (chest.anchor[0], chest.anchor[1] - 30), k=2)
+    bot.shot("bau_nome_mundo_tela.png")
+    # o rótulo acompanha o zoom (posição), sem mudar o tamanho da letra
+    bot.key(pygame.K_EQUALS)
+    bot.frames(0.1)
+    bot.shot("bau_nome_zoom.png")
+    bot.key(pygame.K_MINUS)
+
+    # o fabricador enxerga o baú da base: os 74 ferro (80 - 6 do baú) e os 30 silício estão no baú
     assert s.available("iron") == 74 and s.available("silicon") == 30
 
     # Tab: inventário sozinho, com tooltip
@@ -778,22 +816,61 @@ def check_drones(bot) -> None:
     assert app.placing == "drone_station"
     bot.click(bot.tile_on_screen(site))
     station = s.machine_at(site)
-    assert station is not None and station.is_station and len(station.station.drones) == 2
+    assert station is not None and station.is_station and station.station.drones == []   # vem vazia
     assert drones.nearest_chest(station, s.chests) is chest
-    # hover na estação com buffer: dica do HUD
-    station.station.buffer = {"iron": 12}
+    # fabrica 2 drones (item) e põe na estação pelo painel (E): clique no drone do inventário
+    give(s, iron=20, silicon=10)
+    assert s.craft("drone") and s.craft("drone") and s.inventory.count("drone") == 2
+    station.station.buffer = {"iron": 12, "ice": 3}
     ax, ay = station.anchor
     s.player.x, s.player.y = ax, ay + 10
     bot.frames(0.1)
+    assert s.interaction() == ("station", station)
+    bot.key(pygame.K_e)
+    assert app.mode == "station" and app.open_station is station
+    bot.frames(DT)
+    inv = s.inventory
+    iron_slot = inv.slots.index(next(st for st in inv.slots if st and st.item == "iron"))
+    bot.click(slot_pos(bot, inv, iron_slot))              # minério não entra na estação
+    assert app.notice == "Só drones vão na estação" and not station.station.drones
+    drone_slot = inv.slots.index(next(st for st in inv.slots if st and st.item == "drone"))
+    right_click(bot, slot_pos(bot, inv, drone_slot))      # direito: 1 drone
+    assert len(station.station.drones) == 1
+    bot.click(slot_pos(bot, inv, drone_slot))             # esquerdo: o resto
+    assert [d.pad for d in station.station.drones] == [0, 1] and inv.count("drone") == 0
+    bay = next(r for r, k in app.ui.bay_rects if k == 1)
+    bot.mouse_to((bay.centerx * 2, bay.centery * 2))      # tooltip do slot de drone
+    bot.frames(0.1)
+    bot.shot("estacao_inventario.png")
+    # buffer: clique direito tira 1, "Pegar tudo" leva o resto
+    res_rect = next(r for r, res in app.ui.buffer_rects if res == "iron")
+    before = inv.count("iron")
+    right_click(bot, (res_rect.centerx * 2, res_rect.centery * 2))
+    assert inv.count("iron") == before + 1 and station.station.buffer["iron"] == 11
+    button = {a: r for r, a in app.ui.panel_buttons}["take_buffer"]
+    bot.click((button.centerx * 2, button.centery * 2))
+    assert station.station.stored == 0 and inv.count("iron") == before + 12
+    bot.key(pygame.K_e)
+    assert app.mode == "play"
+    # hover na estação: dica do HUD
+    station.station.buffer = {"iron": 12}
     camx, camy = app.cam
     bot.mouse_to((int(ax + 27 - camx), int(ay - 14 - camy)))  # na beirada direita, pra não cobrir os pads
     bot.frames(0.2)
     hint = app.hint()          # no déficit de energia entra um "· ritmo N%" no meio
-    assert hint.startswith("Estação: 2 drones · buffer 12/50") and hint.endswith("· [E] coletar"), hint
+    assert hint.startswith("Estação: 2/4 drones · buffer 12/50") and hint.endswith("· [E] abrir"), hint
     bot.shot("drones_estacao.png")
-    before = s.inventory.count("iron")
-    bot.key(pygame.K_e)                                   # E coleta o buffer
-    assert station.station.stored == 0 and s.inventory.count("iron") == before + 12
+    station.station.buffer = {}
+    # os 4 slots cheios: 1 e 2 nos pads, 3 e 4 estacionados na frente (recorte ampliado)
+    extra = [drones.dock(station, station.station) for _ in range(2)]
+    s.player.x, s.player.y = ax + 4 * C.TILE, ay + 2 * C.TILE        # player fora do recorte
+    bot.mouse_to((20, 20))
+    app.floaters.items.clear()
+    app.draw()
+    shot_zoom(bot, "estacao_4_drones.png", (ax, ay - 36), w=120, h=80, k=4)
+    s.player.x, s.player.y = ax, ay + 10
+    for d in extra:
+        drones.undock(station.station, d.pad)
 
     # voo: drill com minério e uma parede no meio do caminho (o drone passa por cima)
     drill = s.drills[0]
@@ -808,6 +885,24 @@ def check_drones(bot) -> None:
             break
     assert mid, "sem lugar livre no caminho do drone pra parede de teste"
     carve(s, [(mid[0] + i, mid[1] + j) for i in (-1, 0, 1) for j in (0, 1)], C.ROCK)
+    # decolou: abre o painel da estação, o slot dele aparece travado ("EM VOO") e não sai
+    for _ in range(60):
+        bot.frames(DT)
+        if any(d.busy for d in station.station.drones):
+            break
+    busy = next(d for d in station.station.drones if d.busy)
+    s.player.x, s.player.y = ax, ay + 10
+    bot.key(pygame.K_e)
+    assert app.mode == "station"
+    bot.frames(DT)
+    bay = next(r for r, k in app.ui.bay_rects if k == busy.pad)
+    bot.click((bay.centerx * 2, bay.centery * 2))
+    assert busy in station.station.drones and app.notice == "Drone em voo: espere ele pousar"
+    bot.mouse_to((bay.centerx * 2 + 2, bay.centery * 2 + 2))
+    bot.frames(0.1)
+    bot.shot("estacao_drone_voo.png")
+    bot.key(pygame.K_ESCAPE)
+    assert app.mode == "play"
     flyer = None
     for _ in range(600):
         s.o2 = C.O2_MAX

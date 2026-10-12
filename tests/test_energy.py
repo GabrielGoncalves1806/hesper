@@ -25,7 +25,7 @@ def add(game: GameState, kind: str, tile: tuple[int, int]) -> Machine:
 # ---------------------------------------------------------------- produção e consumo
 def test_consumption_table_matches_the_bible():
     expected = {"o2": 1, "melter": 1, "heater": 2, "o2_t2": 3, "melter_t2": 3, "heater_t2": 4,
-                "drill": 2, "drone_station": 3}
+                "drill": 2, "drone_station": 1}
     assert {k: machine_use(k) for k in expected} == expected
     assert machine_use("solar") == 0 and machine_use("chest") == 0     # painel e baú não consomem
     assert machine_gen("solar") == 3 and machine_gen("o2") == 0

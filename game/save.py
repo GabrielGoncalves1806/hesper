@@ -9,22 +9,26 @@ não guarda as 128×128 casas: guarda a seed e só os tiles que ficaram diferent
 Formato do arquivo (JSON):
 
     {
-      "version": 3,              # sobe quando o formato mudar (ver MIGRATIONS)
+      "version": 4,              # sobe quando o formato mudar (ver MIGRATIONS)
       "seed": 7,
       "world":     {...},        # tiles que mudaram
       "player":    {...},        # posição, direção, O₂, desmaio
       "inventory": {"slots": [...]},   # os 16 slots: [item, quantidade] ou null (v2)
-      "machines":  [...],        # máquinas colocadas (conteúdo das drills, slots dos baús e, na
-                                 # estação de drones, "buffer" + "drone_cargo": v3)
+      "machines":  [...],        # máquinas colocadas (conteúdo das drills, slots e nome dos baús e,
+                                 # na estação de drones, "buffer" + os 4 slots de drone: v4)
       "progress":  {...}         # índices, estágio, objetivos, terminais lidos, tempo de jogo...
     }
 
-Estação de drones (v3): fica dentro da própria máquina, como os slots do baú:
+Baú (v4): {"kind": "chest", ..., "storage": [...], "name": "Minério"}.
+
+Estação de drones (v4): fica dentro da própria máquina, como os slots do baú:
     {"kind": "drone_station", "tx": .., "ty": .., "rotation": 0,
-     "buffer": {"iron": 12}, "drone_cargo": [["ice", 8], null]}
+     "buffer": {"iron": 12}, "drones": [["ice", 8], [null, 0], null, null]}
+"drones" são os 4 slots: null = slot vazio; [minério, carga] = tem drone (carga 0 = vazio).
 Os drones NÃO guardam posição: ao carregar, nascem pousados nos pads. A carga que cada um levava
-vem em "drone_cargo" e ele entrega (baú perto ou buffer) logo no primeiro frame, então nada some.
-O contador de entregas (objetivo) fica em progress["drone_deliveries"].
+vem junto e ele entrega (baú perto ou buffer) logo no primeiro frame, então nada some.
+O contador de entregas (objetivo) fica em progress["drone_deliveries"], e o de drones colocados
+numa estação em progress["drones_docked"].
 
 Como um sistema novo entra no save (baú, energia, drones...):
     1. escreva `coisa_to_dict(state)` e `coisa_from_dict(state, data)` aqui embaixo;
@@ -45,10 +49,11 @@ from pathlib import Path
 from game import config as C
 from game import drones
 from game.inventory import Inventory
-from game.systems import GameState, Machine
+from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 
-SAVE_VERSION = 3   # v3: estação de drones · v2: inventário com slots, baús e `crafted` (v1 = contador)
+SAVE_VERSION = 4   # v4: nome do baú, drone vira item (4 slots na estação) · v3: estação de drones
+                   # v2: inventário com slots, baús e `crafted` (v1 = contador)
 SAVE_PATH = C.ROOT_DIR / "saves" / "slot1.json"   # o smoke e os testes apontam pra outro lugar
 
 
@@ -141,9 +146,11 @@ def machine_to_dict(m: Machine) -> dict:
         data.update(resource=m.resource, stored=m.stored, timer=m.timer)
     if m.is_chest:
         data["storage"] = m.storage.to_data()
+        data["name"] = m.name or C.CHEST_DEFAULT_NAME
     if m.is_station:
         data["buffer"] = dict(m.station.buffer)
-        data["drone_cargo"] = [[d.resource, d.cargo] if d.cargo else None for d in m.station.drones]
+        slots = [m.station.drone_in(i) for i in range(C.STATION_DRONE_SLOTS)]
+        data["drones"] = [None if d is None else [d.resource if d.cargo else None, d.cargo] for d in slots]
     return data
 
 
@@ -154,15 +161,21 @@ def machine_from_dict(data: dict) -> Machine:
     machine = Machine(kind, int(data["tx"]), int(data["ty"]), int(data["rotation"]) % 4,
                       resource=data.get("resource"), stored=int(data.get("stored", 0)),
                       timer=float(data.get("timer", 0.0)))
+    if not machine.type.placeable:
+        raise ValueError(f"{kind!r} não é máquina de chão")
     if machine.is_chest:
         machine.storage = slots_from_data(data.get("storage", []), C.CHEST_SLOTS)
+        machine.name = clean_chest_name(data.get("name", C.CHEST_DEFAULT_NAME))
     if machine.is_station:
-        # drones recriados pousados; quem estava carregando volta com a carga e entrega no 1º frame
+        # drones recriados pousados no slot deles; quem estava carregando volta com a carga e entrega no 1º frame
         machine.station = drones.new_station(machine)
         machine.station.buffer = {r: int(n) for r, n in data.get("buffer", {}).items()
                                   if r in C.RESOURCES and int(n) > 0}
-        for drone, cargo in zip(machine.station.drones, data.get("drone_cargo", [])):
-            if cargo and cargo[0] in C.RESOURCES and int(cargo[1]) > 0:
+        for slot, cargo in enumerate(data.get("drones", [])[:C.STATION_DRONE_SLOTS]):
+            if cargo is None:
+                continue
+            drone = drones.dock(machine, machine.station, slot)
+            if cargo[0] in C.RESOURCES and int(cargo[1]) > 0:
                 drone.resource, drone.cargo = cargo[0], int(cargo[1])
     return machine
 
@@ -188,6 +201,7 @@ def progress_to_dict(state: GameState) -> dict:
         "drill_collected": dict(state.drill_collected),
         "crafted": dict(state.crafted),
         "drone_deliveries": state.drone_deliveries,
+        "drones_docked": state.drones_docked,
         "logs_read": sorted(state.logs_read),
         "transition_sources": sorted([list(t) for t in state.transition_sources]),
     }
@@ -208,6 +222,7 @@ def progress_from_dict(state: GameState, data: dict) -> None:
     for k in state.crafted:
         state.crafted[k] = int(data["crafted"].get(k, 0))
     state.drone_deliveries = int(data["drone_deliveries"])
+    state.drones_docked = int(data["drones_docked"])
     state.logs_read = {int(i) for i in data["logs_read"] if 0 <= int(i) < len(C.LOGS)}
     state.transition_sources = {(int(x), int(y)) for x, y in data["transition_sources"]}
 
@@ -269,7 +284,24 @@ def _v2_to_v3(data: dict) -> dict:
     return data
 
 
-MIGRATIONS: dict = {1: _v1_to_v2, 2: _v2_to_v3}
+def _v3_to_v4(data: dict) -> dict:
+    """v3 -> v4: baú ganhou nome e o drone virou item (a estação tem 4 slots e vem vazia).
+    Pra ninguém perder o que tinha: todo baú vira "Baú" e toda estação ganha 2 drones nos slots 1 e 2
+    (os mesmos 2 que vinham de graça), com a carga que eles levavam ("drone_cargo" do v3)."""
+    has_station = False
+    for m in data["machines"]:
+        if m.get("kind") == "chest":
+            m.setdefault("name", C.CHEST_DEFAULT_NAME)
+        elif m.get("kind") == "drone_station":
+            has_station = True
+            cargo = list(m.pop("drone_cargo", None) or [])[:2]
+            cargo += [None] * (2 - len(cargo))
+            m["drones"] = [list(c) if c else [None, 0] for c in cargo] + [None] * (C.STATION_DRONE_SLOTS - 2)
+    data["progress"]["drones_docked"] = 2 if has_station else 0
+    return data
+
+
+MIGRATIONS: dict = {1: _v1_to_v2, 2: _v2_to_v3, 3: _v3_to_v4}
 
 
 class SaveError(Exception):

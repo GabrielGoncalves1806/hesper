@@ -535,6 +535,8 @@ class Renderer:
                 name = "icon_drone_station" if C.DRONE_SPRITES_APPROVED else None
                 small = self.surface(name, art.drone_station_icon,
                                      "icon_drone_station#fallback" if name is None else None)[0]
+            elif item == "drone":
+                small = self.drone_icon()
             elif item == "solar" and self.sprites.get("icon_solar"):
                 small = self.sprites.get("icon_solar")
             else:   # máquina sem ícone próprio: o sprite dela encolhido pra caber (sem suavizar)
@@ -549,8 +551,15 @@ class Renderer:
             self._item_icons[item] = pygame.transform.scale_by(small, 2)   # 16×16 → 32×32, pixel a pixel
         return self._item_icons[item]
 
+    def drone_icon(self) -> pygame.Surface:
+        """Ícone 16×16 do item drone: assets/sprites/icon_drone.png assim que for aprovado (é só ele
+        existir na pasta oficial); até lá, o 1º quadro do drone.png (ou do drone de fallback)."""
+        return self.surface("icon_drone", lambda: self.drone_frame(0).copy())[0]
+
     def machine_preview(self, kind: str) -> pygame.Surface:
         """Imagem da máquina pro fabricador (resolução cheia, sem redimensionar com suavização)."""
+        if kind == "drone":
+            return pygame.transform.scale_by(self.drone_icon(), 3)   # 16×16 → 48×48, pixel a pixel
         if kind == "chest":
             return self.chest_surface()
         if kind == "drone_station":

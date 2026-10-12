@@ -252,7 +252,7 @@ def test_migration_v1_to_v2_turns_counters_into_slots(tmp_path):
     # e o save regravado já sai em v2
     save.write_save(loaded, path)
     data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["version"] == 3 == save.SAVE_VERSION and "slots" in data["inventory"]
+    assert data["version"] == 4 == save.SAVE_VERSION and "slots" in data["inventory"]
 
 
 def test_migration_v1_drops_what_does_not_fit():

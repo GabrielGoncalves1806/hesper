@@ -36,8 +36,9 @@ class Machine:
     resource: str | None = None   # minério do veio embaixo dela
     stored: int = 0               # quanto já extraiu e está esperando coleta
     timer: float = 0.0            # segundos acumulados pra próxima unidade
-    # só o baú usa este: os 24 slots dele (criado no place)
+    # só o baú usa estes: os 24 slots dele (criado no place) e o nome que o jogador deu
     storage: Inventory | None = None
+    name: str | None = None
     # só a estação de drones usa este: buffer + drones (game/drones.py, criado no place)
     station: drones.Station | None = None
 
@@ -107,6 +108,13 @@ class Mining:
 
 
 POD_RECT: Rect = (C.POD_TILES[0][0] * C.TILE + 4, C.POD_TILES[0][1] * C.TILE + 12, 2 * C.TILE - 8, C.TILE - 12)
+
+
+def clean_chest_name(text: str) -> str:
+    """Nome de baú válido: sem quebra de linha nem caractere de controle, sem espaço nas pontas,
+    até C.CHEST_NAME_MAX caracteres. Vazio vira o nome padrão ("Baú")."""
+    text = "".join(ch for ch in str(text) if ch.isprintable()).strip()[:C.CHEST_NAME_MAX].strip()
+    return text or C.CHEST_DEFAULT_NAME
 
 
 def stage_for_ti(ti: float) -> int:
@@ -189,6 +197,7 @@ class GameState:
         self.drill_collected = {r: 0 for r in C.RESOURCES}   # total já coletado de drills (só cresce)
         self.crafted = {k: 0 for k in C.MACHINES}            # quantas de cada já fabricou (só cresce)
         self.drone_deliveries = 0                      # entregas feitas por drones (só cresce)
+        self.drones_docked = 0                         # drones já colocados numa estação (só cresce)
         self.power_alert = PowerAlert()                # quando tocar o power_low (game/energy.py)
         self.events: list[tuple] = []
 
@@ -384,6 +393,8 @@ class GameState:
         """Máquina comum: 1 tile de chão livre fora de veio. Drill: `tile` tem que ser o canto
         de cima à esquerda de um veio livre (o App "gruda" o fantasma no veio debaixo do mouse)."""
         tx, ty = tile
+        if not C.MACHINES[kind].placeable:      # o drone é item, mas vai na estação, não no chão
+            return False
         if self.inventory.count(kind) <= 0:     # precisa ter a máquina (item) no inventário
             return False
         machine = Machine(kind, tx, ty)
@@ -418,8 +429,9 @@ class GameState:
             self.drills_placed += 1
         if machine.is_chest:
             machine.storage = Inventory(C.CHEST_SLOTS)
+            machine.name = C.CHEST_DEFAULT_NAME
         if machine.is_station:
-            machine.station = drones.new_station(machine)
+            machine.station = drones.new_station(machine)      # vem vazia: os drones vão pelo painel (E)
         self.machines.append(machine)
         self.transition_sources.add(tuple(tile))
         if slot is not None:
@@ -450,8 +462,8 @@ class GameState:
         return min(near, key=self.drill_distance, default=None)
 
     def nearby_station(self) -> Machine | None:
-        """Estação de drones ao alcance do E, só se tiver algo no buffer (senão o E abre o fabricador)."""
-        near = [m for m in self.stations if m.station.stored and self.drill_distance(m) <= C.STATION_REACH]
+        """Estação de drones ao alcance do E (abre o painel dela: drones e buffer)."""
+        near = [m for m in self.stations if self.drill_distance(m) <= C.STATION_REACH]
         return min(near, key=self.drill_distance, default=None)
 
     def interaction(self) -> tuple[str, object] | None:
@@ -506,6 +518,60 @@ class GameState:
             self.events.append(("inv_full",))
         return total
 
+    # ---- baú: nome ----------------------------------------------------------------
+    def rename_chest(self, chest: Machine, text: str) -> str:
+        """Troca o nome do baú (limpo por clean_chest_name). Devolve o nome que ficou."""
+        chest.name = clean_chest_name(text)
+        return chest.name
+
+    def chests_showing_name(self) -> list[Machine]:
+        """Baús no alcance do E: o nome deles flutua em cima (o do mouse o App acrescenta)."""
+        return [c for c in self.chests if self.drill_distance(c) <= C.CHEST_REACH]
+
+    # ---- estação: painel (slots de drone e buffer) -----------------------------------
+    def station_dock(self, machine: Machine, index: int, amount: int | None = None) -> int:
+        """Põe drones do slot `index` do inventário na estação: `amount` (None = quantos couberem
+        nos slots livres). Só aceita o item drone. Devolve quantos entraram."""
+        stack = self.inventory.slots[index]
+        if stack is None or stack.item != "drone":
+            return 0
+        want = stack.count if amount is None else min(amount, stack.count)
+        placed = 0
+        while placed < want and drones.dock(machine, machine.station) is not None:
+            placed += 1
+        self.inventory.remove_from_slot(index, placed)
+        if placed:
+            self.drones_docked += placed
+            self.events.append(("drone_dock", placed))
+        return placed
+
+    def station_undock(self, machine: Machine, slot: int) -> bool:
+        """Tira o drone pousado do slot e devolve como item (com a carga que ele segurava, se tiver).
+        Drone em viagem: não sai (o slot está travado). Não cabe no inventário: fica, com o aviso."""
+        drone = machine.station.drone_in(slot)
+        if drone is None or drone.busy:
+            return False
+        trial = self.inventory.copy()
+        if trial.add("drone", 1) or (drone.cargo and trial.add(drone.resource, drone.cargo)):
+            self.events.append(("inv_full",))
+            return False
+        drones.undock(machine.station, slot)
+        self.inventory.add("drone", 1)
+        if drone.cargo:
+            self.inventory.add(drone.resource, drone.cargo)
+        self.events.append(("drone_undock",))
+        return True
+
+    def station_take(self, machine: Machine, resource: str, amount: int | None = None) -> int:
+        """Tira minério do buffer pro inventário (`amount` None = tudo daquele minério, até onde couber)."""
+        have = machine.station.buffer.get(resource, 0)
+        want = have if amount is None else min(amount, have)
+        moved = want - self.inventory.add(resource, want)
+        machine.station.take(resource, moved)
+        if moved < want:
+            self.events.append(("inv_full",))
+        return moved
+
     def _update_drill(self, drill: Machine, dt: float) -> None:
         if drill.full:
             return
@@ -551,15 +617,20 @@ class GameState:
         return True
 
     def _dismantle_station(self, machine: Machine) -> bool:
-        """Estação: o buffer e a carga dos drones vão pro inventário junto com a estação.
-        Se não couber tudo, ela fica no lugar (com o aviso de inventário cheio), sem perder nada."""
+        """Estação: o buffer, a carga dos drones e os próprios drones (até os que estão voando: a viagem
+        é cancelada) vão pro inventário junto com a estação. Se não couber tudo, ela fica no lugar
+        (com o aviso de inventário cheio), sem perder nada."""
         contents = drones.recall_cargo(machine.station)
+        n_drones = len(machine.station.drones)
+        if n_drones:
+            contents["drone"] = n_drones
         trial = self.inventory.copy()
         if any(trial.add(r, n) for r, n in contents.items()) or not trial.has_space(machine.kind):
             self.events.append(("inv_full",))
             return False
         for r, n in contents.items():
             self.inventory.add(r, n)
+        machine.station.drones.clear()                 # quem estava voando some junto (sem carga perdida)
         self.machines.remove(machine)
         self.inventory.add(machine.kind, 1)
         self.events.append(("dismantle", machine.kind, (machine.tx, machine.ty)))

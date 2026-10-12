@@ -219,31 +219,46 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 
 **Inventário com slots**
 - O player tem **16 slots**. Recursos empilham até **50** por slot; máquinas fabricadas viram **itens** e empilham até **5**.
-- **Hotbar** de 8 slots no rodapé central. Teclas **1–8** ou a rodinha do mouse selecionam (com Ctrl segurado a rodinha mexe no zoom). Se o item selecionado for máquina, o jogo entra no modo de colocar. Isso substitui o estoque de máquinas atual (teclas 1–7).
+- **Hotbar** de 8 slots no rodapé central. Teclas **1–8** ou a rodinha do mouse selecionam (com Ctrl segurado a rodinha mexe no zoom). Se o item selecionado for máquina, o jogo entra no modo de colocar (o drone é item, mas não se coloca no chão: vai na estação). Isso substitui o estoque de máquinas atual (teclas 1–7).
 - **Tela de inventário (Tab)**: grade dos 16 slots e a hotbar. Clique pega e solta a pilha, e clique direito pega metade.
 - **Inventário cheio**: o minério minerado **não é coletado**, e aparece o aviso "Inventário cheio" (o tile quebra mesmo assim).
 - O **fabricador** usa o que está no inventário **e nos baús dentro da zona da base**.
 - Futuro (fora do v0.2): **mochila** que aumenta os slots.
 
 **Baú**
-- Craftável desde o início, custa **6 ferro**. Tem **24 slots** e ocupa 1 tile. **E** abre e mostra o baú ao lado do inventário. Clique move a pilha e **Shift+clique** move tudo daquele tipo.
+- Craftável desde o início, custa **6 ferro**. Tem **24 slots** e ocupa 1 tile. **E** abre e mostra o baú ao lado do inventário.
 - Desmontar o baú só funciona se ele estiver vazio (aparece um aviso se não estiver).
+- **Nome**: cada baú tem um nome (padrão "Baú"). No painel do baú, clicar no nome (título) abre a edição: até **16 caracteres**, **Enter** confirma, **Esc** cancela, **Backspace** apaga, e clicar fora do campo também confirma. Nome vazio volta pra "Baú". Enquanto edita, nenhuma tecla do jogo (E, Tab, números, WASD, +/-) faz nada além de digitar.
+- No mundo, o nome aparece flutuando em cima do baú quando o mouse está em cima dele ou o player está no alcance do E (o mesmo do aviso "[E] Abrir baú"). O tamanho da letra não muda com o zoom.
+
+**Transferência entre painéis (estilo Planet Crafter)** · vale no baú e na estação de drones
+- Com os dois painéis abertos (inventário + baú/estação): **clique esquerdo** num item manda a **pilha inteira** pro outro lado, **clique direito** manda **1 unidade**, e **Shift+clique** manda **todas as pilhas daquele item**. O que não couber fica onde está (com o aviso "Baú cheio" / "Inventário cheio").
+- No **Tab** (inventário sozinho) nada muda: clique pega/solta a pilha e o direito pega metade, pra organizar a mochila e a hotbar.
+- Botões no painel do baú: **Pegar tudo** (tudo do baú pro inventário, até onde couber) e **Guardar tudo** (manda **só os recursos**, ferro, silício e gelo, de todos os slots do inventário, inclusive a hotbar; máquinas e drones ficam com o player, porque são coisas que ele vai colocar).
+- Passar o mouse num slot mostra o nome do item e a quantidade.
 
 ### Marco 2 · Energia (global, sem fios)
 - A energia é um **pool global**: a produção total (kW) contra o consumo total. O HUD mostra um medidor "⚡ produção / consumo".
 - **Cápsula**: gera **5 kW** fixos, pro começo do jogo funcionar.
 - **Painel solar**: +3 kW, custa 8 ferro + 6 silício, libera com Ti 0. Ocupa 1 tile.
-- **Consumo**: Gerador de O₂ 1 · Derretedor 1 · Aquecedor 2 · máquinas nv.2 3/3/4 · Drill 2 · Estação de drones 3 (kW). O baú não consome.
+- **Consumo**: Gerador de O₂ 1 · Derretedor 1 · Aquecedor 2 · máquinas nv.2 3/3/4 · Drill 2 · Estação de drones 1 (kW). O baú não consome.
 - **Déficit**: todos os consumidores rodam no ritmo `produção / consumo` (desaceleração proporcional), e o medidor fica vermelho. Não há corte total.
 - No v0.2 não tem bateria nem ciclo dia/noite (ficam pra depois).
 
 ### Marco 3 · Automação com drones
-- **Estação de drones**: libera na Névoa (Ti 10.000), custa 20 ferro + 15 silício + 5 gelo e ocupa 2×2. Vem com **2 drones**, tem alcance de **30 tiles** e consome 3 kW.
-- **Ciclo do drone**: decola, voa **em linha reta por cima das paredes** até uma drill dentro do alcance que tenha **≥ 5 unidades**, coleta tudo e voa de volta. Entrega no **baú mais próximo, a até 3 tiles da estação** (se não houver baú, ou se ele estiver cheio, guarda no buffer interno da estação, de 50 unidades, e mostra o aviso). Velocidade de ~4 tiles/s.
+- **Estação de drones**: libera na Névoa (Ti 10.000), custa **12 ferro + 8 silício + 3 gelo** e ocupa 2×2. **Vem vazia**: tem **4 slots de drone**, alcance de **30 tiles** e consome **1 kW**.
+- **Drone** é um **item**: receita no fabricador, libera junto com a estação (Névoa), custa **6 ferro + 4 silício** e empilha até 5 no inventário (igual às máquinas). Não se coloca no chão: vai num slot da estação.
+- **E na estação** abre um painel no estilo do baú: inventário à esquerda e a estação à direita, com os **4 slots de drone** (só aceitam o item drone, 1 por slot), o **buffer** de minério mostrado como slots (só dá pra tirar, não pra colocar) e o estado ("ALCANCE 30 TILES" e "2 drones · 1 em voo · 1 kW").
+  - Cada drone num slot é **1 drone ativo**. Colocar um drone (clique no drone do inventário) faz ele começar a operar; clique esquerdo manda quantos couberem, o direito manda 1.
+  - **Drone em voo**: o slot dele fica **travado** (marcado "VOO") e não pode ser tirado até ele pousar. **Drone pousado** pode ser tirado: volta pro inventário como item e some do mundo (se estiver segurando carga, a carga vai junto pro inventário; não cabendo tudo, ele fica).
+  - Botão **Pegar tudo** leva o buffer pro inventário.
+- **Desmontar a estação** devolve a estação, **todos os drones** (os em voo cancelam a viagem) e todo o minério (buffer + carga de cada drone) pro inventário. Ou cabe tudo, ou ela fica no lugar com o aviso de inventário cheio: nada some.
+- **Ciclo do drone**: decola, voa **em linha reta por cima das paredes** até uma drill dentro do alcance que tenha **≥ 5 unidades**, coleta tudo e voa de volta. Entrega no **baú mais próximo, a até 3 tiles da estação** (se não houver baú, ou se ele estiver cheio, guarda no buffer interno da estação, de 50 unidades no total, e mostra o aviso). Velocidade de ~4 tiles/s.
 - **Prioridade**: a drill mais cheia primeiro, e um drone por drill de cada vez.
-- **Visual**: drone pequeno voando com sombra no chão. A estação mostra os drones pousados.
+- **Visual**: drone pequeno voando com sombra no chão. A estação mostra os drones pousados (slots 1 e 2 nos pads; 3 e 4 estacionados na frente deles).
 - Sem energia suficiente, os drones voam mais devagar, na mesma proporção do déficit.
-- Futuro: upgrade de estação (mais drones e mais alcance).
+- Futuro: upgrade de estação (mais slots e mais alcance).
+- Save **v4**: baús ganham `name`; a estação guarda os 4 slots de drone. Migração v3→v4: baús viram "Baú" e cada estação existente ganha **2 drones** nos slots 1 e 2 (ninguém perde o que tinha).
 
 ### Marco 4 · Polimento
 - Rodar o simulador de novo com inventário, energia e drones, e ajustar até bater a meta de tempo.
@@ -258,6 +273,7 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 | `drone_station.png` | 64×72 | estação 2×2, com espaço pros drones pousados (documentar os pontos de pouso) |
 | `drone.png` | 64×16 | 4 quadros de 16×16 com as hélices girando. O jogo desenha a sombra |
 | `icon_chest.png` `icon_solar.png` `icon_drone_station.png` | 16×16 | ícones de item |
+| `icon_drone.png` | 16×16 | ícone do item drone. Até ser aprovado, o jogo usa o 1º quadro do `drone.png` |
 | `ui_slot.png` | 20×20 | moldura de slot do inventário/hotbar (opcional; se faltar, o jogo desenha) |
 
 | Áudio | Tipo | Quando toca |

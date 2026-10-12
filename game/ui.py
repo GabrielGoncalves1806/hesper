@@ -156,6 +156,11 @@ class UI:
         self.pause_sliders: list[pygame.Rect] = []    # barras dos sliders de volume
         # slots clicáveis da tela de inventário/baú: (retângulo na UI, inventário, índice do slot)
         self.slot_rects: list[tuple[pygame.Rect, Inventory, int]] = []
+        # painel da estação: slots de drone (retângulo, nº do slot) e do buffer (retângulo, minério)
+        self.bay_rects: list[tuple[pygame.Rect, int]] = []
+        self.buffer_rects: list[tuple[pygame.Rect, str]] = []
+        self.panel_buttons: list[tuple[pygame.Rect, str]] = []   # "take_all", "store_all", "take_buffer"
+        self.name_rect: pygame.Rect | None = None                 # nome do baú (clique = editar)
         self.slot_img = Sprites().get("ui_slot")      # moldura opcional (bíblia §8); sem ela, desenhamos
 
     # ---- primitivas -----------------------------------------------------------
@@ -575,18 +580,25 @@ class UI:
         self.surf.fill(pygame.Color(color), (x, y, w, 2))
         self.text(title, x + 8, y + 6, color)
 
-    def draw_inventory(self, inventory: Inventory, chest: Inventory | None, hotbar_selected: int,
-                       item_icon, mouse: tuple[float, float]) -> None:
-        """Tela do Tab (só o inventário) ou do baú (inventário à esquerda, baú à direita).
+    def draw_inventory(self, inventory: Inventory, side, hotbar_selected: int, item_icon,
+                       mouse: tuple[float, float], t: float = 0.0, editing=None, status: str = "") -> None:
+        """Tela do Tab (só o inventário) ou com um painel do lado: baú ou estação de drones.
+
+        `side` = None (Tab) ou a Machine aberta (baú ou estação). `editing` = TextField do nome do
+        baú sendo editado (ou None). `status` = linha de estado da estação ("2 drones · 1 kW").
         Inventário: mochila (slots 8–15) em cima, hotbar (slots 0–7) embaixo, igual à ordem da tela."""
         self.slot_rects.clear()
+        self.bay_rects.clear()
+        self.buffer_rects.clear()
+        self.panel_buttons.clear()
+        self.name_rect = None
         self.fill((8, 5, 4, 158), (0, 0, UW, UH))
         pw = GRID_W + 16
         ph_inv = 20 + 6 + SLOT + 14 + SLOT + 8                  # título, mochila, rótulo HOTBAR, hotbar
-        ph_chest = 20 + 6 + 3 * SLOT_STEP - SLOT_GAP + 8
-        total_w = pw if chest is None else 2 * pw + 10
+        ph_side = 20 + 6 + 3 * SLOT_STEP - SLOT_GAP + 6 + 14 + 8   # baú: 3 linhas + botões (= estação)
+        total_w = pw if side is None else 2 * pw + 10
         x = (UW - total_w) // 2
-        h = ph_inv if chest is None else max(ph_inv, ph_chest)
+        h = ph_inv if side is None else max(ph_inv, ph_side)
         y = (UH - h) // 2 - 16
 
         self._window(x, y, pw, h, "INVENTÁRIO", C.C_TI)
@@ -597,31 +609,136 @@ class UI:
         self.text("HOTBAR", x + 8, y + 26 + SLOT + 4, C.C_MUTED)
         self._grid(inventory, list(range(hb)), x + 8, y + 26 + SLOT + 14, item_icon, mouse, hotbar_selected)
 
-        if chest is not None:
-            cx = x + pw + 10
-            self._window(cx, y, pw, h, "BAÚ", C.C_ACCENT)
-            used = sum(1 for s in chest.slots if s)
-            self.text(f"{used}/{len(chest)}", cx + pw - 8, y + 6, C.C_MUTED, align="right")
-            self._grid(chest, list(range(len(chest))), cx + 8, y + 26, item_icon, mouse)
-
-        keys = "[CLIQUE] PEGA/SOLTA · [DIREITO] METADE"
-        keys += " · [SHIFT+CLIQUE] MANDA PRO OUTRO LADO" if chest is not None else ""
-        keys += " · [ESC] FECHA"
+        if side is None:
+            keys = "[CLIQUE] PEGA/SOLTA · [DIREITO] METADE · [ESC] FECHA"
+        elif side.is_chest:
+            self._chest_panel(side, x + pw + 10, y, pw, h, item_icon, mouse, t, editing)
+            keys = ("DIGITE O NOME · [ENTER] OK · [ESC] CANCELA" if editing is not None else
+                    "[CLIQUE] PILHA · [DIREITO] 1 · [SHIFT+CLIQUE] TODAS · [ESC] FECHA")
+        else:
+            self._station_panel(side, x + pw + 10, y, pw, h, item_icon, mouse, status)
+            keys = "[CLIQUE] PILHA/DRONE · [DIREITO] 1 · [ESC] FECHA"
         self.text(keys, UW / 2, y + h + 6, C.C_MUTED, align="center")
 
-    def draw_held_and_tooltip(self, held: Stack | None, hovered: Stack | None, mouse, item_icon) -> None:
-        """Por cima de tudo: a pilha presa no cursor ou, sem nada na mão, o nome do item debaixo do mouse."""
+    def _button(self, rect: pygame.Rect, label: str, action: str, mouse, enabled: bool = True) -> None:
+        """Botão pequeno de painel ("Pegar tudo"). Só entra em `panel_buttons` se estiver ativo."""
+        hover = enabled and rect.collidepoint(mouse)
+        self.surf.fill(pygame.Color("#3a2a20" if hover else "#2a1e19"), rect)
+        pygame.draw.rect(self.surf, pygame.Color(C.C_ACCENT if enabled else "#3a2c25"), rect, 1)
+        self.text(label.upper(), rect.centerx, rect.y + 4, C.C_TEXT if enabled else "#6e6058", align="center")
+        if enabled:
+            self.panel_buttons.append((rect, action))
+
+    def _pencil(self, x: int, y: int, color: str) -> None:
+        """Lapisinho de pixels (6×6): o nome do baú é clicável."""
+        c = pygame.Color(color)
+        for i in range(5):
+            self.surf.fill(c, (x + 1 + i, y + 4 - i, 1, 1))
+            self.surf.fill(c, (x + 2 + i, y + 5 - i, 1, 1))
+        self.surf.fill(c, (x, y + 5, 2, 1))
+
+    def _chest_panel(self, chest, cx: int, y: int, pw: int, h: int, item_icon, mouse, t: float, editing) -> None:
+        """Baú: nome (clique edita), os 24 slots e os botões Pegar tudo / Guardar tudo."""
+        self._window(cx, y, pw, h, "", C.C_ACCENT)
+        box = chest.storage
+        used = sum(1 for s in box.slots if s)
+        self.text(f"{used}/{len(box)}", cx + pw - 8, y + 6, C.C_MUTED, align="right")
+        if editing is not None:                       # campo de texto com cursor piscando
+            field = pygame.Rect(cx + 4, y + 3, pw - 44, 15)
+            self.surf.fill(pygame.Color("#0d0907"), field)
+            pygame.draw.rect(self.surf, pygame.Color(C.C_ACCENT), field, 1)
+            w = self.text(editing.text, field.x + 4, field.y + 1, C.C_TEXT, self.body) if editing.text else 0
+            if (t % C.CHEST_NAME_BLINK) < C.CHEST_NAME_BLINK / 2:
+                self.surf.fill(pygame.Color(C.C_TI), (field.x + 5 + w, field.y + 3, 1, 9))
+            self.text(f"{len(editing.text)}/{editing.max_len}", field.right - 3, field.y + 4,
+                      C.C_ALERT if editing.full else C.C_MUTED, align="right")
+            self.name_rect = field
+        else:
+            name = chest.name or C.CHEST_DEFAULT_NAME
+            w = self.body.size(name)[0]
+            rect = pygame.Rect(cx + 4, y + 3, w + 20, 15)
+            hover = rect.collidepoint(mouse)
+            if hover:
+                self.fill((255, 255, 255, 24), rect)
+                pygame.draw.rect(self.surf, pygame.Color("#5a4034"), rect, 1)
+            self.text(name, cx + 8, y + 4, C.C_ACCENT, self.body)
+            self._pencil(cx + 13 + w, y + 7, C.C_TI if hover else C.C_MUTED)
+            self.name_rect = rect
+        self._grid(box, list(range(len(box))), cx + 8, y + 26, item_icon, mouse)
+        by = y + 26 + 3 * SLOT_STEP - SLOT_GAP + 5
+        # largura pelo texto (o "Guardar recursos" é mais comprido): um encostado em cada ponta da grade
+        take_w = self.font.size("PEGAR TUDO")[0] + 12
+        store_w = self.font.size("GUARDAR RECURSOS")[0] + 12
+        self._button(pygame.Rect(cx + 8, by, take_w, 15), "Pegar tudo", "take_all", mouse, not box.is_empty())
+        self._button(pygame.Rect(cx + 8 + GRID_W - store_w, by, store_w, 15), "Guardar recursos", "store_all", mouse)
+
+    def _station_panel(self, machine, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str) -> None:
+        """Estação: os 4 slots de drone (travados em voo), o buffer como slots (só tirar) e o estado."""
+        st = machine.station
+        self._window(cx, y, pw, h, "ESTAÇÃO DE DRONES", C.C_O2)
+        self.text(f"{len(st.drones)}/{C.STATION_DRONE_SLOTS}", cx + pw - 8, y + 6, C.C_MUTED, align="right")
+        self.text("DRONES", cx + 8, y + 24, C.C_MUTED)
+        self.text(f"ALCANCE {C.DRONE_RANGE} TILES", cx + pw - 8, y + 24, C.C_MUTED, align="right")
+        n = C.STATION_DRONE_SLOTS
+        step = (GRID_W - 2 * 10 - SLOT) // (n - 1)        # espalhados na largura: cabe "POUSADO" embaixo de cada
+        for slot in range(n):
+            sx, sy = cx + 8 + 10 + slot * step, y + 33
+            rect = pygame.Rect(sx, sy, SLOT, SLOT)
+            drone = st.drone_in(slot)
+            self.draw_slot(sx, sy, None, item_icon, hover=rect.collidepoint(mouse))
+            if drone is not None:
+                icon = item_icon("drone")
+                if drone.busy:                         # em viagem: travado, ícone apagado e moldura azul
+                    icon = icon.copy()
+                    icon.set_alpha(90)
+                    pygame.draw.rect(self.surf, pygame.Color(C.C_O2), (sx - 1, sy - 1, SLOT + 2, SLOT + 2), 1)
+                    self.text("EM VOO", sx + SLOT / 2, sy + SLOT + 2, C.C_O2, align="center")
+                else:
+                    self.text("POUSADO", sx + SLOT / 2, sy + SLOT + 2, C.C_MUTED, align="center")
+                self.native.append((icon, (sx * 2 + 4, sy * 2 + 4)))
+            else:
+                self.text("VAZIO", sx + SLOT / 2, sy + SLOT + 2, "#5a4a40", align="center")
+            self.bay_rects.append((rect, slot))
+        by = y + 72
+        self.text(f"BUFFER {st.stored}/{C.STATION_BUFFER}", cx + 8, by, C.C_ALERT if st.full else C.C_MUTED)
+        stacks = st.buffer_stacks()
+        for k in range(len(C.RESOURCES)):
+            sx, sy = cx + 8 + k * SLOT_STEP, by + 10
+            rect = pygame.Rect(sx, sy, SLOT, SLOT)
+            stack = Stack(*stacks[k]) if k < len(stacks) else None
+            self.draw_slot(sx, sy, stack, item_icon, hover=stack is not None and rect.collidepoint(mouse))
+            if stack is not None:
+                self.buffer_rects.append((rect, stack.item))
+        self._button(pygame.Rect(cx + 8 + 3 * SLOT_STEP + 6, by + 12, GRID_W - 3 * SLOT_STEP - 6, 15),
+                     "Pegar tudo", "take_buffer", mouse, st.stored > 0)
+        self.text(status, cx + 8, y + h - 16, "#d9cfc4", self.body)
+
+    def draw_held_and_tooltip(self, held: Stack | None, label: str | None, mouse, item_icon) -> None:
+        """Por cima de tudo: a pilha presa no cursor ou, sem nada na mão, o texto do slot debaixo do
+        mouse (nome · quantidade, ou o estado do drone)."""
         mx, my = mouse
         if held is not None:
             self.native.append((item_icon(held.item), (int(mx * 2) + 6, int(my * 2) + 6)))
             if held.count > 1:
                 self.native_text(str(held.count), mx + 20, my + 14, C.C_TEXT, "right")
-        elif hovered is not None:
-            label = f"{item_name(hovered.item)} · {hovered.count}"
+        elif label:
             w = self.body.size(label)[0] + 12
             tx, ty = min(mx + 8, UW - w - 2), my - 18
             self.panel(tx, ty, w, 16, (14, 10, 9, 235))
             self.text(label, tx + 6, ty + 2, C.C_TEXT, self.body)
+
+    def draw_world_labels(self, labels, cam: tuple[int, int], zoom: float = 1.0) -> None:
+        """Nomes flutuando em cima de coisas do mundo (o nome do baú). `labels` = [(texto, x, y)] com
+        (x, y) = ponto do mundo logo acima do sprite. Igual aos floaters: a posição acompanha o zoom,
+        o tamanho da letra não."""
+        for text, x, y in labels:
+            sx, sy = (x - cam[0]) * zoom / 2, (y - cam[1]) * zoom / 2
+            w = self.body.size(text)[0] + 8
+            if not (-w < sx < UW + w and 0 < sy < UH + 20):
+                continue
+            bx, by = int(sx - w / 2), int(sy - 15)
+            self.panel(bx, by, w, 14, (14, 10, 9, 200))
+            self.text(text, sx, by + 1, C.C_TEXT, self.body, "center")
 
     def _arrow(self, cx: int, y: int, up: bool) -> None:
         """Setinha de 5×3 (tem mais receita pra cima/baixo)."""
@@ -698,7 +815,7 @@ class UI:
     CONTROLS = [
         ("WASD / SETAS", "Andar"),
         ("SEGURAR CLIQUE", "Minerar a parede mirada"),
-        ("E", "Fabricador (na base) · terminal · baú"),
+        ("E", "Fabricador (na base) · terminal · baú · estação"),
         ("1 A 8 · RODINHA", "Escolher slot da hotbar"),
         ("CLIQUE", "Colocar a máquina da hotbar"),
         ("R", "Girar a máquina (só visual)"),

@@ -71,6 +71,8 @@ def test_normal_sequence_walks_every_objective(game):
     drill.stored = 3
     assert game.collect(drill) == 3; step()
     craft_free(game, "drone_station"); step()
+    craft_free(game, "drone"); step()
+    game.drones_docked = 1; step()
     game.drone_deliveries = 1; step()
     craft_free(game, "melter_t2"); step()
     game.debug_add_ti(100_000); step()          # -> Verde
@@ -91,6 +93,8 @@ def test_normal_sequence_walks_every_objective(game):
         "Coloque uma drill num veio",
         "Colete minério de uma drill",
         "Fabrique uma estação de drones",
+        "Fabrique um drone",
+        "Coloque o drone na estação [E]",
         "Receba uma entrega de drone",
         "Fabrique uma máquina nv.2",
         "Deixe o planeta verde",
@@ -186,6 +190,7 @@ def test_everything_done_list_disappears(game):
     game.drills_placed = 1
     game.drill_collected["iron"] = 5
     game.drone_deliveries = 1
+    game.drones_docked = 1
     tracker = ObjectiveTracker(game)
     assert current_text(game) == "Chegue a Ti 500"
     game.debug_add_ti(100_000)

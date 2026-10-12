@@ -23,10 +23,10 @@ def game() -> GameState:
     return g
 
 
-def add_station(game, tile=ST) -> Machine:
-    """Põe uma estação direto no mapa (o teste é da lógica, não do place)."""
+def add_station(game, tile=ST, count: int = 2) -> Machine:
+    """Põe uma estação direto no mapa, com `count` drones nos slots (o teste é da lógica, não do place)."""
     m = Machine("drone_station", *tile)
-    m.station = drones.new_station(m)
+    m.station = drones.new_station(m, count)
     game.machines.append(m)
     return m
 
@@ -53,15 +53,46 @@ def run(game, seconds: float, step: float = 1 / 30) -> None:
 # ---------------------------------------------------------------- receita
 def test_station_recipe_and_power():
     m = C.MACHINES["drone_station"]
-    assert m.cost == {"iron": 20, "silicon": 15, "ice": 5} and m.unlock_ti == 10_000
+    assert m.cost == {"iron": 12, "silicon": 8, "ice": 3} and m.unlock_ti == 10_000
     assert m.size == 2 and m.index is None and m.rate == 0          # não soma Ti
-    assert C.POWER_USE["drone_station"] == 3
+    assert C.POWER_USE["drone_station"] == 1
     assert C.MACHINE_ORDER.index("drone_station") == C.MACHINE_ORDER.index("drill") + 1
 
 
-def test_station_comes_with_two_landed_drones_on_the_pads(game):
+def test_drone_is_an_item_recipe_unlocked_with_the_station():
+    d = C.MACHINES["drone"]
+    assert d.cost == {"iron": 6, "silicon": 4} and d.unlock_ti == C.MACHINES["drone_station"].unlock_ti
+    assert not d.placeable and d.index is None and "drone" not in C.POWER_USE
+    assert C.MACHINE_ORDER.index("drone") == C.MACHINE_ORDER.index("drone_station") + 1
+    from game.inventory import max_stack
+    assert max_stack("drone") == C.STACK_MACHINE
+
+
+def test_craft_drone_goes_to_the_inventory_and_cannot_be_placed(game):
+    game.player.x, game.player.y = C.SPAWN_POS
+    assert game.recipe_status("drone") == "missing"
+    give(game, iron=6, silicon=4)
+    assert game.craft("drone")
+    assert game.inventory.count("drone") == 1 and game.inventory.count("iron") == 0
+    assert game.crafted["drone"] == 1
+    assert not game.can_place("drone", (60, 66))                    # não vai pro chão
+
+
+def test_drone_recipe_locked_before_mist():
+    g = GameState(rng=random.Random(1))
+    assert g.recipe_status("drone") == "locked"
+
+
+def test_new_station_is_empty_with_4_free_slots(game):
+    m = Machine("drone_station", *ST)
+    st = drones.new_station(m)
+    assert st.drones == [] and st.free_slots() == [0, 1, 2, 3]
+
+
+def test_docked_drones_land_on_their_slot(game):
     st = add_station(game)
     assert len(st.station.drones) == 2 and all(d.state == LANDED for d in st.station.drones)
+    assert [d.pad for d in st.station.drones] == [0, 1]
     ax, ay = st.anchor                                               # ax = (tx+1)·32, ay = (ty+2)·32
     assert (ax, ay) == ((ST[0] + 1) * 32, (ST[1] + 2) * 32)
     # drone pousado em (sx + px − 8, sy + py − 10): o centro fica 8 px pra dentro
@@ -133,10 +164,10 @@ def test_flies_straight_over_walls_at_4_tiles_per_second(game):
 def test_low_power_only_makes_them_slower(game):
     st = add_station(game)
     add_drill(game, 20, stored=10)
-    # déficit forçado: 3 aquecedores nv.2 (12 kW) + estação (3) + drill (2) = 17 kW contra 5 kW
+    # déficit forçado: 3 aquecedores nv.2 (12 kW) + estação (1) + drill (2) = 15 kW contra 5 kW
     game.machines += [Machine("heater_t2", 0, i) for i in range(3)]
     factor = game.power.factor
-    assert factor == pytest.approx(5 / 17)
+    assert factor == pytest.approx(5 / 15)
     run(game, 1 / 30)
     d = st.station.drones[0]
     start = (d.x, d.y)
@@ -254,7 +285,7 @@ def test_place_station_from_the_inventory(game):
     tile = free_station_tile(game)
     assert game.place("drone_station", tile)
     st = game.stations[0]
-    assert st.station is not None and len(st.station.drones) == 2
+    assert st.station is not None and st.station.drones == []           # vem vazia
     assert game.inventory.count("drone_station") == 0
     assert all(game.machine_at(t) is st for t in st.tiles)
 
@@ -274,9 +305,8 @@ def test_e_collects_the_buffer(game):
     st = game.stations[0]
     ax, ay = st.anchor
     game.player.x, game.player.y = ax, ay + 10                   # logo abaixo da estação
-    assert game.interaction() is None                            # buffer vazio: E fica pro fabricador
+    assert game.interaction() == ("station", st)                 # E abre o painel (mesmo vazia)
     st.station.buffer = {"iron": 12, "ice": 3}
-    assert game.interaction() == ("station", st)
     assert game.collect_station(st) == 15
     assert st.station.buffer == {} and game.inventory.count("iron") == 12 and game.inventory.count("ice") == 3
     assert ("station_collect", "iron", 12, st.anchor) in game.pop_events()
@@ -293,10 +323,11 @@ def test_e_with_full_inventory_keeps_the_rest(game):
 
 
 def test_dismantle_returns_buffer_cargo_and_station(game):
-    give(game, drone_station=1)
+    give(game, drone_station=1, drone=2)
     tile = free_station_tile(game)
     game.place("drone_station", tile)
     st = game.stations[0]
+    assert game.station_dock(st, game.inventory.slots.index(next(s for s in game.inventory.slots if s and s.item == "drone"))) == 2
     st.station.buffer = {"iron": 30}
     st.station.drones[1].resource, st.station.drones[1].cargo = "ice", 8     # um drone no ar, carregado
     st.station.drones[1].state = RETURNING
@@ -304,6 +335,7 @@ def test_dismantle_returns_buffer_cargo_and_station(game):
     assert st not in game.machines
     assert game.inventory.count("iron") == 30 and game.inventory.count("ice") == 8
     assert game.inventory.count("drone_station") == 1
+    assert game.inventory.count("drone") == 2                       # os 2, até o que estava voando
 
 
 def test_dismantle_refuses_when_it_does_not_fit(game):
@@ -329,6 +361,8 @@ def drone_state() -> GameState:
     tile = free_station_tile(state)
     assert state.place("drone_station", tile)
     st = state.stations[0]
+    drones.dock(st, st.station, 0)
+    drones.dock(st, st.station, 2)                      # slot 2 (o 3º): o save guarda o slot de cada um
     st.station.buffer = {"iron": 11, "silicon": 4}
     flying = st.station.drones[0]                       # no ar, voltando com 9 de gelo
     flying.state, flying.resource, flying.cargo = RETURNING, "ice", 9
@@ -337,20 +371,21 @@ def drone_state() -> GameState:
     return state
 
 
-def test_save_v3_roundtrip_keeps_buffer_and_cargo(tmp_path):
+def test_save_v4_roundtrip_keeps_buffer_slots_and_cargo(tmp_path):
     state = drone_state()
     path = tmp_path / "slot1.json"
     assert save.write_save(state, path)
     data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["version"] == 3
+    assert data["version"] == 4
     saved = next(m for m in data["machines"] if m["kind"] == "drone_station")
     assert saved["buffer"] == {"iron": 11, "silicon": 4}
-    assert saved["drone_cargo"] == [["ice", 9], None]
+    assert saved["drones"] == [["ice", 9], None, [None, 0], None]
     loaded = save.load_game(path)
     st = loaded.stations[0]
     assert st.station.buffer == {"iron": 11, "silicon": 4}
     assert loaded.drone_deliveries == 3
     # os drones voltam pousados (sem posição no ar), mas a carga não some
+    assert [d.pad for d in st.station.drones] == [0, 2]
     assert all(d.state == LANDED and (d.x, d.y) == drones.pad_position(st, d.pad) for d in st.station.drones)
     assert st.station.drones[0].cargo == 9
     loaded._update_machines(1 / 60)                     # no primeiro frame ele entrega
@@ -367,4 +402,4 @@ def test_migration_v2_to_v3(tmp_path):
     loaded = save.load_game(path)
     assert loaded is not None and loaded.drone_deliveries == 0 and loaded.stations == []
     save.write_save(loaded, path)
-    assert json.loads(path.read_text(encoding="utf-8"))["version"] == 3
+    assert json.loads(path.read_text(encoding="utf-8"))["version"] == 4

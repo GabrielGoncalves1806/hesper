@@ -27,7 +27,9 @@ Aproximado (o simulador decide no lugar do jogador):
   viagem custar menos do que minerar aquelas unidades no ritmo dele. "Sem drills" = mesma simulação com a receita
   da drill trancada (`--no-drills` / `without_drills`).
 - Drones (Marco 3): depois das drills, o jogador fabrica um baú (se ainda não tiver um na base) e 1 estação de
-  drones encostada nele (até 3 tiles). Os drones são a regra real (`game/drones.py`, rodando dentro do
+  drones encostada nele (até 3 tiles). A estação vem vazia: ele junta material pra estação E `Strategy.drones`
+  drones (item, 2 por padrão) de uma vez, fabrica tudo e põe os drones nos slots pelo `GameState.station_dock`
+  real (igual a um jogador que já sabe que a estação sem drone não faz nada). Os drones são a regra real (`game/drones.py`, rodando dentro do
   `_update_machines`): buscam as drills, voam e entregam no baú. Toda vez que o jogador está na base, ele esvazia
   o baú da base e o buffer da estação pro inventário ("drone un."), em vez de ir até a drill.
   "Sem drones" = mesma simulação com a receita da estação trancada (`--no-drones` / `without_drones`).
@@ -130,6 +132,7 @@ class Strategy:
     mine_overhead: float = 0.0    # segundos por tile além da dureza: mirar o próximo, reposicionar o mouse
     drills: int = 3               # quantas drills ele monta depois da Névoa (uma por veio)
     stations: int = 1             # quantas estações de drones ele monta depois das drills
+    drones: int = 2               # quantos drones (item) ele fabrica e põe na estação
 
 
 STRATEGIES = {
@@ -520,6 +523,32 @@ class Sim:
         built = len(self.gs.stations) + self.gs.inventory.count("drone_station")
         return built < self.s.stations
 
+    def want_drone(self) -> bool:
+        """Estação montada e com menos drones do que a estratégia quer: o próximo craft é um drone."""
+        if "drone" not in C.MACHINES or not self.gs.stations or self.gs.recipe_status("drone") == "locked":
+            return False
+        docked = sum(len(m.station.drones) for m in self.gs.stations)
+        return docked < self.s.drones and any(m.station.free_slots() for m in self.gs.stations)
+
+    def cost(self, kind) -> dict:
+        """Receita que o jogador junta antes de ir fabricar. A estação vem junto com os drones dela."""
+        cost = dict(C.MACHINES[kind].cost)
+        if kind == "drone_station" and "drone" in C.MACHINES:
+            for r, n in C.MACHINES["drone"].cost.items():
+                cost[r] = cost.get(r, 0) + n * self.s.drones
+        return cost
+
+    def craft_and_dock_drone(self) -> bool:
+        """Fabrica 1 drone e põe no primeiro slot livre da estação (regra real: station_dock)."""
+        self._set_player(self._i(*self._xy_spawn()))
+        if not self.gs.craft("drone"):
+            return False
+        station = next(m for m in self.gs.stations if m.station.free_slots())
+        index = next(i for i, st in enumerate(self.gs.inventory.slots) if st and st.item == "drone")
+        assert self.gs.station_dock(station, index, 1) == 1
+        self._advance(self.s.craft_overhead)
+        return True
+
     def _place_near(self, kind, tiles) -> bool:
         """Tenta colocar `kind` no primeiro tile de `tiles` que der, com o player parado do lado."""
         for tx, ty in tiles:
@@ -569,6 +598,8 @@ class Sim:
             return False
         if not self._place_near("drone_station", self._station_spots((chests[0].tx, chests[0].ty))):
             raise AssertionError("não achou lugar pra estação perto do baú da base")
+        while self.want_drone() and self.affordable("drone"):     # os drones que ele já juntou
+            self.craft_and_dock_drone()
         return True
 
     def empty_base_storage(self):
@@ -708,7 +739,7 @@ class Sim:
         return sum(self.gs.inventory.count(r) for r in C.RESOURCES)
 
     def affordable(self, kind):
-        return all(self.gs.inventory.count(r) >= n for r, n in C.MACHINES[kind].cost.items())
+        return all(self.gs.inventory.count(r) >= n for r, n in self.cost(kind).items())
 
     # ---- laço principal ----
     def run(self) -> Result:
@@ -723,6 +754,8 @@ class Sim:
                     kind = "drill"
                 elif self.want_station():
                     kind = "drone_station" if self.gs.base_chests() else "chest"
+                elif self.want_drone():
+                    kind = "drone"
                 else:
                     kind = self.choose()
                 if kind is None:
@@ -747,13 +780,15 @@ class Sim:
                         self.craft_and_place_drill()
                     elif kind == "drone_station":
                         self.craft_and_place_station()
+                    elif kind == "drone":
+                        self.craft_and_dock_drone()
                     elif kind == "chest":
                         self.craft_and_place_chest()
                     else:
                         self.craft_and_place(kind)
                     continue
                 self._not_idle()
-                missing = [r for r, n in C.MACHINES[kind].cost.items() if self.gs.inventory.count(r) < n]
+                missing = [r for r, n in self.cost(kind).items() if self.gs.inventory.count(r) < n]
                 if self.zone[self.cur] and self.collect_trip(missing):
                     continue
                 got = self.mine_here(missing)
@@ -782,6 +817,7 @@ class Sim:
         self.res.units = self._units() + sum(
             sum(C.MACHINES[m.kind].cost.values()) for m in self.gs.machines)
         self.res.machines = {k: sum(1 for m in self.gs.machines if m.kind == k) for k in C.MACHINES}
+        self.res.machines["drone"] = sum(len(m.station.drones) for m in self.gs.stations)   # drones nas estações
         return self.res
 
     def _update_pace(self, t0, units):

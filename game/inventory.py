@@ -11,6 +11,8 @@ Duas famílias de operação:
     - por TIPO (o jogo usa): add, remove, count, has_space. Não importa em qual slot está.
     - por SLOT (a tela de inventário usa): take, take_half, put, move, swap, split, quick_move.
       A tela tem uma "mão" (a pilha presa no cursor): take tira do slot pra mão e put devolve.
+    - entre DOIS inventários (baú aberto): transfer (pilha ou N unidades) e transfer_all
+      (Pegar tudo / Guardar tudo).
 """
 
 from dataclasses import dataclass
@@ -194,6 +196,27 @@ class Inventory:
                 moved_total += other.count - left
                 self.slots[i] = Stack(item, left) if left else None
         return moved_total
+
+    # ---- transferência entre dois painéis (baú/estação abertos, estilo Planet Crafter) ----
+    def transfer(self, index: int, target: "Inventory", amount: int | None = None) -> int:
+        """Manda `amount` unidades (None = a pilha inteira) do slot `index` pro `target`, que junta
+        nas pilhas iguais e depois nos slots vazios. O que não couber fica no slot. Devolve quanto foi."""
+        s = self.slots[index]
+        if s is None:
+            return 0
+        want = s.count if amount is None else min(amount, s.count)
+        moved = want - target.add(s.item, want)
+        self.remove_from_slot(index, moved)
+        return moved
+
+    def transfer_all(self, target: "Inventory", items=None) -> int:
+        """Manda tudo (ou só os itens em `items`) pro `target`, slot por slot, até onde couber.
+        "Pegar tudo" e "Guardar tudo" do baú. Devolve quantas unidades foram."""
+        moved = 0
+        for i, s in enumerate(self.slots):
+            if s is not None and (items is None or s.item in items):
+                moved += self.transfer(i, target)
+        return moved
 
     # ---- save (lista simples de [item, quantidade] ou None) -------------------
     def to_data(self) -> list:

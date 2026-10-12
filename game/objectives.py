@@ -64,6 +64,9 @@ OBJECTIVES = [
     Objective("Colete minério de uma drill", lambda s: sum(s.drill_collected.values()) >= 1),
     # drones (bíblia §8, Marco 3): a estação busca o minério das drills sozinha
     Objective("Fabrique uma estação de drones", lambda s: crafted(s, "drone_station") >= 1),
+    # a estação vem vazia: o drone é um item fabricado à parte e colocado pelo painel dela (E)
+    Objective("Fabrique um drone", lambda s: crafted(s, "drone") >= 1 or s.drones_docked >= 1),
+    Objective("Coloque o drone na estação [E]", lambda s: s.drones_docked >= 1),
     Objective("Receba uma entrega de drone", lambda s: s.drone_deliveries >= 1),
     Objective("Fabrique uma máquina nv.2", lambda s: any(crafted(s, k) >= 1 for k in ("o2_t2", "melter_t2", "heater_t2"))),
     Objective("Deixe o planeta verde", lambda s: s.stage >= 3),

@@ -11,7 +11,7 @@ esticada pra janela mantendo 16:9 (na tela cheia sobra tarja preta se o monitor 
 F11 ou Alt+Enter alternam a tela cheia; +/- ou Ctrl+rodinha mudam o zoom.
 
 Modos de tela: "play" (jogando), "fabricator" (menu de receitas),
-"terminal" (lendo um log), "inventory" (Tab), "chest" (baú aberto com E),
+"terminal" (lendo um log), "inventory" (Tab), "chest" (baú aberto com E), "station" (estação com E),
 "pause" (menu do Esc) e "end" (tela de fim do MVP).
 Em "pause" e "end" o mundo fica congelado (O₂, máquinas e Ti param). No fabricador, no terminal,
 no inventário e no baú o mundo continua (o player só fica parado), como em Core Keeper e Planet Crafter.
@@ -36,6 +36,8 @@ from game.inventory import Stack
 from game.objectives import ObjectiveTracker
 from game.render import Renderer, stage_key
 from game.systems import Controls, GameState
+from game.textedit import TextField
+from game.ui import item_name
 from game.title import TitleScreen, draw_saved_notice
 from game.ui import UI, FloatingTexts
 
@@ -46,13 +48,19 @@ MOVE_KEYS = {
     pygame.K_s: (0, 1), pygame.K_DOWN: (0, 1),
 }
 NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8]
-INVENTORY_MODES = ("inventory", "chest")
+INVENTORY_MODES = ("inventory", "chest", "station")
+PANEL_MODES = ("chest", "station")          # dois painéis: clique transfere pro outro lado (Planet Crafter)
 ZOOM_IN_KEYS = (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS)     # "=" é a tecla do "+" sem Shift
 ZOOM_OUT_KEYS = (pygame.K_MINUS, pygame.K_KP_MINUS)
 BANNER_TIME = 3.5          # banner de estágio: entra em 0,4 s, fica, sai em 0,8 s
 BANNER_FADE_IN, BANNER_FADE_OUT = 0.4, 0.8
 END_SCREEN_DELAY = 4.5
 FOOTSTEP_INTERVAL = 0.3
+
+
+def fmt_kw(kw: float) -> str:
+    """1 -> '1', 1.5 -> '1,5'."""
+    return f"{kw:g}".replace(".", ",")
 
 
 def viewport_label(zoom: float) -> str:
@@ -104,6 +112,8 @@ class App:
         self.hotbar_selected = 0                          # slot da hotbar escolhido (0 a 7, teclas 1–8)
         self.held: Stack | None = None                    # pilha presa no cursor na tela de inventário
         self.open_chest = None                            # baú aberto (Machine), no modo "chest"
+        self.open_station = None                          # estação aberta (Machine), no modo "station"
+        self.name_edit: TextField | None = None           # editando o nome do baú (texto digitado)
         self.notice: str | None = None                    # aviso curto ("Inventário cheio")
         self.notice_time = 0.0
         self.rotation = 0
@@ -129,6 +139,10 @@ class App:
         self.autosave_timer = 0.0       # segundos jogando (modo "play") desde o último save
         self.saved_notice = 0.0         # quanto falta do aviso "Jogo salvo" no HUD
         self.title = TitleScreen(self.ui, self.renderer, self.audio.play)
+        try:                            # digitação (TEXTINPUT) só liga enquanto edita o nome do baú
+            pygame.key.stop_text_input()
+        except pygame.error:
+            pass
         if not skip_title:              # skip_title: entra direto num jogo novo (testes)
             self.open_title()
 
@@ -218,6 +232,10 @@ class App:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.quit_game()
+            elif self.name_edit is not None and event.type == pygame.TEXTINPUT:
+                self.name_edit.insert(event.text)
+            elif self.name_edit is not None and event.type == pygame.KEYDOWN:
+                self.on_name_key(event.key)       # editando: nenhuma tecla do jogo (E, Tab, 1–8, WASD, +/-)
             elif event.type == pygame.KEYDOWN:
                 self.keys_down.add(event.key)
                 if not self.on_global_key(event.key, getattr(event, "mod", 0)):
@@ -235,7 +253,8 @@ class App:
                 self.on_click(event.button)
             elif event.type == pygame.MOUSEWHEEL and self.mode != "title" and self.zoom_modifier():
                 self.zoom_step(1 if event.y > 0 else -1)        # Ctrl+rodinha pra cima = aproxima
-            elif event.type == pygame.MOUSEWHEEL and self.mode == "play" and not self.state.fainted:
+            elif event.type == pygame.MOUSEWHEEL and self.mode == "play" and not self.state.fainted \
+                    and self.name_edit is None:
                 # rodinha pra baixo = próximo slot (y < 0), pra cima = anterior
                 self.select_hotbar((self.hotbar_selected + (1 if event.y < 0 else -1)) % C.HOTBAR_SLOTS)
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
@@ -308,7 +327,9 @@ class App:
                 elif target and target[0] == "drill":
                     state.collect(target[1])
                 elif target and target[0] == "station":
-                    state.collect_station(target[1])
+                    self.open_station = target[1]
+                    self.placing = None
+                    self.set_mode("station")
                 elif target and target[0] == "chest":
                     self.open_chest = self.renderer.open_chest = target[1]
                     self.placing = None
@@ -337,7 +358,8 @@ class App:
         """Escolhe o slot da hotbar. Se tiver máquina nele, já entra no modo de colocar."""
         self.hotbar_selected = index
         stack = self.state.inventory.slots[index]
-        self.placing = stack.item if stack and stack.item in C.MACHINES else None
+        placeable = stack and stack.item in C.MACHINES and C.MACHINES[stack.item].placeable
+        self.placing = stack.item if placeable else None      # o drone é item, mas não vai pro chão
         self.audio.play("ui_click")
 
     def show_notice(self, text: str) -> None:
@@ -349,19 +371,22 @@ class App:
             return None
         return self.open_chest.storage if inv is self.state.inventory else self.state.inventory
 
+    def shift_held(self) -> bool:
+        return bool(pygame.key.get_mods() & pygame.KMOD_SHIFT) or bool({pygame.K_LSHIFT, pygame.K_RSHIFT} & self.keys_down)
+
     def on_inventory_click(self, button: int) -> None:
-        """Clique na tela de inventário/baú: pega e solta pilhas (a "mão" é self.held)."""
+        """Clique na tela de inventário (Tab): pega e solta pilhas (a "mão" é self.held).
+        Com baú ou estação aberta, o clique transfere pro outro lado (on_panel_click)."""
         ux, uy = self.mouse[0] / 2, self.mouse[1] / 2
+        if self.mode in PANEL_MODES:
+            self.on_panel_click(button, (ux, uy))
+            return
         hit = next(((inv, i) for rect, inv, i in self.ui.slot_rects if rect.collidepoint(ux, uy)), None)
         if hit is None:
             return
         inv, i = hit
-        shift = bool(pygame.key.get_mods() & pygame.KMOD_SHIFT) or bool({pygame.K_LSHIFT, pygame.K_RSHIFT} & self.keys_down)
-        target = self.other_side(inv)
         before = ((self.held.item, self.held.count) if self.held else None, inv.to_data())
-        if button == 1 and shift and target is not None and self.held is None:
-            inv.quick_move(i, target)                    # todas as pilhas desse item vão pro outro lado
-        elif button == 1:
+        if button == 1:
             self.held = inv.put(i, self.held)            # mão vazia pega; mão cheia solta/junta/troca
         elif self.held is None:
             self.held = inv.take_half(i)                 # direito com a mão vazia: pega metade
@@ -376,6 +401,139 @@ class App:
         if after != before:
             self.audio.play("inv_move")
 
+    def on_panel_click(self, button: int, pos: tuple[float, float]) -> None:
+        """Baú ou estação aberta (estilo Planet Crafter): esquerdo manda a pilha inteira pro outro
+        lado, direito manda 1, Shift+esquerdo manda todas as pilhas daquele item (só no baú)."""
+        ui, state = self.ui, self.state
+        if self.name_edit is not None:                   # clicou fora do campo: confirma o nome
+            if ui.name_rect is not None and ui.name_rect.collidepoint(pos):
+                return
+            self.finish_name_edit(confirm=True)
+        if button == 1:
+            for rect, action in ui.panel_buttons:
+                if rect.collidepoint(pos):
+                    self.on_panel_button(action)
+                    return
+            if self.open_chest is not None and ui.name_rect is not None and ui.name_rect.collidepoint(pos):
+                self.start_name_edit()
+                return
+        amount = None if button == 1 else 1
+        if self.open_station is not None:
+            station = self.open_station
+            bay = next((slot for rect, slot in ui.bay_rects if rect.collidepoint(pos)), None)
+            if bay is not None:
+                drone = station.station.drone_in(bay)
+                if drone is not None and drone.busy:
+                    self.show_notice("Drone em voo: espere ele pousar")
+                elif drone is not None and state.station_undock(station, bay):
+                    self.audio.play("inv_move")
+                return
+            res = next((r for rect, r in ui.buffer_rects if rect.collidepoint(pos)), None)
+            if res is not None:
+                if state.station_take(station, res, amount):
+                    self.audio.play("inv_move")
+                return
+        hit = next(((inv, i) for rect, inv, i in ui.slot_rects if rect.collidepoint(pos)), None)
+        if hit is None or hit[0].slots[hit[1]] is None:
+            return
+        inv, i = hit
+        item = inv.slots[i].item
+        if self.open_station is not None:                # só do inventário pra estação, e só drone
+            if item != "drone":
+                self.show_notice("Só drones vão na estação")
+            elif not self.open_station.station.free_slots():
+                self.show_notice("Estação sem slot livre")
+            elif state.station_dock(self.open_station, i, amount):
+                self.audio.play("inv_move")
+            return
+        target = self.other_side(inv)
+        if button == 1 and self.shift_held():
+            moved = inv.quick_move(i, target)            # todas as pilhas desse item vão pro outro lado
+        else:
+            moved = inv.transfer(i, target, amount)
+        if moved:
+            self.audio.play("inv_move")
+        else:
+            self.show_notice("Baú cheio" if target is not self.state.inventory else "Inventário cheio")
+
+    def on_panel_button(self, action: str) -> None:
+        state, moved = self.state, 0
+        if action == "take_all" and self.open_chest is not None:
+            moved = self.open_chest.storage.transfer_all(state.inventory)
+            if not self.open_chest.storage.is_empty():
+                self.show_notice("Inventário cheio")
+        elif action == "store_all" and self.open_chest is not None:
+            # "Guardar recursos": só ferro/silício/gelo; máquinas e drones ficam com o player (bíblia §8)
+            moved = state.inventory.transfer_all(self.open_chest.storage, C.RESOURCES)
+            if any(state.inventory.count(r) for r in C.RESOURCES):
+                self.show_notice("Baú cheio")
+        elif action == "take_buffer" and self.open_station is not None:
+            moved = state.collect_station(self.open_station)
+        if moved:
+            self.audio.play("inv_move")
+
+    # ---- nome do baú ------------------------------------------------------------
+    def start_name_edit(self) -> None:
+        name = self.open_chest.name or C.CHEST_DEFAULT_NAME
+        self.name_edit = TextField(name, C.CHEST_NAME_MAX)
+        self.keys_down.clear()                           # nada de WASD "preso" enquanto digita
+        try:
+            pygame.key.start_text_input()
+        except pygame.error:
+            pass
+        self.audio.play("ui_click")
+
+    def finish_name_edit(self, confirm: bool) -> None:
+        if self.name_edit is None:
+            return
+        if confirm and self.open_chest is not None:
+            self.state.rename_chest(self.open_chest, self.name_edit.text)
+        self.name_edit = None
+        try:
+            pygame.key.stop_text_input()
+        except pygame.error:
+            pass
+        self.audio.play("ui_click" if confirm else "ui_close")
+
+    def on_name_key(self, key: int) -> None:
+        """Teclas enquanto edita o nome: Enter confirma, Esc cancela, Backspace apaga. O resto vem
+        pelo TEXTINPUT (as letras) e não aciona nada do jogo."""
+        if key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+            self.finish_name_edit(confirm=True)
+        elif key == pygame.K_ESCAPE:
+            self.finish_name_edit(confirm=False)
+        elif key == pygame.K_BACKSPACE:
+            self.name_edit.backspace()
+
+    def hovered_slot_label(self, mouse_ui) -> str | None:
+        """Tooltip do slot debaixo do mouse: "Ferro · 37", "Drone · em voo (travado)"..."""
+        ui = self.ui
+        hovered = next((inv.slots[i] for rect, inv, i in ui.slot_rects if rect.collidepoint(mouse_ui)), None)
+        if hovered is not None:
+            return f"{item_name(hovered.item)} · {hovered.count}"
+        if self.open_station is not None:
+            st = self.open_station.station
+            bay = next((slot for rect, slot in ui.bay_rects if rect.collidepoint(mouse_ui)), None)
+            if bay is not None:
+                drone = st.drone_in(bay)
+                if drone is None:
+                    return "Slot de drone vazio"
+                return "Drone · em voo (travado)" if drone.busy else "Drone · pousado (clique tira)"
+            res = next((r for rect, r in ui.buffer_rects if rect.collidepoint(mouse_ui)), None)
+            if res is not None:
+                return f"{item_name(res)} · {st.buffer.get(res, 0)} (buffer)"
+        return None
+
+    def station_status(self) -> str:
+        st = self.open_station
+        n = len(st.station.drones)
+        flying = sum(1 for d in st.station.drones if d.busy)
+        kw = energy.machine_use(st.kind)
+        text = f"{n} drone{'s' if n != 1 else ''}"
+        if flying:
+            text += f" · {flying} em voo"
+        return text + f" · {fmt_kw(kw)} kW"
+
     def stash_held(self) -> bool:
         """Devolve a pilha da mão pro inventário (ou pro baú aberto). False se não coube tudo."""
         if self.held is None:
@@ -387,6 +545,7 @@ class App:
         return self.held is None
 
     def close_inventory(self) -> None:
+        self.finish_name_edit(confirm=True)
         if not self.stash_held():
             self.show_notice("Sem espaço pro item na mão")
             return
@@ -536,7 +695,9 @@ class App:
 
     def set_mode(self, mode: str) -> None:
         if self.mode in INVENTORY_MODES and mode != self.mode:
+            self.finish_name_edit(confirm=True)
             self.stash_held()            # devolve a pilha da mão (se não couber, ela espera o próximo Tab)
+            self.open_station = None
             if self.mode == "chest":     # fechou o baú: som próprio no lugar do ui_close
                 self.audio.play("chest_close")
                 self.open_chest = self.renderer.open_chest = None
@@ -544,7 +705,7 @@ class App:
                 self.mouse_held = False
                 return
         if mode != self.mode:
-            self.audio.play("ui_open" if mode in ("fabricator", "pause", "inventory") else "ui_close")
+            self.audio.play("ui_open" if mode in ("fabricator", "pause", "inventory", "station") else "ui_close")
         self.mode = mode
         self.mouse_held = False
 
@@ -768,14 +929,14 @@ class App:
             return content + (" · [E] coletar" if state.nearby_drill() is machine and machine.stored else "")
         if machine and machine.is_station:
             st = machine.station
-            text = f"Estação: {len(st.drones)} drones · buffer {st.stored}/{C.STATION_BUFFER}"
+            text = f"Estação: {len(st.drones)}/{C.STATION_DRONE_SLOTS} drones · buffer {st.stored}/{C.STATION_BUFFER}"
             if state.power.deficit:
                 text += f" · ritmo {self.power_percent()}%"
-            return text + (" · [E] coletar" if state.nearby_station() is machine else "")
+            return text + (" · [E] abrir" if state.nearby_station() is machine else "")
         if machine and machine.is_chest:
             used = sum(1 for st in machine.storage.slots if st)
             near = state.nearby_chest() is machine
-            return f"Baú ({used}/{C.CHEST_SLOTS})" + (" · [E] abrir" if near else "")
+            return f"{machine.name or C.CHEST_DEFAULT_NAME} ({used}/{C.CHEST_SLOTS})" + (" · [E] abrir" if near else "")
         if machine:
             if state.power.deficit and energy.machine_use(machine.kind) > 0:     # no déficit: mostra o ritmo
                 rhythm = f"Ritmo {self.power_percent()}%"
@@ -793,7 +954,7 @@ class App:
         if target and target[0] == "chest":
             return "[E] Abrir baú"
         if target and target[0] == "station":
-            return f"[E] Coletar {target[1].station.stored} da estação"
+            return "[E] Estação de drones" if target[1].station.drones else "[E] Estação: coloque drones"
         if target and target[0] == "drill" and target[1].stored:
             d = target[1]
             return f"[E] Coletar {d.stored} {C.RESOURCE_NAME[d.resource]}"
@@ -832,6 +993,8 @@ class App:
 
         # camada 1: HUD e textos flutuantes
         ui.begin()
+        if self.mode == "play":
+            ui.draw_world_labels(self.chest_labels(), cam, self.zoom)
         ui.draw_floaters(self.floaters, cam, self.zoom)
         if critical:
             ui.draw_o2_critical(state, self.t, cam)
@@ -862,8 +1025,10 @@ class App:
         elif self.mode == "pause":
             ui.draw_pause(self.pause_screen, self.pause_selected, self.settings, viewport_label(self.zoom))
         elif self.mode in INVENTORY_MODES:
-            chest = self.open_chest.storage if self.open_chest else None
-            ui.draw_inventory(state.inventory, chest, self.hotbar_selected, self.renderer.item_icon, mouse_ui)
+            side = self.open_chest or self.open_station
+            status = self.station_status() if self.open_station is not None else ""
+            ui.draw_inventory(state.inventory, side, self.hotbar_selected, self.renderer.item_icon, mouse_ui,
+                              self.t, self.name_edit, status)
         if self.notice_time > 0 and self.mode not in INVENTORY_MODES:   # por cima do fabricador também
             ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4))
         if state.fainted:
@@ -875,14 +1040,23 @@ class App:
         # camada 3 (só no inventário): pilha na mão ou tooltip, aviso e cursor, por cima dos ícones dos slots
         if self.mode in INVENTORY_MODES:
             ui.begin()
-            hovered = next((inv.slots[i] for rect, inv, i in ui.slot_rects if rect.collidepoint(mouse_ui)), None)
-            ui.draw_held_and_tooltip(self.held, hovered, mouse_ui, self.renderer.item_icon)
+            label = None if self.name_edit is not None else self.hovered_slot_label(mouse_ui)
+            ui.draw_held_and_tooltip(self.held, label, mouse_ui, self.renderer.item_icon)
             if self.notice_time > 0:
                 ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4))
             ui.draw_cursor(*mouse_ui)
             ui.finish(canvas)
 
         self.present()
+
+    def chest_labels(self) -> list[tuple[str, float, float]]:
+        """Nome dos baús que flutua no mundo: os no alcance do E e o que está debaixo do mouse."""
+        chests = self.state.chests_showing_name()
+        hovered = self.hovered_machine()
+        if hovered is not None and hovered.is_chest and hovered not in chests:
+            chests.append(hovered)
+        h = C.CHEST_SPRITE_SIZE[1]
+        return [(c.name or C.CHEST_DEFAULT_NAME, c.anchor[0], c.anchor[1] - h - 2) for c in chests]
 
     def screenshot(self, path: str) -> None:
         pygame.image.save(self.canvas, path)
@@ -922,6 +1096,7 @@ class App:
         self.placing, self.rotation, self.mouse_held = None, 0, False
         self.hotbar_selected, self.held, self.notice_time = 0, None, 0.0
         self.open_chest = self.renderer.open_chest = None
+        self.open_station, self.name_edit = None, None
         self.banner_stage, self.banner_time, self.end_timer = state.stage, 0.0, None
         self.drills_near.clear()
         self.drill_full_last.clear()

@@ -129,6 +129,7 @@ class MachineType:
     unlock_ti: int      # Ti necessário pra liberar a receita
     sprite: str         # nome do sprite (§6)
     size: int = 1       # quantos tiles de lado ela ocupa (drill = 2, em cima de um veio 2×2)
+    placeable: bool = True   # False = item que sai do fabricador mas não vai pro chão (ex.: o drone)
 
 
 MACHINES = {
@@ -290,7 +291,7 @@ POWER_USE = {
     "o2": 1, "melter": 1, "heater": 2,
     "o2_t2": 3, "melter_t2": 3, "heater_t2": 4,
     "drill": 2,
-    "drone_station": 3,  # estação de drones (Marco 3)
+    "drone_station": 1,  # estação de drones (Marco 3): era 3 kW quando vinha com 2 drones de graça
 }
 POWER_GEN = {"solar": 3}  # quanto cada máquina gera (kW)
 ENERGY_TIGHT = 0.8        # consumo ≥ 80% da produção: medidor amarelo ("perto do limite")
@@ -315,6 +316,9 @@ CHEST_REACH = 48                # px entre os pés do player e a base do baú pr
 CHEST_SPRITE_SIZE = (32, 40)    # chest.png / chest_open.png (bíblia §8, contrato de assets)
 CHEST_SPRITE_APPROVED = True    # chest/chest_open/icon_chest aprovados pelo dono (v0.2); False = desenho de fallback
 NOTICE_TIME = 2.0               # segundos que um aviso ("Inventário cheio") fica na tela
+CHEST_DEFAULT_NAME = "Baú"      # nome de todo baú novo (e de nome apagado)
+CHEST_NAME_MAX = 16             # máximo de caracteres no nome do baú
+CHEST_NAME_BLINK = 1.0          # segundos de um ciclo do cursor piscando na edição do nome
 
 # O baú é uma "máquina" sem índice: não soma Ti, não consome energia, só guarda itens.
 MACHINES["chest"] = MachineType("chest", "Baú", "guarda 24 pilhas", {"iron": 6}, None, 0, 0, "chest")
@@ -328,9 +332,10 @@ VOLUME.update({"inv_move": 0.5, "chest_open": 0.7, "chest_close": 0.7, "inv_full
 # A estação (2×2, em chão livre fora de veio) solta drones que voam em linha reta, por cima das
 # paredes, até as drills; trazem o minério e entregam no baú mais perto da estação (ou no buffer).
 # ---------------------------------------------------------------------------
-DRONE_STATION_COST = {"iron": 20, "silicon": 15, "ice": 5}
+DRONE_STATION_COST = {"iron": 12, "silicon": 8, "ice": 3}   # vem VAZIA: os drones são fabricados à parte
 DRONE_STATION_UNLOCK_TI = 10_000   # libera na Névoa, junto com a drill
-DRONES_PER_STATION = 2
+STATION_DRONE_SLOTS = 4         # slots de drone da estação (1 drone por slot = 1 drone ativo)
+DRONE_COST = {"iron": 6, "silicon": 4}   # o item drone (fabricador), libera junto com a estação
 DRONE_RANGE = 30                # tiles, do centro da estação até o centro da drill
 DRONE_SPEED = 4.0               # tiles por segundo (× fator da energia)
 DRONE_MIN_PICKUP = 5            # só busca drill que já tem pelo menos isso guardado
@@ -340,7 +345,9 @@ DRONE_DROP_TIME = 0.6           # segundos pousado "entregando"
 STATION_BUFFER = 50             # unidades que a estação guarda quando não tem baú (ou ele está cheio)
 STATION_REACH = 56              # px entre os pés do player e a base da estação pra coletar com E
 DRONE_STATION_SPRITE_SIZE = (64, 72)       # drone_station.png, âncora no centro da base 2×2
-DRONE_PADS = ((18, 44), (46, 44))          # centro de cada pad, relativo ao canto do PNG da estação
+# Onde cada slot pousa, relativo ao canto do PNG da estação: slots 1 e 2 nos pads (H), 3 e 4 "estacionados"
+# um pouco à frente e à direita (o PNG só tem 2 pads; o drone da frente cobre metade do de trás).
+DRONE_PADS = ((18, 44), (46, 44), (25, 55), (53, 55))
 DRONE_SPRITE = 16               # drone.png: 4 quadros de 16×16 lado a lado
 DRONE_FPS = 15
 DRONE_SHADOW_DROP = 18          # a sombra fica 18 px abaixo do centro do drone voando
@@ -350,4 +357,8 @@ MACHINES["drone_station"] = MachineType("drone_station", "Estação de drones", 
                                         DRONE_STATION_COST, None, 0, DRONE_STATION_UNLOCK_TI,
                                         "drone_station", size=2)
 MACHINE_ORDER.insert(MACHINE_ORDER.index("drill") + 1, "drone_station")   # no fabricador, logo depois da drill
+# O drone é um item: sai do fabricador, empilha até 5 e vai num slot da estação (não se coloca no chão).
+MACHINES["drone"] = MachineType("drone", "Drone", "vai na estação", DRONE_COST, None, 0, DRONE_STATION_UNLOCK_TI,
+                                "drone", placeable=False)
+MACHINE_ORDER.insert(MACHINE_ORDER.index("drone_station") + 1, "drone")
 VOLUME.update({"drone_loop": 0.5, "drone_deliver": 0.8, "solar_hum": 0.5})
