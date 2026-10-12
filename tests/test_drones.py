@@ -1,4 +1,5 @@
-"""Estação de drones (Marco 3): escolha da drill, voo, entrega, buffer, coleta com E, desmontar e save."""
+"""Estação de drones (Marco 3): estação, voo, ciclo, coleta das sobras, desmontar e save.
+A escolha de tarefa (Envia/Recebe/Lote) fica em tests/test_logistics.py."""
 
 import json
 import math
@@ -8,7 +9,7 @@ import pytest
 
 from game import config as C
 from game import drones, save
-from game.drones import COLLECTING, DELIVERING, LANDED, OUTBOUND, RETURNING
+from game.drones import CARRYING, COLLECTING, DROPPING, LANDED, OUTBOUND, RETURNING
 from game.inventory import Stack
 from game.systems import GameState, Machine
 from tests.helpers import give
@@ -31,16 +32,17 @@ def add_station(game, tile=ST, count: int = 2) -> Machine:
     return m
 
 
-def add_drill(game, dx: int, dy: int = 0, stored: int = 0, resource: str = "iron", station=ST) -> Machine:
-    """Drill a (dx, dy) tiles da estação (mesma medida de centro a centro que os drones usam)."""
-    d = Machine("drill", station[0] + dx, station[1] + dy, resource=resource, stored=stored)
+def add_drill(game, dx: int, dy: int = 0, stored: int = 0, resource: str = "iron", station=ST,
+              send: bool = True, batch: int = C.DRONE_BATCH_DEFAULT) -> Machine:
+    """Drill a (dx, dy) tiles da estação, já com Envia = o minério dela (a não ser que send=False)."""
+    d = Machine("drill", station[0] + dx, station[1] + dy, resource=resource, stored_init=stored,
+                sends={resource} if send else set(), batch=batch)
     game.machines.append(d)
     return d
 
 
-def add_chest(game, tile) -> Machine:
-    from game.inventory import Inventory
-    c = Machine("chest", *tile, storage=Inventory(C.CHEST_SLOTS))
+def add_chest(game, tile, receives=(), sends=(), batch: int = C.DRONE_BATCH_DEFAULT) -> Machine:
+    c = Machine("chest", *tile, receives=set(receives), sends=set(sends), batch=batch)
     game.machines.append(c)
     return c
 
@@ -101,54 +103,11 @@ def test_docked_drones_land_on_their_slot(game):
         assert (drone.x - 8, drone.y - 8) == (sx + px - 8, sy + py - 10)
 
 
-# ---------------------------------------------------------------- escolha da drill
-def test_picks_the_fullest_drill_in_range_with_at_least_5(game):
-    st = add_station(game)
-    a = add_drill(game, 10, stored=8)
-    b = add_drill(game, -20, stored=12)
-    add_drill(game, 3, 5, stored=4)                     # abaixo do mínimo
-    add_drill(game, 31, stored=20)                      # fora do alcance (31 tiles)
-    assert drones.pick_drill(st, game.drills, set()) is b
-    assert drones.pick_drill(st, game.drills, {id(b)}) is a      # b já tem drone indo
-
-
-def test_range_is_30_tiles(game):
-    st = add_station(game)
-    edge = add_drill(game, 30, stored=6)
-    assert drones.tile_distance(st, edge) == 30
-    assert drones.pick_drill(st, game.drills, set()) is edge
-
-
-def test_never_two_drones_on_the_same_drill(game):
-    st = add_station(game)
-    only = add_drill(game, 8, stored=15)
-    run(game, 0.1)
-    first, second = st.station.drones
-    assert first.state == OUTBOUND and first.target is only
-    assert second.state == LANDED and second.target is None      # a única drill já tem drone
-
-
-def test_two_drones_split_two_drills_fullest_first(game):
-    st = add_station(game)
-    small = add_drill(game, 8, stored=6)
-    big = add_drill(game, -8, stored=18)
-    run(game, 0.1)
-    assert [d.target for d in st.station.drones] == [big, small]
-
-
-def test_two_stations_do_not_share_a_drill(game):
-    a = add_station(game)
-    b = add_station(game, (ST[0], ST[1] + 6))
-    add_drill(game, 10, stored=10)
-    run(game, 0.1)
-    busy = [d for m in (a, b) for d in m.station.drones if d.state != LANDED]
-    assert len(busy) == 1
-
-
-# ---------------------------------------------------------------- voo
-def test_flies_straight_over_walls_at_4_tiles_per_second(game):
+# ---------------------------------------------------------------- voo e ciclo
+def test_flies_straight_over_walls_at_6_tiles_per_second(game):
     st = add_station(game)
     drill = add_drill(game, 20, stored=10)
+    add_chest(game, (ST[0] - 2, ST[1]), receives={"iron"})
     # parede maciça no caminho: o drone ignora o mapa
     for x in range(ST[0] + 3, ST[0] + 18):
         game.world.set(x, ST[1], C.BEDROCK)
@@ -157,13 +116,15 @@ def test_flies_straight_over_walls_at_4_tiles_per_second(game):
     start = (d.x, d.y)
     run(game, 1.0)
     moved = math.hypot(d.x - start[0], d.y - start[1])
-    assert moved == pytest.approx(4 * C.TILE, abs=1)
-    assert d.state == OUTBOUND and d.target is drill
+    assert C.DRONE_SPEED == 6
+    assert moved == pytest.approx(6 * C.TILE, abs=1)
+    assert d.state == OUTBOUND and d.source is drill
 
 
 def test_low_power_only_makes_them_slower(game):
     st = add_station(game)
     add_drill(game, 20, stored=10)
+    add_chest(game, (ST[0] - 2, ST[1]), receives={"iron"})
     # déficit forçado: 3 aquecedores nv.2 (12 kW) + estação (1) + drill (2) = 15 kW contra 5 kW
     game.machines += [Machine("heater_t2", 0, i) for i in range(3)]
     factor = game.power.factor
@@ -172,101 +133,65 @@ def test_low_power_only_makes_them_slower(game):
     d = st.station.drones[0]
     start = (d.x, d.y)
     run(game, 1.0)
-    assert math.hypot(d.x - start[0], d.y - start[1]) == pytest.approx(4 * C.TILE * factor, abs=1)
+    assert math.hypot(d.x - start[0], d.y - start[1]) == pytest.approx(C.DRONE_SPEED * C.TILE * factor, abs=1)
 
 
-def test_full_cycle_states_and_takes_everything(game):
-    st = add_station(game)
-    drill = add_drill(game, 6, stored=9)
+def test_full_cycle_states(game):
+    st = add_station(game, count=1)
+    drill = add_drill(game, 6, stored=12)
+    chest = add_chest(game, (ST[0] - 4, ST[1]), receives={"iron"})
     d = st.station.drones[0]
     seen = []
-    for _ in range(600):
+    for _ in range(900):
         game._update_machines(1 / 30)
         if not seen or seen[-1] != d.state:
             seen.append(d.state)
-        if d.state == RETURNING:
-            assert drill.stored == 0 and d.cargo == 9 and d.resource == "iron"   # pegou TUDO
-    assert seen[:5] == [OUTBOUND, COLLECTING, RETURNING, DELIVERING, LANDED]
+        if d.state == CARRYING:
+            assert d.cargo == 10 and d.resource == "iron" and drill.stored == 2   # pegou o lote (10)
+    assert seen[:6] == [OUTBOUND, COLLECTING, CARRYING, DROPPING, RETURNING, LANDED]
+    assert chest.storage.count("iron") == 10
     assert (d.x, d.y) == drones.pad_position(st, d.pad)
+    assert game.drone_deliveries == 1
+    assert any(e[0] == "drone_deliver" and e[1:3] == ("iron", 10) for e in game.pop_events())
 
 
-def test_drill_dismantled_on_the_way_sends_the_drone_back_empty(game):
-    st = add_station(game)
+def test_source_dismantled_on_the_way_sends_the_drone_back_empty(game):
+    st = add_station(game, count=1)
     drill = add_drill(game, 20, stored=10)
+    chest = add_chest(game, (ST[0] - 2, ST[1]), receives={"iron"})
     run(game, 0.5)
     game.machines.remove(drill)
     run(game, 10)
     d = st.station.drones[0]
-    assert d.state == LANDED and d.cargo == 0 and st.station.stored == 0
+    assert d.state == LANDED and d.cargo == 0 and chest.storage.is_empty()
 
 
-# ---------------------------------------------------------------- entrega
-def test_delivers_to_the_nearest_chest_within_6_tiles(game):
-    st = add_station(game)
-    far = add_chest(game, (ST[0] - 7, ST[1]))           # 7 tiles da borda: longe demais
-    near = add_chest(game, (ST[0] + 7, ST[1] + 1))      # 6 tiles da borda direita (que é tx+1): ainda vale
-    add_drill(game, 6, stored=12, resource="ice")
-    run(game, 8)
-    assert near.storage.count("ice") == 12 and far.storage.is_empty()
-    assert st.station.stored == 0
-    assert game.drone_deliveries == 1
-    assert any(e[0] == "drone_deliver" and e[1:3] == ("ice", 12) for e in game.pop_events())
-
-
-def test_without_chest_it_goes_to_the_buffer(game):
-    st = add_station(game)
-    add_drill(game, 6, stored=12)
-    run(game, 8)
-    assert st.station.buffer == {"iron": 12}
-    assert game.drone_deliveries == 1
-
-
-def test_full_chest_overflows_to_the_buffer(game):
-    st = add_station(game)
-    chest = add_chest(game, (ST[0] + 2, ST[1]))
-    for i in range(C.CHEST_SLOTS - 1):                  # só sobra lugar pra 1 pilha incompleta de ferro
-        chest.storage.slots[i] = Stack("silicon", 50)
-    chest.storage.slots[-1] = Stack("iron", 45)
-    add_drill(game, 6, stored=12)
-    run(game, 8)
-    assert chest.storage.count("iron") == 50 and st.station.buffer == {"iron": 7}
-
-
-def test_full_buffer_keeps_the_rest_on_the_drone_and_warns_once(game):
-    st = add_station(game)
-    st.station.buffer = {"iron": 45}
-    add_drill(game, 6, stored=12, resource="ice")
-    run(game, 8)
+def test_player_emptied_the_source_before_the_drone_arrived(game):
+    st = add_station(game, count=1)
+    drill = add_drill(game, 20, stored=10)
+    add_chest(game, (ST[0] - 2, ST[1]), receives={"iron"})
+    run(game, 0.5)
+    drill.stored = 0                                    # o player coletou com Shift+E
+    run(game, 15)
     d = st.station.drones[0]
-    assert st.station.buffer == {"iron": 45, "ice": 5} and st.station.full
-    assert d.state == LANDED and d.cargo == 7 and d.resource == "ice"      # pousado com a pepita
-    assert [e for e in game.pop_events() if e[0] == "station_full"] == [("station_full", st.anchor)]
-    run(game, 2)
-    assert not [e for e in game.pop_events() if e[0] == "station_full"]  # não repete
+    assert d.state == LANDED and d.cargo == 0
 
 
-def test_full_buffer_and_no_room_keeps_drones_landed(game):
+def test_no_receiver_no_trip(game):
     st = add_station(game)
-    st.station.buffer = {"iron": C.STATION_BUFFER}
     drill = add_drill(game, 6, stored=20)
+    add_chest(game, (ST[0] - 2, ST[1]))                 # baú sem nada configurado
     run(game, 5)
     assert all(d.state == LANDED for d in st.station.drones) and drill.stored == 20
-    # um baú perto com espaço destrava
-    chest = add_chest(game, (ST[0] - 1, ST[1]))
-    run(game, 8)
-    assert chest.storage.count("iron") == 20 and drill.stored == 0
 
 
-def test_landed_drone_with_cargo_delivers_as_soon_as_there_is_room(game):
-    st = add_station(game)
-    st.station.buffer = {"iron": C.STATION_BUFFER}
-    d = st.station.drones[0]
-    d.resource, d.cargo = "ice", 6
-    run(game, 0.5)
-    assert d.cargo == 6
-    st.station.buffer = {"iron": 40}                    # o player coletou um pouco
-    run(game, 0.1)
-    assert d.cargo == 0 and st.station.buffer == {"iron": 40, "ice": 6}
+def test_buffer_is_legacy_and_never_receives(game):
+    st = add_station(game, count=1)
+    st.station.buffer = {"silicon": 4}
+    add_drill(game, 6, stored=12)
+    run(game, 10)
+    assert st.station.buffer == {"silicon": 4}          # sem quem receba: nada vai pro buffer
+    assert st.station.drones[0].state == LANDED and st.station.drones[0].cargo == 0
 
 
 # ---------------------------------------------------------------- jogo: colocar, E, desmontar
@@ -298,7 +223,7 @@ def test_station_cannot_go_on_a_vein(game):
         assert not game.can_place("drone_station", corner)
 
 
-def test_e_collects_the_buffer(game):
+def test_e_opens_the_station_and_takes_the_leftover_buffer(game):
     give(game, drone_station=1)
     tile = free_station_tile(game)
     game.place("drone_station", tile)
@@ -353,7 +278,7 @@ def test_dismantle_refuses_when_it_does_not_fit(game):
     assert ("inv_full",) in game.pop_events()
 
 
-# ---------------------------------------------------------------- save v3
+# ---------------------------------------------------------------- save
 def drone_state() -> GameState:
     state = save.new_state()
     state.debug_add_ti()
@@ -364,19 +289,19 @@ def drone_state() -> GameState:
     drones.dock(st, st.station, 0)
     drones.dock(st, st.station, 2)                      # slot 2 (o 3º): o save guarda o slot de cada um
     st.station.buffer = {"iron": 11, "silicon": 4}
-    flying = st.station.drones[0]                       # no ar, voltando com 9 de gelo
-    flying.state, flying.resource, flying.cargo = RETURNING, "ice", 9
+    flying = st.station.drones[0]                       # no ar, levando 9 de gelo
+    flying.state, flying.resource, flying.cargo = CARRYING, "ice", 9
     flying.x += 200
     state.drone_deliveries = 3
     return state
 
 
-def test_save_v4_roundtrip_keeps_buffer_slots_and_cargo(tmp_path):
+def test_save_roundtrip_keeps_buffer_slots_and_cargo(tmp_path):
     state = drone_state()
     path = tmp_path / "slot1.json"
     assert save.write_save(state, path)
     data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["version"] == 4
+    assert data["version"] == 5
     saved = next(m for m in data["machines"] if m["kind"] == "drone_station")
     assert saved["buffer"] == {"iron": 11, "silicon": 4}
     assert saved["drones"] == [["ice", 9], None, [None, 0], None]
@@ -388,9 +313,15 @@ def test_save_v4_roundtrip_keeps_buffer_slots_and_cargo(tmp_path):
     assert [d.pad for d in st.station.drones] == [0, 2]
     assert all(d.state == LANDED and (d.x, d.y) == drones.pad_position(st, d.pad) for d in st.station.drones)
     assert st.station.drones[0].cargo == 9
-    loaded._update_machines(1 / 60)                     # no primeiro frame ele entrega
-    assert st.station.buffer == {"iron": 11, "silicon": 4, "ice": 9}
-    assert st.station.drones[0].cargo == 0
+    # sem ninguém que Receba gelo, ele espera pousado; um baú que recebe aparece e ele entrega
+    loaded._update_machines(1 / 60)
+    assert st.station.drones[0].cargo == 9 and st.station.drones[0].state == LANDED
+    chest = Machine("chest", st.tx - 3, st.ty, receives={"ice"})
+    loaded.machines.append(chest)
+    for _ in range(600):
+        loaded._update_machines(1 / 30)
+    assert chest.storage.count("ice") == 9 and st.station.drones[0].cargo == 0
+    assert st.station.buffer == {"iron": 11, "silicon": 4}
 
 
 def test_migration_v2_to_v3(tmp_path):
@@ -402,4 +333,4 @@ def test_migration_v2_to_v3(tmp_path):
     loaded = save.load_game(path)
     assert loaded is not None and loaded.drone_deliveries == 0 and loaded.stations == []
     save.write_save(loaded, path)
-    assert json.loads(path.read_text(encoding="utf-8"))["version"] == 4
+    assert json.loads(path.read_text(encoding="utf-8"))["version"] == 5

@@ -11,7 +11,8 @@ esticada pra janela mantendo 16:9 (na tela cheia sobra tarja preta se o monitor 
 F11 ou Alt+Enter alternam a tela cheia; +/- ou Ctrl+rodinha mudam o zoom.
 
 Modos de tela: "play" (jogando), "fabricator" (menu de receitas),
-"terminal" (lendo um log), "inventory" (Tab), "chest" (baú aberto com E), "station" (estação com E),
+"terminal" (lendo um log), "inventory" (Tab), "chest" (baú aberto com E), "drill" (drill aberta com E;
+Shift+E coleta direto), "station" (estação com E),
 "pause" (menu do Esc) e "end" (tela de fim do MVP).
 Em "pause" e "end" o mundo fica congelado (O₂, máquinas e Ti param). No fabricador, no terminal,
 no inventário e no baú o mundo continua (o player só fica parado), como em Core Keeper e Planet Crafter.
@@ -52,8 +53,8 @@ MOVE_KEYS = {
     pygame.K_s: (0, 1), pygame.K_DOWN: (0, 1),
 }
 NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8]
-INVENTORY_MODES = ("inventory", "chest", "station")
-PANEL_MODES = ("chest", "station")          # dois painéis: clique transfere pro outro lado (Planet Crafter)
+INVENTORY_MODES = ("inventory", "chest", "drill", "station")
+PANEL_MODES = ("chest", "drill", "station")          # dois painéis: clique transfere pro outro lado (Planet Crafter)
 ZOOM_IN_KEYS = (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS)     # "=" é a tecla do "+" sem Shift
 ZOOM_OUT_KEYS = (pygame.K_MINUS, pygame.K_KP_MINUS)
 BANNER_TIME = 3.5          # banner de estágio: entra em 0,4 s, fica, sai em 0,8 s
@@ -117,6 +118,7 @@ class App:
         self.held: Stack | None = None                    # pilha presa no cursor na tela de inventário
         self.open_chest = None                            # baú aberto (Machine), no modo "chest"
         self.open_station = None                          # estação aberta (Machine), no modo "station"
+        self.open_drill = None                            # drill aberta (Machine), no modo "drill"
         self.name_edit: TextField | None = None           # editando o nome do baú (texto digitado)
         self.notice: str | None = None                    # aviso curto ("Inventário cheio")
         self.notice_time = 0.0
@@ -345,8 +347,12 @@ class App:
                     state.read_terminal(target[1])
                     self.terminal_index = target[1]
                     self.mode = "terminal"
+                elif target and target[0] == "drill" and self.shift_held():
+                    state.collect(target[1])              # Shift+E: coleta tudo sem abrir o painel
                 elif target and target[0] == "drill":
-                    state.collect(target[1])
+                    self.open_drill = target[1]
+                    self.placing = None
+                    self.set_mode("drill")
                 elif target and target[0] == "station":
                     self.open_station = target[1]
                     self.placing = None
@@ -387,10 +393,11 @@ class App:
         self.notice, self.notice_time = text, C.NOTICE_TIME
 
     def other_side(self, inv):
-        """Shift+clique: o inventário do outro lado (player <-> baú). None se só o Tab estiver aberto."""
-        if self.open_chest is None:
+        """Shift+clique: o inventário do outro lado (player <-> baú/drill). None se só o Tab estiver aberto."""
+        side = self.open_chest or self.open_drill
+        if side is None:
             return None
-        return self.open_chest.storage if inv is self.state.inventory else self.state.inventory
+        return side.storage if inv is self.state.inventory else self.state.inventory
 
     def shift_held(self) -> bool:
         return bool(pygame.key.get_mods() & pygame.KMOD_SHIFT) or bool({pygame.K_LSHIFT, pygame.K_RSHIFT} & self.keys_down)
@@ -430,7 +437,7 @@ class App:
             if ui.name_rect is not None and ui.name_rect.collidepoint(pos):
                 return
             self.finish_name_edit(confirm=True)
-        if button == 1 and self.on_chest_filter_click():   # seletor "Drones trazem" do baú
+        if button == 1 and self.on_logistics_click(pos):  # seção DRONES do baú/drill (Envia/Recebe/Lote)
             return
         if button == 1:
             for rect, action in ui.panel_buttons:
@@ -461,6 +468,18 @@ class App:
             return
         inv, i = hit
         item = inv.slots[i].item
+        if self.open_drill is not None:                  # a drill só produz: só dá pra tirar dela
+            drill = self.open_drill
+            if inv is drill.storage:
+                if button == 1 and self.shift_held():
+                    moved = state.drill_take(drill)
+                else:
+                    moved = state.drill_take(drill, i, amount)
+                if moved:
+                    self.audio.play("inv_move")
+            else:
+                self.show_notice("A drill só produz: não guarda nada")
+            return
         if self.open_station is not None:                # só do inventário pra estação, e só drone
             if item != "drone":
                 self.show_notice("Só drones vão na estação")
@@ -490,6 +509,8 @@ class App:
             moved = state.inventory.transfer_all(self.open_chest.storage, C.RESOURCES)
             if any(state.inventory.count(r) for r in C.RESOURCES):
                 self.show_notice("Baú cheio")
+        elif action == "take_drill" and self.open_drill is not None:
+            moved = state.collect(self.open_drill)
         elif action == "take_buffer" and self.open_station is not None:
             moved = state.collect_station(self.open_station)
         if moved:
@@ -541,10 +562,21 @@ class App:
                 drone = st.drone_in(bay)
                 if drone is None:
                     return "Slot de drone vazio"
-                return "Drone · em voo (travado)" if drone.busy else "Drone · pousado (clique tira)"
+                if drone.busy:
+                    return "Drone · em voo (travado)"
+                if drone.cargo:
+                    return f"Drone · segurando {drone.cargo} {C.RESOURCE_NAME[drone.resource]} (sem quem receba)"
+                return "Drone · pousado (clique tira)"
             res = next((r for rect, r in ui.buffer_rects if rect.collidepoint(mouse_ui)), None)
             if res is not None:
-                return f"{item_name(res)} · {st.buffer.get(res, 0)} (buffer)"
+                return f"{item_name(res)} · {st.buffer.get(res, 0)} (sobras)"
+        hit = ui.logistics_at(mouse_ui)
+        if hit is not None:
+            kind, value = hit
+            if kind == "batch":
+                return f"Lote: drones tiram até {value} daqui por viagem"
+            name = C.RESOURCE_NAME[value]
+            return f"Envia {name}: drones tiram daqui" if kind == "send" else f"Recebe {name}: drones trazem pra cá"
         return None
 
     def station_status(self) -> str:
@@ -557,18 +589,36 @@ class App:
             text += f" · {flying} em voo"
         return text + f" · {fmt_kw(kw)} kW"
 
-    def on_chest_filter_click(self) -> bool:
-        """Clique no seletor "Drones trazem" do baú aberto: troca o filtro. True se acertou um botão."""
-        value = self.ui.chest_filter_at((self.mouse[0] / 2, self.mouse[1] / 2))
-        if value is None or self.open_chest is None:
+    def on_logistics_click(self, pos) -> bool:
+        """Clique na seção DRONES do baú/drill aberto: liga/desliga Envia e Recebe, ou troca o lote.
+        True se acertou um botão."""
+        hit = self.ui.logistics_at(pos)
+        side = self.open_chest or self.open_drill
+        if hit is None or side is None:
             return False
-        if value != self.open_chest.filter:
-            self.open_chest.filter = value
+        kind, value = hit
+        if kind == "send":
+            changed = drones.toggle_send(side, value)
+        elif kind == "recv":
+            changed = drones.toggle_receive(side, value)
+        else:
+            changed = value != side.batch and drones.set_batch(side, value)
+        if changed:
             self.audio.play("ui_click")
         return True
 
+    def drill_status(self) -> str:
+        """Linha de estado no painel da drill: "1 a cada 12 s", "CHEIA · PAROU", com o ritmo no déficit."""
+        drill = self.open_drill
+        if drill.full:
+            return "CHEIA · PAROU"
+        text = f"1 A CADA {C.DRILL_INTERVAL:g} S"
+        if self.state.power.deficit:
+            text += f" · RITMO {self.power_percent()}%"
+        return text
+
     def labeled_chests(self) -> list:
-        """Baús que mostram o rótulo flutuante ([ícone do filtro] Nome): os no alcance do E e o debaixo do mouse."""
+        """Baús que mostram o rótulo flutuante (↓recebe ↑envia Nome): os no alcance do E e o debaixo do mouse."""
         found = []
         for chest in (self.hovered_machine(), *self.state.chests_showing_name()):
             if chest is not None and chest.is_chest and not any(chest is c for c in found):
@@ -744,7 +794,7 @@ class App:
         if self.mode in INVENTORY_MODES and mode != self.mode:
             self.finish_name_edit(confirm=True)
             self.stash_held()            # devolve a pilha da mão (se não couber, ela espera o próximo Tab)
-            self.open_station = None
+            self.open_station = self.open_drill = None
             if self.mode == "chest":     # fechou o baú: som próprio no lugar do ui_close
                 self.audio.play("chest_close")
                 self.open_chest = self.renderer.open_chest = None
@@ -752,7 +802,7 @@ class App:
                 self.mouse_held = False
                 return
         if mode != self.mode:
-            self.audio.play("ui_open" if mode in ("fabricator", "pause", "inventory", "station") else "ui_close")
+            self.audio.play("ui_open" if mode in ("fabricator", "pause", "inventory", "station", "drill") else "ui_close")
         self.mode = mode
         self.mouse_held = False
 
@@ -842,13 +892,11 @@ class App:
             _, resource, amount, (ax, ay) = event
             self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", ax, ay - 80, C.ORE_COLORS[resource][0])
             self.audio.play("drill_collect")
-        elif kind == "drone_deliver":           # drone entregou no baú (ou no buffer da estação)
+        elif kind == "drone_deliver":           # drone entregou num baú que Recebe aquele item
             _, resource, amount, (x, y) = event
             self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", x, y - 78, C.ORE_COLORS[resource][0])   # acima do rótulo do baú
             distance = math.hypot(x - self.state.player.x, y - self.state.player.y) / C.TILE
             self.audio.play("drone_deliver", gain=sound.drone_deliver_gain(distance))
-        elif kind == "station_full":
-            self.show_notice("Estação cheia: coloque um baú perto")
         elif kind == "dismantle":
             _, _, tile = event
             self.renderer.spawn_chips(tile, "#9a9086", 14)       # poeirinha
@@ -969,13 +1017,7 @@ class App:
         if self.placing == "drill" and self.place_target() is None:
             return "Coloque a drill em cima de um veio"
         if self.placing == "drone_station":
-            tile = self.place_target()
-            n = len(drones.drills_in_range(drones.Spot(*tile), state.drills)) if tile else 0
-            return f"Clique para colocar · alcance {C.DRONE_RANGE} tiles · {n} drill{'s' if n != 1 else ''} · Esc cancela"
-        if self.placing == "chest" and state.stations:
-            inside = drones.delivers_to(state.stations, self.place_target())
-            return "Clique para colocar · " + ("drones entregam aqui" if inside else "fora da entrega dos drones") \
-                + " · Esc cancela"
+            return "Clique para colocar · drones atendem o mapa todo · Esc cancela"
         if self.placing:
             return "Clique para colocar · R gira · Esc cancela"
         machine = self.hovered_machine()
@@ -985,10 +1027,12 @@ class App:
                        else f"Drill: {machine.stored}/{C.DRILL_CAPACITY} {label}")
             if state.power.deficit and not machine.full:
                 content += f" · ritmo {self.power_percent()}%"
-            return content + (" · [E] coletar" if state.nearby_drill() is machine and machine.stored else "")
+            return content + (" · [E] abrir · [Shift+E] coletar" if state.nearby_drill() is machine else "")
         if machine and machine.is_station:
             st = machine.station
-            text = f"Estação: {len(st.drones)}/{C.STATION_DRONE_SLOTS} drones · buffer {st.stored}/{C.STATION_BUFFER}"
+            text = f"Estação: {len(st.drones)}/{C.STATION_DRONE_SLOTS} drones"
+            if st.stored:
+                text += f" · sobras {st.stored}"
             if state.power.deficit:
                 text += f" · ritmo {self.power_percent()}%"
             return text + (" · [E] abrir" if state.nearby_station() is machine else "")
@@ -1014,32 +1058,15 @@ class App:
             return "[E] Abrir baú"
         if target and target[0] == "station":
             return "[E] Estação de drones" if target[1].station.drones else "[E] Estação: coloque drones"
-        if target and target[0] == "drill" and target[1].stored:
+        if target and target[0] == "drill":
             d = target[1]
-            return f"[E] Coletar {d.stored} {C.RESOURCE_NAME[d.resource]}"
+            return f"[E] Drill · [Shift+E] coletar {d.stored} {C.RESOURCE_NAME[d.resource]}" if d.stored \
+                else "[E] Abrir drill"
         if state.in_base_zone():
             return "[E] Fabricador" if self.t > 6 else "Paredes com cristais têm minério"
         tile = self.mouse_tile()
         if state.world.is_minable(*tile):
             return "Segure o clique para minerar" if state.can_mine(tile) else "Chegue mais perto pra minerar"
-        return None
-
-    def range_overlay(self) -> dict | None:
-        """O que mostrar do alcance dos drones (render.draw_overlay):
-        - colocando a estação: o círculo de 30 tiles, a área de entrega e as drills alcançadas;
-        - mouse em cima de uma estação já colocada: o mesmo, pra ela;
-        - colocando um baú: a área de entrega de cada estação e se o baú cairia dentro de alguma."""
-        state = self.state
-        if self.placing == "drone_station":
-            tile = self.place_target()
-            return {"range": [drones.Spot(*tile)]} if tile is not None else None
-        if self.placing == "chest" and state.stations:
-            tile = self.place_target()
-            return {"delivery": state.stations, "chest": (tile, drones.delivers_to(state.stations, tile))}
-        if not self.placing:
-            machine = self.hovered_machine()
-            if machine is not None and machine.is_station:
-                return {"range": [machine]}
         return None
 
     def power_percent(self) -> int:
@@ -1054,13 +1081,12 @@ class App:
             target = self.place_target()
             tile = target if target is not None else self.mouse_tile()
             ghost = (self.placing, tile, self.rotation, target is not None and state.can_place(self.placing, tile))
-        overlay = self.range_overlay() if self.mode == "play" else None
         if self.zoom == 1.0:
-            self.renderer.draw(canvas, state, cam, self.t, ghost, overlay)
+            self.renderer.draw(canvas, state, cam, self.t, ghost)
         else:   # o mundo vai numa visão de 960×540/zoom e é esticado sem suavizar (pixel art continua pixel)
             if self._world_view is None or self._world_view.get_size() != self.view_size:
                 self._world_view = pygame.Surface(self.view_size, 0, canvas)
-            self.renderer.draw(self._world_view, state, cam, self.t, ghost, overlay)
+            self.renderer.draw(self._world_view, state, cam, self.t, ghost)
             pygame.transform.scale(self._world_view, canvas.get_size(), canvas)
 
         critical = state.o2 < C.O2_LOW and not state.fainted
@@ -1103,8 +1129,9 @@ class App:
         elif self.mode == "pause":
             ui.draw_pause(self.pause_screen, self.pause_selected, self.settings, viewport_label(self.zoom))
         elif self.mode in INVENTORY_MODES:
-            side = self.open_chest or self.open_station
-            status = self.station_status() if self.open_station is not None else ""
+            side = self.open_chest or self.open_drill or self.open_station
+            status = (self.station_status() if self.open_station is not None
+                      else self.drill_status() if self.open_drill is not None else "")
             station_info = self.hovered_slot_label(mouse_ui) if self.open_station is not None else None
             ui.draw_inventory(state.inventory, side, self.hotbar_selected, self.renderer.item_icon, mouse_ui,
                               self.t, self.name_edit, status, station_info)
@@ -1168,7 +1195,7 @@ class App:
         self.placing, self.rotation, self.mouse_held = None, 0, False
         self.hotbar_selected, self.held, self.notice_time = 0, None, 0.0
         self.open_chest = self.renderer.open_chest = None
-        self.open_station, self.name_edit = None, None
+        self.open_station, self.open_drill, self.name_edit = None, None, None
         self.banner_stage, self.banner_time, self.end_timer = state.stage, 0.0, None
         self.drills_near.clear()
         self.drill_full_last.clear()

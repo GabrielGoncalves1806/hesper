@@ -26,12 +26,14 @@ Aproximado (o simulador decide no lugar do jogador):
   (`_update_drill`). Na base, antes de sair pra minerar um recurso, ele vai coletar uma drill desse recurso se a
   viagem custar menos do que minerar aquelas unidades no ritmo dele. "Sem drills" = mesma simulação com a receita
   da drill trancada (`--no-drills` / `without_drills`).
-- Drones (Marco 3): depois das drills, o jogador fabrica um baú (se ainda não tiver um na base) e 1 estação de
-  drones encostada nele (até 3 tiles). A estação vem vazia: ele junta material pra estação E `Strategy.drones`
-  drones (item, 2 por padrão) de uma vez, fabrica tudo e põe os drones nos slots pelo `GameState.station_dock`
-  real (igual a um jogador que já sabe que a estação sem drone não faz nada). Os drones são a regra real (`game/drones.py`, rodando dentro do
-  `_update_machines`): buscam as drills, voam e entregam no baú. Toda vez que o jogador está na base, ele esvazia
-  o baú da base e o buffer da estação pro inventário ("drone un."), em vez de ir até a drill.
+- Drones (Marco 3, logística estilo Planet Crafter): cada drill colocada é configurada com **Envia = o minério
+  dela** (a drill nova vem sem nada; o jogador configura no painel). Depois das drills, o jogador fabrica um baú
+  na base (se ainda não tiver um) configurado com **Recebe = ferro, silício e gelo**, e 1 estação de drones perto
+  dele (até 3 tiles; o alcance é o mapa todo, a estação perto da base só encurta a volta dos drones). A estação
+  vem vazia: ele junta material pra estação E `Strategy.drones` drones (item, 2 por padrão) de uma vez, fabrica
+  tudo e põe os drones nos slots pelo `GameState.station_dock` real. Os drones são a regra real
+  (`game/drones.py`, rodando dentro do `_update_machines`): levam o lote (10) das drills pro baú. Toda vez que o
+  jogador está na base, ele esvazia o baú da base pro inventário ("drone un."), em vez de ir até a drill.
   "Sem drones" = mesma simulação com a receita da estação trancada (`--no-drones` / `without_drones`).
 - Energia (Marco 2): a produção das máquinas e das drills já sai no ritmo da energia, porque o simulador usa o
   `_update_machines` e o `ti_rate` reais. O jogador fabrica um painel solar (na base, como outra máquina qualquer)
@@ -491,6 +493,8 @@ class Sim:
     def _place_drill(self, vein):
         ok = self.gs.place("drill", (vein.tx, vein.ty))
         assert ok, f"não conseguiu colocar a drill no veio {vein}"
+        drill = self.gs.machine_at((vein.tx, vein.ty))
+        drones.toggle_send(drill, drill.resource)        # o jogador marca Envia = o minério dela no painel
 
     def collect_trip(self, missing) -> bool:
         """Na base: vale ir buscar o que uma drill guardou em vez de minerar isso?"""
@@ -563,15 +567,13 @@ class Sim:
         return False
 
     def _station_spots(self, chest_tile):
-        """Cantos 2×2 de chão livre (fora de veio e da cápsula) a até 3 tiles do baú."""
+        """Cantos 2×2 de chão livre (fora de veio e da cápsula) perto do baú (até ~4 tiles)."""
         cx, cy = chest_tile
         spots = []
         for ty in range(cy - 4, cy + 4):
             for tx in range(cx - 4, cx + 4):
-                probe = type("Spot", (), {"tx": tx, "ty": ty, "size": 2})()
-                chest = type("Spot", (), {"tx": cx, "ty": cy, "size": 1})()
                 tiles = [(tx + dx, ty + dy) for dx in (0, 1) for dy in (0, 1)]
-                if (drones.gap_tiles(probe, chest) <= C.DRONE_CHEST_RADIUS and (cx, cy) not in tiles
+                if ((cx, cy) not in tiles
                         and all(self.world.get(*t) == C.FLOOR and not self.gs.machine_at(t)
                                 and t not in C.POD_TILES and not self.world.vein_at(*t) for t in tiles)):
                     spots.append((tx, ty))
@@ -588,6 +590,9 @@ class Sim:
         tiles = [t for d, t in cand if d <= C.BASE_RADIUS - 8 and self._station_spots(t)]
         if not self._place_near("chest", tiles):
             raise AssertionError("não achou lugar pro baú na base")
+        chest = self.gs.machines[-1]                       # o baú que acabou de colocar
+        for r in C.RESOURCES:                             # o jogador marca Recebe tudo no painel do baú
+            drones.toggle_receive(chest, r)
         return True
 
     def craft_and_place_station(self) -> bool:

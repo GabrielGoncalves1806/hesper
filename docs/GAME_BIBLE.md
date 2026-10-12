@@ -114,13 +114,14 @@ Meta: ~25 min de jogo até o fim do MVP. **Os números são chute e vão ser aju
   - Com o mouse em cima, a dica diz "Veio de <minério> · drill libera na Névoa" (ou "Coloque uma drill", depois de liberada).
 - **Drill**: máquina craftada no fabricador, **liberada no estágio Névoa (Ti 10.000)**. Só pode ser colocada **exatamente em cima de um veio livre** (ocupa os 2×2).
   - Extrai o minério do veio **pra sempre**, ~1 unidade a cada 12 s, custo 12 ferro + 6 silício.
-  - Guarda até **20** unidades. Cheia, para.
-  - **O jogador precisa ir buscar:** com **E** perto da drill, coleta tudo pro inventário.
+  - Guarda até **20** unidades num **inventário de 1 slot** (só o minério dela). Cheia, para.
+  - **E** perto da drill abre o painel dela (estilo baú): inventário do player à esquerda e a drill à direita, com clique pra tirar (esquerdo a pilha, direito 1, Shift+clique tudo daquele item), botão **Pegar tudo** e a seção **DRONES** (ver §8, Marco 3). Não dá pra guardar nada na drill: ela só produz.
+  - Atalho rápido: **Shift+E** perto da drill coleta tudo direto pro inventário, sem abrir o painel.
   - Com o mouse em cima, mostra o conteúdo ("12/20 ferro").
   - Pode ser desmontada com clique direito. Volta pro estoque, e o conteúdo vai pro inventário.
   - Não soma Ti.
   - Custo e ritmo finais quem define é o simulador de balanceamento (`tools/dev/balance_sim.py`).
-- Futuro (fora do escopo): drones de logística levando o minério das drills pra base.
+- Logística: os drones da estação levam o minério das drills pros baús (§8, Marco 3).
 
 ### Estágios de terraformação
 | Estágio | Ti | O que muda |
@@ -231,7 +232,7 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 - **Nome**: cada baú tem um nome (padrão "Baú"). No painel do baú, clicar no nome (título) abre a edição: até **16 caracteres**, **Enter** confirma, **Esc** cancela, **Backspace** apaga, e clicar fora do campo também confirma. Nome vazio volta pra "Baú". Enquanto edita, nenhuma tecla do jogo (E, Tab, números, WASD, +/-) faz nada além de digitar.
 - No mundo, o nome aparece flutuando em cima do baú quando o mouse está em cima dele ou o player está no alcance do E (o mesmo do aviso "[E] Abrir baú"). O tamanho da letra não muda com o zoom.
 
-**Transferência entre painéis (estilo Planet Crafter)** · vale no baú e na estação de drones
+**Transferência entre painéis (estilo Planet Crafter)** · vale no baú, na drill (só tirar) e na estação de drones
 - Com os dois painéis abertos (inventário + baú/estação): **clique esquerdo** num item manda a **pilha inteira** pro outro lado, **clique direito** manda **1 unidade**, e **Shift+clique** manda **todas as pilhas daquele item**. O que não couber fica onde está (com o aviso "Baú cheio" / "Inventário cheio").
 - No **Tab** (inventário sozinho) nada muda: clique pega/solta a pilha e o direito pega metade, pra organizar a mochila e a hotbar.
 - Botões no painel do baú: **Pegar tudo** (tudo do baú pro inventário, até onde couber) e **Guardar tudo** (manda **só os recursos**, ferro, silício e gelo, de todos os slots do inventário, inclusive a hotbar; máquinas e drones ficam com o player, porque são coisas que ele vai colocar).
@@ -245,21 +246,39 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 - **Déficit**: todos os consumidores rodam no ritmo `produção / consumo` (desaceleração proporcional), e o medidor fica vermelho. Não há corte total.
 - No v0.2 não tem bateria nem ciclo dia/noite (ficam pra depois).
 
-### Marco 3 · Automação com drones
-- **Estação de drones**: libera na Névoa (Ti 10.000), custa **12 ferro + 8 silício + 3 gelo** e ocupa 2×2. **Vem vazia**: tem **4 slots de drone**, alcance de **30 tiles** e consome **1 kW**.
+### Marco 3 · Automação com drones (logística estilo The Planet Crafter)
+- **Estação de drones**: libera na Névoa (Ti 10.000), custa **12 ferro + 8 silício + 3 gelo** e ocupa 2×2. **Vem vazia**: tem **4 slots de drone** e consome **1 kW**. A estação é só a **casa** dos drones (onde pousam e de onde saem): eles atendem o **mapa inteiro**, sem alcance.
 - **Drone** é um **item**: receita no fabricador, libera junto com a estação (Névoa), custa **6 ferro + 4 silício** e empilha até 5 no inventário (igual às máquinas). Não se coloca no chão: vai num slot da estação.
-- **E na estação** abre um painel no estilo do baú: inventário à esquerda e a estação à direita, com os **4 slots de drone** (só aceitam o item drone, 1 por slot), o **buffer** de minério mostrado como slots (só dá pra tirar, não pra colocar) e o estado ("ALCANCE 30 TILES" e "2 drones · 1 em voo · 1 kW").
+- **E na estação** abre um painel no estilo do baú: inventário à esquerda e a estação à direita, com os **4 slots de drone** (só aceitam o item drone, 1 por slot) e o estado ("ALCANCE: MAPA TODO" e "2 drones · 1 em voo · 1 kW").
   - Cada drone num slot é **1 drone ativo**. Colocar um drone (clique no drone do inventário) faz ele começar a operar; clique esquerdo manda quantos couberem, o direito manda 1.
-  - **Drone em voo**: o slot dele fica **travado** (marcado "VOO") e não pode ser tirado até ele pousar. **Drone pousado** pode ser tirado: volta pro inventário como item e some do mundo (se estiver segurando carga, a carga vai junto pro inventário; não cabendo tudo, ele fica).
-  - Botão **Pegar tudo** leva o buffer pro inventário.
-- **Desmontar a estação** devolve a estação, **todos os drones** (os em voo cancelam a viagem) e todo o minério (buffer + carga de cada drone) pro inventário. Ou cabe tudo, ou ela fica no lugar com o aviso de inventário cheio: nada some.
-- **Ciclo do drone**: decola, voa **em linha reta por cima das paredes** até uma drill dentro do alcance que tenha **≥ 5 unidades**, coleta tudo e voa de volta. Entrega nos **baús a até 6 tiles da estação** (se não houver baú com espaço, guarda no buffer interno da estação, de 50 unidades no total, e mostra o aviso quando ele enche). Velocidade de ~4 tiles/s.
-- **Filtro do baú**: cada baú tem um filtro **Tudo / Ferro / Silício / Gelo** (padrão Tudo), escolhido no painel do baú ("Drones trazem"). Ordem de entrega: primeiro um baú filtrado pro minério da carga, depois um baú "Tudo", senão o buffer; empate vai pro mais perto da estação. Baú filtrado pra outro minério nunca recebe. Carga maior que o espaço é dividida (o que cabe num baú, o resto no próximo ou no buffer; nada some). O filtro vale só pros drones: o jogador guarda qualquer coisa à mão. No mundo, o rótulo flutuante do baú é um só: [ícone do minério filtrado] Nome (sem filtro, só o nome). O filtro vai no save (save antigo carrega como "Tudo").
-- **Prioridade**: a drill mais cheia primeiro, e um drone por drill de cada vez.
-- **Visual**: drone pequeno voando com sombra no chão. A estação mostra os drones pousados (slots 1 e 2 nos pads; 3 e 4 estacionados na frente deles).
+  - **Drone em voo**: o slot dele fica **travado** (marcado "EM VOO") e não pode ser tirado até ele pousar. **Drone pousado** pode ser tirado: volta pro inventário como item (se estiver segurando carga, a carga vai junto; não cabendo tudo, ele fica).
+  - **Buffer antigo**: a estação não recebe mais nada no buffer. O que um save antigo tinha lá aparece como "SOBRAS" e continua tirável (clique ou **Pegar tudo**) até esvaziar; vazio, o espaço mostra uma dica de como configurar os baús.
+- **Desmontar a estação** devolve a estação, **todos os drones** (os em voo cancelam a viagem) e todo o minério (sobras + carga de cada drone) pro inventário. Ou cabe tudo, ou ela fica no lugar com o aviso de inventário cheio: nada some.
+
+**Inventários logísticos (baú e drill)**: cada um tem uma configuração de drones, no painel dele (seção **DRONES**):
+- **ENVIA** (oferta): os itens que os drones podem **tirar** daqui. Toggle por item: ferro, silício, gelo (no código é um conjunto de ids, pra crescer depois).
+- **RECEBE** (demanda): os itens que os drones **trazem** pra cá.
+- Um item **não pode** estar em Envia e Recebe no mesmo inventário: marcar um lado desmarca o outro.
+- **LOTE**: quanto um drone tira **deste** inventário por viagem: **1 / 5 / 10 / 20** (padrão 10). Vale pro inventário que envia.
+- **Padrões**: baú novo e **drill nova** vêm com Envia = nada e Recebe = nada (igual ao Planet Crafter). O jogador vai lá e configura. Enquanto nada estiver marcado, a seção mostra a dica "NADA CONFIGURADO".
+- **Drill**: só tem **ENVIA** (com o minério dela) e **LOTE**. Não tem Recebe (no lugar aparece "NÃO RECEBE"): ela tem 1 slot só do minério dela, e receber outra coisa travaria a extração.
+- No mundo, o rótulo flutuante do baú mostra o que ele recebe e envia junto do nome: **↓[ícones] ↑[ícones] Nome** (sem configuração, só o nome).
+- A configuração vale só pros drones: o jogador guarda e tira qualquer coisa à mão.
+
+**Tarefa do drone** (um drone livre, pousado na estação):
+1. Procura um **par**: uma **origem** que Envia o item X com estoque livre > 0 e um **destino** (outro inventário) que Recebe X com espaço livre. "Livre" já desconta o que outros drones reservaram (estoque que vão buscar e espaço que vão ocupar), então dois drones nunca brigam pelas mesmas unidades.
+2. **Quando a origem está pronta**: baú, com qualquer estoque; drill, quando tiver pelo menos o lote (ou estiver cheia). Assim o drone não fica indo buscar 1 unidade de cada vez (a não ser que o lote seja 1).
+3. **Escolha**: a origem **mais cheia** (mais estoque livre) primeiro; empate: a viagem mais curta. Pra cada origem, o destino é o que deixa a viagem mais curta (origem → destino → estação).
+4. Leva **min(lote da origem, estoque, espaço no destino)**, **um item por viagem**.
+5. Ciclo: decola → voa em **linha reta por cima das paredes** até a origem → pega (0,8 s) → voa até o destino → solta (0,6 s) → volta pra estação e pousa.
+6. **Destino encheu no meio do caminho** (ou foi desmontado): entrega o que couber e procura outro destino que Recebe X. Se não houver, volta pra estação **com a carga** e fica pousado segurando ela (aparece a pepita); quando surgir um destino, sai pra entregar. Nada some.
+7. Origem desmontada ou esvaziada pelo jogador antes do drone chegar: ele volta vazio.
+- **Velocidade**: **6 tiles/s** (era 4). Com o mapa todo, a viagem típica (drill a 40 tiles da base, entregando num baú da base) é ~80 tiles: 20 s a 4 tiles/s, ~13 s a 6. Até a borda do mapa (~60 tiles da base) a ida dura ~10 s em vez de 15. Uma drill enche um lote de 10 em 120 s, então 1 drone dá conta de várias drills.
 - Sem energia suficiente, os drones voam mais devagar, na mesma proporção do déficit.
-- Futuro: upgrade de estação (mais slots e mais alcance).
-- Save **v4**: baús ganham `name` e `filter`; a estação guarda os 4 slots de drone. Migração v3→v4: baús viram "Baú" com filtro "Tudo" e cada estação existente ganha **2 drones** nos slots 1 e 2 (ninguém perde o que tinha).
+- **Visual**: drone pequeno voando com sombra no chão. A estação mostra os drones pousados (slots 1 e 2 nos pads; 3 e 4 estacionados na frente deles).
+- Futuro: upgrade de estação (mais slots), mais itens nos toggles (máquinas, drones).
+- Save **v4**: baús ganham `name`; a estação guarda os 4 slots de drone. Migração v3→v4: baús viram "Baú" e cada estação existente ganha **2 drones** nos slots 1 e 2.
+- Save **v5**: baús e drills ganham `sends`, `receives` e `batch`; a drill guarda o inventário (`storage`) no lugar do contador. Migração v4→v5 (ninguém perde a base que já funcionava): baú com filtro "Tudo" → Recebe {ferro, silício, gelo}; filtro X → Recebe {X}; Envia nada. **Drills existentes** ganham o inventário com o estoque atual e **Envia = o minério delas** (drill nova continua vindo sem nada). Drone com carga continua com ela e entrega assim que achar um destino. O buffer da estação vira as "sobras" tiráveis.
 
 ### Marco 4 · Polimento
 - **Fabricador com abas**: **Terraformação** (O₂, derretedor, aquecedor e os nv.2), **Energia** (painel solar), **Automação** (drill, estação, drone) e **Armazenamento** (baú). As categorias ficam em `C.MACHINE_CATEGORY`. **A/D**, **←/→** ou **Tab** trocam de aba (E fecha o menu), **W/S** escolhe dentro da aba, clique na aba ou na receita também. A lista mostra 5 receitas e rola (rodinha do mouse ou acompanhando a seleção), com barra de rolagem quando não cabe. Aba sem nada liberado aparece apagada, mas abre e mostra as bloqueadas.
@@ -268,7 +287,7 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 - **Drone decola e pousa suave**: nos primeiros/últimos ~0,35 s de voo a sombra sai de debaixo dele (maior e mais escura) e vai se afastando e encolhendo.
 - **Barrinha nas drills**: barra fina em cima de cada drill (quanto ela guardou de 20), na cor do minério; cheia fica verde.
 - **Sem energia**: no déficit, toda máquina que consome mostra um raio vermelho piscando em cima.
-- **Alcance da estação**: colocando a estação (ou com o mouse em cima de uma), aparecem o círculo de 30 tiles, a área de entrega (um quadrado de 6 tiles em volta dela, que é a regra real) e as drills alcançadas em destaque, tudo em lilás. Colocando um baú, aparecem as áreas de entrega das estações e o fantasma ganha cantoneiras lilás se os drones entregam ali (a dica também diz).
+- **Alcance da estação**: ~~círculo de 30 tiles e área de entrega lilás~~ saiu no Marco 3 da logística (os drones atendem o mapa inteiro). Colocando a estação, a dica diz "drones atendem o mapa todo".
 - **Volume padrão** (quem nunca mexeu): geral 100%, efeitos 40%, ambiente 50%.
 - Rodar o simulador de novo com inventário, energia e drones, e ajustar até bater a meta de tempo.
 - Playtest do dono. Os assets novos só entram depois de aprovados.

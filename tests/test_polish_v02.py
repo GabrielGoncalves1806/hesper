@@ -1,5 +1,5 @@
 """Polimento final do v0.2: fabricar em lote, decolagem do drone, volumes padrão, ícone de sem energia
-e as contas do alcance da estação (o que o fantasma mostra)."""
+(o alcance da estação saiu: os drones atendem o mapa todo)."""
 
 import random
 
@@ -66,15 +66,15 @@ def test_lift_is_zero_when_landed_and_grows_with_distance():
     assert drones.lift(m, d) == 1.0                     # lá em cima
     d.state, d.x = drones.RETURNING, px + ramp / 4
     assert drones.lift(m, d) == pytest.approx(0.25)     # descendo pro pad
-    d.state, d.x = drones.DELIVERING, px
+    d.state, d.x = drones.LANDED, px
     assert drones.lift(m, d) == 0.0
 
 
 def test_takeoff_takes_lift_time_at_full_speed():
     m, d = _station_with_drone()
     d.state = drones.OUTBOUND
-    far = Machine("drill", 80, 70, resource="iron", stored=10)
-    d.target = far
+    far = Machine("drill", 80, 70, resource="iron", stored_init=10)
+    d.source = far
     for _ in range(round(drones.LIFT_TIME * 60) - 2):
         drones._fly(d, *drones.hover_position(far), 1 / 60)
     assert 0.8 < drones.lift(m, d) < 1.0
@@ -96,28 +96,3 @@ def test_starved_only_consumers_in_deficit():
         assert not energy.starved(kind, 1.0), kind
     for kind in ("solar", "chest"):
         assert not energy.starved(kind, 0.2), kind
-
-
-# ---------------------------------------------------------------- alcance da estação
-def test_drills_in_range_uses_the_same_rule_as_the_drones():
-    st = drones.Spot(60, 70)
-    near = Machine("drill", 60 + 29, 70, resource="iron")
-    far = Machine("drill", 60 + 31, 70, resource="iron")
-    assert drones.drills_in_range(st, [near, far]) == [near]
-    assert drones.pick_drill(st, [Machine("drill", 60 + 31, 70, resource="iron", stored=10)], set()) is None
-
-
-def test_delivery_area_is_the_six_tile_square():
-    st = Machine("drone_station", 60, 70)
-    assert drones.delivery_rect(st) == (54, 64, 14, 14)
-    assert drones.delivers_to([st], (54, 64))             # canto do quadrado (gap 6 nos dois eixos)
-    assert drones.delivers_to([st], (67, 77))
-    assert not drones.delivers_to([st], (53, 70))         # 7 tiles à esquerda
-    assert not drones.delivers_to([st], (68, 70))
-    assert not drones.delivers_to([], (60, 70))
-
-
-def test_spot_matches_a_real_station():
-    real, spot = Machine("drone_station", 60, 70), drones.Spot(60, 70)
-    assert spot.anchor == real.anchor and spot.size == real.size
-    assert drones.range_center(spot) == ((61) * C.TILE, (71) * C.TILE)

@@ -198,10 +198,8 @@ class Renderer:
         self.draw_lighting(canvas, state, cam, stage, t)
         self.draw_atmosphere(canvas, stage, t)
         # 6. indicadores por cima da luz (no escuro da caverna eles têm que aparecer): barrinha das
-        #    drills, raio de "sem energia" e o alcance da estação. Ficam no mundo, então crescem com o zoom.
+        #    drills e raio de "sem energia". Ficam no mundo, então crescem com o zoom.
         self.draw_machine_status(canvas, state, cam, t)
-        if overlay:
-            self.draw_overlay(canvas, state, cam, overlay, t)
 
     # ---- tiles ----------------------------------------------------------------
     def visible_tiles(self, cam) -> tuple[int, int, int, int]:
@@ -506,9 +504,7 @@ class Renderer:
             if drone.in_air:
                 continue
             x, y = round(drone.x - cam[0]), round(drone.y - cam[1])
-            # pousado as hélices param (quadro 0); entregando, ainda giram
-            frame = self.drone_frame(t, i) if drone.state == drones.DELIVERING else self.drone_frame(0)
-            canvas.blit(frame, (x - 8, y - 8))
+            canvas.blit(self.drone_frame(0), (x - 8, y - 8))      # pousado: hélices paradas
             if drone.cargo:
                 self._draw_nugget(canvas, drone, x, y)
 
@@ -755,68 +751,6 @@ class Renderer:
             for dx, cell in enumerate(row):
                 if cell == "#":
                     canvas.fill(color, (x + dx, y + dy, 1, 1))
-
-    # ---- alcance da estação de drones (colocando, ou mouse em cima) -------------
-    RANGE_COLOR = (186, 160, 255)              # lilás: a cor "dos drones" (verde já é "pode colocar")
-
-    def draw_overlay(self, canvas, state: GameState, cam, overlay: dict, t: float) -> None:
-        """overlay = {"range": [estação ou Spot...], "delivery": [estações...], "chest": (tile, recebe?)}.
-        range: círculo de 30 tiles + área de entrega + drills alcançadas em destaque.
-        delivery: só a área de entrega (colocando um baú). chest: contorno no fantasma do baú se os
-        drones entregam nele."""
-        layer = self.view_fx("layer")
-        layer.fill((0, 0, 0, 0))
-        rgb = self.RANGE_COLOR
-        drills = state.drills
-        for station in overlay.get("range", ()):
-            self._dashed_circle(layer, cam, drones.range_center(station), C.DRONE_RANGE * T, (*rgb, 190), t)
-            self._delivery_box(layer, cam, station, rgb, t)
-            for d in drones.drills_in_range(station, drills):
-                px, py = d.tx * T - cam[0], d.ty * T - cam[1]
-                pygame.draw.rect(layer, (*rgb, 60), (px, py, 2 * T, 2 * T))
-                pygame.draw.rect(layer, (*rgb, 230), (px, py, 2 * T, 2 * T), 2)
-        for station in overlay.get("delivery", ()):
-            self._delivery_box(layer, cam, station, rgb, t)
-        chest = overlay.get("chest")
-        if chest and chest[1]:
-            (tx, ty), _ = chest
-            px, py = tx * T - cam[0], ty * T - cam[1]
-            for x, y, w, h in [(-3, -3, 9, 3), (-3, -3, 3, 9), (T - 6, -3, 9, 3), (T, -3, 3, 9),
-                               (-3, T, 9, 3), (-3, T - 6, 3, 9), (T - 6, T, 9, 3), (T, T - 6, 3, 9)]:
-                layer.fill((*rgb, 255), (px + x, py + y, w, h))      # cantoneiras: "os drones entregam aqui"
-        canvas.blit(layer, (0, 0))
-
-    def _delivery_box(self, layer, cam, station, rgb, t: float) -> None:
-        x, y, w, h = drones.delivery_rect(station)
-        rect = pygame.Rect(x * T - cam[0], y * T - cam[1], w * T, h * T)
-        pygame.draw.rect(layer, (*rgb, 22), rect)
-        self._dashed_rect(layer, rect, (*rgb, 200), t)
-
-    def _dashed_circle(self, layer, cam, center, radius: float, rgba, t: float) -> None:
-        cx, cy = center[0] - cam[0], center[1] - cam[1]
-        dashes = max(24, int(math.tau * radius / 24))           # traço de ~12 px a cada 24
-        offset = (t * 0.5) % 1
-        vw, vh = layer.get_size()
-        for i in range(dashes):
-            a0 = (i + offset) / dashes * math.tau
-            a1 = (i + offset + 0.5) / dashes * math.tau
-            p0 = (cx + math.cos(a0) * radius, cy + math.sin(a0) * radius)
-            if -16 < p0[0] < vw + 16 and -16 < p0[1] < vh + 16:
-                pygame.draw.line(layer, rgba, p0, (cx + math.cos(a1) * radius, cy + math.sin(a1) * radius), 2)
-
-    @staticmethod
-    def _dashed_rect(layer, rect: pygame.Rect, rgba, t: float) -> None:
-        step = int(t * 8) % 16
-        for i in range(-16, max(rect.w, rect.h), 16):
-            k = i + step
-            if 0 <= k < rect.w:
-                w = min(8, rect.w - k)
-                layer.fill(rgba, (rect.x + k, rect.y, w, 2))
-                layer.fill(rgba, (rect.right - k - w, rect.bottom - 2, w, 2))
-            if 0 <= k < rect.h:
-                h = min(8, rect.h - k)
-                layer.fill(rgba, (rect.x, rect.bottom - k - h, 2, h))
-                layer.fill(rgba, (rect.right - 2, rect.y + k, 2, h))
 
     # ---- partículas (lasquinhas da mineração) ---------------------------------
     def spawn_chips(self, tile: tuple[int, int] | None, color: str, n: int = 10, at=None) -> None:

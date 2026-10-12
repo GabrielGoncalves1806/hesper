@@ -6,9 +6,10 @@ O estado avisa o que aconteceu (pra tocar som, mostrar texto flutuante etc.)
 através da lista `events`, que o App esvazia com `pop_events()`.
 """
 
+import dataclasses
 import math
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from game import config as C
 from game import drones
@@ -32,17 +33,28 @@ class Machine:
     tx: int              # tile de cima à esquerda (máquina comum ocupa 1 tile; a drill, 2×2)
     ty: int
     rotation: int = 0    # 0..3, só cosmético
-    # só a drill usa estes três:
+    # só a drill usa estes dois:
     resource: str | None = None   # minério do veio embaixo dela
-    stored: int = 0               # quanto já extraiu e está esperando coleta
     timer: float = 0.0            # segundos acumulados pra próxima unidade
-    # só o baú usa estes: os 24 slots dele (criado no place) e o nome que o jogador deu
+    # baú e drill: o inventário (baú 24 slots; drill 1 slot só do minério dela, até DRILL_CAPACITY).
+    # Criado sozinho no __post_init__ se ninguém passar.
     storage: Inventory | None = None
-    name: str | None = None
-    # só o baú: que minério os drones entregam nele ("all" ou um id de C.RESOURCES). O player guarda qualquer coisa.
-    filter: str = "all"
-    # só a estação de drones usa este: buffer + drones (game/drones.py, criado no place)
+    name: str | None = None       # só o baú: o nome que o jogador deu
+    # baú e drill: logística dos drones (game/drones.py). O player guarda/tira qualquer coisa à mão.
+    sends: set[str] = field(default_factory=set)      # Envia: itens que os drones podem tirar daqui
+    receives: set[str] = field(default_factory=set)   # Recebe: itens que os drones trazem pra cá
+    batch: int = C.DRONE_BATCH_DEFAULT                # Lote: quanto um drone tira daqui por viagem
+    # só a estação de drones usa este: drones + sobras do buffer antigo (game/drones.py, criado no place)
     station: drones.Station | None = None
+    stored_init: dataclasses.InitVar[int] = 0         # atalho pros testes: Machine("drill", ..., stored_init=8)
+
+    def __post_init__(self, stored_init: int = 0) -> None:
+        if self.storage is None and self.is_drill:
+            self.storage = Inventory(C.DRILL_SLOTS)
+        elif self.storage is None and self.is_chest:
+            self.storage = Inventory(C.CHEST_SLOTS)
+        if stored_init:
+            self.stored = stored_init
 
     @property
     def type(self) -> C.MachineType:
@@ -63,6 +75,23 @@ class Machine:
     @property
     def is_station(self) -> bool:
         return self.kind == "drone_station"
+
+    @property
+    def is_logistic(self) -> bool:
+        """Baú e drill: têm inventário que os drones atendem (Envia/Recebe/Lote)."""
+        return self.is_chest or self.is_drill
+
+    @property
+    def stored(self) -> int:
+        """Drill: quanto do minério dela está guardado (o inventário de 1 slot)."""
+        return self.storage.count(self.resource) if self.is_drill and self.storage is not None else 0
+
+    @stored.setter
+    def stored(self, amount: int) -> None:
+        """Drill: troca o conteúdo por `amount` do minério dela (testes, save antigo)."""
+        self.storage.clear()
+        if amount > 0:
+            self.storage.add(self.resource, amount)
 
     @property
     def full(self) -> bool:
@@ -226,6 +255,11 @@ class GameState:
     @property
     def stations(self) -> list[Machine]:
         return [m for m in self.machines if m.is_station]
+
+    @property
+    def logistics(self) -> list[Machine]:
+        """Baús e drills: os inventários que os drones atendem (mapa inteiro)."""
+        return [m for m in self.machines if m.is_logistic]
 
     def dist_to_base(self) -> float:
         return math.hypot(self.player.x - C.BASE_CENTER[0], self.player.y - C.BASE_CENTER[1])
@@ -440,11 +474,10 @@ class GameState:
         if slot is not None and (stack is None or stack.item != kind):
             return False
         machine = Machine(kind, tile[0], tile[1], rotation)
-        if machine.is_drill:
+        if machine.is_drill:                                   # vem com Envia/Recebe vazios: o player configura
             machine.resource = self.world.vein_at(*tile).resource
             self.drills_placed += 1
         if machine.is_chest:
-            machine.storage = Inventory(C.CHEST_SLOTS)
             machine.name = C.CHEST_DEFAULT_NAME
         if machine.is_station:
             machine.station = drones.new_station(machine)      # vem vazia: os drones vão pelo painel (E)
@@ -504,22 +537,34 @@ class GameState:
         return kind, target
 
     def collect(self, drill: Machine) -> int:
-        """Leva o que a drill guardou pro inventário (o que não couber fica nela). Devolve quanto coletou."""
+        """Leva tudo que a drill guardou pro inventário (Shift+E, "Pegar tudo", desmontar). O que não
+        couber fica nela. Devolve quanto coletou."""
+        return self.drill_take(drill)
+
+    def drill_take(self, drill: Machine, index: int | None = None, amount: int | None = None) -> int:
+        """Tira do inventário da drill pro do player: tudo (`index` None) ou o slot `index` (`amount`
+        None = a pilha inteira, 1 = clique direito). Conta pro objetivo e avisa se não coube."""
         if drill.stored <= 0:
             return 0
-        left = self.inventory.add(drill.resource, drill.stored)
-        amount = drill.stored - left
-        drill.stored = left
-        if left:
+        resource, before = drill.resource, drill.stored
+        if index is None:
+            drill.storage.transfer_all(self.inventory)
+            want = before
+        else:
+            stack = drill.storage.slots[index]
+            want = 0 if stack is None else stack.count if amount is None else min(amount, stack.count)
+            drill.storage.transfer(index, self.inventory, amount)
+        moved = before - drill.stored
+        if moved < want:
             self.events.append(("inv_full",))
-        if amount <= 0:
+        if moved <= 0:
             return 0
-        self.drill_collected[drill.resource] += amount
-        self.events.append(("drill_collect", drill.resource, amount, drill.anchor))
-        return amount
+        self.drill_collected[resource] += moved
+        self.events.append(("drill_collect", resource, moved, drill.anchor))
+        return moved
 
     def collect_station(self, machine: Machine) -> int:
-        """Leva o buffer da estação pro inventário (o que não couber fica nela). Devolve quanto coletou."""
+        """Leva as sobras do buffer antigo da estação pro inventário (o que não couber fica nela). Devolve quanto coletou."""
         buffer = machine.station.buffer
         total = 0
         for resource in list(buffer):
@@ -579,7 +624,7 @@ class GameState:
         return True
 
     def station_take(self, machine: Machine, resource: str, amount: int | None = None) -> int:
-        """Tira minério do buffer pro inventário (`amount` None = tudo daquele minério, até onde couber)."""
+        """Tira minério das sobras do buffer antigo pro inventário (`amount` None = tudo daquele minério, até onde couber)."""
         have = machine.station.buffer.get(resource, 0)
         want = have if amount is None else min(amount, have)
         moved = want - self.inventory.add(resource, want)
@@ -594,7 +639,7 @@ class GameState:
         drill.timer += dt
         while drill.timer >= C.DRILL_INTERVAL and not drill.full:
             drill.timer -= C.DRILL_INTERVAL
-            drill.stored += 1
+            drill.storage.add(drill.resource, 1)
             if drill.full:
                 drill.timer = 0.0
                 self.events.append(("drill_full", drill.anchor))
@@ -664,7 +709,7 @@ class GameState:
                 self.indices[m.type.index] += m.type.rate * work_dt
         stations = self.stations
         if stations:                         # drones (game/drones.py): no déficit só voam mais devagar
-            self.drone_deliveries += drones.update_stations(stations, self.drills, self.chests, work_dt, self.events)
+            self.drone_deliveries += drones.update_stations(stations, self.logistics, work_dt, self.events)
         self._check_stage()
 
     def _check_stage(self) -> None:

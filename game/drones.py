@@ -1,23 +1,28 @@
-"""Estação de drones e o ciclo de cada drone (bíblia §8, Marco 3).
+"""Estação de drones e a logística deles (bíblia §8, Marco 3), no estilo do The Planet Crafter.
 
-Tudo aqui é Python puro (nada de pygame), testado em tests/test_drones.py.
+Tudo aqui é Python puro (nada de pygame), testado em tests/test_drones.py e tests/test_logistics.py.
 
-A ideia, em uma frase: a estação tem 4 slots de drone (vem vazia; o drone é um item fabricado
-e colocado num slot pelo painel da estação); cada drone pousado procura a drill mais cheia
-(dentro de 30 tiles, com pelo menos 5 unidades e sem outro drone indo pra ela), voa em linha reta
-até lá (por cima das paredes, então não precisa de caminho), pega TUDO, volta e entrega.
+A ideia, em uma frase: cada inventário logístico (baú e drill) diz o que ENVIA (os drones podem tirar
+dali), o que RECEBE (os drones trazem pra lá) e o LOTE (quanto um drone tira dali por viagem). Um drone
+livre, pousado na estação, procura um par origem → destino pra algum item, no MAPA INTEIRO (não tem
+alcance), voa em linha reta por cima das paredes, pega, entrega e volta pra estação.
 
 Ciclo de um drone (o `state` dele):
 
-    pousado ──acha drill──> indo ──chegou──> coletando ──pegou──> voltando ──pousou──> entregando ──> pousado
-    (landed)                (outbound)       (collecting)         (returning)          (delivering)
+    pousado ──acha par──> indo ──chegou──> pegando ──pegou──> levando ──chegou──> soltando ──> voltando ──> pousado
+    (landed)              (outbound)       (collecting)       (carrying)          (dropping)    (returning)
 
-Entrega (pick_delivery_chest): entre os baús a até 6 tiles da estação, primeiro um com filtro igual
-ao minério da carga, depois um "all", sempre o mais perto e só se tiver espaço; baú filtrado pra outro
-minério nunca recebe. A carga é dividida entre quantos baús precisar e o resto vai pro buffer interno
-da estação (50 unidades). Se nem o buffer tiver lugar, o drone fica pousado segurando
-a carga (aparece a pepita nele) e tenta de novo a cada frame. Com o buffer cheio e sem baú com espaço,
-nenhum drone decola.
+Escolha do par (pick_task): origem com estoque livre do item (já descontando o que outros drones vão
+buscar) e destino com espaço livre (já descontando o que outros drones vão trazer). Drill só é origem
+quando tem pelo menos o lote (ou está cheia); baú, com qualquer estoque. Ganha a origem mais cheia;
+empate (e escolha do destino): a viagem mais curta estação → origem → destino → estação.
+Leva min(lote da origem, estoque livre, espaço livre no destino), um item por viagem.
+
+Destino encheu (ou sumiu) no meio do caminho: entrega o que couber e procura outro destino que receba
+o item; sem nenhum, volta pra estação com a carga e fica pousado segurando ela, até surgir um destino.
+Nada some.
+
+O buffer da estação é legado (save ≤ v4): não recebe mais nada, só dá pra tirar as sobras.
 
 Energia: quem chama passa o `dt` já multiplicado pelo fator da energia (game/energy.py), então com
 pouca energia os drones só ficam mais lentos (voo e coleta), igual às outras máquinas.
@@ -30,10 +35,12 @@ import math
 from dataclasses import dataclass, field
 
 from game import config as C
+from game.inventory import Inventory
 
-LANDED, OUTBOUND, COLLECTING, RETURNING, DELIVERING = "landed", "outbound", "collecting", "returning", "delivering"
-IN_AIR = (OUTBOUND, COLLECTING, RETURNING)   # estados em que o drone está voando (tem sombra)
-MAX_STEP = 0.25   # segundos: um dt grande (simulador, F1) é quebrado em pedaços pra não "pular" a drill
+LANDED, OUTBOUND, COLLECTING, CARRYING, DROPPING, RETURNING = (
+    "landed", "outbound", "collecting", "carrying", "dropping", "returning")
+IN_AIR = (OUTBOUND, COLLECTING, CARRYING, DROPPING, RETURNING)   # estados em que o drone está voando
+MAX_STEP = 0.25   # segundos: um dt grande (simulador, F1) é quebrado em pedaços pra não "pular" o alvo
 
 
 @dataclass
@@ -42,10 +49,12 @@ class Drone:
     x: float = 0.0
     y: float = 0.0
     state: str = LANDED
-    target: object | None = None   # a drill (Machine) pra onde ele está indo
-    resource: str | None = None    # minério que está carregando
+    source: object | None = None   # origem (Machine) de onde vai tirar
+    dest: object | None = None     # destino (Machine) pra onde leva
+    resource: str | None = None    # item da viagem (o que vai buscar ou está carregando)
+    planned: int = 0               # quanto vai pegar na origem (fica reservado até pegar)
     cargo: int = 0                 # quanto está carregando
-    timer: float = 0.0             # tempo que falta pra coletar/entregar
+    timer: float = 0.0             # tempo que falta pra pegar/soltar (pousado: até procurar tarefa de novo)
 
     @property
     def in_air(self) -> bool:
@@ -53,19 +62,18 @@ class Drone:
 
     @property
     def busy(self) -> bool:
-        """Em viagem (voando, coletando ou entregando): o slot fica travado, não dá pra tirar."""
+        """Em viagem: o slot fica travado, não dá pra tirar."""
         return self.state != LANDED
 
 
 @dataclass
 class Station:
-    """O que só a estação de drones tem: o buffer e os drones. Fica em `Machine.station`.
+    """O que só a estação de drones tem: os drones e o buffer legado. Fica em `Machine.station`.
 
     `drones` tem só os drones que existem; cada um sabe o slot dele (`Drone.pad`, de 0 a 3).
     """
-    buffer: dict[str, int] = field(default_factory=dict)   # {"iron": 12, "ice": 3}
+    buffer: dict[str, int] = field(default_factory=dict)   # sobras de save antigo: {"iron": 12}, só tirar
     drones: list[Drone] = field(default_factory=list)
-    warned: bool = False           # já avisou "Estação cheia" (rearma quando o buffer libera espaço)
 
     # ---- slots de drone
     def drone_in(self, slot: int) -> Drone | None:
@@ -75,12 +83,11 @@ class Station:
         return [i for i in range(C.STATION_DRONE_SLOTS) if self.drone_in(i) is None]
 
     def buffer_stacks(self) -> list[tuple[str, int]]:
-        """O buffer como "slots" pra tela: [(minério, quantidade)] na ordem de C.RESOURCES.
-        Cabe sempre numa pilha por minério (o buffer inteiro tem 50 = 1 pilha)."""
+        """As sobras como "slots" pra tela: [(minério, quantidade)] na ordem de C.RESOURCES."""
         return [(r, self.buffer[r]) for r in C.RESOURCES if self.buffer.get(r, 0) > 0]
 
     def take(self, resource: str, amount: int) -> int:
-        """Tira até `amount` desse minério do buffer. Devolve quanto tirou."""
+        """Tira até `amount` desse minério das sobras. Devolve quanto tirou."""
         moved = min(amount, self.buffer.get(resource, 0))
         if moved:
             self.buffer[resource] -= moved
@@ -91,21 +98,6 @@ class Station:
     @property
     def stored(self) -> int:
         return sum(self.buffer.values())
-
-    @property
-    def room(self) -> int:
-        return max(0, C.STATION_BUFFER - self.stored)
-
-    @property
-    def full(self) -> bool:
-        return self.room == 0
-
-    def add(self, resource: str, amount: int) -> int:
-        """Guarda no buffer o que couber. Devolve quanto NÃO coube."""
-        moved = min(amount, self.room)
-        if moved:
-            self.buffer[resource] = self.buffer.get(resource, 0) + moved
-        return amount - moved
 
 
 # ---------------------------------------------------------------- geometria
@@ -122,10 +114,10 @@ def pad_position(machine, pad: int) -> tuple[float, float]:
     return ax - w / 2 + px, ay - h + py - 2
 
 
-def hover_position(drill) -> tuple[float, float]:
-    """Onde o drone para no ar em cima da drill (a sombra cai nos tiles dela)."""
-    ax, ay = drill.anchor
-    return ax, ay - 56
+def hover_position(machine) -> tuple[float, float]:
+    """Onde o drone para no ar em cima de um inventário (drill 2×2 ou baú 1×1): a sombra cai nele."""
+    ax, ay = machine.anchor
+    return ax, ay - (56 if machine.size > 1 else 44)
 
 
 LIFT_TIME = 0.35   # segundos (na velocidade cheia) que o drone leva pra subir ou descer
@@ -147,57 +139,161 @@ def lift(machine, drone: Drone) -> float:
 
 def tile_distance(a, b) -> float:
     """Distância (tiles) entre os centros de duas máquinas."""
-    (ax, ay), (bx, by) = a.anchor, b.anchor
-    return math.hypot((ax - bx) / C.TILE, (ay - a.size * C.TILE / 2 - by + b.size * C.TILE / 2) / C.TILE)
+    (ax, ay), (bx, by) = center(a), center(b)
+    return math.hypot(ax - bx, ay - by) / C.TILE
 
 
-def gap_tiles(station, chest) -> int:
-    """Quantos tiles separam o baú da estação (0 = encostado). Conta a partir da borda dos 2×2."""
-    dx = max(station.tx - chest.tx, 0, chest.tx - (station.tx + station.size - 1))
-    dy = max(station.ty - chest.ty, 0, chest.ty - (station.ty + station.size - 1))
-    return max(dx, dy)
+def center(machine) -> tuple[float, float]:
+    """Centro dos tiles da máquina (pixels do mundo)."""
+    ax, ay = machine.anchor
+    return ax, ay - machine.size * C.TILE / 2
 
 
-@dataclass
-class Spot:
-    """Uma estação "de mentira" num tile (o fantasma de colocar): o mínimo que tile_distance e gap_tiles usam."""
-    tx: int
-    ty: int
-    size: int = 2
-
-    @property
-    def anchor(self) -> tuple[float, float]:
-        return (self.tx + self.size / 2) * C.TILE, (self.ty + self.size) * C.TILE
+# ---------------------------------------------------------------- configuração (Envia / Recebe / Lote)
+def is_logistic(machine) -> bool:
+    """Baú e drill têm inventário que os drones atendem."""
+    return machine.is_chest or machine.is_drill
 
 
-def range_center(station) -> tuple[float, float]:
-    """Centro do círculo de alcance (pixels do mundo): o meio dos 2×2 da estação."""
-    ax, ay = station.anchor
-    return ax, ay - station.size * C.TILE / 2
+def can_send(machine, item: str) -> bool:
+    """A drill só tem o minério dela pra enviar; o baú, qualquer item logístico."""
+    return item in C.LOGISTIC_ITEMS and (not machine.is_drill or item == machine.resource)
 
 
-def drills_in_range(station, drills) -> list:
-    """Drills que os drones dessa estação alcançam (mesma conta do pick_drill)."""
-    return [d for d in drills if tile_distance(station, d) <= C.DRONE_RANGE]
+def can_receive(machine, item: str) -> bool:
+    """A drill não recebe (ela só produz: receber travaria a extração)."""
+    return item in C.LOGISTIC_ITEMS and not machine.is_drill
 
 
-def delivery_rect(station) -> tuple[int, int, int, int]:
-    """Área de entrega em tiles (x, y, largura, altura): até 6 tiles da borda da estação, num quadrado,
-    igual à conta do gap_tiles (não é um círculo)."""
-    r = C.DRONE_CHEST_RADIUS
-    return station.tx - r, station.ty - r, station.size + 2 * r, station.size + 2 * r
+def toggle_send(machine, item: str) -> bool:
+    """Liga/desliga Envia desse item. Ligar tira o item do Recebe. False se não pode."""
+    if not can_send(machine, item):
+        return False
+    if item in machine.sends:
+        machine.sends.discard(item)
+    else:
+        machine.sends.add(item)
+        machine.receives.discard(item)
+    return True
 
 
-def delivers_to(stations, tile: tuple[int, int]) -> bool:
-    """Um baú nesse tile recebe entrega de alguma das estações?"""
-    chest = Spot(tile[0], tile[1], 1)
-    return any(gap_tiles(s, chest) <= C.DRONE_CHEST_RADIUS for s in stations)
+def toggle_receive(machine, item: str) -> bool:
+    """Liga/desliga Recebe desse item. Ligar tira o item do Envia. False se não pode."""
+    if not can_receive(machine, item):
+        return False
+    if item in machine.receives:
+        machine.receives.discard(item)
+    else:
+        machine.receives.add(item)
+        machine.sends.discard(item)
+    return True
+
+
+def set_batch(machine, amount: int) -> bool:
+    if amount not in C.DRONE_BATCH_OPTIONS:
+        return False
+    machine.batch = amount
+    return True
+
+
+def configured(machine) -> bool:
+    return bool(machine.sends or machine.receives)
+
+
+# ---------------------------------------------------------------- reservas
+class Ledger:
+    """O que os drones em viagem já "prometeram": estoque que vão tirar de cada origem e itens que vão
+    pôr em cada destino. Recalculado a cada passo (não vai no save) e atualizado quando um drone pega tarefa."""
+
+    def __init__(self, stations=()):
+        self.taking: dict[tuple[int, str], int] = {}
+        self.incoming: dict[int, list[tuple[str, int]]] = {}
+        for m in stations:
+            for d in m.station.drones:
+                if d.state in (OUTBOUND, COLLECTING) and d.source is not None:
+                    self.take(d.source, d.resource, d.planned)
+                    if d.dest is not None:
+                        self.bring(d.dest, d.resource, d.planned)
+                elif d.state in (CARRYING, DROPPING) and d.dest is not None:
+                    self.bring(d.dest, d.resource, d.cargo)
+
+    def take(self, source, item: str, amount: int) -> None:
+        key = (id(source), item)
+        self.taking[key] = self.taking.get(key, 0) + amount
+
+    def bring(self, dest, item: str, amount: int) -> None:
+        self.incoming.setdefault(id(dest), []).append((item, amount))
+
+    def available(self, source, item: str) -> int:
+        """Estoque que ninguém reservou ainda."""
+        return max(0, source.storage.count(item) - self.taking.get((id(source), item), 0))
+
+    def room(self, dest, item: str) -> int:
+        """Espaço livre pro item, como se o que já está vindo pra cá tivesse chegado."""
+        if not can_receive(dest, item):
+            return 0
+        promised = self.incoming.get(id(dest))
+        if not promised:
+            return dest.storage.space_for(item)
+        trial = dest.storage.copy()
+        for it, n in promised:
+            trial.add(it, n)
+        return trial.space_for(item)
 
 
 # ---------------------------------------------------------------- escolhas
+@dataclass
+class Task:
+    source: object
+    dest: object
+    item: str
+    amount: int
+
+
+def ready_stock(source, item: str, ledger: Ledger) -> int:
+    """Quanto dá pra tirar da origem agora (0 = ainda não vale a viagem).
+    Drill: só com o lote completo (ou cheia), pra não buscar de 1 em 1. Baú: qualquer estoque."""
+    avail = ledger.available(source, item)
+    if source.is_drill and avail < source.batch and not source.full:
+        return 0
+    return avail
+
+
+def pick_task(station, logistics, ledger: Ledger) -> Task | None:
+    """O melhor par origem → destino pra um drone dessa estação (ou None).
+    Origem mais cheia primeiro; empate, e escolha do destino: a viagem mais curta."""
+    best, best_key = None, None
+    for src in logistics:
+        for item in sorted(src.sends):
+            avail = ready_stock(src, item, ledger)
+            if avail <= 0:
+                continue
+            for dst in logistics:
+                if dst is src or item not in dst.receives:
+                    continue
+                room = ledger.room(dst, item)
+                if room <= 0:
+                    continue
+                trip = tile_distance(station, src) + tile_distance(src, dst) + tile_distance(dst, station)
+                key = (-avail, trip)
+                if best_key is None or key < best_key:
+                    best_key = key
+                    best = Task(src, dst, item, min(src.batch, avail, room))
+    return best
+
+
+def pick_dest(item: str, near, logistics, ledger: Ledger, exclude=None):
+    """Destino pra carga que já está no drone: o mais perto de `near` (x, y em pixels) que Recebe o item e
+    tem espaço. None se não tem nenhum."""
+    options = [m for m in logistics
+               if m is not exclude and item in m.receives and ledger.room(m, item) > 0]
+    return min(options, key=lambda m: math.hypot(center(m)[0] - near[0], center(m)[1] - near[1]), default=None)
+
+
+# ---------------------------------------------------------------- estação
 def new_station(machine, count: int = 0) -> Station:
-    """Estação recém-colocada: buffer vazio e sem drone (a não ser que `count` peça alguns, nos
-    primeiros slots: o save v3 e os testes usam isso)."""
+    """Estação recém-colocada: sem drone (a não ser que `count` peça alguns, nos primeiros slots:
+    a migração e os testes usam isso)."""
     station = Station()
     for _ in range(count):
         dock(machine, station)
@@ -227,39 +323,10 @@ def undock(station: Station, slot: int) -> Drone | None:
     return drone
 
 
-def pick_drill(machine, drills, claimed: set[int]):
-    """A drill mais cheia ao alcance, com ≥ DRONE_MIN_PICKUP e sem drone indo pra ela (empate: a mais perto)."""
-    options = [d for d in drills
-               if d.stored >= C.DRONE_MIN_PICKUP and id(d) not in claimed
-               and tile_distance(machine, d) <= C.DRONE_RANGE]
-    return max(options, key=lambda d: (d.stored, -tile_distance(machine, d)), default=None)
-
-
-def pick_delivery_chest(station, chests, resource: str, radius: int = C.DRONE_CHEST_RADIUS):
-    """Em qual baú o drone entrega `resource` agora (ou None = vai pro buffer da estação).
-
-    Só conta baú a até `radius` tiles da estação e com espaço pra esse minério. Prioridade: filtro
-    igual ao minério > filtro "all"; empate: o mais perto da estação. Baú filtrado pra outro minério
-    nunca recebe. Carga maior que o espaço: quem chama entrega o que cabe e chama de novo (o baú
-    cheio sai da lista sozinho)."""
-    options = [c for c in chests
-               if c.filter in (resource, "all") and gap_tiles(station, c) <= radius
-               and c.storage.space_for(resource) > 0]
-    return min(options, key=lambda c: (c.filter != resource, gap_tiles(station, c), tile_distance(station, c)),
-               default=None)
-
-
-def can_accept(machine, chests) -> bool:
-    """Ainda tem onde guardar minério? (lugar no buffer, ou algum baú perto aceita algum minério)"""
-    if machine.station.room > 0:
-        return True
-    return any(pick_delivery_chest(machine, chests, r) is not None for r in C.RESOURCES)
-
-
 # ---------------------------------------------------------------- ciclo
 def _exists(machine, machines) -> bool:
     """A máquina ainda está no mapa? (por identidade: `in` compararia campo a campo)"""
-    return any(m is machine for m in machines)
+    return machine is not None and any(m is machine for m in machines)
 
 
 def _fly(drone: Drone, tx: float, ty: float, dt: float) -> bool:
@@ -275,96 +342,115 @@ def _fly(drone: Drone, tx: float, ty: float, dt: float) -> bool:
     return False
 
 
-def unload(machine, drone: Drone, chests, events: list) -> int:
-    """Entrega a carga do drone: baús perto (pick_delivery_chest, quantos precisar), depois o buffer.
-    O que não couber fica no drone. Devolve quanto entregou."""
-    if drone.cargo <= 0:
-        return 0
-    resource, amount = drone.resource, drone.cargo
-    to_chest, first_chest = 0, None
-    while amount > 0:
-        chest = pick_delivery_chest(machine, chests, resource)
-        if chest is None:
-            break
-        left = chest.storage.add(resource, amount)
-        to_chest, amount = to_chest + amount - left, left
-        first_chest = first_chest or chest
-    to_buffer = amount - machine.station.add(resource, amount)
-    amount -= to_buffer
-    drone.cargo = amount
-    if amount == 0:
+def _carry_on(drone: Drone, logistics, ledger: Ledger, exclude=None) -> None:
+    """Com carga na mão: vai pra um destino que receba o item, ou volta pra estação segurando ela."""
+    dest = pick_dest(drone.resource, (drone.x, drone.y), logistics, ledger, exclude)
+    if dest is not None:
+        ledger.bring(dest, drone.resource, drone.cargo)
+        drone.dest, drone.state = dest, CARRYING
+    else:
+        drone.dest, drone.state = None, RETURNING
+
+
+def _finish_trip(drone: Drone) -> None:
+    drone.source = drone.dest = None
+    drone.planned = 0
+    if drone.cargo == 0:
         drone.resource = None
-    delivered = to_chest + to_buffer
-    if delivered:
-        where = first_chest.anchor if to_chest else machine.anchor
-        events.append(("drone_deliver", resource, delivered, where))
-    return delivered
 
 
-def update_drone(machine, drone: Drone, drills, chests, claimed: set[int], dt: float, events: list) -> int:
+def update_drone(machine, drone: Drone, logistics, ledger: Ledger, dt: float, events: list) -> int:
     """Um passo do ciclo de um drone. Devolve quantas entregas ele fez (0 ou 1)."""
-    delivered = 0
     if drone.state == LANDED:
-        if drone.cargo:                                   # voltou (ou carregou o save) com carga: tenta de novo
-            delivered = 1 if unload(machine, drone, chests, events) else 0
-        if drone.cargo == 0 and can_accept(machine, chests):
-            drill = pick_drill(machine, drills, claimed)
-            if drill is not None:
-                claimed.add(id(drill))
-                drone.target, drone.state = drill, OUTBOUND
+        drone.timer -= dt
+        if drone.timer > 0:
+            return 0
+        drone.timer = C.DRONE_IDLE_RETRY
+        if drone.cargo:                                  # pousou (ou carregou o save) com carga: entrega antes
+            dest = pick_dest(drone.resource, (drone.x, drone.y), logistics, ledger)
+            if dest is not None:
+                ledger.bring(dest, drone.resource, drone.cargo)
+                drone.dest, drone.state = dest, CARRYING
+            return 0
+        task = pick_task(machine, logistics, ledger)
+        if task is not None:
+            ledger.take(task.source, task.item, task.amount)
+            ledger.bring(task.dest, task.item, task.amount)
+            drone.source, drone.dest, drone.resource, drone.planned = task.source, task.dest, task.item, task.amount
+            drone.state = OUTBOUND
     elif drone.state == OUTBOUND:
-        if not _exists(drone.target, drills):                    # a drill foi desmontada no caminho: volta vazio
-            drone.target, drone.state = None, RETURNING
-        elif _fly(drone, *hover_position(drone.target), dt):
+        if not _exists(drone.source, logistics):         # a origem foi desmontada no caminho: volta vazio
+            _finish_trip(drone)
+            drone.state = RETURNING
+        elif _fly(drone, *hover_position(drone.source), dt):
             drone.state, drone.timer = COLLECTING, C.DRONE_PICKUP_TIME
     elif drone.state == COLLECTING:
         drone.timer -= dt
         if drone.timer <= 0:
-            drill = drone.target
-            if _exists(drill, drills) and drill.stored > 0:      # pega TUDO (se o player coletou antes, volta vazio)
-                drone.resource, drone.cargo = drill.resource, drill.stored
-                drill.stored = 0
-            drone.target, drone.state = None, RETURNING
-    elif drone.state == RETURNING:
-        if _fly(drone, *pad_position(machine, drone.pad), dt):
-            if drone.cargo:
-                drone.state, drone.timer = DELIVERING, C.DRONE_DROP_TIME
-            else:
-                drone.state = LANDED
-    elif drone.state == DELIVERING:
+            src, item = drone.source, drone.resource
+            got = src.storage.remove(item, drone.planned) if _exists(src, logistics) else 0
+            drone.source, drone.planned = None, 0
+            if got:
+                drone.cargo = got
+                if _exists(drone.dest, logistics) and item in drone.dest.receives:
+                    drone.state = CARRYING
+                else:                                    # o destino sumiu (ou mudou a config) enquanto pegava
+                    _carry_on(drone, logistics, ledger)
+            else:                                        # o player esvaziou antes: volta vazio
+                _finish_trip(drone)
+                drone.state = RETURNING
+    elif drone.state == CARRYING:
+        if not _exists(drone.dest, logistics) or drone.resource not in drone.dest.receives:
+            _carry_on(drone, logistics, ledger, exclude=drone.dest)
+        elif _fly(drone, *hover_position(drone.dest), dt):
+            drone.state, drone.timer = DROPPING, C.DRONE_DROP_TIME
+    elif drone.state == DROPPING:
         drone.timer -= dt
         if drone.timer <= 0:
-            drone.state = LANDED
-            delivered = 1 if unload(machine, drone, chests, events) else 0
-    return delivered
+            dest, item = drone.dest, drone.resource
+            delivered = 0
+            if _exists(dest, logistics) and item in dest.receives:
+                delivered = drone.cargo - dest.storage.add(item, drone.cargo)
+                drone.cargo -= delivered
+            if delivered:
+                events.append(("drone_deliver", item, delivered, dest.anchor))
+            if drone.cargo:                              # encheu no meio do caminho: procura outro destino
+                _carry_on(drone, logistics, ledger, exclude=dest)
+            else:
+                _finish_trip(drone)
+                drone.state = RETURNING
+            return 1 if delivered else 0
+    elif drone.state == RETURNING:
+        if _fly(drone, *pad_position(machine, drone.pad), dt):
+            _finish_trip(drone)
+            drone.state, drone.timer = LANDED, 0.0
+    return 0
 
 
-def update_stations(stations, drills, chests, dt: float, events: list) -> int:
+def update_stations(stations, logistics, dt: float, events: list) -> int:
     """Roda todos os drones de todas as estações por `dt` segundos (já com o fator da energia).
-    Devolve quantas entregas aconteceram (pro objetivo "Receba uma entrega de drone")."""
+    `logistics` = baús e drills do mapa. Devolve quantas entregas aconteceram (objetivo "Receba uma entrega")."""
     deliveries = 0
+    logistics = list(logistics)
     while dt > 1e-9:
         step = min(dt, MAX_STEP)
         dt -= step
-        # drills que já têm drone indo (vale pra todas as estações: nunca dois drones na mesma drill)
-        claimed = {id(d.target) for m in stations for d in m.station.drones if d.target is not None}
+        ledger = Ledger(stations)                        # reservas de todas as estações juntas
         for machine in stations:
             for drone in machine.station.drones:
-                deliveries += update_drone(machine, drone, drills, chests, claimed, step, events)
-            station = machine.station
-            if station.full and not station.warned:       # avisa uma vez quando o buffer enche
-                station.warned = True
-                events.append(("station_full", machine.anchor))
-            elif not station.full:
-                station.warned = False
+                deliveries += update_drone(machine, drone, logistics, ledger, step, events)
     return deliveries
 
 
 def recall_cargo(station: Station) -> dict[str, int]:
-    """Todo o minério da estação: buffer + o que os drones estão carregando (pra desmontar sem perder nada).
+    """Todo o minério da estação: sobras + o que os drones estão carregando (pra desmontar sem perder nada).
     Os drones em si (itens) quem devolve é o GameState._dismantle_station."""
     total = dict(station.buffer)
     for d in station.drones:
         if d.cargo:
             total[d.resource] = total.get(d.resource, 0) + d.cargo
     return total
+
+
+def new_drill_storage() -> Inventory:
+    return Inventory(C.DRILL_SLOTS)

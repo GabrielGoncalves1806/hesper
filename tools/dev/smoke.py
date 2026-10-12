@@ -723,7 +723,8 @@ def check_veins(bot) -> None:
 
 
 def check_drill_feature(bot) -> None:
-    """Névoa: fabrica a drill (tecla 7), fantasma gruda no veio, extrai, enche, coleta com E, desmonta."""
+    """Névoa: fabrica a drill (tecla 7), fantasma gruda no veio, extrai, enche, abre o painel (E), liga o
+    Envia, tira 1 e coleta o resto com Shift+E. Prints: drill_*, logistica_drill."""
     s, app = bot.state, bot.app
     assert s.stage >= 2 and s.recipe_status("drill") != "locked"
     give(s, iron=60, silicon=40)
@@ -772,7 +773,32 @@ def check_drill_feature(bot) -> None:
     assert app.hint().startswith(f"Drill cheia: {C.DRILL_CAPACITY} {label}"), app.hint()
     bot.shot("drill_cheia.png")
     before = s.inventory.count(drill.resource)
-    bot.key(pygame.K_e)                            # coleta
+    # E abre o painel da drill: vem sem nada configurado; liga o Envia e troca o lote
+    assert drill.sends == set()
+    bot.key(pygame.K_e)
+    assert app.mode == "drill" and app.open_drill is drill, app.mode
+    bot.frames(DT)
+    assert not any(v[0] == "recv" for _, v in app.ui.logistics_buttons)   # a drill não recebe
+    bot.shot("logistica_drill_vazia.png")
+    send = next(r for r, v in app.ui.logistics_buttons if v == ("send", drill.resource))
+    bot.click((send.centerx * 2, send.centery * 2))
+    assert drill.sends == {drill.resource} and app.mode == "drill"
+    lote = next(r for r, v in app.ui.logistics_buttons if v == ("batch", 5))
+    bot.click((lote.centerx * 2, lote.centery * 2))
+    assert drill.batch == 5
+    inv = s.inventory
+    iron_slot = next(i for i, st in enumerate(inv.slots) if st and st.item == "iron")
+    bot.click(slot_pos(bot, inv, iron_slot))      # do inventário pra drill: não pode
+    assert app.notice == "A drill só produz: não guarda nada"
+    right_click(bot, slot_pos(bot, drill.storage, 0))   # direito: tira 1
+    assert drill.stored == C.DRILL_CAPACITY - 1 and inv.count(drill.resource) == before + 1
+    bot.mouse_to((send.centerx * 2, send.centery * 2))    # tooltip do toggle
+    bot.frames(0.1)
+    bot.shot("logistica_drill.png")
+    bot.key(pygame.K_ESCAPE)
+    assert app.mode == "play"
+    shift_key(bot, pygame.K_e)                     # Shift+E: coleta o resto sem abrir
+    assert app.mode == "play"
     bot.frames(0.3)
     assert s.inventory.count(drill.resource) == before + C.DRILL_CAPACITY and drill.stored == 0
     bot.shot("drill_coletou.png")
@@ -783,16 +809,17 @@ def check_drill_feature(bot) -> None:
 def shot_zoom(bot, name: str, world_xy, w: int = 240, h: int = 135, k: int = 3) -> None:
     """Recorte w×h da tela em volta de um ponto do mundo, ampliado k× (drone é pequeno: 16 px)."""
     cx, cy = bot.app.cam
-    x = max(0, min(C.SCREEN_W - w, int(world_xy[0] - cx - w / 2)))
-    y = max(0, min(C.SCREEN_H - h, int(world_xy[1] - cy - h / 2)))
+    z = bot.app.zoom
+    x = max(0, min(C.SCREEN_W - w, int((world_xy[0] - cx) * z - w / 2)))
+    y = max(0, min(C.SCREEN_H - h, int((world_xy[1] - cy) * z - h / 2)))
     crop = bot.app.canvas.subsurface((x, y, w, h)).copy()
     pygame.image.save(pygame.transform.scale_by(crop, k), str(OUT / name))
     print(f"  screenshot: reports/dev/{name}  (recorte ampliado {k}×)")
 
 
 def check_drones(bot) -> None:
-    """Marco 3: fabrica a estação, coloca perto do baú da base, drones buscam a drill voando por cima
-    de uma parede e entregam no baú. Prints: drones_estacao, drones_voando, drones_entrega."""
+    """Marco 3: fabrica a estação, coloca perto do baú da base, configura o baú (Recebe tudo), e os drones
+    levam o lote da drill (Envia) voando por cima de uma parede. Prints: drones_estacao, drones_voando, drones_entrega."""
     from game import drones
     s, app = bot.state, bot.app
     assert s.recipe_status("drone_station") != "locked"
@@ -802,12 +829,13 @@ def check_drones(bot) -> None:
     give(s, iron=60, silicon=40, ice=20)
     assert s.craft("drone_station")
     chest = s.chests[0]
-    # canto 2×2 livre perto do baú (até 3 tiles, dentro do raio de entrega de 6), com o player parado logo abaixo
+    # canto 2×2 livre perto do baú (até 3 tiles: o alcance é o mapa todo, mas fica bonito junto), player logo abaixo
     site = None
     for ty in range(chest.ty - 3, chest.ty + 3):
         for tx in range(chest.tx - 4, chest.tx + 4):
             s.player.x, s.player.y = (tx + 1) * C.TILE, (ty + 3) * C.TILE + 8
-            if s.can_place("drone_station", (tx, ty)) and drones.gap_tiles(type("M", (), {"tx": tx, "ty": ty, "size": 2})(), chest) <= 3:
+            gap = max(max(tx - chest.tx, 0, chest.tx - (tx + 1)), max(ty - chest.ty, 0, chest.ty - (ty + 1)))
+            if s.can_place("drone_station", (tx, ty)) and gap <= 3:
                 site = (tx, ty)
                 break
         if site:
@@ -819,7 +847,8 @@ def check_drones(bot) -> None:
     bot.click(bot.tile_on_screen(site))
     station = s.machine_at(site)
     assert station is not None and station.is_station and station.station.drones == []   # vem vazia
-    assert drones.pick_delivery_chest(station, s.chests, "iron") is chest
+    for r in C.RESOURCES:                                 # o baú da base recebe tudo (config. pelo painel no check_logistics)
+        drones.toggle_receive(chest, r)
     # fabrica 2 drones (item) e põe na estação pelo painel (E): clique no drone do inventário
     give(s, iron=20, silicon=10)
     assert s.craft("drone") and s.craft("drone") and s.inventory.count("drone") == 2
@@ -860,7 +889,7 @@ def check_drones(bot) -> None:
     bot.mouse_to((int(ax + 27 - camx), int(ay - 14 - camy)))  # na beirada direita, pra não cobrir os pads
     bot.frames(0.2)
     hint = app.hint()          # no déficit de energia entra um "· ritmo N%" no meio
-    assert hint.startswith("Estação: 2/4 drones · buffer 12/50") and hint.endswith("· [E] abrir"), hint
+    assert hint.startswith("Estação: 2/4 drones · sobras 12") and hint.endswith("· [E] abrir"), hint
     bot.shot("drones_estacao.png")
     station.station.buffer = {}
     # os 4 slots cheios: 1 e 2 nos pads, 3 e 4 estacionados na frente (recorte ampliado)
@@ -877,6 +906,8 @@ def check_drones(bot) -> None:
     # voo: drill com minério e uma parede no meio do caminho (o drone passa por cima)
     drill = s.drills[0]
     drill.stored = 15
+    drill.batch = 10
+    assert drill.sends == {drill.resource}
     (sx, sy), (dx, dy) = drones.pad_position(station, 0), drones.hover_position(drill)
     mid = None
     for f in (0.5, 0.4, 0.6, 0.3, 0.7):                   # um ponto do caminho sem máquina embaixo
@@ -909,11 +940,11 @@ def check_drones(bot) -> None:
     for _ in range(600):
         s.o2 = C.O2_MAX
         bot.frames(DT)
-        flyer = next((d for d in station.station.drones if d.state == drones.RETURNING), None)
+        flyer = next((d for d in station.station.drones if d.state == drones.CARRYING), None)
         if flyer and math.hypot(flyer.x - (mid[0] + 0.5) * C.TILE, flyer.y + C.DRONE_SHADOW_DROP
                                 - (mid[1] + 0.5) * C.TILE) < 20:
             break
-    assert flyer is not None and flyer.cargo == 15, flyer
+    assert flyer is not None and flyer.cargo == 10, flyer          # o lote da drill
     s.player.x, s.player.y = (mid[0] + 0.5) * C.TILE + 64, (mid[1] + 3) * C.TILE
     bot.frames(DT)
     bot.mouse_to((20, 20))
@@ -928,8 +959,8 @@ def check_drones(bot) -> None:
         bot.frames(DT)
         if s.drone_deliveries > deliveries:
             break
-    bot.frames(0.25)                                       # o "+15" sobe um pouco
-    assert chest.storage.count(drill.resource) == in_chest + 15
+    bot.frames(0.25)                                       # o "+10" sobe um pouco
+    assert chest.storage.count(drill.resource) == in_chest + 10
     cxw, cyw = chest.anchor
     shot_zoom(bot, "drones_entrega.png", ((ax + cxw) / 2, (ay + cyw) / 2 - 30))
     carve(s, [(mid[0] + i, mid[1] + j) for i in (-1, 0, 1) for j in (0, 1)])
@@ -937,12 +968,14 @@ def check_drones(bot) -> None:
     bot.frames(0.1)
 
 
-def check_chest_filter(bot) -> None:
-    """Filtro do baú pros drones: clica em "ferro" no seletor do painel e mostra o rótulo no mundo.
-    Prints: bau_filtro (painel com o seletor), bau_rotulo (recorte do rótulo em cima do baú)."""
+def check_logistics(bot) -> None:
+    """Logística no baú: seção DRONES (Envia/Recebe/Lote), dica de "nada configurado" num baú novo e o
+    rótulo ↓recebe ↑envia no mundo. Prints: logistica_bau, logistica_bau_vazio, bau_rotulo*, logistica_mundo."""
+    from game import drones
+    from game.systems import Machine
     s, app = bot.state, bot.app
     chest = s.chests[0]
-    assert chest.filter == "all"
+    assert chest.receives == set(C.RESOURCES)
     ax, ay = chest.anchor
     s.player.x, s.player.y = ax, ay + 10
     s.o2 = C.O2_MAX
@@ -951,27 +984,113 @@ def check_chest_filter(bot) -> None:
     bot.key(pygame.K_e)
     assert app.mode == "chest"
     bot.frames(DT)
-    rect = next(r for r, value in app.ui.filter_buttons if value == "iron")
-    bot.click((rect.centerx * 2, rect.centery * 2))
-    assert chest.filter == "iron" and app.mode == "chest" and app.held is None
-    other = next(r for r, value in app.ui.filter_buttons if value == "ice")
-    bot.mouse_to((other.centerx * 2, other.centery * 2))    # hover num botão inativo
+    send_ice = next(r for r, v in app.ui.logistics_buttons if v == ("send", "ice"))
+    bot.click((send_ice.centerx * 2, send_ice.centery * 2))   # Envia gelo: sai do Recebe
+    assert chest.sends == {"ice"} and chest.receives == {"iron", "silicon"} and app.mode == "chest"
+    lote = next(r for r, v in app.ui.logistics_buttons if v == ("batch", 20))
+    bot.click((lote.centerx * 2, lote.centery * 2))
+    assert chest.batch == 20 and app.held is None
+    recv = next(r for r, v in app.ui.logistics_buttons if v == ("recv", "iron"))
+    bot.mouse_to((recv.centerx * 2, recv.centery * 2))        # tooltip "Recebe ferro"
     bot.frames(0.1)
-    bot.shot("bau_filtro.png")
+    assert app.hovered_slot_label((recv.centerx, recv.centery)).startswith("Recebe ferro")
+    bot.shot("logistica_bau.png")
     bot.key(pygame.K_ESCAPE)
     assert app.mode == "play"
+    # baú novo do lado: nada configurado (dica no painel)
+    fresh = None
+    for t in ((chest.tx + 1, chest.ty), (chest.tx - 1, chest.ty), (chest.tx, chest.ty + 1)):
+        if not s.machine_at(t) and s.world.get(*t) == C.FLOOR and t not in C.POD_TILES:
+            fresh = Machine("chest", *t, name="Gelo")
+            s.machines.append(fresh)
+            break
+    if fresh is not None:
+        s.player.x, s.player.y = fresh.anchor[0], fresh.anchor[1] + 10
+        bot.frames(0.1)
+        app.open_chest = app.renderer.open_chest = fresh
+        app.mode = "chest"
+        bot.mouse_to((20, 20))
+        bot.frames(DT)
+        assert not drones.configured(fresh)
+        bot.shot("logistica_bau_vazio.png")
+        app.set_mode("play")
+        drones.toggle_send(fresh, "ice")
     # rótulo no mundo: player perto (sem o mouse em cima)
+    s.player.x, s.player.y = ax, ay + 10
     bot.mouse_to((20, 20))
     bot.frames(0.1)
     assert chest in app.labeled_chests()
-    shot_zoom(bot, "bau_rotulo.png", (ax, ay - 30), w=160, h=90)
+    shot_zoom(bot, "bau_rotulo.png", (ax, ay - 30), w=240, h=90)
     bot.shot("bau_rotulo_tela.png")
-    # zoom 2: o rótulo continua em cima do baú
     zoom = app.zoom
     app.set_zoom(2.0, notify=False)
     bot.frames(0.1)
     bot.shot("bau_rotulo_zoom2.png")
     app.set_zoom(zoom, notify=False)
+    bot.frames(0.1)
+
+    # mundo: uma drill LONGE (mapa todo) mandando pro baú da base; 4 drones, voando e chegando
+    station = s.stations[0]
+    while station.station.free_slots():
+        drones.dock(station, station.station)
+    far_vein = max((v for v in s.world.veins if not s.machine_at((v.tx, v.ty))),
+                   key=lambda v: math.hypot(v.tx - 64, v.ty - 64))
+    far = Machine("drill", far_vein.tx, far_vein.ty, resource=far_vein.resource,
+                  stored_init=C.DRILL_CAPACITY, sends={far_vein.resource}, batch=5)
+    s.machines.append(far)
+    chest.receives.add(far.resource)
+    chest.sends.discard(far.resource)
+    dist = drones.tile_distance(station, far)
+    print(f"  drill longe: {dist:.0f} tiles da estação ({far.resource})")
+    assert dist > 35
+    s.player.x, s.player.y = ax + 8, ay + 12               # no alcance do E: o rótulo ↓↑ aparece
+    app.set_zoom(0.75, notify=False)
+    near = []
+    for _ in range(int(40 / DT)):                          # até um drone chegar perto da base com carga
+        s.o2 = C.O2_MAX
+        bot.frames(DT)
+        near = [d for d in station.station.drones if d.state == drones.CARRYING
+                and 5 * C.TILE < math.hypot(d.x - ax, d.y - ay) < 11 * C.TILE]
+        if near:
+            break
+    assert near, [(d.state, d.cargo) for d in station.station.drones]
+    bot.mouse_to((20, 20))
+    bot.frames(DT)
+    for d in near:
+        print(f"  drone no print: tela ({(d.x - app.cam[0]) * app.zoom:.0f}, {(d.y - app.cam[1]) * app.zoom:.0f}), "
+              f"carga {d.cargo} {d.resource}")
+    bot.shot("logistica_mundo.png")
+    shot_zoom(bot, "logistica_mundo_drone.png", (near[0].x, near[0].y + 10), w=240, h=135, k=3)
+    # o mapa todo de longe: estação, drill longe e os drones no caminho (mundo 3840×2160 reduzido)
+    for _ in range(int(4 / DT)):                           # mais uns segundos: drones espalhados no caminho
+        s.o2 = C.O2_MAX
+        bot.frames(DT)
+    big = pygame.Surface((3840, 2160), 0, app.canvas)
+    mx, my = (station.anchor[0] + far.anchor[0]) / 2, (station.anchor[1] + far.anchor[1]) / 2
+    cam = (int(mx - 1920), int(my - 1080))
+    app.renderer.draw(big, s, cam, app.t, None)
+    small = pygame.transform.smoothscale(big, (960, 540))
+    for d in station.station.drones:                       # reduzido o drone some: anel amarelo só neste print
+        if d.in_air:
+            pygame.draw.circle(small, (255, 210, 90), ((d.x - cam[0]) / 4, (d.y - cam[1]) / 4), 7, 2)
+    for m in (station, far):
+        pygame.draw.circle(small, (255, 255, 255), ((m.anchor[0] - cam[0]) / 4, (m.anchor[1] - 32 - cam[1]) / 4), 11, 1)
+    pygame.image.save(small, str(OUT / "logistica_mapa.png"))
+    print("  screenshot: reports/dev/logistica_mapa.png  (mundo reduzido 4×, anéis marcam drones/estação/drill)")
+    app.set_zoom(zoom, notify=False)
+    for _ in range(int(40 / DT)):                          # deixa entregar pra conferir que chega
+        s.o2 = C.O2_MAX
+        bot.frames(DT)
+        if chest.storage.count(far.resource) >= 5 and far.stored < C.DRILL_CAPACITY:
+            break
+    assert far.stored < C.DRILL_CAPACITY
+    for d in list(station.station.drones)[2:]:
+        d.state, d.source, d.dest, d.cargo, d.resource = drones.LANDED, None, None, 0, None
+        drones.undock(station.station, d.pad)
+    s.machines.remove(far)
+    if fresh is not None:
+        s.machines.remove(fresh)
+    bot.teleport((64, 65))
     bot.frames(0.1)
 
 
@@ -994,7 +1113,7 @@ def wait_blink_on(bot) -> None:
 
 def check_polish(bot) -> None:
     """Polimento do v0.2: floaters empilhados, barrinha da drill, raio de sem energia, fabricador com abas,
-    rolagem e lote (Shift+Enter), alcance da estação (fantasma e hover) e do baú."""
+    rolagem e lote (Shift+Enter) e a decolagem do drone."""
     from game import drones
     from game.systems import Machine
     s, app = bot.state, bot.app
@@ -1078,47 +1197,7 @@ def check_polish(bot) -> None:
     app.placing = None
     s.inventory.remove("o2", 5)
 
-    # alcance: fantasma da estação (círculo de 30 tiles, entrega de 6 e as drills alcançadas)
-    give(s, iron=60, silicon=40, ice=20)
-    assert s.craft("drone_station") and s.craft("chest")    # ainda na base
-    s.player.x, s.player.y = sx, sy + 3 * C.TILE
     zoom = app.zoom
-    app.set_zoom(0.75, notify=False)
-    bot.frames(0.1)
-    bot.key(hotbar_key(bot, "drone_station"))
-    assert app.placing == "drone_station"
-    bot.mouse_to(bot.tile_on_screen((station.tx - 3, station.ty + 4)))
-    bot.frames(0.1)
-    assert "alcance 30 tiles" in app.hint(), app.hint()
-    assert app.range_overlay() and app.range_overlay()["range"]
-    bot.shot("alcance_estacao.png")
-    # o círculo de 30 tiles é maior que a tela: um print do mundo "de longe" (visão 2560×1440 reduzida)
-    big = pygame.Surface((2560, 1440), 0, app.canvas)
-    center = drones.range_center(drones.Spot(station.tx - 3, station.ty + 4))
-    cam = (int(center[0] - 1280), int(center[1] - 720))
-    app.renderer.draw(big, s, cam, app.t, None, app.range_overlay())
-    pygame.image.save(pygame.transform.smoothscale(big, (960, 540)), str(OUT / "alcance_estacao_mapa.png"))
-    print("  screenshot: reports/dev/alcance_estacao_mapa.png  (mundo reduzido: o círculo inteiro)")
-    bot.key(pygame.K_ESCAPE)
-    # baú: dentro da área de entrega ganha as cantoneiras lilás; fora, a dica avisa
-    app.set_zoom(1.0, notify=False)
-    bot.key(hotbar_key(bot, "chest"))
-    assert app.placing == "chest"
-    inside = (station.tx + 3, station.ty + 1)
-    bot.mouse_to(bot.tile_on_screen(inside))
-    bot.frames(0.1)
-    assert drones.delivers_to(s.stations, inside) and "drones entregam aqui" in app.hint(), app.hint()
-    bot.shot("alcance_bau.png")
-    bot.mouse_to(bot.tile_on_screen((station.tx + 9, station.ty + 1)))
-    bot.frames(DT)
-    assert "fora da entrega" in app.hint(), app.hint()
-    bot.key(pygame.K_ESCAPE)
-    # mouse em cima de uma estação já colocada: os mesmos círculos
-    camx, camy = app.cam
-    bot.mouse_to((int(sx + 27 - camx), int(sy - 14 - camy)))
-    bot.frames(0.1)
-    assert app.range_overlay() == {"range": [station]}
-    bot.shot("alcance_hover_estacao.png")
     # decolagem: drone a 30%/100% da subida, lado a lado com um pousado (sombra colada -> afastada)
     landed = station.station.drones[:2]
     if len(landed) == 2:
@@ -1133,8 +1212,6 @@ def check_polish(bot) -> None:
         for d, (st, dx, dy) in zip(landed, saved):
             d.state, d.x, d.y = st, dx, dy
     app.set_zoom(zoom, notify=False)
-    s.inventory.remove("drone_station", 1)
-    s.inventory.remove("chest", 1)
     bot.teleport((64, 65))
     bot.frames(0.1)
 
@@ -1294,7 +1371,7 @@ def main() -> None:
     bot.frames(3.0)                           # deixa o banner do estágio 2 sumir
     check_drill_feature(bot)
     check_drones(bot)
-    check_chest_filter(bot)
+    check_logistics(bot)
     check_polish(bot)
     check_transition(bot, 2, [("transicao_verde_60.png", 0.60)])
     for _ in range(9):

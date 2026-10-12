@@ -1,4 +1,4 @@
-"""Estação de drones como inventário: 4 slots só de drone, trava em voo, tirar/colocar, desmontar e save v4."""
+"""Estação de drones como inventário: 4 slots só de drone, trava em voo, tirar/colocar, desmontar e save v4/v5."""
 
 import json
 import random
@@ -62,8 +62,9 @@ def test_only_drones_go_in(game):
 
 def test_docked_drone_starts_working(game):
     st = station(game)
-    drill = Machine("drill", ST[0] + 8, ST[1], resource="iron", stored=10)
-    game.machines.append(drill)
+    drill = Machine("drill", ST[0] + 8, ST[1], resource="iron", stored_init=10, sends={"iron"})
+    chest = Machine("chest", ST[0] - 3, ST[1], receives={"iron"})
+    game.machines += [drill, chest]
     game._update_machines(0.1)
     assert drill.stored == 10                                           # sem drone, nada acontece
     give(game, drone=1)
@@ -76,8 +77,9 @@ def test_slot_locked_while_flying_and_free_after_landing(game):
     st = station(game)
     give(game, drone=1)
     game.station_dock(st, slot_of(game, "drone"))
-    drill = Machine("drill", ST[0] + 6, ST[1], resource="ice", stored=8)
-    game.machines.append(drill)
+    drill = Machine("drill", ST[0] + 6, ST[1], resource="ice", stored_init=8, sends={"ice"}, batch=5)
+    chest = Machine("chest", ST[0] - 3, ST[1], receives={"ice"})
+    game.machines += [drill, chest]
     game._update_machines(0.1)
     d = st.station.drones[0]
     assert d.busy and not game.station_undock(st, 0)                    # em voo: travado
@@ -86,7 +88,7 @@ def test_slot_locked_while_flying_and_free_after_landing(game):
         game._update_machines(1 / 30)
         if not d.busy:
             break
-    assert d.state == LANDED and st.station.buffer == {"ice": 8}
+    assert d.state == LANDED and chest.storage.count("ice") == 5 and drill.stored == 3
     assert game.station_undock(st, 0)
     assert st.station.drones == [] and game.inventory.count("drone") == 1
     assert not game.station_undock(st, 0)                               # slot vazio
@@ -95,7 +97,7 @@ def test_slot_locked_while_flying_and_free_after_landing(game):
 def test_undock_brings_held_cargo_or_refuses_when_full(game):
     st = station(game)
     d = drones.dock(st, st.station, 1)
-    d.resource, d.cargo = "iron", 7                                     # pousado segurando (buffer estava cheio)
+    d.resource, d.cargo = "iron", 7                                     # pousado segurando (ninguém recebia)
     for i in range(C.INVENTORY_SLOTS):
         game.inventory.slots[i] = Stack("silicon", 50)
     assert not game.station_undock(st, 1)
@@ -169,7 +171,7 @@ def test_migration_v3_to_v4_names_chests_and_gives_two_drones(tmp_path):
     path.write_text(json.dumps(v3_save()), encoding="utf-8")
     loaded = save.load_game(path)
     assert loaded is not None
-    assert loaded.chests[0].name == "Baú" and loaded.chests[0].filter == "all"
+    assert loaded.chests[0].name == "Baú" and loaded.chests[0].receives == set(C.RESOURCES)   # v4 "all" -> v5
     st = loaded.stations[0]
     assert [d.pad for d in st.station.drones] == [0, 1]
     assert st.station.drones[0].cargo == 4 and st.station.drones[0].resource == "ice"
@@ -177,8 +179,8 @@ def test_migration_v3_to_v4_names_chests_and_gives_two_drones(tmp_path):
     assert loaded.drones_docked == 2
     save.write_save(loaded, path)
     data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["version"] == 4
-    assert next(m for m in data["machines"] if m["kind"] == "chest")["filter"] == "all"
+    assert data["version"] == 5
+    assert next(m for m in data["machines"] if m["kind"] == "chest")["receives"] == list(C.RESOURCES)
     assert next(m for m in data["machines"] if m["kind"] == "drone_station")["drones"] == \
         [["ice", 4], [None, 0], None, None]
 
