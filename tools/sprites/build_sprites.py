@@ -2032,10 +2032,514 @@ def make_ui_slot() -> Canvas:
     return cv
 
 
+# ---------------------------------------------------------------- v0.3 · Marco 1 · superfície (pendentes)
+
+SAND = {
+    # base, faixa escura, faixa clara, grão escuro, grão claro, sombra da ondulação, crista,
+    # pedrisco (escuro/claro), laje de rocha no chão (topo/luz/borda)
+    "dead": dict(base="#a4583a", d1="#985034", l1="#af6343", gD="#86452c", gL="#bf7350",
+                 rip="#874630", crest="#c47b56", peb="#6c3626", pebL="#c98563",
+                 slab="#94503a", slabL="#b46b4c", slabD="#7a412e"),
+    "mist": dict(base="#787677", d1="#6e6c6e", l1="#838183", gD="#5e5c5f", gL="#959397",
+                 rip="#605e61", crest="#9a989b", peb="#4b494d", pebL="#a2a0a3",
+                 slab="#6b6869", slabL="#888587", slabD="#575455",
+                 wet="#666568", sheen="#a9b6bd"),
+    "green": dict(base="#a08e66", d1="#94835d", l1="#ab9a71", gD="#80714e", gL="#bcab82",
+                  rip="#85754f", crest="#bfae85", peb="#5f5644", pebL="#c4b48c",
+                  slab="#8e8366", slabL="#ada282", slabD="#766c52",
+                  grass="#79b04f", grass2="#5e9640", moss="#5c9a43", moss2="#7cba58", mossD="#3f7230"),
+}
+SAND_KIND = ["areia", "cascalho", "dunas", "rocha"]
+
+
+def _blob(cv: Canvas, cx, cy, rx, ry, col, s, margin=1):
+    """Mancha chapada e achatada (elipse com borda serrilhada), sempre dentro do tile: emenda garantida."""
+    for y in range(int(cy - ry - 1), int(cy + ry + 2)):
+        for x in range(int(cx - rx - 1), int(cx + rx + 2)):
+            if not (margin <= x < T - margin and margin <= y < T - margin):
+                continue
+            wob = (hsh(x // 2, y, s) - 0.5) * 0.35
+            if ((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 <= 1.0 + wob:
+                cv.px(x, y, C(col))
+
+
+def make_sand(stage: str, v: int) -> Canvas:
+    """Chão do deserto 32x32. Nada encosta na borda (emenda garantida) e a v0, que domina o mapa,
+    é quase lisa: só grão de 1 px e risquinhos de vento, sem motivo que vire grade.
+    v0 areia · v1 cascalho · v2 ondulação de duna · v3 laje de rocha no chão (as três raras e fora do centro)."""
+    P = SAND[stage]
+    s = STAGE_SEED[stage] * 1000 + v * 131 + 7
+    cv = Canvas(T, T)
+    cv.rect(0, 0, T, T, C(P["base"]))
+
+    def free(x, y):
+        return 1 <= x < T - 1 and 1 <= y < T - 1 and cv.get(x, y)[:3] == C(P["base"])[:3]
+
+    # risquinhos de vento (faixas chapadas de 2-5 px, tom quase igual ao fundo)
+    for i in range(4):
+        x, y = 2 + int(hsh(i, 1, s) * 24), 2 + int(hsh(i, 2, s) * 28)
+        w = 2 + int(hsh(i, 3, s) * 4)
+        cv.rect(x, y, w, 1, C(P["d1"] if i % 2 else P["l1"]))
+    if v == 1:                                               # cascalho: um bolo fora do centro
+        ox, oy = [(7, 8), (22, 20), (8, 22), (21, 7)][int(hsh(0, 4, s) * 4)]
+        for i in range(6):
+            x = ox + int((hsh(i, 12, s) - 0.5) * 9)
+            y = oy + int((hsh(i, 13, s) - 0.5) * 7)
+            if i < 3:
+                cv.rect(x, y, 2, 1, C(P["pebL"]))
+                cv.rect(x, y + 1, 2, 1, C(P["peb"]))
+            else:
+                cv.px(x, y, C(P["peb"]))
+    if v == 2:                                               # ondulações baixas (faixa clara + sombra)
+        x0 = 3 + int(hsh(0, 5, s) * 8)
+        y0 = 5 + int(hsh(0, 6, s) * 6)
+        ph = hsh(0, 7, s) * 6.28
+        for k in range(3):
+            ln = 9 + int(hsh(k, 8, s) * 9)
+            xs = x0 + int(hsh(k, 9, s) * 6)
+            ys = y0 + k * 8
+            for j in range(ln):
+                x = xs + j
+                if x > T - 3 or ys > T - 4:
+                    break
+                y = ys + int(round(1.2 * math.sin(j * 0.35 + ph + k)))
+                cv.px(x, y, C(P["gL"] if 1 < j < ln - 2 else P["l1"]))
+                cv.px(x, y + 1, C(P["rip"] if 1 < j < ln - 2 else P["d1"]))
+    if v == 3:                                               # laje pequena nivelada com o chão
+        lx, ly = 15, 15
+        m = poly_mask(plate_poly(lx, ly, 12, 10, 0.3, 7, s, 0.5), T, T)
+        m[:3, :] = m[-3:, :] = False
+        m[:, :3] = m[:, -3:] = False
+        up, dn = np.roll(m, 1, 0), np.roll(m, -1, 0)
+        lf, rt = np.roll(m, 1, 1), np.roll(m, -1, 1)
+        cv.a[m] = C(P["slab"])
+        cv.a[m & (~up | ~lf)] = C(P["slabL"])
+        cv.a[m & (~dn | ~rt)] = C(P["slabD"])
+        for i in range(3):
+            x, y = lx + 6 + i * 2, ly + 4 - i * 3
+            if free(x, y):
+                cv.px(x, y, C(P["peb"]))
+    if stage == "mist" and v in (1, 3):                      # areia úmida: manchinha molhada
+        wx, wy = (24, 26) if v == 1 else (6, 6)
+        cv.rect(wx - 3, wy, 7, 1, C(P["wet"]))
+        cv.rect(wx - 2, wy + 1, 5, 1, C(P["wet"]))
+        cv.px(wx - 2, wy, C(P["sheen"]))
+    if stage == "green":                                     # verde começando: brotos, musgo e 1 tufo
+        for i in range(2):
+            x, y = 3 + int(hsh(i, 17, s) * 26), 3 + int(hsh(i, 18, s) * 26)
+            if free(x, y) and free(x, y - 1):
+                cv.px(x, y, C(P["moss"]))
+                cv.px(x, y - 1, C(P["grass"]))
+        if v in (1, 3):
+            mx, my = (23, 25) if v == 1 else (7, 25)
+            cv.rect(mx - 3, my, 7, 1, C(P["moss"]))
+            cv.rect(mx - 2, my - 1, 4, 1, C(P["moss2"]))
+            cv.px(mx + 2, my + 1, C(P["mossD"]))
+        if v == 3:
+            gx, gy = 24, 8
+            for b, bh in enumerate((2, 4, 3, 2)):
+                cv.rect(gx + b, gy - bh, 1, bh, C(P["grass"] if b % 2 else P["grass2"]))
+            cv.rect(gx - 1, gy, 6, 1, C(P["mossD"]))
+    # grão de 1 px
+    for i in range(16):
+        x, y = 1 + int(hsh(i, 15, s) * 30), 1 + int(hsh(i, 16, s) * 30)
+        if free(x, y):
+            cv.px(x, y, C(P["gD"] if i % 3 else P["gL"]))
+    return cv
+
+
+ROCK = dict(hi="#d8d0dc", light="#a69cad", mid="#867c8f", dark="#625a6c", deep="#463f51")
+
+
+def _chunk_mask(w, h, s, cut=0.18):
+    """Pedra gordinha: elipse com uma quina chanfrada (sem ponta), achatada embaixo."""
+    ys, xs = np.mgrid[0:h, 0:w] + 0.5
+    m = ((xs - w / 2) / (w / 2)) ** 2 + ((ys - h / 2) / (h / 2)) ** 2 <= 1.1
+    # chanfro: corta um canto de cima, lado da seed
+    if s % 2:
+        m &= (xs + ys) > w * cut + 2
+    else:
+        m &= ((w - xs) + ys) > w * cut + 2
+    m[h - 1, :] &= np.abs(xs[0] - w / 2) < w / 2 - 1.5
+    return m
+
+
+def paint_rock(cv: Canvas, m, x, y, top_rows, s):
+    """Rocha em 3/4: topo claro (top_rows), frente em faixas escurecendo, brilho, contorno #1b1630
+    e 2 px de base (pesada no chão)."""
+    h, w = m.shape
+    layer = Canvas(cv.w, cv.h)
+    up = np.zeros_like(m); up[1:] = m[:-1]
+    dn = np.zeros_like(m); dn[:-1] = m[1:]
+    lf = np.zeros_like(m); lf[:, 1:] = m[:, :-1]
+    rt = np.zeros_like(m); rt[:, :-1] = m[:, 1:]
+    ys, xs = np.nonzero(m)
+    top = ys.min()
+    for j, i in zip(ys, xs):
+        r = j - top
+        # aresta do topo pra frente: linha da quina sobe nas laterais (forma de pão)
+        edge = top_rows + int(abs(i - w / 2) > w / 2 - 3)
+        if r < edge:
+            c = ROCK["light"] if (up[j, i] and lf[j, i]) else ROCK["hi"]
+            if not rt[j, i]:
+                c = ROCK["mid"]
+        elif r == edge:
+            c = ROCK["mid"]
+        else:
+            c = ROCK["mid"] if r < edge + 3 else ROCK["dark"]
+            if not rt[j, i] or not dn[j, i]:
+                c = ROCK["deep"]
+            elif not lf[j, i]:
+                c = ROCK["mid"] if r < edge + 3 else ROCK["dark"]
+        layer.px(x + i, y + j, C(c))
+    xl = xs[ys == top].min()
+    layer.px(x + xl + 1, y + top + 1, C(ROCK["hi"]))
+    layer.px(x + xl + 2, y + top + 1, C("#ffffff"))
+    layer.outline(C(OUTLINE))
+    a = layer.a
+    op = a[:, :, 3] == 255
+    below = np.zeros_like(op); below[1:] = op[:-1]
+    a[below & ~op] = C(OUTLINE)
+    cv.paste(layer, 0, 0)
+
+
+def make_rock_small() -> Canvas:
+    """Rocha pequena de 1 tile: uma pedra gorda e uma pedrinha na frente, roxo-acinzentada
+    (neutra: lê bem no vermelho, no cinza e no bege). Sombra num nível só."""
+    cv = Canvas(T, T)
+    cv.ellipse(16, 27.5, 13, 3.5, SHADOW)
+    big = _chunk_mask(22, 17, 1)
+    paint_rock(cv, big, 4, 8, 6, 1)
+    # rachadura e lascas na frente da pedra grande
+    for (x, y) in ((13, 17), (14, 18), (14, 19), (15, 20), (15, 21)):
+        cv.px(x, y, C(ROCK["deep"]))
+    cv.px(16, 18, C(ROCK["light"]))
+    cv.px(9, 11, C(ROCK["light"]))
+    cv.rect(18, 10, 3, 1, C(ROCK["light"]))
+    small = _chunk_mask(9, 7, 0, 0.1)
+    paint_rock(cv, small, 20, 20, 3, 0)
+    cv.px(4, 27, C(ROCK["dark"]))
+    cv.px(5, 27, C(ROCK["mid"]))
+    return cv
+
+
+def make_pickup(name: str) -> Canvas:
+    """Recurso solto 16x16: peças do minério v2.3 (mesmo estilo dos ícones), menores e mais juntas,
+    com sombrinha. Ponto de chão = (8, 13)."""
+    S = ORE_STYLE[name]
+    cv = Canvas(16, 16)
+    cv.ellipse(8, 13.5, 7, 2, SHADOW)
+    if name == "iron":                       # duas pepitas cor de cobre
+        paint_piece(cv, shape_lump(8, 6, 1), 1, 5, S, "slab", 2)
+        paint_piece(cv, shape_lump(6, 5, 0), 8, 7, S, "slab", 2)
+    elif name == "silicon":                  # duas lascas grossas apoiadas uma na outra
+        paint_piece(cv, shape_shard(4, 9, 2), 2, 2, S, "shard", 2)
+        paint_piece(cv, shape_shard(4, 7, -2), 8, 4, S, "shard", 2)
+    else:                                     # dois cubos de gelo
+        paint_piece(cv, shape_block(6, 6, 0), 2, 5, S, "cube", 2)
+        paint_piece(cv, shape_block(5, 5, 0), 8, 7, S, "cube", 2)
+    return cv
+
+
+CR = dict(  # cratera: mesma família roxo-acinzentada da rocha pequena (um sprite só pros 3 estágios)
+    hi="#d8d0dc", light="#a69cad", mid="#867c8f", dark="#625a6c", deep="#463f51",
+    wall1="#5a5264", wall2="#453e50", wall3="#322c3c", wall4="#221d2b", pit="#120e18", pit2="#0b0810",
+)
+
+
+def _crater_masks():
+    W = 96
+    ys, xs = np.mgrid[0:W, 0:W] + 0.5
+    cx, cy, lift = 48, 51, 7                      # lift = altura do morro da borda (3/4)
+
+    def ell(rx, ry, dy, k1, k2):
+        ang = np.arctan2(ys - (cy + dy), xs - cx)
+        wob = 1 + k1 * np.sin(5 * ang + 1.3) + k2 * np.sin(9 * ang + 0.4)
+        return (((xs - cx) / rx) ** 2 + ((ys - cy - dy) / ry) ** 2) <= wob ** 2
+
+    base = ell(46, 40, 0, 0.04, 0.025)            # pé do morro no chão
+    top = ell(45, 38, -lift, 0.04, 0.025)         # contorno de cima da borda
+    hole = ell(32, 23, -lift - 2, 0.05, 0.03)     # boca do buraco (na altura da borda)
+    return xs, ys, cx, cy, lift, base, top, hole
+
+
+def _crater_base(ramp: bool) -> Canvas:
+    """Cratera 96x96 em 3/4: morro de borda contínuo (topo claro com blocos e lascas, face externa
+    escurecendo na frente), parede interna do fundo em estratos e breu no centro. Um sprite só, na família
+    roxo-acinzentada da rocha pequena, então funciona nos 3 estágios."""
+    W = 96
+    xs, ys, cx, cy, lift, base, top, hole = _crater_masks()
+    cv = Canvas(W, W)
+    sh = (((xs - cx) / 47) ** 2 + ((ys - cy - 3) / 41) ** 2) <= 1
+    cv.a[sh & ~base & ~top] = SHADOW
+    # face externa: o que é pé do morro mas não é topo (aparece só na frente)
+    face = base & ~top
+    for y in range(W):
+        for x in range(W):
+            if not face[y, x]:
+                continue
+            col = np.nonzero(top[:, x])[0]
+            d = y - (col.max() if len(col) else y)
+            c = CR["mid"] if d <= 2 else CR["dark"] if d <= 5 else CR["deep"]
+            if d > 1 and hsh(x // 3, int(d) // 2, 61) < 0.18:
+                c = CR["deep"] if c != CR["deep"] else CR["wall2"]      # blocos irregulares
+            cv.px(x, y, C(c))
+    # topo da borda
+    rim = top & ~hole
+    upm = np.roll(rim, 1, 0); dnm = np.roll(rim, -1, 0)
+    cv.a[rim] = C(CR["light"])
+    # placas grandes de rocha no topo (ruído de baixa frequência em 2 faixas chapadas + fendas)
+    n = np.array([[vnoise(x * 0.11, y * 0.16, 17) for x in range(W)] for y in range(W)])
+    cv.a[rim & (n < 0.38)] = C(CR["mid"])
+    edge = (n > 0.38) & (np.roll(n, 1, 0) <= 0.38)
+    cv.a[rim & edge] = C(CR["hi"])                                    # quina clara de cada placa
+    crack = (np.abs(n - 0.62) < 0.012)
+    cv.a[rim & crack] = C(CR["dark"])
+    cv.a[rim & ~upm & (ys < cy)] = C(CR["hi"])                        # aresta de fora, atrás: luz
+    cv.a[rim & ~dnm & (ys > cy - lift)] = C(CR["mid"])                # quina de cima da face da frente
+    # buraco: parede interna do fundo (estratos) e breu
+    for y in range(W):
+        for x in range(W):
+            if not hole[y, x]:
+                continue
+            col = np.nonzero(hole[:, x])[0]
+            d = y - col.min()
+            c = (CR["dark"] if d < 2 else CR["wall1"] if d < 5 else CR["wall2"] if d < 9 else
+                 CR["wall3"] if d < 13 else CR["wall4"] if d < 17 else CR["pit"])
+            if c == CR["pit"] and (x * 3 + y) % 11 == 0:
+                c = CR["pit2"]
+            cv.px(x, y, C(c))
+    hy0 = int(ys[hole].min())
+    for k, (dy, x0, x1) in enumerate(((4, 28, 42), (5, 54, 68), (8, 22, 33), (9, 60, 74), (12, 31, 44), (12, 52, 61))):
+        yy = hy0 + dy
+        for x in range(x0, x1):
+            if hole[yy, x] and hole[yy - 1, x] and hsh(x, k, 5) < 0.85:
+                cv.px(x, yy, C(CR["wall4"] if k < 4 else CR["pit"]))
+                cv.px(x, yy - 1, C(CR["wall1"] if k < 2 else CR["wall2"]))
+    for (fx, fy, ln) in ((40, 1, 5), (61, 2, 5), (28, 6, 4)):
+        for j in range(ln):
+            x, y = fx + j // 2, hy0 + fy + j
+            if hole[y, x]:
+                cv.px(x, y, C(CR["wall4"]))
+    # contorno: em volta de tudo e na boca do buraco
+    solid = Canvas(W, W)
+    solid.a[(top | base)] = C("#ffffff")
+    solid.outline(C(OUTLINE))
+    ring = solid.a[:, :, 0] == C(OUTLINE)[0]
+    ring &= solid.a[:, :, 3] == 255
+    cv.a[ring & (cv.a[:, :, 3] < 255)] = C(OUTLINE)
+    lip = hole & ~np.roll(hole, 1, 0)
+    cv.a[lip] = C(OUTLINE)
+    cv.a[hole & ~np.roll(hole, -1, 0)] = C(CR["pit"])
+    cv.a[np.roll(lip, 1, 0) & hole & ~lip] = C(CR["deep"])
+    # pedregulhos e lascas na borda (poucos, de trás pra frente)
+    boulders = [(26, 15, 17, 11, 1), (36, 12, 8, 6, 0), (80, 36, 12, 10, 0),
+                (14, 64, 13, 11, 1), (76, 79, 16, 11, 0), (87, 70, 7, 6, 1)]
+    if ramp:
+        boulders += [(29, 86, 9, 7, 0)]
+    for (bx, by, w, h, sd) in sorted(boulders, key=lambda b: b[1]):
+        paint_rock(cv, _chunk_mask(w, h, sd, 0.15), bx - w // 2, by - h // 2, max(3, h // 2), sd)
+    for i in range(18):
+        a = hsh(i, 6, 41) * 2 * math.pi
+        x = int(cx + math.cos(a) * (37 + hsh(i, 7, 41) * 4))
+        y = int(cy - lift + math.sin(a) * (30 + hsh(i, 7, 41) * 3))
+        if rim[y, x] and rim[y + 1, x] and rim[y, x + 1]:
+            cv.px(x, y, C(CR["hi"]))
+            cv.px(x + 1, y, C(CR["mid"]))
+            cv.px(x, y + 1, C(CR["dark"]))
+    return cv
+
+
+def make_crater() -> Canvas:
+    return _crater_base(False)
+
+
+def make_crater_ramp() -> Canvas:
+    """A mesma cratera com um corte na borda da frente e uma rampa de metal descendo pro escuro:
+    degraus largos que escurecem com a profundidade, corrimãos laranja, soleira com faixa de alerta
+    e 2 balizas com LED verde (lê como "dá pra entrar aqui")."""
+    cv = _crater_base(True)
+    x0, x1 = 37, 59                       # largura da rampa embaixo (mais perto da câmera)
+    yb, yt = 90, 46                       # pé da rampa (no chão) e onde ela some no breu
+    steps = ["#c8cdd4", "#abb2bb", "#8c949e", "#6b717a", "#4f545c", "#3b3f46", "#2a2d33", "#1d1f24", "#141519"]
+    for y in range(yt, yb):
+        f = (yb - y) / (yb - yt)
+        inset = int(round(f * 6))
+        l, r = x0 + inset, x1 - inset
+        k = min(len(steps) - 1, int(f * len(steps)))
+        st = (yb - y) % 6                 # degrau de 6 px: pisada clara (2) + espelho escuro (4)
+        c = steps[k] if st >= 4 else steps[min(len(steps) - 1, k + 2)]
+        cv.rect(l - 6, y, r - l + 12, 1, C(CR["wall3"] if k < 5 else CR["pit"]))   # paredes do corte
+        cv.rect(l - 6, y, 3, 1, C(CR["dark"] if k < 3 else CR["wall2"] if k < 6 else CR["wall4"]))
+        cv.rect(l, y, r - l, 1, C(c))
+        if st == 5 and k < 6:
+            cv.px(l + 2, y, C(steps[max(0, k - 1)]))
+        cv.px(l - 1, y, C("#e2733a" if k < 5 else "#7a3a1c"))
+        cv.px(r, y, C("#a8471f" if k < 5 else "#5a2a14"))
+        cv.px(l - 7, y, C(OUTLINE))
+        cv.px(r + 6, y, C(OUTLINE))
+    # soleira de metal com faixa de alerta, no chão
+    cv.rect(x0 - 7, yb, x1 - x0 + 14, 4, C(OUTLINE))
+    cv.rect(x0 - 6, yb, x1 - x0 + 12, 2, C("#8c949e"))
+    for i in range(x1 - x0 + 12):
+        cv.px(x0 - 6 + i, yb, C(GOLD if (i // 3) % 2 == 0 else "#2a2d33"))
+    cv.rect(x0 - 6, yb + 1, x1 - x0 + 12, 1, C("#6b717a"))
+    # balizas dos dois lados, com LED verde
+    for bx in (x0 - 12, x1 + 9):
+        cv.rect(bx - 1, yb - 13, 5, 16, C(OUTLINE))
+        cv.rect(bx, yb - 12, 3, 14, C("#c8cdd4"))
+        cv.rect(bx, yb - 12, 1, 14, C("#f4f6f8"))
+        cv.rect(bx + 2, yb - 12, 1, 14, C("#8c949e"))
+        cv.rect(bx, yb - 6, 3, 2, C("#e2733a"))
+        cv.rect(bx, yb - 12, 3, 2, C("#7fd67a"))
+        cv.px(bx, yb - 12, C("#d6ffd0"))
+    return cv
+
+
+POD_GEOM = {
+    # m = margem lateral, top = topo do teto, face/skirt = onde começam a frente e a saia, ground = pé da saia
+    "pod.png": dict(W=64, H=72, m=3, top=18, face=31, skirt=56, ground=68, ch=5, fw=5, door=13, wing="right"),
+    "pod_wide.png": dict(W=96, H=64, m=5, top=14, face=27, skirt=48, ground=60, ch=6, fw=6, door=15, wing="left"),
+}
+POD_LIGHTS: dict[str, dict] = {}       # preenchido por make_pod_lander: pontos de luz pro Dev
+
+
+def make_pod_lander(name: str) -> Canvas:
+    """Cápsula v4: módulo de fuga pousado. Caixa baixa de cantos chanfrados (perfil quase hexagonal),
+    placas creme com junções, saia escura grossa (meio enterrada), janelinhas ciano, escotilha com moldura,
+    caixa de equipamento e aleta no teto, toco de asa, faixa laranja, LED e beacon. Visão 3/4."""
+    g = POD_GEOM[name]
+    W, H, m, top, face, skirt, ground, ch, fw = (g[k] for k in ("W", "H", "m", "top", "face", "skirt", "ground", "ch", "fw"))
+    cv = Canvas(W, H)
+    cv.ellipse(W / 2, ground + 0.5, W / 2 - 1, 3.5, SHADOW)
+    L = Canvas(W, H)
+    r = lambda x, y, w, h, c: L.rect(x, y, w, h, C(c))            # noqa: E731
+    CREAM = dict(roof="#f7f1e2", roofS="#ddd3bd", hi="#ffffff", face="#ece3cf", seam="#c9bea6",
+                 fl="#ddd3bc", fr="#b5aa91", low="#d4c9b1")
+    # teto (chanfrado nos cantos de trás = perfil hexagonal visto de cima)
+    for y in range(top, face):
+        k = max(0, ch - (y - top))
+        r(m + k, y, W - 2 * m - 2 * k, 1, CREAM["roof"])
+        if k:
+            L.px(m + k, y, C(CREAM["hi"]))
+            L.px(W - m - k - 1, y, C(CREAM["roofS"]))
+    r(m + ch, top, W - 2 * m - 2 * ch, 1, CREAM["hi"])
+    for fx in (0.33, 0.66):                                           # junções das placas do teto
+        r(int(W * fx), top + 2, 1, face - top - 3, CREAM["roofS"])
+    r(m + 2, top + (face - top) // 2 + 1, W - 2 * m - 4, 1, CREAM["roofS"])
+    r(m, face - 1, W - 2 * m, 1, CREAM["hi"])                          # quina do teto pra frente
+    # frente: painel central creme e duas facetas chanfradas (luz à esquerda, sombra à direita)
+    r(m, face, W - 2 * m, skirt - face, CREAM["face"])
+    r(m, face, fw, skirt - face, CREAM["fl"])
+    r(W - m - fw, face, fw, skirt - face, CREAM["fr"])
+    r(m, face, W - 2 * m, 1, CREAM["seam"])
+    r(m + fw, skirt - 3, W - 2 * m - 2 * fw, 3, CREAM["low"])           # pé da frente mais escuro
+    r(m + fw - 1, face, 1, skirt - face, CREAM["seam"])
+    r(W - m - fw, face, 1, skirt - face, "#9c917a")
+    # saia escura grossa, abrindo pra baixo (assentada na areia)
+    for y in range(skirt, ground):
+        k = min(3, (y - skirt) // 3)
+        x0, x1 = max(0, m - k), min(W, W - m + k)
+        c = "#5a6069" if y == skirt else "#3b3f46" if y < ground - 3 else "#2a2d33"
+        r(x0, y, x1 - x0, 1, c)
+    pw = 13 if W < 80 else 16                                          # painéis recuados da saia
+    for i, px0 in enumerate(range(m + 3, W - m - pw, pw + 3)):
+        r(px0, skirt + 3, pw, ground - skirt - 6, "#2a2d33")
+        r(px0, skirt + 3, pw, 1, "#22262c")
+        r(px0, ground - 4, pw, 1, "#4a4f57")
+        L.px(px0 + pw + 1, skirt + 4, C("#8c949e"))
+        L.px(px0 + pw + 1, ground - 5, C("#6b717a"))
+    for (sx_, sy_) in ((m + fw + 3, skirt - 2), (m + fw + 9, skirt - 1), (W - m - fw - 4, skirt - 2), (W // 2 - 4, skirt - 1)):
+        r(sx_, sy_, 2, 1, "#b5aa91")                                      # marcas do pouso perto da saia
+    # escotilha (porta) com moldura, um pouco à direita do centro, descendo até a saia
+    dw = g["door"]
+    dx = int(W * 0.66) - dw // 2
+    dy0, dy1 = face + 4, skirt + 3
+    r(dx - 1, dy0 - 1, dw + 2, dy1 - dy0 + 1, "#e2733a")               # moldura laranja
+    r(dx, dy0, dw, dy1 - dy0, "#8c949e")
+    r(dx + 1, dy0 + 1, dw - 2, dy1 - dy0 - 1, "#34444f")
+    r(dx + 1, dy0 + 1, dw - 2, 1, "#4a5f6d")
+    r(dx + dw // 2, dy0 + 1, 1, dy1 - dy0 - 1, "#22303a")
+    r(dx + 2, dy0 + 3, dw // 2 - 3, 2, "#59d0e6")                       # visor da porta
+    L.px(dx + 2, dy0 + 3, C("#d8fbff"))
+    r(dx + dw // 2 + 2, dy0 + (dy1 - dy0) // 2, 2, 2, "#c8cdd4")         # alavanca
+    r(dx - 2, dy1, dw + 4, 2, "#8c949e")                                # degrau
+    r(dx - 2, dy1, dw + 4, 1, "#c8cdd4")
+    led = (dx - 5, dy0 + 6)
+    r(led[0], led[1], 2, 2, "#7fd67a")
+    L.px(led[0], led[1], C("#d6ffd0"))
+    # faixa laranja na frente (interrompida pela porta)
+    fy = face + 10
+    for x0, x1 in ((m + fw, dx - 2), (dx + dw + 2, W - m - fw)):
+        if x1 > x0:
+            r(x0, fy, x1 - x0, 1, "#f29a62")
+            r(x0, fy + 1, x1 - x0, 1, "#e2733a")
+            r(x0, fy + 2, x1 - x0, 1, "#a8471f")
+    # janelinhas ciano em fileira
+    wins = []
+    x = m + fw + 2
+    while x + 4 <= dx - 4:
+        r(x - 1, face + 3, 6, 5, "#22303a")
+        r(x, face + 4, 4, 3, "#59d0e6")
+        r(x, face + 6, 4, 1, "#2b7f99")
+        L.px(x, face + 4, C("#d8fbff"))
+        wins.append((x + 2, face + 5))
+        x += 7
+    # junções verticais das placas da frente (abaixo da faixa)
+    for jx in range(m + fw + 8, dx - 3, 9):
+        r(jx, fy + 3, 1, skirt - fy - 6, CREAM["seam"])
+    # caixa de equipamento escura no teto + grade
+    bw = int(W * 0.24)
+    bx0 = int(W * 0.40)
+    r(bx0, top - 5, bw, 3, "#5a6069")
+    r(bx0, top - 2, bw, 8, "#2a2d33")
+    r(bx0, top - 5, bw, 1, "#6b717a")
+    for i in range(3):
+        r(bx0 + 2, top + i * 2, bw - 4, 1, "#4a4f57")
+    r(bx0 + bw - 4, top - 4, 2, 1, "#e2733a")
+    # aleta no teto (lado esquerdo), com ponta laranja
+    fx_ = int(W * 0.20)
+    r(fx_, top - 8, 3, 12, "#3b3f46")
+    r(fx_, top - 8, 1, 12, "#5a6069")
+    r(fx_, top - 8, 3, 2, "#e2733a")
+    # antena com beacon vermelho
+    ax_ = int(W * 0.80)
+    r(ax_, top - 12, 1, 14, "#8c949e")
+    r(ax_ - 1, top + 1, 3, 2, "#6b717a")
+    r(ax_ - 1, top - 15, 3, 3, "#ff5a4a")
+    L.px(ax_ - 1, top - 15, C("#ffd0c8"))
+    # toco de asa
+    if g["wing"] == "right":
+        for i in range(5):
+            r(W - m, face + 12 + i, 2 + (i < 3), 1, "#3b3f46")
+        r(W - m, face + 12, 3, 1, "#e2733a")
+    else:
+        for i in range(7):
+            w = 7 - i
+            r(m - w, face + 11 + i, w, 1, "#3b3f46" if i else "#5a6069")
+        r(0, face + 11, 2, 2, "#e2733a")
+    L.outline(C(OUTLINE))
+    cv.paste(L, 0, 0)
+    POD_LIGHTS[name] = dict(window=wins[len(wins) // 2] if wins else (dx, face + 5), beacon=(ax_, top - 14),
+                            led=led, door=(dx + dw // 2, dy1))
+    return cv
+
+
 def build_pending() -> dict[str, Canvas]:
     """Assets novos aguardando aprovação do dono: vão pra assets/sprites/_pending/.
     Depois de aprovados, saem daqui e entram em build_v02()/build_sprites() (pasta oficial)."""
-    return {}
+    out: dict[str, Canvas] = {}
+    for st in STAGES:
+        for v in range(4):
+            out[f"sand_{st}_{v}.png"] = make_sand(st, v)
+    out["rock_small.png"] = make_rock_small()
+    for o in ("iron", "silicon", "ice"):
+        out[f"pickup_{o}.png"] = make_pickup(o)
+    out["crater.png"] = make_crater()
+    out["crater_ramp.png"] = make_crater_ramp()
+    out["pod.png"] = make_pod_lander("pod.png")            # redesign (substitui o oficial se aprovado)
+    out["pod_wide.png"] = make_pod_lander("pod_wide.png")  # proposta de contrato novo: 96x64, 3x1 tiles
+    return out
 
 
 def build_v02() -> dict[str, Canvas]:
@@ -2292,6 +2796,156 @@ def render_scene(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
 
 
 
+# ---------------------------------------------------------------- prévia da superfície (v0.3 · Marco 1)
+
+def sand_variant(x: int, y: int, seed: int = 5) -> int:
+    """Escolha sugerida da variação da areia (pro Dev copiar): areia lisa domina (~70%), cascalho ~20%,
+    ondulações agrupadas em faixas largas (zonas de duna) e lajes raras e espalhadas (agrupadas viram grade)."""
+    dune = vnoise(x * 0.11 + 3.1, y * 0.23 + 1.7, seed)        # faixas mais largas que altas = vento
+    rock = vnoise(x * 0.17 + 40.3, y * 0.17 + 9.2, seed + 1)
+    r = hsh(x, y, seed + 2)
+    if dune > 0.6 and r < 0.55:
+        return 2
+    if rock > 0.66 and r < 0.12:
+        return 3
+    return 0 if r < 0.72 else 1 if r < 0.92 else 2 if r < 0.965 else 3
+
+
+def render_sand_field(stage: str, spr: dict[str, Image.Image], uniform=False) -> Image.Image:
+    img = Image.new("RGBA", (GW * T, GH * T))
+    for y in range(GH):
+        for x in range(GW):
+            v = int(hsh(x, y, 3) * 4) if uniform else sand_variant(x, y)
+            img.alpha_composite(spr[f"_pending/sand_{stage}_{v}.png"], (x * T, y * T))
+    return img.crop((0, 0, 960, 540)).convert("RGB")
+
+
+SURF_HILLS = [  # morros (parede), em tiles
+    (2, 2), (3, 2), (4, 2), (2, 3), (3, 3), (4, 3), (5, 3), (3, 4), (4, 4),
+    (26, 11), (27, 11), (25, 12), (26, 12), (27, 12), (28, 12), (26, 13), (27, 13),
+    (8, 14), (9, 14),
+]
+SURF_ROCKS = [(7, 3), (11, 2), (20, 13), (23, 9), (4, 9), (13, 14), (28, 6), (1, 12), (18, 2), (24, 14)]
+SURF_PICKUPS = [  # (x px, y px do ponto de chão, minério)
+    (6 * T + 10, 6 * T + 20, "iron"), (8 * T + 22, 11 * T + 14, "silicon"), (19 * T + 6, 14 * T + 22, "ice"),
+    (21 * T + 20, 11 * T + 26, "iron"), (12 * T + 14, 3 * T + 22, "ice"), (27 * T + 8, 8 * T + 18, "silicon"),
+    (2 * T + 18, 7 * T + 24, "iron"), (16 * T + 26, 15 * T + 10, "silicon"), (10 * T + 4, 16 * T + 12, "iron"),
+    (25 * T + 16, 15 * T + 20, "ice"), (6 * T + 26, 13 * T + 6, "ice"), (22 * T + 8, 1 * T + 24, "silicon"),
+]
+SURF_CRATER = (22, 2)       # tile de cima/esquerda dos 3x3
+
+
+def render_surface(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
+    """Superfície, com a mesma ordem do jogo: (1) areia, água e veio; (2) linha por linha: topo da parede
+    (y−24) + face (y+8) e depois os objetos cuja âncora cai na linha (cratera, rochas, pickups, máquinas)."""
+    P = "_pending/"
+    hills = set(SURF_HILLS)
+    water = set()
+    if stage == "mist":
+        water = {(18, 12), (19, 12)}
+    elif stage == "green":
+        water = {(18, 12), (19, 12), (17, 13), (18, 13), (19, 13), (3, 15), (4, 15), (4, 16)}
+    vein = (3, 11)
+    img = Image.new("RGBA", (GW * T, GH * T), (0, 0, 0, 255))
+    shade = Image.new("RGBA", (T, 10), (0, 0, 0, 84))
+    shade_b = Image.new("RGBA", (T, 6), (0, 0, 0, 40))
+    for y in range(GH):
+        for x in range(GW):
+            if (x, y) in hills:
+                continue
+            if (x, y) in water:
+                img.alpha_composite(spr[f"water_{stage}.png"], (x * T, y * T))
+            else:
+                img.alpha_composite(spr[f"{P}sand_{stage}_{sand_variant(x, y)}.png"], (x * T, y * T))
+            if (x, y - 1) in hills:
+                img.alpha_composite(shade, (x * T, y * T))
+                img.alpha_composite(shade_b, (x * T, y * T + 10))
+    img.alpha_composite(spr["vein_iron.png"], (vein[0] * T, vein[1] * T))
+
+    objs = []
+
+    def obj(name, ax, ay):
+        objs.append((ay, ax, name))
+
+    cx, cy = SURF_CRATER
+    obj(f"{P}crater_ramp.png" if stage == "green" else f"{P}crater.png", (cx + 1.5) * T, (cy + 3) * T)
+    for (x, y) in SURF_ROCKS:
+        obj(f"{P}rock_small.png", x * T + 16, (y + 1) * T)
+    for (px_, py_, o) in SURF_PICKUPS:
+        obj(f"{P}pickup_{o}.png", px_, py_)
+    if stage == "green":                                       # proposta larga: 3x1, centro do tile do meio
+        obj(f"{P}pod_wide.png", 15 * T + 16, 9 * T)
+    else:                                                      # redesign no contrato atual (2x1)
+        obj(f"{P}pod.png", 15 * T, 9 * T)
+    t2 = stage != "dead"
+    obj("machine_o2_t2.png" if t2 else "machine_o2.png", 12 * T + 16, 9 * T)
+    obj("machine_heater_t2.png" if stage == "green" else "machine_heater.png", 18 * T + 16, 9 * T)
+    obj("machine_melter_t2.png" if t2 else "machine_melter.png", 13 * T + 16, 11 * T)
+    for sx_ in (12, 13, 14):
+        obj("solar_panel.png", sx_ * T + 16, 6 * T)
+    obj("chest.png", 17 * T + 16, 6 * T)
+    if t2:
+        obj("drone_station.png", 18 * T, 12 * T)
+        obj("machine_drill.png#1", (vein[0] + 1) * T, (vein[1] + 2) * T)
+    if stage == "green":
+        for (x, y, k) in ((10, 8, "plant_bush.png"), (11, 12, "plant_flower.png"), (20, 8, "plant_tree.png"),
+                          (16, 12, "plant_bush.png"), (9, 10, "plant_flower.png"), (21, 10, "plant_bush.png")):
+            obj(k, x * T + 16, y * T + 30)
+    obj("player", 16 * T + 20, 10 * T + 20)
+
+    def draw(ay, ax, name):
+        if name == "player":
+            sh = Canvas(20, 7)
+            sh.ellipse(10, 3.5, 8, 2.5, SHADOW)
+            img.alpha_composite(sh.image(), (int(ax) - 10, int(ay) - 4))
+            img.alpha_composite(spr["player_down.png"], (int(ax) - 16, int(ay) - 32))
+            return
+        if name.startswith(P + "pickup_"):
+            img.alpha_composite(spr[name], (int(ax) - 8, int(ay) - 14))
+            return
+        if "#" in name:
+            n, fr = name.split("#")
+            s = spr[n].crop((int(fr) * 64, 0, int(fr) * 64 + 64, 80))
+        else:
+            s = spr[name]
+        img.alpha_composite(s, (int(ax - s.width // 2), int(ay - s.height)))
+
+    for y in range(GH + 1):
+        for x in range(GW):
+            if (x, y) not in hills:
+                continue
+            img.alpha_composite(spr[f"wall_{stage}_{int(hsh(x, y, 91) * 3)}.png"], (x * T, y * T - 24))
+            if (x, y + 1) not in hills:
+                img.alpha_composite(spr[f"wall_face_{stage}.png"], (x * T, y * T + 8))
+        for o in sorted(o for o in objs if (o[0] - 1) // T == y):
+            draw(*o)
+    return img.crop((0, 0, 960, 540)).convert("RGB")
+
+
+def make_pickup_check(spr: dict[str, Image.Image]) -> Image.Image:
+    """Pickups e rocha pequena em 1x (como no jogo) e 2x, sobre as 3 areias."""
+    P = "_pending/"
+    names = ["pickup_iron.png", "pickup_silicon.png", "pickup_ice.png", "rock_small.png"]
+    out = Image.new("RGBA", (6 * T, 3 * 2 * T))
+    for j, st in enumerate(STAGES):
+        band = Image.new("RGBA", (6 * T, 2 * T))
+        for y in range(2):
+            for x in range(6):
+                band.alpha_composite(spr[f"{P}sand_{st}_{sand_variant(x + 3 * j, y)}.png"], (x * T, y * T))
+        for i, n in enumerate(names):
+            im = spr[P + n]
+            if n.startswith("pickup"):
+                band.alpha_composite(im, (8 + i * 40, 24))
+            else:
+                band.alpha_composite(im, (4 * T + 2, 16))
+        out.alpha_composite(band, (0, j * 2 * T))
+    big = out.resize((12 * T, 12 * T), Image.NEAREST)
+    res = Image.new("RGBA", (6 * T + 16 + 12 * T, 12 * T), (21, 16, 14, 255))
+    res.alpha_composite(out, (0, 0))
+    res.alpha_composite(big, (6 * T + 16, 0))
+    return res.convert("RGB")
+
+
 # ---------------------------------------------------------------- report HTML
 
 GROUPS = [
@@ -2327,21 +2981,127 @@ def colors_of(imgs: list[Image.Image]) -> list[str]:
     return sorted(seen, key=lambda h: (-seen[h]))
 
 
+def build_surface_report(spr: dict[str, Image.Image], scale: dict[str, int]) -> str:
+    """Seção v4.0 (superfície, pendente): prévias, teste de ladrilho, sprites ampliados, cratera e cápsula."""
+    P = "_pending/"
+
+    def card(n, s, anim=False):
+        im = spr[n]
+        return (f'<figure class="spr"><div class="chk"><img src="../../assets/sprites/{n}" width="{im.width * s}" '
+                f'height="{im.height * s}" alt="{n}"></div><figcaption><code>{n.replace(P, "")}</code>'
+                f'<span>{im.width}×{im.height} · {s}×</span></figcaption></figure>')
+
+    pv = "".join(
+        f'<figure class="pv"><img src="preview_surface_{st}.png" width="960" height="540" alt="Superfície {lab}">'
+        f'<figcaption><b>{lab}</b><span>{sub}</span></figcaption></figure>'
+        for st, lab, sub in (
+            ("dead", "Superfície · 1 · Morto", "areia avermelhada, cápsula nova 64×72, máquinas nv.1, morros, rochas, pickups, veio de ferro, cratera fechada"),
+            ("mist", "Superfície · 2 · Névoa", "areia fria úmida, poça, nv.1 + nv.2, estação de drones, drill no veio, cratera fechada"),
+            ("green", "Superfície · 3 · Verde", "areia com brotos e tufos, lagos, plantas, <b>pod_wide (proposta 96×64)</b> e <b>cratera com rampa</b> (Marco 2)"),
+        ))
+    tiling = "".join(
+        f'<figure class="pv"><img src="sand_tiling_{st}.png" width="960" height="540" alt="Areia {st}">'
+        f'<figcaption><b>{lab}</b><span>só areia, 30×17 tiles, escolha sugerida (<code>sand_variant</code>)</span></figcaption></figure>'
+        for st, lab in (("dead", "Areia · Morto"), ("mist", "Areia · Névoa"), ("green", "Areia · Verde")))
+    tiling += ('<figure class="pv"><img src="sand_tiling_dead_uniform.png" width="960" height="540" alt="Areia uniforme">'
+               '<figcaption><b>Comparação · sorteio uniforme (25% cada)</b><span>funciona, mas as lajes e as ondulações '
+               'aparecem demais e espalhadas por igual: dá pra ver o carimbo</span></figcaption></figure>')
+    sand_cards = "".join(card(f"{P}sand_{st}_{v}.png", 4) for st in STAGES for v in range(4))
+    obj_cards = "".join(card(P + n, 8 if n.startswith("pickup") else 4) for n in
+                        ("rock_small.png", "pickup_iron.png", "pickup_silicon.png", "pickup_ice.png"))
+    cr = spr[P + "crater.png"]
+    crater_cmp = (f'<figure><div class="pair"><div>fechada (Marco 1)<img src="../../assets/sprites/{P}crater.png" '
+                  f'width="{cr.width * 4}" height="{cr.height * 4}" alt="cratera fechada"></div>'
+                  f'<div>com rampa (Marco 2)<img src="../../assets/sprites/{P}crater_ramp.png" width="{cr.width * 4}" '
+                  f'height="{cr.height * 4}" alt="cratera com rampa"></div></div><figcaption>crater.png × crater_ramp.png · 96×96 · 4×</figcaption></figure>')
+    pod_old = REP / "before" / "pod_v33.png"
+    pw = spr[P + "pod_wide.png"]
+    pod_cmp = (f'<figure><div class="pair">'
+               + (f'<div>antes (v3.3)<img src="before/pod_v33.png" width="{64 * 5}" height="{72 * 5}" alt="pod antes"></div>' if pod_old.exists() else "")
+               + f'<div>depois · pod.png 64×72<img src="../../assets/sprites/{P}pod.png" width="{64 * 5}" height="{72 * 5}" alt="pod novo"></div>'
+               f'<div>proposta · pod_wide.png 96×64<img src="../../assets/sprites/{P}pod_wide.png" width="{pw.width * 5}" height="{pw.height * 5}" alt="pod largo"></div>'
+               f'</div><figcaption>cápsula · 5×</figcaption></figure>')
+    L1, L2 = POD_LIGHTS["pod.png"], POD_LIGHTS["pod_wide.png"]
+    dev_rows = [
+        ("<code>sand_{stage}_{v}.png</code>", "32×32",
+         "Chão, igual ao <code>floor_*</code>: blit em <code>(tx·32, ty·32)</code>, na passada do chão. Nenhum detalhe encosta na borda, então "
+         "qualquer variação emenda com qualquer outra e com outro estágio (a mistura de borda da transição continua valendo). "
+         "<b>Escolha da variação:</b> não use sorteio uniforme. Sugestão (é a das prévias, copie a lógica de <code>sand_variant</code> do script): "
+         "ruído de baixa frequência pra zonas de duna (v2 em ~55% dos tiles da zona) e de laje (v3 rara), e fora delas v0 ~72%, v1 ~20%, v2 ~5%, v3 ~3%."),
+        ("<code>rock_small.png</code>", "32×32",
+         "Objeto de 1 tile, na ordenação por <code>ay</code>: <code>ax = tx·32 + 16</code>, <code>ay = (ty+1)·32</code>, blit em <code>(tx·32, ty·32)</code>. "
+         "A sombra já vem no PNG. O mesmo sprite serve pros 3 estágios."),
+        ("<code>pickup_{iron,silicon,ice}.png</code>", "16×16",
+         "Ponto de chão = <code>(8, 14)</code> do PNG (centro da sombrinha). Com o pickup em <code>(x, y)</code> no mundo, blit em <code>(x − 8, y − 14)</code>. "
+         "Ordene com os objetos por <code>y</code> (o player passa na frente e atrás). A sombrinha já vem no PNG (preto 36%, um nível só)."),
+        ("<code>crater.png</code> / <code>crater_ramp.png</code>", "96×96",
+         "Ocupa <b>3×3 tiles</b> sem passar da área: blit em <code>(tx·32, ty·32)</code>, com <code>(tx, ty)</code> = tile de cima/esquerda. "
+         "É objeto: entra na ordenação com <code>ay = (ty+3)·32</code> (assim a borda de trás cobre os pés de quem está logo acima). "
+         "Colisão sugerida: os 9 tiles sólidos. Na rampa, o alvo do E é o tile de baixo do meio <code>(tx+1, ty+2)</code>, onde fica a soleira com faixa de alerta; "
+         "o player chega/sai em <code>(tx+1, ty+3)</code>. A cratera é um sprite só pros 3 estágios (rocha roxo-acinzentada, como a rocha pequena)."),
+        ("<code>pod.png</code> (redesign)", "64×72",
+         f"Mesmo contrato e mesma âncora de hoje (<code>POD_ANCHOR</code>, centro da base, 2×1 tiles, blit em <code>(ax − 32, ay − 72)</code>). "
+         f"<b>Os pontos de luz mudaram</b> (relativos ao canto sup. esquerdo do PNG): janela ciano <code>{L1['window']}</code>, beacon vermelho <code>{L1['beacon']}</code>, "
+         f"LED verde <code>{L1['led']}</code>. No <code>render.py</code> o beacon está fixo em <code>(50, 2)</code> e a janela em <code>(20, 29)</code> relativo a "
+         "<code>(ax − 32, ay − 70)</code>; troque pelos valores novos (lembrando do −72 em vez de −70)."),
+        ("<code>pod_wide.png</code> (proposta)", "96×64",
+         f"<b>Precisa de aprovação do contrato.</b> Colisão sugerida <b>3×1 tiles</b> (a linha de baixo), o teto e a antena sobem pro tile de cima, como no pod atual. "
+         f"Âncora no centro da base do tile do meio: <code>ax = (tx+1)·32 + 16</code>, <code>ay = (ty+1)·32</code>, blit em <code>(ax − 48, ay − 64)</code>. "
+         f"Luzes: janela <code>{L2['window']}</code>, beacon <code>{L2['beacon']}</code>, LED <code>{L2['led']}</code>, porta (pé) <code>{L2['door']}</code>."),
+    ]
+    dev = "".join(f"<tr><td>{a}</td><td>{b}</td><td>{c}</td></tr>" for a, b, c in dev_rows)
+    order = ("<ol><li><b>Chão:</b> <code>sand_*</code> (e água/poças), depois os veios.</li>"
+             "<li><b>Linhas de cima pra baixo:</b> topo dos morros <code>wall_{stage}_N</code> em <code>(x, y − 24)</code>, face <code>wall_face_{stage}</code> "
+             "em <code>(x, y + 8)</code> quando embaixo é chão. Depois os objetos cuja âncora cai na linha, ordenados por <code>ay</code>: cratera, rochas, pickups, cápsula, máquinas e player.</li>"
+             "<li>Drones voando, partículas e luz por cima de tudo, como hoje.</li></ol>")
+    return f"""<section><h2>v4.0 · Superfície · prévias (960×540, tamanho real)</h2><div class="pvs">{pv}</div></section>
+
+<section><h2>Areia · teste de ladrilho numa área grande</h2>
+<p class="lede" style="margin-bottom:14px">30×17 tiles só de areia, pra conferir se vira papel de parede. A <b>v0</b> (areia) é quase lisa, só com grão de 1 px e risquinhos de vento. A <b>v1</b> (cascalho) tem um bolo de pedrisco fora do centro. A <b>v2</b> (duna) tem ondulações baixas, que juntas em zonas viram as faixas de duna. A <b>v3</b> (laje) é uma placa de rocha nivelada com o chão, rara. Nada encosta na borda, então não existe costura.</p>
+<div class="pvs">{tiling}</div></section>
+
+<section><h2>v4.0 · Areia (32×32, 4×)</h2><div class="cards">{sand_cards}</div></section>
+
+<section><h2>v4.0 · Rocha pequena e recursos soltos</h2><div class="cards">{obj_cards}</div>
+<p class="lede" style="margin:14px 0">Legibilidade: à esquerda em 1× (como no jogo), à direita em 2×, sobre as 3 areias.</p>
+<img src="pickup_check.png" width="{(6 * T + 16 + 12 * T)}" height="{12 * T}" alt="Pickups sobre as areias" style="image-rendering:pixelated;display:block;max-width:100%;border:1px solid var(--line)">
+</section>
+
+<section><h2>Cratera · fechada × com rampa</h2><div class="cmp" style="grid-template-columns:1fr">{crater_cmp}</div></section>
+
+<section><h2>Cápsula · antes × depois × proposta larga</h2><div class="cmp" style="grid-template-columns:1fr">{pod_cmp}</div>
+<div class="box" style="margin-top:14px"><h3>O que aproveitei da referência (só o estilo, desenho original)</h3><ul>
+<li>A silhueta de <b>módulo baixo e largo, em caixa de cantos chanfrados</b>: teto com os cantos de trás cortados e frente com duas facetas laterais, que dão o perfil quase hexagonal.</li>
+<li><b>Painéis creme em placas com junções visíveis</b>, no teto e na frente, no lugar do casco branco liso de antes.</li>
+<li>Uma <b>saia escura grossa</b> que abre pra baixo, com painéis recuados e parafusos, e marquinhas do pouso logo acima. Ela dá a sensação de que o módulo assentou e afundou um pouco na areia.</li>
+<li><b>Janelinhas retangulares pequenas com luz ciano</b> em fileira, uma <b>escotilha retangular com moldura</b> (aqui laranja, da nossa família) e degrau, uma <b>caixa de equipamento escura</b> com grade e uma <b>aleta</b> no teto, e um <b>toco de asa</b> na lateral.</li>
+<li>Da nossa família, mantive o contorno <code>#1b1630</code>, a faixa laranja <code>#e2733a</code>, o LED verde, o beacon vermelho na antena e a visão 3/4 (teto visível + frente). Nenhuma forma, proporção ou detalhe foi copiado da nave de referência.</li>
+</ul></div></section>
+
+<section><h2>v4.0 · Pro Dev integrar (superfície)</h2>
+<div class="box dev"><table class="tb"><thead><tr><th>Sprite</th><th>Tamanho</th><th>Âncora / uso</th></tr></thead><tbody>{dev}</tbody></table>
+<h3>Ordem de desenho na superfície</h3>{order}
+<p class="lede">Os morros e a cordilheira usam a parede já aprovada (<code>wall_*</code>, <code>wall_face_*</code>), sem sprite novo. Faltando qualquer PNG pendente, o fallback do jogo continua valendo.</p></div>
+</section>"""
+
+
 def build_report(spr: dict[str, Image.Image]):
     def lum(h):
         r, g, b = (int(h[i:i + 2], 16) for i in (1, 3, 5))
         return 0.299 * r + 0.587 * g + 0.114 * b
 
     pal_sets = [
-        ("Tiles · morto", [k for k in spr if k.endswith(".png") and "_dead" in k]),
-        ("Tiles · névoa", [k for k in spr if "_mist" in k]),
-        ("Tiles · verde", [k for k in spr if "_green" in k]),
+        ("Tiles · morto", [k for k in spr if "_dead" in k and not k.startswith("_pending/")]),
+        ("Tiles · névoa", [k for k in spr if "_mist" in k and not k.startswith("_pending/")]),
+        ("Tiles · verde", [k for k in spr if "_green" in k and not k.startswith("_pending/")]),
         ("Minérios, veios e ícones", [k for k in spr if k.startswith(("ore_", "icon_", "vein_"))]),
         ("Astronauta e broca", [k for k in spr if k.startswith(("player", "drill"))]),
         ("Cápsula, máquinas e terminal", [k for k in spr if k.startswith(("pod", "machine", "terminal"))]),
         ("Plantas", [k for k in spr if k.startswith("plant_")]),
         ("v0.2 · baú, painel, estação, drone, ícones e slot", [k for k in build_v02()]),
-        ("Pendentes", [k for k in spr if k.startswith("_pending/")]),
+        ("Pendentes v4.0 · areia", [k for k in spr if k.startswith("_pending/sand_")]),
+        ("Pendentes v4.0 · rocha, pickups, cratera e cápsula",
+         [k for k in spr if k.startswith("_pending/") and not k.startswith("_pending/sand_")]),
     ]
     total = set()
     pal_html = []
@@ -2436,6 +3196,8 @@ def build_report(spr: dict[str, Image.Image]):
     ]
     integ_html = "".join(f"<li>{s}</li>" for s in integ)
 
+    surf_html = build_surface_report(spr, scale) if any(k.startswith("_pending/sand_") for k in spr) else ""
+
     page = f"""<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -2511,11 +3273,24 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v3.3 (v0.2)</div>
+  <div class="eyebrow">Hesper · Designer · v4.0 (v0.3 · superfície, pendente)</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
-  <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span></div>
-  <div class="v2"><b>v3.3 · aprovado: ícone de item do drone</b><ul>
+  <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span><span class="chip">1 proposta de contrato: pod_wide 96×64</span></div>
+  <div class="v2"><b>v4.0 · superfície (pendente, aguardando tua aprovação)</b><ul>
+    <li><b>Arte do Marco 1 do v0.3</b>, em <code>assets/sprites/_pending/</code> (o jogo ainda não usa):
+      <ul>
+        <li><code>sand_{{dead,mist,green}}_{{0..3}}</code>: chão do deserto (areia, cascalho, ondulação de duna e laje de rocha);</li>
+        <li><code>rock_small</code>: rocha quebrável de 1 tile;</li>
+        <li><code>pickup_iron</code>, <code>pickup_silicon</code> e <code>pickup_ice</code>: recursos soltos de 16×16;</li>
+        <li><code>crater</code> e <code>crater_ramp</code>: cratera 3×3, fechada e com rampa.</li>
+      </ul></li>
+    <li><b>Cápsula nova</b> (pedido extra): módulo de fuga pousado. <code>_pending/pod.png</code> está no tamanho atual (64×72), e <code>_pending/pod_wide.png</code> (96×64) é uma <b>proposta</b> de contrato novo. Antes × depois mais abaixo.</li>
+    <li><b>Areia sem papel de parede:</b> nenhum detalhe encosta na borda do tile. A v0, quase lisa, domina, e as dunas aparecem como zonas de ondulação no mundo. O teste 30×17 está logo abaixo das prévias, ao lado de um teste com sorteio uniforme pra comparar.</li>
+    <li><b>Prévias novas:</b> <code>preview_surface_{{dead,mist,green}}</code>, com deserto, cápsula nova, máquinas, morros feitos com a parede aprovada, rochas, pickups, veio com drill e cratera (com rampa no Verde).</li>
+    <li><b>Os 68 sprites oficiais não mudaram</b> (md5 conferido contra o git). As prévias antigas da caverna também não mudaram.</li>
+  </ul></div>
+  <div class="v2" style="opacity:.75"><b>v3.3 · aprovado: ícone de item do drone</b><ul>
     <li><b>Novo:</b> <code>assets/sprites/icon_drone.png</code> (16×16). Agora o drone é um item que se fabrica e se coloca na estação, então ganhou ícone próprio. O dono aprovou, e ele foi promovido pra pasta oficial com os mesmos bytes (md5 conferido). O contrato oficial passou a ter 68 arquivos.</li>
     <li><b>Visual:</b> é o mesmo drone do <code>drone.png</code>, parado: corpo branco com faixa laranja, visor ciano e LED verde, 4 braços com hélices paradas e pezinhos de pouso. Tem contorno <code>#1b1630</code> e segue a família dos outros ícones de item.</li>
     <li><b>Onde ver:</b> ampliado ao lado dos outros ícones de item, logo abaixo das prévias, e dentro do <code>ui_slot</code> em 1×, 2× e 3× (o tamanho em que o jogo desenha).</li>
@@ -2586,7 +3361,9 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
   </ul></div>
 </header>
 
-<section><h2>Prévia das cenas (960×540, tamanho real)</h2><div class="pvs">{previews}</div></section>
+{surf_html}
+
+<section><h2>Prévia das cenas da caverna (960×540, tamanho real · aprovadas, sem mudança)</h2><div class="pvs">{previews}</div></section>
 
 <section><h2>Ícone do drone no slot do inventário</h2>
 <p class="lede" style="margin-bottom:14px">Imagem em tamanho real (1 pixel da imagem = 1 pixel da tela): <code>ui_slot</code> com o ícone em 1×, 2× e 3×, do jeito que o jogo escala os dois juntos. À direita, o <code>icon_chest</code> aprovado na mesma escala, pra comparar.</p>
@@ -2663,6 +3440,12 @@ def main():
     spr.update({f"_pending/{n}": Image.open(PENDING / n).convert("RGBA") for n in pend})
     for st in STAGES:
         render_scene(st, spr).save(REP / f"preview_{st}.png")
+    if pend:
+        for st in STAGES:
+            render_surface(st, spr).save(REP / f"preview_surface_{st}.png")
+            render_sand_field(st, spr).save(REP / f"sand_tiling_{st}.png")
+        render_sand_field("dead", spr, uniform=True).save(REP / "sand_tiling_dead_uniform.png")
+        make_pickup_check(spr).save(REP / "pickup_check.png")
     make_drill_preview(spr).save(REP / "drill_preview.png")
     make_slot_preview(spr, "icon_drone.png", "icon_chest.png").save(REP / "slot_preview.png")
     build_report(spr)
