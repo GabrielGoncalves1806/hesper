@@ -35,10 +35,10 @@ Detalhes em `GAME_BIBLE.md` §8.
 - [x] Fabricador com abas, scroll e fabricar em lote
 - [x] Marco 4: balanceamento (painel solar 4 kW) + polimento + playtest do dono
 
-## v0.3 · Superfície · planejado
+## v0.3 · Superfície · em andamento
 Detalhes em `GAME_BIBLE.md` §9 e no design `docs/superpowers/specs/2026-10-12-v03-superficie-design.md`. Novo jogo obrigatório.
 
-- [ ] Marco 1: superfície (deserto 192×192, cápsula no centro, recursos soltos, rochas, morros, veios raros, terraformação no deserto)
+- [x] Marco 1: superfície (deserto 192×192, cápsula no centro, recursos soltos, rochas, morros, veios raros, terraformação no deserto)
 - [ ] Marco 2: caverna (rampa na cratera, mapa separado e escuro, lanterna, luminárias, brilho nos minérios)
 - [ ] Marco 3: destroços, projetos, tanque de O₂ (slot de equipamento) e scanner com minimapa
 - [ ] Assets do v0.3 (sprites e sons) · aprovação do dono
