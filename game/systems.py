@@ -243,6 +243,7 @@ class GameState:
         self.fainted = False
         self.faint_time = 0.0          # segundos desde o desmaio
         self.time_scale = 1            # F1 muda pra 10
+        self.fast = False              # F3: player DEBUG_SPEED× mais rápido e broca DEBUG_MINE× mais rápida
         self.play_time = 0.0
         self.logs_read: set[int] = set()
         self.logs_seen: set[int] = set()   # LOGs já abertos pela aba LOGs do inventário (os outros lidos = "NOVO")
@@ -422,7 +423,7 @@ class GameState:
             self._update_ramp(dt)
             self._update_o2(sim_dt)
         else:
-            self.player.move(controls.move_x, controls.move_y, dt, self.solids_near)
+            self.player.move(controls.move_x, controls.move_y, dt, self.solids_near, self.player_speed)
             self._update_mining(dt, controls.mine_tile)
             self._update_o2(sim_dt)
             self._auto_pickup()
@@ -448,7 +449,7 @@ class GameState:
         # vira o player pro tile que está minerando
         self.player.face((tile[0] + 0.5) * C.TILE - self.player.x, (tile[1] + 0.5) * C.TILE - (self.player.y - 12))
         m = self.mining
-        m.elapsed += dt
+        m.elapsed += dt * self.mine_speed       # F3: a broca anda DEBUG_MINE× mais rápido
         if m.elapsed >= m.next_hit:
             self.events.append(("mine_hit", tile))
             m.next_hit += C.MINE_HIT_INTERVAL
@@ -1144,6 +1145,20 @@ class GameState:
 
     def toggle_time_scale(self) -> None:
         self.time_scale = C.DEBUG_TIME_SCALE if self.time_scale == 1 else 1
+
+    def toggle_fast(self) -> None:
+        """F3: liga/desliga o player rápido + broca rápida (pra testar sem andar e minerar tanto)."""
+        self.fast = not self.fast
+
+    @property
+    def player_speed(self) -> float:
+        """px/s do player (com o F3 ligado, DEBUG_SPEED× mais rápido)."""
+        return C.PLAYER_SPEED * (C.DEBUG_SPEED if self.fast else 1)
+
+    @property
+    def mine_speed(self) -> float:
+        """Multiplicador da broca (com o F3 ligado, DEBUG_MINE×): vale pra parede, minério e rocha pequena."""
+        return C.DEBUG_MINE if self.fast else 1.0
 
     def pop_events(self) -> list[tuple]:
         events, self.events = self.events, []

@@ -38,8 +38,26 @@ def ore_ratio(world, lo, hi):
 
 def test_cave_ore_is_more_abundant_and_richer_far():
     assert ore_ratio(W, 40, 60) > ore_ratio(W, 13, 22) > 0.15
-    assert ore_ratio(W, 13, 60) > 0.40            # no Marco 1 era ~0,35: a caverna é onde se minera
+    assert 0.34 < ore_ratio(W, 13, 60) < 0.43     # ~39% das paredes (era ~48%, o dono achou demais)
     assert len(W.veins) >= 15                     # veios comuns
+
+
+def wall_ore_share(world):
+    walls = [t for row in world.tiles for t in row if t in (C.ROCK, C.IRON, C.SILICON, C.ICE)]
+    return sum(t in C.ORE_TILES for t in walls) / len(walls)
+
+
+def test_cave_ore_share_is_about_38_to_40_percent_and_the_ramp_has_enough():
+    shares = []
+    for seed in (7, 1, 42):
+        world = W if seed == C.WORLD_SEED else World.generate(seed)
+        shares.append(wall_ore_share(world))
+        near = [C.ORE_TILES[world.tiles[y][x]] for y in range(128) for x in range(128)
+                if world.tiles[y][x] in C.ORE_TILES and world.dist_from_center(x, y) < 20]
+        for resource in C.RESOURCES:                 # começo: dezenas de cada minério a até 20 tiles da rampa
+            assert near.count(resource) >= 40, (seed, resource, near.count(resource))
+    assert all(0.35 < s < 0.43 for s in shares)
+    assert 0.37 <= sum(shares) / len(shares) <= 0.41
 
 
 def test_other_layer():

@@ -57,6 +57,8 @@ ZOOM_TOAST_TIME = 1.2           # segundos do aviso "Zoom 1,5×"
 MAX_DT = 0.05                   # nunca simula mais que 50 ms num frame (evita atravessar parede)
 DEBUG_TIME_SCALE = 10           # F1: acelera O₂ e máquinas ×10
 DEBUG_TI_BONUS = 10_000         # F2: soma isso no Ti
+DEBUG_SPEED = 2.0               # F3: player anda 2× mais rápido...
+DEBUG_MINE = 5.0                # ...e a broca quebra 5× mais rápido (paredes, minério e rochas)
 
 # ---------------------------------------------------------------------------
 # Mundo
@@ -77,8 +79,10 @@ CAVE_SAFE_RADIUS = 8            # dentro desse raio é sempre chão, não import
 # do meio de baixo (tx+1, ty+2) e o player chega/sai em (tx+1, ty+3), que é o CAVE_CENTER.
 CAVE_RAMP = (CAVE_CENTER[0] - 1, CAVE_CENTER[1] - 3)
 # Minério da caverna: um tile de rocha vira minério se o noise passar de  base - extra × longe  (longe = 0 no
-# salão, 1 a 45+ tiles dele). Era 0,66/0,11 até o Marco 1 (~35% das paredes); agora ~45%, mais rico longe.
-CAVE_ORE_THRESHOLD = (0.62, 0.15)
+# salão, 1 a 45+ tiles dele). Histórico: 0,66/0,11 no Marco 1 (~35% das paredes); 0,62/0,15 no Marco 2 (~48%,
+# o dono achou demais no playtest); agora 0,64/0,11: ~39% (seeds 7/1/42: 40,0/40,9/36,9%), ~29% perto do
+# salão e ~41% a 40–60 tiles.
+CAVE_ORE_THRESHOLD = (0.64, 0.11)
 
 # Tipos de tile (inteiros pra caber numa grade simples)
 FLOOR, ROCK, IRON, SILICON, ICE, BEDROCK, TERMINAL = range(7)

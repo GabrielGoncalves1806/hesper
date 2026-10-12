@@ -47,7 +47,7 @@ uv run python -m game --scale 2   # força o zoom da janela (padrão: o maior qu
 | Descer / subir | E na **cratera** (mouse em cima, no alcance, ou parado do lado dela) desce pra caverna · lá embaixo, E na **rampa de subida** volta · sempre chega ao lado da rampa · na caverna não tem zona de O₂: o tanque dura os mesmos 100 s, e a seta do O₂ crítico aponta pra rampa · desmaiou lá embaixo, acorda na cápsula |
 | Luminária | aba **Luz** do fabricador (1 ferro + 1 silício, desde o começo) · coloca como máquina (hotbar + clique), em qualquer camada · ilumina ~5 tiles, sem energia · clique direito desmonta · a **luminária forte** (projeto) ilumina ~7 |
 | E (interagir) | abre o que está **debaixo do mouse** (baú, drill, estação, terminal) se estiver no alcance; senão o mais perto · Shift+E na drill segue a mesma regra · o alvo ganha um contorno e o texto do canto diz o que o E vai abrir |
-| Debug | F1 acelera o tempo ×10 (O₂ e máquinas) · F2 soma +10.000 Ti |
+| Debug | F1 acelera o tempo ×10 (O₂ e máquinas) · F2 soma +10.000 Ti · F3 liga/desliga o modo rápido (player ×2, broca ×5) |
 
 ## Testes
 

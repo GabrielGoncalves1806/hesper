@@ -39,11 +39,13 @@ class Player:
         """Tile onde estão os pés do player."""
         return int(self.x // C.TILE), int((self.y - 1) // C.TILE)
 
-    def move(self, dx: float, dy: float, dt: float, solids_near: Callable[[Rect], Iterable[Rect]]) -> None:
+    def move(self, dx: float, dy: float, dt: float, solids_near: Callable[[Rect], Iterable[Rect]],
+             speed: float = C.PLAYER_SPEED) -> None:
         """Anda na direção (dx, dy) e para nas paredes.
 
         `solids_near(caixa)` devolve os retângulos sólidos perto da caixa (paredes, máquinas, cápsula).
         Movemos um eixo de cada vez: assim, encostando numa parede, o player ainda escorrega ao longo dela.
+        `speed` em px/s (o GameState passa a do F3 quando ligado).
         """
         length = math.hypot(dx, dy)
         self.moving = length > 0
@@ -53,8 +55,8 @@ class Player:
             dx, dy = dx / length, dy / length
         self.face(dx, dy)
         self.walk_time += dt
-        self._move_axis(dx * C.PLAYER_SPEED * dt, 0, solids_near)
-        self._move_axis(0, dy * C.PLAYER_SPEED * dt, solids_near)
+        self._move_axis(dx * speed * dt, 0, solids_near)
+        self._move_axis(0, dy * speed * dt, solids_near)
 
     def face(self, dx: float, dy: float) -> None:
         """Vira o player pra direção (dx, dy). Na diagonal, o lado ganha (o sprite de lado lê melhor)."""
