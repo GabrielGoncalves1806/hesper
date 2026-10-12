@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revisão v0.3</title>
+<style>
+  :root {
+    --bg: #f6f3ee; --card: #ffffff; --ink: #1f1b2e; --muted: #6b6578;
+    --line: #e4ded4; --accent: #e2733a; --ok: #2f8f5b; --warn: #b7791f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15131c; --card: #1e1b28; --ink: #ece8f4; --muted: #a49db3;
+      --line: #322d40; --accent: #f08a52; --ok: #5cc48a; --warn: #e0b04a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 16px 80px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; }
+  h2 { font-size: 1.3rem; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+  h3 { font-size: 1.05rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin: 12px 0; }
+  .tag { display: inline-block; font-size: .75rem; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+         border: 1px solid currentColor; margin-right: 6px; vertical-align: 2px; }
+  .tag.ok { color: var(--ok); } .tag.warn { color: var(--warn); } .tag.acc { color: var(--accent); }
+  .rec { color: var(--muted); font-size: .92rem; margin-top: 6px; }
+  .rec b { color: var(--ink); }
+  img { max-width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--line); image-rendering: pixelated; display: block; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  figure { margin: 0; } figcaption { color: var(--muted); font-size: .85rem; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  a { color: var(--accent); }
+  ol.dec { padding-left: 20px; } ol.dec li { margin-bottom: 14px; }
+  code { font-size: .88em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Hesper · revisão do v0.3</h1>
+  <p class="sub">O que a equipe fez enquanto tu tava fora, e o que precisa da tua resposta. Responde no chat pelo número (ex.: "1 ok, 4 muda pra X").</p>
+
+  <h2>O que ficou pronto</h2>
+  <div class="card">
+    <p><span class="tag ok">feito</span><b>Marco 2 · Caverna.</b> A cratera virou rampa (E com o mouse em cima). A caverna é escura, com luz em degraus. Tem lanterna do capacete, luminária (1 Fe + 1 Si, sem energia), brilho fraco nos minérios e luz na boca da rampa. Lá embaixo a drill funciona, mas os drones não descem.</p>
+    <p><span class="tag ok">feito</span><b>Marco 3 · Destroços.</b> 6 a 8 destroços no deserto, cada vez mais longe: nave de carga, módulo da colônia e sonda.</p>
+    <ul>
+      <li>Caixa de saque, só pra tirar.</li>
+      <li>Projetos que liberam receitas.</li>
+      <li>LOGs 04–07.</li>
+      <li>Tanque de O₂: 100 → 220 s.</li>
+      <li>Scanner: o minimapa só aparece com ele equipado, e M abre o mapa grande com névoa de guerra. O jogo já marca o que tu viu desde o começo, então ao equipar o scanner o mapa aparece completo.</li>
+    </ul>
+    <p><span class="tag ok">feito</span><b>Bug corrigido:</b> uns pontinhos brancos no breu da caverna pareciam céu estrelado. Eram brilhos de silício e gelo quase brancos; agora o brilho é mais saturado e só aparece em minério exposto.</p>
+    <p><span class="tag acc">rodando</span><b>Polimento:</b></p>
+    <ul>
+      <li>morros mais orgânicos, sem cara de bloco;</li>
+      <li>cores distintas na legenda do mapa;</li>
+      <li>tela de Controles cabendo em todos os tamanhos;</li>
+      <li>save no meio da rampa;</li>
+      <li>revisão geral dos prints.</li>
+    </ul>
+    <p class="rec">474 testes passando. Desempenho: ~5 ms por frame na caverna com 36 luminárias, e o limite é 16,7 ms. Tudo commitado e no GitHub.</p>
+  </div>
+
+  <h2>Aprovar arte e som</h2>
+  <div class="card">
+    <h3>A · Arte v5.0: caverna e destroços</h3>
+    <p>Luminária, rampa de subida, 3 destroços, caixa cheia e vazia, e os ícones de projeto, tanque e scanner. Hoje o jogo usa desenhos provisórios no lugar deles. Report completo: <a href="../design/index.html">reports/design/index.html</a> (v5.0 no topo).</p>
+    <div class="grid">
+      <figure><img src="../design/preview_cave.png" alt="Prévia da caverna escura"><figcaption>Caverna com luminárias e rampa de subida</figcaption></figure>
+      <figure><img src="../design/preview_wrecks_dead.png" alt="Destroços no estágio morto"><figcaption>Destroços · morto</figcaption></figure>
+      <figure><img src="../design/preview_wrecks_mist.png" alt="Destroços na névoa"><figcaption>Destroços · névoa</figcaption></figure>
+      <figure><img src="../design/preview_wrecks_green.png" alt="Destroços no verde"><figcaption>Destroços · verde</figcaption></figure>
+    </div>
+  </div>
+  <div class="card">
+    <h3>B · Som v8: caverna e destroços</h3>
+    <p>Os sons novos:</p>
+    <ul>
+      <li>ambiente da caverna: grave, com gotejar e eco;</li>
+      <li>descer e subir a rampa;</li>
+      <li>colocar luminária;</li>
+      <li>abrir a caixa e achar projeto, um jingle curto;</li>
+      <li>equipar e abrir o mapa.</li>
+    </ul>
+    <p>Tem simulação de descer e subir com o crossfade de verdade. Report: <a href="../audio/index.html">reports/audio/index.html</a> (v8 no topo).</p>
+    <p class="rec">Enquanto o som não é aprovado, a caverna toca o ambiente do estágio, sem o vento.</p>
+  </div>
+  <div class="card">
+    <h3>C · Texto dos LOGs 04–07</h3>
+    <p>Rascunho meu, já dentro do jogo e fácil de trocar. Arquivo: <code>docs/lore/logs_v03_rascunho.md</code>.</p>
+    <table>
+      <tr><th>Log</th><th>Onde</th><th>Texto</th></tr>
+      <tr><td>04</td><td>Nave de carga (a mais perto)</td><td>"Cargueira VÉSPER-7, manifesto de retorno. Carga: 12 toneladas de gelo de núcleo, lacrado em contêiner frio, prioridade da diretoria. Motivo do retorno: tripulação pediu pra não levar. Pedido negado."</td></tr>
+      <tr><td>05</td><td>Módulo da colônia</td><td>"Dia 140. A Dra. Ilves colocou uma amostra do gelo do nível 2 no microscópio e ficou em silêncio a tarde inteira. À noite ela trancou o laboratório e levou a chave. Disse só: 'cresce quando ninguém olha'."</td></tr>
+      <tr><td>06</td><td>Sonda</td><td>"Sonda de mapeamento S-3. Leitura térmica anômala abaixo da cratera principal: o calor sobe sozinho, sem fonte conhecida. Recomendação automática: não perfurar. Status da recomendação: ignorada."</td></tr>
+      <tr><td>07</td><td>Módulo mais longe</td><td>"Dia 230. Última mensagem da Colônia Hesper. Desligamos os derretedores. Todos. Se alguém achar isto: o planeta não está morto. Ele está esperando. Não acorde o gelo."</td></tr>
+    </table>
+  </div>
+
+  <h2>Decisões pra tu revisar</h2>
+  <p class="sub">Os Devs tomaram essas decisões pra não travar o trabalho. Em cada uma eu digo se manteria.</p>
+  <ol class="dec">
+    <li><b>Aba nova "Luz" no fabricador</b> pras luminárias. Pra caber a 5ª aba, as abas ficaram um pouco mais apertadas.
+      <div class="rec">Eu: <b>manteria</b>. A luminária forte também fica nela.</div></li>
+    <li><b>Ordem dos objetivos novos:</b>
+      <ol>
+        <li>Fabrique um baú</li>
+        <li>Desça na caverna</li>
+        <li>Coloque uma luminária</li>
+        <li>Ache um destroço</li>
+        <li>Ache o projeto do tanque</li>
+        <li>Fabrique e equipe o tanque</li>
+      </ol>
+      <div class="rec">Eu: <b>manteria</b>. O jogador desce cedo e sente que precisa do tanque.</div></li>
+    <li><b>Ordem dos destroços, do mais perto pro mais longe:</b>
+      <ol>
+        <li>Nave de carga: tanque e LOG 04</li>
+        <li>Sonda</li>
+        <li>Módulo: scanner e LOG 05</li>
+        <li>Nave: luminária forte</li>
+        <li>Sonda: LOG 06</li>
+        <li>Mais 1 ou 2 extras, conforme a seed</li>
+        <li>Módulo mais longe: LOG 07</li>
+      </ol>
+      <div class="rec">Eu: <b>manteria</b>.</div></li>
+    <li><b>Registro de bordo:</b> a nave e a sonda não têm terminal no desenho. Na primeira vez que tu abre a caixa delas, aparece o LOG na tela de terminal, e um botão "Ler registro" deixa reler.
+      <div class="rec">Eu: <b>manteria</b>.</div></li>
+    <li><b>O projeto entra sozinho no inventário</b> quando tu abre a caixa. Os recursos ficam pra tu pegar.
+      <div class="rec">Eu: <b>manteria</b>. O achado fica marcante, com som de conquista.</div></li>
+    <li><b>O scanner é equipamento</b> (slot próprio). Depois do projeto, a receita custa 4 Fe + 4 Si.
+      <div class="rec">Eu: <b>manteria</b>.</div></li>
+    <li><b>Clique esquerdo num tanque ou scanner equipa direto.</b> Efeito colateral: com o esquerdo não dá pra arrastar esses itens pelo inventário. O direito ainda move.
+      <div class="rec">Eu: manteria, mas quero tua sensação jogando.</div></li>
+    <li><b>Luminária forte:</b> raio 7, custo 2 Fe + 2 Si + 1 gelo. Ela não tem desenho próprio no contrato e hoje usa um provisório.
+      <div class="rec">Eu: <b>peço um sprite <code>lamp_t2</code> pra Designer</b>, se tu aprovar.</div></li>
+    <li><b>A drill nv.2 ficou fora do v0.3.</b> Precisava de máquina nova com desenho, regras próprias, drones e save, então não era simples.
+      <div class="rec">Eu: <b>jogaria pro v0.4</b>, junto com "drill melhor", que já tá lá.</div></li>
+    <li><b>Quantidade de minério na caverna:</b> ~47% das paredes têm minério (antes eram ~35%). No print abaixo a parede fica quase toda colorida, e acho que tá cheio demais visualmente.
+      <div class="rec">Eu: <b>baixaria pra ~38–40%</b>, compensando com veios mais ricos. É número de economia, então não mexi sem ti.</div>
+      <img src="../dev/caverna_escura_marco3.png" alt="Caverna escura com muito minério" style="margin-top:8px"></li>
+    <li><b>Simulador:</b> no estilo de jogo "guloso", uma das seeds termina com ~10 min parado no fim. O limite do teste foi relaxado pra ele passar. Tu disse que tempo de partida não é foco agora.
+      <div class="rec">Eu: <b>deixaria pra quando a gente for balancear de verdade</b>.</div></li>
+  </ol>
+
+  <h2>Prints pra dar uma olhada</h2>
+  <div class="grid">
+    <figure><img src="../dev/caverna_rampa_superficie.png" alt=""><figcaption>Cratera virou rampa: E pra descer</figcaption></figure>
+    <figure><img src="../dev/caverna_transicao.png" alt=""><figcaption>Transição "Descendo..."</figcaption></figure>
+    <figure><img src="../dev/destrocos_deserto.png" alt=""><figcaption>Destroços no deserto (desenho provisório)</figcaption></figure>
+    <figure><img src="../dev/projeto_encontrado.png" alt=""><figcaption>Projeto encontrado</figcaption></figure>
+    <figure><img src="../dev/registro_bordo.png" alt=""><figcaption>Registro de bordo</figcaption></figure>
+    <figure><img src="../dev/fabricador_projeto_trancado.png" alt=""><figcaption>Receita trancada: "??? · projeto não encontrado"</figcaption></figure>
+    <figure><img src="../dev/equipamento.png" alt=""><figcaption>Slots de equipamento no inventário</figcaption></figure>
+    <figure><img src="../dev/mapa_grande.png" alt=""><figcaption>Mapa grande (M) com névoa de guerra</figcaption></figure>
+  </div>
+
+  <h2>Próximo passo</h2>
+  <div class="card">
+    <p>Tu aprova A, B e C e responde as decisões. Aí eu coloco a arte e o som aprovados no jogo, aplico o que tu mudar e abro o jogo pra tu jogar o v0.3 inteiro.</p>
+    <p>Se tiver tudo ok no teu playtest, fecho a tag <code>v0.3</code>. Biomas não foram mexidos, como tu pediu.</p>
+  </div>
+</main>
+</body>
+</html>
