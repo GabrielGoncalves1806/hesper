@@ -544,3 +544,10 @@ BLUEPRINT_NOTICE_TIME = 3.5     # s do aviso "PROJETO: ..."
 BLUEPRINT_SOUND_DELAY = 0.4     # s depois do crate_open (dica do Som)
 BLUEPRINT_DUCK = (0.6, 2.0)     # ambiente a 60% por 2 s quando acha um projeto
 VOLUME.update({"crate_open": 0.9, "blueprint_found": 1.0, "equip": 0.7, "map_open": 0.6})
+
+# ---------------------------------------------------------------------------
+# Fabricar em campo (kit de campo · bíblia §9): aba "Fabricar" do Tab, longe da base. Mesmas receitas, custo e
+# travas (Ti e projeto) do fabricador, mas gasta SÓ do inventário (não puxa dos baús da base). Terraformação,
+# energia, drones e equipamentos ficam só no fabricador: é o motivo de ainda voltar pra base.
+# ---------------------------------------------------------------------------
+FIELD_RECIPES = ("drill", "lamp", "lamp_t2", "chest")

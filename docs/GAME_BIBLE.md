@@ -228,7 +228,7 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 - **Hotbar** de 8 slots no rodapé central. Teclas **1–8** ou a rodinha do mouse selecionam (com Ctrl segurado a rodinha mexe no zoom). Se o item selecionado for máquina, o jogo entra no modo de colocar (o drone é item, mas não se coloca no chão: vai na estação). Isso substitui o estoque de máquinas atual (teclas 1–7).
 - **Tela de inventário (Tab)**: grade dos 16 slots e a hotbar. Clique pega e solta a pilha, e clique direito pega metade.
 - **Inventário cheio**: o minério minerado **não é coletado**, e aparece o aviso "Inventário cheio" (o tile quebra mesmo assim).
-- O **fabricador** usa o que está no inventário **e nos baús dentro da zona da base**.
+- O **fabricador** usa o que está no inventário **e nos baús dentro da zona da base**. *(v0.3)* A aba **Fabricar** do Tab (fabricar em campo, §9) gasta **só do inventário**.
 - Futuro (fora do v0.2): **mochila** que aumenta os slots.
 
 **Baú**
@@ -287,7 +287,7 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 - Save **v5**: baús e drills ganham `sends`, `receives` e `batch`; a drill guarda o inventário (`storage`) no lugar do contador. Migração v4→v5 (ninguém perde a base que já funcionava): baú com filtro "Tudo" → Recebe {ferro, silício, gelo}; filtro X → Recebe {X}; Envia nada. **Drills existentes** ganham o inventário com o estoque atual e **Envia = o minério delas** (drill nova continua vindo sem nada). Drone com carga continua com ela e entrega assim que achar um destino. O buffer da estação vira as "sobras" tiráveis.
 
 ### Marco 4 · Polimento
-- **Fabricador com abas**: **Terraformação** (O₂, derretedor, aquecedor e os nv.2), **Energia** (painel solar), **Automação** (drill, estação, drone) e **Armazenamento** (baú). As categorias ficam em `C.MACHINE_CATEGORY`. **A/D**, **←/→** ou **Tab** trocam de aba (E fecha o menu), **W/S** escolhe dentro da aba, clique na aba ou na receita também. A lista mostra 5 receitas e rola (rodinha do mouse ou acompanhando a seleção), com barra de rolagem quando não cabe. Aba sem nada liberado aparece apagada, mas abre e mostra as bloqueadas.
+- **Fabricador com abas**: **Terraformação** (O₂, derretedor, aquecedor e os nv.2), **Energia** (painel solar), **Automação** (drill, estação, drone) e **Armazenamento** (baú). As categorias ficam em `C.MACHINE_CATEGORY`. **A/D**, **←/→** ou **Tab** trocam de aba (E fecha o menu), **W/S** escolhe dentro da aba, clique na aba ou na receita também. A lista mostra 5 receitas e rola (rodinha do mouse ou acompanhando a seleção), com barra de rolagem quando não cabe. Aba sem nada liberado aparece apagada, mas abre e mostra as bloqueadas. *(v0.3)* Parte das receitas também sai **em campo**, pela aba Fabricar do Tab (kit de campo, ver §9).
 - **Fabricar em lote**: **Shift+Enter** (ou Shift+clique em CRAFTAR) fabrica até **5** de uma vez e para quando falta recurso ou espaço; aparece "Nome x5".
 - **Textos que sobem** não encavalam: o mesmo recurso no mesmo ponto em menos de 0,6 s soma ("+15 FERRO" + "+15 FERRO" = "+30 FERRO"); outros textos nascidos perto sobem uma linha cada.
 - **Drone decola e pousa suave**: nos primeiros/últimos ~0,35 s de voo a sombra sai de debaixo dele (maior e mais escura) e vai se afastando e encolhendo.
@@ -342,6 +342,7 @@ Design completo e aprovado: `docs/superpowers/specs/2026-10-12-v03-superficie-de
 - **Projetos** liberam receitas na hora em que tu pega: tanque de O₂, **scanner de navegação** (minimapa com névoa de guerra, M abre o mapa), luminária melhor e, se der tempo, drill nv.2.
 - **Drones só atendem a superfície** no v0.3. O **elevador de carga** na cratera entra no v0.4.
 - **Energia continua global** (vale pras duas camadas).
+- **Fabricar em campo (kit de campo)**: aba Fabricar do Tab, em qualquer lugar, só com o inventário: drill, luminárias e baú. O resto continua só no fabricador da base (ver o fim desta seção).
 - **Save v6**: exige novo jogo, sem migração do v5.
 - **Marcos**: 1 Superfície · 2 Caverna · 3 Destroços/projetos/tanque/scanner · 4 Polimento.
 - **Fora do v0.3**:
@@ -458,8 +459,17 @@ Sem sprite novo no contrato pra **luminária forte**: o jogo procura `lamp_t2.pn
 - **Revisão de prints**: fabricador alarga pra 6 abas caberem (a "Traje" saía da moldura); aviso de projeto cabe no vão do topo (no Grande sem o ícone) em vez de cobrir o painel do Ti; Opções da pausa com a ajuda dentro da moldura, acima da hotbar; seta do O₂ crítico não desce na hotbar; "Jogo salvo" logo abaixo da coluna da direita (cobria o medidor de energia); textos flutuantes escolhem a faixa pelo lugar na tela (não encavalam mais com vizinhos nascidos noutra altura).
 
 ### Aba LOGs do inventário (decisão do dono)
-- O **Tab** ganha abas no topo, no estilo do fabricador: **Inventário** e **LOGs N/7** (contador de achados; ponto laranja se tem LOG lido ainda não aberto pela aba). Clique na aba ou **A/D** trocam; o Tab sempre abre no Inventário. Ir pros LOGs devolve a pilha da mão pro inventário (sem espaço: não troca e avisa).
+- O **Tab** ganha abas no topo, no estilo do fabricador: **Inventário**, **Fabricar** (ver "Fabricar em campo" abaixo) e **LOGs N/7** (contador de achados; ponto laranja se tem LOG lido ainda não aberto pela aba). Clique na aba ou **A/D** trocam (dá a volta); o Tab sempre abre no Inventário. Ir pra Fabricar ou LOGs devolve a pilha da mão pro inventário (sem espaço: não troca e avisa).
 - Lista com os 7 na **ordem da história** (`LOG_ORDER`, ver §2). Achado: "LOG 0N · Dia X · <título>", clicável (ou W/S + Enter), abre a mesma tela de leitura do terminal e, ao fechar, volta pra aba. Não achado: "LOG 0N · ???" apagado, sem dia nem título, não clicável. W/S pulam os não achados.
 - **NOVO**: selo laranja nos lidos (terminal, módulo ou registro de bordo) que ainda não foram abertos pela aba. Save v6 ganha `progress.logs_seen`; save v6 de antes, sem o campo, carrega com todos os lidos contando como vistos (sem NOVO).
 - A janela da aba LOGs tem a largura do texto mais comprido de todos os LOGs (não muda conforme acha) e o mesmo topo da aba Inventário; se não couber na altura, mostra menos linhas e rola (rodinha/W/S). Nos 3 tamanhos de interface couberam as 7.
-- Controles: "TAB · Inventário e LOGs (A/D troca a aba)".
+- Controles: "TAB · Inventário, fabricar em campo e LOGs (A/D: aba)".
+
+### Fabricar em campo · kit de campo (pedido do dono no playtest)
+- O problema: "achei um veio de minério, tenho que voltar na base pra fazer a drill" / "tô na caverna e tenho que voltar pra fazer luminária".
+- A aba **Fabricar** do Tab (ordem **Inventário | Fabricar | LOGs**) fabrica o **kit de campo** em qualquer lugar, nas duas camadas: **Drill automática**, **Luminária**, **Luminária forte** e **Baú** (`C.FIELD_RECIPES`).
+- **Só no fabricador**: terraformação (O₂, derretedor, aquecedor e os nv.2), painel solar, estação de drones e drone, e os equipamentos (tanque de O₂ e scanner). É o motivo de ainda voltar pra base.
+- Mesmo **custo** e mesmas **travas** do fabricador: a drill continua liberando no Ti 10.000 (cadeado "TI 10.000"), e a luminária forte sem o projeto aparece como **"??? · projeto não encontrado"** (botão "SEM PROJETO").
+- Gasta **só do inventário**: não puxa dos baús da base, mesmo estando na base. O custo mostra o que tem no inventário (falta em vermelho, botão "SEM FERRO").
+- O item vai pro inventário, como no fabricador: fabricou, o menu fecha e, se caiu na hotbar, já entra no modo de colocar. Inventário cheio: não fabrica e avisa "Inventário cheio" (mesmo som). Som `craft`. **Shift+Enter**/Shift+clique fabricam até 5.
+- Mesmo visual das linhas do fabricador (prévia, nome, custo com ícones/cores e botão CRAFTAR), numa janela "FABRICAR EM CAMPO · SÓ DO INVENTÁRIO" com a mesma faixa de abas e o mesmo topo das outras abas do Tab. **W/S** escolhe, **Enter** fabrica, clique na linha escolhe e no botão fabrica. A janela do Tab alargou um pouco pra as 3 abas caberem (a grade fica centralizada).

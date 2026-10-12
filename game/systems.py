@@ -511,32 +511,44 @@ class GameState:
         return [c for c in self.surface.machines if c.is_chest
                 and math.hypot(c.anchor[0] - C.BASE_CENTER[0], c.anchor[1] - C.BASE_CENTER[1]) <= C.BASE_RADIUS]
 
-    def available(self, resource: str) -> int:
-        """Quanto o fabricador enxerga desse recurso: inventário + baús da base."""
-        return self.inventory.count(resource) + sum(c.storage.count(resource) for c in self.base_chests())
+    def craft_sources(self, field: bool = False) -> list[Machine]:
+        """Baús que entram na conta de uma receita: os da base no fabricador; nenhum em campo (aba Fabricar do Tab)."""
+        return [] if field else self.base_chests()
 
-    def recipe_status(self, kind: str) -> str:
-        """'blueprint' (projeto não encontrado), 'locked' (Ti insuficiente), 'missing' (falta recurso) ou 'ok'."""
+    def available(self, resource: str, field: bool = False) -> int:
+        """Quanto dá pra gastar desse recurso: inventário + baús da base (fabricador) ou só o inventário (em campo)."""
+        return self.inventory.count(resource) + sum(c.storage.count(resource) for c in self.craft_sources(field))
+
+    def recipe_status(self, kind: str, field: bool = False) -> str:
+        """'blueprint' (projeto não encontrado), 'locked' (Ti insuficiente), 'missing' (falta recurso) ou 'ok'.
+        `field`: fabricar em campo (conta só o inventário)."""
         machine = C.MACHINES[kind]
         blueprint = C.RECIPE_BLUEPRINT.get(kind)
         if blueprint is not None and blueprint not in self.blueprints:
             return "blueprint"
         if self.ti < machine.unlock_ti:
             return "locked"
-        if any(self.available(r) < n for r, n in machine.cost.items()):
+        if any(self.available(r, field) < n for r, n in machine.cost.items()):
             return "missing"
         return "ok"
 
-    def missing_resource(self, kind: str) -> str | None:
+    def missing_resource(self, kind: str, field: bool = False) -> str | None:
         for r, n in C.MACHINES[kind].cost.items():
-            if self.available(r) < n:
+            if self.available(r, field) < n:
                 return r
         return None
 
-    def craft(self, kind: str) -> bool:
+    def craft(self, kind: str, field: bool = False) -> bool:
         """Fabrica 1 máquina: gasta primeiro o que está no inventário, depois o dos baús da base.
-        A máquina vira um item no inventário (falha com aviso se não couber)."""
-        if not self.in_base_zone() or self.recipe_status(kind) != "ok":
+        A máquina vira um item no inventário (falha com aviso se não couber).
+        `field` = fabricar em campo (aba Fabricar do Tab): em qualquer lugar, só as receitas do kit de campo
+        (C.FIELD_RECIPES) e só com o que está no inventário."""
+        if field:
+            if kind not in C.FIELD_RECIPES:
+                return False
+        elif not self.in_base_zone():
+            return False
+        if self.recipe_status(kind, field) != "ok":
             return False
         cost = C.MACHINES[kind].cost
         # "e se eu gastar o que vem do inventário, sobra lugar pra máquina?" (testa numa cópia)
@@ -548,7 +560,7 @@ class GameState:
             return False
         for r, n in cost.items():
             left = n - self.inventory.remove(r, n)
-            for chest in self.base_chests():
+            for chest in self.craft_sources(field):
                 if left <= 0:
                     break
                 left -= chest.storage.remove(r, left)
@@ -557,12 +569,12 @@ class GameState:
         self.events.append(("craft", kind))
         return True
 
-    def craft_many(self, kind: str, limit: int = C.CRAFT_BATCH) -> int:
+    def craft_many(self, kind: str, limit: int = C.CRAFT_BATCH, field: bool = False) -> int:
         """Fabrica até `limit` de uma vez (Shift no fabricador). Para no primeiro que falhar (faltou
         recurso ou não cabe no inventário). Devolve quantas fabricou; o evento "craft" sai uma vez só
         (um som), com a quantidade."""
         made = 0
-        while made < limit and self.craft(kind):
+        while made < limit and self.craft(kind, field):
             made += 1
         if made > 1:
             crafts = [e for e in self.events if e[0] == "craft" and e[1] == kind]
