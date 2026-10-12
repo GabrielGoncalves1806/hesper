@@ -2525,10 +2525,275 @@ def make_pod_lander(name: str) -> Canvas:
     return cv
 
 
+# ---------------------------------------------------------------- v4.1 (pendente): névoa marrom úmida e verde de verdade
+
+SOIL = {
+    # névoa: terra marrom úmida, ponte entre o vermelho do morto e o verde
+    "mist": dict(base="#765741", d1="#6c4f3b", l1="#80604a", gD="#5a4232", gL="#927259",
+                 damp="#5e4535", damp2="#523c2e", peb="#463830", pebL="#8f7865",
+                 mud="#4a382c", water="#4f6f7a", waterD="#3f5a64", sheen="#a3d2e3"),
+    # verde: grama cobrindo o chão (mesma família do floor_green aprovado)
+    "green": dict(base="#4d7a39", d1="#477235", l1="#548140", gD="#3a5f2c", gL="#79b04f",
+                  blade="#79b04f", blade2="#5e9640", bladeD="#3f6a30", moss="#3f7230", moss2="#36632a",
+                  mossL="#5c9a43", petal="#f4ecd2", petal2="#f2c46d", core="#e2733a", stem="#3a5f2c"),
+}
+
+
+def _scatter(n, s, k, margin=2):
+    """n pontos determinísticos dentro do tile, longe da borda."""
+    return [(margin + int(hsh(i, k, s) * (T - 2 * margin)), margin + int(hsh(i, k + 1, s) * (T - 2 * margin)))
+            for i in range(n)]
+
+
+def make_soil_mist(v: int) -> Canvas:
+    """Névoa v4.1: terra marrom úmida. v0 terra · v1 cascalho escuro · v2 terra encharcada (textura de
+    manchinhas, agrupa em zonas sem virar carimbo) · v3 pocinha de lama (rara). Nada encosta na borda."""
+    P = SOIL["mist"]
+    s = 7100 + v * 131
+    cv = Canvas(T, T)
+    cv.rect(0, 0, T, T, C(P["base"]))
+
+    def free(x, y):
+        return 1 <= x < T - 1 and 1 <= y < T - 1 and cv.get(x, y)[:3] == C(P["base"])[:3]
+
+    for i, (x, y) in enumerate(_scatter(5, s, 1)):           # torrões: faixas chapadas curtas
+        w = 3 + int(hsh(i, 3, s) * 4)
+        x = min(x, T - 2 - w)
+        cv.rect(x, y, w, 1, C(P["l1"] if i % 2 else P["d1"]))
+        if i % 2 == 0:
+            cv.rect(x + 1, y + 1, w - 2, 1, C(P["d1"]))
+    if v in (0, 2):                                           # 1 mancha de umidade (pequena)
+        x, y = _scatter(1, s, 5, 6)[0]
+        cv.rect(x - 3, y, 7, 1, C(P["damp"]))
+        cv.rect(x - 2, y + 1, 5, 1, C(P["damp"]))
+    if v == 2:                                                # encharcada: muitas manchinhas escuras
+        for i, (x, y) in enumerate(_scatter(9, s, 7, 3)):
+            w = 2 + int(hsh(i, 9, s) * 4)
+            x = min(x, T - 2 - w)
+            cv.rect(x, y, w, 1, C(P["damp2"] if i % 3 == 0 else P["damp"]))
+            if i % 4 == 1:
+                cv.px(x, y - 1, C(P["sheen"]))
+    if v == 1:                                                # cascalho escuro, num bolo fora do centro
+        ox, oy = [(8, 9), (22, 21), (9, 22), (21, 8)][int(hsh(0, 11, s) * 4)]
+        for i in range(7):
+            x = ox + int((hsh(i, 12, s) - 0.5) * 10)
+            y = oy + int((hsh(i, 13, s) - 0.5) * 8)
+            if i < 4:
+                cv.rect(x, y, 2, 1, C(P["pebL"]))
+                cv.rect(x, y + 1, 2, 1, C(P["peb"]))
+            else:
+                cv.px(x, y, C(P["peb"]))
+    if v == 3:                                                # pocinha de lama com reflexo
+        cx, cy = 19, 20                                       # lama pequena (as poças de verdade são o autotile)
+        for y in range(cy - 3, cy + 3):
+            for x in range(cx - 5, cx + 6):
+                d = ((x + 0.5 - cx) / 5) ** 2 + ((y + 0.5 - cy) / 2.6) ** 2
+                if d <= 1.0:
+                    cv.px(x, y, C(P["mud"]))
+                if d <= 0.4:
+                    cv.px(x, y, C(P["waterD"]))
+        cv.rect(cx - 2, cy - 1, 2, 1, C(P["sheen"]))
+    for i, (x, y) in enumerate(_scatter(16, s, 15, 1)):      # grão
+        if free(x, y):
+            cv.px(x, y, C(P["gD"] if i % 3 else P["gL"]))
+    return cv
+
+
+def _blade(cv, x, y, h, c, ctop=None):
+    cv.rect(x, y - h + 1, 1, h, C(c))
+    if ctop:
+        cv.px(x, y - h + 1, C(ctop))
+
+
+def make_grass_green(v: int) -> Canvas:
+    """Verde v4.1: grama cobrindo o chão. Textura densa de folhinhas (densa = repetição some),
+    v0 grama · v1 tufos mais altos · v2 musgo escuro (textura de touceirinhas, agrupa em zonas) ·
+    v3 florzinha (rara). Nada encosta na borda, 100% opaco."""
+    P = SOIL["green"]
+    s = 8300 + v * 131
+    cv = Canvas(T, T)
+    cv.rect(0, 0, T, T, C(P["base"]))
+    # manchas de tom (chapadas, achatadas, contidas)
+    for i, (x, y) in enumerate(_scatter(4, s, 1, 5)):
+        w = 4 + int(hsh(i, 3, s) * 6)
+        x = min(x, T - 2 - w)
+        cv.rect(x, y, w, 1, C(P["l1"] if i % 2 else P["d1"]))
+        cv.rect(x + 1, y + 1, max(1, w - 2), 1, C(P["l1"] if i % 2 else P["d1"]))
+    if v == 2:                                                # musgo: touceirinhas escuras espalhadas
+        for i, (x, y) in enumerate(_scatter(7, s, 21, 3)):
+            w = 3 + int(hsh(i, 23, s) * 3)
+            x = min(x, T - 2 - w)
+            cv.rect(x, y, w, 1, C(P["moss"]))
+            cv.rect(x + 1, y + 1, w - 1, 1, C(P["moss2"]))
+            cv.px(x + 1, y - 1, C(P["mossL"]))
+    # folhinhas: pares de 1x2 (claro em cima, escuro no pé)
+    for i, (x, y) in enumerate(_scatter(22, s, 5, 2)):
+        if cv.get(x, y)[:3] not in (C(P["base"])[:3], C(P["l1"])[:3], C(P["d1"])[:3]):
+            continue
+        c = P["blade"] if i % 3 == 0 else P["blade2"]
+        _blade(cv, x, y, 2, c)
+        cv.px(x + 1, y, C(P["gD"]))
+    if v == 1:                                                # 2 tufos altos
+        for (gx, gy) in [((6, 12), (20, 24)), ((19, 10), (8, 25))][int(hsh(0, 31, s) * 2)]:
+            for b, bh in enumerate((3, 5, 4, 6, 3)):
+                _blade(cv, gx + b, gy, bh, P["blade"] if b % 2 else P["blade2"], P["blade"] if b == 3 else None)
+            cv.rect(gx, gy + 1, 5, 1, C(P["bladeD"]))
+    if v == 3:                                                # florzinha rara + 1 tufo
+        fx, fy = 11, 13
+        _blade(cv, fx + 1, fy + 5, 4, P["stem"])
+        cv.px(fx + 2, fy + 3, C(P["blade2"]))
+        for dx, dy in ((0, 1), (2, 1), (1, 0), (1, 2)):
+            cv.px(fx + dx, fy + dy, C(P["petal"]))
+        cv.px(fx + 1, fy + 1, C(P["petal2"]))
+        for b, bh in enumerate((3, 4, 3)):
+            _blade(cv, 21 + b, 24, bh, P["blade"] if b % 2 else P["blade2"])
+        cv.rect(21, 25, 3, 1, C(P["bladeD"]))
+    for i, (x, y) in enumerate(_scatter(10, s, 41, 1)):      # pontinhos escuros (terra entre a grama)
+        if cv.get(x, y)[:3] == C(P["base"])[:3]:
+            cv.px(x, y, C(P["gD"]))
+    return cv
+
+
+# ---------------------------------------------------------------- v4.1 (pendente): autotile de água (layout A2 do RPG Maker)
+
+WATER_SHORE = {
+    # margem por fora da água: anel externo (some no chão) e lama/terra molhada colada na água
+    "mist": dict(outer="#5e4535", mud="#4a382c", mud2="#3e2f25", grass=None),
+    "green": dict(outer="#3a5f2c", mud="#4a4030", mud2="#3b3326", grass="#5e9640"),
+}
+AW_E, AW_R = 4, 12          # recuo da água em relação à borda do tile e raio do canto externo (R + E <= 16)
+
+
+def _wob(t):
+    """Ondulação da margem: periódica em 32 px e zero em 0, 8, 16, 24 (fronteiras de minitile casam)."""
+    return 1.3 * math.sin(2 * math.pi * t / 32) + 0.6 * math.sin(4 * math.pi * t / 32)
+
+
+def _sd_island(x, y):
+    """Distância com sinal (positivo = água) da ilha 2x2 dos 64x64 de baixo do A2."""
+    dx = min(x + 0.5, 64 - x - 0.5) + _wob(y)
+    dy = min(y + 0.5, 64 - y - 0.5) + _wob(x)
+    ax, ay = max(AW_R + AW_E - dx, 0), max(AW_R + AW_E - dy, 0)
+    return AW_R - math.hypot(ax, ay)
+
+
+def _sd_inner(x, y):
+    """Bloco de cima à direita (32x32): 4 cantos internos, a terra é só um cantinho na quina do tile."""
+    cx, cy = (0 if x < 16 else 32), (0 if y < 16 else 32)
+    u, v = abs(x + 0.5 - cx), abs(y + 0.5 - cy)
+    k = 3.0 * math.sin(2 * math.atan2(v, u))     # 0 nos eixos (casa com as bordas retas), +3 na diagonal
+    return math.hypot(u, v) - AW_E - k
+
+
+def _sd_drop(x, y):
+    """Bloco de cima à esquerda (32x32): poça isolada, gota redonda."""
+    a = math.atan2(y + 0.5 - 16.5, x + 0.5 - 16)
+    r = 11.2 + 0.7 * math.sin(3 * a + 0.8)
+    return r - math.hypot(x + 0.5 - 16, (y + 0.5 - 16.5) / 0.92)
+
+
+def make_water_auto(stage: str, water_png: Image.Image) -> Canvas:
+    """Autotile A2 64x96: (0,0)-(32,32) poça isolada · (32,0)-(64,32) cantos internos ·
+    (0,32)-(64,96) ilha 2x2 = interior + bordas + cantos externos. Fora da margem é transparente
+    (o chão aparece por baixo). O interior é o próprio water_{stage}.png, amostrado na mesma posição."""
+    P, Wd = STAGES[stage], WATER_SHORE[stage]
+    wat = np.array(water_png.convert("RGBA"))
+    cv = Canvas(64, 96)
+    sd = np.zeros((96, 64))
+    for y in range(96):
+        for x in range(64):
+            if y < 32:
+                sd[y, x] = _sd_drop(x, y) if x < 32 else _sd_inner(x - 32, y)
+            else:
+                sd[y, x] = _sd_island(x, y - 32)
+    for y in range(96):
+        for x in range(64):
+            d = sd[y, x]
+            # lado da margem: a água continua pra baixo (margem de cima, faz sombra) ou pra cima (de baixo, brilha)
+            below = sd[y + 1, x] if y + 1 < 96 and (y + 1) // 32 == y // 32 else d
+            above = sd[y - 1, x] if y > 0 and (y - 1) // 32 == y // 32 else d
+            top_bank = below > above
+            if d < -3.2:
+                continue
+            if d < -1.6:
+                c = Wd["outer"]
+                if Wd["grass"] and hsh(x, y, 5) < 0.35:
+                    c = Wd["grass"]
+            elif d < 0:
+                c = Wd["mud"] if (x + y) % 5 else Wd["mud2"]
+            elif d < 1.2:
+                c = P["waterD"] if top_bank else P["foam"]
+            elif d < 2.2 and top_bank:
+                c = P["waterD"]
+            else:
+                r, g, b, _ = wat[y % 32, x % 32]
+                c = "#%02x%02x%02x" % (r, g, b)
+                if d < 2.6 and not top_bank:
+                    c = P["waterHi"]
+            cv.px(x, y, C(c))
+    return cv
+
+
+# fonte (x, y) em px no A2 de cada quadrante, dado o que tem em volta (paridade de quadrante preservada)
+def autotile_quads(n: dict) -> list[tuple[int, int, int, int]]:
+    """n = vizinhos que são água: chaves 'u','d','l','r','ul','ur','dl','dr'.
+    Devolve [(sx, sy, dx, dy)] pros 4 quadrantes 16x16 do tile (dx, dy relativos ao tile)."""
+    if not (n["u"] or n["d"] or n["l"] or n["r"]):
+        return [(qx * 16, qy * 16, qx * 16, qy * 16) for qy in (0, 1) for qx in (0, 1)]     # poça isolada
+    out = []
+    for qy in (0, 1):
+        for qx in (0, 1):
+            h = n["l"] if qx == 0 else n["r"]
+            v = n["u"] if qy == 0 else n["d"]
+            diag = n[("u" if qy == 0 else "d") + ("l" if qx == 0 else "r")]
+            if h and v and not diag:                                            # canto interno
+                out.append((32 + qx * 16, qy * 16, qx * 16, qy * 16))
+                continue
+            col = (2 if h else 0) if qx == 0 else (1 if h else 3)
+            row = (2 if v else 0) if qy == 0 else (1 if v else 3)
+            out.append((col * 16, 32 + row * 16, qx * 16, qy * 16))
+    return out
+
+
+def draw_water_auto(img: Image.Image, sheet: Image.Image, water: set, x: int, y: int, px: int, py: int):
+    w = lambda a, b: (a, b) in water                                            # noqa: E731
+    n = dict(u=w(x, y - 1), d=w(x, y + 1), l=w(x - 1, y), r=w(x + 1, y),
+             ul=w(x - 1, y - 1), ur=w(x + 1, y - 1), dl=w(x - 1, y + 1), dr=w(x + 1, y + 1))
+    for sx, sy, dx, dy in autotile_quads(n):
+        img.alpha_composite(sheet.crop((sx, sy, sx + 16, sy + 16)), (px + dx, py + dy))
+
+
+WATER_DEMO = [  # cena de teste: poça de 1 tile, poça irregular de 3 tiles e lago com reentrâncias (20x9 tiles)
+    (2, 2), (5, 2), (6, 2), (6, 3),
+    (10, 1), (11, 1), (12, 1), (9, 2), (10, 2), (11, 2), (12, 2), (13, 2), (9, 3), (10, 3), (12, 3), (13, 3),
+    (14, 3), (9, 4), (10, 4), (11, 4), (12, 4), (13, 4), (14, 4), (10, 5), (11, 5), (13, 5), (14, 5), (15, 5),
+    (11, 6), (12, 6), (13, 6), (14, 6), (12, 7), (2, 6), (3, 6), (3, 7), (4, 7), (17, 2),
+]
+
+
+def make_water_demo(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
+    W_, H_ = 20, 9
+    img = Image.new("RGBA", (W_ * T, H_ * T))
+    water = set(WATER_DEMO)
+    for y in range(H_):
+        for x in range(W_):
+            img.alpha_composite(spr[sand_key(spr, stage, sand_variant(x + 40, y + 20))], (x * T, y * T))
+    sheet = spr[f"_pending/water_auto_{stage}.png"]
+    for (x, y) in water:
+        draw_water_auto(img, sheet, water, x, y, x * T, y * T)
+    return img.convert("RGB")
+
+
 def build_pending() -> dict[str, Canvas]:
     """Assets novos aguardando aprovação do dono: vão pra assets/sprites/_pending/.
     Depois de aprovados, saem daqui e entram em build_v02()/build_v03()/build_sprites() (pasta oficial)."""
-    return {}
+    out: dict[str, Canvas] = {}
+    for v in range(4):
+        out[f"sand_mist_{v}.png"] = make_soil_mist(v)      # v4.1: substitui o sand_mist aprovado na v4.0
+        out[f"sand_green_{v}.png"] = make_grass_green(v)   # v4.1: substitui o sand_green aprovado na v4.0
+    for st in ("mist", "green"):                             # v4.1: autotile A2 de água (no morto não há água)
+        out[f"water_auto_{st}.png"] = make_water_auto(st, make_water(st).image())
+    return out
 
 
 FUTURE = OUT / "_future"  # guardados pelo dono pro futuro: fora do contrato, o jogo não carrega daqui
@@ -2822,12 +3087,18 @@ def sand_variant(x: int, y: int, seed: int = 5) -> int:
     return 0 if r < 0.72 else 1 if r < 0.92 else 2 if r < 0.965 else 3
 
 
+def sand_key(spr, stage, v):
+    """Areia pendente (se houver) na frente da oficial: prévias e testes mostram a versão nova."""
+    k = f"_pending/sand_{stage}_{v}.png"
+    return k if k in spr else f"sand_{stage}_{v}.png"
+
+
 def render_sand_field(stage: str, spr: dict[str, Image.Image], uniform=False) -> Image.Image:
     img = Image.new("RGBA", (GW * T, GH * T))
     for y in range(GH):
         for x in range(GW):
             v = int(hsh(x, y, 3) * 4) if uniform else sand_variant(x, y)
-            img.alpha_composite(spr[f"sand_{stage}_{v}.png"], (x * T, y * T))
+            img.alpha_composite(spr[sand_key(spr, stage, v)], (x * T, y * T))
     return img.crop((0, 0, 960, 540)).convert("RGB")
 
 
@@ -2852,10 +3123,13 @@ def render_surface(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
     P = ""
     hills = set(SURF_HILLS)
     water = set()
+    auto = f"_pending/water_auto_{stage}.png" in spr
     if stage == "mist":
-        water = {(18, 12), (19, 12)}
+        water = {(18, 13), (19, 13), (19, 14), (11, 14)} if auto else {(18, 12), (19, 12)}
     elif stage == "green":
-        water = {(18, 12), (19, 12), (17, 13), (18, 13), (19, 13), (3, 15), (4, 15), (4, 16)}
+        water = ({(18, 13), (19, 13), (20, 13), (17, 14), (18, 14), (19, 14), (20, 14), (21, 14), (18, 15), (20, 15),
+                  (21, 15), (19, 16), (20, 16), (3, 15), (4, 15), (4, 16), (11, 14)} if auto else
+                 {(18, 12), (19, 12), (17, 13), (18, 13), (19, 13), (3, 15), (4, 15), (4, 16)})
     vein = (3, 11)
     img = Image.new("RGBA", (GW * T, GH * T), (0, 0, 0, 255))
     shade = Image.new("RGBA", (T, 10), (0, 0, 0, 84))
@@ -2864,10 +3138,12 @@ def render_surface(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
         for x in range(GW):
             if (x, y) in hills:
                 continue
-            if (x, y) in water:
+            if (x, y) in water and not auto:
                 img.alpha_composite(spr[f"water_{stage}.png"], (x * T, y * T))
             else:
-                img.alpha_composite(spr[f"{P}sand_{stage}_{sand_variant(x, y)}.png"], (x * T, y * T))
+                img.alpha_composite(spr[sand_key(spr, stage, sand_variant(x, y))], (x * T, y * T))
+                if (x, y) in water:                          # autotile por cima do chão (fora da margem é transparente)
+                    draw_water_auto(img, spr[f"_pending/water_auto_{stage}.png"], water, x, y, x * T, y * T)
             if (x, y - 1) in hills:
                 img.alpha_composite(shade, (x * T, y * T))
                 img.alpha_composite(shade_b, (x * T, y * T + 10))
@@ -2881,9 +3157,11 @@ def render_surface(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
     cx, cy = SURF_CRATER
     obj(f"{P}crater_ramp.png" if stage == "green" else f"{P}crater.png", (cx + 1.5) * T, (cy + 3) * T)
     for (x, y) in SURF_ROCKS:
-        obj(f"{P}rock_small.png", x * T + 16, (y + 1) * T)
+        if (x, y) not in water:
+            obj(f"{P}rock_small.png", x * T + 16, (y + 1) * T)
     for (px_, py_, o) in SURF_PICKUPS:
-        obj(f"{P}pickup_{o}.png", px_, py_)
+        if (px_ // T, py_ // T) not in water:
+            obj(f"{P}pickup_{o}.png", px_, py_)
     if stage == "green":                                       # proposta larga: 3x1, centro do tile do meio
         obj("_future/pod_wide.png", 15 * T + 16, 9 * T)
     else:                                                      # redesign no contrato atual (2x1)
@@ -2942,7 +3220,7 @@ def make_pickup_check(spr: dict[str, Image.Image]) -> Image.Image:
         band = Image.new("RGBA", (6 * T, 2 * T))
         for y in range(2):
             for x in range(6):
-                band.alpha_composite(spr[f"{P}sand_{st}_{sand_variant(x + 3 * j, y)}.png"], (x * T, y * T))
+                band.alpha_composite(spr[sand_key(spr, st, sand_variant(x + 3 * j, y))], (x * T, y * T))
         for i, n in enumerate(names):
             im = spr[P + n]
             if n.startswith("pickup"):
@@ -2990,6 +3268,46 @@ def colors_of(imgs: list[Image.Image]) -> list[str]:
             k = f"#{r:02x}{g:02x}{b:02x}"
             seen[k] = seen.get(k, 0) + 1
     return sorted(seen, key=lambda h: (-seen[h]))
+
+
+def build_v41_report(spr: dict[str, Image.Image]) -> str:
+    """Seção v4.1 (pendente): névoa marrom, verde de verdade e autotile de água."""
+    if "_pending/sand_mist_0.png" not in spr:
+        return ""
+    blocks = []
+    for st, lab in (("mist", "Névoa · terra marrom úmida"), ("green", "Verde · grama de verdade")):
+        bef = "".join(f'<img src="before/sand_{st}_{v}_v40.png" width="128" height="128" alt="antes {v}">' for v in range(4))
+        aft = "".join(f'<img src="../../assets/sprites/_pending/sand_{st}_{v}.png" width="128" height="128" alt="depois {v}">' for v in range(4))
+        blocks.append(f'<figure><div class="pair" style="flex-direction:column;align-items:flex-start">'
+                      f'<div>antes (v4.0)<span style="display:flex;gap:8px">{bef}</span></div>'
+                      f'<div>depois (v4.1)<span style="display:flex;gap:8px">{aft}</span></div></div>'
+                      f'<figcaption>{lab} · sand_{st}_0..3 · 4×</figcaption></figure>')
+    pv = "".join(
+        f'<figure class="pv"><div class="pair" style="display:flex;flex-direction:column;gap:6px">'
+        f'<span class="chip" style="align-self:flex-start">antes (v4.0)</span>'
+        f'<img src="before/preview_surface_{st}_v40.png" width="960" height="540" alt="antes">'
+        f'<span class="chip ok" style="align-self:flex-start">depois (v4.1)</span>'
+        f'<img src="preview_surface_{st}.png" width="960" height="540" alt="depois"></div>'
+        f'<figcaption><b>{lab}</b></figcaption></figure>'
+        for st, lab in (("mist", "Superfície · Névoa"), ("green", "Superfície · Verde")))
+    til = "".join(f'<figure class="pv"><img src="sand_tiling_{st}.png" width="960" height="540" alt="ladrilho {st}">'
+                  f'<figcaption><b>Ladrilho 30×17 · {lab}</b><span>mesma distribuição sand_variant</span></figcaption></figure>'
+                  for st, lab in (("mist", "Névoa"), ("green", "Verde")))
+    sheets = "".join(f'<figure class="spr"><div class="chk"><img src="../../assets/sprites/_pending/water_auto_{st}.png" '
+                     f'width="256" height="384" alt="water_auto_{st}"></div><figcaption><code>water_auto_{st}.png</code>'
+                     f'<span>64×96 · 4×</span></figcaption></figure>' for st in ("mist", "green"))
+    demos = "".join(f'<figure class="pv"><img src="water_demo_{st}.png" width="640" height="288" alt="poças {st}" style="width:960px;max-width:100%">'
+                    f'<figcaption><b>Autotile · {lab}</b><span>poças de 1 tile, poça irregular de 3 tiles e lago com reentrâncias e ilhas, montados pelo algoritmo de minitiles (1,5×)</span></figcaption></figure>'
+                    for st, lab in (("mist", "Névoa"), ("green", "Verde")))
+    return f"""<section><h2>v4.1 · Névoa marrom e verde de verdade (pendente)</h2>
+<p class="lede" style="margin-bottom:14px">A terraformação agora transforma o deserto. A <b>Névoa</b> é terra marrom úmida, com torrões, manchas de umidade, cascalho escuro e manchinhas de lama, ainda sem vegetação: fica no meio do caminho entre o vermelho e o verde. O <b>Verde</b> é grama cobrindo o chão, na família do <code>floor_green</code> que tu gostou: textura densa de folhinhas, tufos altos, zonas de musgo mais escuro e uma florzinha rara. O Morto não mudou.</p>
+<div class="cmp" style="grid-template-columns:1fr">{"".join(blocks)}</div></section>
+<section><h2>v4.1 · Prévias antes × depois</h2><div class="pvs">{pv}</div></section>
+<section><h2>v4.1 · Teste de ladrilho</h2><div class="pvs">{til}</div></section>
+<section><h2>v4.1 · Poças e lagos (autotile de água)</h2>
+<div class="cards">{sheets}</div>
+<p class="lede" style="margin:14px 0">A borda é orgânica, com uma margem de 2 a 3 px por fora. Na Névoa ela é de lama marrom; no Verde, de terra molhada com grama em volta. A margem de cima faz uma sombra escura na água, e a de baixo e as laterais têm um brilho claro. O interior é o próprio <code>water_{{stage}}</code> aprovado. Fora da margem o PNG é transparente, então o chão novo aparece por baixo.</p>
+<div class="pvs">{demos}</div></section>"""
 
 
 def build_surface_report(spr: dict[str, Image.Image], scale: dict[str, int]) -> str:
@@ -3060,6 +3378,21 @@ def build_surface_report(spr: dict[str, Image.Image], scale: dict[str, int]) -> 
          f"Âncora no centro da base do tile do meio: <code>ax = (tx+1)·32 + 16</code>, <code>ay = (ty+1)·32</code>, blit em <code>(ax − 48, ay − 64)</code>. "
          f"Luzes: janela <code>{L2['window']}</code>, beacon <code>{L2['beacon']}</code>, LED <code>{L2['led']}</code>, porta (pé) <code>{L2['door']}</code>."),
     ]
+    if "_pending/water_auto_mist.png" in spr:
+        dev_rows.insert(0, ("<code>water_auto_{mist,green}.png</code> (v4.1, pendente)", "64×96",
+            "Autotile no layout <b>A2 do RPG Maker</b>, com minitiles de 16×16. Os blocos são de 32×32: "
+            "<b>(0,0)</b> = poça isolada (gota de 1 tile); <b>(32,0)</b> = os 4 cantos internos; "
+            "<b>(0,32)–(64,96)</b> = ilha 2×2 com interior, bordas e cantos externos (grade 4×4 de minitiles: colunas 0/3 = bordas esquerda/direita, "
+            "1–2 = meio; linhas 0/3 = bordas de cima/baixo, 1–2 = meio). "
+            "<b>Algoritmo</b>, por tile de água, olhando os 8 vizinhos (água = sim): sem nenhum vizinho ortogonal, copie o bloco (0,0) inteiro. "
+            "Senão, pra cada quadrante <code>(qx, qy)</code> ∈ {0,1}², com <code>h</code> = vizinho do lado do quadrante (L se qx=0, R se qx=1), "
+            "<code>v</code> = vizinho de cima/baixo (U se qy=0, D se qy=1) e <code>diag</code> = o diagonal daquela quina: "
+            "se <code>h and v and not diag</code>, a fonte é <code>(32 + 16·qx, 16·qy)</code> (canto interno); "
+            "senão, <code>col = (2 if h else 0)</code> se qx=0 ou <code>(1 if h else 3)</code> se qx=1, "
+            "<code>row = (2 if v else 0)</code> se qy=0 ou <code>(1 if v else 3)</code> se qy=1, e a fonte é <code>(16·col, 32 + 16·row)</code>. "
+            "Copie 16×16 da fonte pra <code>(16·qx, 16·qy)</code> do tile. A fonte sempre cai no mesmo quadrante do destino (paridade), "
+            "então a textura da água e as bordas emendam sem costura. Ordem: o chão do tile primeiro, o autotile por cima (fora da margem é transparente). "
+            "Fora do mapa conta como terra. O código de referência está em <code>autotile_quads()</code> no script. No Morto não tem água."))
     dev = "".join(f"<tr><td>{a}</td><td>{b}</td><td>{c}</td></tr>" for a, b, c in dev_rows)
     order = ("<ol><li><b>Chão:</b> <code>sand_*</code> (e água/poças), depois os veios.</li>"
              "<li><b>Linhas de cima pra baixo:</b> topo dos morros <code>wall_{stage}_N</code> em <code>(x, y − 24)</code>, face <code>wall_face_{stage}</code> "
@@ -3208,7 +3541,7 @@ def build_report(spr: dict[str, Image.Image]):
     ]
     integ_html = "".join(f"<li>{s}</li>" for s in integ)
 
-    surf_html = build_surface_report(spr, scale)
+    surf_html = build_v41_report(spr) + build_surface_report(spr, scale)
 
     page = f"""<!doctype html>
 <html lang="pt-BR">
@@ -3285,11 +3618,17 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v4.0 (v0.3 · superfície, pendente)</div>
+  <div class="eyebrow">Hesper · Designer · v4.1 (v0.3 · superfície)</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
   <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span><span class="chip">pod largo guardado em _future/ (fora do contrato)</span></div>
-  <div class="v2"><b>v4.0 · aprovado (pod largo guardado pro futuro)</b><ul>
+  <div class="v2"><b>v4.1 · névoa marrom e verde de verdade (pendente)</b><ul>
+    <li><b>O deserto era só o estado inicial:</b> agora a terraformação transforma o chão de verdade. Os novos <code>sand_mist_{{0..3}}</code> (terra marrom úmida, sem vegetação) e <code>sand_green_{{0..3}}</code> (grama cobrindo o chão, com tufos, musgo e florzinha rara) estão em <code>_pending/</code>. O <code>sand_dead</code> não mudou.</li>
+    <li><b>Poças com cara de poça:</b> <code>water_auto_mist</code> e <code>water_auto_green</code> (64×96) são autotiles no layout A2 do RPG Maker, com borda orgânica, margem de lama ou terra molhada e brilho. O algoritmo está explicado em "Pro Dev integrar".</li>
+    <li>As prévias <code>preview_surface_{{mist,green}}</code> foram regeradas com o chão novo e o autotile (antes × depois logo abaixo). Também tem o ladrilho 30×17 de cada estágio e uma cena de teste das poças.</li>
+    <li>Os 86 oficiais e o <code>_future/pod_wide</code> não mudaram (md5 conferido). As versões oficiais de <code>sand_mist</code> e <code>sand_green</code> continuam valendo até tu aprovar.</li>
+  </ul></div>
+  <div class="v2" style="opacity:.75"><b>v4.0 · aprovado (pod largo guardado pro futuro)</b><ul>
     <li><b>O dono aprovou a arte do Marco 1 do v0.3</b>, e ela foi promovida pra pasta oficial <code>assets/sprites/</code> com os mesmos bytes da entrega pendente (md5 conferido):
       <ul>
         <li><code>sand_{{dead,mist,green}}_{{0..3}}</code>: chão do deserto (areia, cascalho, ondulação de duna e laje de rocha);</li>
@@ -3462,6 +3801,9 @@ def main():
             render_sand_field(st, spr).save(REP / f"sand_tiling_{st}.png")
         render_sand_field("dead", spr, uniform=True).save(REP / "sand_tiling_dead_uniform.png")
         make_pickup_check(spr).save(REP / "pickup_check.png")
+        for st in ("mist", "green"):
+            if f"_pending/water_auto_{st}.png" in spr:
+                make_water_demo(st, spr).save(REP / f"water_demo_{st}.png")
     make_drill_preview(spr).save(REP / "drill_preview.png")
     make_slot_preview(spr, "icon_drone.png", "icon_chest.png").save(REP / "slot_preview.png")
     build_report(spr)
