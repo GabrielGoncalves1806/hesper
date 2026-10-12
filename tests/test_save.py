@@ -62,6 +62,18 @@ def rich_state() -> GameState:
     state.inventory.move(state.inventory.slots.index(Stack("melter", 2)), 6)
     state.inventory.slots[12] = Stack("o2_t2", 1)         # na mochila
     state.crafted.update(o2=2, heater=1, drill=1, melter=2, chest=1, o2_t2=1)
+    # Marco 3: caixa da nave saqueada (projeto + um pouco de ferro), tanque equipado, explorado, LOG 04
+    crate = state.crates[state.world.wrecks[0].crate]
+    state.open_crate(crate)
+    iron = next(k for k, s in enumerate(crate.storage.slots) if s and s.item == "iron")
+    state.inventory.slots[15] = None
+    state.crate_take(crate, iron, 3)
+    state.equipment.equip("o2_tank")
+    state.equipped_ever.add("o2_tank")
+    state.wrecks_visited.add(0)
+    state.read_log(3)
+    state.surface.explored.reveal_rect(96, 96, 20, 12)
+    state.surface.explored.reveal_circle(150.5, 40.5, 6)
     state.player.x, state.player.y = 102.5 * C.TILE, 112.25 * C.TILE
     state.pop_events()
     return state
@@ -87,6 +99,11 @@ def snapshot(state: GameState) -> dict:
         "drills_placed": state.drills_placed, "drill_collected": dict(state.drill_collected),
         "lamps_placed": state.lamps_placed,
         "logs_read": set(state.logs_read), "transition_sources": set(state.transition_sources),
+        "crates": {k: {t: (c.storage.to_data(), c.opened) for t, c in layer.crates.items()}
+                   for k, layer in state.layers.items()},
+        "explored": {k: bytes(layer.explored.bits) for k, layer in state.layers.items()},
+        "blueprints": set(state.blueprints), "equipment": dict(state.equipment.slots),
+        "equipped_ever": set(state.equipped_ever), "wrecks_visited": set(state.wrecks_visited),
     }
 
 
@@ -302,6 +319,29 @@ def test_marco1_save_without_lamps_loads_with_zero(tmp_path):
     del data["progress"]["lamps_placed"]
     loaded = save.state_from_dict(save.migrate(data))
     assert loaded.lamps_placed == 0
+
+
+def test_marco2_save_without_marco3_fields_loads_with_defaults(tmp_path):
+    """Save v6 do Marco 1/2: sem caixas, explorado, projetos e equipamento. Carrega com o padrão."""
+    data = save.state_to_dict(rich_state())
+    for key in ("blueprints", "equipment", "equipped_ever", "wrecks_visited"):
+        del data["progress"][key]
+    for layer in data["layers"].values():
+        layer.pop("crates", None)
+        layer.pop("explored", None)
+    loaded = save.state_from_dict(save.migrate(data))
+    assert loaded.blueprints == set() and loaded.equipment.slots == {"o2_tank": None, "scanner": None}
+    assert loaded.surface.explored.count == 0 and not loaded.wrecks_visited
+    crate = loaded.crates[loaded.world.wrecks[0].crate]
+    assert crate.storage.count("bp_o2_tank") == 1 and not crate.opened      # caixa cheia, como num jogo novo
+    assert loaded.o2 <= loaded.o2_max
+
+
+def test_crate_save_is_small_and_explored_compressed():
+    data = save.state_to_dict(rich_state())
+    surface = data["layers"]["surface"]
+    assert len(surface["crates"]) == 1                       # só a caixa que mudou vai pro save
+    assert isinstance(surface["explored"], str) and len(surface["explored"]) < 1000
 
 
 def test_cave_with_lamps_and_drill_roundtrip(tmp_path):

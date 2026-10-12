@@ -1795,6 +1795,157 @@ def check_cave(bot) -> None:
     bot.frames(0.2)
 
 
+def check_wrecks(bot) -> None:
+    """v0.3 Marco 3 · destroços, caixa, projeto, fabricador trancado, equipamento, tanque, minimapa e mapas."""
+    from game import layers
+    from game.systems import Machine
+    s, app = bot.state, bot.app
+    assert s.layer == "surface"
+    zoom_before = app.zoom
+    app.set_zoom(1.0, notify=False)
+    w = s.world
+    print(f"  {len(w.wrecks)} destroços: " + ", ".join(
+        f"{x.kind}@{w.dist_from_center(*x.crate):.0f}" for x in w.wrecks))
+    cargo = w.wrecks[0]
+    crate = s.crates[cargo.crate]
+    # 1) a nave de carga mais perto, com a caixa na ponta da rampa de carga
+    cx, cy = cargo.crate
+    bot.teleport((cx + 1, cy + 1))
+    s.o2 = C.O2_MAX
+    bot.mouse_to(bot.tile_on_screen((cargo.tx + 2, cargo.ty + 1)))
+    bot.frames(0.3)
+    assert app.hint().startswith("Nave de carga · destroço"), app.hint()
+    bot.shot("destrocos_deserto.png")
+    assert 0 in s.wrecks_visited
+    # 2) E na caixa: 1ª vez = registro de bordo (LOG 04), projeto do tanque já liberado
+    bot.mouse_to(bot.tile_on_screen(cargo.crate))
+    bot.frames(0.1)
+    assert app.hint() == "[E] Abrir caixa de saque", app.hint()
+    assert s.recipe_status("o2_tank") == "blueprint"
+    bot.key(pygame.K_e)
+    assert app.mode == "terminal" and app.terminal_index == 3 and "o2_tank" in s.blueprints
+    bot.frames(0.3)
+    bot.shot("registro_bordo.png")
+    bot.key(pygame.K_e)                         # continua: abre a caixa
+    assert app.mode == "crate" and app.open_crate is crate
+    bot.mouse_to((480, 420))
+    bot.frames(0.3)
+    bot.shot("projeto_encontrado.png")
+    bot.frames(C.BLUEPRINT_NOTICE_TIME)
+    bot.shot("destroco_caixa.png")
+    take = next(r for r, a in app.ui.panel_buttons if a == "take_crate")
+    before = s.inventory.count("iron")
+    bot.click((take.centerx * 2, take.centery * 2))
+    assert crate.empty and s.inventory.count("iron") > before
+    bot.frames(0.2)
+    bot.shot("destroco_caixa_vazia.png")
+    bot.key(pygame.K_ESCAPE)
+    assert app.mode == "play"
+    bot.mouse_to(bot.tile_on_screen(cargo.crate))
+    bot.frames(0.1)
+    assert app.hint() == "[E] Caixa vazia", app.hint()
+    # 3) módulo da colônia: terminal com o LOG 05
+    module = next(x for x in w.wrecks if x.blueprint == "scanner")
+    tx, ty = module.terminal
+    bot.teleport((tx, ty + 1))
+    s.o2 = C.O2_MAX
+    bot.mouse_to(bot.tile_on_screen((tx, ty)))
+    bot.frames(0.2)
+    assert app.hint() == "[E] Ler terminal", app.hint()
+    bot.shot("destroco_modulo.png")
+    bot.key(pygame.K_e)
+    assert app.mode == "terminal" and app.terminal_index == 4
+    bot.key(pygame.K_e)
+    # 4) fabricador: o tanque liberado, o scanner ainda "???"
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    give(s, iron=30, silicon=20, ice=10)
+    bot.key(pygame.K_e)
+    assert app.mode == "fabricator"
+    app.fab.set_tab([t for t, _ in C.FAB_TABS].index("suit"))
+    bot.mouse_to((900, 500))
+    bot.frames(0.2)
+    assert s.recipe_status("scanner") == "blueprint" and s.recipe_status("o2_tank") == "ok"
+    bot.shot("fabricador_projeto_trancado.png")
+    bot.key(pygame.K_RETURN)                    # crafta o tanque (é a receita selecionada)
+    assert s.inventory.count("o2_tank") == 1 and app.mode == "play"
+    app.fab.set_tab(0)                          # o resto do smoke espera a aba de terraformação
+    # 5) Tab: clique no tanque equipa (som equip)
+    bot.key(pygame.K_TAB)
+    i = next(k for k, st in enumerate(s.inventory.slots) if st and st.item == "o2_tank")
+    bot.click(slot_pos(bot, s.inventory, i))
+    assert s.equipment.has("o2_tank") and s.o2_max == C.O2_TANK_MAX
+    eq = next(r for r, k in app.ui.equip_rects if k == "o2_tank")
+    bot.mouse_to((eq.centerx * 2, eq.centery * 2))
+    bot.frames(0.2)
+    bot.shot("equipamento.png")
+    bot.key(pygame.K_ESCAPE)
+    # 6) HUD com o tanque: fora da base, a barra vale 220 s
+    s.o2 = 150
+    bot.teleport((C.BASE_TILE[0] + 12, C.BASE_TILE[1] + 4))
+    bot.frames(0.3)
+    bot.shot("o2_tanque_hud.png")
+    # 7) scanner: projeto (direto no estado), fabrica, equipa; anda um pouco; minimapa
+    s.learn("scanner")
+    give(s, iron=10, silicon=10)
+    s.inventory.add("scanner", 1)
+    s.equip_from(next(k for k, st in enumerate(s.inventory.slots) if st and st.item == "scanner"))
+    assert s.has_scanner
+    for tile in [(cx, cy + 4), (cargo.tx - 10, cargo.ty), (module.tx, module.ty + 4)]:
+        bot.teleport(tile)
+        s.o2 = s.o2_max
+        bot.frames(0.25)
+    bot.teleport((cx + 1, cy + 1))
+    bot.frames(0.3)
+    # perf: superfície com minimapa, zoom 0,75, andando
+    app.set_zoom(0.75, notify=False)
+    start = len(bot.frame_times)
+    for key in (pygame.K_d, pygame.K_s, pygame.K_a, pygame.K_w):
+        s.o2 = s.o2_max
+        bot.key(key, hold=0.75)
+    ft = bot.frame_times[start:]
+    print(f"  perf superfície com minimapa, zoom 0,75×: média {sum(ft) / len(ft) * 1000:.1f} ms · "
+          f"pior {max(ft) * 1000:.1f} ms ({len(ft)} frames)")
+    app.set_zoom(1.0, notify=False)
+    bot.frames(0.2)
+    bot.shot("minimapa.png")
+    bot.key(pygame.K_m)
+    assert app.mode == "map"
+    bot.frames(0.3)
+    bot.shot("mapa_grande.png")
+    bot.key(pygame.K_m)
+    assert app.mode == "play"
+    # 8) caverna: o mapa só tem o que a luz revelou
+    s.enter_layer("cave", layers.ramp_arrival(s.layers["cave"].world))     # o check_cave já criou a caverna
+    cave = s.world
+    spot = cave_spot(cave)
+    path = [(spot[0] - 6, spot[1]), spot, (spot[0] + 6, spot[1])]
+    for t in open_floor_near(cave, spot, 3, min_gap=5, radius=10):
+        s.machines.append(Machine("lamp", *t))
+    for tile in path:
+        bot.teleport(tile)
+        s.o2 = s.o2_max
+        bot.frames(0.25)
+    bot.frames(0.2)
+    bot.key(pygame.K_m)
+    bot.frames(0.3)
+    bot.shot("mapa_caverna.png")
+    bot.key(pygame.K_ESCAPE)
+    bot.shot("caverna_escura_marco3.png")
+    for m in [m for m in s.machines if m.is_lamp][-3:]:
+        s.machines.remove(m)
+    # volta pra superfície e deixa o resto do smoke como estava (sem equipamento)
+    s.enter_layer("surface")
+    s.equipment.unequip("o2_tank")
+    s.equipment.unequip("scanner")
+    s.inventory.remove("scanner", s.inventory.count("scanner"))
+    s.inventory.remove("o2_tank", s.inventory.count("o2_tank"))
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    app.set_zoom(zoom_before, notify=False)
+    bot.frames(0.2)
+
+
 def water_ponds(world, stage: int) -> list[list[tuple[int, int]]]:
     """Poças (componentes de água ligados pelos lados) da camada, no estágio dado."""
     wet = {(x, y) for y in range(world.height) for x in range(world.width) if world.is_water(x, y, stage)}
@@ -1884,6 +2035,7 @@ def main() -> None:
     bot.shot("stage1.png")
     check_surface(bot)
     check_cave(bot)
+    check_wrecks(bot)
     check_veins(bot)
 
     print("2) mineração")

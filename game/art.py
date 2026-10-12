@@ -752,3 +752,207 @@ def drone_station_icon() -> pygame.Surface:
     _r(s, C.C_ACCENT, 3, 9, 4, 3); _r(s, C.C_ACCENT, 9, 9, 4, 3)
     _r(s, _OUT, 5, 0, 6, 5); _r(s, "#d9dde2", 6, 1, 4, 3)
     return s
+
+
+# ---------------------------------------------------------------- destroços (v0.3 Marco 3)
+# Fallback dos sprites wreck_cargo / wreck_module / wreck_probe / loot_crate(_empty) e dos ícones novos,
+# enquanto os PNGs da Designer estão em _pending/. Mesmos tamanhos e âncoras do contrato (game/wrecks.py).
+_HULL, _HULL_SH, _HULL_D, _HULL_HI = "#e6dcc4", "#c2b596", "#8f8468", "#f6f0e2"
+_SAND_PILE = (150, 92, 58, 210)
+
+
+def _sand_pile(s, cx, cy, rx, ry):
+    """Areia acumulada encostada no destroço (translúcida: funciona nos 3 chãos)."""
+    _ellipse(s, (0, 0, 0, 70), cx, cy + 2, rx + 2, ry + 1)
+    _ellipse(s, _SAND_PILE, cx, cy, rx, ry)
+
+
+def wreck(kind: str) -> pygame.Surface:
+    """Destroço `kind` ("cargo", "module", "probe") no tamanho do sprite do contrato."""
+    return {"cargo": _wreck_cargo, "module": _wreck_module, "probe": _wreck_probe}[kind]()
+
+
+def _wreck_cargo() -> pygame.Surface:
+    """Nave de carga caída, 128×112 (4×3 tiles; os 16 px de cima são deriva e antena)."""
+    s = pygame.Surface((128, 112), pygame.SRCALPHA)
+    _sand_pile(s, 64, 102, 62, 9)
+    # casco: um "pão" deitado, nariz à direita meio enterrado
+    pygame.draw.polygon(s, Color(_OUT), [(6, 54), (18, 38), (98, 36), (120, 52), (124, 76), (112, 98), (12, 100), (4, 82)])
+    pygame.draw.polygon(s, Color(_HULL_SH), [(8, 56), (19, 40), (97, 38), (118, 53), (121, 76), (110, 96), (13, 98), (6, 82)])
+    pygame.draw.polygon(s, Color(_HULL), [(10, 56), (20, 42), (96, 40), (115, 54), (117, 70), (12, 72)])
+    _r(s, _HULL_HI, 22, 43, 70, 2)
+    _r(s, C.C_ACCENT, 8, 74, 112, 4)                         # faixa laranja
+    _r(s, "#a8471f", 8, 78, 112, 1)
+    for x in range(24, 96, 14):                              # janelinhas
+        _r(s, _OUT, x, 50, 8, 6)
+        _r(s, "#3a5068", x + 1, 51, 6, 4)
+        _r(s, "#8fc4f0", x + 1, 51, 2, 1)
+    _r(s, _OUT, 34, 80, 26, 20)                              # porta de carga aberta (a caixa sai dela)
+    _r(s, "#2a2620", 35, 81, 24, 19)
+    for y in range(83, 99, 4):
+        _r(s, "#4a443a", 36, y, 22, 1)
+    _r(s, _OUT, 28, 100, 38, 3)                              # rampa de carga
+    _r(s, "#9a9086", 29, 100, 36, 2)
+    pygame.draw.polygon(s, Color(_OUT), [(14, 40), (22, 14), (34, 14), (40, 40)])      # deriva
+    pygame.draw.polygon(s, Color(_HULL_SH), [(17, 39), (24, 17), (32, 17), (37, 39)])
+    _r(s, C.C_ACCENT, 24, 20, 8, 3)
+    _r(s, _OUT, 100, 4, 3, 34)                               # antena torta
+    _r(s, "#9aa2ab", 101, 5, 1, 32)
+    _r(s, "#ff5a4a", 99, 2, 5, 3)
+    _r(s, "#5d646d", 84, 84, 18, 8)                          # placa do casco solta
+    _r(s, _OUT, 84, 84, 18, 1)
+    _r(s, _OUT, 70, 60, 10, 6)                               # "07"
+    _r(s, _HULL, 71, 61, 3, 4)
+    _r(s, _HULL, 76, 61, 3, 1)
+    _r(s, _HULL, 77, 62, 1, 3)
+    for x, y in ((50, 66), (88, 62), (104, 80)):              # amassados/queimados
+        _ellipse(s, (60, 44, 36, 120), x, y, 5, 3)
+    return s
+
+
+def _wreck_module() -> pygame.Surface:
+    """Módulo da colônia, 96×88 (3×2 tiles; teto e antena sobem 24 px). Terminal em (62, 59)–(80, 75)."""
+    s = pygame.Surface((96, 88), pygame.SRCALPHA)
+    _sand_pile(s, 48, 82, 46, 7)
+    _r(s, _OUT, 4, 22, 88, 62)                               # caixa do módulo
+    _r(s, _HULL_SH, 5, 23, 86, 60)
+    _r(s, _HULL, 5, 23, 74, 52)
+    _r(s, _HULL_HI, 5, 23, 86, 2)
+    _r(s, _HULL_D, 79, 23, 12, 60)                           # lateral na sombra
+    _r(s, C.C_ACCENT, 5, 44, 86, 3)                          # faixa
+    _r(s, _OUT, 10, 50, 18, 33)                              # porta
+    _r(s, "#5d646d", 11, 51, 16, 32)
+    _r(s, "#3b3f46", 18, 51, 1, 32)
+    _r(s, C.C_TI, 24, 64, 2, 2)
+    for x in (34, 48):                                       # janelas (uma quebrada)
+        _r(s, _OUT, x, 28, 10, 10)
+        _r(s, "#3a5068", x + 1, 29, 8, 8)
+    _r(s, "#8fc4f0", 35, 29, 3, 1)
+    pygame.draw.line(s, Color(_OUT), (49, 30), (56, 36))
+    _r(s, _OUT, 62, 59, 18, 16)                              # terminal (alvo do E)
+    _r(s, "#0d1a15", 63, 60, 16, 12)
+    for i, w in enumerate((12, 8, 10)):
+        _r(s, C.C_TERMINAL, 65, 62 + i * 3, w, 1)
+    _r(s, "#5a605c", 63, 72, 16, 3)
+    _r(s, _OUT, 18, 6, 3, 17)                                # antena com prato
+    _r(s, "#9aa2ab", 19, 7, 1, 15)
+    _ellipse(s, Color(_OUT), 20, 8, 9, 5)
+    _ellipse(s, Color("#d9dde2"), 20, 8, 8, 4)
+    _r(s, "#ff5a4a", 19, 5, 3, 2)
+    _r(s, _OUT, 56, 16, 22, 7)                               # tanque no teto
+    _r(s, "#9aa2ab", 57, 17, 20, 5)
+    return s
+
+
+def _wreck_probe() -> pygame.Surface:
+    """Sonda pequena, 64×64 (2×2 tiles). LED vermelho em (23, 37)."""
+    s = pygame.Surface((64, 64), pygame.SRCALPHA)
+    _sand_pile(s, 32, 56, 28, 6)
+    _r(s, _OUT, 14, 26, 34, 30)                              # corpo
+    _r(s, "#e0a83a", 15, 27, 32, 28)
+    _r(s, "#f2c46d", 15, 27, 32, 3)
+    _r(s, "#a8701f", 40, 27, 7, 28)
+    _r(s, _OUT, 18, 33, 16, 10)                              # painelzinho
+    _r(s, "#1b1411", 19, 34, 14, 8)
+    _r(s, "#ff5a4a", 23, 37, 2, 1)                           # LED
+    _r(s, _OUT, 0, 34, 15, 12)                               # painel solar quebrado
+    _r(s, "#2f4a8a", 1, 35, 13, 10)
+    _r(s, "#5a7ac8", 1, 35, 13, 1)
+    pygame.draw.line(s, Color("#8fa6d6"), (3, 44), (10, 36))
+    _r(s, _OUT, 30, 12, 3, 15)                               # mastro + prato
+    _ellipse(s, Color(_OUT), 31, 10, 12, 6)
+    _ellipse(s, Color("#d9dde2"), 31, 10, 11, 5)
+    _ellipse(s, Color("#9aa2ab"), 31, 11, 5, 2)
+    for x in (16, 42):                                       # pés
+        _r(s, _OUT, x, 54, 5, 5)
+        _r(s, "#5d646d", x + 1, 54, 3, 4)
+    return s
+
+
+def loot_crate(empty: bool = False) -> pygame.Surface:
+    """Caixa de saque 32×32, blit em (tx·32, ty·32): cheia = tampa fechada com LED âmbar; vazia = aberta."""
+    s = pygame.Surface(C.LOOT_CRATE_SIZE, pygame.SRCALPHA)
+    _ellipse(s, (0, 0, 0, 100), 16, 29, 14, 3)
+    _r(s, _OUT, 3, 12, 26, 18)                               # corpo
+    _bands(s, 4, 13, 16, [("#9aa2ab", 3), ("#7b838d", 17), ("#5d646d", 4)])
+    _r(s, "#4a5058", 4, 26, 24, 3)
+    for x in (8, 22):                                        # reforços
+        _r(s, "#5d646d", x, 13, 2, 16)
+    if empty:
+        _r(s, _OUT, 3, 4, 26, 9)                             # tampa aberta pra trás
+        _r(s, "#6b717a", 4, 5, 24, 4)
+        _r(s, "#1b1411", 4, 12, 24, 3)                       # boca escura, vazia
+        _r(s, "#3b3f46", 14, 18, 4, 3)                       # LED apagado
+    else:
+        _r(s, _OUT, 2, 8, 28, 7)                             # tampa fechada
+        _bands(s, 3, 9, 5, [("#c9ced4", 3), ("#aab2bb", 19), ("#8c949e", 4)])
+        _r(s, (255, 255, 255, 120), 4, 9, 24, 1)
+        _r(s, _OUT, 13, 17, 6, 5)
+        _r(s, "#f2a33a", 14, 18, 4, 3)                       # LED âmbar
+    return s
+
+
+def blueprint_icon() -> pygame.Surface:
+    """Ícone 16×16 de projeto: chip azul de blueprint com linhas de desenho técnico."""
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    _r(s, _OUT, 1, 2, 14, 12)
+    _r(s, "#2f6ab8", 2, 3, 12, 10)
+    _r(s, "#9fd0ff", 2, 3, 12, 1)
+    _r(s, "#cfe8ff", 4, 6, 6, 1)
+    _r(s, "#cfe8ff", 4, 6, 1, 5)
+    _r(s, "#cfe8ff", 4, 10, 8, 1)
+    _r(s, "#cfe8ff", 9, 6, 1, 4)
+    _r(s, C.C_TI, 11, 5, 2, 2)
+    return s
+
+
+def o2_tank_icon() -> pygame.Surface:
+    """Ícone 16×16 do tanque de O₂: cilindro ciano com válvula."""
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    _r(s, _OUT, 4, 3, 8, 13)
+    _bands(s, 5, 4, 11, [("#b8f0fa", 2), (C.C_O2, 3), ("#2f8fa8", 1)])
+    _r(s, "#ffffff", 5, 5, 1, 3)
+    _r(s, _OUT, 6, 0, 4, 4)
+    _r(s, "#9aa2ab", 7, 1, 2, 2)
+    _r(s, C.C_ACCENT, 5, 9, 6, 1)
+    return s
+
+
+def scanner_icon() -> pygame.Surface:
+    """Ícone 16×16 do scanner de navegação: tela redonda com varredura verde."""
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    _r(s, _OUT, 1, 2, 14, 13)
+    _r(s, "#5d646d", 2, 3, 12, 11)
+    _ellipse(s, Color("#0d1a15"), 8, 8, 5, 4)
+    pygame.draw.line(s, Color(C.C_TERMINAL), (8, 8), (12, 5))
+    _r(s, C.C_TERMINAL, 6, 9, 1, 1)
+    _r(s, C.C_TI, 9, 10, 1, 1)
+    _r(s, _OUT, 11, 0, 2, 3)
+    return s
+
+
+def lamp_strong() -> pygame.Surface:
+    """Luminária forte (16×32, fallback do lamp_t2.png): poste mais alto, cúpula branca-fria maior."""
+    s = pygame.Surface(C.LAMP_SPRITE_SIZE, pygame.SRCALPHA)
+    _ellipse(s, (0, 0, 0, 90), 8, 30, 7, 2)
+    _r(s, _OUT, 2, 26, 12, 5)
+    _r(s, "#5d646d", 3, 27, 10, 3)
+    _r(s, C.C_ACCENT, 3, 28, 10, 1)
+    _r(s, _OUT, 6, 9, 4, 18)
+    _r(s, "#9aa2ab", 7, 9, 2, 18)
+    _r(s, _OUT, 1, 0, 14, 11)
+    _r(s, "#c9a24a", 2, 1, 12, 9)
+    _r(s, "#fff3c4", 3, 2, 10, 7)
+    _r(s, "#ffffff", 5, 3, 5, 3)
+    return s
+
+
+def lamp_strong_icon() -> pygame.Surface:
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    _r(s, _OUT, 3, 0, 10, 8)
+    _r(s, "#fff3c4", 4, 1, 8, 6)
+    _r(s, "#ffffff", 5, 2, 4, 2)
+    _r(s, _OUT, 7, 8, 2, 5)
+    _r(s, _OUT, 3, 13, 10, 3)
+    _r(s, C.C_ACCENT, 4, 14, 8, 1)
+    return s

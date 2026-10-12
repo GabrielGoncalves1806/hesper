@@ -169,3 +169,22 @@ def test_ore_glints_so_em_minerio():
     assert glints
     for g in glints:
         assert world.get(int(g.x // 32), int(g.y // 32)) in C.ORE_TILES
+
+
+def test_ore_glints_so_na_borda_do_tunel_e_sem_branco():
+    """Bug do Marco 2 (pontinhos brancos = "céu estrelado" no breu): o brilho só sai em minério que tem chão
+    do lado (a parede que o jogador vê de verdade) e numa cor saturada (silício/gelo não viram estrela)."""
+    from game import config as C
+    from game.world import World
+    world = World.generate(7)
+    glints = ore_glints(world, 0, 127, 0, 127)
+    assert glints
+    for g in glints:
+        tx, ty = int(g.x // 32), int(g.y // 32)
+        assert any(not world.is_wall(tx + dx, ty + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+        r, gg, b = g.color
+        assert min(r, gg, b) < 150                  # nada quase branco
+    # mesma quantidade de minério, mas o miolo da rocha não brilha
+    inner = sum(1 for y in range(1, 127) for x in range(1, 127) if world.get(x, y) in C.ORE_TILES
+                and all(world.is_wall(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))))
+    assert inner > 0

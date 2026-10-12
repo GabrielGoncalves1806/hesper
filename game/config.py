@@ -85,10 +85,12 @@ FLOOR, ROCK, IRON, SILICON, ICE, BEDROCK, TERMINAL = range(7)
 SAND = 7                        # chão do deserto (superfície)
 SMALL_IRON, SMALL_SILICON, SMALL_ICE = 8, 9, 10   # rocha pequena no chão: 1 tile, quebra com a broca, não volta
 CRATER = 11                     # os 3×3 da cratera: obstáculo plano (no Marco 2 vira a rampa de descida)
+WRECK = 12                      # área de um destroço (Marco 3): obstáculo plano, o sprite é desenhado como objeto
+LOOT_CRATE = 13                 # caixa de saque de um destroço (1 tile, obstáculo plano; abre com E)
 ORE_TILES = {IRON: "iron", SILICON: "silicon", ICE: "ice"}            # minério NA PAREDE (overlay no topo)
 SMALL_ROCKS = {SMALL_IRON: "iron", SMALL_SILICON: "silicon", SMALL_ICE: "ice"}
 WALL_TILES = {ROCK, IRON, SILICON, ICE, BEDROCK, TERMINAL}            # paredes ALTAS (topo elevado + face)
-FLAT_SOLIDS = set(SMALL_ROCKS) | {CRATER}                             # sólidos baixos: bloqueiam, mas não têm altura
+FLAT_SOLIDS = set(SMALL_ROCKS) | {CRATER, WRECK, LOOT_CRATE}                           # sólidos baixos: bloqueiam, mas não têm altura
 SOLID_TILES = WALL_TILES | FLAT_SOLIDS
 FLOOR_TILES = {FLOOR, SAND}
 TILE_RESOURCE = {**ORE_TILES, **SMALL_ROCKS}                          # o que cada tile dá ao quebrar
@@ -263,6 +265,22 @@ LOGS = [
     "Dia 212. O derretedor 4 parou de novo. A Dra. Ilves jura que o gelo daqui não é só água, "
     "que tem alguma coisa dentro dele. Ninguém quis ouvir. Amanhã a gente desce pro nível 2 de qualquer jeito.",
 ]
+# LOGs 04–07 (v0.3 Marco 3): ficam nos destroços da superfície. Texto do gerente, AINDA EM RASCUNHO
+# (docs/lore/logs_v03_rascunho.md, aguardando o dono): pra trocar, é só mexer nas strings aqui.
+LOGS += [
+    "Cargueira VÉSPER-7, manifesto de retorno. Carga: 12 toneladas de gelo de núcleo, lacrado em contêiner "
+    "frio, prioridade da diretoria. Motivo do retorno: tripulação pediu pra não levar. Pedido negado.",
+    "Dia 140. A Dra. Ilves colocou uma amostra do gelo do nível 2 no microscópio e ficou em silêncio a tarde "
+    "inteira. À noite ela trancou o laboratório e levou a chave. Disse só: 'cresce quando ninguém olha'.",
+    "Sonda de mapeamento S-3. Leitura térmica anômala abaixo da cratera principal: o calor sobe sozinho, sem "
+    "fonte conhecida. Recomendação automática: não perfurar. Status da recomendação: ignorada.",
+    "Dia 230. Última mensagem da Colônia Hesper. Desligamos os derretedores. Todos. Se alguém achar isto: "
+    "o planeta não está morto. Ele está esperando. Não acorde o gelo.",
+]
+# Título da tela de leitura de cada LOG (mesma ordem do LOGS)
+LOG_TITLES = ["TERMINAL · COLONIA HESPER"] * 3 + [
+    "REGISTRO DE BORDO · VÉSPER-7", "TERMINAL · MODULO DA COLONIA",
+    "SONDA S-3 · LEITURA AUTOMATICA", "TERMINAL · MODULO DA COLONIA"]
 TERMINAL_REACH = 48   # px entre os pés do player e a base do terminal
 
 # Rampa entre as camadas (v0.3 Marco 2 · game/layers.py e GameState.start_ramp)
@@ -462,3 +480,52 @@ VOLUME.update({"ramp_down": 0.8, "ramp_up": 0.8, "lamp_place": 0.8})
 CAVE_AMBIENT_OUT_MS = 1500      # descendo/subindo: o ambiente que sai (e o vento) some em 1,5 s...
 CAVE_AMBIENT_IN_MS = 2500       # ...e o novo entra em 2,5 s...
 CAVE_AMBIENT_DELAY = 0.5        # ...meio segundo depois (dica do Som)
+
+# ---------------------------------------------------------------------------
+# v0.3 Marco 3 · destroços, projetos, equipamento e scanner (bíblia §9)
+# ---------------------------------------------------------------------------
+# Destroços (game/wrecks.py): 6 a 8 no deserto, do mais perto (~30 tiles da base) ao mais longe (perto da borda).
+WRECK_COUNT = (6, 8)
+WRECK_DIST = (30, 84)           # distância (tiles) do centro do 1º e do último destroço até a base
+WRECK_SPACING = 14              # distância mínima entre destroços (tiles, centro a centro)
+WRECK_MARGIN = 2                # folga de areia livre em volta do destroço e da caixa (sem rocha pequena)
+CRATE_SLOTS = 8                 # caixa de saque: 1 linha de 8
+CRATE_REACH = 48                # px dos pés até a base da caixa (igual ao baú)
+WRECK_VISIT_DIST = 6            # tiles: chegou "perto" de um destroço (objetivo "Ache um destroço")
+LOOT_CRATE_SIZE = (32, 32)
+
+# Projetos (chips de blueprint): item "bp_<id>" que, ao sair da caixa, libera a receita e some.
+BLUEPRINTS = {"o2_tank": "Tanque de O2", "scanner": "Scanner de navegação", "lamp_t2": "Luminária forte"}
+BLUEPRINT_ITEMS = {f"bp_{k}": k for k in BLUEPRINTS}
+RECIPE_BLUEPRINT = {"o2_tank": "o2_tank", "scanner": "scanner", "lamp_t2": "lamp_t2"}   # receita -> projeto
+
+# Luminária forte (projeto): raio 7 tiles. A luminária comum tem 5.
+LAMP_RADIUS = {"lamp": 5, "lamp_t2": 7}
+MACHINES["lamp_t2"] = MachineType("lamp_t2", "Luminária forte", "luz maior", {"iron": 2, "silicon": 2, "ice": 1},
+                                  None, 0, 0, "lamp_t2")
+MACHINE_ORDER.append("lamp_t2")
+# Equipamento (game/equipment.py): itens que vão num slot do traje (tela do Tab), não na hotbar nem no chão.
+MACHINES["o2_tank"] = MachineType("o2_tank", "Tanque de O2", "O2 dura 220 s", {"iron": 10, "silicon": 6, "ice": 4},
+                                  None, 0, 0, "icon_o2_tank", placeable=False)
+MACHINES["scanner"] = MachineType("scanner", "Scanner de navegação", "mapa [M]", {"iron": 4, "silicon": 4},
+                                  None, 0, 0, "icon_scanner", placeable=False)
+MACHINE_ORDER += ["o2_tank", "scanner"]
+FAB_TABS = FAB_TABS + (("suit", "Traje"),)
+MACHINE_CATEGORY.update({"lamp_t2": "light", "o2_tank": "suit", "scanner": "suit"})
+EQUIP_SLOTS = ("o2_tank", "scanner")          # um slot por tipo de equipamento (ordem na tela)
+EQUIP_LABEL = {"o2_tank": "TANQUE", "scanner": "SCANNER"}
+O2_TANK_MAX = 220.0             # O₂ máximo com o tanque equipado (sem ele: O2_MAX = 100)
+
+# Explorado (game/explore.py): o jogo registra o que o jogador viu desde o começo, em cada camada.
+EXPLORE_INTERVAL = 0.2          # s entre atualizações
+EXPLORE_SURFACE = (20, 12)      # superfície: meia-largura/meia-altura (tiles) do que se vê (a tela no zoom 0,75)
+EXPLORE_HELMET = 4              # caverna: o que a luz revela (raios em tiles, iguais aos do game/lighting.py)
+EXPLORE_RAMP = 3.5
+EXPLORE_TERMINAL = 2
+EXPLORE_MACHINE = 1.8
+MINIMAP_TILES = 64              # o minimapa mostra 64×64 tiles em volta do player (2 px nativos por tile)
+MAP_OPEN_COOLDOWN = 0.3         # M: no máximo 1 som de abrir a cada 0,3 s
+BLUEPRINT_NOTICE_TIME = 3.5     # s do aviso "PROJETO: ..."
+BLUEPRINT_SOUND_DELAY = 0.4     # s depois do crate_open (dica do Som)
+BLUEPRINT_DUCK = (0.6, 2.0)     # ambiente a 60% por 2 s quando acha um projeto
+VOLUME.update({"crate_open": 0.9, "blueprint_found": 1.0, "equip": 0.7, "map_open": 0.6})

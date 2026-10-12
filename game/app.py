@@ -14,6 +14,7 @@ e o mundo não muda com ela. F11 ou Alt+Enter alternam a tela cheia; +/- ou Ctrl
 Modos de tela: "play" (jogando), "fabricator" (menu de receitas),
 "terminal" (lendo um log), "inventory" (Tab), "chest" (baú aberto com E), "drill" (drill aberta com E;
 Shift+E coleta direto), "station" (estação com E),
+"crate" (caixa de saque de um destroço, só tirar), "map" (mapa grande do scanner, M),
 "pause" (menu do Esc) e "end" (tela de fim do MVP).
 Em "pause" e "end" o mundo fica congelado (O₂, máquinas e Ti param). No fabricador, no terminal,
 no inventário e no baú o mundo continua (o player só fica parado), como em Core Keeper e Planet Crafter.
@@ -37,6 +38,7 @@ from game import settings
 from game import viewport
 from game.assets import Sprites
 from game.audio import Audio
+from game.equipment import is_equipment
 from game.fabricator import FabMenu
 from game.inventory import Stack
 from game.objectives import ObjectiveTracker
@@ -54,8 +56,8 @@ MOVE_KEYS = {
     pygame.K_s: (0, 1), pygame.K_DOWN: (0, 1),
 }
 NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8]
-INVENTORY_MODES = ("inventory", "chest", "drill", "station")
-PANEL_MODES = ("chest", "drill", "station")          # dois painéis: clique transfere pro outro lado (Planet Crafter)
+INVENTORY_MODES = ("inventory", "chest", "drill", "station", "crate")
+PANEL_MODES = ("chest", "drill", "station", "crate")          # dois painéis: clique transfere pro outro lado (Planet Crafter)
 ZOOM_IN_KEYS = (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS)     # "=" é a tecla do "+" sem Shift
 ZOOM_OUT_KEYS = (pygame.K_MINUS, pygame.K_KP_MINUS)
 BANNER_TIME = 3.5          # banner de estágio: entra em 0,4 s, fica, sai em 0,8 s
@@ -121,6 +123,13 @@ class App:
         self.open_chest = None                            # baú aberto (Machine), no modo "chest"
         self.open_station = None                          # estação aberta (Machine), no modo "station"
         self.open_drill = None                            # drill aberta (Machine), no modo "drill"
+        self.open_crate = None                            # caixa de saque aberta (Crate), no modo "crate"
+        self.after_terminal = None                        # registro de bordo lido ao abrir a caixa: depois abre ela
+        self.blueprint_notice: str | None = None          # projeto do aviso "PROJETO: ..." (Marco 3)
+        self.blueprint_notice_time = 0.0
+        self.blueprint_duck = 0.0                         # s com o ambiente abaixado (projeto encontrado)
+        self.crate_open_t = -10.0                         # quando tocou o crate_open (o blueprint_found vem 0,4 s depois)
+        self.map_sound_t = -10.0                          # M: no máximo 1 som de abrir a cada 0,3 s
         self.name_edit: TextField | None = None           # editando o nome do baú (texto digitado)
         self.notice: str | None = None                    # aviso curto ("Inventário cheio")
         self.notice_time = 0.0
@@ -363,6 +372,9 @@ class App:
                 self.try_craft(self.fab.current, batch=self.shift_held())   # Shift: até 5
         elif self.mode == "terminal":
             if key in (pygame.K_e, pygame.K_ESCAPE, pygame.K_RETURN):
+                self.close_terminal()
+        elif self.mode == "map":
+            if key in (pygame.K_m, pygame.K_ESCAPE, pygame.K_TAB, pygame.K_e):
                 self.set_mode("play")
         elif self.mode in INVENTORY_MODES:
             if key in (pygame.K_TAB, pygame.K_ESCAPE, pygame.K_e):
@@ -381,6 +393,10 @@ class App:
                     state.read_terminal(target[1])
                     self.terminal_index = target[1]
                     self.mode = "terminal"
+                elif target and target[0] == "wreck_log":          # terminal do módulo da colônia
+                    self.show_log(target[1].log)
+                elif target and target[0] == "crate":
+                    self.open_loot(target[1])
                 elif target and target[0] == "drill" and self.shift_held():
                     state.collect(target[1])              # Shift+E: coleta tudo sem abrir o painel
                 elif target and target[0] == "drill":
@@ -411,6 +427,8 @@ class App:
             elif key == pygame.K_TAB:
                 self.placing = None
                 self.set_mode("inventory")
+            elif key == pygame.K_m:
+                self.open_map()
             elif key in NUMBER_KEYS:
                 self.select_hotbar(NUMBER_KEYS.index(key))
 
@@ -422,6 +440,55 @@ class App:
         placeable = stack and stack.item in C.MACHINES and C.MACHINES[stack.item].placeable
         self.placing = stack.item if placeable else None      # o drone é item, mas não vai pro chão
         self.audio.play("ui_click")
+
+    # ---- destroços e scanner (Marco 3) --------------------------------------------
+    def show_log(self, log: int, after=None) -> None:
+        """Abre a tela de leitura do LOG `log`. `after` = caixa pra abrir quando fechar (registro de bordo)."""
+        self.state.read_log(log)
+        self.terminal_index = log
+        self.after_terminal = after
+        self.placing = None
+        self.mode = "terminal"
+        self.mouse_held = False
+
+    def close_terminal(self) -> None:
+        crate, self.after_terminal = self.after_terminal, None
+        if crate is not None:
+            self.mode = "play"
+            self.show_crate(crate)
+        else:
+            self.set_mode("play")
+
+    def open_loot(self, crate) -> None:
+        """E na caixa: abre (o projeto sai sozinho). Nave e sonda: na 1ª vez, o registro de bordo aparece
+        antes (a nave e a sonda não têm terminal; o LOG vem com a caixa)."""
+        first = not crate.opened
+        self.state.open_crate(crate)
+        log = crate.wreck.log
+        if first and log is not None and crate.wreck.terminal is None and log not in self.state.logs_read:
+            self.show_log(log, after=crate)
+        else:
+            self.show_crate(crate)
+
+    def show_crate(self, crate) -> None:
+        self.open_crate = crate
+        self.placing = None
+        self.mode = "crate"
+        self.mouse_held = False
+
+    def open_map(self) -> None:
+        if not self.state.has_scanner:
+            if "scanner" in self.state.blueprints:
+                self.show_notice("Fabrique e equipe o scanner de navegação [Tab]")
+            else:
+                self.show_notice("Sem scanner de navegação: o projeto está num destroço")
+            return
+        self.placing = None
+        if self.t - self.map_sound_t >= C.MAP_OPEN_COOLDOWN:
+            self.audio.play("map_open")
+            self.map_sound_t = self.t
+        self.mode = "map"
+        self.mouse_held = False
 
     def show_notice(self, text: str) -> None:
         self.notice, self.notice_time = text, C.NOTICE_TIME
@@ -443,10 +510,17 @@ class App:
         if self.mode in PANEL_MODES:
             self.on_panel_click(button, (ux, uy))
             return
+        if self.mode == "inventory" and self.on_equip_click(button, (ux, uy)):
+            return
         hit = next(((inv, i) for rect, inv, i in self.ui.slot_rects if rect.collidepoint(ux, uy)), None)
         if hit is None:
             return
         inv, i = hit
+        stack = inv.slots[i]
+        if (self.mode == "inventory" and button == 1 and self.held is None and stack is not None
+                and is_equipment(stack.item) and inv is self.state.inventory):
+            self.state.equip_from(i)                      # clique num equipamento: vai pro slot do traje
+            return
         before = ((self.held.item, self.held.count) if self.held else None, inv.to_data())
         if button == 1:
             self.held = inv.put(i, self.held)            # mão vazia pega; mão cheia solta/junta/troca
@@ -462,6 +536,27 @@ class App:
         after = ((self.held.item, self.held.count) if self.held else None, inv.to_data())
         if after != before:
             self.audio.play("inv_move")
+
+    def on_equip_click(self, button: int, pos) -> bool:
+        """Clique num slot do traje (Tab): mão vazia tira o equipamento; com o item certo na mão, encaixa."""
+        kind = next((k for rect, k in self.ui.equip_rects if rect.collidepoint(pos)), None)
+        if kind is None:
+            return False
+        state = self.state
+        if self.held is not None:
+            if self.held.item != kind:
+                self.show_notice(f"Só {item_name(kind).lower()} nesse slot")
+                return True
+            self.held.count -= 1
+            item = self.held.item
+            if self.held.count == 0:
+                self.held = None
+            old = state.equip_item(item)
+            if old is not None and state.inventory.add(old, 1):
+                self.held = Stack(old, 1) if self.held is None else Stack(old, self.held.count + 1)
+        elif button == 1:
+            state.unequip(kind)
+        return True
 
     def on_panel_click(self, button: int, pos: tuple[float, float]) -> None:
         """Baú ou estação aberta (estilo Planet Crafter): esquerdo manda a pilha inteira pro outro
@@ -482,6 +577,16 @@ class App:
                 self.start_name_edit()
                 return
         amount = None if button == 1 else 1
+        if self.open_crate is not None:                  # caixa de saque: só tirar
+            hit = next(((inv, i) for rect, inv, i in ui.slot_rects if rect.collidepoint(pos)), None)
+            if hit is None or hit[0].slots[hit[1]] is None:
+                return
+            if hit[0] is self.open_crate.storage:
+                if state.crate_take(self.open_crate, hit[1], amount):
+                    self.audio.play("inv_move")
+            else:
+                self.show_notice("A caixa só deixa tirar")
+            return
         if self.open_station is not None:
             station = self.open_station
             bay = next((slot for rect, slot in ui.bay_rects if rect.collidepoint(pos)), None)
@@ -547,6 +652,13 @@ class App:
             moved = state.collect(self.open_drill)
         elif action == "take_buffer" and self.open_station is not None:
             moved = state.collect_station(self.open_station)
+        elif action == "take_crate" and self.open_crate is not None:
+            moved = state.crate_take(self.open_crate)
+        elif action == "crate_log" and self.open_crate is not None:
+            crate = self.open_crate
+            self.open_crate = None
+            self.show_log(crate.wreck.log, after=crate)
+            return
         if moved:
             self.audio.play("inv_move")
 
@@ -588,7 +700,15 @@ class App:
         ui = self.ui
         hovered = next((inv.slots[i] for rect, inv, i in ui.slot_rects if rect.collidepoint(mouse_ui)), None)
         if hovered is not None:
+            if is_equipment(hovered.item) and self.mode == "inventory":
+                return f"{item_name(hovered.item)} · {hovered.count} · clique equipa"
             return f"{item_name(hovered.item)} · {hovered.count}"
+        if self.mode == "inventory":
+            kind = next((k for rect, k in ui.equip_rects if rect.collidepoint(mouse_ui)), None)
+            if kind is not None:
+                if self.state.equipment.has(kind):
+                    return f"{item_name(kind)} · equipado (clique tira)"
+                return f"Slot do {item_name(kind).lower()} (vazio)"
         if self.open_station is not None:
             st = self.open_station.station
             bay = next((slot for rect, slot in ui.bay_rects if rect.collidepoint(mouse_ui)), None)
@@ -836,6 +956,12 @@ class App:
             self.finish_name_edit(confirm=True)
             self.stash_held()            # devolve a pilha da mão (se não couber, ela espera o próximo Tab)
             self.open_station = self.open_drill = None
+            if self.mode == "crate":     # fechou a caixa de saque: o som do baú fechando
+                self.audio.play("chest_close")
+                self.open_crate = None
+                self.mode = mode
+                self.mouse_held = False
+                return
             if self.mode == "chest":     # fechou o baú: som próprio no lugar do ui_close
                 self.audio.play("chest_close")
                 self.open_chest = self.renderer.open_chest = None
@@ -888,6 +1014,8 @@ class App:
             self.placing = None
         self.notice_time = max(0.0, self.notice_time - dt)
         self.toast_time = max(0.0, self.toast_time - dt)
+        self.blueprint_notice_time = max(0.0, self.blueprint_notice_time - dt)
+        self.blueprint_duck = max(0.0, self.blueprint_duck - dt)
         self.banner_time += dt
         self.renderer.machine_t += dt * self.state.power.factor    # animação das máquinas no ritmo da energia
         self.floaters.update(dt)
@@ -920,6 +1048,7 @@ class App:
             color = C.ORE_COLORS[resource][0] if resource else C.PALETTES[stage_key(self.state.stage)]["rock_hi"]
             self.renderer.spawn_chips(tile, color, 12)
             self.audio.play("mine_break")
+            self.renderer.minimap.repaint(self.state, tile)      # o mapa do scanner acompanha a mineração
         elif kind == "pickup":
             _, tile, resource, amount = event
             x, y = (tile[0] + 0.5) * C.TILE, tile[1] * C.TILE - 8
@@ -943,6 +1072,21 @@ class App:
             self.renderer.spawn_chips(tile, "#9a9086", 14)       # poeirinha
             self.renderer.spawn_chips(tile, "#c8c0b4", 8)
             self.audio.play("place_low")
+        elif kind == "crate_open":            # caixa de saque (vazia: mais baixo, dica do Som)
+            self.audio.play("crate_open", gain=0.67 if event[1] else 1.0)
+            self.crate_open_t = self.t
+        elif kind == "blueprint":             # projeto: aviso, jingle 0,4 s depois do crate_open, ambiente a 60%
+            self.blueprint_notice, self.blueprint_notice_time = event[1], C.BLUEPRINT_NOTICE_TIME
+            delay = max(0.0, C.BLUEPRINT_SOUND_DELAY - (self.t - self.crate_open_t))
+            self.audio.play("blueprint_found", delay=delay)
+            self.blueprint_duck = delay + C.BLUEPRINT_DUCK[1]
+        elif kind == "loot":
+            _, resource, amount, (ax, ay) = event
+            self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", ax, ay - 40, C.ORE_COLORS[resource][0])
+        elif kind == "equip":
+            self.audio.play("equip")
+        elif kind == "unequip":
+            self.audio.play("inv_move")
         elif kind == "inv_full":
             if self.notice != "Inventário cheio" or self.notice_time < C.NOTICE_TIME - 0.5:
                 self.audio.play("inv_full")          # não repete o som no mesmo meio segundo
@@ -998,7 +1142,8 @@ class App:
         nearest_solar = min((state.drill_distance(m) / C.TILE for m in state.machines if m.kind == "solar"), default=None)
         audio.set_solar_hum(sound.solar_hum_volume(nearest_solar))
         # ambiente: some no desmaio, abaixa lendo terminal
-        audio.duck_ambient(0.0 if state.fainted else 0.6 if self.mode == "terminal" else 1.0)
+        duck = C.BLUEPRINT_DUCK[0] if self.mode == "terminal" or self.blueprint_duck > 0 else 1.0
+        audio.duck_ambient(0.0 if state.fainted else duck)
         # vento e ambiente seguem a camada de DESTINO: descendo, já começam a sair junto com o fade
         audio.set_wind(self.ambient_layer() == "surface")    # vento do deserto: só na superfície
         want = self.ambient_want()
@@ -1125,9 +1270,16 @@ class App:
             name = C.RESOURCE_NAME[vein.resource]
             unlocked = state.recipe_status("drill") != "locked"
             return f"Veio de {name} · " + ("coloque uma drill" if unlocked else "drill libera na Névoa")
+        hover = state.interactable_at(*self.mouse_world())
+        wreck = state.world.wreck_at(*self.mouse_tile())
+        if wreck is not None and hover is None:                         # corpo do destroço (não a caixa/terminal)
+            return f"{wreck.name} · destroço" + (f" · {self.e_label(target)}" if target else "")
         if target:
             return self.e_label(target)
-        hover = state.interactable_at(*self.mouse_world())
+        if hover is not None and hover[0] == "crate":                   # caixa debaixo do mouse, longe
+            return "Caixa vazia" if hover[1].empty else "Caixa de saque · chegue mais perto"
+        if hover is not None and hover[0] == "wreck_log":
+            return "Terminal · chegue mais perto"
         if hover is not None and hover[0] == "pickup":          # solto debaixo do mouse, longe
             p = hover[1]
             return f"{p.amount} {C.RESOURCE_NAME[p.resource]} solto · chegue mais perto"
@@ -1156,7 +1308,9 @@ class App:
             return "terminal", tuple(self.state.world.terminals[target[1]])
         if target[0] == "ramp":
             return "ramp", target[1]
-        return target[1]                          # máquina ou recurso solto
+        if target[0] == "wreck_log":
+            return "wreck_log", target[1]
+        return target[1]                          # máquina, recurso solto ou caixa de saque
 
     def e_label(self, target: tuple[str, object]) -> str:
         """Texto do canto pro alvo do E ("[E] Abrir baú", "[E] Ler terminal"...)."""
@@ -1167,6 +1321,10 @@ class App:
             return "[E] Descer pela rampa" if self.state.active.has_base else "[E] Subir pela rampa"
         if kind == "pickup":
             return f"[E] Pegar {obj.amount} {C.RESOURCE_NAME[obj.resource]}"
+        if kind == "crate":
+            return "[E] Caixa vazia" if obj.empty else "[E] Abrir caixa de saque"
+        if kind == "wreck_log":
+            return "[E] Ler terminal"
         if kind == "chest":
             name = obj.name or C.CHEST_DEFAULT_NAME
             return "[E] Abrir baú" if name == C.CHEST_DEFAULT_NAME else f"[E] Abrir baú: {name}"
@@ -1219,6 +1377,8 @@ class App:
         ui.draw_hotbar(state.inventory, self.hotbar_selected, self.renderer.item_icon)
         if not critical:   # com O₂ crítico o aviso grande ocupa essa área (e o foco é voltar pra base)
             ui.draw_objectives(self.objectives.lines(state))
+        if state.has_scanner and self.mode != "map":           # scanner equipado: minimapa
+            ui.draw_minimap(state, self.renderer.minimap.texture(state), self.t)
         if self.saved_notice > 0:
             draw_saved_notice(ui, self.saved_notice)
         if self.toast_time > 0 and self.toast:
@@ -1236,18 +1396,21 @@ class App:
             ui.draw_fabricator(state, self.fab, preview, self.t)
         elif self.mode == "terminal":
             ui.draw_terminal(self.terminal_index, self.t)
+        elif self.mode == "map":
+            ui.draw_map(state, self.renderer.minimap.texture(state), self.t)
         elif self.mode == "end":
             ui.draw_end(state, self.t)
         elif self.mode == "pause":
             ui.draw_pause(self.pause_screen, self.pause_selected, self.settings, viewport_label(self.zoom),
                           viewport.UI_SIZE_LABEL[self.settings["ui_size"]])
         elif self.mode in INVENTORY_MODES:
-            side = self.open_chest or self.open_drill or self.open_station
+            side = self.open_chest or self.open_drill or self.open_station or self.open_crate
             status = (self.station_status() if self.open_station is not None
                       else self.drill_status() if self.open_drill is not None else "")
             station_info = self.hovered_slot_label(mouse_ui) if self.open_station is not None else None
             ui.draw_inventory(state.inventory, side, self.hotbar_selected, self.renderer.item_icon, mouse_ui,
-                              self.t, self.name_edit, status, station_info)
+                              self.t, self.name_edit, status, station_info,
+                              equipment=state.equipment if self.mode == "inventory" else None)
         if self.notice_time > 0 and self.mode not in INVENTORY_MODES:   # por cima do fabricador também
             ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4))
         if state.fainted:
@@ -1267,6 +1430,13 @@ class App:
             if self.notice_time > 0:
                 ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4), ui.notice_y)
             ui.draw_cursor(*mouse_ui)
+            ui.finish(window)
+
+        # camada 4: "PROJETO: ..." por cima de tudo (até dos ícones dos painéis)
+        if self.blueprint_notice_time > 0 and self.blueprint_notice:
+            ui.begin()
+            ui.draw_blueprint_notice(self.blueprint_notice, min(1.0, self.blueprint_notice_time / 0.5),
+                                     self.renderer.item_icon(f"bp_{self.blueprint_notice}"))
             ui.finish(window)
 
     def screenshot(self, path: str) -> None:
@@ -1313,6 +1483,9 @@ class App:
         self.hotbar_selected, self.held, self.notice_time = 0, None, 0.0
         self.open_chest = self.renderer.open_chest = None
         self.open_station, self.open_drill, self.name_edit = None, None, None
+        self.open_crate = self.after_terminal = None
+        self.renderer.minimap.reset()
+        self.blueprint_notice, self.blueprint_notice_time, self.blueprint_duck = None, 0.0, 0.0
         self.banner_stage, self.banner_time, self.end_timer = state.stage, 0.0, None
         self.drills_near.clear()
         self.drill_full_last.clear()

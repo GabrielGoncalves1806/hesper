@@ -29,13 +29,24 @@ def test_proposta_chega_no_fim_dentro_da_meta(proposal, strategy):
     assert 20 * 60 <= r.total <= ceiling * 60
     # Névoa por volta dos 10–12 min. Marco 2: quem só minera na caverna começa mais devagar (não pega solto
     # e cada viagem paga ~20 tiles de rampa: base -> cratera -> fade), ~14 min na proposta.
-    nevoa_max = 15 if strategy == "caverna" else 13
+    cave = strategy in ("caverna", "destrocos")     # Marco 3: "destrocos" = caverna + nave mais perto (tanque)
+    nevoa_max = 15 if cave else 13
     assert 9 * 60 <= r.milestones["Névoa"] <= nevoa_max * 60
     # nenhuma espera longa no meio do jogo; a da reta final ("o fim chega antes da próxima máquina") é o
     # jogador esperando o Ti fechar: no Marco 1 (superfície) chega a ~3 min, na caverna (proposta) a ~5 min
+    # Marco 3: os destroços mudaram o deserto (área sólida + folga sem rocha pequena) e o guloso da seed 1 passou
+    # a fechar com ~10 min de espera final (ele decide que nenhuma máquina nova fica pronta antes do fim; o total
+    # continua dentro do teto). Teto da espera final: 11 min; espera no MEIO do jogo continua ≤ 2,5 min.
     end_wait = r.idle_longest_reason == "fim chega antes da próxima máquina"
-    assert r.idle_longest <= ((6 if strategy == "caverna" else 4) if end_wait else 2.5) * 60
+    assert r.idle_longest <= ((6 if cave else 11) if end_wait else 2.5) * 60
     assert sum(r.machines[k] for k in ("o2_t2", "melter_t2", "heater_t2")) > 0
+
+
+def test_destrocos_pega_o_tanque_cedo(proposal):
+    """Marco 3: a estratégia "destrocos" equipa o tanque no primeiro minuto e saqueia a nave mais perto."""
+    r = sim.simulate("destrocos", seed=1, overrides=proposal)
+    assert r.tank_at is not None and r.tank_at < 90
+    assert r.loot_units >= 25 and r.finished
 
 
 def test_deterministico_com_seed_fixa(proposal):

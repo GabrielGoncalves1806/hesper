@@ -79,6 +79,8 @@ class World:
         self.crater: tuple[int, int] | None = None
         self.terraforms = True                                    # False na caverna: sem água nem plantas, nunca
         self.sand_variants: list[bytes] | None = None             # variação do sand_{stage}_{v} por tile (superfície)
+        self.wrecks: list = []                                    # destroços (game/wrecks.py), só na superfície
+        self._wreck_index: dict | None = None                     # tile (área ou caixa) -> destroço (lazy)
 
     # ---- geração ----------------------------------------------------------
     @classmethod
@@ -218,6 +220,12 @@ class World:
 
     def vein_at(self, tx: int, ty: int) -> Vein | None:
         return self._vein_tiles.get((tx, ty))
+
+    def wreck_at(self, tx: int, ty: int):
+        """Destroço que ocupa esse tile (a área sólida ou a caixa dele), ou None."""
+        if self._wreck_index is None:
+            self._wreck_index = {t: w for w in self.wrecks for t in [*w.tiles, w.crate]}
+        return self._wreck_index.get((tx, ty))
 
     # ---- consultas --------------------------------------------------------
     def in_bounds(self, tx: int, ty: int) -> bool:

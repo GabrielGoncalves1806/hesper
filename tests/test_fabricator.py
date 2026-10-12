@@ -12,7 +12,8 @@ def test_every_recipe_has_a_tab():
     assert tab_kinds("energy") == ["solar"]
     assert tab_kinds("automation") == ["drill", "drone_station", "drone"]
     assert tab_kinds("storage") == ["chest"]
-    assert tab_kinds("light") == ["lamp"]
+    assert tab_kinds("light") == ["lamp", "lamp_t2"]
+    assert tab_kinds("suit") == ["o2_tank", "scanner"]                   # Marco 3: aba "Traje"
 
 
 def test_switch_tab_wraps_and_remembers_selection():
@@ -23,10 +24,12 @@ def test_switch_tab_wraps_and_remembers_selection():
     m.switch_tab(1)
     assert m.tab_id == "energy" and m.current == "solar"
     m.switch_tab(-2)
+    assert m.tab_id == "suit" and m.current == "o2_tank"
+    m.switch_tab(-1)
     assert m.tab_id == "light" and m.current == "lamp"
     m.switch_tab(-1)
     assert m.tab_id == "storage" and m.current == "chest"
-    m.switch_tab(2)
+    m.switch_tab(3)
     assert m.tab_id == "terraform" and m.current == "melter"   # cada aba lembra a sua seleção
 
 

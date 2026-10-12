@@ -17,7 +17,9 @@ Formato do arquivo (JSON, v6 · v0.3, com camadas):
         "surface": {
           "changed_tiles": [[x, y, tipo], ...],
           "machines": [...],        # máquinas da camada (baús, drills e estações com o conteúdo)
-          "pickups": {"items": [[recurso, qtd, x, y], ...], "timer": 3.5}   # soltos (só superfície)
+          "pickups": {"items": [[recurso, qtd, x, y], ...], "timer": 3.5},  # soltos (só superfície)
+          "crates": [[x, y, slots, aberta], ...],   # Marco 3: só as caixas de destroço que mudaram
+          "explored": "eJzt..."     # Marco 3: tiles vistos (bitset, zlib, base64)
         }
       },
       "player":    {...},          # posição, direção, O₂, desmaio
@@ -55,11 +57,14 @@ from pathlib import Path
 from game import config as C
 from game import drones
 from game import layers
+from game.equipment import Equipment
+from game.explore import Explored
 from game.inventory import Inventory
 from game.pickups import Pickups
 from game.surface_gen import pristine_tiles as surface_pristine
 from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
+from game.wrecks import crate_loot
 
 SAVE_VERSION = 6   # v6 (v0.3): camadas (superfície/caverna), soltos, rochas quebradas · sem migração de antes
 FIRST_VERSION = 6  # saves com versão menor que essa são de outra época do jogo: "save antigo"
@@ -107,13 +112,28 @@ def tiles_to_list(state: GameState, key: str) -> list:
             if world.tiles[y][x] != original[y][x]]
 
 
+def crates_to_list(state: GameState, layer) -> list:
+    """Só as caixas que mudaram (abertas ou saqueadas): [x, y, slots, aberta]."""
+    out = []
+    for (x, y), crate in layer.crates.items():
+        fresh = Inventory(C.CRATE_SLOTS)
+        for item, n in crate_loot(crate.wreck, state.seed):
+            fresh.add(item, n)
+        if crate.opened or crate.storage.to_data() != fresh.to_data():
+            out.append([x, y, crate.storage.to_data(), crate.opened])
+    return out
+
+
 def layers_to_dict(state: GameState) -> dict:
     out = {}
     for key, layer in state.layers.items():
         data = {"changed_tiles": tiles_to_list(state, key),
-                "machines": [machine_to_dict(m) for m in layer.machines]}
+                "machines": [machine_to_dict(m) for m in layer.machines],
+                "explored": layer.explored.to_data()}
         if layer.pickups is not None:
             data["pickups"] = layer.pickups.to_data()
+        if layer.crates:
+            data["crates"] = crates_to_list(state, layer)
         out[key] = data
     return out
 
@@ -130,6 +150,13 @@ def layers_from_dict(state: GameState, data: dict) -> None:
         layer.machines = [machine_from_dict(d) for d in ldata["machines"]]
         if layer.pickups is not None and "pickups" in ldata:
             layer.pickups = Pickups.from_data(ldata["pickups"])
+        for x, y, slots, opened in ldata.get("crates", []):      # Marco 3 (save do Marco 1/2 não tem)
+            crate = layer.crates.get((int(x), int(y)))
+            if crate is not None:
+                crate.storage = slots_from_data(slots, C.CRATE_SLOTS)
+                crate.opened = bool(opened)
+        world = layer.world
+        layer.explored = Explored.from_data(world.width, world.height, ldata.get("explored"))
 
 
 def player_to_dict(state: GameState) -> dict:
@@ -150,7 +177,7 @@ def player_from_dict(state: GameState, data: dict) -> None:
 
 
 def _known_item(item) -> bool:
-    return item in C.RESOURCES or item in C.MACHINES
+    return item in C.RESOURCES or item in C.MACHINES or item in C.BLUEPRINT_ITEMS
 
 
 def slots_from_data(data: list, size: int) -> Inventory:
@@ -241,6 +268,11 @@ def progress_to_dict(state: GameState) -> dict:
         "drones_docked": state.drones_docked,
         "lamps_placed": state.lamps_placed,
         "logs_read": sorted(state.logs_read),
+        # Marco 3
+        "blueprints": sorted(state.blueprints),
+        "equipment": state.equipment.to_data(),
+        "equipped_ever": sorted(state.equipped_ever),
+        "wrecks_visited": sorted(state.wrecks_visited),
         "transition_sources": sorted([list(t) for t in state.transition_sources]),
     }
 
@@ -264,6 +296,11 @@ def progress_from_dict(state: GameState, data: dict) -> None:
     state.lamps_placed = int(data.get("lamps_placed", 0))     # Marco 2: save v6 do Marco 1 não tem
     state.logs_read = {int(i) for i in data["logs_read"] if 0 <= int(i) < len(C.LOGS)}
     state.transition_sources = {(int(x), int(y)) for x, y in data["transition_sources"]}
+    # Marco 3 (save do Marco 1/2 não tem: começa sem projeto, sem equipamento, nenhum destroço visitado)
+    state.blueprints = {b for b in data.get("blueprints", []) if b in C.BLUEPRINTS}
+    state.equipment = Equipment.from_data(data.get("equipment"))
+    state.equipped_ever = {e for e in data.get("equipped_ever", []) if e in C.EQUIP_SLOTS}
+    state.wrecks_visited = {int(r) for r in data.get("wrecks_visited", [])}
 
 
 # A ORDEM importa no load: o mundo vem antes de quem depende dele.

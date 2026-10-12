@@ -113,9 +113,9 @@ def helmet_lamp(px: float, py: float, facing: str | tuple[float, float] | None =
     return LightSource(px + dx * bias, py + dy * bias, 4 * T, WARM_WHITE, 1.0)
 
 
-def lamp(tx: int, ty: int) -> LightSource:
-    """Luminária no tile (tx, ty): ~5 tiles, quente, com uma tremidinha bem leve."""
-    return LightSource(tx * T + T / 2, ty * T + T / 2 - 8, 5 * T, LAMP_COLOR, 1.0, flicker=0.06)
+def lamp(tx: int, ty: int, radius_tiles: float = 5) -> LightSource:
+    """Luminária no tile (tx, ty): ~5 tiles (a forte, do Marco 3: 7), quente, com uma tremidinha bem leve."""
+    return LightSource(tx * T + T / 2, ty * T + T / 2 - 8, radius_tiles * T, LAMP_COLOR, 1.0, flicker=0.06)
 
 
 def machine_light(tx: int, ty: int, color: tuple[int, int, int] = (150, 210, 230)) -> LightSource:
@@ -123,9 +123,18 @@ def machine_light(tx: int, ty: int, color: tuple[int, int, int] = (150, 210, 230
     return LightSource(tx * T + T / 2, ty * T + T / 2, 1.8 * T, color, 0.55)
 
 
+# Cor do brilho no escuro: saturada de propósito. O silício (#c3d1e2) e o gelo (#a6ecff) na cor do sprite
+# saem quase brancos no breu e parecem estrelas (bug visto no Marco 2: "céu estrelado" na caverna).
+GLINT_COLORS = {"iron": (232, 140, 72), "silicon": (120, 150, 230), "ice": (60, 196, 240)}
+
+
 def ore_glints(world, tx0: int, tx1: int, ty0: int, ty1: int) -> list[Glint]:
-    """Um pontinho por tile de minério visível, numa posição fixa (sorteada pelo tile) dentro dele."""
+    """Um pontinho por tile de minério visível, numa posição fixa (sorteada pelo tile) dentro dele.
+
+    Só minério na BORDA de um túnel/salão (com chão em algum dos 4 lados): é a parede que o jogador
+    enxerga. O miolo da rocha (todo cercado de parede) não brilha, senão o breu vira um céu estrelado."""
     out = []
+    is_wall = world.is_wall
     for ty in range(max(0, ty0), min(world.height, ty1 + 1)):
         for tx in range(max(0, tx0), min(world.width, tx1 + 1)):
             kind = world.get(tx, ty)
@@ -133,11 +142,12 @@ def ore_glints(world, tx0: int, tx1: int, ty0: int, ty1: int) -> list[Glint]:
             if name is None:
                 continue
             h = (tx * 73856093 ^ ty * 19349663) & 0xFFFF
-            if h % 5 >= 2:              # só ~40% dos tiles brilham: pontinhos esparsos, não um céu estrelado
+            if h % 5 >= 2:              # só ~40% dos tiles brilham: pontinhos esparsos
+                continue
+            if is_wall(tx + 1, ty) and is_wall(tx - 1, ty) and is_wall(tx, ty + 1) and is_wall(tx, ty - 1):
                 continue
             ox, oy = 7 + h % 18, 6 + (h >> 5) % 14     # cai na face da rocha, longe da borda
-            color = pygame.Color(C.ORE_COLORS[name][0])
-            out.append(Glint(tx * T + ox, ty * T + oy, (color.r, color.g, color.b)))
+            out.append(Glint(tx * T + ox, ty * T + oy, GLINT_COLORS[name]))
     return out
 
 
@@ -278,4 +288,4 @@ class Lighting:
             fill(dim, (x, y - px, 2 * px, px), add)
             fill(dim, (x, y + 2 * px, 2 * px, px), add)
             k = (0.55 + 0.45 * phase) * dark
-            fill((min(255, int(r * k) + 30), min(255, int(gg * k) + 30), min(255, int(b * k) + 30)), (x, y, 2 * px, 2 * px), add)
+            fill((int(r * k), int(gg * k), int(b * k)), (x, y, 2 * px, 2 * px), add)   # sem "+branco": não vira estrela

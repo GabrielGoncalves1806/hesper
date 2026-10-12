@@ -28,6 +28,7 @@ from game import energy
 from game import layers
 from game.assets import Sprites
 from game.lighting import LightSource, Lighting, helmet_lamp, lamp as lamp_light, ore_glints
+from game.minimap import Minimap
 from game.systems import GameState, Mining
 from game.transition import BASE_SOURCE, StageMap
 from game.world import hash01
@@ -84,7 +85,7 @@ def cave_lights(state: GameState) -> list[LightSource]:
         out.append(LightSource(rx * T + 48, ry * T + 30, 3.5 * T, RAMP_LIGHT))
     for m in state.machines:
         if m.is_lamp:
-            out.append(lamp_light(m.tx, m.ty))
+            out.append(lamp_light(m.tx, m.ty, C.LAMP_RADIUS.get(m.kind, 5)))
         elif m.is_chest or (m.is_drill and m.full):
             continue
         else:
@@ -138,6 +139,7 @@ class Renderer:
         self._drone_offsets: dict[int, tuple[float, float]] = {}   # deslocamento visual suavizado por drone
         self._drone_t: float | None = None
         self._item_icons: dict[str, pygame.Surface] = {}
+        self.minimap = Minimap()                 # textura do mapa (1 px por tile), incremental (game/minimap.py)
 
     # ---- utilitários ----------------------------------------------------------
     @staticmethod
@@ -505,6 +507,18 @@ class Renderer:
                 lit = self.highlight == ("ramp", (ctx, cty))
                 items.append(((cty + 3) * T, lambda cx=cx, cy=cy, surf=surf, key=key, lit=lit: self._draw_ramp(
                     canvas, surf, key, cx, cy, lit)))
+        # destroços (Marco 3): o sprite inteiro é um objeto com o pé na borda de baixo da área; caixas à parte
+        for wreck in world.wrecks:
+            bx, by = wreck.blit_pos
+            sw, sh = wreck.spec.sprite_size
+            x, y = bx - cam_x, by - cam_y
+            if -sw < x < self.view_w and -sh < y < self.view_h:
+                items.append((wreck.anchor[1], lambda w=wreck, x=x, y=y: self.draw_wreck(canvas, w, x, y)))
+        for crate in state.crates.values():
+            tx, ty = crate.tile
+            x, y = tx * T - cam_x, ty * T - cam_y
+            if -T < x < self.view_w and -T < y < self.view_h:
+                items.append(((ty + 1) * T, lambda c=crate, x=x, y=y: self.draw_crate(canvas, c, x, y)))
         # recursos soltos (16×16, ponto de chão = (8, 14) do PNG)
         if state.pickups is not None:
             for pk in state.pickups.items:
@@ -561,6 +575,30 @@ class Renderer:
         canvas.blit(surf, (x, y))
         if lit:                                   # alvo do E: contorno igual ao das máquinas
             canvas.blit(self.outline_of(("ramp", key), surf), (x - 1, y - 1))
+
+    def wreck_surface(self, kind: str) -> pygame.Surface:
+        """wreck_{cargo,module,probe}.png (pendentes) ou o desenho de fallback (art.wreck)."""
+        from game.wrecks import SPECS
+        return self.surface(SPECS[kind].sprite, lambda: art.wreck(kind))[0]
+
+    def crate_surface(self, empty: bool) -> pygame.Surface:
+        name = "loot_crate_empty" if empty else "loot_crate"
+        return self.surface(name, lambda: art.loot_crate(empty))[0]
+
+    def draw_wreck(self, canvas, wreck, x: int, y: int) -> None:
+        canvas.blit(self.wreck_surface(wreck.kind), (x, y))
+        if wreck.kind == "probe" and (self.machine_t * 1.2) % 2 < 1:   # LED da sonda piscando (apagado: #3b3f46)
+            canvas.fill((59, 63, 70), (x + 23, y + 37, 2, 1))
+        if self.highlight == ("wreck_log", wreck):         # alvo do E: contorno só no terminal (spec da Designer)
+            from game.wrecks import MODULE_TERMINAL_RECT
+            rx, ry, rw, rh = MODULE_TERMINAL_RECT
+            pygame.draw.rect(canvas, self.HIGHLIGHT_RGBA[:3], (x + rx - 1, y + ry - 1, rw + 2, rh + 2), 1)
+
+    def draw_crate(self, canvas, crate, x: int, y: int) -> None:
+        surf = self.crate_surface(crate.empty)
+        canvas.blit(surf, (x, y))
+        if self.highlight is crate:
+            canvas.blit(self.outline_of(("crate", crate.empty), surf), (x - 1, y - 1))
 
     def draw_small_rock(self, canvas, x: int, y: int, resource: str) -> None:
         """Rocha pequena em (tx·32, ty·32) + o cristalzinho do minério que ela dá (pra ler de longe)."""
@@ -739,6 +777,14 @@ class Renderer:
                 small = self.drone_icon()
             elif item == "lamp":
                 small = self.surface("icon_lamp", art.lamp_icon)[0]
+            elif item == "lamp_t2":
+                small = self.surface("icon_lamp_t2", art.lamp_strong_icon)[0]
+            elif item == "o2_tank":
+                small = self.surface("icon_o2_tank", art.o2_tank_icon)[0]
+            elif item == "scanner":
+                small = self.surface("icon_scanner", art.scanner_icon)[0]
+            elif item in C.BLUEPRINT_ITEMS:
+                small = self.surface("icon_blueprint", art.blueprint_icon)[0]
             elif item == "solar" and self.sprites.get("icon_solar"):
                 small = self.sprites.get("icon_solar")
             else:   # máquina sem ícone próprio: o sprite dela encolhido pra caber (sem suavizar)
@@ -766,8 +812,11 @@ class Renderer:
             return self.chest_surface()
         if kind == "drone_station":
             return self.station_surface()
-        if kind == "lamp":
-            return pygame.transform.scale_by(self.lamp_surface(), 2)   # 16×32 → 32×64, pixel a pixel
+        if kind in C.LAMP_RADIUS:
+            return pygame.transform.scale_by(self.lamp_surface(kind), 2)   # 16×32 → 32×64, pixel a pixel
+        if kind in C.EQUIP_SLOTS:
+            painter = art.o2_tank_icon if kind == "o2_tank" else art.scanner_icon
+            return pygame.transform.scale_by(self.surface(f"icon_{kind}", painter)[0], 3)   # 16×16 → 48×48
         if kind == "drill":
             icon = self.sprites.get("icon_drill")
             if icon:
@@ -776,12 +825,14 @@ class Renderer:
             return frame.subsurface((0, 16, 64, 64))              # sem a cabeça, pra caber na caixinha
         return self.surface(C.MACHINES[kind].sprite, lambda: art.machine(kind))[0]
 
-    def lamp_surface(self) -> pygame.Surface:
+    def lamp_surface(self, kind: str = "lamp") -> pygame.Surface:
+        if kind == "lamp_t2":                    # luminária forte (Marco 3): sem sprite ainda, fallback próprio
+            return self.surface("lamp_t2", art.lamp_strong)[0]
         return self.surface("lamp", art.lamp)[0]
 
     def draw_machine(self, canvas, kind, ax, ay, t, rotation=0, alpha=None) -> None:
-        if kind == "lamp":                       # luminária: sem animação nem rotação (a luz vem do lighting)
-            surf = self.lamp_surface()
+        if kind in C.LAMP_RADIUS:                # luminária: sem animação nem rotação (a luz vem do lighting)
+            surf = self.lamp_surface(kind)
             if alpha is not None:
                 surf = surf.copy()
                 surf.set_alpha(alpha)

@@ -13,13 +13,16 @@ from dataclasses import dataclass, field
 
 from game import config as C
 from game import drones
+from game import explore
 from game import layers
+from game.equipment import Equipment, is_equipment
 from game.inventory import Inventory
 from game.energy import PowerAlert, PowerReport, power_report
 from game.layers import CAVE, SURFACE, Layer
 from game.pickups import Pickup, Pickups
 from game.player import Player, Rect, overlaps
 from game.world import World
+from game.wrecks import Crate, Wreck
 
 
 @dataclass
@@ -81,7 +84,7 @@ class Machine:
 
     @property
     def is_lamp(self) -> bool:
-        return self.kind == "lamp"
+        return self.kind in C.LAMP_RADIUS          # luminária comum e a forte (Marco 3)
 
     @property
     def is_logistic(self) -> bool:
@@ -256,6 +259,12 @@ class GameState:
         self._pickup_warned: set[int] = set()          # soltos que já deram "Inventário cheio" (id), enquanto pisa neles
         self.ramp: RampTrip | None = None              # descendo/subindo pela rampa (o fade está rolando)
         self.lamps_placed = 0                          # luminárias já colocadas (só cresce, pros objetivos)
+        # Marco 3: projetos achados (liberam receitas), equipamento do traje, destroços visitados e explorado
+        self.blueprints: set[str] = set()
+        self.equipment = Equipment()
+        self.equipped_ever: set[str] = set()           # equipamento que já foi encaixado alguma vez (objetivos)
+        self.wrecks_visited: set[int] = set()          # rank dos destroços que o player já chegou perto
+        self.explore_timer = 0.0                       # o explorado atualiza a cada EXPLORE_INTERVAL
         self.events: list[tuple] = []
 
     # ---- camadas --------------------------------------------------------------
@@ -301,6 +310,7 @@ class GameState:
         self.mining = None
         if pos is not None:
             self.player.x, self.player.y = pos
+        self.explore_timer = 0.0                       # chegou: marca o que vê já no próximo frame
 
     # ---- rampa (Marco 2): cratera da superfície <-> rampa de subida da caverna --------
     def ramp_distance(self) -> float:
@@ -417,6 +427,7 @@ class GameState:
             self._auto_pickup()
         self._update_machines(sim_dt)
         self._update_pickups(sim_dt)
+        self._update_explore(dt)
         # taxa efetiva em segundos reais (com F1 ligado, as máquinas rendem 10×)
         self.smoothed_rate = smooth_rate(self.smoothed_rate, self.ti_rate * self.time_scale, dt)
 
@@ -462,9 +473,9 @@ class GameState:
     def _update_o2(self, dt: float) -> None:
         inside = self.in_base_zone()
         if inside:
-            if not self.was_in_base and self.o2 < C.O2_MAX:
+            if not self.was_in_base and self.o2 < self.o2_max:
                 self.events.append(("refill",))
-            self.o2 = min(C.O2_MAX, self.o2 + C.O2_REFILL * dt)
+            self.o2 = min(self.o2_max, self.o2 + C.O2_REFILL * dt)
         else:
             self.o2 = max(0.0, self.o2 - C.O2_DRAIN * dt)
             if self.o2 <= 0:
@@ -483,7 +494,7 @@ class GameState:
         # No meio do fade preto: acorda na cápsula, com O₂ cheio e o inventário intacto.
         if before < C.FAINT_RESPAWN_AT <= self.faint_time:
             self.enter_layer(SURFACE, C.SPAWN_POS)          # desmaiou na caverna: acorda na cápsula, lá em cima
-            self.o2 = C.O2_MAX
+            self.o2 = self.o2_max
             self.was_in_base = True
             self.events.append(("wake",))
         if self.faint_time >= C.FAINT_DURATION:
@@ -504,8 +515,11 @@ class GameState:
         return self.inventory.count(resource) + sum(c.storage.count(resource) for c in self.base_chests())
 
     def recipe_status(self, kind: str) -> str:
-        """'locked' (Ti insuficiente), 'missing' (falta recurso) ou 'ok'."""
+        """'blueprint' (projeto não encontrado), 'locked' (Ti insuficiente), 'missing' (falta recurso) ou 'ok'."""
         machine = C.MACHINES[kind]
+        blueprint = C.RECIPE_BLUEPRINT.get(kind)
+        if blueprint is not None and blueprint not in self.blueprints:
+            return "blueprint"
         if self.ti < machine.unlock_ti:
             return "locked"
         if any(self.available(r) < n for r, n in machine.cost.items()):
@@ -653,6 +667,13 @@ class GameState:
             if loose is not None:
                 return "pickup", loose
         tiles = {self.world.visual_tile_at(px, py), (int(px // C.TILE), int(py // C.TILE))}
+        for tile in tiles:                               # destroço: a caixa ou o terminal do módulo
+            crate = self.crates.get(tile)
+            if crate is not None:
+                return "crate", crate
+            wreck = self.world.wreck_at(*tile)
+            if wreck is not None and wreck.terminal == tile:
+                return "wreck_log", wreck
         for i, tile in enumerate(self.world.terminals):
             if tuple(tile) in tiles:
                 return "terminal", i
@@ -669,6 +690,10 @@ class GameState:
         if kind == "pickup":
             return (self.pickups is not None and any(p is target for p in self.pickups.items)
                     and self.pickup_distance(target) <= C.PICKUP_REACH)
+        if kind == "crate":
+            return self.crates.get(target.tile) is target and self.crate_distance(target) <= C.CRATE_REACH
+        if kind == "wreck_log":
+            return target in self.world.wrecks and self.wreck_terminal_distance(target) <= C.TERMINAL_REACH
         reach = {"drill": C.DRILL_REACH, "chest": C.CHEST_REACH, "station": C.STATION_REACH}[kind]
         return any(m is target for m in self.machines) and self.drill_distance(target) <= reach
 
@@ -694,6 +719,12 @@ class GameState:
         loose = self.nearby_pickup()
         if loose is not None:
             options.append((self.pickup_distance(loose), "pickup", loose))
+        crate = self.nearby_crate()
+        if crate is not None:
+            options.append((self.crate_distance(crate), "crate", crate))
+        wreck = self.nearby_wreck_terminal()
+        if wreck is not None:
+            options.append((self.wreck_terminal_distance(wreck), "wreck_log", wreck))
         if self.ramp_distance() <= C.RAMP_REACH:
             options.append((self.ramp_distance(), "ramp", tuple(self.world.crater)))
         if not options:
@@ -935,9 +966,153 @@ class GameState:
         return None
 
     def read_terminal(self, index: int) -> str:
-        self.logs_read.add(index)
-        self.events.append(("terminal", index))
-        return C.LOGS[index]
+        """Terminal da caverna `index` (0 a 2) = LOG 01 a 03."""
+        return self.read_log(index)
+
+    def read_log(self, log: int) -> str:
+        """Lê o LOG `log` (índice em config.LOGS): terminal da caverna, do módulo ou registro de bordo."""
+        self.logs_read.add(log)
+        self.events.append(("terminal", log))
+        return C.LOGS[log]
+
+    # ---- destroços (v0.3 Marco 3 · game/wrecks.py) ---------------------------------
+    @property
+    def crates(self) -> dict:
+        """Caixas de saque da camada ativa (tile -> Crate)."""
+        return self.active.crates
+
+    def crate_distance(self, crate: Crate) -> float:
+        ax, ay = crate.anchor
+        return math.hypot(self.player.x - ax, self.player.y - ay)
+
+    def nearby_crate(self) -> Crate | None:
+        near = [c for c in self.crates.values() if self.crate_distance(c) <= C.CRATE_REACH]
+        return min(near, key=self.crate_distance, default=None)
+
+    def wreck_terminal_distance(self, wreck: Wreck) -> float:
+        """Dos pés até a base do terminal do módulo (o player lê do tile logo abaixo dele)."""
+        tx, ty = wreck.terminal
+        return math.hypot(self.player.x - (tx + 0.5) * C.TILE, self.player.y - (ty + 1) * C.TILE)
+
+    def nearby_wreck_terminal(self) -> Wreck | None:
+        near = [w for w in self.world.wrecks
+                if w.terminal is not None and self.wreck_terminal_distance(w) <= C.TERMINAL_REACH]
+        return min(near, key=self.wreck_terminal_distance, default=None)
+
+    def learn(self, blueprint: str) -> bool:
+        """Projeto encontrado: libera a receita na hora. False se já tinha."""
+        if blueprint in self.blueprints:
+            return False
+        self.blueprints.add(blueprint)
+        self.events.append(("blueprint", blueprint))
+        return True
+
+    def open_crate(self, crate: Crate) -> list[str]:
+        """E na caixa: abre (som) e o projeto que estiver dentro sai sozinho (libera a receita e some).
+        Devolve os projetos novos."""
+        crate.opened = True
+        self.events.append(("crate_open", crate.empty))
+        found = []
+        for i, stack in enumerate(crate.storage.slots):
+            if stack is not None and stack.item in C.BLUEPRINT_ITEMS:
+                crate.storage.slots[i] = None
+                if self.learn(C.BLUEPRINT_ITEMS[stack.item]):
+                    found.append(C.BLUEPRINT_ITEMS[stack.item])
+        if found:                                    # o resto do saque encosta no começo (sem buraco no 1º slot)
+            left = [st for st in crate.storage.slots if st is not None]
+            crate.storage.slots = left + [None] * (len(crate.storage) - len(left))
+        return found
+
+    def crate_take(self, crate: Crate, index: int | None = None, amount: int | None = None) -> int:
+        """Tira da caixa pro inventário: tudo (`index` None) ou o slot `index` (`amount` None = a pilha,
+        1 = clique direito). Projeto não ocupa espaço: vira receita. Devolve quantas unidades saíram."""
+        indexes = range(len(crate.storage)) if index is None else [index]
+        moved = want = 0
+        for i in indexes:
+            stack = crate.storage.slots[i]
+            if stack is None:
+                continue
+            if stack.item in C.BLUEPRINT_ITEMS:
+                crate.storage.slots[i] = None
+                self.learn(C.BLUEPRINT_ITEMS[stack.item])
+                moved += 1
+                want += 1
+                continue
+            n = stack.count if amount is None else min(amount, stack.count)
+            item = stack.item
+            got = crate.storage.transfer(i, self.inventory, n)
+            want += n
+            moved += got
+            if got and item in C.RESOURCES:
+                self.events.append(("loot", item, got, crate.anchor))
+        if moved < want:
+            self.events.append(("inv_full",))
+        return moved
+
+    def _update_explore(self, dt: float) -> None:
+        """Explorado (game/explore.py) e destroços visitados, a cada EXPLORE_INTERVAL."""
+        self.explore_timer -= dt
+        if self.explore_timer > 0:
+            return
+        self.explore_timer = C.EXPLORE_INTERVAL
+        explore.reveal_for(self)
+        if self.active.has_base:
+            ptx, pty = self.player.x / C.TILE, self.player.y / C.TILE
+            for w in self.world.wrecks:
+                if w.rank not in self.wrecks_visited:
+                    cx, cy = w.center
+                    if math.hypot(ptx - cx, pty - cy) <= C.WRECK_VISIT_DIST:
+                        self.wrecks_visited.add(w.rank)
+
+    # ---- equipamento (game/equipment.py) ----------------------------------------------
+    @property
+    def o2_max(self) -> float:
+        """O₂ máximo: 100 s, ou 220 s com o tanque equipado."""
+        return self.equipment.o2_max
+
+    @property
+    def has_scanner(self) -> bool:
+        return self.equipment.has("scanner")
+
+    def equip_from(self, index: int) -> bool:
+        """Encaixa o equipamento do slot `index` do inventário no traje (troca com o que estava lá)."""
+        stack = self.inventory.slots[index]
+        if stack is None or not is_equipment(stack.item):
+            return False
+        item = stack.item
+        self.inventory.remove_from_slot(index, 1)
+        old = self.equipment.equip(item)
+        if old is not None:
+            self.inventory.add(old, 1)               # acabou de sair 1 do mesmo tipo: sempre cabe
+        self.equipped_ever.add(item)
+        self.events.append(("equip", item))
+        self._clamp_o2()
+        return True
+
+    def equip_item(self, item: str) -> str | None:
+        """Encaixa um item que não está no inventário (a "mão" da tela do Tab). Devolve o que saiu do slot."""
+        old = self.equipment.equip(item)
+        self.equipped_ever.add(item)
+        self.events.append(("equip", item))
+        self._clamp_o2()
+        return old
+
+    def unequip(self, kind: str) -> bool:
+        """Tira o equipamento do slot e devolve pro inventário (sem espaço: fica, com o aviso)."""
+        item = self.equipment.slots.get(kind)
+        if item is None:
+            return False
+        if not self.inventory.has_space(item):
+            self.events.append(("inv_full",))
+            return False
+        self.equipment.unequip(kind)
+        self.inventory.add(item, 1)
+        self.events.append(("unequip", item))
+        self._clamp_o2()
+        return True
+
+    def _clamp_o2(self) -> None:
+        self.o2 = min(self.o2, self.o2_max)
 
     # ---- debug --------------------------------------------------------------
     def debug_add_ti(self, amount: float = C.DEBUG_TI_BONUS) -> None:

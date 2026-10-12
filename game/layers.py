@@ -15,9 +15,11 @@ from dataclasses import dataclass, field
 
 from game import config as C
 
+from game.explore import Explored
 from game.pickups import Pickups
 from game.surface_gen import generate_surface
 from game.world import World
+from game.wrecks import make_crates
 
 SURFACE, CAVE = "surface", "cave"
 ORDER = (SURFACE, CAVE)
@@ -29,6 +31,12 @@ class Layer:
     world: World
     machines: list = field(default_factory=list)
     pickups: Pickups | None = None        # recursos soltos (só na superfície)
+    crates: dict = field(default_factory=dict)   # caixas de saque dos destroços: tile -> Crate (Marco 3)
+    explored: Explored | None = None      # o que o jogador já viu nesta camada (Marco 3, game/explore.py)
+
+    def __post_init__(self) -> None:
+        if self.explored is None:
+            self.explored = Explored(self.world.width, self.world.height)
 
     @property
     def has_base(self) -> bool:
@@ -38,7 +46,7 @@ class Layer:
 
 def make_surface(seed: int) -> Layer:
     world = generate_surface(seed)
-    return Layer(SURFACE, world, pickups=Pickups.generate(world, seed))
+    return Layer(SURFACE, world, pickups=Pickups.generate(world, seed), crates=make_crates(world, seed))
 
 
 def make_cave(seed: int) -> Layer:

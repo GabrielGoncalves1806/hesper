@@ -4,7 +4,8 @@ Monta um `World` de 192×192 com a mesma interface do mapa antigo, então todo o
 (colisão, mineração, render, transição de estágio, água e plantas) funciona igual. Ordem:
 
     areia + "altura" (lowness, pras poças)  →  borda (cordilheira, 2–3 tiles)  →  morros
-    →  limpa a área da cápsula  →  cratera 3×3  →  veios (3 a 5, longe)  →  rochas pequenas
+    →  limpa a área da cápsula  →  cratera 3×3  →  veios (3 a 5, longe)  →  destroços (6 a 8, game/wrecks.py)
+    →  rochas pequenas
 
 Tudo sai da seed: mesma seed, mesmo deserto. A geração custa ~0,3 s, então o mapa virgem de cada
 seed fica num cache e `generate_surface` devolve uma CÓPIA (o jogador mexe na cópia).
@@ -16,6 +17,7 @@ import math
 import random
 
 from game import config as C
+from game import wrecks as wreck_gen
 from game.world import Vein, World, hash01, value_noise
 
 _cache: dict[int, World] = {}
@@ -81,6 +83,7 @@ def _copy(src: World) -> World:
     world.center, world.floor_kind, world.crater = src.center, src.floor_kind, src.crater
     world.terminals = list(src.terminals)
     world.sand_variants = src.sand_variants     # só leitura
+    world.wrecks = list(src.wrecks)             # destroços: geometria fixa (o conteúdo das caixas fica na camada)
     return world
 
 
@@ -103,6 +106,7 @@ def _build(seed: int) -> World:
                 world.tiles[y][x] = C.SAND
     _crater(world, rng)
     _veins(world, rng)
+    wreck_gen.place_wrecks(world, rng)           # Marco 3: destroços (antes das rochas pequenas, com folga livre)
     _small_rocks(world)
     world.sand_variants = [bytes(sand_variant(x, y) for x in range(W)) for y in range(H)]
     return world
@@ -214,7 +218,7 @@ def _veins(world: World, rng: random.Random) -> None:
 
 def _small_rocks(world: World) -> None:
     """Rochas pequenas espalhadas pela areia (por hash, sem formar padrão)."""
-    keep_free = set(world._vein_tiles)
+    keep_free = set(world._vein_tiles) | wreck_gen.keep_free(world.wrecks)
     for v in world.veins:                         # a linha de baixo do veio fica livre (o player para ali)
         keep_free |= {(v.tx + dx, v.ty + 2) for dx in (0, 1)}
     kinds = {C.SMALL_IRON: C.SMALL_ROCK_WEIGHTS["iron"], C.SMALL_SILICON: C.SMALL_ROCK_WEIGHTS["silicon"],

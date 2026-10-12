@@ -61,6 +61,10 @@ OBJECTIVES = [
     # v0.3 Marco 2: a caverna é onde se minera de verdade (escura: lanterna + luminárias)
     Objective("Desça na caverna pela cratera [E]", visited_cave),
     Objective("Coloque uma luminária", lambda s: s.lamps_placed >= 1),
+    # v0.3 Marco 3: os destroços do deserto (o mais perto, a ~30 tiles, tem o projeto do tanque de O₂)
+    Objective("Ache um destroço", lambda s: len(s.wrecks_visited) >= 1),
+    Objective("Ache o projeto do tanque de O2", lambda s: "o2_tank" in s.blueprints),
+    Objective("Fabrique e equipe o tanque de O2", lambda s: "o2_tank" in s.equipped_ever),
     Objective("Minere gelo e fabrique um Derretedor", lambda s: crafted(s, "melter") >= 1),
     Objective("Chegue a Ti 500", lambda s: s.ti >= 500),
     Objective("Fabrique um Aquecedor", lambda s: crafted(s, "heater") >= 1),

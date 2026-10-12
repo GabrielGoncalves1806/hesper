@@ -60,6 +60,9 @@ def test_normal_sequence_walks_every_objective(game):
     game.enter_layer("cave"); step()            # desceu pela rampa
     game.lamps_placed = 1; step()               # colocou uma luminária (lá embaixo ou em qualquer lugar)
     game.enter_layer("surface")
+    game.wrecks_visited.add(0); step()          # Marco 3: chegou perto de um destroço
+    game.blueprints.add("o2_tank"); step()      # abriu a caixa da nave: projeto do tanque
+    game.equipped_ever.add("o2_tank"); step()   # fabricou e equipou
     craft_free(game, "melter"); step()
     game.indices["o2"] = 500; step()
     craft_free(game, "heater"); step()
@@ -89,6 +92,9 @@ def test_normal_sequence_walks_every_objective(game):
         "Fabrique um baú",
         "Desça na caverna pela cratera [E]",
         "Coloque uma luminária",
+        "Ache um destroço",
+        "Ache o projeto do tanque de O2",
+        "Fabrique e equipe o tanque de O2",
         "Minere gelo e fabrique um Derretedor",
         "Chegue a Ti 500",
         "Fabrique um Aquecedor",
@@ -195,6 +201,9 @@ def test_everything_done_list_disappears(game):
     game.enter_layer("cave")
     game.enter_layer("surface")
     game.lamps_placed = 1
+    game.wrecks_visited.add(0)
+    game.blueprints.add("o2_tank")
+    game.equipped_ever.add("o2_tank")
     game.drills_placed = 1
     game.drill_collected["iron"] = 5
     game.drone_deliveries = 1
@@ -231,6 +240,9 @@ def test_terminal_objective_needs_reading_one(game):
     game.enter_layer("cave")
     game.enter_layer("surface")
     game.lamps_placed = 1
+    game.wrecks_visited.add(0)
+    game.blueprints.add("o2_tank")
+    game.equipped_ever.add("o2_tank")
     game.indices["o2"] = 500
     assert current_text(game) == "Leia um terminal"
     game.read_terminal(0)

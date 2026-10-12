@@ -23,6 +23,7 @@ from game.fabricator import tab_kinds
 from game.floaters import LANE_PX, RISE, FloatingTexts, dodge_labels
 from game.inventory import Inventory, Stack
 from game.systems import GameState, eta_label, stage_progress
+from game.wrecks import Crate
 
 UW, UH = C.UI_W, C.UI_H           # tamanho da UI no Grande (e o mínimo em qualquer tamanho)
 TI_PANEL_W = 160                 # painel do Ti (em cima à direita, encostado na borda: ti_panel_x)
@@ -121,6 +122,8 @@ def item_name(item: str) -> str:
     """Nome de um item do inventário pra mostrar ao jogador ('Ferro', 'Gerador de O2', 'Baú')."""
     if item in C.RESOURCE_NAME:
         return C.RESOURCE_NAME[item].capitalize()
+    if item in C.BLUEPRINT_ITEMS:
+        return f"Projeto: {C.BLUEPRINTS[C.BLUEPRINT_ITEMS[item]]}"
     return C.MACHINES[item].name
 
 
@@ -173,6 +176,8 @@ class UI:
         # seção DRONES do baú/drill: (retângulo, ("send"|"recv", item) ou ("batch", n))
         self.logistics_buttons: list[tuple[pygame.Rect, tuple[str, object]]] = []
         self.slot_img = Sprites().get("ui_slot")      # moldura opcional (bíblia §8); sem ela, desenhamos
+        self.equip_rects: list[tuple[pygame.Rect, str]] = []      # slots de equipamento (Tab): (retângulo, tipo)
+        self.energy_bottom = 110                                   # onde acaba o medidor de energia (minimapa embaixo)
 
     # ---- tamanho e âncoras -------------------------------------------------------
     def set_layout(self, rect: tuple[int, int, int, int], k: float, size: tuple[int, int]) -> None:
@@ -296,7 +301,7 @@ class UI:
     def draw_hud(self, state: GameState, t: float, hint: str | None, icons: dict[str, pygame.Surface]) -> None:
         crit = state.o2 < C.O2_LOW
         blink = crit and (t * 9) % 6 < 3
-        o2 = state.o2 / C.O2_MAX
+        o2 = min(1.0, state.o2 / state.o2_max)          # proporcional ao máximo (com o tanque, 220 s)
         # barra de O₂
         self.panel(6, 6, 112, 26)
         self.text("O2", 11, 10, C.C_ALERT if crit else C.C_O2)
@@ -306,7 +311,11 @@ class UI:
         self.fill((255, 255, 255, 64), (30, 11, round(82 * o2), 1))
         for i in range(1, 10):
             self.fill((0, 0, 0, 90), (30 + int(i * 8.2), 11, 1, 7))
-        self.text(f"{round(o2 * 100)}%", 30, 21, "#ff8a7a" if crit else "#a8c9d2")
+        if state.equipment.has("o2_tank"):           # tanque equipado: a barra vale 220 s (mostra os segundos)
+            self.text(f"{round(state.o2)} S", 30, 21, "#ff8a7a" if crit else "#a8c9d2")
+            self.text("TANQUE", 112, 21, C.C_O2, align="right")
+        else:
+            self.text(f"{round(o2 * 100)}%", 30, 21, "#ff8a7a" if crit else "#a8c9d2")
 
         # painel do Ti e, logo embaixo, o medidor de energia
         self.draw_ti_panel(state)
@@ -396,6 +405,7 @@ class UI:
             if self.body.size(warning[0])[0] > w - 12:    # não coube numa linha: quebra no "·"
                 warning = warning[0].split(" · ")
         self.panel(px, y, w, 15 + 12 * len(warning))
+        self.energy_bottom = y + 15 + 12 * len(warning)
         self.draw_bolt(px + 6, y + 4, C.C_ENERGY if not power.deficit else C.C_ALERT)
         label_w = self.text("ENERGIA", px + 14, y + 4, C.C_TEXT)
         value_w = self.text(f"{fmt_rate(power.production)}/{fmt_rate(power.consumption)} KW", right, y + 4, color,
@@ -540,7 +550,7 @@ class UI:
             tw = self.body.size(label)[0] + 10          # 5 abas (Luz no Marco 2) cabem nos 400 px
             rect = pygame.Rect(tx, y + 21, tw, 15)
             active = i == menu.tab
-            unlocked = any(state.recipe_status(k) != "locked" for k in tab_kinds(tab_id))
+            unlocked = any(state.recipe_status(k) not in ("locked", "blueprint") for k in tab_kinds(tab_id))
             self.surf.fill(pygame.Color("#2c1e18" if active else "#160f0d"), rect)
             pygame.draw.rect(self.surf, pygame.Color(C.C_ACCENT if active else "#3a2c25"), rect, 1)
             if active:                                  # a aba ativa "abre" pra lista
@@ -578,23 +588,27 @@ class UI:
                 ratio = (bh2 - 2) / preview.get_height()
                 preview = pygame.transform.scale(preview, (round(preview.get_width() * ratio), bh2 - 2))
             clip.blit(preview, (bw2 // 2 - preview.get_width() // 2, bh2 - 2 - preview.get_height()))
-            if status == "locked":   # receita bloqueada: prévia escurecida
+            if status in ("locked", "blueprint"):   # receita bloqueada: prévia escurecida (sem projeto: quase some)
                 shade = pygame.Surface((bw2, bh2), pygame.SRCALPHA)
-                shade.fill((18, 13, 11, 184))
+                shade.fill((18, 13, 11, 184 if status == "locked" else 238))
                 clip.blit(shade, (0, 0))
             self.native.append((clip, (box.x * 2, box.y * 2)))
 
-            locked = status == "locked"
+            hidden = status == "blueprint"          # receita de projeto ainda não encontrado (Marco 3)
+            locked = status == "locked" or hidden
             tx = x + 56
             text_y = ry + (row_h - 32) // 2      # centraliza as 2 linhas de texto na linha
-            name_w = self.text(m.name, tx, text_y + 4, "#8a7b70" if locked else C.C_TEXT, self.body_big)
-            self.text(m.desc, tx + 6 + name_w, text_y + 4, C.C_MUTED, self.body)
+            name, desc = ("???", "projeto não encontrado") if hidden else (m.name, m.desc)
+            name_w = self.text(name, tx, text_y + 4, "#8a7b70" if locked else C.C_TEXT, self.body_big)
+            self.text(desc, tx + 6 + name_w, text_y + 4, C.C_MUTED, self.body)
             owned = state.inventory.count(kind)       # já fabricadas, no inventário
-            top_end = tx + name_w + 6 + self.body.size(m.desc)[0]     # onde acaba o texto da 1ª linha
+            top_end = tx + name_w + 6 + self.body.size(desc)[0]     # onde acaba o texto da 1ª linha
             if owned:
                 top_end += 8 + self.text(f"x{owned}", top_end + 8, text_y + 5, C.C_OK)
             cx = tx
-            for res, n in m.cost.items():
+            if hidden:
+                self.text("Ache o projeto num destroço do deserto", cx, text_y + 18, "#6e6058", self.body)
+            for res, n in ({} if hidden else m.cost).items():
                 have = state.available(res)              # inventário + baús da base
                 label = f"{have}/{n} {C.RESOURCE_LABEL[res]}"
                 color = "#6e6058" if locked else C.C_OK if have >= n else C.C_ALERT
@@ -621,6 +635,9 @@ class UI:
                 pygame.draw.rect(self.surf, pygame.Color(C.C_ALERT), button, 1)
                 res = state.missing_resource(kind)
                 self.text(f"SEM {C.RESOURCE_LABEL[res]}", bx + bw / 2, by + 6, C.C_ALERT, align="center")
+            elif hidden:
+                pygame.draw.rect(self.surf, pygame.Color("#5a4a40"), button, 1)
+                self.text("SEM PROJETO", bx + bw / 2, by + 6, C.C_MUTED, align="center")
             else:
                 pygame.draw.rect(self.surf, pygame.Color("#5a4a40"), button, 1)
                 self.surf.fill(pygame.Color(C.C_MUTED), (bx + 7, by + 9, 7, 6))          # cadeado
@@ -703,7 +720,7 @@ class UI:
 
     def draw_inventory(self, inventory: Inventory, side, hotbar_selected: int, item_icon,
                        mouse: tuple[float, float], t: float = 0.0, editing=None, status: str = "",
-                       info: str | None = None) -> None:
+                       info: str | None = None, equipment=None) -> None:
         """Tela do Tab (só o inventário) ou com um painel do lado: baú ou estação de drones.
 
         `side` = None (Tab) ou a Machine aberta (baú ou estação). `editing` = TextField do nome do
@@ -714,13 +731,18 @@ class UI:
         self.buffer_rects.clear()
         self.panel_buttons.clear()
         self.logistics_buttons.clear()
+        self.equip_rects.clear()
         self.name_rect = None
         self.fill((8, 5, 4, 158), (0, 0, self.w, self.h))
         pw = GRID_W + 16
         ph_inv = 20 + 6 + SLOT + 14 + SLOT + 8                  # título, mochila, rótulo HOTBAR, hotbar
+        if side is None and equipment is not None:
+            ph_inv += 14 + SLOT + 2                             # Marco 3: rótulo TRAJE + slots de equipamento
         ph_side = SIDE_LOGI_Y + LOGI_H + 5                      # baú/drill: grade, botões e a seção DRONES
         total_w = pw if side is None else 2 * pw + 10
         x = (self.w - total_w) // 2
+        if isinstance(side, Crate):                             # caixa: grade de 1 linha, texto e botões
+            ph_side = SIDE_GRID_Y + SLOT + 6 + 26 + 15 + 8
         h = ph_inv if side is None else max(ph_inv, ph_side)
         y = (self.h - h) // 2 - 16
 
@@ -731,9 +753,15 @@ class UI:
         self._grid(inventory, list(range(hb, len(inventory))), x + 8, y + 26, item_icon, mouse)
         self.text("HOTBAR", x + 8, y + 26 + SLOT + 4, C.C_MUTED)
         self._grid(inventory, list(range(hb)), x + 8, y + 26 + SLOT + 14, item_icon, mouse, hotbar_selected)
+        if side is None and equipment is not None:
+            self._equipment_row(equipment, x + 8, y + 26 + 2 * SLOT + 14 + 6, item_icon, mouse)
 
         if side is None:
-            keys = "[CLIQUE] PEGA/SOLTA · [DIREITO] METADE · [ESC] FECHA"
+            keys = ("[CLIQUE] PEGA/SOLTA · [DIREITO] METADE · [ESC] FECHA" if equipment is None else
+                    "[CLIQUE] PEGA/SOLTA · EQUIPA · [DIREITO] METADE · [ESC] FECHA")
+        elif isinstance(side, Crate):
+            self._crate_panel(side, x + pw + 10, y, pw, h, item_icon, mouse)
+            keys = "[CLIQUE] TIRA A PILHA · [DIREITO] 1 · [ESC] FECHA"
         elif side.is_chest:
             self._chest_panel(side, x + pw + 10, y, pw, h, item_icon, mouse, t, editing)
             keys = ("DIGITE O NOME · [ENTER] OK · [ESC] CANCELA" if editing is not None else
@@ -748,6 +776,49 @@ class UI:
         self.notice_y = self.panel_notice_y(y, y + h + 18)
 
     NOTICE_H = 18                                      # altura do aviso (draw_notice)
+
+    def _equipment_row(self, equipment, x: int, y: int, item_icon, mouse) -> None:
+        """TRAJE: um slot por equipamento (tanque, scanner). Vazio mostra o ícone apagado como dica."""
+        self.text("TRAJE", x, y, C.C_MUTED)
+        sx = x
+        for kind in C.EQUIP_SLOTS:
+            sy = y + 10
+            rect = pygame.Rect(sx, sy, SLOT, SLOT)
+            item = equipment.slots.get(kind)
+            self.draw_slot(sx, sy, Stack(item, 1) if item else None, item_icon, hover=rect.collidepoint(mouse))
+            if item:
+                pygame.draw.rect(self.surf, pygame.Color(C.C_O2), (sx - 1, sy - 1, SLOT + 2, SLOT + 2), 1)
+            else:
+                ghost = item_icon(kind).copy()
+                ghost.set_alpha(45)
+                self.native.append((ghost, (sx * 2 + 4, sy * 2 + 4)))
+            self.equip_rects.append((rect, kind))
+            label = C.EQUIP_LABEL[kind]
+            self.text(label, sx + SLOT + 4, sy + 6, C.C_O2 if item else "#6e6058")
+            sx += SLOT + 4 + self.font.size(label)[0] + 12
+
+    def _crate_panel(self, crate, cx: int, y: int, pw: int, h: int, item_icon, mouse) -> None:
+        """Caixa de saque de um destroço: só tirar (clique = pilha, direito = 1), Pegar tudo e, na nave e na
+        sonda, Ler registro (o LOG que apareceu ao abrir)."""
+        amber = "#f2a33a"
+        self._window(cx, y, pw, h, f"{crate.wreck.name.upper()} · CAIXA", amber)
+        box = crate.storage
+        used = sum(1 for st in box.slots if st)
+        self.text(f"{used}/{len(box)}", cx + pw - 8, y + 6, C.C_MUTED, align="right")
+        self._grid(box, list(range(len(box))), cx + 8, y + SIDE_GRID_Y, item_icon, mouse)
+        line_y = y + SIDE_GRID_Y + SLOT + 6
+        if crate.empty:
+            self.text("VAZIA", cx + 8, line_y, C.C_ALERT)
+            self.text("o saque não volta", cx + 8 + self.font.size("VAZIA")[0] + 6, line_y - 2, C.C_MUTED, self.body)
+        else:
+            for k, text in enumerate(wrap(self.body, "Só dá pra tirar. O conteúdo é fixo: não reabastece.", GRID_W)[:2]):
+                self.text(text, cx + 8, line_y - 2 + k * 12, "#a89a8e", self.body)
+        by = line_y + 26
+        take_w = self.font.size("PEGAR TUDO")[0] + 12
+        self._button(pygame.Rect(cx + 8, by, take_w, 15), "Pegar tudo", "take_crate", mouse, not crate.empty)
+        if crate.wreck.log is not None and crate.wreck.terminal is None:
+            log_w = self.font.size("LER REGISTRO")[0] + 12
+            self._button(pygame.Rect(cx + 8 + GRID_W - log_w, by, log_w, 15), "Ler registro", "crate_log", mouse)
 
     def panel_notice_y(self, panel_top: int, below_help: int) -> int:
         """Onde vai o aviso ("Inventário cheio") com um painel aberto: logo abaixo da linha de ajuda,
@@ -1029,7 +1100,7 @@ class UI:
         dx, dy = (self.w - dw) // 2, self.h - 100
         self.panel(dx, dy, dw, dh, (10, 16, 13, 237))
         self.surf.fill(pygame.Color(C.C_TERMINAL), (dx, dy, dw, 2))
-        self.text(f"TERMINAL · COLONIA HESPER · LOG 0{index + 1}", dx + 10, dy + 8, C.C_TERMINAL)
+        self.text(f"{C.LOG_TITLES[index]} · LOG 0{index + 1}", dx + 10, dy + 8, C.C_TERMINAL)
         for i, line in enumerate(wrap(self.body, C.LOGS[index], dw - 20)):
             self.text(line, dx + 10, dy + 22 + i * 13, "#d6eadf", self.body)
         if (t * 9) % 10 < 6:
@@ -1113,8 +1184,8 @@ class UI:
         ("E NA CRATERA", "Descer pra caverna (e subir pela rampa)"),
         ("SHIFT+E", "Coletar a drill sem abrir o painel"),
         ("1 A 8 · RODINHA", "Escolher slot da hotbar"),
-        ("CLIQUE", "Colocar a máquina da hotbar"),
-        ("R", "Girar a máquina (só visual)"),
+        ("CLIQUE · R", "Colocar a máquina da hotbar · girar"),
+        ("M", "Mapa (com o scanner de navegação)"),
         ("TAB", "Inventário"),
         ("CLIQUE DIREITO", "Desmontar (volta pro inventário)"),
         ("ESC", "Cancelar / fechar / pausar"),
@@ -1202,6 +1273,125 @@ class UI:
             self._menu_row(back, True)
             self.text("Voltar", back.x + 8, back.y + 3, C.C_TEXT, self.body)
             self.pause_items.append(back)
+
+    # ---- projeto encontrado (Marco 3) -----------------------------------------------
+    def draw_blueprint_notice(self, blueprint: str, alpha: float, icon: pygame.Surface) -> None:
+        """Aviso "PROJETO: <NOME>" no topo do centro, com o ícone do projeto: a receita já está liberada."""
+        title = f"PROJETO: {C.BLUEPRINTS[blueprint].upper()}"
+        sub = "receita liberada no fabricador"
+        w = max(self.font.size(title)[0], self.body.size(sub)[0]) + 34
+        h = 30
+        layer = pygame.Surface((w, h), pygame.SRCALPHA)
+        self.panel(0, 0, w, h, (10, 18, 30, 235), target=layer)
+        layer.fill(pygame.Color("#9fd0ff"), (0, 0, w, 2))
+        self.text(title, 26, 6, "#cfe8ff", target=layer)
+        self.text(sub, 26, 15, "#d9cfc4", self.body, target=layer)
+        layer.set_alpha(int(255 * alpha))
+        left, right = self.BANNER_GAP
+        x = max(2, (left + right) // 2 - w // 2) if right - left >= w else (self.w - w) // 2
+        y = 6 if right - left >= w else 40
+        self.surf.blit(layer, (x, y))
+        ic = icon.copy()
+        ic.set_alpha(int(255 * alpha))
+        self.native.append((ic, ((x + 6) * 2, (y + 7) * 2)))
+
+    # ---- scanner: minimapa e mapa grande (Marco 3) -------------------------------------
+    MINIMAP_SIZE = 64                                  # px da UI (= C.MINIMAP_TILES tiles a 2 px nativos)
+
+    def _map_markers(self, surf: pygame.Surface, state: GameState, origin, k: int, t: float) -> None:
+        """Marcadores por cima da textura já esticada (`k` px por tile, `origin` = tile do canto)."""
+        ox, oy = origin
+        world = state.world
+        explored = state.active.explored
+
+        def at(tx, ty):
+            return round((tx - ox) * k), round((ty - oy) * k)
+
+        m = max(2, k)
+        if state.active.has_base:                                   # base: a cápsula
+            x, y = at(C.POD_TILES[0][0], C.POD_TILES[0][1])
+            pygame.draw.rect(surf, (0, 0, 0), (x - 2, y - 2, 2 * k + 4, k + 4))
+            pygame.draw.rect(surf, pygame.Color(C.C_O2), (x - 1, y - 1, 2 * k + 2, k + 2))
+        if world.crater is not None:                                # cratera / rampa
+            x, y = at(*world.crater)
+            pygame.draw.rect(surf, (0, 0, 0), (x - 1, y - 1, 3 * k + 2, 3 * k + 2), 1)
+            pygame.draw.rect(surf, (255, 255, 255), (x, y, 3 * k, 3 * k), 1)
+        for v in world.veins:                                       # veios vistos
+            if any(explored.seen(*tt) for tt in v.tiles):
+                x, y = at(v.tx + 1, v.ty + 1)
+                pygame.draw.circle(surf, (0, 0, 0), (x, y), m + 2)
+                pygame.draw.circle(surf, pygame.Color(C.ORE_COLORS[v.resource][0]), (x, y), m + 1, max(1, k // 2))
+        for wreck in world.wrecks:                                  # destroços vistos
+            if any(explored.seen(*tt) for tt in wreck.tiles):
+                cx, cy = wreck.center
+                x, y = at(cx, cy)
+                pts = [(x, y - m - 2), (x + m + 2, y), (x, y + m + 2), (x - m - 2, y)]
+                pygame.draw.polygon(surf, (0, 0, 0), [(px + dx, py + dy) for (px, py), (dx, dy)
+                                                      in zip(pts, ((0, -1), (1, 0), (0, 1), (-1, 0)))])
+                crate = state.crates.get(wreck.crate)
+                color = "#7a6c62" if crate is not None and crate.empty else "#f2a33a"
+                pygame.draw.polygon(surf, pygame.Color(color), pts)
+        for tx, ty in world.terminals:                              # terminais da caverna vistos
+            if explored.seen(tx, ty) or explored.seen(tx, ty + 1):
+                x, y = at(tx + 0.5, ty + 0.5)
+                pygame.draw.rect(surf, (0, 0, 0), (x - m, y - m, 2 * m, 2 * m))
+                pygame.draw.rect(surf, pygame.Color(C.C_TERMINAL), (x - m + 1, y - m + 1, 2 * m - 2, 2 * m - 2))
+        p = state.player                                            # você: ponto branco piscando
+        x, y = at(p.x / C.TILE, (p.y - 8) / C.TILE)
+        r = m + 1 if (t * 3) % 2 < 1.4 else m
+        pygame.draw.circle(surf, (0, 0, 0), (x, y), r + 1)
+        pygame.draw.circle(surf, (255, 255, 255), (x, y), r)
+        dx, dy = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}[p.direction]
+        pygame.draw.line(surf, (255, 255, 255), (x, y), (x + dx * (r + 3), y + dy * (r + 3)), 1)
+
+    def draw_minimap(self, state: GameState, tex: pygame.Surface, t: float) -> None:
+        """Minimapa no canto direito, embaixo do medidor de energia: 64×64 tiles em volta do player."""
+        size = self.MINIMAP_SIZE
+        n = C.MINIMAP_TILES
+        k = size * 2 // n                                            # px nativos por tile
+        w, h = tex.get_size()
+        ptx, pty = state.player.tile
+        ox = max(0, min(w - n, ptx - n // 2))
+        oy = max(0, min(h - n, pty - n // 2))
+        view = pygame.transform.scale_by(tex.subsurface((ox, oy, min(n, w), min(n, h))), k)
+        self._map_markers(view, state, (ox, oy), k, t)
+        px = self.w - 6 - (size + 8)
+        py = self.energy_bottom + 4
+        self.panel(px, py, size + 8, size + 17)
+        self.text("MAPA", px + 4, py + 4, C.C_TERMINAL)
+        self.text("[M]", px + size + 4, py + 4, C.C_MUTED, align="right")
+        self.surf.fill((0, 0, 0), (px + 3, py + 12, size + 2, size + 2))
+        self.native.append((view, ((px + 4) * 2, (py + 13) * 2)))
+
+    def draw_map(self, state: GameState, tex: pygame.Surface, t: float) -> None:
+        """Mapa grande (M): a camada inteira, preto onde não foi visto, com legenda."""
+        self.fill((4, 6, 8, 200), (0, 0, self.w, self.h))
+        w, h = tex.get_size()
+        k = max(1, min((self.w * 2 - 48) // w, (self.h * 2 - 96) // h))   # px nativos por tile (inteiro)
+        mw, mh = w * k // 2, h * k // 2                                      # tamanho do mapa em px da UI
+        pw, ph = max(mw + 16, 300), mh + 50
+        x, y = (self.w - pw) // 2, (self.h - ph) // 2
+        self._window(x, y, pw, ph, "MAPA · " + ("SUPERFÍCIE" if state.active.has_base else "CAVERNA"), C.C_TERMINAL)
+        explored = state.active.explored
+        pct = 100 * explored.count / (w * h)
+        self.text(f"EXPLORADO {pct:.0f}%", x + pw - 8, y + 6, C.C_MUTED, align="right")
+        mx, my = x + (pw - mw) // 2, y + 22
+        self.surf.fill((0, 0, 0), (mx - 1, my - 1, mw + 2, mh + 2))
+        view = pygame.transform.scale_by(tex, k)
+        self._map_markers(view, state, (0, 0), k, t)
+        self.native.append((view, (mx * 2, my * 2)))
+        # legenda
+        ly = my + mh + 6
+        items = [("#59d0e6", "BASE")] if state.active.has_base else []
+        items.append(("#ffffff", "CRATERA" if state.active.has_base else "RAMPA"))
+        items.append(("#f2a33a", "DESTROÇO") if state.active.has_base else (C.C_TERMINAL, "TERMINAL"))
+        items += [("#e8a066", "VEIO"), ("#ffffff", "VOCÊ")]
+        lx = x + 8
+        for color, label in items:
+            self.surf.fill((0, 0, 0), (lx, ly + 1, 6, 6))
+            self.surf.fill(pygame.Color(color), (lx + 1, ly + 2, 4, 4))
+            lx += 10 + self.text(label, lx + 9, ly, C.C_MUTED) + 4
+        self.text("[M] FECHA", x + pw - 8, ly, C.C_TEXT, align="right")
 
     # ---- cursor ---------------------------------------------------------------
     def draw_cursor(self, x: float, y: float) -> None:

@@ -52,6 +52,11 @@ Aproximado (o simulador decide no lugar do jogador):
   `_update_machines` e o `ti_rate` reais. O jogador fabrica um painel solar (na base, como outra máquina qualquer)
   sempre que o fator cai abaixo de `PANEL_BELOW`. "Sem energia" = consumo zerado (`--no-energy` / `without_energy`).
 
+v0.3 Marco 3: a estratégia "destrocos" é a "caverna" que, logo no começo, vai a pé até a nave de carga mais
+perto (caminho real na superfície, ida e volta, com O₂), abre a caixa (regra real: `open_crate` + `crate_take`,
+o projeto do tanque sai sozinho), volta, fabrica o tanque de O₂ e equipa (`equip_from`). Daí em diante o O₂ máximo
+é o do tanque (`GameState.o2_max`, 220 s), o que deixa cada descida na caverna render mais.
+
 Tempo morto: o jogador só fica parado quando não existe nada útil: (a) a próxima máquina não ficaria pronta antes
 de o Ti bater o fim, (b) ele já tem os recursos e está esperando a receita liberar, ou (c) não há minério alcançável
 com o O₂ de um tanque cheio.
@@ -153,6 +158,7 @@ class Strategy:
     stations: int = 1             # quantas estações de drones ele monta depois das drills
     drones: int = 2               # quantos drones (item) ele fabrica e põe na estação
     cave: bool = False            # Marco 2: minera na CAVERNA (desce pela rampa), drills nos veios de lá
+    wrecks: bool = False          # Marco 3: começa indo à nave de carga mais perto (saque + tanque de O₂)
 
 
 STRATEGIES = {
@@ -167,6 +173,10 @@ STRATEGIES = {
     # sem soltos). As drills vão nos veios da caverna e ele busca à mão (os drones só atendem a superfície).
     "caverna": Strategy("caverna", pick="balanced", walk_factor=1.3, o2_margin=12.0, craft_overhead=6.0,
                         mine_overhead=0.3, stations=0, cave=True),
+    # v0.3 Marco 3: o casual da caverna que antes vai à nave de carga mais perto, pega o saque e o projeto do
+    # tanque, fabrica e equipa (O₂ de 100 -> 220 s pra minerar lá embaixo)
+    "destrocos": Strategy("destrocos", pick="balanced", walk_factor=1.3, o2_margin=12.0, craft_overhead=6.0,
+                          mine_overhead=0.3, stations=0, cave=True, wrecks=True),
 }
 
 
@@ -224,6 +234,8 @@ class Result:
     time_by: dict = field(default_factory=dict)      # andar / minerar / base / espera
     deficit_time: float = 0.0                        # segundos com falta de energia (máquinas mais lentas)
     ramp_tiles: float = 0.0                          # estratégia caverna: "tiles" da base até a chegada na caverna
+    tank_at: float | None = None                     # Marco 3: quando equipou o tanque de O₂
+    loot_units: int = 0                              # Marco 3: recursos tirados da caixa do destroço
 
 
 # ---------------------------------------------------------------------------
@@ -461,7 +473,7 @@ class Sim:
             if outside:
                 self.gs.o2 = max(0.0, self.gs.o2 - C.O2_DRAIN * step)
             elif self.zone[self.cur]:
-                self.gs.o2 = min(C.O2_MAX, self.gs.o2 + C.O2_REFILL * step)
+                self.gs.o2 = min(self.gs.o2_max, self.gs.o2 + C.O2_REFILL * step)
             if idle:
                 self.idle_run += step
                 self.res.idle_total += step
@@ -581,7 +593,7 @@ class Sim:
         return 2 * self._vein_walk(vein) * self.tw * self.s.walk_factor + self.s.craft_overhead
 
     def _trip_fits_o2(self, vein):
-        return self._trip_time(vein) + self.s.o2_margin <= C.O2_MAX / C.O2_DRAIN
+        return self._trip_time(vein) + self.s.o2_margin <= self.gs.o2_max / C.O2_DRAIN
 
     def free_vein(self):
         """Veio livre alcançável a pé com um tanque de O₂, preferindo tipo ainda sem drill (ferro primeiro)."""
@@ -755,7 +767,32 @@ class Sim:
         if d > 0:
             self._advance(d * self.tw * self.s.walk_factor, outside=True, what="andar")
         self._set_player(self.home)
-        self._advance((C.O2_MAX - self.gs.o2) / C.O2_REFILL)
+        self._advance((self.gs.o2_max - self.gs.o2) / C.O2_REFILL)
+
+    # ---- destroços (Marco 3) ----
+    def loot_trip(self):
+        """Vai a pé até a caixa da nave de carga mais perto, saqueia (o projeto do tanque sai sozinho), volta,
+        fabrica o tanque de O₂ e equipa. Caminho real na superfície (ida e volta), com O₂ caindo."""
+        w = self.base_world
+        wreck = w.wrecks[0]
+        cx, cy = wreck.crate
+        stand = next(t for t in ((cx, cy + 1), (cx - 1, cy), (cx + 1, cy), (cx, cy - 1)) if w.is_floor(*t))
+        walk = surface_walk_to_zone(w, stand) * self.tw * self.s.walk_factor
+        self._set_player(self.home)
+        self._advance(walk, outside=True, what="andar")
+        self.gs.enter_layer(SURFACE, self._tile_pos(*stand))
+        crate = self.gs.surface.crates[wreck.crate]
+        self.gs.open_crate(crate)
+        self.res.loot_units += self.gs.crate_take(crate)
+        self._advance(self.s.craft_overhead, outside=True, what="base")
+        self._advance(walk, outside=True, what="andar")
+        self._set_player(self.home)
+        self._advance((self.gs.o2_max - self.gs.o2) / C.O2_REFILL)
+        if self.gs.craft("o2_tank"):
+            index = next(i for i, st in enumerate(self.gs.inventory.slots) if st and st.item == "o2_tank")
+            self.gs.equip_from(index)
+            self._advance(self.s.craft_overhead)
+            self.res.tank_at = self.t
 
     def _xy_spawn(self):
         return int(C.SPAWN_POS[0] // C.TILE), int((C.SPAWN_POS[1] - 1) // C.TILE)
@@ -887,6 +924,8 @@ class Sim:
 
     # ---- laço principal ----
     def run(self) -> Result:
+        if self.s.wrecks:
+            self.loot_trip()
         trip_t0, trip_units = self.t, 0
         while not self.res.finished and self.t < self.max_time:
             try:
@@ -941,7 +980,7 @@ class Sim:
                     continue
                 path = self.search(missing)
                 if path is None:
-                    if self.zone[self.cur] and self.gs.o2 >= C.O2_MAX - 1e-6:
+                    if self.zone[self.cur] and self.gs.o2 >= self.gs.o2_max - 1e-6:
                         self.res.idle_reason = "sem minério alcançável"
                         self._advance(30.0, idle=True)
                         continue
@@ -991,13 +1030,14 @@ def table(title, results, markdown=False):
     marks = ["Ti 500"] + [s.name.capitalize() for s in C.STAGES[1:]]
     kinds = list(C.MACHINES)
     head = ["estratégia", "seed", *marks, "total", "espera total", "maior espera", "desm.", "drill un.",
-            "drone un.", "déficit", "máquinas (" + "/".join(kinds) + ")"]
+            "drone un.", "déficit", "tanque", "saque", "máquinas (" + "/".join(kinds) + ")"]
     rows = []
     for r in results:
         rows.append([r.strategy, str(r.seed), *[fmt(r.milestones.get(m)) for m in marks],
                      fmt(r.total) + ("" if r.finished else " (não acabou)"),
                      fmt(r.idle_total), fmt(r.idle_longest), str(r.faints), str(r.drill_units),
-                     str(r.drone_units), fmt(r.deficit_time), "/".join(str(r.machines[k]) for k in kinds)])
+                     str(r.drone_units), fmt(r.deficit_time), fmt(r.tank_at), str(r.loot_units),
+                     "/".join(str(r.machines[k]) for k in kinds)])
     out = [f"\n{'### ' if markdown else '== '}{title}\n"]
     if markdown:
         out.append("| " + " | ".join(head) + " |")

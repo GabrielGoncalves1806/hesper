@@ -3,7 +3,8 @@
 Jogo 2D top-down de sobrevivência e terraformação. Tu cai num deserto de um planeta morto, junta
 minério das rochas e do chão, fabrica máquinas que aumentam O₂, calor e água, e vê o planeta mudar de cara.
 No v0.3 o mundo ganha duas camadas: a **superfície** (deserto aberto, onde fica a base) e a **caverna**
-(escura, com minério em volume), ligadas pela rampa da cratera. O v0.3 exige jogo novo: save do v0.2 não carrega (fica guardado como
+(escura, com minério em volume), ligadas pela rampa da cratera. No deserto ficam os **destroços** da colônia
+(saque, LOGs e projetos que liberam o tanque de O₂, o scanner de navegação e a luminária forte). O v0.3 exige jogo novo: save do v0.2 não carrega (fica guardado como
 `saves/slot1.v5.json` quando tu começa um jogo novo).
 A fonte da verdade do design é `docs/GAME_BIBLE.md`.
 
@@ -27,7 +28,10 @@ uv run python -m game --scale 2   # força o zoom da janela (padrão: o maior qu
 | Fabricador | E (só dentro do círculo azul da base) · A/D, ←/→ ou Tab trocam de aba · W/S escolhe · rodinha rola a lista · clique ou Enter fabrica · Shift+Enter ou Shift+clique fabrica até 5 |
 | Colocar máquina | depois de fabricar, clique no chão · R gira · Esc ou botão direito cancela |
 | Hotbar | 1 a 8 ou a rodinha do mouse escolhem o slot · se for máquina, já entra no modo de colocar |
-| Inventário | Tab · clique pega/solta a pilha · clique direito pega metade |
+| Inventário | Tab · clique pega/solta a pilha · clique direito pega metade · embaixo, os slots do **TRAJE** (tanque e scanner) |
+| Equipamento | no Tab, clique num tanque de O₂ ou scanner equipa (troca com o que estava no slot) · clique no slot equipado tira · soltar o item da mão no slot também equipa · tanque: O₂ dura 220 s (a barra mostra os segundos) |
+| Destroços | nave de carga, módulo da colônia e sonda espalhados pelo deserto (o mais perto a ~30 tiles) · E na **caixa** abre o saque (só tirar: clique = pilha, direito = 1, **Pegar tudo**; não reabastece; vazia fica marcada) · o **projeto** sai sozinho e libera a receita na hora ("PROJETO: …") · nave e sonda mostram o registro de bordo na 1ª vez (**Ler registro** relê) · o módulo tem terminal (E) |
+| Mapa | com o **scanner** equipado: minimapa no canto direito · **M** abre o mapa grande da camada · o que tu nunca viu fica preto (o jogo marca o que tu vê desde o começo, mesmo sem scanner) |
 | Baú | E perto dele · clique esquerdo manda a pilha inteira pro outro lado · clique direito manda 1 · Shift+clique manda todas as pilhas daquele item · botões **Pegar tudo** e **Guardar recursos** (só ferro, silício e gelo) · o fabricador usa o que está nos baús da base |
 | Nome do baú | no painel do baú, clique no nome · digite (até 16 letras) · Enter confirma · Esc cancela · Backspace apaga · o nome flutua em cima do baú quando tu passa o mouse |
 | Estação de drones | E perto dela · clique no drone do inventário põe na estação (esquerdo: quantos couberem nos 4 slots, direito: 1) · clique num drone pousado tira (em voo fica travado) · os drones atendem o **mapa todo** (sem alcance) · sobras do buffer de save antigo: clique tira (direito: 1) e **Pegar tudo** |
@@ -39,9 +43,9 @@ uv run python -m game --scale 2   # força o zoom da janela (padrão: o maior qu
 | Zoom do mundo | + / - (ou = e o teclado numérico) · Ctrl+rodinha (Cmd no Mac) · 0,75× · 1× · 1,5× · 2× · HUD e menus não mudam de tamanho |
 | Tela cheia | F11 ou Alt+Enter (resolução do monitor, 16:9 com tarja preta se precisar) |
 | Tamanho da interface | Pausa > Opções > Interface: Grande (a de sempre) · Média (~75%, padrão) · Pequena (~50%) · só HUD e menus mudam, o mundo não · em janela pequena (960×540) os três ficam iguais |
-| Ler terminal | E perto dele (os terminais ficam na caverna) |
+| Ler terminal | E perto dele (os terminais ficam na caverna e nos módulos da colônia) |
 | Descer / subir | E na **cratera** (mouse em cima, no alcance, ou parado do lado dela) desce pra caverna · lá embaixo, E na **rampa de subida** volta · sempre chega ao lado da rampa · na caverna não tem zona de O₂: o tanque dura os mesmos 100 s, e a seta do O₂ crítico aponta pra rampa · desmaiou lá embaixo, acorda na cápsula |
-| Luminária | aba **Luz** do fabricador (1 ferro + 1 silício, desde o começo) · coloca como máquina (hotbar + clique), em qualquer camada · ilumina ~5 tiles, sem energia · clique direito desmonta |
+| Luminária | aba **Luz** do fabricador (1 ferro + 1 silício, desde o começo) · coloca como máquina (hotbar + clique), em qualquer camada · ilumina ~5 tiles, sem energia · clique direito desmonta · a **luminária forte** (projeto) ilumina ~7 |
 | E (interagir) | abre o que está **debaixo do mouse** (baú, drill, estação, terminal) se estiver no alcance; senão o mais perto · Shift+E na drill segue a mesma regra · o alvo ganha um contorno e o texto do canto diz o que o E vai abrir |
 | Debug | F1 acelera o tempo ×10 (O₂ e máquinas) · F2 soma +10.000 Ti |
 
@@ -66,6 +70,10 @@ assim o jogo anda na mesma velocidade num PC rápido ou lento. O código separa 
 | `game/layers.py` | as camadas (superfície e caverna): cada uma com mapa, máquinas e recursos soltos · regras da rampa (alvo do E, ponto de chegada) |
 | `game/lighting.py` | escuridão da caverna: mapa de luz em degraus multiplicado no mundo, lanterna, luminárias, luz de máquina e brilho dos minérios |
 | `game/pickups.py` | recursos soltos no chão: geração, reaparecimento (fora da tela, longe da base, com teto) e save |
+| `game/wrecks.py` | destroços: posição pela seed (distâncias crescentes), tipos, caixa e terminal, saque e projetos |
+| `game/equipment.py` | slots do traje (tanque de O₂, scanner) e o O₂ máximo |
+| `game/explore.py` | o que o jogador já viu em cada camada (névoa de guerra do scanner) e o save comprimido |
+| `game/minimap.py` | textura do mapa do scanner, pintada só onde mudou (incremental) |
 | `game/player.py` | o astronauta: posição, direção (baixo/cima/esquerda/direita) e movimento com colisão |
 | `game/systems.py` | as regras (`GameState`): camadas, mineração, recursos soltos, O₂, desmaio, fabricador, máquinas, Ti e estágios. **Python puro, sem pygame**, por isso dá pra testar fácil |
 | `game/drones.py` | estação e drones: Envia/Recebe/Lote de baús e drills, escolha do par origem → destino, reservas entre drones e o ciclo de voo (Python puro) |
