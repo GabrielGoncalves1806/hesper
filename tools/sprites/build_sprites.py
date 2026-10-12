@@ -2164,9 +2164,10 @@ def _chunk_mask(w, h, s, cut=0.18):
     return m
 
 
-def paint_rock(cv: Canvas, m, x, y, top_rows, s):
+def paint_rock(cv: Canvas, m, x, y, top_rows, s, pal=None):
     """Rocha em 3/4: topo claro (top_rows), frente em faixas escurecendo, brilho, contorno #1b1630
-    e 2 px de base (pesada no chão)."""
+    e 2 px de base (pesada no chão). `pal` troca a paleta (padrão: ROCK, roxo-acinzentada)."""
+    ROCK = pal or globals()["ROCK"]
     h, w = m.shape
     layer = Canvas(cv.w, cv.h)
     up = np.zeros_like(m); up[1:] = m[:-1]
@@ -2784,10 +2785,811 @@ def make_water_demo(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
     return img.convert("RGB")
 
 
+# ---------------------------------------------------------------- v5.0 (pendente): v0.3 · Marco 2 (caverna)
+
+LAMP = dict(hi="#fffbe8", l="#ffe9a8", m="#ffd27a", d="#f2a64a", dd="#c9742f")
+LAMP_BULB = (8, 6)          # centro da lâmpada no lamp.png (pro Dev ancorar a luz)
+
+
+def _lamp_head(L: Canvas, x, y, w, h):
+    """Cabeça de gaiola: tampa escura, vidro quente aceso em faixas (claro à esquerda), uma barra de gaiola
+    no meio e um aro embaixo. (x, y) = canto sup. esquerdo do vidro."""
+    _m(L, x + 1, y - 2, w - 2, 1, "g")                     # tampa
+    _m(L, x, y - 1, w, 1, "k")
+    for j in range(h):
+        for i in range(w):
+            c = LAMP["hi"] if i == 0 else LAMP["l"] if i == 1 else LAMP["dd"] if i == w - 1 else \
+                LAMP["d"] if i == w - 2 else LAMP["m"]
+            if j == h - 1 and 0 < i < w - 1:
+                c = LAMP["d"]
+            L.px(x + i, y + j, C(c))
+    L.px(x + 1, y + 1, C("#ffffff"))
+    _m(L, x + w // 2, y, 1, h, "kk")                        # barra vertical da gaiola
+    _m(L, x, y + h // 2, w, 1, "k")                         # aro da gaiola
+    L.px(x, y + h // 2, C(MT["g"]))
+    _m(L, x - 1, y + h, w + 2, 1, "g")                      # aro de baixo
+    _m(L, x - 1, y + h + 1, w + 2, 1, "k")
+
+
+def make_lamp() -> Canvas:
+    """Luminária de chão 16x32 (família das máquinas): sapata pesada com faixa laranja, poste cinza em
+    faixas, colar escuro e cabeça de gaiola com lâmpada quente acesa. Base na linha 29."""
+    cv = Canvas(16, 32)
+    cv.ellipse(8, 29.5, 6.5, 2, SHADOW)
+    L = Canvas(16, 32)
+    _m(L, 3, 24, 10, 2, "l")                                # sapata: topo
+    _m(L, 3, 24, 10, 1, "w")
+    _m(L, 3, 26, 10, 3, "s")                                # frente
+    _m(L, 3, 26, 10, 1, "o")
+    _m(L, 3, 27, 10, 1, "od")
+    _m(L, 3, 28, 10, 1, "d")
+    _m(L, 12, 26, 1, 3, "g")
+    L.px(4, 25, C(MT["d"])); L.px(11, 25, C(MT["d"]))       # parafusos
+    for y in range(12, 24):                                 # poste
+        L.bands(6, y, 1, [(MT["w"], 1), (MT["l"], 1), (MT["m"], 1), (MT["s"], 1)])
+    _m(L, 6, 16, 4, 1, "oh")                                # faixa laranja no poste
+    _m(L, 6, 17, 4, 1, "o")
+    _m(L, 6, 18, 4, 1, "od")
+    _m(L, 5, 11, 6, 1, "g")                                 # colar
+    _m(L, 5, 12, 6, 1, "k")
+    _lamp_head(L, 5, 3, 6, 6)
+    L.outline(C(OUTLINE))
+    cv.paste(L, 0, 0)
+    return cv
+
+
+def make_icon_lamp() -> Canvas:
+    """Ícone da luminária: a mesma cabeça de gaiola acesa, maior, num poste curto com sapata laranja."""
+    cv = Canvas(16, 16)
+    L = Canvas(16, 16)
+    _lamp_head(L, 4, 2, 8, 6)
+    _m(L, 6, 10, 4, 3, "m")
+    _m(L, 6, 10, 1, 3, "w")
+    _m(L, 9, 10, 1, 3, "s")
+    _m(L, 3, 12, 10, 1, "l")
+    _m(L, 3, 13, 10, 1, "o")
+    _m(L, 3, 14, 10, 1, "od")
+    L.outline(C(OUTLINE))
+    cv.paste(L, 0, 0)
+    return cv
+
+
+CAVE = dict(hi="#958d90", light="#7a7275", mid="#635c5f", dark="#4f484b", deep="#3c3639",
+            f1="#5d5659", f2="#484245", f3="#363134", f4="#2b272a", f5="#1f1c1e")
+CAVE_ROCK = dict(hi="#aca4a7", light="#857d80", mid="#686164", dark="#504a4d", deep="#3a3538")
+SUN = ["#fffaf0", "#fff0c8", "#f8dca0", "#e8c088", "#c9a070"]       # luz do dia descendo pelo poço
+STEPS_UP = ["#4a4f57", "#5a6069", "#6b717a", "#7c838c", "#8c949e", "#abb2bb", "#c8cdd4", "#e1e2df", "#f4ecd8", "#fff3dc"]
+CAVE_RAMP = dict(sill=(1, 2), arrive=(1, 3), light=(48, 30))      # tiles relativos + centro da luz (px)
+
+
+def make_cave_ramp_up() -> Canvas:
+    """Rampa de subida 96x96 (contraparte da crater_ramp): monte de rocha fria (paleta da caverna) com uma
+    escada de metal cortada nele, subindo da soleira (no chão, na frente) até uma boca de luz no fundo.
+    Os degraus clareiam conforme sobem (luz do dia vindo de cima), com raios pontilhados e poeira no feixe.
+    Mesma linguagem da crater_ramp: corrimão laranja, soleira com faixa de alerta e balizas com LED verde."""
+    W = 96
+    ys, xs = np.mgrid[0:W, 0:W] + 0.5
+    cx, cy, lift = 48, 53, 11
+
+    def ell(rx, ry, ex, ey, k1, k2, ph=1.3):
+        ang = np.arctan2(ys - ey, xs - ex)
+        wob = 1 + k1 * np.sin(5 * ang + ph) + k2 * np.sin(9 * ang + 0.4)
+        return (((xs - ex) / rx) ** 2 + ((ys - ey) / ry) ** 2) <= wob ** 2
+
+    base = ell(46, 40, cx, cy, 0.04, 0.025)
+    top = ell(45, 37, cx, cy - lift, 0.04, 0.025)
+    hole = ell(18, 11, 48, 24, 0.05, 0.03, 0.2)
+    cv = Canvas(W, W)
+    sh = (((xs - cx) / 47) ** 2 + ((ys - cy - 3) / 41) ** 2) <= 1
+    cv.a[sh & ~base & ~top] = SHADOW
+    # face externa (frente do monte), em estratos escurecendo pro pé
+    face = base & ~top
+    for y in range(W):
+        for x in range(W):
+            if not face[y, x]:
+                continue
+            col = np.nonzero(top[:, x])[0]
+            d = y - (col.max() if len(col) else y)
+            c = CAVE["f1"] if d <= 2 else CAVE["f2"] if d <= 5 else CAVE["f3"] if d <= 9 else CAVE["f4"]
+            if d > 1 and hsh(x // 4, int(d) // 3, 63) < 0.2:
+                c = CAVE["f3"] if c != CAVE["f3"] else CAVE["f4"]
+            cv.px(x, y, C(c))
+    # topo do monte: placas em 2 faixas chapadas + quinas claras + fendas
+    rim = top & ~hole
+    upm = np.roll(rim, 1, 0); dnm = np.roll(rim, -1, 0)
+    cv.a[rim] = C(CAVE["light"])
+    n = np.array([[vnoise(x * 0.11, y * 0.16, 29) for x in range(W)] for y in range(W)])
+    cv.a[rim & (n < 0.4)] = C(CAVE["mid"])
+    cv.a[rim & (n > 0.4) & (np.roll(n, 1, 0) <= 0.4)] = C(CAVE["hi"])
+    cv.a[rim & (np.abs(n - 0.64) < 0.012)] = C(CAVE["dark"])
+    cv.a[rim & ~upm & (ys < cy)] = C(CAVE["hi"])
+    cv.a[rim & ~dnm & (ys > cy - lift)] = C(CAVE["mid"])
+    # boca de luz no fundo: parede do poço iluminada em cima, depois a luz do dia em anéis
+    hy0 = int(ys[hole].min())
+    for y in range(W):
+        for x in range(W):
+            if not hole[y, x]:
+                continue
+            col = np.nonzero(hole[:, x])[0]
+            d = y - col.min()
+            r = math.hypot((x + 0.5 - 48) / 18, (y + 0.5 - 26) / 10)
+            if d < 2:
+                c = CAVE["mid"]
+            elif d < 4:
+                c = SUN[4]
+            elif d < 6:
+                c = SUN[3]
+            else:
+                c = SUN[0] if r < 0.45 else SUN[1] if r < 0.72 else SUN[2]
+            cv.px(x, y, C(c))
+    # contorno: em volta do monte e no beiço de trás da boca
+    solid = Canvas(W, W)
+    solid.a[(top | base)] = C("#ffffff")
+    solid.outline(C(OUTLINE))
+    ring = (solid.a[:, :, 0] == C(OUTLINE)[0]) & (solid.a[:, :, 3] == 255)
+    cv.a[ring & (cv.a[:, :, 3] < 255)] = C(OUTLINE)
+    lip = hole & ~np.roll(hole, 1, 0)
+    cv.a[lip] = C(OUTLINE)
+    cv.a[np.roll(hole, -1, 0) & ~hole & rim] = C(CAVE["hi"])          # beiço da frente, pegando luz
+    warm = {CAVE["hi"]: "#d2c2ad", CAVE["light"]: "#ac9d8d", CAVE["mid"]: "#8c7f74", CAVE["dark"]: "#6e6359"}
+    rr = np.hypot((xs - 48) / 18, (ys - 25) / 11)
+    for y, x in zip(*np.nonzero(rim & (rr < 1.45))):                    # rocha em volta da boca, esquentada pela luz
+        hexc = "#%02x%02x%02x" % tuple(cv.a[y, x, :3])
+        if hexc in warm and (rr[y, x] < 1.25 or (x + y) % 2 == 0):
+            cv.px(x, y, C(warm[hexc]))
+    # pedregulhos na borda (de trás pra frente), longe da escada
+    for (bx, by, w, h, sd) in sorted([(24, 17, 15, 10, 1), (73, 15, 12, 9, 0), (84, 40, 11, 10, 0),
+                                       (12, 52, 12, 11, 1), (18, 80, 14, 10, 0), (80, 76, 15, 11, 1),
+                                       (88, 64, 7, 6, 1)], key=lambda b: b[1]):
+        paint_rock(cv, _chunk_mask(w, h, sd, 0.15), bx - w // 2, by - h // 2, max(3, h // 2), sd, CAVE_ROCK)
+    # escada cortada no monte, subindo pro fundo
+    yb, yt = 91, 30
+    for y in range(yt, yb):
+        f = (yb - y) / (yb - yt)
+        inset = int(round(f * 5))
+        l, r = 37 + inset, 59 - inset
+        k = min(len(STEPS_UP) - 1, int(f * len(STEPS_UP)))
+        st = (yb - y) % 6                      # 0-2 espelho (frente do degrau), 3 quina, 4-5 pisada
+        if st == 3:
+            c = STEPS_UP[min(len(STEPS_UP) - 1, k + 1)]
+        elif st >= 4:
+            c = STEPS_UP[k]
+        else:
+            c = STEPS_UP[max(0, k - 2)] if st > 0 else STEPS_UP[max(0, k - 3)]
+        wl = CAVE["light"] if f > 0.75 else CAVE["mid"] if f > 0.45 else CAVE["dark"]
+        cv.rect(l - 5, y, 5, 1, C(wl))                                    # parede do corte, esquerda (luz)
+        cv.rect(r, y, 5, 1, C(CAVE["deep"] if f < 0.6 else CAVE["dark"]))  # direita (sombra)
+        cv.rect(l, y, r - l, 1, C(c))
+        if st >= 4 and k < 7:                                             # ranhuras antiderrapantes
+            for gx in range(l + 3, r - 2, 4):
+                cv.px(gx, y, C(STEPS_UP[max(0, k - 1)]))
+        cv.px(l - 1, y, C("#e2733a"))                                     # corrimão
+        cv.px(r, y, C("#a8471f"))
+        if (yb - y) % 12 == 4:                                            # pés do corrimão
+            cv.px(l - 2, y, C("#a8471f")); cv.px(r + 1, y, C("#6e2f14"))
+        cv.px(l - 6, y, C(OUTLINE))
+        cv.px(r + 5, y, C(OUTLINE))
+    # raios de luz pontilhados descendo pela escada + poeira no feixe
+    for (rx0, ln) in ((42, 26), (46, 34), (50, 30), (54, 20)):
+        for y in range(yt + 2, yt + 2 + ln):
+            fade = (y - yt) / ln
+            if (y + rx0) % 2 == 0 and hsh(rx0, y, 83) > fade * 0.9:
+                x = rx0 + (y // 9) % 2 - 1
+                cv.px(x, y, C(SUN[1] if fade < 0.5 else SUN[2]))
+    for (x, y) in ((44, 41), (51, 47), (47, 55), (53, 37), (41, 60), (49, 65)):
+        cv.px(x, y, C(SUN[0]))
+    # soleira de metal com faixa de alerta, no chão
+    x0, x1 = 37, 59
+    cv.rect(x0 - 6, yb, x1 - x0 + 12, 4, C(OUTLINE))
+    cv.rect(x0 - 5, yb, x1 - x0 + 10, 2, C("#8c949e"))
+    for i in range(x1 - x0 + 10):
+        cv.px(x0 - 5 + i, yb, C(GOLD if (i // 3) % 2 == 0 else "#2a2d33"))
+    cv.rect(x0 - 5, yb + 1, x1 - x0 + 10, 1, C("#6b717a"))
+    # balizas com LED verde e seta de "subir"
+    for bx in (x0 - 11, x1 + 8):
+        cv.rect(bx - 1, yb - 13, 5, 16, C(OUTLINE))
+        cv.rect(bx, yb - 12, 3, 14, C("#c8cdd4"))
+        cv.rect(bx, yb - 12, 1, 14, C("#f4f6f8"))
+        cv.rect(bx + 2, yb - 12, 1, 14, C("#8c949e"))
+        cv.rect(bx, yb - 6, 3, 2, C("#e2733a"))
+        cv.rect(bx, yb - 12, 3, 2, C("#7fd67a"))
+        cv.px(bx, yb - 12, C("#d6ffd0"))
+    sx, sy = x1 + 1, yb - 22                    # plaquinha com seta pra cima, presa na parede direita do corte
+    cv.rect(sx, sy, 7, 7, C(OUTLINE))
+    cv.rect(sx + 1, sy + 1, 5, 5, C("#1d2a22"))
+    cv.px(sx + 3, sy + 2, C("#7fd67a"))
+    cv.rect(sx + 2, sy + 3, 3, 1, C("#7fd67a"))
+    cv.rect(sx + 3, sy + 4, 1, 2, C("#7fd67a"))
+    return cv
+
+
+# ---------------------------------------------------------------- v5.0 (pendente): v0.3 · Marco 3 (destroços)
+
+WK = dict(roof="#efe7d4", roofS="#d6ccb4", hi="#fbf7ec", face="#e3d9c3", faceS="#cfc4ab", seam="#bdb197",
+          low="#b3a78d", dirty="#a39780", fo="#d39065", foh="#e6b08a", fod="#a8663f",
+          m1="#6b717a", m2="#5a6069", m3="#4a4f57", m4="#3b3f46", m5="#2a2d33", void="#1a1c21",
+          rib="#9c917a", ribL="#c9bea6", glass="#2a3a48", glassL="#5d7a8c", glassH="#a8c8d8")
+DRIFT = dict(hi="#a39385", l="#8e7f73", m="#796b61", d="#625650", dd="#4d433e")
+
+
+def _drift(cv: Canvas, cx, by, rx, ry, s):
+    """Monte de areia acumulada (tom neutro, funciona nos 3 chãos): meia-elipse apoiada na linha `by`,
+    crista clara, faixas escurecendo pra base e uns grãos. Sem contorno (é areia, não objeto)."""
+    for x in range(int(cx - rx - 1), int(cx + rx + 2)):
+        t = (x + 0.5 - cx) / rx
+        if abs(t) >= 1:
+            continue
+        hcol = ry * math.sqrt(1 - t * t) * (1 + 0.07 * math.sin(x * 0.35 + s))
+        y0 = int(round(by - hcol))
+        for y in range(y0, int(by) + 1):
+            d = y - y0
+            c = DRIFT["hi"] if d == 0 else DRIFT["l"] if d < 3 else DRIFT["m"] if d < 6 else DRIFT["d"]
+            if y == int(by):
+                c = DRIFT["dd"]
+            cv.px(x, y, C(c))
+    for i in range(int(rx // 4)):
+        x = int(cx - rx * 0.7 + hsh(i, 1, s) * rx * 1.4)
+        y = int(by - 1 - hsh(i, 2, s) * ry * 0.5)
+        if cv.a[y, x, 3] == 255 and cv.get(x, y)[:3] != C(DRIFT["hi"])[:3]:
+            cv.px(x, y, C(DRIFT["dd"] if i % 2 else DRIFT["hi"]))
+
+
+def _jag(y, x0, amp, s, step=3):
+    return x0 + int(hsh(y // step, 0, s) * amp)
+
+
+def _wear(L: Canvas, y0, y1, seed, near, k_near=0.52, k_far=0.8):
+    """Desgaste: manchas de ruído que escurecem o creme um tom (fuligem/poeira grudada). `near(x, y)` diz
+    onde a mancha é mais forte."""
+    dark1 = {WK[k]: WK[v] for k, v in (("hi", "roof"), ("roof", "roofS"), ("roofS", "seam"), ("face", "faceS"),
+                                         ("faceS", "low"), ("low", "dirty"), ("dirty", "rib"))}
+    for y in range(y0, y1):
+        for x in range(L.w):
+            if L.a[y, x, 3] != 255:
+                continue
+            hexc = "#%02x%02x%02x" % tuple(L.a[y, x, :3])
+            if hexc not in dark1:
+                continue
+            nn = vnoise(x * 0.18, y * 0.22, seed)
+            if (near(x, y) and nn > k_near) or nn > k_far:
+                L.px(x, y, C(dark1[hexc]))
+
+
+def make_wreck_cargo() -> Canvas:
+    """Nave de carga caída, 128x112 (4x3 tiles + 16 px pra cima). Fuselagem tubular creme em 3/4 (faixas de
+    cilindro), nariz pontudo enfiado na areia à esquerda com o vidro da cabine trincado, faixa laranja
+    desbotada, placas do teto arrancadas mostrando as costelas, porta de carga caída virando rampa,
+    asa do lado de cá apoiada no chão, asa de lá aparecendo atrás, deriva torta, 2 bocais de motor (um partido)
+    e areia acumulada no nariz, na barriga e em cima da asa. Sem sangue, sem corpo."""
+    W, H = 128, 112
+    cv = Canvas(W, H)
+    cv.ellipse(66, 94, 60, 11, SHADOW)
+    YT, YB, NOSE = 34, 86, 66                   # topo e barriga do tubo, altura da ponta do nariz
+
+    def xl(y):                                  # perfil do nariz (parábola, ponta embaixo: enterrado)
+        return 6 + int(round(26 * ((y - NOSE) / 32) ** 2))
+
+    def xr(y):                                  # traseira levemente arredondada
+        return 112 - int(round(5 * abs((y - 60) / 26) ** 3))
+
+    def band(y):
+        t = (y - YT) / (YB - YT)
+        return ("hi" if t < 0.05 else "roof" if t < 0.36 else "roofS" if t < 0.42 else "face" if t < 0.72
+                else "faceS" if t < 0.84 else "low" if t < 0.94 else "dirty")
+
+    # asa de lá (atrás do casco), deriva e antena: camada de trás
+    back = Canvas(W, H)
+    for i in range(9):
+        back.rect(66 + i, 26 + i, 30, 1, C(WK["faceS"] if i else WK["roof"]))
+    back.rect(92, 26, 5, 3, C(WK["fo"]))
+    for i in range(22):                         # deriva: inclinada pra trás, ponta arrancada
+        y = 12 + i
+        x0 = 98 - i // 2
+        w = 9 + i // 3 if i > 3 else 6
+        back.rect(x0, y, w, 1, C(WK["face"] if i > 1 else WK["hi"]))
+        back.px(x0, y, C(WK["hi"]))
+    back.rect(94, 20, 10, 2, C(WK["fo"])); back.rect(94, 20, 10, 1, C(WK["foh"]))
+    back.rect(30, 14, 1, 21, C(WK["m2"])); back.rect(31, 12, 1, 3, C(WK["m2"])); back.rect(32, 10, 1, 3, C(WK["m2"]))
+    back.rect(31, 8, 4, 2, C(WK["m1"])); back.px(34, 8, C("#ff5a4a"))
+    back.outline(C(OUTLINE))
+    cv.paste(back, 0, 0)
+    L = Canvas(W, H)
+    r = lambda x, y, w, h, c: L.rect(x, y, w, h, C(WK[c]) if c in WK else C(c))   # noqa: E731
+    # fuselagem
+    for y in range(YT, YB):
+        a_, b_ = max(0, xl(y)), xr(y)
+        if b_ <= a_:
+            continue
+        r(a_, y, b_ - a_, 1, band(y))
+        L.px(a_, y, C(WK["hi"] if y < NOSE else WK["faceS"]))
+    for sx in (40, 58, 76, 94):                 # anéis/junções das placas
+        for y in range(YT + 2, YB - 2):
+            if xl(y) < sx < xr(y) and band(y) not in ("hi",):
+                L.px(sx, y, C(WK["seam"] if band(y) in ("roof", "face") else WK["low"]))
+    for y in range(YT, YB):                     # faixa laranja desbotada, descascada em pontos
+        pass
+    fy = YT + 22
+    for x in range(xl(fy) + 2, xr(fy)):
+        if hsh(x // 3, 0, 75) > 0.12:
+            L.px(x, fy, C(WK["foh"])); L.px(x, fy + 1, C(WK["fo"])); L.px(x, fy + 2, C(WK["fod"]))
+    # cabine no nariz: vidro inclinado acompanhando a curva, trincado
+    for y in range(YT + 7, YT + 15):
+        x0 = xl(y) + 3
+        for x in range(x0, x0 + 14):
+            c = "glass" if (x - x0) % 5 else "m4"
+            if y == YT + 7:
+                c = "m4"
+            L.px(x, y, C(WK[c]))
+    for x in range(xl(YT + 8) + 4, xl(YT + 8) + 13):
+        if (x - xl(YT + 8) - 3) % 5:
+            L.px(x, YT + 8, C(WK["glassL"]))
+    L.px(xl(YT + 8) + 4, YT + 8, C(WK["glassH"]))
+    for (dx, dy) in ((8, 9), (9, 10), (10, 10), (11, 11), (12, 12), (10, 12)):
+        L.px(xl(YT + dy) + dx, YT + dy, C(WK["glassH"]))
+    # placas arrancadas no teto: buraco com costelas e uma placa levantada
+    r(56, YT + 3, 16, 10, "void"); r(56, YT + 3, 16, 1, "m5")
+    for bx in (58, 62, 66, 70):
+        r(bx, YT + 4, 1, 9, "rib"); L.px(bx, YT + 4, C(WK["ribL"]))
+    r(73, YT + 1, 4, 10, "roofS"); r(73, YT, 5, 1, "hi")
+    # porta de carga aberta (porão escuro com costelas)
+    dx0, dx1, dy0 = 40, 64, YT + 27
+    r(dx0 - 1, dy0 - 1, dx1 - dx0 + 2, YB - dy0 + 1, "fod")
+    r(dx0, dy0, dx1 - dx0, YB - dy0, "void")
+    r(dx0, dy0, dx1 - dx0, 2, "m5")
+    for bx in range(dx0 + 3, dx1 - 1, 6):
+        r(bx, dy0 + 2, 1, YB - dy0 - 3, "m4")
+    r(dx0, YB - 3, dx1 - dx0, 1, "m3")
+    # registro "07" em stencil
+    for gx, rows in ((72, ("###", "#.#", "#.#", "#.#", "###")), (76, ("###", "..#", ".#.", ".#.", ".#."))):
+        for j, row in enumerate(rows):
+            for i, ch in enumerate(row):
+                if ch == "#":
+                    L.px(gx + i, YT + 31 + j, C(WK["m4"]))
+    # painel lateral arrancado (costelas) e trinca diagonal
+    r(86, YT + 27, 12, 12, "void"); r(86, YT + 27, 12, 1, "m5")
+    for bx in (88, 92, 96):
+        r(bx, YT + 28, 1, 11, "rib")
+    for (x, y) in ((85, YT + 30), (85, YT + 31), (98, YT + 33), (91, YT + 39)):
+        L.px(x, y, C(WK["ribL"]))
+    for k in range(13):
+        x, y = 20 + k, YT + 29 + k + k // 3
+        if xl(y) < x - 1:
+            L.px(x, y, C(WK["m3"]))
+            L.px(x + 1, y, C(WK["hi"]))
+    # fuligem e desgaste: escurece manchas perto do motor, do buraco do teto e na barriga
+    _wear(L, YT, YB, 77, lambda x, y: x > 92 or (50 < x < 80 and y < YT + 16) or (x < 30 and y > YB - 12))
+    # bocais do motor na traseira (o de baixo partido)
+    for (ny, broken) in ((44, False), (60, True)):
+        r(xr(ny + 4) - 1, ny, 10, 12, "m4")
+        r(xr(ny + 4) + 1, ny + 1, 8, 10, "m3")
+        r(xr(ny + 4) + 3, ny + 3, 6, 6, "void")
+        r(xr(ny + 4) + 9, ny - 1, 2, 14, "m2")
+        if broken:
+            for y in range(ny - 1, ny + 13, 2):
+                L.a[y, xr(ny + 4) + 10] = 0
+            r(xr(ny + 4) + 9, ny + 6, 2, 7, "m4")
+    # porta caída virando rampa até o chão (faixa de alerta desbotada na ponta)
+    for y in range(YB, YB + 16):
+        f = (y - YB) / 16
+        inset = int(round((1 - f) * 2))
+        r(dx0 - 2 + inset, y, dx1 - dx0 + 4 - 2 * inset, 1, "m1" if (y - YB) % 4 else "m2")
+    r(dx0 - 2, YB + 14, dx1 - dx0 + 4, 2, "m3")
+    for i in range(dx1 - dx0 + 4):
+        L.px(dx0 - 2 + i, YB + 14, C("#c9a050" if (i // 3) % 2 == 0 else WK["m4"]))
+    # trem de pouso torto saindo da barriga
+    r(26, YB - 1, 3, 6, "m3"); r(23, YB + 4, 8, 2, "m4")
+    L.outline(C(OUTLINE))
+    cv.paste(L, 0, 0)
+    # asa do lado de cá, apoiada no chão (pisada creme, ponta laranja desbotada, borda grossa)
+    wing = Canvas(W, H)
+    for i in range(20):
+        y = YB - 8 + i
+        x0 = 74 + i * 3 // 4
+        w = 32 - i // 3
+        wing.rect(x0, y, w, 1, C(WK["roof"] if i < 15 else WK["faceS"]))
+        wing.px(x0, y, C(WK["hi"]))
+        wing.px(x0 + w - 1, y, C(WK["seam"]))
+    wing.rect(74, YB - 8, 32, 1, C(WK["hi"]))
+    for i in range(14, 20):
+        wing.rect(74 + i * 3 // 4 + 20, YB - 8 + i, 32 - i // 3 - 20, 1, C(WK["fo"] if i < 18 else WK["fod"]))
+    wing.rect(78, YB + 2, 18, 1, C(WK["seam"]))
+    wing.rect(87, YB + 12, 24, 2, C(WK["low"]))
+    wing.outline(C(OUTLINE))
+    cv.paste(wing, 0, 0)
+    # areia acumulada
+    _drift(cv, 16, YB + 4, 19, 17, 1)          # nariz enterrado
+    _drift(cv, 32, YB + 3, 10, 6, 2)
+    _drift(cv, 70, YB + 2, 8, 3, 3)
+    _drift(cv, 96, YB + 10, 9, 3, 4)            # em cima da asa
+    _drift(cv, 116, YB + 9, 10, 4, 5)
+    _drift(cv, 52, YB + 15, 6, 2, 6)            # na ponta da rampa
+    _drift(cv, 44, YT + 3, 7, 2, 7)             # em cima do casco
+    return cv
+
+
+def _terminal_small(cv: Canvas, x, y):
+    """Terminal de parede no estilo do terminal.png, menor (18x16): moldura, tela verde com texto e LED."""
+    cv.rect(x, y, 18, 16, C(INK))
+    cv.rect(x + 1, y + 1, 16, 14, C("#3a3f3c"))
+    cv.rect(x + 1, y + 1, 16, 1, C("#4e5551"))
+    cv.rect(x + 1, y + 1, 1, 14, C("#4e5551"))
+    cv.rect(x + 3, y + 3, 12, 8, C("#0d1a15"))
+    for i, w in enumerate((9, 6, 10)):
+        cv.rect(x + 4, y + 4 + i * 2, w, 1, C("#6fe3a0"))
+    cv.rect(x + 11, y + 8, 2, 1, C("#6fe3a0"))
+    cv.rect(x + 3, y + 12, 12, 2, C("#5a605c"))
+    cv.rect(x + 13, y + 12, 2, 2, C("#e2733a"))
+
+
+def _tilt(cv: Canvas, off) -> Canvas:
+    """Inclina um layer deslocando cada coluna x pra baixo `off(x)` px (degraus de 1 px: placa torta)."""
+    out = Canvas(cv.w, cv.h)
+    for x in range(cv.w):
+        d = off(x)
+        if d >= 0:
+            out.a[d:, x] = cv.a[:cv.h - d, x]
+        else:
+            out.a[:d, x] = cv.a[-d:, x]
+    return out
+
+
+def make_wreck_module() -> Canvas:
+    """Módulo da Colônia Hesper, 96x88 (3x2 tiles + 24 px pra cima). Caixa habitável creme, afundada na areia
+    do lado esquerdo, teto com placa rasgada, antena parabólica tombada, emblema da colônia desbotado,
+    porta emperrada meio aberta, janelas (uma quebrada), asa solar partida caída à direita e um terminal
+    ainda ligado na lateral (estilo do terminal.png)."""
+    W, H = 96, 88
+    cv = Canvas(W, H)
+    cv.ellipse(48, 79, 46, 8, SHADOW)
+    L = Canvas(W, H)
+    r = lambda x, y, w, h, c: L.rect(x, y, w, h, C(WK[c]) if c in WK else C(c))   # noqa: E731
+    RT, FT, GB = 18, 44, 78
+    x0, x1 = 6, 84
+    # teto com cantos de trás chanfrados
+    for y in range(RT, FT):
+        k = max(0, 4 - (y - RT))
+        r(x0 + k, y, x1 - x0 - 2 * k, 1, "roof")
+        if k:
+            L.px(x0 + k, y, C(WK["hi"])); L.px(x1 - k - 1, y, C(WK["roofS"]))
+    r(x0 + 4, RT, x1 - x0 - 8, 1, "hi")
+    for sx in (32, 58):
+        r(sx, RT + 2, 1, FT - RT - 3, "roofS")
+    r(x0 + 2, RT + 13, x1 - x0 - 4, 1, "roofS")
+    r(x0, FT - 1, x1 - x0, 1, "hi")
+    # placa do teto rasgada (buraco com costelas) e caixa de ventilação
+    r(38, 19, 16, 9, "void"); r(38, 19, 16, 1, "m5")
+    for bx in (41, 45, 49):
+        r(bx, 20, 1, 8, "rib")
+    r(37, 28, 18, 1, "seam")
+    r(64, 18, 12, 9, "m4"); r(64, 18, 12, 2, "m2")
+    for i in range(3):
+        r(66, 21 + i * 2, 8, 1, "m5")
+    # lateral
+    r(x0, FT, x1 - x0, GB - FT, "face")
+    r(x0, FT, x1 - x0, 1, "seam")
+    r(x0, FT, 4, GB - FT, "faceS")                              # facetas laterais
+    r(x1 - 4, FT, 4, GB - FT, "seam")
+    r(x0 + 4, GB - 6, x1 - x0 - 8, 6, "low")
+    r(x0 + 4, GB - 2, x1 - x0 - 8, 2, "dirty")
+    r(x0 + 4, FT + 13, x1 - x0 - 8, 2, "fo")                    # faixa desbotada
+    r(x0 + 4, FT + 13, x1 - x0 - 8, 1, "foh")
+    for (px_, w_) in ((40, 3), (52, 2)):
+        r(px_, FT + 13, w_, 2, "face")
+    # porta emperrada meio aberta (esquerda)
+    r(12, FT + 4, 14, GB - FT - 4, "fod")
+    r(13, FT + 5, 12, GB - FT - 5, WK["m2"])
+    r(13, FT + 5, 7, GB - FT - 5, WK["m1"])
+    r(20, FT + 5, 4, GB - FT - 5, "void")                       # fresta escura
+    r(14, FT + 8, 4, 3, "glass"); L.px(14, FT + 8, C(WK["glassH"]))
+    # janelas (uma quebrada)
+    for i, wx in enumerate((30, 38, 46)):
+        r(wx, FT + 4, 6, 6, "m5")
+        r(wx + 1, FT + 5, 4, 4, "glass" if i != 2 else "void")
+        if i != 2:
+            r(wx + 1, FT + 5, 4, 1, "glassL"); L.px(wx + 1, FT + 5, C(WK["glassH"]))
+    L.px(47, FT + 8, C(WK["glassL"])); L.px(49, FT + 6, C(WK["glassL"]))
+    # emblema da colônia desbotado: anel laranja com um H
+    ex, ey = 34, FT + 19
+    for (x, y) in ((ex + 2, ey), (ex + 3, ey), (ex + 4, ey), (ex + 1, ey + 1), (ex + 5, ey + 1), (ex, ey + 2), (ex + 6, ey + 2),
+                   (ex, ey + 3), (ex + 6, ey + 3), (ex, ey + 4), (ex + 6, ey + 4), (ex + 1, ey + 5), (ex + 5, ey + 5),
+                   (ex + 2, ey + 6), (ex + 3, ey + 6), (ex + 4, ey + 6)):
+        L.px(x, y, C(WK["fo"]))
+    r(ex + 2, ey + 2, 1, 3, "fod"); r(ex + 4, ey + 2, 1, 3, "fod"); L.px(ex + 3, ey + 3, C(WK["fod"]))
+    # placa da lateral solta, pendurada
+    r(48, FT + 19, 8, 9, "faceS"); r(48, FT + 19, 8, 1, "hi"); r(55, FT + 20, 1, 8, "seam")
+    r(48, FT + 18, 8, 1, "void")
+    for k in range(11):                                         # trinca na lateral
+        x, y = 70 + k // 2, FT + 2 + k
+        L.px(x, y, C(WK["m3"])); L.px(x + 1, y, C(WK["hi"]))
+    r(76, FT + 3, 4, 7, "void")                                 # canto da lateral arrancado
+    L.px(76, FT + 10, C(WK["ribL"])); L.px(79, FT + 10, C(WK["rib"]))
+    _wear(L, RT, GB, 78, lambda x, y: x < 30 or (34 < x < 58 and y < RT + 14) or y > GB - 10)
+    L.outline(C(OUTLINE))
+    tilt = lambda x: max(0, (60 - x) // 14)       # noqa: E731  lado esquerdo afundado na areia
+    cv.paste(_tilt(L, tilt), 0, 0)
+    # terminal na lateral, ainda ligado (2a coluna de tiles da direita)
+    term = Canvas(W, H)
+    _terminal_small(term, 62, FT + 15)
+    cv.paste(_tilt(term, tilt), 0, 0)
+    # antena parabólica tombada no teto
+    dish = Canvas(W, H)
+    dish.ellipse(20, 12, 9, 5, C(WK["roof"]))
+    dish.ellipse(21, 13, 6, 3, C(WK["faceS"]))
+    dish.ellipse(21, 13, 3, 1.6, C(WK["seam"]))
+    dish.rect(20, 16, 2, 8, C(WK["m2"]))
+    dish.rect(17, 23, 8, 2, C(WK["m3"]))
+    dish.rect(25, 7, 1, 4, C(WK["m2"])); dish.px(26, 6, C("#ff5a4a"))
+    dish.outline(C(OUTLINE))
+    cv.paste(_tilt(dish, tilt), 0, 0)
+    # asa solar partida, caída no chão à direita
+    wing = Canvas(W, H)
+    for i in range(8):
+        wing.rect(80 + i // 2, 72 + i, 14 - i // 2, 1, C("#1f3a6e"))
+    for (x, y) in ((83, 73), (87, 73), (91, 73), (84, 76), (88, 76), (92, 76)):
+        wing.px(x, y, C("#4f74b8"))
+    wing.rect(80, 72, 14, 1, C("#c8cdd4"))
+    for (x, y) in ((86, 74), (87, 75), (88, 76), (88, 77)):
+        wing.px(x, y, C("#9fc4f5"))
+    wing.rect(84, 64, 2, 9, C(WK["m2"]))
+    wing.outline(C(OUTLINE))
+    cv.paste(wing, 0, 0)
+    # areia acumulada: lado esquerdo afundado e pé da frente
+    _drift(cv, 10, GB + 2, 13, 12, 11)
+    _drift(cv, 34, GB + 1, 10, 3, 12)
+    _drift(cv, 60, GB + 1, 12, 4, 13)
+    _drift(cv, 90, GB + 3, 7, 4, 14)
+    _drift(cv, 16, RT + 8, 7, 3, 15)
+    return cv
+
+
+GOLDF = ["#fff3c4", "#f2c46d", "#d9a64e", "#b8893a", "#8a6428"]       # folha dourada (MLI) da sonda
+
+
+def make_wreck_probe() -> Canvas:
+    """Sonda pequena, 64x64 (2x2 tiles): corpo compacto embrulhado em folha dourada amassada, convés de
+    instrumentos em cima, parabólica torta, olho-sensor com brilho ciano, LED vermelho ainda aceso,
+    uma asa solar aberta e a outra partida no chão, pernas abertas e a marca do impacto (sulco de areia)."""
+    W = 64
+    cv = Canvas(W, W)
+    cv.ellipse(32, 55, 30, 7, SHADOW)
+    _drift(cv, 32, 58, 29, 6, 21)                               # sulco/borda do impacto atrás
+    L = Canvas(W, W)
+    r = lambda x, y, w, h, c: L.rect(x, y, w, h, C(WK[c]) if c in WK else C(c))   # noqa: E731
+    # pernas abertas
+    r(14, 46, 3, 6, "m3"); r(11, 51, 6, 2, "m4")
+    r(46, 46, 3, 6, "m3"); r(46, 51, 6, 2, "m4")
+    # corpo: convés em cima + frente dourada
+    r(19, 22, 26, 9, "m3")
+    r(18, 23, 28, 8, "m3")
+    r(19, 22, 26, 1, "m1")
+    r(19, 23, 26, 1, "m2")
+    r(21, 25, 7, 4, "m5"); r(22, 26, 5, 1, "m2")              # caixa de instrumento
+    r(36, 24, 6, 5, "faceS"); r(36, 24, 6, 1, "hi")             # câmera/caixa clara
+    for y in range(31, 49):
+        for x in range(18, 46):
+            if (y > 45 and (x - 18 < y - 45 or 45 - x < y - 45)):
+                continue                                        # cantos de baixo chanfrados
+            nn = vnoise(x * 0.3 + y * 0.12, y * 0.3, 93)
+            k = 1 if nn > 0.62 else 2 if nn > 0.38 else 3
+            if x < 20:
+                k = max(0, k - 1)
+            elif x > 43:
+                k = min(4, k + 1)
+            if y > 44:
+                k = min(4, k + 1)
+            L.px(x, y, C(GOLDF[k]))
+    for (x, y) in ((22, 41), (23, 42), (24, 42), (25, 43), (38, 44), (39, 44), (40, 45), (29, 33), (30, 34)):
+        L.px(x, y, C(GOLDF[0]))                                 # vincos claros da folha
+    r(18, 31, 28, 1, "fod")                                     # aro laranja desbotado
+    r(18, 32, 28, 1, "fo")
+    # olho-sensor
+    r(33, 35, 8, 8, "m5")
+    r(34, 36, 6, 6, "#14202b")
+    r(35, 37, 3, 3, "#2b7f99")
+    L.px(35, 37, C("#d8fbff")); L.px(36, 37, C("#59d0e6"))
+    # LED vermelho ainda aceso + plaquinha
+    r(22, 36, 6, 4, "m4"); L.px(23, 37, C("#ff5a4a")); L.px(24, 37, C("#ffd0c8"))
+    # asa solar aberta à esquerda (num braço)
+    r(13, 28, 5, 2, "m2")
+    for y in range(24, 36):
+        r(2, y, 11, 1, "#1f3a6e")
+        L.px(2, y, C("#c8cdd4"))
+    for y in (27, 31):
+        r(3, y, 10, 1, "#4f74b8")
+    r(7, 24, 1, 12, "#4f74b8")
+    L.px(4, 25, C("#9fc4f5")); L.px(5, 25, C("#9fc4f5")); L.px(4, 26, C("#9fc4f5"))
+    L.outline(C(OUTLINE))
+    cv.paste(L, 0, 0)
+    # parabólica torta em cima
+    dish = Canvas(W, W)
+    dish.ellipse(27, 12, 10, 6, C(WK["roof"]))
+    dish.ellipse(28, 13, 7, 4, C(WK["faceS"]))
+    dish.ellipse(28, 13, 3, 2, C(WK["seam"]))
+    dish.px(24, 9, C(WK["hi"])); dish.px(25, 8, C(WK["hi"]))
+    dish.rect(30, 17, 2, 6, C(WK["m2"]))
+    dish.rect(33, 6, 1, 6, C(WK["m1"])); dish.rect(32, 5, 3, 1, C(WK["m2"]))
+    dish.outline(C(OUTLINE))
+    cv.paste(dish, 0, 0)
+    # asa partida no chão à direita
+    wing = Canvas(W, W)
+    for i in range(6):
+        wing.rect(48 + i, 47 + i, 13 - i, 1, C("#1f3a6e"))
+    wing.rect(48, 47, 13, 1, C("#c8cdd4"))
+    wing.px(52, 49, C("#4f74b8")); wing.px(56, 49, C("#4f74b8")); wing.px(55, 51, C("#9fc4f5"))
+    wing.outline(C(OUTLINE))
+    cv.paste(wing, 0, 0)
+    _drift(cv, 26, 50, 12, 4, 22)                               # areia na frente do corpo
+    _drift(cv, 8, 52, 7, 3, 23)
+    return cv
+
+
+def make_loot_crate(empty: bool) -> Canvas:
+    """Caixa de saque 32x32: case de carga pesado (cinza-chumbo), cantoneiras creme, tampa com faixa laranja
+    desbotada, alças laterais, trava com LED âmbar (cheia). Vazia: tampa aberta pra trás, interior escuro,
+    LED apagado. Base na linha 28."""
+    cv = Canvas(32, 32)
+    cv.ellipse(16, 28.5, 14, 2.5, SHADOW)
+    B = Canvas(32, 32)
+    r = lambda x, y, w, h, c: B.rect(x, y, w, h, C(WK[c]) if c in WK else C(c))   # noqa: E731
+    # frente da caixa
+    r(5, 16, 22, 11, "m2")
+    r(5, 16, 22, 1, "m1")
+    for x in range(8, 25, 4):                                   # nervuras
+        r(x, 17, 1, 9, "m3")
+    r(5, 25, 22, 2, "m4")
+    for cx_ in (4, 25):                                         # cantoneiras creme
+        r(cx_, 15, 3, 13, "faceS")
+        r(cx_, 15, 1, 13, "hi")
+        r(cx_ + 2, 15, 1, 13, "seam")
+        B.px(cx_ + 1, 18, C(WK["seam"])); B.px(cx_ + 1, 24, C(WK["seam"]))
+    r(2, 19, 2, 4, "m4"); r(28, 19, 2, 4, "m4")                 # alças
+    r(2, 20, 1, 2, "m2"); r(29, 20, 1, 2, "m2")
+    if not empty:
+        # tampa fechada: topo visto de cima + aba
+        r(4, 8, 24, 6, "m1")
+        r(4, 8, 24, 1, "#8c949e")
+        r(4, 12, 24, 2, "fo"); r(4, 12, 24, 1, "foh")
+        r(4, 14, 24, 1, "m4")
+        for cx_ in (4, 25):
+            r(cx_, 8, 3, 6, "faceS"); r(cx_, 8, 1, 6, "hi")
+        r(9, 9, 14, 2, "m2")                                    # alça da tampa
+        r(9, 9, 14, 1, "m3")
+        # trava + LED âmbar
+        r(13, 15, 6, 6, "m4")
+        r(14, 16, 4, 3, "m1")
+        B.px(15, 17, C("#ffb84a")); B.px(16, 17, C("#ffe2a0"))
+        B.outline(C(OUTLINE))
+        cv.paste(B, 0, 0)
+        return cv
+    # aberta: interior escuro + tampa em pé atrás
+    r(4, 10, 24, 6, "m5")
+    r(5, 11, 22, 4, "void")
+    r(5, 11, 22, 1, "m4")                                       # parede de trás de dentro
+    r(4, 15, 24, 1, "m1")                                       # beirada da frente
+    for cx_ in (4, 25):
+        r(cx_, 10, 3, 6, "faceS"); r(cx_, 10, 1, 6, "hi")
+    r(13, 15, 6, 5, "m4"); r(14, 16, 4, 2, "m3")                # trava solta
+    B.px(15, 16, C("#5a3a2a")); B.px(16, 16, C("#5a3a2a"))      # LED apagado
+    lid = Canvas(32, 32)                                        # tampa: lado de dentro, em pé
+    lid.rect(4, 2, 24, 8, C(WK["m3"]))
+    lid.rect(5, 3, 22, 6, C(WK["m4"]))
+    lid.rect(4, 2, 24, 1, C(WK["m2"]))
+    lid.rect(6, 4, 20, 1, C(WK["m3"]))
+    lid.rect(6, 7, 20, 1, C(WK["m3"]))
+    lid.rect(4, 9, 24, 1, C(WK["fod"]))
+    for cx_ in (4, 25):
+        lid.rect(cx_, 2, 3, 8, C(WK["seam"]))
+    B.paste(lid, 0, 0)
+    B.outline(C(OUTLINE))
+    cv.paste(B, 0, 0)
+    return cv
+
+
+def make_icon_blueprint() -> Canvas:
+    """Projeto: folha de planta azul (canto dobrado, grade e o desenho de uma máquina) com um chip de dados
+    laranja de contatos dourados preso embaixo."""
+    cv = Canvas(16, 16)
+    L = Canvas(16, 16)
+    L.rect(2, 1, 12, 12, C("#2f62b3"))
+    L.rect(2, 1, 12, 1, C("#4f86d6"))
+    L.rect(2, 1, 1, 12, C("#4f86d6"))
+    L.rect(13, 2, 1, 11, C("#24508f"))
+    for g in (5, 9):                                            # grade
+        L.rect(3, g, 10, 1, C("#3f74c4"))
+        L.rect(g, 2, 1, 10, C("#3f74c4"))
+    L.rect(4, 4, 5, 5, C("#cfe6ff"))                            # desenho: corpo de máquina + roda
+    L.rect(5, 5, 3, 3, C("#2f62b3"))
+    L.px(10, 6, C("#cfe6ff")); L.px(11, 7, C("#cfe6ff")); L.px(10, 8, C("#cfe6ff")); L.px(9, 7, C("#cfe6ff"))
+    L.rect(4, 10, 7, 1, C("#cfe6ff"))
+    for (x, y) in ((11, 1), (12, 1), (13, 1), (12, 2), (13, 2), (13, 3)):   # canto dobrado
+        L.a[y, x] = 0
+    L.px(11, 2, C("#9cc2f0")); L.px(12, 3, C("#9cc2f0")); L.px(11, 3, C("#7fa8e0"))
+    L.rect(4, 11, 9, 4, C(MT["o"]))                             # chip
+    L.rect(4, 11, 9, 1, C(MT["oh"]))
+    L.rect(4, 14, 9, 1, C(MT["od"]))
+    for x in (5, 7, 9, 11):
+        L.px(x, 13, C(GOLD))
+    L.px(5, 12, C("#fff3c4"))
+    L.outline(C(OUTLINE))
+    cv.paste(L, 0, 0)
+    return cv
+
+
+def make_icon_o2_tank() -> Canvas:
+    """Tanque de O₂ (equipamento): par de cilindros brancos de mochila com faixa ciano, cinta escura,
+    válvulas com manopla laranja e um manômetro."""
+    cv = Canvas(16, 16)
+    L = Canvas(16, 16)
+    for tx in (1, 9):
+        L.rect(tx, 4, 6, 10, C(MT["w"]))
+        L.rect(tx + 1, 3, 4, 1, C(MT["w"]))
+        L.rect(tx + 3, 4, 2, 10, C(MT["m"]))
+        L.rect(tx + 5, 4, 1, 10, C(MT["s"]))
+        L.rect(tx + 1, 3, 1, 1, C("#ffffff"))
+        L.rect(tx, 7, 6, 2, C("#59d0e6"))
+        L.rect(tx + 4, 7, 2, 2, C("#2b9fb8"))
+        L.rect(tx, 13, 6, 1, C(MT["s"]))
+        L.rect(tx + 2, 1, 2, 2, C(MT["g"]))                      # válvula
+        L.rect(tx + 1, 0, 4, 1, C(MT["o"]))
+    L.rect(1, 11, 14, 1, C(MT["k"]))                             # cinta
+    L.rect(6, 10, 4, 3, C(MT["kk"]))
+    L.px(7, 11, C(MT["d"]))
+    L.outline(C(OUTLINE))
+    cv.paste(L, 0, 0)
+    return cv
+
+
+def make_icon_scanner() -> Canvas:
+    """Scanner de navegação: aparelho de mão escuro com tela de minimapa (anéis de radar, ponto do player e
+    um alvo), antena com ponta vermelha e botões laranja/verde."""
+    cv = Canvas(16, 16)
+    L = Canvas(16, 16)
+    L.rect(2, 3, 11, 12, C(MT["k"]))
+    L.rect(2, 3, 11, 1, C(MT["g"]))
+    L.rect(2, 3, 1, 12, C(MT["g"]))
+    L.rect(3, 13, 9, 2, C(MT["o"]))
+    L.rect(3, 13, 9, 1, C(MT["oh"]))
+    L.rect(3, 4, 9, 7, C("#0d1a2a"))                             # tela
+    for (x, y) in ((5, 5), (6, 5), (7, 5), (8, 5), (9, 5), (4, 6), (10, 6), (4, 7), (10, 7), (4, 8), (10, 8),
+                   (5, 9), (6, 9), (7, 9), (8, 9), (9, 9)):
+        L.px(x, y, C("#1f5a66"))
+    L.px(7, 7, C("#59d0e6")); L.px(6, 7, C("#2b9fb8")); L.px(7, 6, C("#2b9fb8"))
+    L.px(9, 6, C("#7fd67a"))
+    L.px(5, 8, C(GOLD))
+    L.px(4, 11, C(MT["o"])); L.px(6, 11, C(MT["led"]))          # botões
+    L.rect(9, 11, 3, 1, C(MT["g"]))
+    L.rect(11, 0, 1, 3, C(MT["m"]))                              # antena
+    L.px(11, 0, C(MT["red"]))
+    L.outline(C(OUTLINE))
+    cv.paste(L, 0, 0)
+    return cv
+
+
+WRECK_INFO = {
+    # tamanho em tiles, tile da caixa de saque e do terminal (relativos ao tile de cima/esquerda do destroço)
+    "wreck_cargo.png": dict(tiles=(4, 3), crate=(1, 3), terminal=None),
+    "wreck_module.png": dict(tiles=(3, 2), crate=(0, 2), terminal=(2, 1)),
+    "wreck_probe.png": dict(tiles=(2, 2), crate=(2, 1), terminal=None),
+}
+
+
 def build_pending() -> dict[str, Canvas]:
     """Assets novos aguardando aprovação do dono: vão pra assets/sprites/_pending/.
-    Depois de aprovados, saem daqui e entram em build_v02()/build_v03()/build_sprites() (pasta oficial)."""
-    return {}
+    Depois de aprovados, saem daqui e entram em build_v02()/build_v03()/build_sprites() (pasta oficial).
+    v5.0: Marco 2 (caverna) e Marco 3 (destroços) do v0.3."""
+    return {
+        "lamp.png": make_lamp(),
+        "icon_lamp.png": make_icon_lamp(),
+        "cave_ramp_up.png": make_cave_ramp_up(),
+        "wreck_cargo.png": make_wreck_cargo(),
+        "wreck_module.png": make_wreck_module(),
+        "wreck_probe.png": make_wreck_probe(),
+        "loot_crate.png": make_loot_crate(False),
+        "loot_crate_empty.png": make_loot_crate(True),
+        "icon_blueprint.png": make_icon_blueprint(),
+        "icon_o2_tank.png": make_icon_o2_tank(),
+        "icon_scanner.png": make_icon_scanner(),
+    }
 
 
 FUTURE = OUT / "_future"  # guardados pelo dono pro futuro: fora do contrato, o jogo não carrega daqui
@@ -3209,6 +4011,252 @@ def render_surface(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
     return img.crop((0, 0, 960, 540)).convert("RGB")
 
 
+# ---------------------------------------------------------------- v5.0 · prévias: caverna escura e destroços no deserto
+
+BAND_LEVELS = (0.18, 0.40, 0.68, 1.0)          # mesmos degraus do game/lighting.py (banding=True)
+
+
+def _falloff(d):
+    if d >= 1.0:
+        return 0.0
+    if d <= 0.3:
+        return 1.0
+    k = (d - 0.3) / 0.7
+    return 1.0 - k * k * (3 - 2 * k)
+
+
+def apply_darkness(img: Image.Image, lights, cell=4) -> tuple[Image.Image, np.ndarray]:
+    """Escuridão aproximada como a do jogo: mapa de luz em células de 4 px (anéis em 4 degraus), luzes somadas
+    e travadas em 255, multiplicado pelo mundo. lights = [(x, y, raio_px, (r, g, b), intensidade)]."""
+    W, H = img.size
+    sw, sh = (W + cell - 1) // cell, (H + cell - 1) // cell
+    lm = np.zeros((sh, sw, 3), float)
+    for (x, y, rad, col, inten) in lights:
+        rc = max(1, round(rad / cell))
+        gx, gy = int(x // cell), int(y // cell)
+        for j in range(2 * rc):
+            for i in range(2 * rc):
+                cx_, cy_ = gx - rc + i, gy - rc + j
+                if not (0 <= cx_ < sw and 0 <= cy_ < sh):
+                    continue
+                b = _falloff(math.hypot(i + 0.5 - rc, j + 0.5 - rc) / rc)
+                if b <= 0:
+                    continue
+                b = BAND_LEVELS[min(3, int(b * 4))] * inten
+                lm[cy_, cx_] += np.array(col, float) * b
+    lm = np.clip(lm, 0, 255)
+    big = np.repeat(np.repeat(lm, cell, 0), cell, 1)[:H, :W]
+    a = np.array(img.convert("RGB")).astype(float)
+    out = (a * big / 255.0).astype(np.uint8)
+    return Image.fromarray(out), big.max(axis=2) / 255.0
+
+
+CAVE_ORE = {FE: "iron", SI: "silicon", IC: "ice"}
+CAVE_RAMP_AT = (5, 4)                           # tile de cima/esquerda da rampa na prévia
+CAVE_LAMPS = [(3, 10), (12, 7), (18, 8), (23, 5), (15, 12), (27, 9)]
+
+
+def gen_cave(seed=11):
+    g = [[RK] * GW for _ in range(GH + 1)]
+
+    def carve_ell(cx, cy, rx, ry, s):
+        for y in range(GH + 1):
+            for x in range(GW):
+                n = vnoise(x * 0.5, y * 0.5, s) - 0.5
+                if ((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 <= 1 + n * 0.6:
+                    g[y][x] = FL
+    carve_ell(6.5, 8.5, 5.6, 4.8, seed)                       # salão da rampa
+    carve_ell(24, 7.5, 5, 3.8, seed + 1)                      # câmara da direita
+    carve_ell(17, 13.5, 3.6, 2.4, seed + 2)                   # câmara de baixo
+    for x in range(10, 21):                                   # corredor
+        for y in (7, 8) if x % 5 else (6, 7, 8):
+            g[y][x] = FL
+    for y in range(9, 13):                                    # ramal descendo
+        g[y][15] = FL; g[y][16] = FL
+    for y in range(GH + 1):
+        for x in range(GW):
+            if g[y][x] != RK:
+                continue
+            near = any(0 <= x + dx < GW and 0 <= y + dy <= GH and g[y + dy][x + dx] == FL
+                       for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1)))
+            if near and vnoise(x * 0.6 + 7, y * 0.6 + 3, seed + 5) > 0.55:
+                k = vnoise(x * 0.3 + 50, y * 0.3, seed + 6)
+                g[y][x] = FE if k < 0.45 else SI if k < 0.62 else IC
+    rx, ry = CAVE_RAMP_AT
+    for y in range(ry - 1, ry + 4):                           # salão limpo em volta da rampa
+        for x in range(rx - 1, rx + 4):
+            g[y][x] = FL
+    for (x, y) in CAVE_LAMPS + [(22, 8), (23, 8), (22, 9), (23, 9), (9, 11)]:
+        g[y][x] = FL
+    return g
+
+
+def render_cave(spr: dict[str, Image.Image], dark=True) -> Image.Image:
+    """Caverna (128x128 no jogo) com a mesma ordem de desenho: chão névoa e veio; linhas de cima pra baixo
+    (topo da parede em y−24, minério, face em y+8, terminal) e os objetos da linha (rampa, luminárias, baú,
+    drill, player). Depois a escuridão (luzes: rampa, luminárias, capacete, drill) e o brilho dos minérios."""
+    P = "_pending/"
+    g = gen_cave()
+    img = Image.new("RGBA", (GW * T, GH * T), (0, 0, 0, 255))
+    shade = Image.new("RGBA", (T, 10), (0, 0, 0, 84))
+    shade_b = Image.new("RGBA", (T, 6), (0, 0, 0, 40))
+    for y in range(GH):
+        for x in range(GW):
+            if is_wall(g[y][x]):
+                continue
+            img.alpha_composite(spr[f"floor_mist_{int(hsh(x, y, 77) * 4)}.png"], (x * T, y * T))
+            if y > 0 and is_wall(g[y - 1][x]):
+                img.alpha_composite(shade, (x * T, y * T))
+                img.alpha_composite(shade_b, (x * T, y * T + 10))
+    vein = (22, 8)
+    img.alpha_composite(spr["vein_silicon.png"], (vein[0] * T, vein[1] * T))
+    term = None
+    for y in range(2, GH - 1):
+        for x in range(20, 28):
+            if term is None and is_wall(g[y][x]) and g[y + 1][x] == FL and y < 6:
+                term = (x, y); g[y][x] = RK
+    objs = []
+    rx, ry = CAVE_RAMP_AT
+    objs.append(((ry + 3) * T, rx * T + 48, P + "cave_ramp_up.png"))
+    for (x, y) in CAVE_LAMPS:
+        objs.append(((y + 1) * T, x * T + 16, P + "lamp.png"))
+    objs.append(((10 + 1) * T, 9 * T + 16, "chest.png"))
+    objs.append(((vein[1] + 2) * T, (vein[0] + 1) * T, "machine_drill.png#1"))
+    player = (rx * T + 48 + 30, (ry + 4) * T + 10)
+    objs.append((player[1], player[0], "player"))
+
+    def draw(ay, ax, name):
+        if name == "player":
+            sh = Canvas(20, 7)
+            sh.ellipse(10, 3.5, 8, 2.5, SHADOW)
+            img.alpha_composite(sh.image(), (ax - 10, ay - 4))
+            img.alpha_composite(spr["player_side.png"], (ax - 16, ay - 32))
+            return
+        if "#" in name:
+            n, fr = name.split("#")
+            s_ = spr[n].crop((int(fr) * 64, 0, int(fr) * 64 + 64, 80))
+        else:
+            s_ = spr[name]
+        img.alpha_composite(s_, (int(ax - s_.width // 2), int(ay - s_.height)))
+
+    for y in range(GH + 1):
+        for x in range(GW):
+            t = g[y][x]
+            if not is_wall(t) or y >= GH + 1:
+                continue
+            img.alpha_composite(spr[f"wall_mist_{int(hsh(x, y, 91) * 3)}.png"], (x * T, y * T - 24))
+            if t in CAVE_ORE:
+                img.alpha_composite(spr[f"ore_{CAVE_ORE[t]}.png"], (x * T, y * T - 24))
+            if y + 1 <= GH and not is_wall(g[y + 1][x]):
+                img.alpha_composite(spr["wall_face_mist.png"], (x * T, y * T + 8))
+            if term == (x, y):
+                img.alpha_composite(spr["terminal.png"], (x * T, y * T))
+        for o in sorted(o for o in objs if (o[0] - 1) // T == y):
+            draw(*o)
+    img = img.crop((0, 0, 960, 540))
+    if not dark:
+        return img.convert("RGB")
+    lights = [(rx * T + CAVE_RAMP["light"][0], ry * T + CAVE_RAMP["light"][1], 3.5 * T, (255, 240, 214), 1.0)]
+    lights += [(x * T + 16, y * T + 8, 5 * T, (255, 222, 184), 1.0) for (x, y) in CAVE_LAMPS]
+    lights.append((player[0] + 10, player[1] - 18, 4 * T, (255, 236, 206), 1.0))
+    lights.append(((vein[0] + 1) * T, (vein[1] + 1) * T, 1.8 * T, (150, 210, 230), 0.55))
+    out, bright = apply_darkness(img, lights)
+    # brilho dos minérios: pontinho na cor do minério onde está escuro (não ilumina nada)
+    ore_col = {"iron": (232, 160, 102), "silicon": (195, 209, 226), "ice": (166, 236, 255)}
+    a = np.array(out)
+    for y in range(GH):
+        for x in range(GW):
+            if g[y][x] not in CAVE_ORE:
+                continue
+            h = (x * 73856093 ^ y * 19349663) & 0xFFFF
+            if h % 5 >= 2:
+                continue
+            px_, py_ = x * T + 7 + h % 18, y * T - 24 + 6 + (h >> 5) % 14 + 24
+            if not (1 <= px_ < 959 and 1 <= py_ < 539) or bright[py_, px_] > 0.3:
+                continue
+            c = np.array(ore_col[CAVE_ORE[g[y][x]]])
+            a[py_, px_] = c
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                a[py_ + dy, px_ + dx] = (c * 0.35).astype(np.uint8)
+    return Image.fromarray(a)
+
+
+WRECK_SCENE = {   # tile de cima/esquerda de cada destroço na prévia e se a caixa já foi aberta
+    "wreck_cargo.png": ((2, 2), True),
+    "wreck_module.png": ((17, 3), False),
+    "wreck_probe.png": ((22, 10), False),
+}
+
+
+def render_wrecks(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
+    """Deserto com os 3 destroços e as caixas, mesma ordem de desenho da superfície."""
+    P = "_pending/"
+    hills = {(9, 11), (10, 11), (11, 11), (12, 11), (8, 12), (9, 12), (10, 12), (11, 12), (12, 12), (10, 13), (11, 13)}
+    water = set()
+    if stage == "mist":
+        water = {(13, 14), (14, 14), (14, 15)}
+    elif stage == "green":
+        water = {(13, 14), (14, 14), (15, 14), (13, 15), (14, 15), (15, 15), (16, 15), (14, 16), (15, 16)}
+    img = Image.new("RGBA", (GW * T, GH * T), (0, 0, 0, 255))
+    shade = Image.new("RGBA", (T, 10), (0, 0, 0, 84))
+    shade_b = Image.new("RGBA", (T, 6), (0, 0, 0, 40))
+    for y in range(GH):
+        for x in range(GW):
+            if (x, y) in hills:
+                continue
+            img.alpha_composite(spr[sand_key(spr, stage, sand_variant(x + 11, y + 7))], (x * T, y * T))
+            if (x, y) in water:
+                draw_water_auto(img, spr[f"water_auto_{stage}.png"], water, x, y, x * T, y * T)
+            if (x, y - 1) in hills:
+                img.alpha_composite(shade, (x * T, y * T))
+                img.alpha_composite(shade_b, (x * T, y * T + 10))
+    objs = []
+    for name, ((tx, ty), opened) in WRECK_SCENE.items():
+        tw, th = WRECK_INFO[name]["tiles"]
+        objs.append(((ty + th) * T, (tx + tw / 2) * T, P + name))
+        cx_, cy_ = WRECK_INFO[name]["crate"]
+        objs.append(((ty + cy_ + 1) * T, (tx + cx_) * T + 16, P + ("loot_crate_empty.png" if opened else "loot_crate.png")))
+    for (x, y) in ((8, 3), (13, 2), (26, 3), (6, 14), (20, 15), (27, 14), (1, 9)):
+        if (x, y) not in water:
+            objs.append(((y + 1) * T, x * T + 16, "rock_small.png"))
+    for (px_, py_, o) in ((8 * T + 10, 8 * T + 20, "iron"), (14 * T + 20, 6 * T + 12, "silicon"),
+                          (25 * T + 6, 7 * T + 22, "ice"), (5 * T + 22, 11 * T + 16, "iron"),
+                          (21 * T + 14, 14 * T + 8, "silicon"), (2 * T + 12, 15 * T + 4, "ice")):
+        objs.append((py_, px_, f"pickup_{o}.png"))
+    if stage == "green":
+        for (x, y, k) in ((7, 7, "plant_bush.png"), (12, 9, "plant_flower.png"), (27, 6, "plant_tree.png"),
+                          (19, 12, "plant_bush.png"), (4, 12, "plant_flower.png"), (25, 15, "plant_bush.png"),
+                          (15, 4, "plant_tree.png")):
+            objs.append((y * T + 30, x * T + 16, k))
+    objs.append((5 * T + 22, 19 * T + 16, "player"))         # lendo o terminal do módulo
+    objs.append((6 * T + 12, 4 * T + 2, "player2"))          # na frente da caixa da nave (vazia)
+
+    def draw(ay, ax, name):
+        if name.startswith("player"):
+            sh = Canvas(20, 7)
+            sh.ellipse(10, 3.5, 8, 2.5, SHADOW)
+            img.alpha_composite(sh.image(), (int(ax) - 10, int(ay) - 4))
+            p = spr["player_up.png"] if name == "player" else spr["player_side.png"].transpose(Image.FLIP_LEFT_RIGHT)
+            img.alpha_composite(p, (int(ax) - 16, int(ay) - 32))
+            return
+        if name.startswith("pickup_"):
+            img.alpha_composite(spr[name], (int(ax) - 8, int(ay) - 14))
+            return
+        s_ = spr[name]
+        img.alpha_composite(s_, (int(ax - s_.width // 2), int(ay - s_.height)))
+
+    for y in range(GH + 1):
+        for x in range(GW):
+            if (x, y) not in hills:
+                continue
+            img.alpha_composite(spr[f"wall_{stage}_{int(hsh(x, y, 91) * 3)}.png"], (x * T, y * T - 24))
+            if (x, y + 1) not in hills:
+                img.alpha_composite(spr[f"wall_face_{stage}.png"], (x * T, y * T + 8))
+        for o in sorted(o for o in objs if (o[0] - 1) // T == y):
+            draw(*o)
+    return img.crop((0, 0, 960, 540)).convert("RGB")
+
+
 def make_pickup_check(spr: dict[str, Image.Image]) -> Image.Image:
     """Pickups e rocha pequena em 1x (como no jogo) e 2x, sobre as 3 areias."""
     P = ""
@@ -3427,6 +4475,139 @@ def build_surface_report(spr: dict[str, Image.Image], scale: dict[str, int]) -> 
 </section>"""
 
 
+def make_icons_slot_v50(spr: dict[str, Image.Image]) -> Image.Image:
+    """Ícones novos no ui_slot em 1x, 2x e 3x (como o jogo escala), com 2 ícones aprovados no fim pra comparar."""
+    P = "_pending/"
+    keys = [P + "icon_lamp.png", P + "icon_blueprint.png", P + "icon_o2_tank.png", P + "icon_scanner.png",
+            "icon_chest.png", "icon_iron.png"]
+    slot = spr["ui_slot.png"]
+    W = 12 + sum(20 * k + 8 for k in (1, 2, 3)) * len(keys) + 12 * len(keys)
+    out = Image.new("RGBA", (W, 60 + 24), C("#15100e"))
+    x = 12
+    for key in keys:
+        for k in (1, 2, 3):
+            y = 12 + (60 - 20 * k)
+            out.alpha_composite(slot.resize((20 * k, 20 * k), Image.NEAREST), (x, y))
+            out.alpha_composite(spr[key].resize((16 * k, 16 * k), Image.NEAREST), (x + 2 * k, y + 2 * k))
+            x += 20 * k + 8
+        x += 12
+    return out
+
+
+def build_v50_report(spr: dict[str, Image.Image]) -> str:
+    """Seção v5.0 (pendente): Marco 2 (caverna) e Marco 3 (destroços) do v0.3."""
+    P = "_pending/"
+    if P + "lamp.png" not in spr:
+        return ""
+
+    def card(n, s, src=None):
+        im = spr[n]
+        src = src or f"../../assets/sprites/{n}"
+        return (f'<figure class="spr"><div class="chk"><img src="{src}" width="{im.width * s}" height="{im.height * s}" '
+                f'alt="{n}"></div><figcaption><code>{n.replace(P, "")}</code><span>{im.width}×{im.height} · {s}×</span>'
+                f'</figcaption></figure>')
+
+    cave_pv = (
+        '<figure class="pv"><img src="preview_cave.png" width="960" height="540" alt="Caverna escura">'
+        '<figcaption><b>Caverna · com escuridão</b><span>mesmo algoritmo do <code>game/lighting.py</code> (células de 4 px, anéis 100/68/40/18%, '
+        'luzes somadas e multiplicadas): boca de luz da rampa, 6 luminárias, lanterna do capacete, luz fraca da drill e o pontinho dos minérios no escuro</span></figcaption></figure>'
+        '<figure class="pv"><img src="preview_cave_lit.png" width="960" height="540" alt="Caverna sem escuridão">'
+        '<figcaption><b>A mesma cena sem a escuridão</b><span>pra ver a arte (chão, parede e face da névoa, que a caverna usa sempre)</span></figcaption></figure>')
+    wr_pv = "".join(
+        f'<figure class="pv"><img src="preview_wrecks_{st}.png" width="960" height="540" alt="Destroços {lab}">'
+        f'<figcaption><b>Destroços · {lab}</b><span>nave de carga (caixa já aberta, vazia), módulo da colônia (player lendo o terminal, '
+        f'caixa cheia na frente da porta) e sonda (caixa cheia ao lado)</span></figcaption></figure>'
+        for st, lab in (("dead", "Morto (areia vermelha)"), ("mist", "Névoa (terra marrom)"), ("green", "Verde (grama)")))
+    cr = spr["crater_ramp.png"]
+    ramp_cmp = (f'<figure><div class="pair"><div>crater_ramp (aprovada, superfície)<img src="../../assets/sprites/crater_ramp.png" '
+                f'width="{cr.width * 4}" height="{cr.height * 4}" alt="crater_ramp"></div>'
+                f'<div>cave_ramp_up (nova, caverna)<img src="../../assets/sprites/_pending/cave_ramp_up.png" width="{cr.width * 4}" '
+                f'height="{cr.height * 4}" alt="cave_ramp_up"></div></div><figcaption>descer × subir · 96×96 · 4×</figcaption></figure>')
+    m2 = card(P + "lamp.png", 8) + card(P + "icon_lamp.png", 8)
+    m3w = card(P + "wreck_cargo.png", 4) + card(P + "wreck_module.png", 4) + card(P + "wreck_probe.png", 4)
+    crate_anim = ('<figure class="spr"><div class="chk"><div class="crate-anim" style="width:192px;height:192px"></div></div>'
+                  '<figcaption><code>cheia ↔ vazia</code><span>alternando · 6×</span></figcaption></figure>')
+    m3c = card(P + "loot_crate.png", 6) + card(P + "loot_crate_empty.png", 6) + crate_anim
+    m3i = "".join(card(P + n, 8) for n in ("icon_blueprint.png", "icon_o2_tank.png", "icon_scanner.png"))
+    sw, sh_ = Image.open(REP / "slot_preview_v50.png").size if (REP / "slot_preview_v50.png").exists() else (0, 0)
+    lb = LAMP_BULB
+    rows = [
+        ("<code>lamp.png</code>", "16×32",
+         "Objeto de 1 tile, como o baú: <code>ax = tx·32 + 16</code>, <code>ay = (ty+1)·32</code>, blit em <code>(ax − 8, ay − 32)</code>, "
+         "ordenado por <code>ay</code>. A sombra já vem no PNG. "
+         f"<b>Centro da lâmpada</b> = <code>{lb}</code> do PNG, ou seja <code>(ax, ay − {32 - lb[1]})</code> no mundo. O <code>lighting.lamp()</code> "
+         "de hoje põe a luz em <code>ty·32 + 8 = ay − 24</code>: fica 2 px abaixo do vidro, dá pra deixar assim ou trocar pra <code>ay − 26</code>. "
+         "O sprite já vem aceso (vidro quente); a luz em volta é do jogo."),
+        ("<code>icon_lamp.png</code>", "16×16", "Ícone de item (hotbar, inventário, fabricador)."),
+        ("<code>cave_ramp_up.png</code>", "96×96",
+         "Igual à <code>crater_ramp</code>: ocupa <b>3×3 tiles</b>, blit em <code>(tx·32, ty·32)</code> com <code>(tx, ty)</code> = tile de cima/esquerda, "
+         "e entra na ordenação com <code>ay = (ty+3)·32</code>. Os cantos são transparentes: desenhe o chão da caverna embaixo. "
+         "Colisão: os 9 tiles. <b>Alvo do E</b>: tile de baixo do meio <code>(tx+1, ty+2)</code>, onde fica a soleira com a faixa de alerta. "
+         "<b>Ponto de chegada</b> (quem desce da superfície): <code>(tx+1, ty+3)</code>, logo na frente da soleira. "
+         f"<b>Luz sugerida</b>: uma <code>LightSource</code> fixa na boca de luz, em <code>(tx·32 + {CAVE_RAMP['light'][0]}, ty·32 + {CAVE_RAMP['light'][1]})</code>, "
+         "raio ~3,5 tiles, cor <code>(255, 240, 214)</code>, intensidade 1, sem flicker. É ela que faz o feixe iluminar a escada e o salão na prévia; "
+         "sem ela, a rampa fica no escuro como o resto."),
+        ("<code>wreck_cargo.png</code>", "128×112",
+         "<b>4×3 tiles</b> <code>(tx..tx+3, ty..ty+2)</code>, centro da base: <code>ax = (tx+2)·32</code>, <code>ay = (ty+3)·32</code>, "
+         "blit em <code>(ax − 64, ay − 112)</code> = <code>(tx·32, ty·32 − 16)</code>. Os 16 px de cima (deriva e antena) sobem pro tile de cima. "
+         "Colisão: os 12 tiles. <b>Caixa</b>: <code>(tx+1, ty+3)</code>, logo na ponta da rampa de carga (fora da área do destroço, então o player chega nela). "
+         "Sem terminal (se um dia tiver, a porta de carga em <code>(tx+1, ty+2)</code> é o lugar)."),
+        ("<code>wreck_module.png</code>", "96×88",
+         "<b>3×2 tiles</b>, centro da base: <code>ax = tx·32 + 48</code>, <code>ay = (ty+2)·32</code>, blit em <code>(ax − 48, ay − 88)</code> = "
+         "<code>(tx·32, ty·32 − 24)</code>. Teto e antena sobem 24 px. Colisão: os 6 tiles. "
+         "<b>Terminal</b>: desenhado no PNG em <code>(62, 59)</code>–<code>(80, 75)</code>, que cai no tile <code>(tx+2, ty+1)</code>: é o alvo do E pro LOG "
+         "(o player lê de <code>(tx+2, ty+2)</code>). O contorno claro de alvo pode ir só nesse retângulo. <b>Caixa</b>: <code>(tx, ty+2)</code>, na frente da porta."),
+        ("<code>wreck_probe.png</code>", "64×64",
+         "<b>2×2 tiles</b>, centro da base: <code>ax = (tx+1)·32</code>, <code>ay = (ty+2)·32</code>, blit em <code>(tx·32, ty·32)</code> (não passa da área). "
+         "Colisão: os 4 tiles. <b>Caixa</b>: <code>(tx+2, ty+1)</code>, do lado direito. O LED vermelho da sonda fica em <code>(23, 37)</code> do PNG "
+         "(se quiser piscar, desenhe 2×1 px apagado <code>#3b3f46</code> por cima)."),
+        ("<code>loot_crate.png</code> / <code>loot_crate_empty.png</code>", "32×32",
+         "1 tile, centro da base: blit em <code>(tx·32, ty·32)</code>, ordenado por <code>ay = (ty+1)·32</code>. Obstáculo como o baú. "
+         "Cheia = tampa fechada com LED âmbar; quando o conteúdo acabar, troque pela vazia (tampa aberta, LED apagado) e a dica vira \"vazia\"."),
+        ("<code>icon_blueprint</code> · <code>icon_o2_tank</code> · <code>icon_scanner</code>", "16×16",
+         "Ícones de item. O projeto usa o <code>icon_blueprint</code> no aviso \"PROJETO: …\"; o tanque vai no slot de equipamento."),
+    ]
+    dev = "".join(f"<tr><td>{a}</td><td>{b}</td><td>{c}</td></tr>" for a, b, c in rows)
+    order = ("<ol><li><b>Caverna:</b> chão (<code>floor_mist_*</code>) e veios; depois linha por linha: topo da parede em <code>(x, y − 24)</code>, minério, "
+             "face em <code>(x, y + 8)</code>, terminal; e os objetos da linha por <code>ay</code> (rampa, luminárias, baú, drill, player). "
+             "Por cima: <b>escuridão</b> → brilho dos minérios → indicadores e HUD.</li>"
+             "<li><b>Superfície:</b> igual à de hoje; destroços e caixas são objetos e entram na ordenação por <code>ay</code> junto com rochas, pickups e máquinas. "
+             "A areia acumulada, a sombra e as peças caídas (asa, aleta) já vêm dentro do PNG do destroço.</li></ol>")
+    return f"""<section><h2>v5.0 · Caverna · prévias (960×540, tamanho real)</h2><div class="pvs">{cave_pv}</div></section>
+
+<section><h2>v5.0 · Rampa de subida × rampa de descida</h2><div class="cmp" style="grid-template-columns:1fr">{ramp_cmp}</div>
+<p class="lede" style="margin-top:14px">Mesma linguagem da cratera: monte de rocha com uma escada de metal cortada nele, corrimão laranja, soleira com faixa de alerta e duas balizas com LED verde. Só que aqui a escada <b>sobe</b>: os degraus clareiam de baixo pra cima até uma <b>boca de luz</b> no fundo, com a rocha em volta esquentada pela luz do dia, raios pontilhados e poeira no feixe. Uma plaquinha com seta verde pra cima reforça o "sai por aqui". A rocha usa os tons frios da parede da névoa, que é a da caverna.</p></section>
+
+<section><h2>v5.0 · Marco 2 · luminária</h2><div class="cards">{m2}</div>
+<p class="lede" style="margin-top:14px">Poste baixo da família das máquinas: sapata pesada com faixa laranja <code>#e2733a</code>, poste cinza em faixas, colar escuro e cabeça de gaiola com a lâmpada quente acesa (amarelo claro → laranja, uma barra e um aro de gaiola). Contorno <code>#1b1630</code>.</p></section>
+
+<section><h2>v5.0 · Destroços · prévias (960×540, tamanho real)</h2><div class="pvs">{wr_pv}</div></section>
+
+<section><h2>v5.0 · Marco 3 · destroços</h2><div class="cards">{m3w}</div>
+<div class="notes" style="margin-top:14px"><div class="box"><h3>Escolhas</h3><ul>
+<li><b>Mesma família:</b> painéis creme (os da cápsula), laranja desbotado em vez do <code>#e2733a</code> vivo, metal escuro das máquinas e contorno <code>#1b1630</code>.</li>
+<li><b>Abandono sem drama:</b> placas arrancadas mostrando as costelas, trincas, manchas de fuligem e poeira, vidro quebrado, peças caídas no chão (asa, aleta, painel solar), antenas tortas. Nada de sangue ou corpo.</li>
+<li><b>Nave de carga</b> (o primeiro grande achado): fuselagem tubular comprida em 3/4, nariz enfiado num monte de areia, cabine trincada, porta de carga caída virando rampa, asa apoiada no chão, deriva e bocais de motor (um partido), registro "07".</li>
+<li><b>Módulo da colônia:</b> caixa habitável inclinada (o lado esquerdo afundou: as faixas descem em degraus de 1 px), porta emperrada, emblema "H" desbotado da Colônia Hesper e o <b>terminal ainda ligado</b>, no estilo do <code>terminal.png</code>.</li>
+<li><b>Sonda:</b> pequena e tecnológica, embrulhada em folha dourada amassada (o isolamento das sondas reais), parabólica torta, olho-sensor ciano, LED vermelho ainda aceso e um sulco de impacto.</li>
+<li><b>Areia acumulada num tom neutro</b> (cinza-amarronzado, a mesma ideia do pedrisco dos veios): um sprite só funciona nos 3 chãos. No Morto lê como poeira, na Névoa some na terra e no Verde vira terra exposta.</li>
+</ul></div></div></section>
+
+<section><h2>v5.0 · Caixa de saque</h2><div class="cards">{m3c}</div>
+<p class="lede" style="margin-top:14px">Case de carga pesado, diferente do baú do jogador: corpo cinza-chumbo nervurado, cantoneiras creme, tampa com faixa laranja desbotada e alça, alças laterais e trava com LED âmbar ("tem coisa aqui"). Vazia: tampa aberta pra trás, interior escuro e LED apagado.</p></section>
+
+<section><h2>v5.0 · Ícones de item</h2><div class="cards">{m3i}</div>
+<p class="lede" style="margin:14px 0">Projeto = folha de planta azul com o desenho de uma máquina e um chip laranja de contatos dourados. Tanque de O₂ = par de cilindros de mochila com faixa ciano, válvulas laranja e cinta. Scanner = aparelho de mão com tela de minimapa (anéis de radar, ponto do player, alvo), antena e botões. No slot, em 1×, 2× e 3× (os dois últimos são o baú e o ferro aprovados, pra comparar):</p>
+<img src="slot_preview_v50.png" width="{sw}" height="{sh_}" alt="Ícones no slot" style="image-rendering:pixelated;display:block;max-width:100%;border:1px solid var(--line)">
+</section>
+
+<section><h2>v5.0 · Pro Dev integrar (caverna e destroços)</h2>
+<div class="box dev"><table class="tb"><thead><tr><th>Sprite</th><th>Tamanho</th><th>Âncora · colisão · interação</th></tr></thead><tbody>{dev}</tbody></table>
+<h3>Ordem de desenho</h3>{order}
+<p class="lede">Tudo em <code>assets/sprites/_pending/</code> até tu aprovar; o jogo continua no fallback. <b>Desvios do contrato:</b> nenhum (nomes e tamanhos exatamente como na bíblia §9).</p></div>
+</section>"""
+
+
 def build_report(spr: dict[str, Image.Image]):
     def lum(h):
         r, g, b = (int(h[i:i + 2], 16) for i in (1, 3, 5))
@@ -3539,7 +4720,7 @@ def build_report(spr: dict[str, Image.Image]):
     ]
     integ_html = "".join(f"<li>{s}</li>" for s in integ)
 
-    surf_html = build_v41_report(spr) + build_surface_report(spr, scale)
+    surf_html = build_v50_report(spr) + build_v41_report(spr) + build_surface_report(spr, scale)
 
     page = f"""<!doctype html>
 <html lang="pt-BR">
@@ -3611,16 +4792,34 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 .tb{{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:12px}}
 .tb th,.tb td{{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line)}}
 .tb th{{font:11px var(--f-label);color:var(--muted)}}
+.crate-anim{{image-rendering:pixelated;background:url(../../assets/sprites/_pending/loot_crate.png) 0 0/192px 192px;animation:crate 2.4s steps(1) infinite;outline:1px dashed var(--gold);outline-offset:2px}}
+@keyframes crate{{0%{{background-image:url(../../assets/sprites/_pending/loot_crate.png)}}50%{{background-image:url(../../assets/sprites/_pending/loot_crate_empty.png)}}}}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v4.1 (v0.3 · superfície, aprovado)</div>
+  <div class="eyebrow">Hesper · Designer · v5.0 (v0.3 · caverna e destroços, pendente)</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
   <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span><span class="chip">pod largo guardado em _future/ (fora do contrato)</span></div>
-  <div class="v2"><b>v4.1 · aprovado</b><ul>
+  <div class="v2"><b>v5.0 · caverna e destroços (pendente)</b><ul>
+    <li><b>Marco 2 · caverna</b>, em <code>assets/sprites/_pending/</code>:
+      <ul>
+        <li><code>lamp</code> (16×32): luminária de chão, família das máquinas, lâmpada quente acesa;</li>
+        <li><code>icon_lamp</code> (16×16);</li>
+        <li><code>cave_ramp_up</code> (96×96): a contraparte da <code>crater_ramp</code>, com a escada subindo pra uma boca de luz.</li>
+      </ul></li>
+    <li><b>Marco 3 · destroços</b>, também em <code>_pending/</code>:
+      <ul>
+        <li><code>wreck_cargo</code> (128×112), <code>wreck_module</code> (96×88, com terminal) e <code>wreck_probe</code> (64×64);</li>
+        <li><code>loot_crate</code> e <code>loot_crate_empty</code> (32×32);</li>
+        <li><code>icon_blueprint</code>, <code>icon_o2_tank</code> e <code>icon_scanner</code> (16×16).</li>
+      </ul></li>
+    <li><b>Prévias novas:</b> <code>preview_cave</code>, com uma escuridão aproximada que usa o mesmo algoritmo do jogo (e a mesma cena sem escuridão), e <code>preview_wrecks_{{dead,mist,green}}</code>, com os 3 destroços e as caixas nos 3 chãos.</li>
+    <li>Os 88 oficiais <b>não mudaram</b> (md5 conferido). Não teve desvio do contrato. Âncoras, colisão, caixa, terminal, chegada da rampa e a luz sugerida da rampa estão em "v5.0 · Pro Dev integrar".</li>
+  </ul></div>
+  <div class="v2" style="opacity:.75"><b>v4.1 · aprovado</b><ul>
     <li><b>O dono aprovou</b>, e os sprites foram promovidos pra <code>assets/sprites/</code> com os mesmos bytes da entrega pendente (md5 conferido):
       <ul>
         <li><code>sand_mist_{{0..3}}</code>: terra marrom úmida, substitui a areia cinza;</li>
@@ -3807,6 +5006,12 @@ def main():
         for st in ("mist", "green"):
             if f"water_auto_{st}.png" in spr:
                 make_water_demo(st, spr).save(REP / f"water_demo_{st}.png")
+    if "_pending/lamp.png" in spr:                                 # v5.0: caverna e destroços
+        render_cave(spr).save(REP / "preview_cave.png")
+        render_cave(spr, dark=False).save(REP / "preview_cave_lit.png")
+        for st in STAGES:
+            render_wrecks(st, spr).save(REP / f"preview_wrecks_{st}.png")
+        make_icons_slot_v50(spr).save(REP / "slot_preview_v50.png")
     make_drill_preview(spr).save(REP / "drill_preview.png")
     make_slot_preview(spr, "icon_drone.png", "icon_chest.png").save(REP / "slot_preview.png")
     build_report(spr)
