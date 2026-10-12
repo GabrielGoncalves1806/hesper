@@ -3,7 +3,7 @@
 Tudo aqui é Python puro (nada de pygame), testado em tests/test_energy.py.
 
 A ideia é bem simples, tipo a conta de luz de uma casa:
-    produção = 5 kW da cápsula + 3 kW por painel solar
+    produção = 5 kW da cápsula + 4 kW por painel solar
     consumo  = soma do que cada máquina colocada consome (tabela C.POWER_USE)
     fator    = min(1, produção / consumo)
 

@@ -22,10 +22,8 @@ def test_proposta_chega_no_fim_dentro_da_meta(proposal, strategy):
     r = sim.simulate(strategy, seed=1, overrides=proposal)
     assert r.finished
     assert set(r.milestones) == {"Ti 500", "Névoa", "Verde"}
-    # meta: ~25 min (20 a 35 aceitável). O casual da PROPOSTA já ficava na beirada (seed 1: 34m47, seeds 2/3:
-    # 35m42/37m42 antes do drone virar item); com estação + 2 drones fabricados a seed 1 dá 35m42 e a média
-    # das 3 seeds até melhorou (36m04 -> 35m47). Folga de 2 min só pro casual da proposta, até o rebalanceamento.
-    ceiling = 37 if strategy == "casual" else 35
+    # meta: ~25 min (20 a 35 aceitável). Com o painel solar em 4 kW o casual da proposta fica em ~33 min.
+    ceiling = 35
     assert 20 * 60 <= r.total <= ceiling * 60
     assert 9 * 60 <= r.milestones["Névoa"] <= 13 * 60     # Névoa por volta dos 10–12 min
     assert r.idle_longest <= 2.5 * 60                     # nenhuma espera longa

@@ -293,12 +293,12 @@ POWER_USE = {
     "drill": 2,
     "drone_station": 1,  # estação de drones (Marco 3): era 3 kW quando vinha com 2 drones de graça
 }
-POWER_GEN = {"solar": 3}  # quanto cada máquina gera (kW)
+POWER_GEN = {"solar": 4}  # quanto cada máquina gera (kW)
 ENERGY_TIGHT = 0.8        # consumo ≥ 80% da produção: medidor amarelo ("perto do limite")
 ENERGY_REARM_TIME = 5.0   # o som power_low só toca de novo depois de 5 s seguidos sem déficit
 C_ENERGY = "#ffd84a"      # cor do raio do medidor
 
-# Painel solar: +3 kW, não soma Ti. O sprite "solar_panel" e o ícone "icon_solar" ainda estão
+# Painel solar: +4 kW, não soma Ti. O sprite "solar_panel" e o ícone "icon_solar" ainda estão
 # pendentes de aprovação: enquanto não existirem, o jogo desenha o fallback (art.solar_panel).
 MACHINES["solar"] = MachineType("solar", "Painel solar", "+ energia", {"iron": 8, "silicon": 6}, None, 0,
                                 0, "solar_panel")

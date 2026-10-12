@@ -240,7 +240,7 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 ### Marco 2 · Energia (global, sem fios)
 - A energia é um **pool global**: a produção total (kW) contra o consumo total. O HUD mostra um medidor "⚡ produção / consumo".
 - **Cápsula**: gera **5 kW** fixos, pro começo do jogo funcionar.
-- **Painel solar**: +3 kW, custa 8 ferro + 6 silício, libera com Ti 0. Ocupa 1 tile.
+- **Painel solar**: +4 kW, custa 8 ferro + 6 silício, libera com Ti 0. Ocupa 1 tile.
 - **Consumo**: Gerador de O₂ 1 · Derretedor 1 · Aquecedor 2 · máquinas nv.2 3/3/4 · Drill 2 · Estação de drones 1 (kW). O baú não consome.
 - **Déficit**: todos os consumidores rodam no ritmo `produção / consumo` (desaceleração proporcional), e o medidor fica vermelho. Não há corte total.
 - No v0.2 não tem bateria nem ciclo dia/noite (ficam pra depois).

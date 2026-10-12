@@ -28,7 +28,7 @@ def test_consumption_table_matches_the_bible():
                 "drill": 2, "drone_station": 1}
     assert {k: machine_use(k) for k in expected} == expected
     assert machine_use("solar") == 0 and machine_use("chest") == 0     # painel e baú não consomem
-    assert machine_gen("solar") == 3 and machine_gen("o2") == 0
+    assert machine_gen("solar") == 4 and machine_gen("o2") == 0
 
 
 def test_only_the_pod_at_the_start(game):
@@ -39,7 +39,7 @@ def test_only_the_pod_at_the_start(game):
 
 def test_production_and_consumption_add_up():
     power = power_report(["o2", "melter", "heater", "solar", "solar", "drill"])
-    assert power.production == 5 + 3 + 3
+    assert power.production == 5 + 4 + 4
     assert power.consumption == 1 + 1 + 2 + 2
 
 
@@ -145,7 +145,7 @@ def test_solar_panel_craft_place_dismantle(game):
     assert game.craft("solar")
     px, py = game.player.tile
     assert game.place("solar", (px + 2, py))
-    assert game.power.production == 8
+    assert game.power.production == 9
     ti = game.ti
     game._update_machines(30)
     assert game.ti == ti                                # painel não soma Ti
