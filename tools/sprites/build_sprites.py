@@ -2778,7 +2778,7 @@ def make_water_demo(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
     for y in range(H_):
         for x in range(W_):
             img.alpha_composite(spr[sand_key(spr, stage, sand_variant(x + 40, y + 20))], (x * T, y * T))
-    sheet = spr[f"_pending/water_auto_{stage}.png"]
+    sheet = spr[f"water_auto_{stage}.png"]
     for (x, y) in water:
         draw_water_auto(img, sheet, water, x, y, x * T, y * T)
     return img.convert("RGB")
@@ -2787,13 +2787,7 @@ def make_water_demo(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
 def build_pending() -> dict[str, Canvas]:
     """Assets novos aguardando aprovação do dono: vão pra assets/sprites/_pending/.
     Depois de aprovados, saem daqui e entram em build_v02()/build_v03()/build_sprites() (pasta oficial)."""
-    out: dict[str, Canvas] = {}
-    for v in range(4):
-        out[f"sand_mist_{v}.png"] = make_soil_mist(v)      # v4.1: substitui o sand_mist aprovado na v4.0
-        out[f"sand_green_{v}.png"] = make_grass_green(v)   # v4.1: substitui o sand_green aprovado na v4.0
-    for st in ("mist", "green"):                             # v4.1: autotile A2 de água (no morto não há água)
-        out[f"water_auto_{st}.png"] = make_water_auto(st, make_water(st).image())
-    return out
+    return {}
 
 
 FUTURE = OUT / "_future"  # guardados pelo dono pro futuro: fora do contrato, o jogo não carrega daqui
@@ -2804,11 +2798,15 @@ def build_future() -> dict[str, Canvas]:
 
 
 def build_v03() -> dict[str, Canvas]:
-    """Sprites do v0.3 · Marco 1 (superfície), aprovados na v4.0. A cápsula nova entra em build_sprites()."""
+    """Sprites do v0.3 · Marco 1 (superfície), aprovados na v4.0; névoa marrom, verde de verdade e autotile
+    de água aprovados na v4.1. A cápsula nova entra em build_sprites()."""
     out: dict[str, Canvas] = {}
-    for st in STAGES:
-        for v in range(4):
-            out[f"sand_{st}_{v}.png"] = make_sand(st, v)
+    for v in range(4):
+        out[f"sand_dead_{v}.png"] = make_sand("dead", v)
+        out[f"sand_mist_{v}.png"] = make_soil_mist(v)       # v4.1 (o make_sand("mist") da v4.0 fica de histórico)
+        out[f"sand_green_{v}.png"] = make_grass_green(v)    # v4.1
+    for st in ("mist", "green"):                              # v4.1: autotile A2 de água (no morto não há água)
+        out[f"water_auto_{st}.png"] = make_water_auto(st, make_water(st).image())
     out["rock_small.png"] = make_rock_small()
     for o in ("iron", "silicon", "ice"):
         out[f"pickup_{o}.png"] = make_pickup(o)
@@ -3123,7 +3121,7 @@ def render_surface(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
     P = ""
     hills = set(SURF_HILLS)
     water = set()
-    auto = f"_pending/water_auto_{stage}.png" in spr
+    auto = f"water_auto_{stage}.png" in spr
     if stage == "mist":
         water = {(18, 13), (19, 13), (19, 14), (11, 14)} if auto else {(18, 12), (19, 12)}
     elif stage == "green":
@@ -3143,7 +3141,7 @@ def render_surface(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
             else:
                 img.alpha_composite(spr[sand_key(spr, stage, sand_variant(x, y))], (x * T, y * T))
                 if (x, y) in water:                          # autotile por cima do chão (fora da margem é transparente)
-                    draw_water_auto(img, spr[f"_pending/water_auto_{stage}.png"], water, x, y, x * T, y * T)
+                    draw_water_auto(img, spr[f"water_auto_{stage}.png"], water, x, y, x * T, y * T)
             if (x, y - 1) in hills:
                 img.alpha_composite(shade, (x * T, y * T))
                 img.alpha_composite(shade_b, (x * T, y * T + 10))
@@ -3272,12 +3270,12 @@ def colors_of(imgs: list[Image.Image]) -> list[str]:
 
 def build_v41_report(spr: dict[str, Image.Image]) -> str:
     """Seção v4.1 (pendente): névoa marrom, verde de verdade e autotile de água."""
-    if "_pending/sand_mist_0.png" not in spr:
+    if "water_auto_mist.png" not in spr:
         return ""
     blocks = []
     for st, lab in (("mist", "Névoa · terra marrom úmida"), ("green", "Verde · grama de verdade")):
         bef = "".join(f'<img src="before/sand_{st}_{v}_v40.png" width="128" height="128" alt="antes {v}">' for v in range(4))
-        aft = "".join(f'<img src="../../assets/sprites/_pending/sand_{st}_{v}.png" width="128" height="128" alt="depois {v}">' for v in range(4))
+        aft = "".join(f'<img src="../../assets/sprites/sand_{st}_{v}.png" width="128" height="128" alt="depois {v}">' for v in range(4))
         blocks.append(f'<figure><div class="pair" style="flex-direction:column;align-items:flex-start">'
                       f'<div>antes (v4.0)<span style="display:flex;gap:8px">{bef}</span></div>'
                       f'<div>depois (v4.1)<span style="display:flex;gap:8px">{aft}</span></div></div>'
@@ -3293,13 +3291,13 @@ def build_v41_report(spr: dict[str, Image.Image]) -> str:
     til = "".join(f'<figure class="pv"><img src="sand_tiling_{st}.png" width="960" height="540" alt="ladrilho {st}">'
                   f'<figcaption><b>Ladrilho 30×17 · {lab}</b><span>mesma distribuição sand_variant</span></figcaption></figure>'
                   for st, lab in (("mist", "Névoa"), ("green", "Verde")))
-    sheets = "".join(f'<figure class="spr"><div class="chk"><img src="../../assets/sprites/_pending/water_auto_{st}.png" '
+    sheets = "".join(f'<figure class="spr"><div class="chk"><img src="../../assets/sprites/water_auto_{st}.png" '
                      f'width="256" height="384" alt="water_auto_{st}"></div><figcaption><code>water_auto_{st}.png</code>'
                      f'<span>64×96 · 4×</span></figcaption></figure>' for st in ("mist", "green"))
     demos = "".join(f'<figure class="pv"><img src="water_demo_{st}.png" width="640" height="288" alt="poças {st}" style="width:960px;max-width:100%">'
                     f'<figcaption><b>Autotile · {lab}</b><span>poças de 1 tile, poça irregular de 3 tiles e lago com reentrâncias e ilhas, montados pelo algoritmo de minitiles (1,5×)</span></figcaption></figure>'
                     for st, lab in (("mist", "Névoa"), ("green", "Verde")))
-    return f"""<section><h2>v4.1 · Névoa marrom e verde de verdade (pendente)</h2>
+    return f"""<section><h2>v4.1 · Névoa marrom e verde de verdade (aprovado)</h2>
 <p class="lede" style="margin-bottom:14px">A terraformação agora transforma o deserto. A <b>Névoa</b> é terra marrom úmida, com torrões, manchas de umidade, cascalho escuro e manchinhas de lama, ainda sem vegetação: fica no meio do caminho entre o vermelho e o verde. O <b>Verde</b> é grama cobrindo o chão, na família do <code>floor_green</code> que tu gostou: textura densa de folhinhas, tufos altos, zonas de musgo mais escuro e uma florzinha rara. O Morto não mudou.</p>
 <div class="cmp" style="grid-template-columns:1fr">{"".join(blocks)}</div></section>
 <section><h2>v4.1 · Prévias antes × depois</h2><div class="pvs">{pv}</div></section>
@@ -3378,8 +3376,8 @@ def build_surface_report(spr: dict[str, Image.Image], scale: dict[str, int]) -> 
          f"Âncora no centro da base do tile do meio: <code>ax = (tx+1)·32 + 16</code>, <code>ay = (ty+1)·32</code>, blit em <code>(ax − 48, ay − 64)</code>. "
          f"Luzes: janela <code>{L2['window']}</code>, beacon <code>{L2['beacon']}</code>, LED <code>{L2['led']}</code>, porta (pé) <code>{L2['door']}</code>."),
     ]
-    if "_pending/water_auto_mist.png" in spr:
-        dev_rows.insert(0, ("<code>water_auto_{mist,green}.png</code> (v4.1, pendente)", "64×96",
+    if "water_auto_mist.png" in spr:
+        dev_rows.insert(0, ("<code>water_auto_{mist,green}.png</code> (v4.1)", "64×96",
             "Autotile no layout <b>A2 do RPG Maker</b>, com minitiles de 16×16. Os blocos são de 32×32: "
             "<b>(0,0)</b> = poça isolada (gota de 1 tile); <b>(32,0)</b> = os 4 cantos internos; "
             "<b>(0,32)–(64,96)</b> = ilha 2×2 com interior, bordas e cantos externos (grade 4×4 de minitiles: colunas 0/3 = bordas esquerda/direita, "
@@ -3618,15 +3616,20 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v4.1 (v0.3 · superfície)</div>
+  <div class="eyebrow">Hesper · Designer · v4.1 (v0.3 · superfície, aprovado)</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
   <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span><span class="chip">pod largo guardado em _future/ (fora do contrato)</span></div>
-  <div class="v2"><b>v4.1 · névoa marrom e verde de verdade (pendente)</b><ul>
-    <li><b>O deserto era só o estado inicial:</b> agora a terraformação transforma o chão de verdade. Os novos <code>sand_mist_{{0..3}}</code> (terra marrom úmida, sem vegetação) e <code>sand_green_{{0..3}}</code> (grama cobrindo o chão, com tufos, musgo e florzinha rara) estão em <code>_pending/</code>. O <code>sand_dead</code> não mudou.</li>
-    <li><b>Poças com cara de poça:</b> <code>water_auto_mist</code> e <code>water_auto_green</code> (64×96) são autotiles no layout A2 do RPG Maker, com borda orgânica, margem de lama ou terra molhada e brilho. O algoritmo está explicado em "Pro Dev integrar".</li>
-    <li>As prévias <code>preview_surface_{{mist,green}}</code> foram regeradas com o chão novo e o autotile (antes × depois logo abaixo). Também tem o ladrilho 30×17 de cada estágio e uma cena de teste das poças.</li>
-    <li>Os 86 oficiais e o <code>_future/pod_wide</code> não mudaram (md5 conferido). As versões oficiais de <code>sand_mist</code> e <code>sand_green</code> continuam valendo até tu aprovar.</li>
+  <div class="v2"><b>v4.1 · aprovado</b><ul>
+    <li><b>O dono aprovou</b>, e os sprites foram promovidos pra <code>assets/sprites/</code> com os mesmos bytes da entrega pendente (md5 conferido):
+      <ul>
+        <li><code>sand_mist_{{0..3}}</code>: terra marrom úmida, substitui a areia cinza;</li>
+        <li><code>sand_green_{{0..3}}</code>: grama cobrindo o chão, substitui a areia bege com brotos;</li>
+        <li><code>water_auto_mist</code> e <code>water_auto_green</code> (64×96): autotile de água no layout A2, arquivos novos no contrato.</li>
+      </ul>
+      As versões v4.0 de <code>sand_mist</code> e <code>sand_green</code> estão em <code>reports/design/before/</code>.</li>
+    <li>O contrato oficial passou a ter 88 arquivos (86 + 2 autotiles). Os outros 78 oficiais e o <code>_future/pod_wide</code> não mudaram, e a pasta <code>_pending/</code> foi removida.</li>
+    <li>O algoritmo do autotile está em "Pro Dev integrar".</li>
   </ul></div>
   <div class="v2" style="opacity:.75"><b>v4.0 · aprovado (pod largo guardado pro futuro)</b><ul>
     <li><b>O dono aprovou a arte do Marco 1 do v0.3</b>, e ela foi promovida pra pasta oficial <code>assets/sprites/</code> com os mesmos bytes da entrega pendente (md5 conferido):
@@ -3802,7 +3805,7 @@ def main():
         render_sand_field("dead", spr, uniform=True).save(REP / "sand_tiling_dead_uniform.png")
         make_pickup_check(spr).save(REP / "pickup_check.png")
         for st in ("mist", "green"):
-            if f"_pending/water_auto_{st}.png" in spr:
+            if f"water_auto_{st}.png" in spr:
                 make_water_demo(st, spr).save(REP / f"water_demo_{st}.png")
     make_drill_preview(spr).save(REP / "drill_preview.png")
     make_slot_preview(spr, "icon_drone.png", "icon_chest.png").save(REP / "slot_preview.png")

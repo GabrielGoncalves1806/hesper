@@ -160,7 +160,7 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 | `wall_{stage}_{0..2}.png` | 32×32 | topo da rocha, 3 variações |
 | `wall_face_{stage}.png` | 32×24 | face frontal alta. Quando o tile abaixo é chão, o tile da parede mostra os 8 px de cima do `wall_{stage}_N` + essa face de 24 px |
 | `water_{stage}.png` | 32×32 | |
-| `water_auto_{stage}.png` | 64×96 | autotile da água no layout A2 (minitiles 16×16): (0,0)–(32,32) poça isolada, (32,0)–(64,32) cantos internos, (0,32)–(64,96) lago 2×2 com cantos externos, bordas e miolo. Fora da margem é transparente (o chão aparece). Sem ele, o jogo gera o atlas por código a partir do `water_{stage}` (`game/autotile.py`) |
+| `water_auto_{mist,green}.png` | 64×96 | autotile da água no layout A2 (minitiles 16×16): (0,0)–(32,32) poça isolada, (32,0)–(64,32) cantos internos, (0,32)–(64,96) lago 2×2 com cantos externos, bordas e miolo. Fora da margem é transparente (o chão aparece). Sem ele, o jogo gera o atlas por código a partir do `water_{stage}` (`game/autotile.py`) |
 | `ore_iron.png` `ore_silicon.png` `ore_ice.png` | 32×32 | overlay transparente por cima da parede |
 | `icon_iron.png` `icon_silicon.png` `icon_ice.png` | 16×16 | ícones do inventário/HUD |
 | `pod.png` | 64×72 | cápsula/base |
