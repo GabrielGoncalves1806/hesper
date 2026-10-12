@@ -20,7 +20,7 @@ Detalhes em `GAME_BIBLE.md` §4.
 - [x] Polimento: pausa/volumes, objetivos, desmontar, transição gradual, simulador de balanceamento
 - [x] Veios de minério 2×2 no chão + drill automática (libera na Névoa, coleta manual)
 
-## v0.2 · A base ganha vida (automação) · em andamento
+## v0.2 · A base ganha vida (automação) ✓ (tag v0.2)
 Detalhes em `GAME_BIBLE.md` §8.
 
 - [x] Marco 1: save/load versionado + tela de título
@@ -29,7 +29,11 @@ Detalhes em `GAME_BIBLE.md` §8.
 - [x] Marco 2: energia global (cápsula 5 kW, painel solar, consumo, déficit proporcional)
 - [x] Marco 3: estação de drones + drones levando minério das drills pros baús
 - [x] Assets do v0.2 (sprites e sons) · aprovados pelo dono
-- [ ] Marco 4: balanceamento com o simulador + playtest
+- [x] Marco 3+: logística estilo Planet Crafter (drone como item, estação com 4 slots, alcance no mapa todo, Envia/Recebe/Lote em baú e drill, drill com inventário)
+- [x] Baú com nome, transferência por clique, Pegar tudo / Guardar recursos
+- [x] Tela cheia, janela redimensionável, zoom do mundo, tamanho da interface (Grande/Média/Pequena)
+- [x] Fabricador com abas, scroll e fabricar em lote
+- [x] Marco 4: balanceamento (painel solar 4 kW) + polimento + playtest do dono
 
 ## v0.3 · Pegada Core Keeper
 Água e comida (barras de sobrevivência). Escuridão com raio de luz, mundo em chunks maior, biomas de caverna, superfície × subsolo.
@@ -41,7 +45,8 @@ Inimigos, combate, primeiro boss, ruínas da Colônia Hesper.
 Fauna e flora surgindo com o Ti, farm, música.
 
 ## Futuro
-- Drones: upgrade da estação (mais drones, mais alcance).
+- Drones: upgrade da estação (mais drones, drones mais rápidos).
+- Versão pra celular (navegador via pygbag + controles de toque), decidir se vira plataforma principal.
 - Mochila (mais slots no inventário).
 - Bateria e ciclo dia/noite.
 - Baú de chão estilo caixa azul baixa e larga (referência: storage do Planet Crafter), talvez como segundo tipo de armazenamento.

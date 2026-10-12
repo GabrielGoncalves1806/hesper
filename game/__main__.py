@@ -6,7 +6,7 @@ from game.app import App
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Hesper · MVP v0.1")
+    parser = argparse.ArgumentParser(description="Hesper · v0.2")
     parser.add_argument("--scale", type=int, default=None, help="zoom inteiro da janela (padrão: o maior que cabe na tela)")
     args = parser.parse_args()
     App(scale=args.scale).run()

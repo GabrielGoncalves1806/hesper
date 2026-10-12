@@ -1084,7 +1084,7 @@ class UI:
             sx = x + 30 + i * 74
             self.text(label, sx + 30, y + 100, C.C_MUTED, align="center")
             self.text(value, sx + 30, y + 112, C.C_TI, self.body_big, "center")
-        self.text("Obrigado por testar o v0.1", self.w / 2, y + 142, "#a6e07a", self.body, "center")
+        self.text("Obrigado por testar o v0.2", self.w / 2, y + 142, "#a6e07a", self.body, "center")
         if (t * 9) % 10 < 6:
             self.text("[ENTER] CONTINUAR EXPLORANDO", self.w / 2, y + h - 18, C.C_TEXT, align="center")
 

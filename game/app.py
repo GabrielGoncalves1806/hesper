@@ -90,7 +90,7 @@ class App:
         self.scale = scale or pick_scale()               # escala inteira da janela (fora da tela cheia)
         self.settings = settings.load()
         self.window = self.open_window(self.settings["fullscreen"])
-        pygame.display.set_caption("Hesper · v0.1")
+        pygame.display.set_caption("Hesper · v0.2")
         pygame.mouse.set_visible(False)
         # Tela interna SEM canal alfa, com máscaras explícitas. Sem isso, no macOS (driver Cocoa)
         # o Surface herda o formato da janela, que TEM alfa: os blits gravam alfa 0/255 misturado
