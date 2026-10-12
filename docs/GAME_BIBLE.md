@@ -377,3 +377,36 @@ Entregues em `_pending/` até o dono aprovar. Os morros usam a arte de parede qu
 | `desert_wind.wav` | loop 20–40 s, baixíssimo | camada de vento seco por cima do `amb_{stage}` na superfície. Some na caverna |
 
 Recursos soltos usam o `pickup.wav` já aprovado; rochas usam `mine_hit`/`mine_break`.
+
+### Assets do Marco 2 · Caverna (contrato)
+A caverna usa a arte de chão e parede do estágio **névoa** já aprovada (`floor_mist_*`, `wall_mist_*`, `wall_face_mist`), sempre, sem mudar com o Ti (rocha fria). Sem água na caverna.
+
+| Sprite | Tamanho | Observação |
+|---|---|---|
+| `lamp.png` | 16×32 | luminária de chão (poste baixo com luz quente no topo), ancorada no centro da base. O jogo desenha a luz por cima |
+| `icon_lamp.png` | 16×16 | ícone de item da luminária |
+| `cave_ramp_up.png` | 96×96 | rampa de subida na caverna, 3×3 como a cratera: buraco de luz vindo de cima, degraus de metal subindo, mesma linguagem da `crater_ramp` |
+
+| Áudio | Tipo | Quando toca |
+|---|---|---|
+| `amb_cave.wav` | loop 20–40 s | ambiente da caverna: grave, gotejar esparso, eco. Substitui o `amb_{stage}` e o vento enquanto na caverna |
+| `ramp_down.wav` `ramp_up.wav` | sfx ~1 s | descer e subir pela rampa (passos metálicos + mudança de espaço) |
+| `lamp_place.wav` | sfx curto | colocou uma luminária (clique + acender) |
+
+### Assets do Marco 3 · Destroços (contrato)
+| Sprite | Tamanho | Observação |
+|---|---|---|
+| `wreck_cargo.png` | 128×112 | nave de carga caída, ocupa 4×3 tiles, meio enterrada na areia, ancorada no centro da base |
+| `wreck_module.png` | 96×88 | módulo da colônia, 3×2 tiles, com um terminal visível |
+| `wreck_probe.png` | 64×64 | sonda pequena, 2×2 tiles |
+| `loot_crate.png` `loot_crate_empty.png` | 32×32 | caixa de saque (fechada/cheia e aberta/vazia) |
+| `icon_blueprint.png` | 16×16 | item de projeto |
+| `icon_o2_tank.png` | 16×16 | tanque de O₂ (equipamento) |
+| `icon_scanner.png` | 16×16 | scanner de navegação |
+
+| Áudio | Tipo | Quando toca |
+|---|---|---|
+| `crate_open.wav` | sfx | abriu uma caixa de saque |
+| `blueprint_found.wav` | sfx/jingle curto | achou um projeto (som de conquista) |
+| `equip.wav` | sfx curto | colocou equipamento no slot |
+| `map_open.wav` | sfx curto | abriu o mapa (M) |
