@@ -20,13 +20,13 @@ uv run python -m game --scale 2   # força o zoom da janela (padrão: o maior qu
 |---|---|
 | Andar | WASD (ou setas) |
 | Minerar | segurar o botão esquerdo do mouse em cima da parede (alcance 2 tiles) |
-| Fabricador | E (só dentro do círculo azul da base) · W/S escolhe · clique ou Enter fabrica |
+| Fabricador | E (só dentro do círculo azul da base) · A/D, ←/→ ou Tab trocam de aba · W/S escolhe · rodinha rola a lista · clique ou Enter fabrica · Shift+Enter ou Shift+clique fabrica até 5 |
 | Colocar máquina | depois de fabricar, clique no chão · R gira · Esc ou botão direito cancela |
 | Hotbar | 1 a 8 ou a rodinha do mouse escolhem o slot · se for máquina, já entra no modo de colocar |
 | Inventário | Tab · clique pega/solta a pilha · clique direito pega metade |
 | Baú | E perto dele · clique esquerdo manda a pilha inteira pro outro lado · clique direito manda 1 · Shift+clique manda todas as pilhas daquele item · botões **Pegar tudo** e **Guardar recursos** (só ferro, silício e gelo) · o fabricador usa o que está nos baús da base |
 | Nome do baú | no painel do baú, clique no nome · digite (até 16 letras) · Enter confirma · Esc cancela · Backspace apaga · o nome flutua em cima do baú quando tu chega perto ou passa o mouse |
-| Estação de drones | E perto dela · clique no drone do inventário põe na estação (esquerdo: quantos couberem nos 4 slots, direito: 1) · clique num drone pousado tira (em voo fica travado) · clique no buffer tira o minério (direito: 1) · **Pegar tudo** leva o buffer |
+| Estação de drones | E perto dela · clique no drone do inventário põe na estação (esquerdo: quantos couberem nos 4 slots, direito: 1) · clique num drone pousado tira (em voo fica travado) · clique no buffer tira o minério (direito: 1) · **Pegar tudo** leva o buffer · mouse em cima (ou colocando) mostra o alcance de 30 tiles e a área de entrega |
 | Drone | item do fabricador (6 ferro + 4 silício, libera na Névoa) · não vai pro chão: vai num slot da estação |
 | Coletar drill | E perto dela (leva o minério que ela extraiu pro inventário) |
 | Desmontar máquina | clique direito em cima dela (volta pro inventário; baú só vazio; a estação devolve junto os drones e o minério) |

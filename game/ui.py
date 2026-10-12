@@ -14,6 +14,8 @@ import pygame
 from game import config as C
 from game import energy
 from game.assets import Sprites, load_font
+from game.fabricator import tab_kinds
+from game.floaters import LANE_PX, FloatingTexts
 from game.inventory import Inventory, Stack
 from game.systems import GameState, eta_label, stage_progress
 
@@ -128,22 +130,6 @@ def wrap(font: pygame.font.Font, text: str, max_w: int) -> list[str]:
     return lines
 
 
-class FloatingTexts:
-    """Textinhos que sobem e somem ('+2 FERRO', '+O2'). Posição em pixels do mundo."""
-
-    def __init__(self):
-        self.items: list[list] = []   # [texto, x, y, cor, vida]
-
-    def add(self, text: str, x: float, y: float, color: str) -> None:
-        self.items.append([text, x, y, color, 1.2])
-
-    def update(self, dt: float) -> None:
-        for it in self.items:
-            it[2] -= 22 * dt
-            it[4] -= dt
-        self.items = [it for it in self.items if it[4] > 0]
-
-
 class UI:
     def __init__(self):
         self.surf = pygame.Surface((UW, UH), pygame.SRCALPHA)
@@ -157,6 +143,7 @@ class UI:
         self._tmp: dict[tuple, pygame.Surface] = {}
         self.fabricator_buttons: list[tuple[pygame.Rect, str]] = []   # retângulos clicáveis (coord. da UI)
         self.fabricator_rows: list[tuple[pygame.Rect, str]] = []
+        self.fabricator_tabs: list[tuple[pygame.Rect, int]] = []      # abas: (retângulo, índice da aba)
         self.pause_items: list[pygame.Rect] = []      # linhas clicáveis do menu de pausa (coord. da UI)
         self.pause_sliders: list[pygame.Rect] = []    # barras dos sliders de volume
         # slots clicáveis da tela de inventário/baú: (retângulo na UI, inventário, índice do slot)
@@ -400,10 +387,11 @@ class UI:
 
     def draw_floaters(self, floaters: FloatingTexts, cam: tuple[int, int], zoom: float = 1.0) -> None:
         """Textos presos num ponto do mundo: a posição acompanha o zoom, o tamanho da letra não."""
-        for text, x, y, color, life in floaters.items:
-            sx, sy = (x - cam[0]) * zoom / 2, (y - cam[1]) * zoom / 2
+        for f in floaters.items:
+            # a faixa (lane) é em px da UI: a distância entre as linhas não muda com o zoom
+            sx, sy = (f.x - cam[0]) * zoom / 2, (f.y - cam[1]) * zoom / 2 - f.lane * LANE_PX
             if -40 < sx < UW + 40 and -20 < sy < UH + 20:
-                self.text(text, sx, sy, color, align="center")
+                self.text(f.text, sx, sy, f.color, align="center")
 
     # ---- O₂ crítico -----------------------------------------------------------
     def draw_o2_critical(self, state: GameState, t: float, cam: tuple[int, int]) -> None:
@@ -426,30 +414,52 @@ class UI:
         self.text("BASE", lx, ly - 4, "#ff9a8a", align="center")
 
     # ---- fabricador -----------------------------------------------------------
-    def draw_fabricator(self, state: GameState, selected: int, machine_preview, t: float) -> None:
-        """Menu de receitas. `machine_preview(kind)` devolve a imagem da máquina (resolução cheia)."""
+    def draw_fabricator(self, state: GameState, menu, machine_preview, t: float) -> None:
+        """Menu de receitas com abas (`menu`: game/fabricator.FabMenu). `machine_preview(kind)` devolve
+        a imagem da máquina (resolução cheia). Hit-test: fabricator_tabs, fabricator_rows, fabricator_buttons."""
         self.fill((8, 5, 4, 158), (0, 0, UW, UH))
-        x, y, w, h = 66, 1, 348, 268
-        # cabem 7 receitas de 34 de altura: com mais, a lista rola junto com a seleção (setinhas mostram
-        # que tem mais); com menos, a altura se ajusta ao número de receitas
-        visible = min(7, len(C.MACHINE_ORDER))
-        row_h = min(34, (h - 20) // visible - 1)
+        x, y, w, h = 40, 1, 400, 268
+        list_y = y + 38                                 # título (18) + abas (16) + respiro
+        footer_y = y + h - 14                           # linha de ajuda embaixo
+        row_h = (footer_y - 2 - list_y) // menu.visible - 1
         self.surf.fill(pygame.Color("#1b1411"), (x, y, w, h))
         pygame.draw.rect(self.surf, pygame.Color("#5a4034"), (x, y, w, h), 1)
         self.surf.fill(pygame.Color("#2a1e19"), (x + 1, y + 1, w - 2, 18))
         self.text("FABRICADOR", x + 8, y + 6, C.C_TI)
-        self.text("[W/S] ESCOLHE · [ENTER] CRAFTA · [E] FECHA", x + w - 8, y + 6, C.C_MUTED, align="right")
+        self.surf.fill(pygame.Color("#2a1e19"), (x + 1, footer_y, w - 2, 13))
+        self.text(f"[A/D] ABA · [W/S] ESCOLHE · [ENTER] CRAFTA · [SHIFT+ENTER] X{C.CRAFT_BATCH} · [E] FECHA",
+                  x + w / 2, footer_y + 3, C.C_MUTED, align="center")
         self.fabricator_buttons.clear()
         self.fabricator_rows.clear()
-        first = max(0, min(selected - visible + 1, len(C.MACHINE_ORDER) - visible))
-        if first > 0:                                   # setinhas do lado do título
-            self._arrow(x + 82, y + 5, up=True)
-        if first + visible < len(C.MACHINE_ORDER):
-            self._arrow(x + 82, y + 11, up=False)
-        for i, kind in enumerate(C.MACHINE_ORDER[first:first + visible], start=first):
+        self.fabricator_tabs.clear()
+        # abas: largura pelo texto; aba sem nada liberado fica apagada (mas abre e mostra as bloqueadas)
+        tx = x + 8
+        for i, (tab_id, label) in enumerate(C.FAB_TABS):
+            tw = self.body.size(label)[0] + 12
+            rect = pygame.Rect(tx, y + 21, tw, 15)
+            active = i == menu.tab
+            unlocked = any(state.recipe_status(k) != "locked" for k in tab_kinds(tab_id))
+            self.surf.fill(pygame.Color("#2c1e18" if active else "#160f0d"), rect)
+            pygame.draw.rect(self.surf, pygame.Color(C.C_ACCENT if active else "#3a2c25"), rect, 1)
+            if active:                                  # a aba ativa "abre" pra lista
+                self.surf.fill(pygame.Color("#2c1e18"), (rect.x + 1, rect.bottom - 1, rect.w - 2, 2))
+            color = C.C_TEXT if active else C.C_MUTED if unlocked else "#5a4a40"
+            self.text(label, rect.x + 6, rect.y + 1, color, self.body)
+            self.fabricator_tabs.append((rect, i))
+            tx += tw + 3
+        pygame.draw.line(self.surf, pygame.Color("#3a2c25"), (x + 8, y + 35), (x + w - 9, y + 35))
+        kinds = menu.kinds
+        selected, first = menu.selected[menu.tab], menu.first[menu.tab]
+        if len(kinds) > menu.visible:                   # barra de rolagem na margem direita
+            track = pygame.Rect(x + w - 6, list_y, 3, menu.visible * (row_h + 1) - 1)
+            self.surf.fill(pygame.Color("#120d0b"), track)
+            thumb_h = max(8, round(track.h * menu.visible / len(kinds)))
+            thumb_y = track.y + round((track.h - thumb_h) * first / max(1, menu.max_first))
+            self.surf.fill(pygame.Color(C.C_ACCENT), (track.x, thumb_y, 3, thumb_h))
+        for i, kind in menu.window():
             m = C.MACHINES[kind]
             status = state.recipe_status(kind)
-            ry = y + 20 + (i - first) * (row_h + 1)
+            ry = list_y + (i - first) * (row_h + 1)
             sel = i == selected
             row = pygame.Rect(x + 8, ry, w - 16, row_h)
             self.fabricator_rows.append((row, kind))
@@ -497,7 +507,8 @@ class UI:
                 kw_x = bx - 6 - self.font.size(kw)[0]
                 if kw_x - 8 >= top_end + 4:          # o raio só entra se couber sem encostar no nome
                     self.draw_bolt(kw_x - 8, text_y + 4, kw_color)
-                self.text(kw, kw_x, text_y + 5, kw_color)
+                if kw_x >= top_end + 4:              # e o kW também (senão encavala na descrição)
+                    self.text(kw, kw_x, text_y + 5, kw_color)
             button = pygame.Rect(bx, by, bw, bh)
             if status == "ok":
                 self.surf.fill(pygame.Color(C.C_ACCENT), button)

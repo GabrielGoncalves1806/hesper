@@ -31,6 +31,12 @@ def machine_gen(kind: str) -> float:
     return C.POWER_GEN.get(kind, 0)
 
 
+def starved(kind: str, factor: float) -> bool:
+    """A máquina mostra o ícone de "sem energia" (raio vermelho piscando)? Só quem consome, e só
+    quando o ritmo está abaixo de 100%. Painel solar, baú e drone nunca."""
+    return machine_use(kind) > 0 and factor < 1.0
+
+
 @dataclass(frozen=True)
 class PowerReport:
     """Foto da energia num instante."""

@@ -128,6 +128,23 @@ def hover_position(drill) -> tuple[float, float]:
     return ax, ay - 56
 
 
+LIFT_TIME = 0.35   # segundos (na velocidade cheia) que o drone leva pra subir ou descer
+
+
+def lift(machine, drone: Drone) -> float:
+    """Altura do drone de 0 (pousado) a 1 (voando), pra sombra e o balanço (o render.py desenha).
+
+    Sai da distância até o pad dele: nos primeiros LIFT_TIME × velocidade px depois de decolar ele vai
+    subindo, e nos últimos antes de pousar vai descendo. Por ser pela distância (e não por um relógio),
+    o pouso termina exatamente quando ele encosta no pad, e com pouca energia (voo mais lento) a subida
+    fica mais lenta junto. Pousado ou entregando: 0."""
+    if not drone.in_air:
+        return 0.0
+    px, py = pad_position(machine, drone.pad)
+    ramp = C.DRONE_SPEED * C.TILE * LIFT_TIME
+    return min(1.0, math.hypot(drone.x - px, drone.y - py) / ramp)
+
+
 def tile_distance(a, b) -> float:
     """Distância (tiles) entre os centros de duas máquinas."""
     (ax, ay), (bx, by) = a.anchor, b.anchor
@@ -139,6 +156,42 @@ def gap_tiles(station, chest) -> int:
     dx = max(station.tx - chest.tx, 0, chest.tx - (station.tx + station.size - 1))
     dy = max(station.ty - chest.ty, 0, chest.ty - (station.ty + station.size - 1))
     return max(dx, dy)
+
+
+@dataclass
+class Spot:
+    """Uma estação "de mentira" num tile (o fantasma de colocar): o mínimo que tile_distance e gap_tiles usam."""
+    tx: int
+    ty: int
+    size: int = 2
+
+    @property
+    def anchor(self) -> tuple[float, float]:
+        return (self.tx + self.size / 2) * C.TILE, (self.ty + self.size) * C.TILE
+
+
+def range_center(station) -> tuple[float, float]:
+    """Centro do círculo de alcance (pixels do mundo): o meio dos 2×2 da estação."""
+    ax, ay = station.anchor
+    return ax, ay - station.size * C.TILE / 2
+
+
+def drills_in_range(station, drills) -> list:
+    """Drills que os drones dessa estação alcançam (mesma conta do pick_drill)."""
+    return [d for d in drills if tile_distance(station, d) <= C.DRONE_RANGE]
+
+
+def delivery_rect(station) -> tuple[int, int, int, int]:
+    """Área de entrega em tiles (x, y, largura, altura): até 6 tiles da borda da estação, num quadrado,
+    igual à conta do gap_tiles (não é um círculo)."""
+    r = C.DRONE_CHEST_RADIUS
+    return station.tx - r, station.ty - r, station.size + 2 * r, station.size + 2 * r
+
+
+def delivers_to(stations, tile: tuple[int, int]) -> bool:
+    """Um baú nesse tile recebe entrega de alguma das estações?"""
+    chest = Spot(tile[0], tile[1], 1)
+    return any(gap_tiles(s, chest) <= C.DRONE_CHEST_RADIUS for s in stations)
 
 
 # ---------------------------------------------------------------- escolhas

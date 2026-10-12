@@ -7,6 +7,7 @@ Ordem de cada frame (de trás pra frente, como camadas de papel):
      quem está mais embaixo na tela é desenhado por último e fica "na frente"
   4. efeitos de mineração, fantasma da máquina sendo colocada e drones voando (por cima de tudo)
   5. luz (escurece tudo e "abre buracos" de luz) e clima do estágio (poeira, névoa, chuva...)
+  6. indicadores: barrinha das drills, raio de "sem energia", alcance da estação de drones
 A UI (HUD, menus) vem depois, no ui.py.
 """
 
@@ -18,6 +19,7 @@ import pygame
 from game import art
 from game import config as C
 from game import drones
+from game import energy
 from game.assets import Sprites
 from game.systems import GameState, Mining
 from game.transition import BASE_SOURCE, StageMap
@@ -25,6 +27,7 @@ from game.world import hash01
 
 T = C.TILE
 WALL_LIFT = C.WALL_LIFT   # o topo da parede é desenhado 24 px acima do tile (altura, estilo Core Keeper)
+LANDED_SHADOW_DROP = 6   # px abaixo do centro do drone: a sombra encostada nele (ainda no chão)
 FACE_Y = 8       # a face (32×24) começa 8 px abaixo do topo do tile e vai até a borda de baixo
 
 
@@ -82,8 +85,6 @@ class Renderer:
         self.bedrock_shade.fill((0, 0, 0, 110))
         self.player_shadow = pygame.Surface((16, 5), pygame.SRCALPHA)
         pygame.draw.ellipse(self.player_shadow, (0, 0, 0, 97), (0, 0, 16, 5))
-        self.drone_shadow = pygame.Surface((12, 5), pygame.SRCALPHA)       # sombra do drone voando
-        pygame.draw.ellipse(self.drone_shadow, (0, 0, 0, 92), (0, 0, 12, 5))   # preto 36%
         # Tamanho da "visão" (px do mundo que cabem na tela). Sem zoom é 960×540; com zoom muda
         # (o App desenha numa superfície de SCREEN/zoom e estica). Vem do tamanho do canvas em draw().
         self.view_w, self.view_h = C.SCREEN_W, C.SCREEN_H
@@ -180,7 +181,7 @@ class Renderer:
 
     # ---- frame completo -------------------------------------------------------
     def draw(self, canvas: pygame.Surface, state: GameState, cam: tuple[int, int], t: float,
-             ghost: tuple[str, tuple[int, int], int, bool] | None = None) -> None:
+             ghost: tuple[str, tuple[int, int], int, bool] | None = None, overlay: dict | None = None) -> None:
         self.view_w, self.view_h = canvas.get_size()     # tamanho da visão (com zoom, não é 960×540)
         stage = stage_key(state.stage)
         self.stage_map.update(state.ti, [BASE_SOURCE, *state.transition_sources])
@@ -196,6 +197,11 @@ class Renderer:
         self.draw_particles(canvas, cam)
         self.draw_lighting(canvas, state, cam, stage, t)
         self.draw_atmosphere(canvas, stage, t)
+        # 6. indicadores por cima da luz (no escuro da caverna eles têm que aparecer): barrinha das
+        #    drills, raio de "sem energia" e o alcance da estação. Ficam no mundo, então crescem com o zoom.
+        self.draw_machine_status(canvas, state, cam, t)
+        if overlay:
+            self.draw_overlay(canvas, state, cam, overlay, t)
 
     # ---- tiles ----------------------------------------------------------------
     def visible_tiles(self, cam) -> tuple[int, int, int, int]:
@@ -506,6 +512,19 @@ class Renderer:
             if drone.cargo:
                 self._draw_nugget(canvas, drone, x, y)
 
+    def drone_shadow_at(self, lift: float) -> pygame.Surface:
+        """Sombra do drone pra altura `lift` (0 pousado, 1 voando): de 14×6 (preto 43%) até 12×5 (36%).
+        Em 8 degraus, guardados no cache."""
+        step = round(max(0.0, min(1.0, lift)) * 8)
+        key = ("drone_shadow", step)
+        if key not in self._fx:
+            k = step / 8
+            w, h = round(14 - 2 * k), round(6 - k)
+            surf = pygame.Surface((w, h), pygame.SRCALPHA)
+            pygame.draw.ellipse(surf, (0, 0, 0, round(110 - 18 * k)), (0, 0, w, h))
+            self._fx[key] = surf
+        return self._fx[key]
+
     def draw_flying_drones(self, canvas, state: GameState, cam, t: float) -> None:
         """Drones no ar: sombra no chão (elipse 12×5, preto 36%) e o drone balançando de leve em cima."""
         for machine in state.stations:
@@ -515,8 +534,13 @@ class Renderer:
                 x, y = round(drone.x - cam[0]), round(drone.y - cam[1])
                 if not (-32 < x < self.view_w + 32 and -32 < y < self.view_h + 48):
                     continue
-                canvas.blit(self.drone_shadow, (x - 6, y + C.DRONE_SHADOW_DROP - 2))
-                bob = round(math.sin(t * 5 + i * 1.7) * 1.5)
+                # decolando/pousando (lift < 1): a sombra vem de debaixo dele, maior e mais escura,
+                # e vai se afastando e encolhendo conforme sobe (o inverso no pouso)
+                lift = drones.lift(machine, drone)
+                shadow = self.drone_shadow_at(lift)
+                drop = round(LANDED_SHADOW_DROP + (C.DRONE_SHADOW_DROP - LANDED_SHADOW_DROP) * lift)
+                canvas.blit(shadow, (x - shadow.get_width() // 2, y + drop - shadow.get_height() // 2))
+                bob = round(math.sin(t * 5 + i * 1.7) * 1.5 * lift)
                 canvas.blit(self.drone_frame(t, i), (x - 8, y - 8 + bob))
                 if drone.cargo:
                     self._draw_nugget(canvas, drone, x, y + bob)
@@ -685,6 +709,114 @@ class Renderer:
             self.draw_drill(canvas, None, px + size // 2, py + size, t, alpha=128)
         else:   # âncora no centro da base (vale pra 1×1 e pra estação 2×2)
             self.draw_machine(canvas, kind, px + size // 2, py + size, t, rotation, alpha=128)
+
+    # ---- indicadores no mundo (por cima da luz) ---------------------------------
+    # Desenhados no mundo (e não na UI): crescem junto com a máquina no zoom. No menor zoom (0,75×)
+    # a barra ainda tem 18×4 px na tela, legível; e no 2× não vira um tijolão porque é fininha.
+    DRILL_BAR_W, DRILL_BAR_H = 24, 5          # com a borda escura de 1 px
+    DRILL_BAR_FULL = "#7fd67a"                 # cheia: verde (hora de coletar)
+    NO_POWER = "#ff4a3a"
+    BOLT = ("  ###", " ### ", " ##  ", "#####", "  ## ", " ##  ", " #   ", "#    ")   # 5×8, igual ao do HUD
+
+    def draw_machine_status(self, canvas, state: GameState, cam, t: float) -> None:
+        """Barrinha de enchimento em cima de cada drill e raio vermelho piscando em quem está sem energia."""
+        factor = state.power.factor
+        blink = (t * 2.5) % 1 < 0.6
+        for m in state.machines:
+            ax, ay = m.anchor
+            x, y = round(ax - cam[0]), round(ay - cam[1])
+            if not (-64 < x < self.view_w + 64 and -100 < y < self.view_h + 100):
+                continue
+            top = y - round(m.sprite_rect[3])
+            if m.is_drill:
+                top -= 2
+                self.draw_drill_bar(canvas, x, top - self.DRILL_BAR_H, m.stored / C.DRILL_CAPACITY,
+                                    C.ORE_COLORS[m.resource][0] if m.resource else C.C_TEXT, m.full)
+                top -= self.DRILL_BAR_H + 1
+            if blink and energy.starved(m.kind, factor):
+                self.draw_bolt(canvas, x - 3, top - 10, self.NO_POWER)
+
+    def draw_drill_bar(self, canvas, cx: int, y: int, fill: float, color, full: bool) -> None:
+        w, h = self.DRILL_BAR_W, self.DRILL_BAR_H
+        x = cx - w // 2
+        canvas.fill((20, 14, 12), (x, y, w, h))
+        canvas.fill((52, 40, 34), (x + 1, y + 1, w - 2, h - 2))
+        inner = round((w - 2) * max(0.0, min(1.0, fill)))
+        if inner:
+            canvas.fill(self.DRILL_BAR_FULL if full else color, (x + 1, y + 1, inner, h - 2))
+            canvas.fill((255, 255, 255) if full else (255, 246, 230), (x + 1, y + 1, inner, 1))
+
+    def draw_bolt(self, canvas, x: int, y: int, color) -> None:
+        for dy, row in enumerate(self.BOLT):
+            for dx, cell in enumerate(row):
+                if cell == "#":
+                    canvas.fill((0, 0, 0), (x + dx + 1, y + dy + 1, 1, 1))
+        for dy, row in enumerate(self.BOLT):
+            for dx, cell in enumerate(row):
+                if cell == "#":
+                    canvas.fill(color, (x + dx, y + dy, 1, 1))
+
+    # ---- alcance da estação de drones (colocando, ou mouse em cima) -------------
+    RANGE_COLOR = (186, 160, 255)              # lilás: a cor "dos drones" (verde já é "pode colocar")
+
+    def draw_overlay(self, canvas, state: GameState, cam, overlay: dict, t: float) -> None:
+        """overlay = {"range": [estação ou Spot...], "delivery": [estações...], "chest": (tile, recebe?)}.
+        range: círculo de 30 tiles + área de entrega + drills alcançadas em destaque.
+        delivery: só a área de entrega (colocando um baú). chest: contorno no fantasma do baú se os
+        drones entregam nele."""
+        layer = self.view_fx("layer")
+        layer.fill((0, 0, 0, 0))
+        rgb = self.RANGE_COLOR
+        drills = state.drills
+        for station in overlay.get("range", ()):
+            self._dashed_circle(layer, cam, drones.range_center(station), C.DRONE_RANGE * T, (*rgb, 190), t)
+            self._delivery_box(layer, cam, station, rgb, t)
+            for d in drones.drills_in_range(station, drills):
+                px, py = d.tx * T - cam[0], d.ty * T - cam[1]
+                pygame.draw.rect(layer, (*rgb, 60), (px, py, 2 * T, 2 * T))
+                pygame.draw.rect(layer, (*rgb, 230), (px, py, 2 * T, 2 * T), 2)
+        for station in overlay.get("delivery", ()):
+            self._delivery_box(layer, cam, station, rgb, t)
+        chest = overlay.get("chest")
+        if chest and chest[1]:
+            (tx, ty), _ = chest
+            px, py = tx * T - cam[0], ty * T - cam[1]
+            for x, y, w, h in [(-3, -3, 9, 3), (-3, -3, 3, 9), (T - 6, -3, 9, 3), (T, -3, 3, 9),
+                               (-3, T, 9, 3), (-3, T - 6, 3, 9), (T - 6, T, 9, 3), (T, T - 6, 3, 9)]:
+                layer.fill((*rgb, 255), (px + x, py + y, w, h))      # cantoneiras: "os drones entregam aqui"
+        canvas.blit(layer, (0, 0))
+
+    def _delivery_box(self, layer, cam, station, rgb, t: float) -> None:
+        x, y, w, h = drones.delivery_rect(station)
+        rect = pygame.Rect(x * T - cam[0], y * T - cam[1], w * T, h * T)
+        pygame.draw.rect(layer, (*rgb, 22), rect)
+        self._dashed_rect(layer, rect, (*rgb, 200), t)
+
+    def _dashed_circle(self, layer, cam, center, radius: float, rgba, t: float) -> None:
+        cx, cy = center[0] - cam[0], center[1] - cam[1]
+        dashes = max(24, int(math.tau * radius / 24))           # traço de ~12 px a cada 24
+        offset = (t * 0.5) % 1
+        vw, vh = layer.get_size()
+        for i in range(dashes):
+            a0 = (i + offset) / dashes * math.tau
+            a1 = (i + offset + 0.5) / dashes * math.tau
+            p0 = (cx + math.cos(a0) * radius, cy + math.sin(a0) * radius)
+            if -16 < p0[0] < vw + 16 and -16 < p0[1] < vh + 16:
+                pygame.draw.line(layer, rgba, p0, (cx + math.cos(a1) * radius, cy + math.sin(a1) * radius), 2)
+
+    @staticmethod
+    def _dashed_rect(layer, rect: pygame.Rect, rgba, t: float) -> None:
+        step = int(t * 8) % 16
+        for i in range(-16, max(rect.w, rect.h), 16):
+            k = i + step
+            if 0 <= k < rect.w:
+                w = min(8, rect.w - k)
+                layer.fill(rgba, (rect.x + k, rect.y, w, 2))
+                layer.fill(rgba, (rect.right - k - w, rect.bottom - 2, w, 2))
+            if 0 <= k < rect.h:
+                h = min(8, rect.h - k)
+                layer.fill(rgba, (rect.x, rect.bottom - k - h, 2, h))
+                layer.fill(rgba, (rect.right - 2, rect.y + k, 2, h))
 
     # ---- partículas (lasquinhas da mineração) ---------------------------------
     def spawn_chips(self, tile: tuple[int, int] | None, color: str, n: int = 10, at=None) -> None:

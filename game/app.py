@@ -21,17 +21,21 @@ O jogo abre em "title" (tela de título, game/title.py); o save/load fica em gam
 import math
 import random
 
+import warnings
+
 import pygame
 
 from game import art
 from game import config as C
 from game import audio as sound
 from game import save
+from game import drones
 from game import energy
 from game import settings
 from game import viewport
 from game.assets import Sprites
 from game.audio import Audio
+from game.fabricator import FabMenu
 from game.inventory import Stack
 from game.objectives import ObjectiveTracker
 from game.render import Renderer, stage_key
@@ -117,7 +121,7 @@ class App:
         self.notice: str | None = None                    # aviso curto ("Inventário cheio")
         self.notice_time = 0.0
         self.rotation = 0
-        self.fab_selected = 0
+        self.fab = FabMenu()            # aba, seleção e rolagem do fabricador (game/fabricator.py)
         self.terminal_index = 0
         self.banner_stage = 1
         self.banner_time = 0.0
@@ -171,7 +175,20 @@ class App:
                 return pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
             except pygame.error as err:
                 print(f"[tela] não deu pra abrir em tela cheia: {err}")
-        return pygame.display.set_mode((C.SCREEN_W * self.scale, C.SCREEN_H * self.scale))
+        size = (C.SCREEN_W * self.scale, C.SCREEN_H * self.scale)
+        surface = pygame.display.set_mode(size, pygame.RESIZABLE)
+        # Saindo da tela cheia, o macOS deixa a janela no tamanho do monitor: força o tamanho e centraliza.
+        try:
+            with warnings.catch_warnings():          # from_display_module avisa de depreciação; aqui é o certo
+                warnings.simplefilter("ignore", DeprecationWarning)
+                window = pygame.Window.from_display_module()
+            if window.size != size:
+                window.size = size
+                window.position = pygame.WINDOWPOS_CENTERED
+            surface = pygame.display.get_surface()
+        except (AttributeError, pygame.error):
+            pass
+        return surface
 
     def toggle_fullscreen(self) -> None:
         fullscreen = not self.settings["fullscreen"]
@@ -232,6 +249,8 @@ class App:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.quit_game()
+            elif event.type in (pygame.VIDEORESIZE, pygame.WINDOWSIZECHANGED):
+                self.window = pygame.display.get_surface()     # janela redimensionada: o present ajusta a tarja
             elif self.name_edit is not None and event.type == pygame.TEXTINPUT:
                 self.name_edit.insert(event.text)
             elif self.name_edit is not None and event.type == pygame.KEYDOWN:
@@ -253,6 +272,8 @@ class App:
                 self.on_click(event.button)
             elif event.type == pygame.MOUSEWHEEL and self.mode != "title" and self.zoom_modifier():
                 self.zoom_step(1 if event.y > 0 else -1)        # Ctrl+rodinha pra cima = aproxima
+            elif event.type == pygame.MOUSEWHEEL and self.mode == "fabricator":
+                self.fab.scroll(-1 if event.y > 0 else 1)       # rodinha rola a lista de receitas
             elif event.type == pygame.MOUSEWHEEL and self.mode == "play" and not self.state.fainted \
                     and self.name_edit is None:
                 # rodinha pra baixo = próximo slot (y < 0), pra cima = anterior
@@ -300,14 +321,14 @@ class App:
         elif self.mode == "fabricator":
             if key in (pygame.K_e, pygame.K_ESCAPE):
                 self.set_mode("play")
-            elif key in (pygame.K_w, pygame.K_UP):
-                self.fab_selected = (self.fab_selected - 1) % len(C.MACHINE_ORDER)
+            elif key in (pygame.K_w, pygame.K_UP, pygame.K_s, pygame.K_DOWN):
+                self.fab.move(-1 if key in (pygame.K_w, pygame.K_UP) else 1)
                 self.audio.play("ui_click")
-            elif key in (pygame.K_s, pygame.K_DOWN):
-                self.fab_selected = (self.fab_selected + 1) % len(C.MACHINE_ORDER)
+            elif key in (pygame.K_a, pygame.K_LEFT, pygame.K_d, pygame.K_RIGHT, pygame.K_TAB):
+                self.fab.switch_tab(-1 if key in (pygame.K_a, pygame.K_LEFT) else 1)   # Tab: próxima aba
                 self.audio.play("ui_click")
-            elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
-                self.try_craft(C.MACHINE_ORDER[self.fab_selected])
+            elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE) and self.fab.current:
+                self.try_craft(self.fab.current, batch=self.shift_held())   # Shift: até 5
         elif self.mode == "terminal":
             if key in (pygame.K_e, pygame.K_ESCAPE, pygame.K_RETURN):
                 self.set_mode("play")
@@ -699,11 +720,17 @@ class App:
             ux, uy = self.mouse[0] // 2, self.mouse[1] // 2
             for rect, kind in self.ui.fabricator_buttons:
                 if rect.collidepoint(ux, uy):
-                    self.try_craft(kind)
+                    self.try_craft(kind, batch=self.shift_held())
+                    return
+            for rect, index in self.ui.fabricator_tabs:
+                if rect.collidepoint(ux, uy):
+                    if index != self.fab.tab:
+                        self.fab.set_tab(index)
+                        self.audio.play("ui_click")
                     return
             for rect, kind in self.ui.fabricator_rows:     # a lista pode estar rolada: acha pelo tipo
                 if rect.collidepoint(ux, uy):
-                    self.fab_selected = C.MACHINE_ORDER.index(kind)
+                    self.fab.select(kind)
         elif self.mode == "play":
             if self.placing:
                 tile = self.place_target()
@@ -729,8 +756,12 @@ class App:
         self.mode = mode
         self.mouse_held = False
 
-    def try_craft(self, kind: str) -> None:
-        if self.state.craft(kind):
+    def try_craft(self, kind: str, batch: bool = False) -> None:
+        """Fabrica 1 (ou, com Shift, até C.CRAFT_BATCH: para quando faltar recurso). O lote mostra "Drone x5"."""
+        made = self.state.craft_many(kind) if batch else int(self.state.craft(kind))
+        if batch and made:
+            self.show_toast(f"{item_name(kind)} x{made}")
+        if made:
             self.rotation = 0
             self.set_mode("play")
             # fabricou: se a máquina caiu na hotbar, seleciona o slot e já entra no modo de colocar
@@ -937,6 +968,14 @@ class App:
         state = self.state
         if self.placing == "drill" and self.place_target() is None:
             return "Coloque a drill em cima de um veio"
+        if self.placing == "drone_station":
+            tile = self.place_target()
+            n = len(drones.drills_in_range(drones.Spot(*tile), state.drills)) if tile else 0
+            return f"Clique para colocar · alcance {C.DRONE_RANGE} tiles · {n} drill{'s' if n != 1 else ''} · Esc cancela"
+        if self.placing == "chest" and state.stations:
+            inside = drones.delivers_to(state.stations, self.place_target())
+            return "Clique para colocar · " + ("drones entregam aqui" if inside else "fora da entrega dos drones") \
+                + " · Esc cancela"
         if self.placing:
             return "Clique para colocar · R gira · Esc cancela"
         machine = self.hovered_machine()
@@ -985,6 +1024,24 @@ class App:
             return "Segure o clique para minerar" if state.can_mine(tile) else "Chegue mais perto pra minerar"
         return None
 
+    def range_overlay(self) -> dict | None:
+        """O que mostrar do alcance dos drones (render.draw_overlay):
+        - colocando a estação: o círculo de 30 tiles, a área de entrega e as drills alcançadas;
+        - mouse em cima de uma estação já colocada: o mesmo, pra ela;
+        - colocando um baú: a área de entrega de cada estação e se o baú cairia dentro de alguma."""
+        state = self.state
+        if self.placing == "drone_station":
+            tile = self.place_target()
+            return {"range": [drones.Spot(*tile)]} if tile is not None else None
+        if self.placing == "chest" and state.stations:
+            tile = self.place_target()
+            return {"delivery": state.stations, "chest": (tile, drones.delivers_to(state.stations, tile))}
+        if not self.placing:
+            machine = self.hovered_machine()
+            if machine is not None and machine.is_station:
+                return {"range": [machine]}
+        return None
+
     def power_percent(self) -> int:
         """Ritmo atual das máquinas em % (arredondado pra baixo: 62,5% vira 62%)."""
         return int(self.state.power.factor * 100)
@@ -997,12 +1054,13 @@ class App:
             target = self.place_target()
             tile = target if target is not None else self.mouse_tile()
             ghost = (self.placing, tile, self.rotation, target is not None and state.can_place(self.placing, tile))
+        overlay = self.range_overlay() if self.mode == "play" else None
         if self.zoom == 1.0:
-            self.renderer.draw(canvas, state, cam, self.t, ghost)
+            self.renderer.draw(canvas, state, cam, self.t, ghost, overlay)
         else:   # o mundo vai numa visão de 960×540/zoom e é esticado sem suavizar (pixel art continua pixel)
             if self._world_view is None or self._world_view.get_size() != self.view_size:
                 self._world_view = pygame.Surface(self.view_size, 0, canvas)
-            self.renderer.draw(self._world_view, state, cam, self.t, ghost)
+            self.renderer.draw(self._world_view, state, cam, self.t, ghost, overlay)
             pygame.transform.scale(self._world_view, canvas.get_size(), canvas)
 
         critical = state.o2 < C.O2_LOW and not state.fainted
@@ -1037,7 +1095,7 @@ class App:
         ui.begin()
         if self.mode == "fabricator":
             preview = self.renderer.machine_preview
-            ui.draw_fabricator(state, self.fab_selected, preview, self.t)
+            ui.draw_fabricator(state, self.fab, preview, self.t)
         elif self.mode == "terminal":
             ui.draw_terminal(self.terminal_index, self.t)
         elif self.mode == "end":

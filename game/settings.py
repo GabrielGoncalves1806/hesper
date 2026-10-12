@@ -10,7 +10,8 @@ from pathlib import Path
 from game import config as C
 
 VOLUME_KEYS = ("master", "sfx", "ambient")   # multiplicadores de 0 a 1
-DEFAULTS = {"master": 1.0, "sfx": 1.0, "ambient": 1.0, "fullscreen": False, "zoom": C.ZOOM_DEFAULT}
+# padrão de quem nunca mexeu: efeitos em 40% e ambiente em 50% (no 100% o dono achou alto demais)
+DEFAULTS = {"master": 1.0, "sfx": 0.4, "ambient": 0.5, "fullscreen": False, "zoom": C.ZOOM_DEFAULT}
 SETTINGS_PATH = C.ROOT_DIR / "settings.json"
 
 

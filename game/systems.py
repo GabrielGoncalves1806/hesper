@@ -391,6 +391,20 @@ class GameState:
         self.events.append(("craft", kind))
         return True
 
+    def craft_many(self, kind: str, limit: int = C.CRAFT_BATCH) -> int:
+        """Fabrica até `limit` de uma vez (Shift no fabricador). Para no primeiro que falhar (faltou
+        recurso ou não cabe no inventário). Devolve quantas fabricou; o evento "craft" sai uma vez só
+        (um som), com a quantidade."""
+        made = 0
+        while made < limit and self.craft(kind):
+            made += 1
+        if made > 1:
+            crafts = [e for e in self.events if e[0] == "craft" and e[1] == kind]
+            for e in crafts[:-1]:
+                self.events.remove(e)
+            self.events[self.events.index(crafts[-1])] = ("craft", kind, made)
+        return made
+
     def can_place(self, kind: str, tile: tuple[int, int]) -> bool:
         """Máquina comum: 1 tile de chão livre fora de veio. Drill: `tile` tem que ser o canto
         de cima à esquerda de um veio livre (o App "gruda" o fantasma no veio debaixo do mouse)."""

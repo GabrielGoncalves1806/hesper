@@ -337,6 +337,7 @@ DRONE_STATION_COST = {"iron": 12, "silicon": 8, "ice": 3}   # vem VAZIA: os dron
 DRONE_STATION_UNLOCK_TI = 10_000   # libera na Névoa, junto com a drill
 STATION_DRONE_SLOTS = 4         # slots de drone da estação (1 drone por slot = 1 drone ativo)
 DRONE_COST = {"iron": 6, "silicon": 4}   # o item drone (fabricador), libera junto com a estação
+CRAFT_BATCH = 5                 # Shift+Enter / Shift+clique no fabricador: fabrica até 5 de uma vez
 DRONE_RANGE = 30                # tiles, do centro da estação até o centro da drill
 DRONE_SPEED = 4.0               # tiles por segundo (× fator da energia)
 DRONE_MIN_PICKUP = 5            # só busca drill que já tem pelo menos isso guardado
@@ -363,3 +364,18 @@ MACHINES["drone"] = MachineType("drone", "Drone", "vai na estação", DRONE_COST
                                 "drone", placeable=False)
 MACHINE_ORDER.insert(MACHINE_ORDER.index("drone_station") + 1, "drone")
 VOLUME.update({"drone_loop": 0.5, "drone_deliver": 0.8, "solar_hum": 0.5})
+
+# ---------------------------------------------------------------------------
+# Abas do fabricador (game/fabricator.py). Máquina nova: é só pôr a categoria dela aqui.
+# A ordem dentro de cada aba é a do MACHINE_ORDER.
+# ---------------------------------------------------------------------------
+FAB_TABS = (("terraform", "Terraformação"), ("energy", "Energia"),
+            ("automation", "Automação"), ("storage", "Armazenamento"))
+MACHINE_CATEGORY = {
+    "o2": "terraform", "melter": "terraform", "heater": "terraform",
+    "o2_t2": "terraform", "melter_t2": "terraform", "heater_t2": "terraform",
+    "solar": "energy",
+    "drill": "automation", "drone_station": "automation", "drone": "automation",
+    "chest": "storage",
+}
+FAB_VISIBLE_ROWS = 5            # receitas que cabem de uma vez na aba; com mais, a lista rola

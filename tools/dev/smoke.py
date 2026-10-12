@@ -276,11 +276,12 @@ def check_pause(bot) -> None:
     bot.click((ui.pause_items[1].centerx * 2, ui.pause_items[1].centery * 2))
     assert app.pause_screen == "volumes"
     bot.frames(DT)
-    # teclado: desce pro "Efeitos" e abaixa 3 vezes (100% -> 70%)
+    # teclado: desce pro "Efeitos" e abaixa 3 vezes (ex.: padrão 40% -> 10%)
+    sfx_before = app.settings["sfx"]
     bot.key(pygame.K_s)
     for _ in range(3):
         bot.key(pygame.K_a)
-    assert app.settings["sfx"] == 0.7, app.settings
+    assert app.settings["sfx"] == round(max(0.0, sfx_before - 0.3), 2), app.settings
     # mouse: clica no meio da barra do "Geral" (≈50%) e arrasta até ~80%
     bar = ui.pause_sliders[0]
     bot.mouse_to((bar.x * 2 + bar.w, bar.centery * 2))
@@ -633,7 +634,7 @@ def check_energy(bot) -> None:
     bot.click(bot.tile_on_screen(spot))
     panel = s.machine_at(spot)
     assert panel is not None and panel.kind == "solar", "o painel devia ter sido colocado"
-    assert s.power.production == C.POD_POWER + 3 and not s.power.deficit
+    assert s.power.production == C.POD_POWER + C.POWER_GEN["solar"] and not s.power.deficit
     bot.mouse_to(bot.tile_on_screen((64, 69)))
     bot.frames(0.5)
     bot.shot("energia_ok.png")
@@ -974,6 +975,170 @@ def check_chest_filter(bot) -> None:
     bot.frames(0.1)
 
 
+def shift_key(bot, key: int) -> None:
+    """Tecla com o Shift segurado (Shift+Enter no fabricador)."""
+    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_LSHIFT, mod=0, unicode="", scancode=0))
+    bot.frames(DT)
+    bot.key(key)
+    pygame.event.post(pygame.event.Event(pygame.KEYUP, key=pygame.K_LSHIFT, mod=0, unicode="", scancode=0))
+    bot.frames(DT)
+
+
+def wait_blink_on(bot) -> None:
+    """Espera o raio de "sem energia" estar aceso (ele pisca)."""
+    for _ in range(60):
+        if (bot.app.t * 2.5) % 1 < 0.3:
+            return
+        bot.frames(DT)
+
+
+def check_polish(bot) -> None:
+    """Polimento do v0.2: floaters empilhados, barrinha da drill, raio de sem energia, fabricador com abas,
+    rolagem e lote (Shift+Enter), alcance da estação (fantasma e hover) e do baú."""
+    from game import drones
+    from game.systems import Machine
+    s, app = bot.state, bot.app
+    bot.teleport((64, 65))
+    s.o2 = C.O2_MAX
+    bot.mouse_to((20, 20))
+    bot.frames(0.1)
+
+    # floaters: o mesmo recurso no mesmo ponto soma; os outros sobem uma faixa cada
+    app.floaters.items.clear()
+    x, y = s.player.x + 60, s.player.y - 70
+    iron, sil = C.ORE_COLORS["iron"][0], C.ORE_COLORS["silicon"][0]
+    a = app.floaters.add("+15 FERRO", x, y, iron)
+    assert app.floaters.add("+15 FERRO", x + 3, y, iron) is a and a.text == "+30 FERRO"
+    app.floaters.add("+15 SILICIO", x + 8, y + 4, sil)
+    app.floaters.add("+O2", x - 6, y + 8, C.INDEX_COLOR["o2"])
+    app.floaters.add("+AGUA", x + 2, y - 2, C.INDEX_COLOR["water"])
+    assert sorted(f.lane for f in app.floaters.items) == [0, 1, 2, 3]
+    bot.frames(0.15)
+    shot_zoom(bot, "floaters_empilhados.png", (x, y - 30), w=200, h=110)
+    app.floaters.items.clear()
+
+    # barrinha da drill: no meio e cheia (verde)
+    drill = s.drills[0]
+    drill.stored = 12
+    ax, ay = drill.anchor
+    s.player.x, s.player.y = ax + 3 * C.TILE, ay + C.TILE
+    bot.frames(0.1)
+    shot_zoom(bot, "drill_barra.png", (ax, ay - 50), w=160, h=110)
+    drill.stored = C.DRILL_CAPACITY
+    bot.frames(0.1)
+    shot_zoom(bot, "drill_barra_cheia.png", (ax, ay - 50), w=160, h=110)
+    drill.stored = 0
+
+    # sem energia: déficit forçado com máquinas nv.2 longe da tela; o raio pisca nas que consomem
+    extra = [Machine("heater_t2", 5 + i, 5) for i in range(4)]
+    s.machines += extra
+    assert s.power.factor < 1
+    station = s.stations[0]
+    sx, sy = station.anchor
+    s.player.x, s.player.y = sx + 2 * C.TILE, sy + 2 * C.TILE
+    bot.frames(0.1)
+    wait_blink_on(bot)
+    bot.shot("sem_energia.png")
+    for m in extra:
+        s.machines.remove(m)
+    assert s.power.factor == 1 or not any(m.kind == "heater_t2" and m.tx < 10 for m in s.machines)
+
+    # fabricador: abas (D vai pra direita), rolagem (W/S e rodinha) e Shift+Enter fabrica 5
+    bot.teleport((64, 65))
+    give(s, iron=100, silicon=60, ice=30)
+    bot.frames(0.1)
+    bot.key(pygame.K_e)
+    assert app.mode == "fabricator"
+    app.fab.set_tab(0)
+    bot.key(pygame.K_d)
+    bot.key(pygame.K_d)
+    assert app.fab.tab_id == "automation"
+    bot.mouse_to((40, 40))
+    bot.frames(0.1)
+    bot.shot("fabricador_abas.png")
+    tab = next(r for r, i in app.ui.fabricator_tabs if i == 0)
+    bot.click((tab.centerx * 2, tab.centery * 2))            # clique na aba Terraformação
+    assert app.fab.tab_id == "terraform"
+    pygame.event.post(pygame.event.Event(pygame.MOUSEWHEEL, x=0, y=-1, flipped=False))
+    bot.frames(DT)
+    assert app.fab.first[0] == 1, "a rodinha devia rolar a lista"
+    app.fab.select("o2")                                     # do topo, 5× S: 6ª receita (a lista rola)
+    for _ in range(5):
+        bot.key(pygame.K_s)
+    assert app.fab.current == "heater_t2"
+    bot.frames(0.1)
+    bot.shot("fabricador_scroll.png")
+    app.fab.select("o2")
+    before = s.inventory.count("o2")
+    shift_key(bot, pygame.K_RETURN)
+    assert s.inventory.count("o2") == before + 5, s.inventory.counts()
+    assert app.toast == "Gerador de O2 x5", app.toast
+    bot.frames(0.1)
+    bot.shot("fabricar_lote.png")
+    app.placing = None
+    s.inventory.remove("o2", 5)
+
+    # alcance: fantasma da estação (círculo de 30 tiles, entrega de 6 e as drills alcançadas)
+    give(s, iron=60, silicon=40, ice=20)
+    assert s.craft("drone_station") and s.craft("chest")    # ainda na base
+    s.player.x, s.player.y = sx, sy + 3 * C.TILE
+    zoom = app.zoom
+    app.set_zoom(0.75, notify=False)
+    bot.frames(0.1)
+    bot.key(hotbar_key(bot, "drone_station"))
+    assert app.placing == "drone_station"
+    bot.mouse_to(bot.tile_on_screen((station.tx - 3, station.ty + 4)))
+    bot.frames(0.1)
+    assert "alcance 30 tiles" in app.hint(), app.hint()
+    assert app.range_overlay() and app.range_overlay()["range"]
+    bot.shot("alcance_estacao.png")
+    # o círculo de 30 tiles é maior que a tela: um print do mundo "de longe" (visão 2560×1440 reduzida)
+    big = pygame.Surface((2560, 1440), 0, app.canvas)
+    center = drones.range_center(drones.Spot(station.tx - 3, station.ty + 4))
+    cam = (int(center[0] - 1280), int(center[1] - 720))
+    app.renderer.draw(big, s, cam, app.t, None, app.range_overlay())
+    pygame.image.save(pygame.transform.smoothscale(big, (960, 540)), str(OUT / "alcance_estacao_mapa.png"))
+    print("  screenshot: reports/dev/alcance_estacao_mapa.png  (mundo reduzido: o círculo inteiro)")
+    bot.key(pygame.K_ESCAPE)
+    # baú: dentro da área de entrega ganha as cantoneiras lilás; fora, a dica avisa
+    app.set_zoom(1.0, notify=False)
+    bot.key(hotbar_key(bot, "chest"))
+    assert app.placing == "chest"
+    inside = (station.tx + 3, station.ty + 1)
+    bot.mouse_to(bot.tile_on_screen(inside))
+    bot.frames(0.1)
+    assert drones.delivers_to(s.stations, inside) and "drones entregam aqui" in app.hint(), app.hint()
+    bot.shot("alcance_bau.png")
+    bot.mouse_to(bot.tile_on_screen((station.tx + 9, station.ty + 1)))
+    bot.frames(DT)
+    assert "fora da entrega" in app.hint(), app.hint()
+    bot.key(pygame.K_ESCAPE)
+    # mouse em cima de uma estação já colocada: os mesmos círculos
+    camx, camy = app.cam
+    bot.mouse_to((int(sx + 27 - camx), int(sy - 14 - camy)))
+    bot.frames(0.1)
+    assert app.range_overlay() == {"range": [station]}
+    bot.shot("alcance_hover_estacao.png")
+    # decolagem: drone a 30%/100% da subida, lado a lado com um pousado (sombra colada -> afastada)
+    landed = station.station.drones[:2]
+    if len(landed) == 2:
+        ramp = C.DRONE_SPEED * C.TILE * drones.LIFT_TIME
+        saved = [(d.state, d.x, d.y) for d in landed]
+        for d, k in zip(landed, (0.3, 1.2)):
+            d.x, d.y = drones.pad_position(station, d.pad)
+            d.state, d.y = drones.OUTBOUND, d.y + ramp * k
+        bot.mouse_to((20, 20))
+        app.draw()
+        shot_zoom(bot, "drone_decolando.png", (sx, sy), w=120, h=110, k=4)
+        for d, (st, dx, dy) in zip(landed, saved):
+            d.state, d.x, d.y = st, dx, dy
+    app.set_zoom(zoom, notify=False)
+    s.inventory.remove("drone_station", 1)
+    s.inventory.remove("chest", 1)
+    bot.teleport((64, 65))
+    bot.frames(0.1)
+
+
 def check_save(bot) -> None:
     """Autosave com o aviso no HUD, "Salvar e sair" pela pausa, tela de título com save e Continuar."""
     s, app = bot.state, bot.app
@@ -1130,6 +1295,7 @@ def main() -> None:
     check_drill_feature(bot)
     check_drones(bot)
     check_chest_filter(bot)
+    check_polish(bot)
     check_transition(bot, 2, [("transicao_verde_60.png", 0.60)])
     for _ in range(9):
         bot.key(pygame.K_F2)

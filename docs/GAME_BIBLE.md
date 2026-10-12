@@ -262,6 +262,14 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 - Save **v4**: baús ganham `name` e `filter`; a estação guarda os 4 slots de drone. Migração v3→v4: baús viram "Baú" com filtro "Tudo" e cada estação existente ganha **2 drones** nos slots 1 e 2 (ninguém perde o que tinha).
 
 ### Marco 4 · Polimento
+- **Fabricador com abas**: **Terraformação** (O₂, derretedor, aquecedor e os nv.2), **Energia** (painel solar), **Automação** (drill, estação, drone) e **Armazenamento** (baú). As categorias ficam em `C.MACHINE_CATEGORY`. **A/D**, **←/→** ou **Tab** trocam de aba (E fecha o menu), **W/S** escolhe dentro da aba, clique na aba ou na receita também. A lista mostra 5 receitas e rola (rodinha do mouse ou acompanhando a seleção), com barra de rolagem quando não cabe. Aba sem nada liberado aparece apagada, mas abre e mostra as bloqueadas.
+- **Fabricar em lote**: **Shift+Enter** (ou Shift+clique em CRAFTAR) fabrica até **5** de uma vez e para quando falta recurso ou espaço; aparece "Nome x5".
+- **Textos que sobem** não encavalam: o mesmo recurso no mesmo ponto em menos de 0,6 s soma ("+15 FERRO" + "+15 FERRO" = "+30 FERRO"); outros textos nascidos perto sobem uma linha cada.
+- **Drone decola e pousa suave**: nos primeiros/últimos ~0,35 s de voo a sombra sai de debaixo dele (maior e mais escura) e vai se afastando e encolhendo.
+- **Barrinha nas drills**: barra fina em cima de cada drill (quanto ela guardou de 20), na cor do minério; cheia fica verde.
+- **Sem energia**: no déficit, toda máquina que consome mostra um raio vermelho piscando em cima.
+- **Alcance da estação**: colocando a estação (ou com o mouse em cima de uma), aparecem o círculo de 30 tiles, a área de entrega (um quadrado de 6 tiles em volta dela, que é a regra real) e as drills alcançadas em destaque, tudo em lilás. Colocando um baú, aparecem as áreas de entrega das estações e o fantasma ganha cantoneiras lilás se os drones entregam ali (a dica também diz).
+- **Volume padrão** (quem nunca mexeu): geral 100%, efeitos 40%, ambiente 50%.
 - Rodar o simulador de novo com inventário, energia e drones, e ajustar até bater a meta de tempo.
 - Playtest do dono. Os assets novos só entram depois de aprovados.
 

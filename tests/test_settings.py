@@ -25,7 +25,7 @@ def test_save_and_load_roundtrip(tmp_path):
 def test_values_are_clamped_and_unknown_keys_ignored(tmp_path):
     path = tmp_path / "settings.json"
     path.write_text('{"master": 7, "sfx": -1, "ambient": "alto", "hack": 1}', encoding="utf-8")
-    assert settings.load(path) == {**settings.DEFAULTS, "master": 1.0, "sfx": 0.0, "ambient": 1.0}
+    assert settings.load(path) == {**settings.DEFAULTS, "master": 1.0, "sfx": 0.0}   # "alto" vira o padrão
 
 
 def test_old_file_without_display_keys_gets_defaults(tmp_path):
@@ -44,3 +44,8 @@ def test_invalid_display_values_fall_back(tmp_path):
     path.write_text('{"fullscreen": true, "zoom": 2}', encoding="utf-8")      # inteiro de um nível vale
     loaded = settings.load(path)
     assert loaded["fullscreen"] is True and loaded["zoom"] == 2.0
+
+
+def test_default_volumes():
+    """Quem nunca mexeu: master 100%, efeitos 40%, ambiente 50%."""
+    assert settings.mix(settings.DEFAULTS) == {"master": 1.0, "sfx": 0.4, "ambient": 0.5}
