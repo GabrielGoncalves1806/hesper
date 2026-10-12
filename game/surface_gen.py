@@ -125,27 +125,25 @@ def _border(world: World) -> None:
 
 
 def _hills(world: World, rng: random.Random) -> None:
-    """Morros: blobs de rocha de 3 a 8 tiles, com um pouco de minério. Não encostam um no outro."""
+    """Morros: blobs de rocha de 3 a 8 tiles, com um pouco de minério. Não encostam um no outro.
+
+    A forma sai de `_hill_shape` (lóbulos redondos + suavização), então o morro não fica com cara de
+    bloco escalonado nem solta tile pendurado na diagonal. Os morros têm o próprio gerador aleatório
+    (`hrng`), assim mexer na forma deles não embaralha o resto do mapa daqui pra frente."""
     lo, hi = C.HILLS
+    hrng = random.Random(world.seed * 104729 + 7)
     target = rng.randint(lo, hi)
     placed, tries = 0, 0
     cx0, cy0 = world.center
     taken: set[tuple[int, int]] = set()
     while placed < target and tries < 2000:
         tries += 1
-        size = rng.randint(*C.HILL_SIZE)
-        x0 = rng.randint(5, world.width - 6 - size)
-        y0 = rng.randint(5, world.height - 6 - size)
-        mid = (x0 + size / 2, y0 + size / 2)
-        if math.hypot(mid[0] - cx0, mid[1] - cy0) < C.SURFACE_CLEAR_RADIUS + size:
+        size = hrng.randint(*C.HILL_SIZE)
+        x0 = hrng.randint(5, world.width - 6 - size)
+        y0 = hrng.randint(5, world.height - 6 - size)
+        if math.hypot(x0 + size / 2 - cx0, y0 + size / 2 - cy0) < C.SURFACE_CLEAR_RADIUS + size:
             continue
-        r = size / 2
-        blob = []
-        for y in range(y0, y0 + size):
-            for x in range(x0, x0 + size):
-                wob = (value_noise(x * 0.6, y * 0.6, world.seed + 41) - 0.5) * 1.2
-                if math.hypot(x + 0.5 - mid[0], y + 0.5 - mid[1]) < r + wob:
-                    blob.append((x, y))
+        blob = [(x0 + dx, y0 + dy) for dx, dy in _hill_shape(size, hrng)]
         if len(blob) < 3:
             continue
         # folga de 2 tiles entre morros (senão viram um paredão maior que 8)
@@ -154,11 +152,94 @@ def _hills(world: World, rng: random.Random) -> None:
             continue
         for x, y in blob:
             kind = C.ROCK
-            if rng.random() < C.HILL_ORE_CHANCE:
-                kind = _weighted(rng.random(), {C.IRON: 0.45, C.SILICON: 0.3, C.ICE: 0.25})
+            if hrng.random() < C.HILL_ORE_CHANCE:
+                kind = _weighted(hrng.random(), {C.IRON: 0.45, C.SILICON: 0.3, C.ICE: 0.25})
             world.tiles[y][x] = kind
         taken |= set(blob)
         placed += 1
+
+
+def _hill_shape(size: int, rng: random.Random) -> set[tuple[int, int]]:
+    """Forma de um morro dentro de uma caixa size×size (coordenadas locais).
+
+    1. um lóbulo principal (elipse um pouco achatada pra um lado) e 1 ou 2 lóbulos menores colados nele,
+       com a borda tremida por um ruído de ângulo (contorno irregular, não um quadrado nem um círculo);
+    2. suavização por autômato celular (fica rocha quem tem ≥ 5 de 9 em volta);
+    3. limpeza: tira ponta solta (tile com ≤ 1 vizinho de lado), tapa dente de 1 tile (vazio com ≥ 3
+       vizinhos de rocha) e fecha encontro só pela quina (2×2 em xadrez), até parar de mudar;
+    4. fica só o maior pedaço ligado pelos lados.
+    """
+    cells = {(x, y) for y in range(size) for x in range(size)}
+    r = size / 2
+    lobes = [(r, r, r * rng.uniform(0.95, 1.1), r * rng.uniform(0.8, 1.0))]
+    if rng.random() < 0.5:                       # elipse deitada ou em pé
+        cx, cy, rx, ry = lobes[0]
+        lobes[0] = (cx, cy, ry, rx)
+    if size >= 5:
+        for _ in range(rng.randint(1, 2)):
+            ang = rng.uniform(0, math.tau)
+            d = r * rng.uniform(0.35, 0.55)
+            lr = r * rng.uniform(0.45, 0.65)
+            lobes.append((r + d * math.cos(ang), r + d * math.sin(ang), lr, lr))
+    phase, wobble = rng.uniform(0, math.tau), rng.uniform(0.08, 0.18)
+    k = rng.choice((2, 3))
+    shape = set()
+    for x, y in cells:
+        px, py = x + 0.5, y + 0.5
+        for cx, cy, rx, ry in lobes:
+            ang = math.atan2(py - cy, px - cx)
+            edge = 1.0 + wobble * math.sin(k * ang + phase)
+            if ((px - cx) / rx) ** 2 + ((py - cy) / ry) ** 2 <= edge * edge:
+                shape.add((x, y))
+                break
+
+    def around(t):
+        return sum((t[0] + dx, t[1] + dy) in shape for dx in (-1, 0, 1) for dy in (-1, 0, 1))
+
+    if size >= 5:                                # nos pequenos a suavização come o morro inteiro
+        shape = {t for t in cells if around(t) >= 5}
+    return _tidy(shape, cells)
+
+
+def _sides(shape, x: int, y: int) -> int:
+    return sum(n in shape for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
+
+
+def _tidy(shape: set, cells: set) -> set:
+    """Limpeza do contorno (ver `_hill_shape`, passo 3 e 4)."""
+    shape = set(shape)
+    for _ in range(20):
+        changed = False
+        for t in sorted(shape):                  # ponta solta / tile ilhado
+            if _sides(shape, *t) <= 1:
+                shape.discard(t)
+                changed = True
+        for t in sorted(cells - shape):          # dente de 1 tile entrando no morro
+            if _sides(shape, *t) >= 3:
+                shape.add(t)
+                changed = True
+        for x, y in sorted(cells):               # só encosta pela quina: fecha a quina com um tile
+            a, b, c, d = (x, y) in shape, (x + 1, y) in shape, (x, y + 1) in shape, (x + 1, y + 1) in shape
+            if (a and d and not b and not c) or (b and c and not a and not d):
+                gaps = ((x + 1, y), (x, y + 1)) if a else ((x, y), (x + 1, y + 1))
+                shape.add(gaps[0] if gaps[0] in cells else gaps[1])
+                changed = True
+        if not changed:
+            break
+    best: set = set()                            # o maior pedaço ligado pelos lados
+    left = set(shape)
+    while left:
+        part, stack = set(), [left.pop()]
+        while stack:
+            x, y = stack.pop()
+            part.add((x, y))
+            for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                if n in left:
+                    left.discard(n)
+                    stack.append(n)
+        if len(part) > len(best):
+            best = part
+    return best
 
 
 def _crater(world: World, rng: random.Random) -> None:

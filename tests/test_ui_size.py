@@ -225,3 +225,102 @@ def test_finish_scales_native_icons(ui):
         assert tuple(target.get_at((x0, y0)))[:3] == (255, 0, 0)
         assert tuple(target.get_at((x0 + 16 * k - 1, y0 + 16 * k - 1)))[:3] == (255, 0, 0)
         assert tuple(target.get_at((x0 + 16 * k, y0)))[:3] == (0, 0, 0)
+
+
+# ---- Marco 4: tela de Controles e marcadores do mapa ----------------------------------------------
+@pytest.mark.parametrize("size", [(480, 270), (512, 288), (640, 360), (960, 540)])
+def test_controls_fit_every_ui_size(ui, size):
+    """Controles da pausa: painel e textos dentro do espaço lógico em todo tamanho (Grande = 2 páginas)."""
+    ui.set_layout((0, 0, size[0] * 2, size[1] * 2), 2.0, size)
+    w, col, pages = ui.controls_layout()
+    assert [row for page in pages for row in page] == ui.CONTROLS          # nada some entre as páginas
+    for page in range(len(pages)):
+        ui.begin()
+        ui.draw_pause("controls", 0, {**settings.DEFAULTS}, page=page)
+        rows = len(pages[0])
+        h = 26 + ui.CONTROL_STEP * rows + 30
+        x, y = (size[0] - w) // 2, (size[1] - h) // 2
+        assert x >= 0 and y >= 0 and x + w <= size[0] and y + h <= size[1], (size, page)
+        for keys, action in pages[page]:                             # texto não passa da borda direita
+            assert x + col + ui.body.size(action)[0] <= x + w - 4, action
+            assert 12 + ui.font.size(keys)[0] < col, keys
+        back = ui.pause_items[-1]
+        assert back.bottom <= y + h
+        for rect, _ in ui.pause_page_buttons:
+            assert rect.right <= x + w and rect.left > back.right
+    assert len(ui.controls_layout()[2]) == (2 if size[1] < 300 else 1)
+
+
+def test_map_markers_are_all_distinct(ui):
+    """Cada marcador do mapa tem forma ou cor só dele (antes cratera e você eram brancos, destroço e veio laranja)."""
+    specs = list(ui.MAP_MARKERS.values())
+    shapes = [shape for shape, _ in specs]
+    assert len(set(shapes)) == len(shapes)
+    colors = [c.lower() for _, c in specs if c] + [c.lower() for c in ui.MAP_VEIN_COLORS.values()]
+    assert ui.MAP_MARKERS["you"][1].lower() not in colors[1:] and len(set(colors)) == len(colors)
+
+
+def test_map_legend_matches_the_layer(ui):
+    from game.systems import GameState
+    g = GameState(rng=random.Random(1))
+    assert [k for k, _ in ui.map_legend(g)] == ["base", "crater", "wreck", "vein", "you"]
+    g.enter_layer("cave")
+    assert [k for k, _ in ui.map_legend(g)] == ["crater", "terminal", "vein", "you"]
+    assert dict(ui.map_legend(g))["crater"] == "RAMPA"
+
+
+def test_marker_shapes_draw_their_color(ui):
+    """Desenha cada forma num quadro vazio: a cor do marcador aparece e tem contorno preto em volta."""
+    for kind, (shape, color) in ui.MAP_MARKERS.items():
+        color = color or ui.MAP_VEIN_COLORS["iron"]
+        surf = pygame.Surface((24, 24), pygame.SRCALPHA)
+        ui.draw_marker(surf, shape, 12, 12, 3, color, (1, 0))
+        px = {tuple(surf.get_at((x, y)))[:3] for x in range(24) for y in range(24) if surf.get_at((x, y)).a}
+        assert tuple(pygame.Color(color))[:3] in px and (0, 0, 0) in px, kind
+
+
+@pytest.mark.parametrize("size", [(480, 270), (640, 360), (960, 540)])
+def test_blueprint_notice_fits_the_top_gap(ui, size):
+    """Aviso de projeto: no vão do topo (entre O₂ e Ti), sem cobrir os painéis do HUD, em todo tamanho."""
+    ui.set_layout((0, 0, size[0] * 2, size[1] * 2), 2.0, size)
+    left, right = ui.BANNER_GAP
+    for bp in C.BLUEPRINTS:
+        rect, with_icon = ui.blueprint_notice_layout(bp)
+        assert rect.y == 6 and rect.left > left and rect.right < right, (size, bp, rect)
+        assert with_icon or size == (480, 270)
+
+
+@pytest.mark.parametrize("size", [(480, 270), (640, 360), (960, 540)])
+def test_fabricator_tabs_inside_the_panel(ui, size):
+    """As 6 abas do fabricador (Traje entrou no Marco 3) ficam dentro do painel, que cabe na tela."""
+    from game.fabricator import FabMenu
+    from game.systems import GameState
+    ui.set_layout((0, 0, size[0] * 2, size[1] * 2), 2.0, size)
+    ui.begin()
+    ui.draw_fabricator(GameState(rng=random.Random(1)), FabMenu(), lambda kind: art.icon("iron"), 0.0)
+    rows = [r for r, _ in ui.fabricator_rows]
+    left, right = min(r.left for r in rows) - 8, max(r.right for r in rows) + 8   # bordas do painel
+    assert left >= 0 and right <= size[0]
+    assert all(left < r.left and r.right < right for r, _ in ui.fabricator_tabs), size
+
+
+@pytest.mark.parametrize("size", [(480, 270), (512, 288), (640, 360), (960, 540)])
+def test_options_clear_of_the_hotbar(ui, size):
+    """Opções da pausa (com a linha de ajuda) acabam acima da moldura da hotbar em todo tamanho."""
+    ui.set_layout((0, 0, size[0] * 2, size[1] * 2), 2.0, size)
+    ui.begin()
+    ui.draw_pause("volumes", 0, {**settings.DEFAULTS}, "1×", "MÉDIA")
+    bottom = ui.pause_items[-1].bottom + 14            # "Voltar" + linha de ajuda + borda
+    assert bottom <= ui.hotbar_y - 11, size
+    assert ui.pause_items[0].top > 0
+
+
+def test_saved_notice_below_the_energy_meter(ui):
+    """Marco 4 (print sem_energia): o "Jogo salvo" ficava num y fixo e cobria o medidor de energia."""
+    from game.title import draw_saved_notice
+    _hud(ui, (480, 270))
+    bottom = ui.energy_bottom
+    before = ui.surf.copy()
+    draw_saved_notice(ui, 2.0)
+    changed = [y for y in range(270) if any(ui.surf.get_at((x, y)) != before.get_at((x, y)) for x in range(300, 480))]
+    assert changed and min(changed) > bottom

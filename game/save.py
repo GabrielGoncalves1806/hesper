@@ -314,9 +314,17 @@ SECTIONS = [
 
 
 def state_to_dict(state: GameState) -> dict:
+    trip = state.ramp
+    if trip is not None and not trip.switched and trip.to not in state.layers:
+        state.layers[trip.to] = layers.MAKERS[trip.to](state.seed)   # 1ª descida: o destino entra no save
     data = {"version": SAVE_VERSION, "seed": state.seed, "layer": state.layer}
     for name, to_dict, _ in SECTIONS:
         data[name] = to_dict(state)
+    if trip is not None and not trip.switched:
+        # salvou no meio do fade, antes da troca: grava o destino (camada + chegada da rampa), como se a
+        # viagem já tivesse acabado. Depois da troca o estado já está no destino e sai igual.
+        data["layer"] = trip.to
+        data["player"]["x"], data["player"]["y"] = layers.ramp_arrival(state.layers[trip.to].world)
     return data
 
 

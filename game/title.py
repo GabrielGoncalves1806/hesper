@@ -221,7 +221,7 @@ class TitleScreen:
 
 
 def draw_saved_notice(ui, time_left: float) -> None:
-    """Aviso discreto "Jogo salvo" logo abaixo do painel do Ti, sumindo no último meio segundo."""
+    """Aviso discreto "Jogo salvo" logo abaixo da coluna da direita do HUD, sumindo no último meio segundo."""
     alpha = max(0.0, min(1.0, time_left / 0.5))
     label = "Jogo salvo"
     w = ui.body.size(label)[0] + 24
@@ -231,7 +231,9 @@ def draw_saved_notice(ui, time_left: float) -> None:
     _check(layer, 6, 6)
     ui.text(label, 17, 2, C.C_OK, ui.body, target=layer)
     layer.set_alpha(int(255 * alpha))
-    ui.surf.blit(layer, (ui.w - 6 - w, 100))   # encostado na borda direita, embaixo do painel do Ti
+    # encostado na borda direita, embaixo da coluna da direita (Ti, energia e, com o scanner, o minimapa):
+    # o painel do Ti muda de altura, então um y fixo (era 100) caía em cima do medidor de energia
+    ui.surf.blit(layer, (ui.w - 6 - w, ui.right_bottom + 4))
 
 
 def _check(surf: pygame.Surface, x: int, y: int) -> None:

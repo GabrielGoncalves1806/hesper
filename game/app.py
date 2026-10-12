@@ -145,6 +145,7 @@ class App:
         self.drill_full_last: dict[tuple[int, int], float] = {}  # quando avisou "cheia" pela última vez
         self.drill_dust_timer = 0.0
         self.pause_screen = "main"      # "main", "volumes" ou "controls"
+        self.controls_page = 0          # página da tela de Controles (no Grande ela não cabe numa só)
         self.pause_selected = 0
         self.dragging_slider: int | None = None
         self.zoom = self.settings["zoom"]
@@ -821,6 +822,8 @@ class App:
                 self.audio.play("ui_click")
             elif self.pause_selected == n + 2:        # interface: A aumenta, D diminui (ordem da lista)
                 self.ui_size_step(-1 if left else 1)
+        elif key in (pygame.K_a, pygame.K_LEFT, pygame.K_d, pygame.K_RIGHT) and self.pause_screen == "controls":
+            self.turn_controls_page(-1 if key in (pygame.K_a, pygame.K_LEFT) else 1)
         elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
             self.pause_activate(self.pause_selected)
         elif key == pygame.K_ESCAPE:
@@ -840,6 +843,7 @@ class App:
                 self.audio.play("ui_open")
             elif option == "Controles":
                 self.pause_screen, self.pause_selected = "controls", 0
+                self.controls_page = 0
                 self.audio.play("ui_open")
             elif option == "Salvar e sair":
                 self.save_game()
@@ -864,6 +868,12 @@ class App:
         else:   # "Voltar" (volumes ou controles)
             self.pause_screen, self.pause_selected = "main", 0
             self.audio.play("ui_close")
+
+    def turn_controls_page(self, step: int) -> None:
+        pages = self.ui.controls_pages
+        if pages > 1:
+            self.controls_page = (self.controls_page + step) % pages
+            self.audio.play("ui_click")
 
     def set_volume(self, key: str, value: float, save: bool = False) -> None:
         self.settings = settings.clean({**self.settings, key: round(value, 2)})
@@ -892,6 +902,10 @@ class App:
                 self.dragging_slider = i
                 self.pause_selected = i
                 self.pause_hover()
+                return
+        for rect, step in self.ui.pause_page_buttons:
+            if rect.collidepoint(ux, uy):
+                self.turn_controls_page(step)
                 return
         for i, rect in enumerate(self.ui.pause_items):
             if rect.collidepoint(ux, uy):
@@ -1019,6 +1033,7 @@ class App:
         self.banner_time += dt
         self.renderer.machine_t += dt * self.state.power.factor    # animação das máquinas no ritmo da energia
         self.floaters.update(dt)
+        self.floaters.scale = self.zoom * self.ui.canvas_k     # faixas dos floaters em px da tela
         self.renderer.update_particles(dt)
         events = self.state.pop_events()
         broke = any(e[0] == "break" for e in events)
@@ -1402,7 +1417,7 @@ class App:
             ui.draw_end(state, self.t)
         elif self.mode == "pause":
             ui.draw_pause(self.pause_screen, self.pause_selected, self.settings, viewport_label(self.zoom),
-                          viewport.UI_SIZE_LABEL[self.settings["ui_size"]])
+                          viewport.UI_SIZE_LABEL[self.settings["ui_size"]], self.controls_page)
         elif self.mode in INVENTORY_MODES:
             side = self.open_chest or self.open_drill or self.open_station or self.open_crate
             status = (self.station_status() if self.open_station is not None

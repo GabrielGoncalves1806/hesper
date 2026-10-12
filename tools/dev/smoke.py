@@ -302,6 +302,14 @@ def check_pause(bot) -> None:
     assert app.pause_screen == "controls"
     bot.frames(DT)
     bot.shot("pausa_controles.png")
+    assert ui.controls_pages == 2, "480×270: os controles vão em 2 páginas"
+    bot.key(pygame.K_d)                            # D: próxima página
+    assert app.controls_page == 1
+    bot.frames(DT)
+    bot.shot("pausa_controles_2.png")
+    prev = next(rect for rect, step in ui.pause_page_buttons if step == -1)
+    bot.click((prev.centerx * 2, prev.centery * 2))   # clique no "<": volta
+    assert app.controls_page == 0
     bot.key(pygame.K_ESCAPE)
     bot.key(pygame.K_ESCAPE)
     assert app.mode == "play"
@@ -941,14 +949,18 @@ def check_drones(bot) -> None:
     bot.shot("estacao_drone_voo.png")
     bot.key(pygame.K_ESCAPE)
     assert app.mode == "play"
-    flyer = None
-    for _ in range(600):
+    flyer, best = None, None
+    for _ in range(2400):                    # até 40 s: o veio mais perto pode estar a ~70 tiles
         s.o2 = C.O2_MAX
         bot.frames(DT)
         flyer = next((d for d in station.station.drones if d.state == drones.CARRYING), None)
-        if flyer and math.hypot(flyer.x - (mid[0] + 0.5) * C.TILE, flyer.y + C.DRONE_SHADOW_DROP
-                                - (mid[1] + 0.5) * C.TILE) < 20:
+        if flyer is None:
+            continue
+        # o print sai no ponto da volta mais perto da parede de teste (o drone pode vir de outro pad)
+        dist = math.hypot(flyer.x - (mid[0] + 0.5) * C.TILE, flyer.y + C.DRONE_SHADOW_DROP - (mid[1] + 0.5) * C.TILE)
+        if best is not None and dist > best and best < 48:
             break
+        best = dist if best is None else min(best, dist)
     assert flyer is not None and flyer.cargo == 10, flyer          # o lote da drill
     s.player.x, s.player.y = (mid[0] + 0.5) * C.TILE + 64, (mid[1] + 3) * C.TILE
     bot.frames(DT)
@@ -959,7 +971,7 @@ def check_drones(bot) -> None:
     deliveries = s.drone_deliveries
     in_chest = chest.storage.count(drill.resource)
     s.player.x, s.player.y = ax + 40, ay + 40
-    for _ in range(600):
+    for _ in range(2400):
         s.o2 = C.O2_MAX
         bot.frames(DT)
         if s.drone_deliveries > deliveries:
@@ -1057,8 +1069,11 @@ def check_logistics(bot) -> None:
     for _ in range(int(40 / DT)):                          # até um drone chegar perto da base com carga
         s.o2 = C.O2_MAX
         bot.frames(DT)
+        # perto da base e no meio da tela (não atrás da hotbar nem dos painéis: o veio pode estar em qualquer lado)
         near = [d for d in station.station.drones if d.state == drones.CARRYING
-                and 5 * C.TILE < math.hypot(d.x - ax, d.y - ay) < 11 * C.TILE]
+                and 5 * C.TILE < math.hypot(d.x - ax, d.y - ay) < 11 * C.TILE
+                and 140 < (d.x - app.cam[0]) * app.zoom < C.SCREEN_W - 140
+                and 120 < (d.y - app.cam[1]) * app.zoom < C.SCREEN_H - 130]
         if near:
             break
     assert near, [(d.state, d.cargo) for d in station.station.drones]
@@ -1246,9 +1261,11 @@ def check_polish(bot) -> None:
     app.floaters.add("+15 SILICIO", x + 8, y + 4, sil)
     app.floaters.add("+O2", x - 6, y + 8, C.INDEX_COLOR["o2"])
     app.floaters.add("+AGUA", x + 2, y - 2, C.INDEX_COLOR["water"])
-    assert sorted(f.lane for f in app.floaters.items) == [0, 1, 2, 3]
+    from game.floaters import LANE_PX
+    ys = sorted(f.y * app.floaters.scale - f.lane * LANE_PX for f in app.floaters.items)   # y na tela
+    assert len(ys) == 4 and min(b - a for a, b in zip(ys, ys[1:])) >= LANE_PX, ys     # um em cima do outro, sem encostar
     bot.frames(0.15)
-    shot_zoom(bot, "floaters_empilhados.png", (x, y - 30), w=200, h=110)
+    shot_zoom(bot, "floaters_empilhados.png", (x, y - 50), w=200, h=135)
     app.floaters.items.clear()
 
     # barrinha da drill: no meio e cheia (verde)

@@ -57,15 +57,25 @@
       <li>Scanner: o minimapa só aparece com ele equipado, e M abre o mapa grande com névoa de guerra. O jogo já marca o que tu viu desde o começo, então ao equipar o scanner o mapa aparece completo.</li>
     </ul>
     <p><span class="tag ok">feito</span><b>Bug corrigido:</b> uns pontinhos brancos no breu da caverna pareciam céu estrelado. Eram brilhos de silício e gelo quase brancos; agora o brilho é mais saturado e só aparece em minério exposto.</p>
-    <p><span class="tag acc">rodando</span><b>Polimento:</b></p>
+    <p><span class="tag ok">feito</span><b>Polimento:</b></p>
     <ul>
-      <li>morros mais orgânicos, sem cara de bloco;</li>
-      <li>cores distintas na legenda do mapa;</li>
-      <li>tela de Controles cabendo em todos os tamanhos;</li>
-      <li>save no meio da rampa;</li>
-      <li>revisão geral dos prints.</li>
+      <li>Os morros ficaram mais orgânicos, em formato de blob. Ainda aparece degrau de tile, porque a arte da parede é quadrada.</li>
+      <li>No mapa, cada marcador tem forma e cor próprias:
+        <ul>
+          <li>tu: seta amarela;</li>
+          <li>rampa: anel branco;</li>
+          <li>destroço: losango laranja;</li>
+          <li>veio: ponto na cor do minério;</li>
+          <li>terminal: verde;</li>
+          <li>base: ciano.</li>
+        </ul>
+      </li>
+      <li>A tela de Controles cabe em qualquer tamanho; quando precisa, vira 2 páginas.</li>
+      <li>Salvar no meio da rampa agora funciona.</li>
+      <li>Consertei 7 textos que se encavalavam: aviso de projeto, "Jogo salvo", ajuda das Opções, seta do O₂ e textos flutuantes.</li>
     </ul>
-    <p class="rec">474 testes passando. Desempenho: ~5 ms por frame na caverna com 36 luminárias, e o limite é 16,7 ms. Tudo commitado e no GitHub.</p>
+    <p><span class="tag warn">atenção</span>Os morros mudaram, então <b>o mapa da seed mudou</b>: cratera, veios e destroços estão em outros lugares. <b>Começa um Novo jogo</b> pro playtest, porque o save atual pode ficar estranho, com máquina dentro de morro.</p>
+    <p class="rec">498 testes passando. Desempenho: ~5 ms por frame na caverna com 36 luminárias, e o limite é 16,7 ms. Tudo commitado e no GitHub.</p>
   </div>
 
   <h2>Aprovar arte e som</h2>
@@ -145,7 +155,7 @@
     <li><b>Quantidade de minério na caverna:</b> ~47% das paredes têm minério (antes eram ~35%). No print abaixo a parede fica quase toda colorida, e acho que tá cheio demais visualmente.
       <div class="rec">Eu: <b>baixaria pra ~38–40%</b>, compensando com veios mais ricos. É número de economia, então não mexi sem ti.</div>
       <img src="../dev/caverna_escura_marco3.png" alt="Caverna escura com muito minério" style="margin-top:8px"></li>
-    <li><b>Simulador:</b> no estilo de jogo "guloso", uma das seeds termina com ~10 min parado no fim. O limite do teste foi relaxado pra ele passar. Tu disse que tempo de partida não é foco agora.
+    <li><b>Simulador:</b> o estilo de jogo "guloso" termina com ~10 min parado no fim numa seed, e com o mapa novo a estratégia casual da proposta deu 1h01 numa seed (27 min esperando). O limite do teste foi relaxado. Tu disse que tempo de partida não é foco agora.
       <div class="rec">Eu: <b>deixaria pra quando a gente for balancear de verdade</b>.</div></li>
   </ol>
 

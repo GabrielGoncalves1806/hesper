@@ -165,6 +165,8 @@ class UI:
         self.fabricator_tabs: list[tuple[pygame.Rect, int]] = []      # abas: (retângulo, índice da aba)
         self.pause_items: list[pygame.Rect] = []      # linhas clicáveis do menu de pausa (coord. da UI)
         self.pause_sliders: list[pygame.Rect] = []    # barras dos sliders de volume
+        self.pause_page_buttons: list[tuple[pygame.Rect, int]] = []   # Controles: "<" (-1) e ">" (+1)
+        self.controls_pages = 1                       # quantas páginas a tela de Controles teve no último desenho
         # slots clicáveis da tela de inventário/baú: (retângulo na UI, inventário, índice do slot)
         self.slot_rects: list[tuple[pygame.Rect, Inventory, int]] = []
         # painel da estação: slots de drone (retângulo, nº do slot) e do buffer (retângulo, minério)
@@ -178,6 +180,7 @@ class UI:
         self.slot_img = Sprites().get("ui_slot")      # moldura opcional (bíblia §8); sem ela, desenhamos
         self.equip_rects: list[tuple[pygame.Rect, str]] = []      # slots de equipamento (Tab): (retângulo, tipo)
         self.energy_bottom = 110                                   # onde acaba o medidor de energia (minimapa embaixo)
+        self.right_bottom = 110                                    # onde acaba a coluna da direita ("Jogo salvo" embaixo)
 
     # ---- tamanho e âncoras -------------------------------------------------------
     def set_layout(self, rect: tuple[int, int, int, int], k: float, size: tuple[int, int]) -> None:
@@ -406,6 +409,7 @@ class UI:
                 warning = warning[0].split(" · ")
         self.panel(px, y, w, 15 + 12 * len(warning))
         self.energy_bottom = y + 15 + 12 * len(warning)
+        self.right_bottom = self.energy_bottom        # fim da coluna da direita (Ti, energia, minimapa)
         self.draw_bolt(px + 6, y + 4, C.C_ENERGY if not power.deficit else C.C_ALERT)
         label_w = self.text("ENERGIA", px + 14, y + 4, C.C_TEXT)
         value_w = self.text(f"{fmt_rate(power.production)}/{fmt_rate(power.consumption)} KW", right, y + 4, color,
@@ -516,6 +520,8 @@ class UI:
         ang = math.atan2(by - py, bx - px)
         wobble = math.sin(t * 7) * 3
         rx, ry = 200 * self.w / UW, 105 * self.h / UH
+        if math.sin(ang) > 0:                    # pra baixo: a seta não desce na hotbar (moldura em hotbar_y - 11)
+            ry = min(ry, self.hotbar_y - 11 - 12 - self.h / 2)
         cx, cy = self.w / 2 + math.cos(ang) * (rx + wobble), self.h / 2 + math.sin(ang) * (ry + wobble)
         tip = (cx + math.cos(ang) * 8, cy + math.sin(ang) * 8)
         left = (cx + math.cos(ang + 2.4) * 9, cy + math.sin(ang + 2.4) * 9)
@@ -529,8 +535,10 @@ class UI:
         """Menu de receitas com abas (`menu`: game/fabricator.FabMenu). `machine_preview(kind)` devolve
         a imagem da máquina (resolução cheia). Hit-test: fabricator_tabs, fabricator_rows, fabricator_buttons."""
         self.fill((8, 5, 4, 158), (0, 0, self.w, self.h))
-        w, h = 400, 268
-        x, y = (self.w - w) // 2, (self.h - h) // 2       # no centro (no Grande: 40, 1)
+        # 400 px; se as abas não cabem (6 abas com a "Traje" do Marco 3), alarga até caber (no Grande: 434)
+        tabs_w = sum(self.body.size(label)[0] + 10 for _, label in C.FAB_TABS) + 3 * (len(C.FAB_TABS) - 1)
+        w, h = min(self.w - 8, max(400, tabs_w + 16)), 268
+        x, y = (self.w - w) // 2, (self.h - h) // 2       # no centro
         list_y = y + 38                                 # título (18) + abas (16) + respiro
         footer_y = y + h - 14                           # linha de ajuda embaixo
         row_h = (footer_y - 2 - list_y) // menu.visible - 1
@@ -547,7 +555,7 @@ class UI:
         # abas: largura pelo texto; aba sem nada liberado fica apagada (mas abre e mostra as bloqueadas)
         tx = x + 8
         for i, (tab_id, label) in enumerate(C.FAB_TABS):
-            tw = self.body.size(label)[0] + 10          # 5 abas (Luz no Marco 2) cabem nos 400 px
+            tw = self.body.size(label)[0] + 10
             rect = pygame.Rect(tx, y + 21, tw, 15)
             active = i == menu.tab
             unlocked = any(state.recipe_status(k) not in ("locked", "blueprint") for k in tab_kinds(tab_id))
@@ -1211,11 +1219,12 @@ class UI:
     OPTION_ROWS = ("TELA CHEIA", "ZOOM", "INTERFACE")
 
     def draw_pause(self, screen: str, selected: int, mix: dict, zoom_label: str = "1×",
-                   ui_label: str = "MÉDIA") -> None:
+                   ui_label: str = "MÉDIA", page: int = 0) -> None:
         """Menu de pausa. screen = 'main', 'volumes' (Opções: volumes, tela cheia, zoom, interface)
         ou 'controls'. `mix` é o dicionário das settings (volumes + "fullscreen")."""
         self.pause_items.clear()
         self.pause_sliders.clear()
+        self.pause_page_buttons.clear()
         if screen == "main":
             ox, oy = self.center_offset                   # menus feitos pra 480×270, centralizados
             x, y, w = 170 + ox, 64 + oy, 140
@@ -1228,121 +1237,226 @@ class UI:
             self.text("[W/S] ESCOLHE · [ENTER] OK · [ESC] VOLTA", self.w / 2, y + 26 + 22 * len(self.PAUSE_OPTIONS) + 10,
                       C.C_MUTED, align="center")
         elif screen == "volumes":
-            ox, oy = self.center_offset
-            x, y, w = 120 + ox, 60 + oy - 12, 240         # uma linha a mais (interface): sobe 12
             n = len(self.VOLUME_ROWS)
             m = len(self.OPTION_ROWS)
-            self._pause_frame(x, y, w, 26 + 24 * (n + m + 1) + 4, "OPÇÕES")
+            step = 22                                     # linha de 20 + 2 de vão
+            h = 26 + step * (n + m + 1) + 14              # + a linha de ajuda dentro da moldura
+            w = 240
+            # no meio da tela, sem encostar na hotbar (no Grande a ajuda caía em cima dela)
+            x, y = (self.w - w) // 2, max(2, min((self.h - h) // 2, self.hotbar_y - 11 - 4 - h))
+            self._pause_frame(x, y, w, h, "OPÇÕES")
             for i, (key, label) in enumerate(self.VOLUME_ROWS):
-                row = pygame.Rect(x + 8, y + 26 + i * 24, w - 16, 21)
+                row = pygame.Rect(x + 8, y + 26 + i * step, w - 16, step - 2)
                 self._menu_row(row, i == selected)
-                self.text(label, row.x + 8, row.y + 7, C.C_TEXT)
-                bar = pygame.Rect(row.x + 76, row.y + 7, 110, 7)
+                self.text(label, row.x + 8, row.y + 6, C.C_TEXT)
+                bar = pygame.Rect(row.x + 76, row.y + 6, 110, 7)
                 self.surf.fill(pygame.Color("#4a3b2a"), bar)
                 self.surf.fill(pygame.Color("#120d0b"), bar.inflate(-2, -2))
                 fill_w = round((bar.w - 2) * mix[key])
                 self.surf.fill(pygame.Color(C.C_TI), (bar.x + 1, bar.y + 1, fill_w, bar.h - 2))
                 self.surf.fill(pygame.Color(C.C_TEXT), (bar.x + fill_w - 1, bar.y - 2, 3, bar.h + 4))   # puxador
-                self.text(f"{round(mix[key] * 100)}%", row.right - 8, row.y + 7, C.C_TI, align="right")
+                self.text(f"{round(mix[key] * 100)}%", row.right - 8, row.y + 6, C.C_TI, align="right")
                 self.pause_items.append(row)
                 self.pause_sliders.append(bar)
             # tela cheia, zoom e interface: Enter/clique alternam, A/D também
             values = ("SIM" if mix.get("fullscreen") else "NÃO", zoom_label, ui_label)
             for i, (label, value) in enumerate(zip(self.OPTION_ROWS, values), start=n):
-                row = pygame.Rect(x + 8, y + 26 + i * 24, w - 16, 21)
+                row = pygame.Rect(x + 8, y + 26 + i * step, w - 16, step - 2)
                 self._menu_row(row, i == selected)
-                self.text(label, row.x + 8, row.y + 7, C.C_TEXT)
-                self.text(f"< {value} >" if i == selected else value, row.right - 8, row.y + 5, C.C_TI,
+                self.text(label, row.x + 8, row.y + 6, C.C_TEXT)
+                self.text(f"< {value} >" if i == selected else value, row.right - 8, row.y + 4, C.C_TI,
                           self.body, align="right")
                 self.pause_items.append(row)
-            back = pygame.Rect(x + 8, y + 26 + (n + m) * 24, w - 16, 21)
+            back = pygame.Rect(x + 8, y + 26 + (n + m) * step, w - 16, step - 2)
             self._menu_row(back, selected == n + m)
-            self.text("Voltar", back.x + 8, back.y + 4, C.C_TEXT, self.body)
-            self.pause_items.append(back)
-            self.text("[W/S] ESCOLHE · [A/D] AJUSTA · [ESC] VOLTA", self.w / 2, back.bottom + 10, C.C_MUTED, align="center")
-        else:  # controls
-            rows = len(self.CONTROLS)
-            h = 26 + 15 * rows + 30
-            x, y, w = (self.w - 336) // 2, (self.h - h) // 2, 336
-            self._pause_frame(x, y, w, h, "CONTROLES")
-            for i, (keys, action) in enumerate(self.CONTROLS):
-                yy = y + 26 + i * 15
-                self.text(keys, x + 12, yy + 3, C.C_TI)
-                self.text(action, x + 112, yy, "#d9cfc4", self.body)
-            back = pygame.Rect(x + 8, y + h - 26, 80, 19)
-            self._menu_row(back, True)
             self.text("Voltar", back.x + 8, back.y + 3, C.C_TEXT, self.body)
             self.pause_items.append(back)
+            self.text("[W/S] ESCOLHE · [A/D] AJUSTA · [ESC] VOLTA", self.w / 2, y + h - 12, C.C_MUTED, align="center")
+        else:  # controls
+            self.draw_controls(page)
+
+    CONTROL_STEP = 15                                   # altura de cada linha da tela de Controles
+
+    def controls_layout(self) -> tuple[int, int, list[list[tuple[str, str]]]]:
+        """(largura do painel, x da coluna da ação, páginas). Cabe no espaço lógico atual: se as linhas
+        não cabem na altura (Grande, 480×270), divide em páginas; a largura sai do texto mais comprido."""
+        key_w = max(self.font.size(keys)[0] for keys, _ in self.CONTROLS)
+        act_w = max(self.body.size(action)[0] for _, action in self.CONTROLS)
+        col = 12 + key_w + 12
+        w = min(self.w - 12, col + act_w + 12)
+        per_page = max(1, (self.h - 12 - 26 - 30) // self.CONTROL_STEP)
+        rows = list(self.CONTROLS)
+        n_pages = -(-len(rows) // per_page)
+        per_page = -(-len(rows) // n_pages)              # páginas equilibradas (8 + 7, não 13 + 2)
+        return w, col, [rows[i:i + per_page] for i in range(0, len(rows), per_page)]
+
+    def draw_controls(self, page: int = 0) -> None:
+        w, col, pages = self.controls_layout()
+        page %= len(pages)
+        rows = pages[page] if len(pages) == 1 else pages[page] + [None] * (len(pages[0]) - len(pages[page]))
+        h = 26 + self.CONTROL_STEP * len(rows) + 30
+        x, y = (self.w - w) // 2, (self.h - h) // 2
+        self._pause_frame(x, y, w, h, "CONTROLES")
+        for i, row in enumerate(rows):
+            if row is None:
+                continue
+            keys, action = row
+            yy = y + 26 + i * self.CONTROL_STEP
+            self.text(keys, x + 12, yy + 3, C.C_TI)
+            self.text(action, x + col, yy, "#d9cfc4", self.body)
+        back = pygame.Rect(x + 8, y + h - 26, 80, 19)
+        self._menu_row(back, True)
+        self.text("Voltar", back.x + 8, back.y + 3, C.C_TEXT, self.body)
+        self.pause_items.append(back)
+        self.controls_pages = len(pages)
+        if len(pages) > 1:                               # < 1/2 >  (A/D ou clique trocam a página)
+            nxt = pygame.Rect(x + w - 8 - 19, back.y, 19, 19)
+            label = f"{page + 1}/{len(pages)}"
+            lw = self.font.size(label)[0]
+            prev = pygame.Rect(nxt.x - lw - 12 - 19, back.y, 19, 19)
+            for rect, arrow in ((prev, "<"), (nxt, ">")):
+                self._menu_row(rect, False)
+                self.text(arrow, rect.centerx, rect.y + 6, C.C_TEXT, align="center")
+                self.pause_page_buttons.append((rect, -1 if arrow == "<" else 1))
+            self.text(label, prev.right + 6, back.y + 6, C.C_TI)
+            self.text("[A/D] PÁGINA", prev.x - 8, back.y + 6, C.C_MUTED, align="right")
 
     # ---- projeto encontrado (Marco 3) -----------------------------------------------
+    def blueprint_notice_layout(self, blueprint: str) -> tuple[pygame.Rect, bool]:
+        """Onde vai o aviso do projeto: (retângulo na UI, com ícone?). Cabe no vão do topo entre o O₂ e o Ti;
+        no Grande (vão de 196 px) o ícone sai pra caber. Só se nem assim couber, desce pra y 40 (cobre HUD)."""
+        title = f"PROJETO: {C.BLUEPRINTS[blueprint].upper()}"
+        text_w = max(self.font.size(title)[0], self.body.size(self.BLUEPRINT_SUB)[0])
+        left, right = self.BANNER_GAP
+        for with_icon, pad in ((True, 34), (False, 12)):
+            w = text_w + pad
+            if w <= right - left - 4:
+                return pygame.Rect((left + right) // 2 - w // 2, 6, w, 30), with_icon
+        w = text_w + 34
+        return pygame.Rect((self.w - w) // 2, 40, w, 30), True
+
+    BLUEPRINT_SUB = "receita liberada no fabricador"
+
     def draw_blueprint_notice(self, blueprint: str, alpha: float, icon: pygame.Surface) -> None:
         """Aviso "PROJETO: <NOME>" no topo do centro, com o ícone do projeto: a receita já está liberada."""
         title = f"PROJETO: {C.BLUEPRINTS[blueprint].upper()}"
-        sub = "receita liberada no fabricador"
-        w = max(self.font.size(title)[0], self.body.size(sub)[0]) + 34
-        h = 30
-        layer = pygame.Surface((w, h), pygame.SRCALPHA)
-        self.panel(0, 0, w, h, (10, 18, 30, 235), target=layer)
-        layer.fill(pygame.Color("#9fd0ff"), (0, 0, w, 2))
-        self.text(title, 26, 6, "#cfe8ff", target=layer)
-        self.text(sub, 26, 15, "#d9cfc4", self.body, target=layer)
+        rect, with_icon = self.blueprint_notice_layout(blueprint)
+        tx = 26 if with_icon else 6
+        layer = pygame.Surface(rect.size, pygame.SRCALPHA)
+        self.panel(0, 0, rect.w, rect.h, (10, 18, 30, 235), target=layer)
+        layer.fill(pygame.Color("#9fd0ff"), (0, 0, rect.w, 2))
+        self.text(title, tx, 6, "#cfe8ff", target=layer)
+        self.text(self.BLUEPRINT_SUB, tx, 15, "#d9cfc4", self.body, target=layer)
         layer.set_alpha(int(255 * alpha))
-        left, right = self.BANNER_GAP
-        x = max(2, (left + right) // 2 - w // 2) if right - left >= w else (self.w - w) // 2
-        y = 6 if right - left >= w else 40
-        self.surf.blit(layer, (x, y))
-        ic = icon.copy()
-        ic.set_alpha(int(255 * alpha))
-        self.native.append((ic, ((x + 6) * 2, (y + 7) * 2)))
+        self.surf.blit(layer, rect.topleft)
+        if with_icon:
+            ic = icon.copy()
+            ic.set_alpha(int(255 * alpha))
+            self.native.append((ic, ((rect.x + 6) * 2, (rect.y + 7) * 2)))
 
     # ---- scanner: minimapa e mapa grande (Marco 3) -------------------------------------
     MINIMAP_SIZE = 64                                  # px da UI (= C.MINIMAP_TILES tiles a 2 px nativos)
+
+    # Cada marcador tem forma e cor próprias (a legenda usa o mesmo desenho): (forma, cor).
+    # Veio não tem cor fixa: o ponto sai na cor do minério (MAP_VEIN_COLORS).
+    MAP_MARKERS = {
+        "you": ("arrow", "#ffd84a"),          # você: seta amarela piscando, apontando pra onde olha
+        "crater": ("ring", "#ffffff"),        # cratera (superfície) / rampa (caverna): anel branco
+        "wreck": ("diamond", "#f2a33a"),      # destroço: losango laranja (cinza quando a caixa esvaziou)
+        "vein": ("dot", None),                # veio: ponto cheio na cor do minério
+        "terminal": ("square", C.C_TERMINAL),  # terminal da caverna: quadrado verde
+        "base": ("capsule", C.C_O2),          # base: a cápsula (retângulo 2×1) ciano
+    }
+    MAP_VEIN_COLORS = {r: C.ORE_COLORS[r][0] for r in C.RESOURCES}
+    MAP_WRECK_EMPTY = "#7a6c62"
+
+    @staticmethod
+    def draw_marker(surf: pygame.Surface, shape: str, x: int, y: int, m: int, color, direction=(0, 1)) -> None:
+        """Um marcador do mapa centrado em (x, y), com contorno preto. `m` = meia-largura base (px nativos)."""
+        color = pygame.Color(color)
+        black = (0, 0, 0)
+        if shape == "arrow":
+            dx, dy = direction
+            px, py = -dy, dx                                       # perpendicular
+            r = m + 2
+            tip = (x + dx * r, y + dy * r)
+            left = (x - dx * r + px * r, y - dy * r + py * r)
+            right = (x - dx * r - px * r, y - dy * r - py * r)
+            back = (x - dx * (r - 2), y - dy * (r - 2))
+            pts = [tip, left, back, right]
+            grow = (r + 1.5) / r                                   # contorno: a mesma seta, um pouco maior
+            pygame.draw.polygon(surf, black, [(x + (a - x) * grow, y + (b - y) * grow) for a, b in pts])
+            pygame.draw.polygon(surf, color, pts)
+        elif shape == "ring":
+            r = m + 3
+            pygame.draw.circle(surf, black, (x, y), r + 1, 4)
+            pygame.draw.circle(surf, color, (x, y), r, 2)
+        elif shape == "diamond":
+            r = m + 2
+            pygame.draw.polygon(surf, black, [(x, y - r - 1), (x + r + 1, y), (x, y + r + 1), (x - r - 1, y)])
+            pygame.draw.polygon(surf, color, [(x, y - r), (x + r, y), (x, y + r), (x - r, y)])
+        elif shape == "dot":
+            pygame.draw.circle(surf, black, (x, y), m + 1)
+            pygame.draw.circle(surf, color, (x, y), m)
+        elif shape == "square":
+            pygame.draw.rect(surf, black, (x - m, y - m, 2 * m, 2 * m))
+            pygame.draw.rect(surf, color, (x - m + 1, y - m + 1, 2 * m - 2, 2 * m - 2))
+        elif shape == "capsule":
+            w, h = 2 * m + 2, m + 2
+            pygame.draw.rect(surf, black, (x - w // 2 - 1, y - h // 2 - 1, w + 2, h + 2))
+            pygame.draw.rect(surf, color, (x - w // 2, y - h // 2, w, h))
 
     def _map_markers(self, surf: pygame.Surface, state: GameState, origin, k: int, t: float) -> None:
         """Marcadores por cima da textura já esticada (`k` px por tile, `origin` = tile do canto)."""
         ox, oy = origin
         world = state.world
         explored = state.active.explored
+        mk = self.MAP_MARKERS
 
         def at(tx, ty):
             return round((tx - ox) * k), round((ty - oy) * k)
 
         m = max(2, k)
         if state.active.has_base:                                   # base: a cápsula
-            x, y = at(C.POD_TILES[0][0], C.POD_TILES[0][1])
-            pygame.draw.rect(surf, (0, 0, 0), (x - 2, y - 2, 2 * k + 4, k + 4))
-            pygame.draw.rect(surf, pygame.Color(C.C_O2), (x - 1, y - 1, 2 * k + 2, k + 2))
+            x, y = at(C.POD_TILES[0][0] + 1, C.POD_TILES[0][1] + 0.5)
+            self.draw_marker(surf, "capsule", x, y, m, mk["base"][1])
         if world.crater is not None:                                # cratera / rampa
-            x, y = at(*world.crater)
-            pygame.draw.rect(surf, (0, 0, 0), (x - 1, y - 1, 3 * k + 2, 3 * k + 2), 1)
-            pygame.draw.rect(surf, (255, 255, 255), (x, y, 3 * k, 3 * k), 1)
+            x, y = at(world.crater[0] + 1.5, world.crater[1] + 1.5)
+            self.draw_marker(surf, "ring", x, y, max(m, round(1.5 * k)), mk["crater"][1])
         for v in world.veins:                                       # veios vistos
             if any(explored.seen(*tt) for tt in v.tiles):
                 x, y = at(v.tx + 1, v.ty + 1)
-                pygame.draw.circle(surf, (0, 0, 0), (x, y), m + 2)
-                pygame.draw.circle(surf, pygame.Color(C.ORE_COLORS[v.resource][0]), (x, y), m + 1, max(1, k // 2))
+                self.draw_marker(surf, "dot", x, y, m + 1, self.MAP_VEIN_COLORS[v.resource])
         for wreck in world.wrecks:                                  # destroços vistos
             if any(explored.seen(*tt) for tt in wreck.tiles):
-                cx, cy = wreck.center
-                x, y = at(cx, cy)
-                pts = [(x, y - m - 2), (x + m + 2, y), (x, y + m + 2), (x - m - 2, y)]
-                pygame.draw.polygon(surf, (0, 0, 0), [(px + dx, py + dy) for (px, py), (dx, dy)
-                                                      in zip(pts, ((0, -1), (1, 0), (0, 1), (-1, 0)))])
+                x, y = at(*wreck.center)
                 crate = state.crates.get(wreck.crate)
-                color = "#7a6c62" if crate is not None and crate.empty else "#f2a33a"
-                pygame.draw.polygon(surf, pygame.Color(color), pts)
+                empty = crate is not None and crate.empty
+                self.draw_marker(surf, "diamond", x, y, m, self.MAP_WRECK_EMPTY if empty else mk["wreck"][1])
         for tx, ty in world.terminals:                              # terminais da caverna vistos
             if explored.seen(tx, ty) or explored.seen(tx, ty + 1):
                 x, y = at(tx + 0.5, ty + 0.5)
-                pygame.draw.rect(surf, (0, 0, 0), (x - m, y - m, 2 * m, 2 * m))
-                pygame.draw.rect(surf, pygame.Color(C.C_TERMINAL), (x - m + 1, y - m + 1, 2 * m - 2, 2 * m - 2))
-        p = state.player                                            # você: ponto branco piscando
+                self.draw_marker(surf, "square", x, y, m, mk["terminal"][1])
+        p = state.player                                            # você: seta amarela piscando
         x, y = at(p.x / C.TILE, (p.y - 8) / C.TILE)
-        r = m + 1 if (t * 3) % 2 < 1.4 else m
-        pygame.draw.circle(surf, (0, 0, 0), (x, y), r + 1)
-        pygame.draw.circle(surf, (255, 255, 255), (x, y), r)
-        dx, dy = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}[p.direction]
-        pygame.draw.line(surf, (255, 255, 255), (x, y), (x + dx * (r + 3), y + dy * (r + 3)), 1)
+        d = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}[p.direction]
+        bright = (t * 3) % 2 < 1.4
+        self.draw_marker(surf, "arrow", x, y, m if bright else m - 1, mk["you"][1] if bright else "#b89a2e", d)
+
+    def map_legend(self, state: GameState) -> list[tuple[str, str]]:
+        """Itens da legenda do mapa da camada ativa: (marcador, rótulo). Só o que existe na camada."""
+        world = state.world
+        items = [("base", "BASE")] if state.active.has_base else []
+        if world.crater is not None:
+            items.append(("crater", "CRATERA" if state.active.has_base else "RAMPA"))
+        if world.wrecks:
+            items.append(("wreck", "DESTROÇO"))
+        if world.terminals:
+            items.append(("terminal", "TERMINAL"))
+        if world.veins:
+            items.append(("vein", "VEIO"))
+        items.append(("you", "VOCÊ"))
+        return items
 
     def draw_minimap(self, state: GameState, tex: pygame.Surface, t: float) -> None:
         """Minimapa no canto direito, embaixo do medidor de energia: 64×64 tiles em volta do player."""
@@ -1358,6 +1472,7 @@ class UI:
         px = self.w - 6 - (size + 8)
         py = self.energy_bottom + 4
         self.panel(px, py, size + 8, size + 17)
+        self.right_bottom = py + size + 17
         self.text("MAPA", px + 4, py + 4, C.C_TERMINAL)
         self.text("[M]", px + size + 4, py + 4, C.C_MUTED, align="right")
         self.surf.fill((0, 0, 0), (px + 3, py + 12, size + 2, size + 2))
@@ -1369,7 +1484,18 @@ class UI:
         w, h = tex.get_size()
         k = max(1, min((self.w * 2 - 48) // w, (self.h * 2 - 96) // h))   # px nativos por tile (inteiro)
         mw, mh = w * k // 2, h * k // 2                                      # tamanho do mapa em px da UI
-        pw, ph = max(mw + 16, 300), mh + 50
+        # legenda: o mesmo desenho dos marcadores (veio: os 3 minérios). Mede antes pra janela caber tudo.
+        legend = []
+        for kind, label in self.map_legend(state):
+            shape, color = self.MAP_MARKERS[kind]
+            colors = list(self.MAP_VEIN_COLORS.values()) if kind == "vein" else [color]
+            icon = pygame.Surface((8 * len(colors) + 6, 16), pygame.SRCALPHA)
+            for i, c in enumerate(colors):
+                self.draw_marker(icon, shape, 7 + 8 * i, 8, 3 if kind != "vein" else 2, c, (1, 0))
+            legend.append((icon, label))
+        legend_w = sum(icon.get_width() // 2 + 2 + self.font.size(label)[0] + 8 for icon, label in legend)
+        close_w = self.font.size("[M] FECHA")[0]
+        pw, ph = min(self.w - 4, max(mw + 16, 300, legend_w + close_w + 20)), mh + 50
         x, y = (self.w - pw) // 2, (self.h - ph) // 2
         self._window(x, y, pw, ph, "MAPA · " + ("SUPERFÍCIE" if state.active.has_base else "CAVERNA"), C.C_TERMINAL)
         explored = state.active.explored
@@ -1380,17 +1506,12 @@ class UI:
         view = pygame.transform.scale_by(tex, k)
         self._map_markers(view, state, (0, 0), k, t)
         self.native.append((view, (mx * 2, my * 2)))
-        # legenda
         ly = my + mh + 6
-        items = [("#59d0e6", "BASE")] if state.active.has_base else []
-        items.append(("#ffffff", "CRATERA" if state.active.has_base else "RAMPA"))
-        items.append(("#f2a33a", "DESTROÇO") if state.active.has_base else (C.C_TERMINAL, "TERMINAL"))
-        items += [("#e8a066", "VEIO"), ("#ffffff", "VOCÊ")]
         lx = x + 8
-        for color, label in items:
-            self.surf.fill((0, 0, 0), (lx, ly + 1, 6, 6))
-            self.surf.fill(pygame.Color(color), (lx + 1, ly + 2, 4, 4))
-            lx += 10 + self.text(label, lx + 9, ly, C.C_MUTED) + 4
+        for icon, label in legend:
+            self.native.append((icon, (lx * 2, ly * 2 - 1)))
+            iw = icon.get_width() // 2
+            lx += iw + 2 + self.text(label, lx + iw + 2, ly, C.C_MUTED) + 8
         self.text("[M] FECHA", x + pw - 8, ly, C.C_TEXT, align="right")
 
     # ---- cursor ---------------------------------------------------------------

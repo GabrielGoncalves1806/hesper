@@ -108,3 +108,42 @@ def test_sand_variants_follow_the_designer_distribution():
     total = len(ALL)
     assert counts[0] / total > 0.45 and counts[1] / total > 0.12           # lisa domina, cascalho comum
     assert 0.03 < counts[2] / total < 0.3 and counts[3] / total < 0.08     # dunas em zonas, laje rara
+
+
+def _hill_walls(w):
+    return {(x, y) for y in range(3, 189) for x in range(3, 189) if w.is_wall(x, y)}
+
+
+def test_hills_have_no_loose_diagonals_or_spurs():
+    """Marco 4: morro orgânico, sem tile encostando só pela quina, sem ponta de 1 tile e sem dente de 1 tile."""
+    for seed in (1, 2, 3, C.WORLD_SEED):
+        w = generate_surface(seed)
+        walls = _hill_walls(w)
+        for x, y in walls:
+            sides = sum(n in walls for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
+            assert sides >= 2, (seed, x, y)                                  # nem ilhado nem ponta solta
+        for y in range(3, 188):
+            for x in range(3, 188):
+                a, b, c, d = (x, y) in walls, (x + 1, y) in walls, (x, y + 1) in walls, (x + 1, y + 1) in walls
+                assert not (a and d and not b and not c) and not (b and c and not a and not d), (seed, x, y)
+
+
+def test_hill_count_and_mass_stay_close():
+    """A forma nova não muda o tamanho do deserto: 24–32 morros e ~500–850 tiles de rocha."""
+    lo, hi = C.HILLS
+    for seed in (1, 2, 3, C.WORLD_SEED):
+        walls = _hill_walls(generate_surface(seed))
+        seen, hills = set(), 0
+        for start in walls:
+            if start in seen:
+                continue
+            hills += 1
+            stack = [start]
+            while stack:
+                t = stack.pop()
+                if t in seen or t not in walls:
+                    continue
+                seen.add(t)
+                stack += [(t[0] + 1, t[1]), (t[0] - 1, t[1]), (t[0], t[1] + 1), (t[0], t[1] - 1)]
+        assert lo - 2 <= hills <= hi, (seed, hills)
+        assert 500 <= len(walls) <= 850, (seed, len(walls))

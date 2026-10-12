@@ -6,8 +6,8 @@ Dois truques pra eles não nascerem um em cima do outro:
      enquanto o anterior ainda é novinho (< MERGE_AGE) vira um só, com os números somados
      ("+15 FERRO" + "+15 FERRO" = "+30 FERRO") e a vida renovada. Texto sem número ("+O2") só
      renova a vida.
-  2. **Faixas**: se já tem floater vivo nascido perto, o novo vai pra primeira faixa livre acima
-     dele. A faixa é um deslocamento em pixels da TELA (UI), não do mundo: com qualquer zoom a
+  2. **Faixas**: se já tem floater vivo perto na tela (onde ele está agora), o novo vai pra primeira
+     faixa acima em que não encosta em ninguém. A faixa é um deslocamento em pixels da TELA (UI), não do mundo: com qualquer zoom a
      distância entre as linhas é a altura da letra (que não muda com o zoom).
 
 E um terceiro, na hora de desenhar (`dodge_labels`): o rótulo flutuante do baú (mouse em cima) não
@@ -22,7 +22,9 @@ LIFE = 1.2            # segundos na tela
 RISE = 22.0           # px do mundo por segundo
 MERGE_AGE = 0.6       # só mescla com um floater de até 0,6 s de idade
 MERGE_DIST = 12.0     # px do mundo: "o mesmo ponto"
-NEAR_X, NEAR_Y = 56.0, 40.0   # px do mundo: nascidos tão perto assim dividem a pilha de faixas
+# px da UI: floaters com os centros mais perto que isso na horizontal podem encavalar (um texto como
+# "+11 FERRO" tem ~55 px da UI). Era 56 px do MUNDO (~28 da UI no zoom 1) e "+11 FERRO" encavalava no "+AGUA".
+NEAR_X_UI = 60.0
 LANE_PX = 12          # px da UI (metade da tela) entre uma faixa e a de cima
 
 _IDS = itertools.count(1)
@@ -55,6 +57,7 @@ def split_amount(text: str) -> tuple[int, str] | None:
 class FloatingTexts:
     def __init__(self):
         self.items: list[Floater] = []
+        self.scale = 0.5          # px da UI por px do mundo (zoom × canvas_k); o App atualiza todo frame
 
     def add(self, text: str, x: float, y: float, color: str) -> Floater:
         # 1) mesmo texto, mesmo lugar, ainda novinho: soma no que já existe
@@ -68,9 +71,15 @@ class FloatingTexts:
                     continue
                 it.life = LIFE        # sem voltar o y: nada de pulo, ele só fica mais um tempo
                 return it
-        # 2) faixa livre: a menor que nenhum vizinho vivo está usando
-        taken = {it.lane for it in self.items if abs(it.x - x) <= NEAR_X and abs(it.y0 - y) <= NEAR_Y}
-        lane = next(i for i in range(len(taken) + 1) if i not in taken)
+        # 2) faixa livre: a mais baixa em que ele não encosta em nenhum vizinho NA TELA, olhando onde cada
+        #    um está agora (já subindo, com a faixa dele). Como todos sobem na mesma velocidade, quem não
+        #    encosta ao nascer não encosta depois. (Antes a conta era por faixa ocupada perto do ponto de
+        #    nascimento: um "+AGUA" nascido mais embaixo que já tinha subido caía na mesma linha do "+FERRO".)
+        s = self.scale
+        near = [it for it in self.items if abs(it.x - x) * s <= NEAR_X_UI]
+        taken = [it.y * s - it.lane * LANE_PX for it in near]          # y na tela (px da UI)
+        lane = next(i for i in range(2 * len(near) + 1)              # cada vizinho tranca no máximo 2 faixas
+                    if all(abs(y * s - i * LANE_PX - ty) >= LANE_PX for ty in taken))
         floater = Floater(text, x, y, color, lane=lane, y0=y)
         self.items.append(floater)
         return floater

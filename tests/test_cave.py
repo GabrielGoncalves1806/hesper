@@ -196,3 +196,27 @@ def test_cave_fallback_sprites_have_contract_sizes():
     assert art.lamp().get_size() == C.LAMP_SPRITE_SIZE == (16, 32)
     assert art.lamp_icon().get_size() == (16, 16)
     assert art.cave_ramp_up().get_size() == (96, 96)
+
+
+def test_save_mid_fade_keeps_the_destination():
+    """Marco 4: salvou no meio do fade (antes da troca) -> o save já tem a camada de destino e a chegada."""
+    from game import save
+    g = GameState(rng=random.Random(1))
+    at_ramp(g)
+    g.start_ramp()
+    run(g, C.RAMP_SWITCH_AT / 2)
+    assert g.layer == SURFACE and not g.ramp.switched
+    loaded = save.state_from_dict(save.state_to_dict(g))
+    assert loaded.layer == CAVE and loaded.ramp is None
+    assert (loaded.player.x, loaded.player.y) == layers.ramp_arrival(loaded.world)
+    run(g, C.RAMP_DURATION)                                  # o jogo que estava rolando termina a viagem igual
+    assert g.layer == CAVE and (g.player.x, g.player.y) == layers.ramp_arrival(g.world)
+    # e subindo (a caverna já existe), também
+    g.start_ramp()
+    run(g, C.RAMP_SWITCH_AT / 2)
+    loaded = save.state_from_dict(save.state_to_dict(g))
+    assert loaded.layer == SURFACE and (loaded.player.x, loaded.player.y) == layers.ramp_arrival(loaded.world)
+    # depois da troca (fim do fade) o save é o estado normal
+    run(g, C.RAMP_SWITCH_AT / 2 + 0.05)
+    loaded = save.state_from_dict(save.state_to_dict(g))
+    assert loaded.layer == SURFACE == g.layer and (loaded.player.x, loaded.player.y) == (g.player.x, g.player.y)
