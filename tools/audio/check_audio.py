@@ -31,7 +31,7 @@ CONTRACT = {
     "amb_dead": True, "amb_mist": True, "amb_green": True,
 }
 # v0.2: entregues em _pending/ até o dono aprovar
-PENDING: dict = {}
+PENDING: dict = {"desert_wind": True}  # v0.3 Marco 1
 BANDS = [(20, 150), (150, 600), (600, 2500), (2500, 8000), (8000, 22050)]
 
 

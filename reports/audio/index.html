@@ -88,9 +88,10 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Hesper · report de som · v6.1</div>
+    <div class="eyebrow">Hesper · report de som · v7</div>
     <h1>Som do planeta</h1>
     <p class="lede">Os 19 arquivos do contrato de áudio da bíblia (§6), todos gerados por síntese procedural com seed fixa em <code>tools/audio/build_audio.py</code>. A estética é 8/16-bit refinada: osciladores limitados em banda, ruído filtrado, envelopes, varreduras de pitch e um reverb de cratera. Dá o play em cada um, os loops tocam em repetição pra tu ouvir a emenda.</p>
+    <div class="note" style="border-left-color:#e8b46a"><b style="color:#e8b46a">v7 · v0.3 Marco 1 · Superfície:</b> um som novo, pendente da tua aprovação: <code>desert_wind.wav</code>, a camada de vento seco que toca por cima do ambiente do estágio quando o jogador está na superfície. Está em <code>assets/audio/_pending/</code> e na seção <a href="#superficie">Superfície</a>, com prévia mixada com cada um dos 3 ambientes no volume sugerido. Nenhum som aprovado mudou (os 38 arquivos conferidos por md5 antes e depois).</div>
     <div class="note" style="border-left-color:#7fd67a"><b style="color:#7fd67a">v6.1 · sons do v0.2 aprovados:</b> os 9 sons do v0.2 saíram de <code>_pending/</code> e agora são oficiais em <code>assets/audio/</code>, idênticos byte a byte aos que tu aprovou. Baú, inventário e save estão em <a href="#interface">Interface</a>. Painel solar e queda de energia estão em <a href="#energia">Energia</a>. Os drones estão em <a href="#drones">Drones</a>. Os volumes sugeridos estão na tabela de integração. O contrato agora tem 31 arquivos.</div>
     <div class="note" style="border-left-color:#c3d1e2"><b style="color:#c3d1e2">v5:</b> três sons novos da drill automática (§4 "Veios e drills automáticas"), na seção <a href="#drill">Drill</a>: <code>drill_loop</code> (loop), <code>drill_collect</code> e <code>drill_full</code>. Nenhum som existente mudou (conferido por md5).</div>
     <div class="note" style="border-left-color:var(--gold)"><b>v4:</b> nada oficial mudou. Tem 6 candidatas novas pro <code>mine_hit</code> (3 sintéticas mais rochosas e 3 gravadas do Kenney, CC0) e uma bônus pro <code>mine_break</code>, lado a lado com a v3 em <a href="#escolha">Escolha o som de mineração</a>.</div>
@@ -98,20 +99,60 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
     <div class="note" style="border-left-color:var(--cyan)"><b style="color:var(--cyan)">v2, o que mudou:</b> ambientes refeitos pra soar mais espaciais. Saíram vento, chiado, chuva e poeira (a fatia de energia acima de 2,5 kHz caiu de −12 a −16 dB pra −35 a −66 dB do total) e saíram os pássaros e insetos do verde. Agora é drone/pad longo, reverb de cauda longa e brilhos lentos, e a diferença entre estágios vem da harmonia. O <code>mine_break</code> virou rocha esfarelando (impacto curto + cascalho caindo em tempo irregular, sem notas). O <code>pickup</code> virou um "poop" de bolha de 110 ms. O resto não mudou.</div>
     <div class="note"><b>Aviso honesto:</b> quem gerou esses sons não consegue ouvir. Tudo foi validado por análise (formato, duração, pico, loudness aproximado, espectro por banda e teste de clique na emenda dos loops), mas o julgamento estético final é do teu ouvido. Se algum som incomodar, diz qual e o que incomoda (agudo demais, longo demais, grave demais) que dá pra ajustar rápido: é só mexer num número do script e rodar de novo.</div>
     <div class="stats">
-      <div class="stat"><b>19</b><span>arquivos</span></div>
+      <div class="stat"><b>31 + 1</b><span>oficiais + pendente</span></div>
       <div class="stat"><b>44,1k · 16b · mono</b><span>formato</span></div>
       <div class="stat"><b class="ok" id="st-peak">≤ −1 dBFS</b><span>pico máximo</span></div>
-      <div class="stat"><b class="ok">5 / 5</b><span>loops sem estalo</span></div>
+      <div class="stat"><b class="ok">9 / 9</b><span>loops sem estalo</span></div>
     </div>
     <nav class="toc">
-      <a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
+      <a href="#superficie">Superfície (novo)</a><a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
       <a href="#maquinas">Máquinas</a><a href="#drill">Drill</a><a href="#energia">Energia</a><a href="#drones">Drones</a><a href="#ambiente">Ambiente</a><a href="#recompensa">Recompensa</a>
       <a href="#direcao">Direção de ambientação</a><a href="#integracao">Integração</a><a href="#checagens">Checagens</a>
     </nav>
   </header>
 
-
-
+  <section class="pick" id="superficie" style="border-color:#e8b46a">
+    <div class="sec-head" style="border-color:#5a4524"><span class="num">v7 · pendente</span><h2 style="color:#e8b46a">Superfície · vento do deserto</h2>
+      <p>Camada nova pro deserto da superfície. Não substitui nada: toca <b>por cima</b> do <code>amb_dead/mist/green</code> enquanto o jogador está lá fora e some quando ele desce pra caverna. Fica em <code>_pending/</code> até tu aprovar. O jeito certo de julgar é na mistura: usa os três botões abaixo (ambiente a 0,7 + vento a 0,45, os volumes sugeridos) e o botão "vento on/off" pra comparar com e sem.</p></div>
+    <div class="cards">
+      <article class="card" id="wind-card">
+        <div class="card-top"><span class="fname">_pending/desert_wind.wav</span>
+          <span class="tags"><span class="tag loop">loop</span><span class="tag" id="wind-dur">36,0 s</span><span class="tag" id="wind-peak">pico</span></span></div>
+        <canvas class="wave" aria-hidden="true"></canvas>
+        <audio controls preload="metadata" loop src="../../assets/audio/_pending/desert_wind.wav"></audio>
+        <div class="when">Loop na superfície, por cima do amb_{estágio}. Some na caverna</div>
+        <p class="what">Vento seco e espaçoso, sozinho (aqui ele toca no volume cheio do arquivo, mais alto do que vai ficar no jogo). Ruído dividido em 6 bandas largas cujo peso passeia devagar, então o "filtro" do vento se mexe o tempo todo. Cinco rajadas lentas (4–9 s) por volta, que sobem e clareiam o som; entre elas, um sopro grave quase parado. Quase tudo abaixo de 1,5 kHz: a areia fininha em cima é só um fio. Sem assobio, sem tom, sem bicho. Loop de 36 s, de propósito diferente dos 32 s dos ambientes, pra mistura não se repetir igual.</p>
+      </article>
+      <article class="card">
+        <div class="card-top"><span class="fname">Prévia na mistura</span><span class="tags"><span class="tag">amb 0,7</span><span class="tag">vento 0,45</span></span></div>
+        <div class="btns" id="mixbtns">
+          <button class="btn" data-st="dead">▶ morto + vento</button>
+          <button class="btn" data-st="mist">▶ névoa + vento</button>
+          <button class="btn" data-st="green">▶ verde + vento</button>
+        </div>
+        <div class="btns">
+          <button class="btn" id="wind-toggle">vento on/off</button>
+          <button class="btn" id="mix-stop">■ parar</button>
+        </div>
+        <label class="when" for="wind-vol">volume do vento: <span id="wind-vol-v">0,45</span></label>
+        <input type="range" id="wind-vol" min="0" max="1" step="0.05" value="0.45">
+        <p class="what" id="mix-status">Parado.</p>
+        <p class="what">O "vento on/off" corta só o vento, sem parar o ambiente: dá pra ouvir o que ele acrescenta. O slider mexe no volume do vento ao vivo, se tu quiser propor outro número pro Dev.</p>
+      </article>
+    </div>
+    <div class="tbl" style="margin-top:16px">
+      <table>
+        <thead><tr><th>Medida (análise, não ouvido)</th><th>Morto</th><th>Névoa</th><th>Verde</th></tr></thead>
+        <tbody>
+          <tr><td>Vento abaixo do ambiente, na média (amb 0,7 · vento 0,45)</td><td>−12,8 dB</td><td>−12,8 dB</td><td>−12,8 dB</td></tr>
+          <tr><td>Na rajada mais forte (janela de 3 s)</td><td>−9,2 dB</td><td>−8,9 dB</td><td>−8,9 dB</td></tr>
+          <tr><td>Energia acima de 2,5 kHz (fatia do total): ambiente sozinho → com vento</td><td>−65,5 → −44,9 dB</td><td>−63,8 → −44,6 dB</td><td>−35,2 → −34,9 dB</td></tr>
+          <tr><td>Loudness total da mistura (muda quase nada)</td><td>−30,1 → −29,9</td><td>−30,1 → −29,9</td><td>−30,1 → −29,9</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="what" style="margin-top:10px">Leitura: o vento fica bem embaixo do pad e soma só um pouquinho de ar entre 150 Hz e 1,5 kHz. A fatia de agudos continua dentro da faixa que tu aprovou na v2 (−35 a −66 dB). O morto e a névoa ganham mais "ar" relativo porque eles quase não têm nada lá em cima.</p>
+  </section>
 
   <section class="pick" id="escolha">
     <div class="sec-head" style="border-color:#5a4524"><span class="num">v4</span><h2>Escolha o som de mineração</h2>
@@ -203,6 +244,7 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
           <tr><td>v0.2</td><td><code>drone_deliver</code></td><td>0,8 (× distância, se longe)</td><td>quando o drone solta a carga na estação</td></tr>
           <tr><td>v0.2</td><td><code>save</code></td><td>0,6</td><td>no save manual; no autosave pode ir a 0,4, ou ficar em silêncio se for muito frequente</td></tr>
         
+          <tr><td>v0.3 · pendente</td><td><code>desert_wind</code></td><td>0,45 (faixa 0,35–0,5)</td><td>canal próprio reservado, <code>loops=-1</code>, por cima do ambiente. Entra com <code>fade_ms=2500</code> ao sair pra superfície e sai com <code>fadeout(1500)</code> ao entrar na caverna. Não acompanha o crossfade de estágio: continua tocando igual.</td></tr>
           <tr><td>Ambiente</td><td><code>amb_*</code></td><td>0,7</td><td>já saem ~8–10 dB abaixo dos sfx.</td></tr>
           <tr><td>Recompensa</td><td><code>stage_up</code></td><td>1,0</td><td>é o som mais alto do jogo, de propósito.</td></tr>
         </tbody>
@@ -255,6 +297,21 @@ def trocar_ambiente(novo, atual_idx):
     AMB[prox].set_volume(0.7)
     AMB[prox].play(novo, loops=-1, fade_ms=7000)
     return prox</pre>
+      </div>
+      <div class="box">
+        <h3>Vento da superfície (v0.3)</h3>
+        <ul>
+          <li>Um canal reservado só pro vento (não usar os canais A/B do ambiente, senão o crossfade de estágio corta o vento).</li>
+          <li>Sair pra superfície: <code>vento.play(desert_wind, loops=-1, fade_ms=2500)</code> com <code>set_volume(0.45)</code>. Entrar na caverna: <code>vento.fadeout(1500)</code>. Descer é mais rápido que subir, pra caverna "fechar" o som.</li>
+          <li>Se o jogador ficar indo e voltando na boca da cratera, use histerese (ou um tempinho de ~0,5 s) pra não reiniciar o loop toda hora. Melhor ainda: deixar o vento sempre tocando e só animar o volume (0 na caverna, 0,45 na superfície) com uma rampa por frame.</li>
+          <li>O ambiente do estágio não muda de volume por causa do vento. No desmaio, o vento cai junto com o ambiente.</li>
+          <li>Sem variação de pitch no vento.</li>
+        </ul>
+<pre>VENTO = pygame.mixer.Channel(4)   # reserve 5 canais em vez de 4
+alvo = 0.45 if na_superficie else 0.0
+vol = VENTO.get_volume()
+vol += (alvo - vol) * min(1.0, dt / (0.8 if alvo else 0.5))
+VENTO.set_volume(vol)               # o loop roda sempre, só o volume anda</pre>
       </div>
       <div class="box">
         <h3>Alarme e base</h3>
@@ -470,6 +527,41 @@ CANDS.forEach(([key, file, title, src, desc]) => {
   card.querySelector("[data-a]").onclick = () => isBreak ? playBurst(hitV3, 4, url) : playBurst(url, 4);
   card.querySelector("[data-b]").onclick = () => isBreak ? playBurst(hitV3, 4, BREAK_OFFICIAL) : playBurst(url, 4, BREAK_OFFICIAL);
 });
+
+// ---- v7: vento do deserto (pendente) + prévia mixada ----
+(() => {
+  const m = META["pend:desert_wind"] || {};
+  const card = document.getElementById("wind-card");
+  document.getElementById("wind-dur").textContent = fmtDur(m.duration);
+  document.getElementById("wind-peak").textContent = "pico " + fmtDb(m.peak_db);
+  const cv = card.querySelector("canvas");
+  requestAnimationFrame(() => drawWave(cv, m.wave, "#e8b46a"));
+  window.addEventListener("resize", () => drawWave(cv, m.wave, "#e8b46a"));
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td><code>_pending/desert_wind.wav</code></td><td>${fmtDur(m.duration)}</td><td class="pass">${fmtDb(m.peak_db)}</td><td>${fmtDb(m.loudness_db)}</td><td>${m.seam_lsb != null ? `<span class="pass">OK · salto ${m.seam_lsb} lsb (percentil ${String(m.seam_pct).replace(".", ",")} dos saltos normais)</span>` : "—"}</td>`;
+  checks.appendChild(tr);
+
+  const AMB_VOL = 0.7;
+  let windVol = 0.45, windOn = true, amb = null, wind = null, cur = null;
+  const status = document.getElementById("mix-status");
+  const names = {dead:"morto", mist:"névoa", green:"verde"};
+  function stop(){ [amb, wind].forEach(a => a && a.pause()); amb = wind = cur = null; status.textContent = "Parado."; }
+  function show(){ if (cur) status.textContent = `Tocando: amb_${cur} (0,7) + vento (${windOn ? String(windVol.toFixed(2)).replace(".", ",") : "desligado"})`; }
+  document.querySelectorAll("#mixbtns [data-st]").forEach(b => b.onclick = () => {
+    stop();
+    document.querySelectorAll("audio").forEach(a => a.pause());
+    cur = b.dataset.st;
+    amb = new Audio(`../../assets/audio/amb_${cur}.wav`); amb.loop = true; amb.volume = AMB_VOL;
+    wind = new Audio("../../assets/audio/_pending/desert_wind.wav"); wind.loop = true; wind.volume = windOn ? windVol : 0;
+    amb.play().catch(() => {}); wind.play().catch(() => {});
+    show();
+  });
+  document.getElementById("mix-stop").onclick = stop;
+  document.getElementById("wind-toggle").onclick = () => { windOn = !windOn; if (wind) wind.volume = windOn ? windVol : 0; show(); };
+  const sl = document.getElementById("wind-vol");
+  sl.oninput = () => { windVol = parseFloat(sl.value); document.getElementById("wind-vol-v").textContent = windVol.toFixed(2).replace(".", ","); if (wind && windOn) wind.volume = windVol; show(); };
+  document.addEventListener("play", e => { if (e.target.tagName === "AUDIO" && e.target.isConnected) stop(); }, true);
+})();
 
 // só uma faixa tocando por vez
 document.addEventListener("play", e => {

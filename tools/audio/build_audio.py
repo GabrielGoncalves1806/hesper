@@ -1051,9 +1051,56 @@ def sfx_save(rng):
     return reverb(out, rng, decay=1.0, mix=0.2, lp=5000)
 
 
+# ---------------------------------------------------------------------------
+# v7 (v0.3 · Marco 1 · Superfície): vento do deserto
+# ---------------------------------------------------------------------------
+
+def loop_desert_wind(rng):
+    """Vento seco e espaçoso, camada baixíssima por cima do amb_{stage} na superfície.
+
+    Sem ruído branco chapado: o ruído é dividido em 6 bandas largas (filtros de ordem 1-2,
+    nada de Q alto, então nenhum tom/assobio) e o peso de cada banda segue curvas lentas
+    e periódicas, o que faz o "filtro" do vento passear. As rajadas (lentas, 4-9 s) sobem
+    o volume e puxam o peso pras bandas de cima, como vento que aperta e clareia.
+    Quase tudo abaixo de 1,5 kHz; areia/chiado acima de 2,5 kHz só um fio.
+    Periódico em L = 36 s (não bate com os 32 s dos ambientes, então a mistura não
+    se repete igual). Ruído circular, controles periódicos, rajadas com add_circ e
+    reverb circular: emenda exata, sem crossfade."""
+    L = 36.0
+    n = ns(L)
+    # rajadas lentas e esparsas + respiração de fundo
+    g = gusts(n, rng, 5, (4.0, 9.0), rise=0.45)
+    g = filt(g, None, 0.5, 1, circular=True)                         # sem quina no envelope
+    base = periodic_ctrl(n, L, rng, 1, 4)                           # maré lenta
+    level = 0.35 + 0.25 * base + 0.55 * g
+    # turbulência: oscilação de 0,2-0,8 Hz por cima, bem sutil
+    turb = periodic_ctrl(n, L, rng, 8, 28, tilt=0.6)
+    level *= 0.85 + 0.15 * turb
+    bright = np.clip(0.25 * base + 0.85 * g, 0, 1)                 # 0 = escuro, 1 = claro
+    bands = [  # (lo, hi, ordem, ganho, quanto depende do "bright")
+        (40, 110, 2, 0.55, -0.4),
+        (90, 220, 2, 0.75, -0.2),
+        (180, 420, 1, 0.70, 0.0),
+        (350, 800, 1, 0.50, 0.4),
+        (700, 1500, 1, 0.30, 0.8),
+        (1400, 3200, 1, 0.025, 1.0),  # areia fininha, quase nada
+    ]
+    out = np.zeros(n)
+    for lo, hi, order, gain, dep in bands:
+        nb = norm_rms(filt(rng.standard_normal(n), lo, hi, order, circular=True))
+        wander = periodic_ctrl(n, L, rng, 2, 9, tilt=0.8)          # cada banda passeia sozinha
+        w = (0.55 + 0.45 * wander) * (1 + dep * (bright - 0.5) * 1.6)
+        out += gain * nb * np.clip(w, 0.05, None)
+    out = filt(out, 35, 1500, 3, circular=True) * level
+    # espaço: reverb longo e escuro, pouco (o vento é seco; o espaço vem da cauda)
+    return reverb(out, rng, decay=4.5, mix=0.35, lp=1600, circular=True)
+
+
 # v6.1: os 9 sons do v0.2 foram aprovados e entraram no SOUNDS.
 # Próximas rodadas: o que for novo entra aqui e sai em assets/audio/_pending/.
-PENDING: dict = {}
+PENDING: dict = {
+    "desert_wind": (loop_desert_wind, True, -36.0),
+}
 
 SOUNDS.update({
     "chest_open": (sfx_chest_open, False, -21.0),
