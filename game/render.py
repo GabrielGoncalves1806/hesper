@@ -84,15 +84,11 @@ class Renderer:
         pygame.draw.ellipse(self.player_shadow, (0, 0, 0, 97), (0, 0, 16, 5))
         self.drone_shadow = pygame.Surface((12, 5), pygame.SRCALPHA)       # sombra do drone voando
         pygame.draw.ellipse(self.drone_shadow, (0, 0, 0, 92), (0, 0, 12, 5))   # preto 36%
-        self.darkness = pygame.Surface((C.SCREEN_W, C.SCREEN_H), pygame.SRCALPHA)
-        self.layer = pygame.Surface((C.SCREEN_W, C.SCREEN_H), pygame.SRCALPHA)   # camada reaproveitável
-        self.vignette = art.vignette(C.SCREEN_W, C.SCREEN_H, (0, 0, 0), 128)
+        # Tamanho da "visão" (px do mundo que cabem na tela). Sem zoom é 960×540; com zoom muda
+        # (o App desenha numa superfície de SCREEN/zoom e estica). Vem do tamanho do canvas em draw().
+        self.view_w, self.view_h = C.SCREEN_W, C.SCREEN_H
+        self._view_fx: dict[tuple, pygame.Surface] = {}   # escuridão, vinheta, véus... um por tamanho de visão
         self.zone_surf = pygame.Surface((C.BASE_RADIUS * 2 + 4, C.BASE_RADIUS * 2 + 4), pygame.SRCALPHA)
-        self.tints = {
-            "dead": self._full((214, 104, 52, 18)),
-            "green": self._full((255, 226, 160, 13)),
-        }
-        self.fog_gradient = self._vertical_gradient((220, 230, 235), 51, 13)
         self.fog_blob = art.radial(180, (230, 236, 240), 70)
         self.dust = [self._dot((240, 170, 120, 128)), self._dot((255, 210, 170, 178))]
         self.open_chest = None                   # baú aberto agora (o App avisa): desenha com a tampa aberta
@@ -110,8 +106,8 @@ class Renderer:
         return surf
 
     @staticmethod
-    def _full(rgba):
-        s = pygame.Surface((C.SCREEN_W, C.SCREEN_H), pygame.SRCALPHA)
+    def _full(size, rgba):
+        s = pygame.Surface(size, pygame.SRCALPHA)
         s.fill(rgba)
         return s
 
@@ -122,12 +118,28 @@ class Renderer:
         return s
 
     @staticmethod
-    def _vertical_gradient(rgb, top_alpha, bottom_alpha):
+    def _vertical_gradient(size, rgb, top_alpha, bottom_alpha):
         s = pygame.Surface((1, 64), pygame.SRCALPHA)
         for y in range(64):
             a = top_alpha + (bottom_alpha - top_alpha) * y / 63
             s.set_at((0, y), (*rgb, int(a)))
-        return pygame.transform.smoothscale(s, (C.SCREEN_W, C.SCREEN_H))
+        return pygame.transform.smoothscale(s, size)
+
+    VIEW_FX = {   # superfícies do tamanho da visão, criadas na primeira vez que cada tamanho aparece
+        "darkness": lambda size: pygame.Surface(size, pygame.SRCALPHA),
+        "layer": lambda size: pygame.Surface(size, pygame.SRCALPHA),          # camada reaproveitável
+        "vignette": lambda size: art.vignette(*size, (0, 0, 0), 128),
+        "tint_dead": lambda size: Renderer._full(size, (214, 104, 52, 18)),
+        "tint_green": lambda size: Renderer._full(size, (255, 226, 160, 13)),
+        "fog_gradient": lambda size: Renderer._vertical_gradient(size, (220, 230, 235), 51, 13),
+    }
+
+    def view_fx(self, name: str) -> pygame.Surface:
+        size = (self.view_w, self.view_h)
+        key = (name, size)
+        if key not in self._view_fx:
+            self._view_fx[key] = self.VIEW_FX[name](size)
+        return self._view_fx[key]
 
     def surface(self, name: str | None, painter, variant_key: str | None = None) -> tuple[pygame.Surface, bool]:
         """Sprite do contrato (se ligado e existir) ou o desenho de fallback. Devolve (surface, é_fallback)."""
@@ -156,17 +168,20 @@ class Renderer:
 
     # ---- câmera ---------------------------------------------------------------
     @staticmethod
-    def camera(state: GameState) -> tuple[int, int]:
-        """Canto superior esquerdo da tela, em pixels do mundo. Segue o player e não sai do mapa."""
-        max_x = state.world.width * T - C.SCREEN_W
-        max_y = state.world.height * T - C.SCREEN_H
-        cx = min(max(0, state.player.x - C.SCREEN_W / 2), max_x)
-        cy = min(max(0, state.player.y - 16 - C.SCREEN_H / 2), max_y)
+    def camera(state: GameState, view: tuple[int, int] = (C.SCREEN_W, C.SCREEN_H)) -> tuple[int, int]:
+        """Canto superior esquerdo da visão, em pixels do mundo. Segue o player e não sai do mapa.
+        `view` = quanto do mundo cabe na tela (muda com o zoom: game/viewport.py)."""
+        vw, vh = view
+        max_x = state.world.width * T - vw
+        max_y = state.world.height * T - vh
+        cx = min(max(0, state.player.x - vw / 2), max_x)
+        cy = min(max(0, state.player.y - 16 - vh / 2), max_y)
         return int(cx), int(cy)
 
     # ---- frame completo -------------------------------------------------------
     def draw(self, canvas: pygame.Surface, state: GameState, cam: tuple[int, int], t: float,
              ghost: tuple[str, tuple[int, int], int, bool] | None = None) -> None:
+        self.view_w, self.view_h = canvas.get_size()     # tamanho da visão (com zoom, não é 960×540)
         stage = stage_key(state.stage)
         self.stage_map.update(state.ti, [BASE_SOURCE, *state.transition_sources])
         self.draw_floors(canvas, state, cam, stage, t)
@@ -185,7 +200,7 @@ class Renderer:
     # ---- tiles ----------------------------------------------------------------
     def visible_tiles(self, cam) -> tuple[int, int, int, int]:
         cam_x, cam_y = cam
-        return cam_x // T, (cam_x + C.SCREEN_W) // T, cam_y // T, (cam_y + C.SCREEN_H) // T
+        return cam_x // T, (cam_x + self.view_w) // T, cam_y // T, (cam_y + self.view_h) // T
 
     def draw_floors(self, canvas, state: GameState, cam, stage: str, t: float) -> None:
         """Passada 1: todo o chão e a água visíveis (as paredes vêm depois, por cima)."""
@@ -205,7 +220,7 @@ class Renderer:
         """Veios 2×2: overlay do chão (vale pros 3 estágios), antes das paredes e dos objetos."""
         for v in state.world.veins:
             sx, sy = v.tx * T - cam[0], v.ty * T - cam[1]
-            if -64 < sx < C.SCREEN_W and -64 < sy < C.SCREEN_H:
+            if -64 < sx < self.view_w and -64 < sy < self.view_h:
                 surf, _ = self.surface(f"vein_{v.resource}", lambda r=v.resource: art.vein(r))
                 canvas.blit(surf, (sx, sy))
 
@@ -389,7 +404,7 @@ class Renderer:
 
         for m in state.machines:
             mx, my = m.anchor                                  # centro da base (drill: centro dos 2×2)
-            if -64 < mx - cam_x < C.SCREEN_W + 64 and -80 < my - cam_y < C.SCREEN_H + 80:
+            if -64 < mx - cam_x < self.view_w + 64 and -80 < my - cam_y < self.view_h + 80:
                 if m.is_drill:
                     items.append((my, lambda m=m, mx=mx, my=my: self.draw_drill(canvas, m, mx - cam_x, my - cam_y, self.machine_t)))
                 elif m.is_chest:
@@ -402,8 +417,8 @@ class Renderer:
 
         if self.stage_map.next_stage >= 3:   # plantas nascem junto com a mancha verde
             tx0, ty0 = cam_x // T, cam_y // T
-            for ty in range(ty0, ty0 + C.SCREEN_H // T + 3):
-                for tx in range(tx0, tx0 + C.SCREEN_W // T + 2):
+            for ty in range(ty0, ty0 + self.view_h // T + 3):
+                for tx in range(tx0, tx0 + self.view_w // T + 2):
                     kind = state.world.plant_at(tx, ty)
                     if kind and self.stage_map.stage_at(tx, ty) >= 3 and not state.machine_at((tx, ty)):
                         px, py = tx * T + T // 2, (ty + 1) * T
@@ -498,7 +513,7 @@ class Renderer:
                 if not drone.in_air:
                     continue
                 x, y = round(drone.x - cam[0]), round(drone.y - cam[1])
-                if not (-32 < x < C.SCREEN_W + 32 and -32 < y < C.SCREEN_H + 48):
+                if not (-32 < x < self.view_w + 32 and -32 < y < self.view_h + 48):
                     continue
                 canvas.blit(self.drone_shadow, (x - 6, y + C.DRONE_SHADOW_DROP - 2))
                 bob = round(math.sin(t * 5 + i * 1.7) * 1.5)
@@ -710,19 +725,20 @@ class Renderer:
             if m.kind.endswith("_t2"):
                 r = int(r * 1.25)
             lx, ly = m.tx * T + 16 - cam_x, m.ty * T + T + dy - cam_y
-            if -r < lx < C.SCREEN_W + r and -r < ly < C.SCREEN_H + r:
+            if -r < lx < self.view_w + r and -r < ly < self.view_h + r:
                 lights.append((lx, ly, r, rgb, a, 1.0))
         for tx, ty in state.world.terminals:
             lx, ly = tx * T + 16 - cam_x, ty * T + 16 - cam_y
-            if -120 < lx < C.SCREEN_W + 120 and -120 < ly < C.SCREEN_H + 120:
+            if -120 < lx < self.view_w + 120 and -120 < ly < self.view_h + 120:
                 lights.append((lx, ly, 120, (111, 227, 160), 0.3, 1.0))
         p = state.player
         lights.append((p.x - cam_x, p.y - 18 - cam_y, 130, (255, 236, 210), 0.07, 1.0))
 
-        self.darkness.fill(self.ambient_color(stage))
+        darkness = self.view_fx("darkness")
+        darkness.fill(self.ambient_color(stage))
         for x, y, r, _, _, cut in lights:
-            self.darkness.blit(self.light_cut(r, cut), (round(x - r), round(y - r)), special_flags=pygame.BLEND_RGBA_SUB)
-        canvas.blit(self.darkness, (0, 0))
+            darkness.blit(self.light_cut(r, cut), (round(x - r), round(y - r)), special_flags=pygame.BLEND_RGBA_SUB)
+        canvas.blit(darkness, (0, 0))
         for x, y, r, rgb, a, _ in lights:
             gr = int(r * 0.75)
             canvas.blit(self.light_glow(gr, rgb, a), (round(x - gr), round(y - gr)), special_flags=pygame.BLEND_RGB_ADD)
@@ -751,6 +767,7 @@ class Renderer:
         level = round(amount * 32)
         if level >= 32:
             return surf
+        name = f"{name}@{surf.get_width()}x{surf.get_height()}"   # cada tamanho de visão tem o seu
         cached = self._fade_cache.get(name)
         if cached is None or cached[0] != level:
             faded = surf.copy()
@@ -765,32 +782,33 @@ class Renderer:
         self._draw_weather(canvas, stage, t, 1.0 - fade)
         if fade > 0:
             self._draw_weather(canvas, stage_key(self.stage_map.next_stage), t, fade)
-        canvas.blit(self.vignette, (0, 0))
+        canvas.blit(self.view_fx("vignette"), (0, 0))
 
     def _draw_weather(self, canvas, stage: str, t: float, amount: float = 1.0) -> None:
         """Clima de um estágio com intensidade `amount` (0 a 1): menos partículas e véus mais fracos."""
-        W, H = C.SCREEN_W, C.SCREEN_H
+        W, H = self.view_w, self.view_h
         if stage == "dead":           # poeira laranja no ar
-            canvas.blit(self._faded("tint_dead", self.tints["dead"], amount), (0, 0))
+            canvas.blit(self._faded("tint_dead", self.view_fx("tint_dead"), amount), (0, 0))
             for i in range(round(70 * amount)):
                 x = (hash01(i, 1, 7) * W + t * 27 * (0.5 + hash01(i, 2, 7))) % W
                 y = hash01(i, 3, 7) * H + math.sin(t * 0.9 + i) * 6
                 canvas.blit(self.dust[0 if i % 3 else 1], (int(x), int(y)))
         elif stage == "mist":         # névoa + chuva fina
-            canvas.blit(self._faded("fog_gradient", self.fog_gradient, amount), (0, 0))
+            canvas.blit(self._faded("fog_gradient", self.view_fx("fog_gradient"), amount), (0, 0))
             fog_blob = self._faded("fog_blob", self.fog_blob, amount)
             for i in range(4):
                 fx = ((hash01(i, 9, 7) * W + t * 11) % (W + 320)) - 160
                 fy = hash01(i, 8, 7) * H
                 canvas.blit(fog_blob, (int(fx - 180), int(fy - 180)))
-            self.layer.fill((0, 0, 0, 0))
+            layer = self.view_fx("layer")
+            layer.fill((0, 0, 0, 0))
             for i in range(round(80 * amount)):
                 x = (hash01(i, 5, 7) * W + t * 36) % W
                 y = (hash01(i, 6, 7) * H + t * 108) % H
-                pygame.draw.line(self.layer, (185, 215, 230, 128), (x, y), (x - 4, y + 10))
-            canvas.blit(self.layer, (0, 0))
+                pygame.draw.line(layer, (185, 215, 230, 128), (x, y), (x - 4, y + 10))
+            canvas.blit(layer, (0, 0))
         else:                          # luz quente + borboletas
-            canvas.blit(self._faded("tint_green", self.tints["green"], amount), (0, 0))
+            canvas.blit(self._faded("tint_green", self.view_fx("tint_green"), amount), (0, 0))
             for i in range(round(6 * amount)):
                 x = round((hash01(i, 11, 7) * W + t * 22 + math.sin(t * 2.7 + i) * 16) % W)
                 y = round(hash01(i, 12, 7) * H * 0.8 + 40 + math.sin(t * 4.5 + i * 2) * 12)

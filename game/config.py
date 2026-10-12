@@ -48,6 +48,11 @@ HUM_MAX_VOLUME = 0.6    # zumbido das máquinas quando o player está colado nel
 SCREEN_W, SCREEN_H = 960, 540   # resolução interna (30×17 tiles)
 UI_W, UI_H = 480, 270           # a UI é desenhada em metade da resolução e escalada 2× (igual ao mockup)
 FPS = 60
+# Zoom do mundo (+/- ou Ctrl+rodinha). Só o mundo aproxima/afasta: HUD e menus ficam do mesmo tamanho.
+# Cada nível vira uma "visão" de SCREEN/zoom px do mundo (0,75 -> 1280×720, 2 -> 480×270).
+ZOOM_LEVELS = (0.75, 1.0, 1.5, 2.0)
+ZOOM_DEFAULT = 1.0
+ZOOM_TOAST_TIME = 1.2           # segundos do aviso "Zoom 1,5×"
 MAX_DT = 0.05                   # nunca simula mais que 50 ms num frame (evita atravessar parede)
 DEBUG_TIME_SCALE = 10           # F1: acelera O₂ e máquinas ×10
 DEBUG_TI_BONUS = 10_000         # F2: soma isso no Ti

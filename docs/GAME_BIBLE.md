@@ -72,6 +72,8 @@ Referência obrigatória: `reports/mockups/mockups.html` (abre no navegador).
 | Abrir/fechar fabricador | E (só na zona da base) |
 | Colocar máquina | clique esquerdo com máquina selecionada · R gira (cosmético) · Esc cancela |
 | Ler terminal | E perto do terminal |
+| Zoom do mundo | + / - (ou = e o teclado numérico) · Ctrl+rodinha (Cmd no Mac) · níveis 0,75× · 1× · 1,5× · 2× (padrão 1×). Só o mundo aproxima: HUD e menus ficam do mesmo tamanho |
+| Tela cheia | F11 ou Alt+Enter · também em Pausa > Opções. Usa a resolução do monitor mantendo 16:9 (tarja preta se sobrar) |
 | Debug (dev) | F1 acelera o tempo ×10 · F2 +10.000 Ti |
 
 ### Mineração
@@ -217,7 +219,7 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 
 **Inventário com slots**
 - O player tem **16 slots**. Recursos empilham até **50** por slot; máquinas fabricadas viram **itens** e empilham até **5**.
-- **Hotbar** de 8 slots no rodapé central. Teclas **1–8** ou a rodinha do mouse selecionam. Se o item selecionado for máquina, o jogo entra no modo de colocar. Isso substitui o estoque de máquinas atual (teclas 1–7).
+- **Hotbar** de 8 slots no rodapé central. Teclas **1–8** ou a rodinha do mouse selecionam (com Ctrl segurado a rodinha mexe no zoom). Se o item selecionado for máquina, o jogo entra no modo de colocar. Isso substitui o estoque de máquinas atual (teclas 1–7).
 - **Tela de inventário (Tab)**: grade dos 16 slots e a hotbar. Clique pega e solta a pilha, e clique direito pega metade.
 - **Inventário cheio**: o minério minerado **não é coletado**, e aparece o aviso "Inventário cheio" (o tile quebra mesmo assim).
 - O **fabricador** usa o que está no inventário **e nos baús dentro da zona da base**.

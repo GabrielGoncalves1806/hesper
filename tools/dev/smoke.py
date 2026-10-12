@@ -66,8 +66,10 @@ class Bot:
         self.frames(DT)
 
     def tile_on_screen(self, tile: tuple[int, int]) -> tuple[int, int]:
+        """Centro do tile na janela (escala 1, sem tarja): considera o zoom."""
         cx, cy = self.app.cam
-        return tile[0] * C.TILE + 16 - cx, tile[1] * C.TILE + 16 - cy
+        z = self.app.zoom
+        return round((tile[0] * C.TILE + 16 - cx) * z), round((tile[1] * C.TILE + 16 - cy) * z)
 
     def mouse_down(self, pos):
         pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=pos, button=1))
@@ -268,7 +270,7 @@ def check_pause(bot) -> None:
     bot.frames(1.0)
     assert s.ti == ti_before and s.o2 == o2_before, "pausa tem que congelar Ti e O2"
     ui = app.ui
-    bot.mouse_to((ui.pause_items[1].centerx * 2, ui.pause_items[1].centery * 2))   # mouse em "Volumes"
+    bot.mouse_to((ui.pause_items[1].centerx * 2, ui.pause_items[1].centery * 2))   # mouse em "Opções"
     assert app.pause_selected == 1
     bot.shot("pausa.png")
     bot.click((ui.pause_items[1].centerx * 2, ui.pause_items[1].centery * 2))
@@ -289,7 +291,7 @@ def check_pause(bot) -> None:
     bot.frames(DT)
     assert abs(app.settings["master"] - 0.8) < 0.051, app.settings
     assert settings.load() == app.settings, "volumes têm que ir pro settings.json"
-    assert app.audio.mix == app.settings
+    assert app.audio.mix == settings.mix(app.settings)
     bot.shot("pausa_volumes.png")
     bot.key(pygame.K_ESCAPE)
     assert app.pause_screen == "main"
@@ -303,7 +305,7 @@ def check_pause(bot) -> None:
     bot.key(pygame.K_ESCAPE)
     assert app.mode == "play"
     app.settings = dict(settings.DEFAULTS)
-    app.audio.set_mix(**app.settings)
+    app.audio.set_mix(**settings.mix(app.settings))
     settings.SETTINGS_PATH.unlink(missing_ok=True)
     # Esc com máquina na mão só cancela (não pausa)
     s.inventory.add("o2", 1)
@@ -312,6 +314,132 @@ def check_pause(bot) -> None:
     bot.key(pygame.K_ESCAPE)
     assert app.placing is None and app.mode == "play"
     s.inventory.remove("o2", 1)
+
+
+def check_zoom_and_fullscreen(bot) -> None:
+    """Zoom (+/-, Ctrl+rodinha) só no mundo; mouse acerta tile/máquina em qualquer zoom; tela cheia com
+    tarja preta (o driver dummy finge um monitor 4:3 de 1024×768). Prints: zoom_out, zoom_in, tela_cheia."""
+    from game import viewport
+    s, app = bot.state, bot.app
+    settings.SETTINGS_PATH.unlink(missing_ok=True)
+    assert app.zoom == 1.0
+    bot.teleport((64, 66))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+    machine = s.machines[0]
+
+    def hover_machine_check():
+        ax, ay = machine.anchor
+        pos = viewport.world_to_canvas((ax, ay - 8), app.cam, app.zoom)
+        bot.mouse_to((round(pos[0]), round(pos[1])))
+        assert app.hovered_machine() is machine, (app.zoom, pos)
+
+    def tile_check(tile):
+        bot.mouse_to(bot.tile_on_screen(tile))
+        assert app.mouse_tile() == tile, (app.zoom, app.mouse_tile(), tile)
+
+    # zoom out (0,75×): visão de 1280×720 do mundo
+    bot.key(pygame.K_MINUS)
+    assert app.zoom == 0.75 and settings.load()["zoom"] == 0.75, "zoom tem que ir pro settings.json"
+    assert app.cam == app.renderer.camera(s, (1280, 720))
+    hover_machine_check()
+    tile_check((60, 62))
+    app.floaters.add("+15 FERRO", s.player.x, s.player.y - 40, C.ORE_COLORS["iron"][0])
+    start = len(bot.frame_times)
+    bot.frames(1.0)
+    zoom_out_ms = 1000 * sum(bot.frame_times[start:]) / (len(bot.frame_times) - start)
+    app.floaters.add("+15 FERRO", s.player.x, s.player.y - 40, C.ORE_COLORS["iron"][0])
+    app.show_toast("Zoom 0,75×")
+    bot.frames(0.2)
+    bot.shot("zoom_out.png")
+    print(f"  zoom 0,75×: {zoom_out_ms:.1f} ms por frame (visão 1280×720)")
+    # Ctrl+rodinha: mexe no zoom e NÃO troca a hotbar
+    slot = app.hotbar_selected
+    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_LCTRL, mod=pygame.KMOD_LCTRL, unicode="", scancode=0))
+    pygame.event.post(pygame.event.Event(pygame.MOUSEWHEEL, x=0, y=1, flipped=False, precise_x=0.0, precise_y=1.0))
+    bot.frames(DT)
+    pygame.event.post(pygame.event.Event(pygame.KEYUP, key=pygame.K_LCTRL, mod=0, unicode="", scancode=0))
+    bot.frames(DT)
+    assert app.zoom == 1.0 and app.hotbar_selected == slot, (app.zoom, app.hotbar_selected)
+    # sem Ctrl a rodinha continua na hotbar
+    pygame.event.post(pygame.event.Event(pygame.MOUSEWHEEL, x=0, y=-1, flipped=False, precise_x=0.0, precise_y=-1.0))
+    bot.frames(DT)
+    assert app.zoom == 1.0 and app.hotbar_selected == (slot + 1) % C.HOTBAR_SLOTS
+    bot.key(NUMBER_KEYS[slot])
+    # zoom in até o máximo (= e + do teclado numérico), e para no 2×
+    bot.key(pygame.K_EQUALS)
+    assert app.zoom == 1.5
+    tile_check((62, 64))
+    bot.key(pygame.K_KP_PLUS)
+    bot.key(pygame.K_KP_PLUS)
+    assert app.zoom == 2.0
+    hover_machine_check()
+    tile_check((63, 64))
+    # fantasma de colocação no tile certo com zoom
+    s.inventory.add("o2", 1)
+    bot.key(hotbar_key(bot, "o2"))
+    assert app.placing == "o2"
+    target = (65, 64)
+    bot.mouse_to(bot.tile_on_screen(target))
+    assert app.place_target() == target
+    app.floaters.add("+15 FERRO", s.player.x, s.player.y - 40, C.ORE_COLORS["iron"][0])
+    bot.frames(0.3)
+    bot.shot("zoom_in.png")
+    bot.key(pygame.K_ESCAPE)
+    assert app.placing is None
+    s.inventory.remove("o2", 1)
+    # o HUD não muda de tamanho: a hotbar fica no mesmo lugar em qualquer zoom (compara a faixa de baixo)
+    hud_zoom = app.canvas.subsurface((0, C.SCREEN_H - 60, C.SCREEN_W, 60)).copy()
+    bot.key(pygame.K_KP_MINUS)
+    bot.key(pygame.K_MINUS)
+    assert app.zoom == 1.0
+    hud_normal = app.canvas.subsurface((0, C.SCREEN_H - 60, C.SCREEN_W, 60)).copy()
+    hotbar = pygame.Rect(C.SCREEN_W // 2 - 180, 10, 360, 50)
+    same = sum(hud_zoom.get_at((x, y)) == hud_normal.get_at((x, y))
+               for x in range(hotbar.x, hotbar.right, 3) for y in range(hotbar.y, hotbar.bottom, 3))
+    total = len(range(hotbar.x, hotbar.right, 3)) * len(range(hotbar.y, hotbar.bottom, 3))
+    assert same / total > 0.6, f"hotbar mudou com o zoom? só {same}/{total} pixels iguais"
+
+    # tela cheia: F11 abre no tamanho do "monitor" (1024×768, 4:3 -> tarja em cima e embaixo)
+    bot.key(pygame.K_F11)
+    assert app.settings["fullscreen"] and settings.load()["fullscreen"], "tela cheia tem que ir pro settings.json"
+    ww, wh = app.window.get_size()
+    x, y, w, h = viewport.letterbox((ww, wh))
+    print(f"  tela cheia: janela {ww}×{wh}, jogo em {w}×{h} a partir de ({x}, {y})")
+    assert (ww, wh) != (C.SCREEN_W, C.SCREEN_H) and y > 0
+    # mouse em cima da máquina, em coordenada de janela (com tarja e escala não inteira)
+    ax, ay = machine.anchor
+    cx_, cy_ = viewport.world_to_canvas((ax, ay - 8), app.cam, app.zoom)
+    bot.mouse_to((round(x + cx_ * w / C.SCREEN_W), round(y + cy_ * h / C.SCREEN_H)))
+    assert abs(app.mouse[0] - cx_) <= 2 and abs(app.mouse[1] - cy_) <= 2, (app.mouse, (cx_, cy_))
+    assert app.hovered_machine() is machine
+    bot.frames(0.2)
+    pygame.image.save(app.window, str(OUT / "tela_cheia.png"))
+    print("  screenshot: reports/dev/tela_cheia.png  (janela inteira, com a tarja preta)")
+    # Alt+Enter volta pra janela
+    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=pygame.KMOD_LALT, unicode="", scancode=0))
+    bot.frames(DT)
+    pygame.event.post(pygame.event.Event(pygame.KEYUP, key=pygame.K_RETURN, mod=0, unicode="", scancode=0))
+    bot.frames(DT)
+    assert not app.settings["fullscreen"] and app.window.get_size() == (C.SCREEN_W, C.SCREEN_H)
+    assert app.mode == "play"
+    # pausa > Opções: tela cheia e zoom também estão lá (A/D mexem)
+    bot.key(pygame.K_ESCAPE)
+    bot.key(pygame.K_s)
+    bot.key(pygame.K_RETURN)
+    assert app.pause_screen == "volumes"
+    for _ in range(len(app.ui.VOLUME_ROWS) + 1):
+        bot.key(pygame.K_s)
+    bot.key(pygame.K_d)
+    assert app.zoom == 1.5
+    bot.shot("pausa_opcoes.png")
+    bot.key(pygame.K_a)
+    assert app.zoom == 1.0
+    bot.key(pygame.K_ESCAPE)
+    bot.key(pygame.K_ESCAPE)
+    assert app.mode == "play"
+    app.toast_time = 0.0
+    settings.SETTINGS_PATH.unlink(missing_ok=True)
 
 
 def check_dismantle(bot) -> None:
@@ -822,6 +950,7 @@ def main() -> None:
     check_walls_and_hover(bot)
     check_drill(bot)
     check_pause(bot)
+    check_zoom_and_fullscreen(bot)
     check_dismantle(bot)
     check_inventory_and_chest(bot)
     check_energy(bot)

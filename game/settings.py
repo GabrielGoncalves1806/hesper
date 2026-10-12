@@ -1,4 +1,4 @@
-"""Preferências do jogador que sobrevivem entre sessões (hoje: só os volumes).
+"""Preferências do jogador que sobrevivem entre sessões: volumes, tela cheia e zoom.
 
 Fica num settings.json na raiz do projeto (no .gitignore). Se o arquivo não existir
 ou estiver estragado, usa o padrão e segue o jogo sem reclamar.
@@ -9,19 +9,32 @@ from pathlib import Path
 
 from game import config as C
 
-DEFAULTS = {"master": 1.0, "sfx": 1.0, "ambient": 1.0}   # multiplicadores de 0 a 1
+VOLUME_KEYS = ("master", "sfx", "ambient")   # multiplicadores de 0 a 1
+DEFAULTS = {"master": 1.0, "sfx": 1.0, "ambient": 1.0, "fullscreen": False, "zoom": C.ZOOM_DEFAULT}
 SETTINGS_PATH = C.ROOT_DIR / "settings.json"
 
 
 def clean(data) -> dict:
-    """Só aceita as chaves conhecidas, com números entre 0 e 1. O resto vira padrão."""
+    """Só aceita as chaves conhecidas, com valores válidos. O resto vira padrão.
+
+    Volumes: números entre 0 e 1. Tela cheia: true/false. Zoom: um dos C.ZOOM_LEVELS."""
     result = dict(DEFAULTS)
     if isinstance(data, dict):
-        for key in DEFAULTS:
+        for key in VOLUME_KEYS:
             value = data.get(key)
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 result[key] = round(max(0.0, min(1.0, float(value))), 2)
+        if isinstance(data.get("fullscreen"), bool):
+            result["fullscreen"] = data["fullscreen"]
+        zoom = data.get("zoom")
+        if isinstance(zoom, (int, float)) and not isinstance(zoom, bool) and float(zoom) in C.ZOOM_LEVELS:
+            result["zoom"] = float(zoom)
     return result
+
+
+def mix(values: dict) -> dict:
+    """Só os volumes (o que o Audio.set_mix recebe)."""
+    return {key: values[key] for key in VOLUME_KEYS}
 
 
 def load(path: Path | None = None) -> dict:

@@ -5,6 +5,11 @@ Game loop (60 vezes por segundo):
     2. update(dt)       manda os controles pro GameState e reage aos eventos dele
     3. draw()           desenha mundo + UI numa tela de 960×540 e estica pra janela
 
+Tela e zoom (game/viewport.py): o mundo é desenhado numa "visão" de 960×540 / zoom px e esticado
+pra 960×540 (sem suavizar); a UI vem por cima, sempre do mesmo tamanho. A tela de 960×540 é
+esticada pra janela mantendo 16:9 (na tela cheia sobra tarja preta se o monitor não for 16:9).
+F11 ou Alt+Enter alternam a tela cheia; +/- ou Ctrl+rodinha mudam o zoom.
+
 Modos de tela: "play" (jogando), "fabricator" (menu de receitas),
 "terminal" (lendo um log), "inventory" (Tab), "chest" (baú aberto com E),
 "pause" (menu do Esc) e "end" (tela de fim do MVP).
@@ -24,6 +29,7 @@ from game import audio as sound
 from game import save
 from game import energy
 from game import settings
+from game import viewport
 from game.assets import Sprites
 from game.audio import Audio
 from game.inventory import Stack
@@ -41,10 +47,17 @@ MOVE_KEYS = {
 }
 NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8]
 INVENTORY_MODES = ("inventory", "chest")
+ZOOM_IN_KEYS = (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS)     # "=" é a tecla do "+" sem Shift
+ZOOM_OUT_KEYS = (pygame.K_MINUS, pygame.K_KP_MINUS)
 BANNER_TIME = 3.5          # banner de estágio: entra em 0,4 s, fica, sai em 0,8 s
 BANNER_FADE_IN, BANNER_FADE_OUT = 0.4, 0.8
 END_SCREEN_DELAY = 4.5
 FOOTSTEP_INTERVAL = 0.3
+
+
+def viewport_label(zoom: float) -> str:
+    """1.5 -> '1,5×', 2.0 -> '2×', 0.75 -> '0,75×'."""
+    return f"{zoom:g}".replace(".", ",") + "×"
 
 
 def pick_scale() -> int:
@@ -60,14 +73,16 @@ class App:
     def __init__(self, scale: int | None = None, skip_title: bool = False):
         sound.pre_init()   # configura o mixer antes do pygame.init() (só se o áudio estiver ligado)
         pygame.init()
-        self.scale = scale or pick_scale()
-        self.window = pygame.display.set_mode((C.SCREEN_W * self.scale, C.SCREEN_H * self.scale))
+        self.scale = scale or pick_scale()               # escala inteira da janela (fora da tela cheia)
+        self.settings = settings.load()
+        self.window = self.open_window(self.settings["fullscreen"])
         pygame.display.set_caption("Hesper · v0.1")
         pygame.mouse.set_visible(False)
         # Tela interna SEM canal alfa, com máscaras explícitas. Sem isso, no macOS (driver Cocoa)
         # o Surface herda o formato da janela, que TEM alfa: os blits gravam alfa 0/255 misturado
         # e o macOS mostra retângulos pretos em volta de sprites (bug do playtest 1).
         self.canvas = pygame.Surface((C.SCREEN_W, C.SCREEN_H), 0, 32, (0xFF0000, 0x00FF00, 0x0000FF, 0))
+        self._world_view: pygame.Surface | None = None   # onde o mundo é desenhado com zoom != 1 (mesmo formato)
         self.clock = pygame.time.Clock()
 
         self.sprites = Sprites()
@@ -105,8 +120,10 @@ class App:
         self.pause_screen = "main"      # "main", "volumes" ou "controls"
         self.pause_selected = 0
         self.dragging_slider: int | None = None
-        self.settings = settings.load()
-        self.audio.set_mix(**self.settings)
+        self.zoom = self.settings["zoom"]
+        self.toast: str | None = None   # aviso neutro rápido ("Zoom 1,5×")
+        self.toast_time = 0.0
+        self.audio.set_mix(**settings.mix(self.settings))
         self.audio.start_ambient(stage_key(self.state.stage))
         # save/load e tela de título (game/save.py, game/title.py)
         self.autosave_timer = 0.0       # segundos jogando (modo "play") desde o último save
@@ -131,15 +148,71 @@ class App:
             self.draw()
         pygame.display.flip()
 
+    # ---- janela, tela cheia e zoom -----------------------------------------------
+    def open_window(self, fullscreen: bool) -> pygame.Surface:
+        """Tela cheia na resolução do monitor (size (0, 0) = "desktop fullscreen" do SDL, sem trocar o
+        modo de vídeo) ou janela com escala inteira. O desenho se ajusta ao tamanho que vier."""
+        if fullscreen:
+            try:
+                return pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            except pygame.error as err:
+                print(f"[tela] não deu pra abrir em tela cheia: {err}")
+        return pygame.display.set_mode((C.SCREEN_W * self.scale, C.SCREEN_H * self.scale))
+
+    def toggle_fullscreen(self) -> None:
+        fullscreen = not self.settings["fullscreen"]
+        self.window = self.open_window(fullscreen)
+        self.settings = settings.clean({**self.settings, "fullscreen": fullscreen})
+        settings.save(self.settings)
+        pygame.mouse.set_visible(False)
+
+    def set_zoom(self, zoom: float, notify: bool = True) -> None:
+        if zoom == self.zoom:
+            return
+        self.zoom = zoom
+        self.settings = settings.clean({**self.settings, "zoom": zoom})
+        settings.save(self.settings)
+        if notify:
+            self.show_toast(f"Zoom {viewport_label(zoom)}")
+            self.audio.play("ui_click")
+
+    def zoom_step(self, step: int) -> None:
+        self.set_zoom(viewport.step_zoom(self.zoom, step))
+
+    def show_toast(self, text: str) -> None:
+        self.toast, self.toast_time = text, C.ZOOM_TOAST_TIME
+
+    @property
+    def view_size(self) -> tuple[int, int]:
+        """Quanto do mundo (px) aparece na tela com o zoom atual."""
+        return viewport.view_size(self.zoom)
+
+    def window_to_canvas(self, pos: tuple[int, int]) -> tuple[int, int]:
+        return viewport.window_to_canvas(pos, self.window.get_size())
+
+    def present(self) -> None:
+        """Estica a tela de 960×540 pra janela mantendo 16:9 (tarja preta no que sobrar), sem suavizar."""
+        x, y, w, h = viewport.letterbox(self.window.get_size())
+        if (x, y) != (0, 0):
+            self.window.fill((0, 0, 0))          # tarja preta (monitor que não é 16:9)
+        # Copiar uma superfície sem alfa pra janela grava alfa 255 (opaco) em todos os pixels.
+        if (w, h) == self.canvas.get_size():
+            self.window.blit(self.canvas, (x, y))
+        else:
+            self.window.blit(pygame.transform.scale(self.canvas, (w, h)), (x, y))
+
     # ---- input ----------------------------------------------------------------
     @property
     def cam(self) -> tuple[int, int]:
-        return self.renderer.camera(self.state)
+        return self.renderer.camera(self.state, self.view_size)
+
+    def mouse_world(self) -> tuple[float, float]:
+        """Onde o mouse está, em pixels do mundo (considerando o zoom)."""
+        return viewport.canvas_to_world(self.mouse, self.cam, self.zoom)
 
     def mouse_tile(self) -> tuple[int, int]:
-        cx, cy = self.cam
         # mira no que está à vista: o topo elevado de uma parede cobre o tile de cima dela
-        return self.state.world.visual_tile_at(self.mouse[0] + cx, self.mouse[1] + cy)
+        return self.state.world.visual_tile_at(*self.mouse_world())
 
     def handle_events(self) -> None:
         for event in pygame.event.get():
@@ -147,18 +220,21 @@ class App:
                 self.quit_game()
             elif event.type == pygame.KEYDOWN:
                 self.keys_down.add(event.key)
-                self.on_key(event.key)
+                if not self.on_global_key(event.key, getattr(event, "mod", 0)):
+                    self.on_key(event.key)
             elif event.type == pygame.KEYUP:
                 self.keys_down.discard(event.key)
             elif event.type == pygame.MOUSEMOTION:
-                self.mouse = (event.pos[0] // self.scale, event.pos[1] // self.scale)
+                self.mouse = self.window_to_canvas(event.pos)
                 if self.mode == "pause":
                     self.pause_hover()
                 elif self.mode == "title":
                     self.title.hover(self.mouse[0] / 2, self.mouse[1] / 2)
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                self.mouse = (event.pos[0] // self.scale, event.pos[1] // self.scale)
+                self.mouse = self.window_to_canvas(event.pos)
                 self.on_click(event.button)
+            elif event.type == pygame.MOUSEWHEEL and self.mode != "title" and self.zoom_modifier():
+                self.zoom_step(1 if event.y > 0 else -1)        # Ctrl+rodinha pra cima = aproxima
             elif event.type == pygame.MOUSEWHEEL and self.mode == "play" and not self.state.fainted:
                 # rodinha pra baixo = próximo slot (y < 0), pra cima = anterior
                 self.select_hotbar((self.hotbar_selected + (1 if event.y < 0 else -1)) % C.HOTBAR_SLOTS)
@@ -167,6 +243,26 @@ class App:
                 if self.dragging_slider is not None:
                     self.dragging_slider = None
                     settings.save(self.settings)
+
+    def zoom_modifier(self) -> bool:
+        """Ctrl (ou Cmd no Mac) segurado: a rodinha mexe no zoom em vez da hotbar."""
+        held = {pygame.K_LCTRL, pygame.K_RCTRL, pygame.K_LMETA, pygame.K_RMETA} & self.keys_down
+        return bool(held) or bool(pygame.key.get_mods() & (pygame.KMOD_CTRL | pygame.KMOD_META))
+
+    def on_global_key(self, key: int, mod: int) -> bool:
+        """Teclas que valem em qualquer tela: F11/Alt+Enter (tela cheia) e +/- (zoom, fora do título).
+        Devolve True se a tecla foi usada aqui."""
+        alt = bool(mod & pygame.KMOD_ALT) or bool({pygame.K_LALT, pygame.K_RALT} & self.keys_down)
+        if key == pygame.K_F11 or (alt and key in (pygame.K_RETURN, pygame.K_KP_ENTER)):
+            self.toggle_fullscreen()
+            return True
+        if self.mode != "title" and key in ZOOM_IN_KEYS:
+            self.zoom_step(1)
+            return True
+        if self.mode != "title" and key in ZOOM_OUT_KEYS:
+            self.zoom_step(-1)
+            return True
+        return False
 
     def on_key(self, key: int) -> None:
         if self.mode == "title":
@@ -302,7 +398,7 @@ class App:
         self.set_mode("pause")
 
     def pause_item_count(self) -> int:
-        return {"main": len(UI.PAUSE_OPTIONS), "volumes": len(UI.VOLUME_ROWS) + 1, "controls": 1}[self.pause_screen]
+        return {"main": len(UI.PAUSE_OPTIONS), "volumes": len(UI.VOLUME_ROWS) + 3, "controls": 1}[self.pause_screen]
 
     def on_pause_key(self, key: int) -> None:
         if key in (pygame.K_w, pygame.K_UP, pygame.K_s, pygame.K_DOWN):
@@ -310,10 +406,17 @@ class App:
             self.pause_selected = (self.pause_selected + step) % self.pause_item_count()
             self.audio.play("ui_click")
         elif key in (pygame.K_a, pygame.K_LEFT, pygame.K_d, pygame.K_RIGHT) and self.pause_screen == "volumes":
-            if self.pause_selected < len(UI.VOLUME_ROWS):
+            n = len(UI.VOLUME_ROWS)
+            left = key in (pygame.K_a, pygame.K_LEFT)
+            if self.pause_selected < n:
                 key_name = UI.VOLUME_ROWS[self.pause_selected][0]
-                delta = -0.1 if key in (pygame.K_a, pygame.K_LEFT) else 0.1
-                self.set_volume(key_name, self.settings[key_name] + delta, save=True)
+                self.set_volume(key_name, self.settings[key_name] + (-0.1 if left else 0.1), save=True)
+            elif self.pause_selected == n:            # tela cheia: A/D também alternam
+                self.toggle_fullscreen()
+                self.audio.play("ui_click")
+            elif self.pause_selected == n + 1:        # zoom: A afasta, D aproxima
+                self.set_zoom(viewport.step_zoom(self.zoom, -1 if left else 1), notify=False)
+                self.audio.play("ui_click")
         elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
             self.pause_activate(self.pause_selected)
         elif key == pygame.K_ESCAPE:
@@ -328,7 +431,7 @@ class App:
             option = UI.PAUSE_OPTIONS[index]
             if option == "Continuar":
                 self.set_mode("play")
-            elif option == "Volumes":
+            elif option == "Opções":
                 self.pause_screen, self.pause_selected = "volumes", 0
                 self.audio.play("ui_open")
             elif option == "Controles":
@@ -342,13 +445,22 @@ class App:
                 self.quit_game()
         elif self.pause_screen == "volumes" and index < len(UI.VOLUME_ROWS):
             self.pause_selected = index
+        elif self.pause_screen == "volumes" and index == len(UI.VOLUME_ROWS):       # tela cheia
+            self.pause_selected = index
+            self.toggle_fullscreen()
+            self.audio.play("ui_click")
+        elif self.pause_screen == "volumes" and index == len(UI.VOLUME_ROWS) + 1:   # zoom: dá a volta
+            self.pause_selected = index
+            levels = C.ZOOM_LEVELS
+            self.set_zoom(levels[(levels.index(self.zoom) + 1) % len(levels)], notify=False)
+            self.audio.play("ui_click")
         else:   # "Voltar" (volumes ou controles)
             self.pause_screen, self.pause_selected = "main", 0
             self.audio.play("ui_close")
 
     def set_volume(self, key: str, value: float, save: bool = False) -> None:
         self.settings = settings.clean({**self.settings, key: round(value, 2)})
-        self.audio.set_mix(**self.settings)
+        self.audio.set_mix(**settings.mix(self.settings))
         self.audio.play("ui_click")
         if save:
             settings.save(self.settings)
@@ -472,6 +584,7 @@ class App:
         if self.placing and (stack is None or stack.item != self.placing):
             self.placing = None
         self.notice_time = max(0.0, self.notice_time - dt)
+        self.toast_time = max(0.0, self.toast_time - dt)
         self.banner_time += dt
         self.renderer.machine_t += dt * self.state.power.factor    # animação das máquinas no ritmo da energia
         self.floaters.update(dt)
@@ -607,9 +720,10 @@ class App:
         if self.drill_dust_timer <= 0:
             self.drill_dust_timer = 0.12 / max(0.2, state.power.factor)   # no déficit, menos poeira
             cx, cy = self.cam
+            vw, vh = self.view_size
             for d in state.drills:
                 ax, ay = d.anchor
-                if not d.full and -64 < ax - cx < C.SCREEN_W + 64 and -64 < ay - cy < C.SCREEN_H + 64:
+                if not d.full and -64 < ax - cx < vw + 64 and -64 < ay - cy < vh + 64:
                     side = random.choice((-1, 1))
                     self.renderer.spawn_chips(None, random.choice(("#9a9086", "#c8c0b4")), 1,
                                               at=(ax + side * random.uniform(4, 18), ay - 6))
@@ -636,8 +750,7 @@ class App:
         return (vein.tx, vein.ty) if vein else None
 
     def hovered_machine(self):
-        cx, cy = self.cam
-        return self.state.machine_at_point(self.mouse[0] + cx, self.mouse[1] + cy)
+        return self.state.machine_at_point(*self.mouse_world())
 
     def hint(self) -> str | None:
         state = self.state
@@ -703,7 +816,13 @@ class App:
             target = self.place_target()
             tile = target if target is not None else self.mouse_tile()
             ghost = (self.placing, tile, self.rotation, target is not None and state.can_place(self.placing, tile))
-        self.renderer.draw(canvas, state, cam, self.t, ghost)
+        if self.zoom == 1.0:
+            self.renderer.draw(canvas, state, cam, self.t, ghost)
+        else:   # o mundo vai numa visão de 960×540/zoom e é esticado sem suavizar (pixel art continua pixel)
+            if self._world_view is None or self._world_view.get_size() != self.view_size:
+                self._world_view = pygame.Surface(self.view_size, 0, canvas)
+            self.renderer.draw(self._world_view, state, cam, self.t, ghost)
+            pygame.transform.scale(self._world_view, canvas.get_size(), canvas)
 
         critical = state.o2 < C.O2_LOW and not state.fainted
         if critical:
@@ -713,7 +832,7 @@ class App:
 
         # camada 1: HUD e textos flutuantes
         ui.begin()
-        ui.draw_floaters(self.floaters, cam)
+        ui.draw_floaters(self.floaters, cam, self.zoom)
         if critical:
             ui.draw_o2_critical(state, self.t, cam)
         icons = {r: self.renderer.surface(f"icon_{r}", lambda r=r: art.icon(r))[0] for r in C.RESOURCES}
@@ -723,6 +842,8 @@ class App:
             ui.draw_objectives(self.objectives.lines(state))
         if self.saved_notice > 0:
             draw_saved_notice(ui, self.saved_notice)
+        if self.toast_time > 0 and self.toast:
+            ui.draw_toast(self.toast, min(1.0, self.toast_time / 0.3))
         if self.banner_time < BANNER_TIME:
             alpha = min(1.0, self.banner_time / BANNER_FADE_IN, (BANNER_TIME - self.banner_time) / BANNER_FADE_OUT)
             ui.draw_banner(self.banner_stage, alpha)
@@ -739,7 +860,7 @@ class App:
         elif self.mode == "end":
             ui.draw_end(state, self.t)
         elif self.mode == "pause":
-            ui.draw_pause(self.pause_screen, self.pause_selected, self.settings)
+            ui.draw_pause(self.pause_screen, self.pause_selected, self.settings, viewport_label(self.zoom))
         elif self.mode in INVENTORY_MODES:
             chest = self.open_chest.storage if self.open_chest else None
             ui.draw_inventory(state.inventory, chest, self.hotbar_selected, self.renderer.item_icon, mouse_ui)
@@ -761,11 +882,7 @@ class App:
             ui.draw_cursor(*mouse_ui)
             ui.finish(canvas)
 
-        # Copiar uma superfície sem alfa pra janela grava alfa 255 (opaco) em todos os pixels.
-        if self.scale == 1:
-            self.window.blit(canvas, (0, 0))
-        else:
-            self.window.blit(pygame.transform.scale(canvas, self.window.get_size()), (0, 0))
+        self.present()
 
     def screenshot(self, path: str) -> None:
         pygame.image.save(self.canvas, path)
@@ -840,7 +957,4 @@ class App:
 
     def draw_title(self) -> None:
         self.title.draw(self.canvas, self.t, self.mouse)
-        if self.scale == 1:
-            self.window.blit(self.canvas, (0, 0))
-        else:
-            self.window.blit(pygame.transform.scale(self.canvas, self.window.get_size()), (0, 0))
+        self.present()

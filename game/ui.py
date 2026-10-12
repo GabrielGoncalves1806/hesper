@@ -386,9 +386,10 @@ class UI:
                 self.surf.fill(pygame.Color("#5a4a40"), (x + 8, ly + 5, 3, 3))
                 self.text(line.text, x + 16, ly, "#7a6c62", self.body)
 
-    def draw_floaters(self, floaters: FloatingTexts, cam: tuple[int, int]) -> None:
+    def draw_floaters(self, floaters: FloatingTexts, cam: tuple[int, int], zoom: float = 1.0) -> None:
+        """Textos presos num ponto do mundo: a posição acompanha o zoom, o tamanho da letra não."""
         for text, x, y, color, life in floaters.items:
-            sx, sy = (x - cam[0]) / 2, (y - cam[1]) / 2
+            sx, sy = (x - cam[0]) * zoom / 2, (y - cam[1]) * zoom / 2
             if -40 < sx < UW + 40 and -20 < sy < UH + 20:
                 self.text(text, sx, sy, color, align="center")
 
@@ -548,6 +549,17 @@ class UI:
         layer.set_alpha(int(255 * alpha))
         self.surf.blit(layer, (UW // 2 - w // 2, HOTBAR_Y - 58))
 
+    def draw_toast(self, text: str, alpha: float) -> None:
+        """Aviso neutro e rápido no topo do centro ("Zoom 1,5×", "Tela cheia")."""
+        text = text.upper()            # Silkscreen: na Pixelify de 11 px o "Z" parece um "2"
+        w = self.font.size(text)[0] + 16
+        layer = pygame.Surface((w, 15), pygame.SRCALPHA)
+        self.panel(0, 0, w, 15, target=layer)
+        layer.fill(pygame.Color(C.C_ACCENT), (0, 0, w, 1))
+        self.text(text, w / 2, 4, C.C_TEXT, target=layer, align="center")
+        layer.set_alpha(int(255 * alpha))
+        self.surf.blit(layer, (UW // 2 - w // 2, 40))   # logo abaixo do banner de estágio
+
     def _grid(self, inv: Inventory, indexes: list[int], x: int, y: int, item_icon, mouse, selected=None) -> None:
         """Desenha os slots `indexes` de `inv` em linhas de 8, a partir de (x, y), e guarda os retângulos."""
         for n, i in enumerate(indexes):
@@ -681,7 +693,7 @@ class UI:
             self.text("[ENTER] CONTINUAR EXPLORANDO", UW / 2, y + h - 18, C.C_TEXT, align="center")
 
     # ---- menu de pausa ---------------------------------------------------------
-    PAUSE_OPTIONS = ["Continuar", "Volumes", "Controles", "Salvar e sair", "Sair"]
+    PAUSE_OPTIONS = ["Continuar", "Opções", "Controles", "Salvar e sair", "Sair"]
     VOLUME_ROWS = [("master", "GERAL"), ("sfx", "EFEITOS"), ("ambient", "AMBIENTE")]
     CONTROLS = [
         ("WASD / SETAS", "Andar"),
@@ -693,6 +705,8 @@ class UI:
         ("TAB", "Inventário"),
         ("CLIQUE DIREITO", "Desmontar (volta pro inventário)"),
         ("ESC", "Cancelar / fechar / pausar"),
+        ("+ / -", "Aproximar / afastar (ou Ctrl+rodinha)"),
+        ("F11 · ALT+ENTER", "Tela cheia"),
         ("F1 · F2", "Debug: tempo x10 · +10.000 Ti"),
     ]
 
@@ -708,8 +722,9 @@ class UI:
         self.surf.fill(pygame.Color("#2c1e18" if selected else "#211915"), rect)
         pygame.draw.rect(self.surf, pygame.Color(C.C_ACCENT if selected else "#3a2c25"), rect, 1)
 
-    def draw_pause(self, screen: str, selected: int, mix: dict) -> None:
-        """Menu de pausa. screen = 'main', 'volumes' ou 'controls'."""
+    def draw_pause(self, screen: str, selected: int, mix: dict, zoom_label: str = "1×") -> None:
+        """Menu de pausa. screen = 'main', 'volumes' (Opções: volumes, tela cheia, zoom) ou 'controls'.
+        `mix` é o dicionário das settings (volumes + "fullscreen")."""
         self.pause_items.clear()
         self.pause_sliders.clear()
         if screen == "main":
@@ -725,7 +740,7 @@ class UI:
         elif screen == "volumes":
             x, y, w = 120, 60, 240
             n = len(self.VOLUME_ROWS)
-            self._pause_frame(x, y, w, 26 + 24 * (n + 1) + 4, "VOLUMES")
+            self._pause_frame(x, y, w, 26 + 24 * (n + 3) + 4, "OPÇÕES")
             for i, (key, label) in enumerate(self.VOLUME_ROWS):
                 row = pygame.Rect(x + 8, y + 26 + i * 24, w - 16, 21)
                 self._menu_row(row, i == selected)
@@ -739,8 +754,17 @@ class UI:
                 self.text(f"{round(mix[key] * 100)}%", row.right - 8, row.y + 7, C.C_TI, align="right")
                 self.pause_items.append(row)
                 self.pause_sliders.append(bar)
-            back = pygame.Rect(x + 8, y + 26 + n * 24, w - 16, 21)
-            self._menu_row(back, selected == n)
+            # tela cheia e zoom: Enter/clique alternam, A/D também
+            for i, (label, value) in enumerate((("TELA CHEIA", "SIM" if mix.get("fullscreen") else "NÃO"),
+                                                ("ZOOM", zoom_label)), start=n):
+                row = pygame.Rect(x + 8, y + 26 + i * 24, w - 16, 21)
+                self._menu_row(row, i == selected)
+                self.text(label, row.x + 8, row.y + 7, C.C_TEXT)
+                self.text(f"< {value} >" if i == selected else value, row.right - 8, row.y + 5, C.C_TI,
+                          self.body, align="right")
+                self.pause_items.append(row)
+            back = pygame.Rect(x + 8, y + 26 + (n + 2) * 24, w - 16, 21)
+            self._menu_row(back, selected == n + 2)
             self.text("Voltar", back.x + 8, back.y + 4, C.C_TEXT, self.body)
             self.pause_items.append(back)
             self.text("[W/S] ESCOLHE · [A/D] AJUSTA · [ESC] VOLTA", UW / 2, back.bottom + 10, C.C_MUTED, align="center")
