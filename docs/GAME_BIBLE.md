@@ -344,3 +344,20 @@ Design completo e aprovado: `docs/superpowers/specs/2026-10-12-v03-superficie-de
 - **Fora do v0.3**:
   - v0.4: biomas de caverna, mochila, drill melhor, peças raras e elevador de carga;
   - depois: água e comida.
+
+### Assets do Marco 1 · Superfície (contrato)
+Entregues em `_pending/` até o dono aprovar. Os morros usam a arte de parede que já existe (`wall_*`, `wall_face_*`), e a cordilheira da borda também (o jogo escurece ela).
+
+| Sprite | Tamanho | Observação |
+|---|---|---|
+| `sand_{stage}_{0..3}.png` | 32×32 | chão do deserto, 4 variações (areia, cascalho, dunas, manchas de rocha). stage = `dead`, `mist`, `green` |
+| `rock_small.png` | 32×32 | rocha pequena no chão (1 tile, quebrável), contorno `#1b1630`, funciona nos 3 chãos |
+| `pickup_iron.png` `pickup_silicon.png` `pickup_ice.png` | 16×16 | recurso solto no chão, legível de longe, com sombrinha no chão |
+| `crater.png` | 96×96 | cratera 3×3 fechada (Marco 1), escura no centro, borda de rocha |
+| `crater_ramp.png` | 96×96 | a mesma cratera com a rampa de descida aberta (usada no Marco 2) |
+
+| Áudio | Tipo | Quando toca |
+|---|---|---|
+| `desert_wind.wav` | loop 20–40 s, baixíssimo | camada de vento seco por cima do `amb_{stage}` na superfície. Some na caverna |
+
+Recursos soltos usam o `pickup.wav` já aprovado; rochas usam `mine_hit`/`mine_break`.
