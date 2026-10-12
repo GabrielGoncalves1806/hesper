@@ -909,6 +909,8 @@ CANDIDATES = {
     "mine_hit_B3": (cand_B3, -22.0),
     "mine_break_B1": (cand_break_B1, -17.0),
 }
+# v8.1: opção com passos gravados (Kenney footstep_concrete, CC0) pras rampas.
+# Registradas aqui embaixo porque as funções ficam na seção do v8.1.
 
 
 # ---------------------------------------------------------------------------
@@ -1175,8 +1177,9 @@ def metal_step(rng, weight: float = 1.0) -> np.ndarray:
     return tr.render()
 
 
-def _ramp(rng, down: bool):
-    """3 passos na escada de metal + a mudança de espaço. Descer: o ar escurece e o eco
+def _ramp_v8(rng, down: bool):
+    """v8, REPROVADO pelo dono ("muito estranho"); fica só pra comparação no report.
+    3 passos na escada de metal + a mudança de espaço. Descer: o ar escurece e o eco
     cresce passo a passo (cada passo com mais caverna). Subir: o eco encolhe e o vento abre."""
     tr = Track()
     times = (0.0, 0.27, 0.55)
@@ -1207,12 +1210,12 @@ def _ramp(rng, down: bool):
     return out * np.clip((1.45 - t) / 0.4, 0, 1) ** 2                       # ~1,4 s no total
 
 
-def sfx_ramp_down(rng):
-    return _ramp(rng, True)
+def sfx_ramp_down_v8(rng):
+    return _ramp_v8(rng, True)
 
 
-def sfx_ramp_up(rng):
-    return _ramp(rng, False)
+def sfx_ramp_up_v8(rng):
+    return _ramp_v8(rng, False)
 
 
 def sfx_lamp_place(rng):
@@ -1237,8 +1240,9 @@ def sfx_lamp_place(rng):
     return reverb(tr.render(), rng, decay=0.5, mix=0.15, lp=3500)
 
 
-def sfx_crate_open(rng):
-    """Tampa metálica pesada de caixa de carga: trava dupla soltando, ar velado escapando,
+def sfx_crate_open_v8(rng):
+    """v8, REPROVADO pelo dono ("muito estranho"); fica só pra comparação no report.
+    Tampa metálica pesada de caixa de carga: trava dupla soltando, ar velado escapando,
     a dobradiça arrastando (atrito de ruído largo com "agarra-solta" irregular, sem
     rangido tonal), a tampa tombando no batente (baque de ruído grave) e poeira caindo."""
     tr = Track()
@@ -1327,19 +1331,167 @@ def sfx_map_open(rng):
     return reverb(echo(tr.render(), 0.11, 0.15, taps=1, lp=2500), rng, decay=0.5, mix=0.12, lp=4500)
 
 
+# ---------------------------------------------------------------------------
+# v8.1: crate_open, ramp_down e ramp_up refeitos (os do v8 foram reprovados: "muito
+# estranhos"). O que mudou de abordagem:
+#  - rampa: saiu a grade metálica com "tinc" de parciais, saiu a banda de ruído que
+#    andava de 1,4 kHz pra 160 Hz (soava como glissando) e saíram as reflexões em
+#    atrasos fixos (repetiam o passo). Agora são 4 passos de cascalho num ritmo de
+#    caminhada, só o filtro e a quantidade de reverb difuso mudam passo a passo, e o
+#    "ar" por baixo é uma banda grave PARADA que só sobe e desce de volume.
+#  - caixa: saiu o arrasto de 0,4 s com banda andando e o baque longo. Agora é
+#    trava (clique) + rangido curto de dobradiça (atrito agarra-solta de verdade:
+#    trem de pulsos com jitter, filtro largo) + batidinha seca da tampa. ~0,5 s.
+# ---------------------------------------------------------------------------
+
+def wet_only(x: np.ndarray, rng, decay: float, lp: float, predelay: float = 0.02) -> np.ndarray:
+    """Só o retorno do reverb difuso (sem o seco), com o comprimento de x + cauda."""
+    ir = make_ir(rng, decay, lp, predelay)
+    n = len(x) + len(ir)
+    N = 1 << (n - 1).bit_length()
+    return np.fft.irfft(np.fft.rfft(x, N) * np.fft.rfft(ir, N), N)[:n]
+
+
+def gravel_step(rng, weight: float = 1.0) -> np.ndarray:
+    """Bota em cascalho/pedra, ~0,15 s: peso do calcanhar (ruído grave, sem seno), o
+    contato, dezenas de grãos esmagando (microestalos de banda larga em tempo irregular,
+    densidade caindo) e a ponta do pé rolando logo depois, com menos grãos."""
+    tr = Track()
+    tr.add(noise_burst(rng, 40, 260, 0.003, 0.016, 0.1, order=2), 0, 0.8 * weight)       # peso
+    tr.add(noise_burst(rng, 250, 2500, 0.0008, 0.008, 0.05, order=1), 0, 0.45)           # contato
+    tr.add(noise_burst(rng, 60, 400, 0.004, 0.012, 0.06, order=2),
+           0.05 + rng.uniform(0, 0.012), 0.3 * weight)                                   # ponta do pé
+    for t0, count, spread, amp in ((0.001, 26, 0.045, 1.0), (0.05, 12, 0.04, 0.55)):
+        for _ in range(count):                                                           # grãos
+            at = t0 + float(rng.gamma(1.3, spread / 2.5))
+            hi = rng.uniform(1200, 5000)
+            tr.add(noise_burst(rng, hi / 4, hi, 0.0002, rng.uniform(0.0006, 0.0025), 0.01, order=1),
+                   at, amp * rng.uniform(0.15, 0.45) * np.exp(-(at - t0) / 0.05))
+    return tr.render()
+
+
+def kenney_step(rng, i: int):
+    """Passo gravado do pack do Kenney (footstep_concrete, CC0), sem o subgrave."""
+    x = kenney(f"footstep_concrete_{i % 5:03d}")
+    if x is None:
+        return None
+    x = filt(x, 60, None, 2)
+    return x / np.max(np.abs(x))
+
+
+def _ramp(rng, down: bool, step_fn=None):
+    """4 passos num ritmo de caminhada (~0,29 s, com um tico de irregularidade) + um ar
+    grave parado por baixo. k vai de 0 (superfície: claro e seco) a 1 (caverna: abafado,
+    com reverb difuso escuro). Descer anda 0 -> 1, subir anda 1 -> 0. Nenhum filtro com
+    Q alto, nenhuma frequência que anda: só o passa-baixa de cada passo e o reverb mudam."""
+    tr = Track()
+    times = [0.0, 0.29, 0.575, 0.86]
+    for i, at in enumerate(times):
+        at = max(0.0, at + rng.uniform(-0.012, 0.012))
+        k = i / 3 if down else 1 - i / 3
+        step = step_fn(rng, i) if step_fn else gravel_step(rng, 1.0 if i % 2 == 0 else 0.85)
+        step = filt(step, None, 5500 * (1600 / 5500) ** k, 2) * 10 ** (-3.5 * k / 20)  # abafa e afasta
+        tr.add(step, at, 1.0 if i % 2 == 0 else 0.88)
+        wet = wet_only(step, rng, decay=0.35 + 1.15 * k, lp=4000 - 2200 * k)
+        tr.add(wet, at, 0.03 + 0.4 * k ** 2)                                       # seco -> caverna
+    # o ar: uma banda grave e larga, parada no tom, que só respira (sobe e some)
+    n = ns(1.15)
+    air = filt(rng.standard_normal(n), 50, 380 if down else 520, 2)
+    air /= np.sqrt(np.mean(air ** 2))
+    tr.add(air * bump(n, 0.3 if down else 0.6), 0.0, 0.018)
+    out = soft_sat(tr.render(), 1.6)                                  # segura só a ponta do 1º estalo
+    t = tvec(len(out))
+    end = 1.3 if down else 1.15                                                     # a descida deixa o eco
+    return out * np.clip((end - t) / 0.3, 0, 1) ** 2
+
+
+def sfx_ramp_down(rng):
+    return _ramp(rng, True)
+
+
+def sfx_ramp_up(rng):
+    return _ramp(rng, False)
+
+
+def cand_ramp_down_B1(rng):
+    return _ramp(rng, True, kenney_step) if kenney("footstep_concrete_000") is not None else None
+
+
+def cand_ramp_up_B1(rng):
+    return _ramp(rng, False, kenney_step) if kenney("footstep_concrete_000") is not None else None
+
+
+def hinge_creak(rng, dur: float, f0: float, f1: float, jitter: float = 0.12) -> np.ndarray:
+    """Rangido de dobradiça como na física: atrito agarra-solta. Um trem de pulsos cujo
+    ritmo sobe de f0 pra f1 com jitter de ~12% por pulso (por isso fica áspero e não vira
+    nota), cada pulso um grãozinho de ruído, tudo passando por filtros LARGOS de 1ª ordem."""
+    n = ns(dur)
+    imp = np.zeros(n)
+    t = 0.0
+    while True:
+        f = f0 + (f1 - f0) * np.sin(0.5 * np.pi * min(1.0, t / dur))
+        t += (1 / f) * (1 + rng.uniform(-jitter, jitter))
+        if t >= dur:
+            break
+        if rng.uniform() > 0.06:                                         # às vezes "pula" um
+            imp[ns(t)] += rng.uniform(0.5, 1.0)
+    g = ns(0.0015)
+    grain = rng.standard_normal(g) * np.exp(-tvec(g) / 0.0004)
+    x = np.convolve(imp, grain)[:n]
+    x = filt(x, 500, 3500, 1) + 0.2 * filt(x, 1800, 6000, 1)
+    return x * bump(n, 0.3)
+
+
+def sfx_crate_open(rng):
+    """v8.1: caixa de carga de metal abrindo, ~0,5 s. Trava (clique seco + o ferrolho
+    assentando), um rangido curto de dobradiça e a tampa batendo de leve no batente.
+    Tudo ruído e pulsos com filtro largo: nada de seno, de modo fixo ou de cauda longa."""
+    tr = Track()
+    tr.add(noise_burst(rng, 2500, 7000, 0.0002, 0.0007, 0.006, order=1), 0, 0.3)         # tic
+    tr.add(noise_burst(rng, 700, 3500, 0.0003, 0.004, 0.03, order=1), 0, 0.7)            # clac
+    tr.add(noise_burst(rng, 150, 700, 0.0008, 0.008, 0.05, order=2), 0.001, 0.35)        # peso da trava
+    tr.add(noise_burst(rng, 1500, 6000, 0.0002, 0.0012, 0.01, order=1), 0.024, 0.32)     # ferrolho assenta
+    tr.add(hinge_creak(rng, 0.19, 190, 330), 0.075, 0.4)                                 # rangido
+    n = ns(0.19)
+    tr.add(filt(rng.standard_normal(n), 800, 3000, 1) * bump(n, 0.4), 0.075, 0.025)       # atrito por baixo
+    lid = 0.3
+    tr.add(noise_burst(rng, 400, 3500, 0.0004, 0.007, 0.05, order=1), lid, 0.85)         # batidinha
+    tr.add(noise_burst(rng, None, 250, 0.002, 0.016, 0.09, order=2), lid, 0.55)          # peso da tampa
+    tr.add(noise_burst(rng, 2500, 7000, 0.0002, 0.0008, 0.006, order=1), lid, 0.2)
+    tr.add(noise_burst(rng, 500, 3000, 0.0003, 0.004, 0.03, order=1), lid + 0.034, 0.22)  # quique
+    return reverb(filt(soft_sat(tr.render(), 1.8), None, 7000, 1), rng, decay=0.3, mix=0.08, lp=3500)
+
+
 # v6.1: os 9 sons do v0.2 foram aprovados e entraram no SOUNDS.
 # Próximas rodadas: o que for novo entra aqui e sai em assets/audio/_pending/.
 # v7: desert_wind (v0.3 Marco 1) aprovado e promovido pro SOUNDS.
-# v8: Marcos 2 (caverna) e 3 (destroços) do v0.3, pendentes.
-PENDING: dict = {
+# v8/v8.1: Marcos 2 (caverna) e 3 (destroços) do v0.3 aprovados e promovidos pro SOUNDS
+# (rampas na opção B1, com os passos gravados do Kenney).
+PENDING: dict = {}
+
+SOUNDS.update({
     "amb_cave": (amb_cave, True, -28.0),
-    "ramp_down": (sfx_ramp_down, False, -21.0),
-    "ramp_up": (sfx_ramp_up, False, -21.0),
+    # seed do nome da candidata, pra sair idêntico ao que o dono ouviu
+    "ramp_down": (lambda _rng: cand_ramp_down_B1(rng_for("ramp_down_B1")), False, -22.0),
+    "ramp_up": (lambda _rng: cand_ramp_up_B1(rng_for("ramp_up_B1")), False, -22.0),
     "lamp_place": (sfx_lamp_place, False, -21.0),
-    "crate_open": (sfx_crate_open, False, -20.0),
+    "crate_open": (sfx_crate_open, False, -21.0),
     "blueprint_found": (sfx_blueprint_found, False, -16.0),
     "equip": (sfx_equip, False, -23.0),
     "map_open": (sfx_map_open, False, -24.0),
+})
+
+CANDIDATES.update({
+    "ramp_down_B1": (cand_ramp_down_B1, -22.0),
+    "ramp_up_B1": (cand_ramp_up_B1, -22.0),
+})
+
+# v8.1: as versões reprovadas do v8, regeradas idênticas (mesma seed) em
+# assets/audio/_pending/rejected_v8/ só pra comparação no report.
+REJECTED: dict = {
+    "ramp_down": (sfx_ramp_down_v8, False, -21.0),
+    "ramp_up": (sfx_ramp_up_v8, False, -21.0),
+    "crate_open": (sfx_crate_open_v8, False, -20.0),
 }
 
 SOUNDS.update({
@@ -1415,6 +1567,19 @@ def main() -> None:
             meta["pend:" + name]["seam_lsb"] = jump
             meta["pend:" + name]["seam_pct"] = round(float(100 * np.mean(adj < jump)), 1)
         print(f"{'_pending/' + name + '.wav':<20}{len(xi) / SR:>8.2f}{peak_db:>11.2f}{loud:>9.1f}")
+    rej_dir = PENDING_DIR / "rejected_v8"
+    if REJECTED:
+        rej_dir.mkdir(parents=True, exist_ok=True)
+    for name, (fn, loop, target) in REJECTED.items():
+        xi = write_wav(rej_dir / f"{name}.wav", finalize(fn(rng_for(name)), loop, target))
+        xf = xi.astype(float) / 32768
+        peak_db = 20 * np.log10(np.max(np.abs(xf)) + 1e-12)
+        meta["rej:" + name] = {
+            "file": f"_pending/rejected_v8/{name}.wav", "loop": False, "duration": round(len(xi) / SR, 3),
+            "peak_db": round(float(peak_db), 2), "loudness_db": round(float(loudness(xf, False)), 1),
+            "wave": waveform_peaks(xi),
+        }
+        print(f"{'rejected_v8/' + name + '.wav':<20}{len(xi) / SR:>8.2f}{peak_db:>11.2f}")
     (REPORT_DIR / "audio_meta.js").write_text(
         "// gerado por tools/audio/build_audio.py, não editar\nwindow.AUDIO_META = "
         + json.dumps(meta, ensure_ascii=False) + ";\n",

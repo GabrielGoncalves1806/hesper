@@ -19,5 +19,7 @@ Todos os sons em `assets/audio/` são gerados por síntese procedural em
 | `candidates/mine_hit_B2.wav` | `Audio/impactMining_004.ogg` | mono, 44,1 kHz, corte em 0,25 s, passa-alta 180 Hz, normalizado |
 | `candidates/mine_hit_B3.wav` | `Audio/impactMining_002.ogg` | mono, 44,1 kHz, corte em 0,25 s, passa-alta 100 Hz, normalizado |
 | `candidates/mine_break_B1.wav` | `Audio/impactMining_003.ogg` | mono, 44,1 kHz, corte em 0,55 s, passa-alta 40 Hz, misturado com o `mine_break` v3 sintético |
+| `candidates/ramp_down_B1.wav` | `Audio/footstep_concrete_000.ogg` a `_003.ogg` | mono, 44,1 kHz, passa-alta 60 Hz, 4 passos em sequência com passa-baixa progressivo, reverb sintético e ar grave sintético (v8.1) |
+| `candidates/ramp_up_B1.wav` | `Audio/footstep_concrete_000.ogg` a `_003.ogg` | idem, na ordem inversa da progressão (v8.1) |
 
 Se uma candidata B virar o som oficial, esta tabela continua valendo pro arquivo final.

@@ -30,12 +30,12 @@ CONTRACT = {
     "power_low": False, "solar_hum": True, "drone_loop": True, "drone_deliver": False, "save": False,
     "amb_dead": True, "amb_mist": True, "amb_green": True,
     "desert_wind": True,  # v0.3 Marco 1
-}
-# entregues em _pending/ até o dono aprovar (v0.3 Marcos 2 e 3)
-PENDING: dict = {
+    # v0.3 Marcos 2 e 3 (v8.1, aprovados)
     "amb_cave": True, "ramp_down": False, "ramp_up": False, "lamp_place": False,
     "crate_open": False, "blueprint_found": False, "equip": False, "map_open": False,
 }
+# entregues em _pending/ até o dono aprovar
+PENDING: dict = {}
 BANDS = [(20, 150), (150, 600), (600, 2500), (2500, 8000), (8000, 22050)]
 
 

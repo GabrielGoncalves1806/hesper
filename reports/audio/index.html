@@ -88,9 +88,10 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Hesper · report de som · v8</div>
+    <div class="eyebrow">Hesper · report de som · v8.1</div>
     <h1>Som do planeta</h1>
     <p class="lede">Os 19 arquivos do contrato de áudio da bíblia (§6), todos gerados por síntese procedural com seed fixa em <code>tools/audio/build_audio.py</code>. A estética é 8/16-bit refinada: osciladores limitados em banda, ruído filtrado, envelopes, varreduras de pitch e um reverb de cratera. Dá o play em cada um, os loops tocam em repetição pra tu ouvir a emenda.</p>
+    <div class="note" style="border-left-color:#ff8f6a"><b style="color:#ff8f6a">v8.1 · refeitos · pendente:</b> tu reprovou o <code>crate_open</code>, o <code>ramp_down</code> e o <code>ramp_up</code> ("muito estranhos"), então os três foram refeitos do zero, com outra abordagem, e seguem em <code>assets/audio/_pending/</code>. A caixa agora é trava + rangido curto de dobradiça + batidinha seca da tampa, em 0,55 s. As rampas viraram 4 passos de cascalho num ritmo de caminhada, sem degrau de metal e sem a varredura de tom que soava como glissando. Também tem uma opção B das rampas com passos gravados (Kenney, CC0). As versões reprovadas ficam do lado pra comparar. Está tudo em <a href="#refeitos">v8.1 · refeitos</a>, logo abaixo. Nenhum outro arquivo mudou (conferido por md5, 44 arquivos idênticos byte a byte).</div>
     <div class="note" style="border-left-color:#9b8cff"><b style="color:#9b8cff">v8 · v0.3 Marcos 2 e 3 · Caverna e Destroços · pendente:</b> 8 sons novos em <code>assets/audio/_pending/</code>, esperando teu ouvido. Caverna: <code>amb_cave</code> (loop de 28 s), <code>ramp_down</code>, <code>ramp_up</code> e <code>lamp_place</code>. Destroços: <code>crate_open</code>, <code>blueprint_found</code>, <code>equip</code> e <code>map_open</code>. Estão em <a href="#caverna">Caverna e destroços · pendentes</a>, logo abaixo, com prévias: a caverna mixada nos volumes sugeridos, a descida e a subida com o crossfade de verdade (superfície ↔ caverna) e o saque com projeto. Nenhum som oficial nem candidata mudou (conferido por md5, os 39 arquivos idênticos byte a byte).</div>
     <div class="note" style="border-left-color:#e8b46a"><b style="color:#e8b46a">v7 · v0.3 Marco 1 · Superfície · aprovado:</b> o <code>desert_wind.wav</code> (som e volume 0,45) foi aprovado e agora é oficial em <code>assets/audio/</code>, idêntico byte a byte ao que tu ouviu. É a camada de vento seco que toca por cima do ambiente do estágio na superfície. Está na seção <a href="#superficie">Superfície</a>, com a prévia mixada com cada um dos 3 ambientes. Nenhum outro som mudou (conferido por md5). O contrato agora tem 32 arquivos.</div>
     <div class="note" style="border-left-color:#7fd67a"><b style="color:#7fd67a">v6.1 · sons do v0.2 aprovados:</b> os 9 sons do v0.2 saíram de <code>_pending/</code> e agora são oficiais em <code>assets/audio/</code>, idênticos byte a byte aos que tu aprovou. Baú, inventário e save estão em <a href="#interface">Interface</a>. Painel solar e queda de energia estão em <a href="#energia">Energia</a>. Os drones estão em <a href="#drones">Drones</a>. Os volumes sugeridos estão na tabela de integração. O contrato agora tem 31 arquivos.</div>
@@ -107,11 +108,30 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
       <div class="stat"><b class="ok">10 / 10</b><span>loops sem estalo</span></div>
     </div>
     <nav class="toc">
-      <a href="#caverna">Caverna e destroços (pendente)</a><a href="#superficie">Superfície</a><a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
+      <a href="#refeitos">v8.1 · refeitos (pendente)</a><a href="#caverna">Caverna e destroços (pendente)</a><a href="#superficie">Superfície</a><a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
       <a href="#maquinas">Máquinas</a><a href="#drill">Drill</a><a href="#energia">Energia</a><a href="#drones">Drones</a><a href="#ambiente">Ambiente</a><a href="#recompensa">Recompensa</a>
       <a href="#direcao">Direção de ambientação</a><a href="#integracao">Integração</a><a href="#checagens">Checagens</a>
     </nav>
   </header>
+
+  <section class="pick" id="refeitos" style="border-color:#ff8f6a">
+    <div class="sec-head" style="border-color:#6a3a2a"><span class="num">v8.1 · pendente</span><h2 style="color:#ff8f6a">Refeitos · caixa de saque e rampas</h2>
+      <p>Os três sons que tu reprovou, refeitos com outra abordagem. Em cada linha, o novo vem primeiro e a versão reprovada (v8) vem do lado, só pra comparar. Nas rampas tem também uma opção B com passos gravados. Se o sintético ainda soar artificial, é só escolher a B. Os botões de "descer/subir" da seção de baixo já tocam os novos.</p></div>
+    <div class="cards" id="redo"></div>
+    <div class="tbl" style="margin-top:16px">
+      <table>
+        <thead><tr><th>Análise (não ouvido)</th><th>Novo v8.1</th><th>Reprovado v8</th></tr></thead>
+        <tbody>
+          <tr><td>Duração · <code>crate_open</code></td><td class="pass">0,55 s</td><td>0,98 s</td></tr>
+          <tr><td>Duração · <code>ramp_down</code> / <code>ramp_up</code></td><td class="pass">1,26 s (com a cauda do eco) / 1,09 s</td><td>1,38 / 1,27 s</td></tr>
+          <tr><td>Loudness aprox. (sfx, janela de 400 ms)</td><td>caixa −21 dB (igual ao <code>chest_open</code>) · rampas −22 dB</td><td>caixa −20 · rampas −21 dB</td></tr>
+          <tr><td>Pico</td><td class="pass">caixa −3,5 · descer −3,9 · subir −8,2 dBFS</td><td>−1,8 · −4,2 · −6,1 dBFS</td></tr>
+          <tr><td>Energia acima de 8 kHz (chiado)</td><td class="pass">caixa −11 dB · rampas −23 dB do total</td><td>referências: <code>chest_open</code> −11 · <code>footstep_0</code> −25 dB</td></tr>
+          <tr><td>Pico estreito mais saliente (teste de "latinha")</td><td class="pass">caixa 7,2 dB · descer 5,9 · subir 7,4 dB · o rangido sozinho 8,9 dB em 8,3 kHz (nenhum pico na faixa de nota)</td><td>aprovados: <code>footstep_0</code> 7,4 · <code>mine_hit</code> 9,6 · <code>chest_close</code> 5,5 dB</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 
   <section class="pick" id="caverna" style="border-color:#9b8cff">
     <div class="sec-head" style="border-color:#3d3570"><span class="num">v8 · pendente</span><h2 style="color:#9b8cff">Caverna e destroços · pendentes de aprovação</h2>
@@ -173,7 +193,7 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
         <thead><tr><th>Checagem de "latinha" (pico estreito mais saliente, espectro médio em janelas de 46 ms vs mediana de 2/3 de oitava)</th><th>Resultado</th></tr></thead>
         <tbody>
           <tr><td>Aprovados de referência: <code>mine_break</code> · <code>chest_open</code> · <code>chest_close</code> · <code>drill_collect</code></td><td>4,4 · 4,2 · 4,3 · 4,2 dB (= ruído, sem tom)</td></tr>
-          <tr><td><code>crate_open</code> · <code>ramp_down</code> · <code>ramp_up</code></td><td class="pass">3,6 · 5,8 · 4,4 dB (mesma faixa dos aprovados: nenhuma ressonância)</td></tr>
+          <tr><td><code>crate_open</code> · <code>ramp_down</code> · <code>ramp_up</code> (v8, reprovados)</td><td>3,6 · 5,8 · 4,4 dB. Passaram no teste, mas o teu ouvido reprovou: estranheza não é só ressonância. Os novos estão em <a href="#refeitos">v8.1</a></td></tr>
           <tr><td><code>equip</code> · <code>lamp_place</code> · <code>map_open</code></td><td>14,9 dB em 883 Hz · 16,3 dB em 323 Hz · 29,4 dB em 1314 Hz: são as notas de propósito (Lá5 do bipe, Mi4 da luz, Mi6 do bipe), não ressonância de impacto</td></tr>
         </tbody>
       </table>
@@ -315,9 +335,9 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
         
           <tr><td>v0.3</td><td><code>desert_wind</code></td><td>0,45 (faixa 0,35–0,5)</td><td>canal próprio reservado, <code>loops=-1</code>, por cima do ambiente. Entra com <code>fade_ms=2500</code> ao sair pra superfície e sai com <code>fadeout(1500)</code> ao entrar na caverna. Não acompanha o crossfade de estágio: continua tocando igual.</td></tr>
           <tr><td>v0.3 · caverna</td><td><code>amb_cave</code></td><td>0,7</td><td>usa os mesmos canais A/B do ambiente. <b>Descer:</b> no E, toca <code>ramp_down</code>, o <code>amb_{estágio}</code> sai com <code>fadeout(1500)</code> junto com o fade pro preto, o vento sai com <code>fadeout(1500)</code> e o <code>amb_cave</code> entra no outro canal com <code>fade_ms=2500</code> uns 0,5 s depois. <b>Subir:</b> o contrário; o vento volta com <code>fade_ms=2500</code> como já está combinado.</td></tr>
-          <tr><td>v0.3 · caverna</td><td><code>ramp_down</code> / <code>ramp_up</code></td><td>0,8</td><td>um por troca de camada, no E. Não tocar passos durante o fade.</td></tr>
+          <tr><td>v0.3 · caverna</td><td><code>ramp_down</code> / <code>ramp_up</code></td><td>0,8</td><td>um por troca de camada, no E. Não tocar passos durante o fade (o próprio som já tem 4 passos). <b>v8.1:</b> mesmos nomes e mesmo volume; o arquivo novo sai 1 dB mais baixo e dura ~1,1–1,3 s, dentro do fade pro preto. Sem variação de pitch (são só 2 sons, um por troca).</td></tr>
           <tr><td>v0.3 · caverna</td><td><code>lamp_place</code></td><td>0,8</td><td>no lugar do <code>place</code> (não tocar os dois). Pitch ±3% se der.</td></tr>
-          <tr><td>v0.3 · destroços</td><td><code>crate_open</code></td><td>0,9</td><td>ao abrir a caixa (a UI de saque). Caixa vazia: pode tocar a 0,6 ou só o <code>ui_open</code>. Fechar: <code>chest_close</code> a 0,7.</td></tr>
+          <tr><td>v0.3 · destroços</td><td><code>crate_open</code></td><td>0,9</td><td>ao abrir a caixa (a UI de saque). Caixa vazia: pode tocar a 0,6 ou só o <code>ui_open</code>. Fechar: <code>chest_close</code> a 0,7. <b>v8.1:</b> 0,55 s, a batidinha da tampa cai em 0,3 s, então o <code>blueprint_found</code> 0,4 s depois entra logo após a tampa assentar. Se abrir muitas caixas seguidas, pitch ±3% ajuda a não cansar.</td></tr>
           <tr><td>v0.3 · destroços</td><td><code>blueprint_found</code></td><td>1,0</td><td>quando o projeto entra no inventário, junto com o aviso "PROJETO: …". Se veio da caixa, ~0,4 s depois do <code>crate_open</code>. Abaixar o ambiente pra ~60% por 2 s, igual ao stage_up em escala menor. Não tocar <code>pickup</code> junto.</td></tr>
           <tr><td>v0.3 · destroços</td><td><code>equip</code></td><td>0,7</td><td>ao soltar o item no slot de equipamento (e ao trocar). Tirar do slot: <code>inv_move</code>.</td></tr>
           <tr><td>v0.3 · destroços</td><td><code>map_open</code></td><td>0,6</td><td>no M. Fechar: <code>ui_close</code>. Se o jogador abrir/fechar rápido, no máximo 1 a cada ~0,3 s.</td></tr>
@@ -665,12 +685,9 @@ CANDS.forEach(([key, file, title, src, desc]) => {
   const A = "../../assets/audio/", P = A + "_pending/";
   const CAVE = [
     ["amb_cave","Loop na caverna. Substitui o amb_{estágio} e o vento","O mesmo Lá dos ambientes, uma oitava mais escuro: drone em quinta (Lá1, Mi2, Lá2, Mi3) bem fechado, com um fio de Dó3 (terça menor) que só aparece quando o pad respira, sombra sem medo. Dez gotas por volta em tempo irregular (umas respingam), cada uma com eco de paredes a distâncias diferentes e cauda de 4 s. Dois brilhos frios bem apagados e um rumor de rocha assentando lá longe. Sem bicho, sem vento, quase nada acima de 2,5 kHz. Loop de 28 s (os ambientes têm 32 e o vento 36, então nada se repete junto)."],
-    ["ramp_down","E na rampa da cratera (descendo)","Três passos em degrau de grade metálica (tranco grave de ruído, corpo de banda larga, um \"tinc\" de poucos ms que muda a cada passo, a grade chacoalhando). A cada passo o som fica mais abafado e o eco cresce (cauda de −15 → −8 → −2,5 dB em relação ao passo), e um ar que desce de 1,4 kHz pra 160 Hz e um grave surdo vão fechando em volta. ~1,4 s."],
-    ["ramp_up","E na rampa da caverna (subindo)","Os mesmos degraus ao contrário: o primeiro passo ainda com eco de caverna, os seguintes cada vez mais secos e claros, e um sopro largo que abre de 160 Hz pra 1,2 kHz no fim, chegando no vento. ~1,3 s."],
     ["lamp_place","Colocou uma luminária","Base apoiando no chão, clique do interruptor e a luz acendendo: um \"fuum\" macio e um brilho quente em Lá (Lá3, Mi4, Lá4) que sobe um tiquinho e assenta, com um zumbido de filamento bem baixo. Curto e aconchegante."],
   ];
   const WRECK = [
-    ["crate_open","Abriu uma caixa de saque","Tampa metálica pesada de carga, sem latinha: trava dupla soltando, ar velado escapando, a dobradiça arrastando (atrito de ruído largo com \"agarra-solta\" irregular, nada de rangido com nota), a tampa tombando no batente com baque surdo e um pouco de ferrugem caindo. Mais lenta e pesada que o baú."],
     ["blueprint_found","Achou um projeto (\"PROJETO: …\")","Mini-jingle de conquista na família do stage_up (mesmo timbre pulse + tri, Lá maior), só que menor: arpejo rápido Mi-Lá-Dó♯-Mi até um Lá5 segurado com vibrato leve, baixo em Lá e três brilhos. ~1,8 s com a cauda, 2 dB abaixo do stage_up."],
     ["equip","Colocou equipamento no slot","Encaixe no traje: deslizar curtinho, \"clack\" de trava (ruído médio, sem nota), peso do tanque, selo pneumático e um bipezinho Mi5 → Lá5 bem baixo confirmando. 0,4 s."],
     ["map_open","Abriu o mapa (M)","Mapa holográfico desdobrando: um \"fsss\" curto de grão irregular subindo de banda e dois bipes macios Lá5 → Mi6. Discreto, de interface. Pra fechar o mapa, o ui_close de sempre."],
@@ -699,6 +716,49 @@ CANDS.forEach(([key, file, title, src, desc]) => {
       checks.appendChild(tr);
     });
   }
+
+  // ---- v8.1: refeitos, lado a lado com os reprovados ----
+  const REDO = [
+    ["crate_open", "Abriu uma caixa de saque (0,9)",
+     "Novo: clique seco da trava e o ferrolho assentando, um rangido curto de dobradiça (0,19 s, atrito que agarra e solta como uma dobradiça de verdade, áspero e sem nota) e uma batidinha seca da tampa com um quiquezinho. 0,55 s, sem cauda.",
+     "Reprovado: trava dupla, um arrasto de ruído de 0,4 s com a banda andando e um baque longo. Era comprido e soava esquisito, mais respiração do que caixa."],
+    ["ramp_down", "E na rampa da cratera, descendo (0,8)",
+     "Novo: 4 passos em cascalho num ritmo de caminhada, um pouco irregular. A cada passo o som fica mais abafado (o filtro fecha de 5,5 kHz pra 1,6 kHz) e um pouco mais baixo, e o último ganha a cauda escura da caverna. Por baixo, um ar grave parado que sobe e some.",
+     "Reprovado: degraus de grade metálica com um \"tinc\", eco em atrasos fixos repetindo o passo e um ar que descia de 1,4 kHz pra 160 Hz, que soava como glissando."],
+    ["ramp_up", "E na rampa da caverna, subindo (0,8)",
+     "Novo: o mesmo ao contrário. O primeiro passo ainda vem abafado e com cauda de caverna, e os seguintes vão clareando e secando até o último, aberto e seco. Ar grave parado por baixo.",
+     "Reprovado: os mesmos degraus metálicos, com um sopro que subia de 160 Hz pra 1,2 kHz."],
+  ];
+  const redo = document.getElementById("redo");
+  function redoCard(key, file, title, tag, when, what, color){
+    const m = META[key] || {};
+    const card = document.createElement("article");
+    card.className = "card";
+    if (tag === "reprovado") card.style.opacity = "0.75";
+    card.innerHTML = `
+      <div class="card-top"><span class="fname">${title}</span>
+        <span class="tags"><span class="tag src" style="${tag === "reprovado" ? "color:#ff6a55;border-color:#6a2a24" : ""}">${tag}</span><span class="tag">${fmtDur(m.duration)}</span><span class="tag">pico ${fmtDb(m.peak_db)}</span></span></div>
+      <canvas class="wave" aria-hidden="true"></canvas>
+      <audio controls preload="metadata" src="${A}${file}"></audio>
+      <div class="when">${when}</div>
+      <p class="what">${what}</p>`;
+    redo.appendChild(card);
+    const cv = card.querySelector("canvas");
+    requestAnimationFrame(() => drawWave(cv, m.wave, color));
+    window.addEventListener("resize", () => drawWave(cv, m.wave, color));
+  }
+  REDO.forEach(([name, when, whatNew, whatOld]) => {
+    redoCard("pend:" + name, `_pending/${name}.wav`, `${name}.wav · novo v8.1`, "pendente", when, whatNew, "#ff8f6a");
+    redoCard("rej:" + name, `_pending/rejected_v8/${name}.wav`, `${name}.wav · v8`, "reprovado", "Só pra comparar", whatOld, "#7a6a60");
+    if (name.startsWith("ramp")){
+      redoCard(`cand:${name}_B1`, `candidates/${name}_B1.wav`, `${name}_B1 · opção B`, "Kenney · CC0", when,
+        "Opção B: a mesma progressão (abafa/clareia, cauda de caverna, ar grave), mas com 4 passos gravados em concreto do pack Impact Sounds do Kenney (footstep_concrete_000 a 003), no lugar dos passos sintéticos. Soa mais natural e tem menos crocância de cascalho.", "#59d0e6");
+    }
+    const tr = document.createElement("tr");
+    const m = META["pend:" + name] || {};
+    tr.innerHTML = `<td><code>_pending/${name}.wav</code> (v8.1)</td><td>${fmtDur(m.duration)}</td><td class="pass">${fmtDb(m.peak_db)}</td><td>${fmtDb(m.loudness_db)}</td><td>—</td>`;
+    checks.appendChild(tr);
+  });
   cards(CAVE, "pend-cave", "#9b8cff");
   cards(WRECK, "pend-wreck", "#e8b46a");
 
