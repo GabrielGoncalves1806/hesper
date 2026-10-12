@@ -1098,9 +1098,8 @@ def loop_desert_wind(rng):
 
 # v6.1: os 9 sons do v0.2 foram aprovados e entraram no SOUNDS.
 # Próximas rodadas: o que for novo entra aqui e sai em assets/audio/_pending/.
-PENDING: dict = {
-    "desert_wind": (loop_desert_wind, True, -36.0),
-}
+# v7: desert_wind (v0.3 Marco 1) aprovado e promovido pro SOUNDS.
+PENDING: dict = {}
 
 SOUNDS.update({
     "chest_open": (sfx_chest_open, False, -21.0),
@@ -1112,6 +1111,7 @@ SOUNDS.update({
     "drone_loop": (loop_drone, True, -30.0),
     "drone_deliver": (sfx_drone_deliver, False, -20.0),
     "save": (sfx_save, False, -23.0),
+    "desert_wind": (loop_desert_wind, True, -36.0),
 })
 
 

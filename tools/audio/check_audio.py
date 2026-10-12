@@ -29,9 +29,10 @@ CONTRACT = {
     "chest_open": False, "chest_close": False, "inv_move": False, "inv_full": False,
     "power_low": False, "solar_hum": True, "drone_loop": True, "drone_deliver": False, "save": False,
     "amb_dead": True, "amb_mist": True, "amb_green": True,
+    "desert_wind": True,  # v0.3 Marco 1
 }
 # v0.2: entregues em _pending/ até o dono aprovar
-PENDING: dict = {"desert_wind": True}  # v0.3 Marco 1
+PENDING: dict = {}
 BANDS = [(20, 150), (150, 600), (600, 2500), (2500, 8000), (8000, 22050)]
 
 

@@ -91,7 +91,7 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
     <div class="eyebrow">Hesper · report de som · v7</div>
     <h1>Som do planeta</h1>
     <p class="lede">Os 19 arquivos do contrato de áudio da bíblia (§6), todos gerados por síntese procedural com seed fixa em <code>tools/audio/build_audio.py</code>. A estética é 8/16-bit refinada: osciladores limitados em banda, ruído filtrado, envelopes, varreduras de pitch e um reverb de cratera. Dá o play em cada um, os loops tocam em repetição pra tu ouvir a emenda.</p>
-    <div class="note" style="border-left-color:#e8b46a"><b style="color:#e8b46a">v7 · v0.3 Marco 1 · Superfície:</b> um som novo, pendente da tua aprovação: <code>desert_wind.wav</code>, a camada de vento seco que toca por cima do ambiente do estágio quando o jogador está na superfície. Está em <code>assets/audio/_pending/</code> e na seção <a href="#superficie">Superfície</a>, com prévia mixada com cada um dos 3 ambientes no volume sugerido. Nenhum som aprovado mudou (os 38 arquivos conferidos por md5 antes e depois).</div>
+    <div class="note" style="border-left-color:#e8b46a"><b style="color:#e8b46a">v7 · v0.3 Marco 1 · Superfície · aprovado:</b> o <code>desert_wind.wav</code> (som e volume 0,45) foi aprovado e agora é oficial em <code>assets/audio/</code>, idêntico byte a byte ao que tu ouviu. É a camada de vento seco que toca por cima do ambiente do estágio na superfície. Está na seção <a href="#superficie">Superfície</a>, com a prévia mixada com cada um dos 3 ambientes. Nenhum outro som mudou (conferido por md5). O contrato agora tem 32 arquivos.</div>
     <div class="note" style="border-left-color:#7fd67a"><b style="color:#7fd67a">v6.1 · sons do v0.2 aprovados:</b> os 9 sons do v0.2 saíram de <code>_pending/</code> e agora são oficiais em <code>assets/audio/</code>, idênticos byte a byte aos que tu aprovou. Baú, inventário e save estão em <a href="#interface">Interface</a>. Painel solar e queda de energia estão em <a href="#energia">Energia</a>. Os drones estão em <a href="#drones">Drones</a>. Os volumes sugeridos estão na tabela de integração. O contrato agora tem 31 arquivos.</div>
     <div class="note" style="border-left-color:#c3d1e2"><b style="color:#c3d1e2">v5:</b> três sons novos da drill automática (§4 "Veios e drills automáticas"), na seção <a href="#drill">Drill</a>: <code>drill_loop</code> (loop), <code>drill_collect</code> e <code>drill_full</code>. Nenhum som existente mudou (conferido por md5).</div>
     <div class="note" style="border-left-color:var(--gold)"><b>v4:</b> nada oficial mudou. Tem 6 candidatas novas pro <code>mine_hit</code> (3 sintéticas mais rochosas e 3 gravadas do Kenney, CC0) e uma bônus pro <code>mine_break</code>, lado a lado com a v3 em <a href="#escolha">Escolha o som de mineração</a>.</div>
@@ -99,27 +99,27 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
     <div class="note" style="border-left-color:var(--cyan)"><b style="color:var(--cyan)">v2, o que mudou:</b> ambientes refeitos pra soar mais espaciais. Saíram vento, chiado, chuva e poeira (a fatia de energia acima de 2,5 kHz caiu de −12 a −16 dB pra −35 a −66 dB do total) e saíram os pássaros e insetos do verde. Agora é drone/pad longo, reverb de cauda longa e brilhos lentos, e a diferença entre estágios vem da harmonia. O <code>mine_break</code> virou rocha esfarelando (impacto curto + cascalho caindo em tempo irregular, sem notas). O <code>pickup</code> virou um "poop" de bolha de 110 ms. O resto não mudou.</div>
     <div class="note"><b>Aviso honesto:</b> quem gerou esses sons não consegue ouvir. Tudo foi validado por análise (formato, duração, pico, loudness aproximado, espectro por banda e teste de clique na emenda dos loops), mas o julgamento estético final é do teu ouvido. Se algum som incomodar, diz qual e o que incomoda (agudo demais, longo demais, grave demais) que dá pra ajustar rápido: é só mexer num número do script e rodar de novo.</div>
     <div class="stats">
-      <div class="stat"><b>31 + 1</b><span>oficiais + pendente</span></div>
+      <div class="stat"><b>32</b><span>arquivos oficiais</span></div>
       <div class="stat"><b>44,1k · 16b · mono</b><span>formato</span></div>
       <div class="stat"><b class="ok" id="st-peak">≤ −1 dBFS</b><span>pico máximo</span></div>
       <div class="stat"><b class="ok">9 / 9</b><span>loops sem estalo</span></div>
     </div>
     <nav class="toc">
-      <a href="#superficie">Superfície (novo)</a><a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
+      <a href="#superficie">Superfície</a><a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
       <a href="#maquinas">Máquinas</a><a href="#drill">Drill</a><a href="#energia">Energia</a><a href="#drones">Drones</a><a href="#ambiente">Ambiente</a><a href="#recompensa">Recompensa</a>
       <a href="#direcao">Direção de ambientação</a><a href="#integracao">Integração</a><a href="#checagens">Checagens</a>
     </nav>
   </header>
 
   <section class="pick" id="superficie" style="border-color:#e8b46a">
-    <div class="sec-head" style="border-color:#5a4524"><span class="num">v7 · pendente</span><h2 style="color:#e8b46a">Superfície · vento do deserto</h2>
-      <p>Camada nova pro deserto da superfície. Não substitui nada: toca <b>por cima</b> do <code>amb_dead/mist/green</code> enquanto o jogador está lá fora e some quando ele desce pra caverna. Fica em <code>_pending/</code> até tu aprovar. O jeito certo de julgar é na mistura: usa os três botões abaixo (ambiente a 0,7 + vento a 0,45, os volumes sugeridos) e o botão "vento on/off" pra comparar com e sem.</p></div>
+    <div class="sec-head" style="border-color:#5a4524"><span class="num">v7 · aprovado</span><h2 style="color:#e8b46a">Superfície · vento do deserto</h2>
+      <p>Camada nova pro deserto da superfície. Não substitui nada: toca <b>por cima</b> do <code>amb_dead/mist/green</code> enquanto o jogador está lá fora e some quando ele desce pra caverna. Aprovado (som e volume). Pra ouvir na mistura, usa os três botões abaixo (ambiente a 0,7 + vento a 0,45, os volumes sugeridos) e o botão "vento on/off" pra comparar com e sem.</p></div>
     <div class="cards">
       <article class="card" id="wind-card">
-        <div class="card-top"><span class="fname">_pending/desert_wind.wav</span>
+        <div class="card-top"><span class="fname">desert_wind.wav</span>
           <span class="tags"><span class="tag loop">loop</span><span class="tag" id="wind-dur">36,0 s</span><span class="tag" id="wind-peak">pico</span></span></div>
         <canvas class="wave" aria-hidden="true"></canvas>
-        <audio controls preload="metadata" loop src="../../assets/audio/_pending/desert_wind.wav"></audio>
+        <audio controls preload="metadata" loop src="../../assets/audio/desert_wind.wav"></audio>
         <div class="when">Loop na superfície, por cima do amb_{estágio}. Some na caverna</div>
         <p class="what">Vento seco e espaçoso, sozinho (aqui ele toca no volume cheio do arquivo, mais alto do que vai ficar no jogo). Ruído dividido em 6 bandas largas cujo peso passeia devagar, então o "filtro" do vento se mexe o tempo todo. Cinco rajadas lentas (4–9 s) por volta, que sobem e clareiam o som; entre elas, um sopro grave quase parado. Quase tudo abaixo de 1,5 kHz: a areia fininha em cima é só um fio. Sem assobio, sem tom, sem bicho. Loop de 36 s, de propósito diferente dos 32 s dos ambientes, pra mistura não se repetir igual.</p>
       </article>
@@ -244,7 +244,7 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
           <tr><td>v0.2</td><td><code>drone_deliver</code></td><td>0,8 (× distância, se longe)</td><td>quando o drone solta a carga na estação</td></tr>
           <tr><td>v0.2</td><td><code>save</code></td><td>0,6</td><td>no save manual; no autosave pode ir a 0,4, ou ficar em silêncio se for muito frequente</td></tr>
         
-          <tr><td>v0.3 · pendente</td><td><code>desert_wind</code></td><td>0,45 (faixa 0,35–0,5)</td><td>canal próprio reservado, <code>loops=-1</code>, por cima do ambiente. Entra com <code>fade_ms=2500</code> ao sair pra superfície e sai com <code>fadeout(1500)</code> ao entrar na caverna. Não acompanha o crossfade de estágio: continua tocando igual.</td></tr>
+          <tr><td>v0.3</td><td><code>desert_wind</code></td><td>0,45 (faixa 0,35–0,5)</td><td>canal próprio reservado, <code>loops=-1</code>, por cima do ambiente. Entra com <code>fade_ms=2500</code> ao sair pra superfície e sai com <code>fadeout(1500)</code> ao entrar na caverna. Não acompanha o crossfade de estágio: continua tocando igual.</td></tr>
           <tr><td>Ambiente</td><td><code>amb_*</code></td><td>0,7</td><td>já saem ~8–10 dB abaixo dos sfx.</td></tr>
           <tr><td>Recompensa</td><td><code>stage_up</code></td><td>1,0</td><td>é o som mais alto do jogo, de propósito.</td></tr>
         </tbody>
@@ -528,9 +528,9 @@ CANDS.forEach(([key, file, title, src, desc]) => {
   card.querySelector("[data-b]").onclick = () => isBreak ? playBurst(hitV3, 4, BREAK_OFFICIAL) : playBurst(url, 4, BREAK_OFFICIAL);
 });
 
-// ---- v7: vento do deserto (pendente) + prévia mixada ----
+// ---- v7: vento do deserto (aprovado) + prévia mixada ----
 (() => {
-  const m = META["pend:desert_wind"] || {};
+  const m = META["desert_wind"] || {};
   const card = document.getElementById("wind-card");
   document.getElementById("wind-dur").textContent = fmtDur(m.duration);
   document.getElementById("wind-peak").textContent = "pico " + fmtDb(m.peak_db);
@@ -538,7 +538,7 @@ CANDS.forEach(([key, file, title, src, desc]) => {
   requestAnimationFrame(() => drawWave(cv, m.wave, "#e8b46a"));
   window.addEventListener("resize", () => drawWave(cv, m.wave, "#e8b46a"));
   const tr = document.createElement("tr");
-  tr.innerHTML = `<td><code>_pending/desert_wind.wav</code></td><td>${fmtDur(m.duration)}</td><td class="pass">${fmtDb(m.peak_db)}</td><td>${fmtDb(m.loudness_db)}</td><td>${m.seam_lsb != null ? `<span class="pass">OK · salto ${m.seam_lsb} lsb (percentil ${String(m.seam_pct).replace(".", ",")} dos saltos normais)</span>` : "—"}</td>`;
+  tr.innerHTML = `<td><code>desert_wind.wav</code></td><td>${fmtDur(m.duration)}</td><td class="pass">${fmtDb(m.peak_db)}</td><td>${fmtDb(m.loudness_db)}</td><td>${m.seam_lsb != null ? `<span class="pass">OK · salto ${m.seam_lsb} lsb (percentil ${String(m.seam_pct).replace(".", ",")} dos saltos normais)</span>` : "—"}</td>`;
   checks.appendChild(tr);
 
   const AMB_VOL = 0.7;
@@ -552,7 +552,7 @@ CANDS.forEach(([key, file, title, src, desc]) => {
     document.querySelectorAll("audio").forEach(a => a.pause());
     cur = b.dataset.st;
     amb = new Audio(`../../assets/audio/amb_${cur}.wav`); amb.loop = true; amb.volume = AMB_VOL;
-    wind = new Audio("../../assets/audio/_pending/desert_wind.wav"); wind.loop = true; wind.volume = windOn ? windVol : 0;
+    wind = new Audio("../../assets/audio/desert_wind.wav"); wind.loop = true; wind.volume = windOn ? windVol : 0;
     amb.play().catch(() => {}); wind.play().catch(() => {});
     show();
   });
