@@ -7,7 +7,10 @@ Ordem de cada frame (de trás pra frente, como camadas de papel):
      plantas, player):
      quem está mais embaixo na tela é desenhado por último e fica "na frente"
   4. efeitos de mineração, fantasma da máquina sendo colocada e drones voando (por cima de tudo)
-  5. luz (escurece tudo e "abre buracos" de luz) e clima do estágio (poeira, névoa, chuva...)
+  5. luz (escurece tudo e "abre buracos" de luz) e clima do estágio (poeira, névoa, chuva...).
+     Na CAVERNA (Marco 2) é outro sistema: escuridão total do game/lighting.py (lanterna, luminárias,
+     luz fraca das máquinas, rampa e terminais) + brilho dos minérios; sem clima. O chão e as paredes da
+     caverna usam sempre a arte do estágio névoa, sem água nem plantas (a caverna não terraforma).
   6. indicadores: barrinha das drills, raio de "sem energia", alcance da estação de drones
 A UI (HUD, menus) vem depois, no ui.py.
 """
@@ -22,7 +25,9 @@ from game import autotile
 from game import config as C
 from game import drones
 from game import energy
+from game import layers
 from game.assets import Sprites
+from game.lighting import LightSource, Lighting, helmet_lamp, lamp as lamp_light, ore_glints
 from game.systems import GameState, Mining
 from game.transition import BASE_SOURCE, StageMap
 from game.world import hash01
@@ -59,13 +64,49 @@ def stage_key(stage: int) -> str:
     return C.STAGES[stage - 1].key
 
 
+CAVE_STAGE = 2                     # a caverna é desenhada sempre com a arte do estágio névoa (rocha fria)
+RAMP_LIGHT = (255, 240, 214)       # luz do dia caindo pela boca da rampa de subida (cor da Designer, v5.0)
+TERMINAL_LIGHT = (111, 227, 160)
+MACHINE_LIGHT = {"o2": (89, 208, 230), "heater": (255, 138, 61), "melter": (159, 230, 255),
+                 "solar": (255, 216, 74), "drill": (255, 210, 140), "drone_station": (150, 210, 230)}
+
+
+def cave_lights(state: GameState) -> list[LightSource]:
+    """Fontes de luz da caverna (a lanterna sempre primeiro). Função pura, testada em tests/test_cave.py.
+    Lanterna do capacete (~4 tiles, pra onde o player olha), luz do dia caindo pela boca da rampa (~3,5),
+    luminárias (~5), luz fraca de cada máquina (~1,8; baú não tem e drill cheia está parada) e o verde
+    dos terminais (~2)."""
+    p = state.player
+    out = [helmet_lamp(p.x, p.y - 18, p.facing)]
+    world = state.world
+    if world.crater is not None:                 # luz fixa na boca da rampa: (tx·32+48, ty·32+30), 3,5 tiles
+        rx, ry = world.crater
+        out.append(LightSource(rx * T + 48, ry * T + 30, 3.5 * T, RAMP_LIGHT))
+    for m in state.machines:
+        if m.is_lamp:
+            out.append(lamp_light(m.tx, m.ty))
+        elif m.is_chest or (m.is_drill and m.full):
+            continue
+        else:
+            ax, ay = m.anchor
+            color = MACHINE_LIGHT.get(m.kind.removesuffix("_t2"), MACHINE_LIGHT["drone_station"])
+            out.append(LightSource(ax, ay - T / 2 - (T / 2 if m.size > 1 else 0), 1.8 * T, color, 0.55))
+    for tx, ty in world.terminals:
+        out.append(LightSource((tx + 0.5) * T, (ty + 1) * T, 2 * T, TERMINAL_LIGHT, 0.6))
+    return out
+
+
 class Renderer:
     def __init__(self, sprites: Sprites):
         self.sprites = sprites
         self._surfaces: dict[str, tuple[pygame.Surface, bool]] = {}
         self._fx: dict[tuple, pygame.Surface] = {}
         self.particles: list[list[float]] = []   # [x, y, vx, vy, vida, cor]
-        self.stage_map = StageMap()              # estágio visual de cada tile (transição gradual)
+        self.surface_map = StageMap()            # estágio visual de cada tile da superfície (transição gradual)
+        self.cave_map = StageMap()               # caverna: estágio fixo (névoa), nunca transiciona
+        self.cave_map.stage = CAVE_STAGE
+        self.stage_map = self.surface_map        # o da camada que está sendo desenhada (troca no draw)
+        self.lighting = Lighting(cell=4, banding=True)   # escuridão da caverna (degraus: decisão do dono)
         self._fade_cache: dict[str, tuple[int, pygame.Surface]] = {}   # clima esmaecido (ver _faded)
         # Relógio das animações das máquinas: o App soma dt × fator da energia (game/energy.py).
         # No déficit ele anda mais devagar, então a drill gira e as máquinas animam mais devagar.
@@ -186,24 +227,45 @@ class Renderer:
     def draw(self, canvas: pygame.Surface, state: GameState, cam: tuple[int, int], t: float,
              ghost: tuple[str, tuple[int, int], int, bool] | None = None, overlay: dict | None = None) -> None:
         self.view_w, self.view_h = canvas.get_size()     # tamanho da visão (com zoom, não é 960×540)
-        stage = stage_key(state.stage)
-        self.stage_map.update(state.ti, [BASE_SOURCE, *state.transition_sources])
+        cave = not state.active.has_base
+        if cave:                                         # rocha fria: sempre névoa, sem transição
+            self.stage_map = self.cave_map
+            stage = stage_key(CAVE_STAGE)
+        else:
+            self.stage_map = self.surface_map
+            stage = stage_key(state.stage)
+            self.stage_map.update(state.ti, [BASE_SOURCE, *state.transition_sources])
         self.draw_floors(canvas, state, cam, stage, t)
         self.draw_veins(canvas, state, cam)
         if state.active.has_base:
             self.draw_zone(canvas, cam, t)
         self.draw_walls_and_objects(canvas, state, cam, stage, t)
-        if state.mining:
-            self.draw_mining(canvas, state, state.mining, cam)
-        if ghost:
-            self.draw_ghost(canvas, cam, *ghost, t)
+        if not cave:
+            if state.mining:
+                self.draw_mining(canvas, state, state.mining, cam)
+            if ghost:
+                self.draw_ghost(canvas, cam, *ghost, t)
         self.draw_flying_drones(canvas, state, cam, t)
         self.draw_particles(canvas, cam)
-        self.draw_lighting(canvas, state, cam, stage, t)
-        self.draw_atmosphere(canvas, stage, t)
+        if cave:
+            self.draw_cave_darkness(canvas, state, cam, t)
+            # rachaduras e fantasma por cima do escuro: o jogador precisa ver onde está mexendo
+            if state.mining:
+                self.draw_mining(canvas, state, state.mining, cam)
+            if ghost:
+                self.draw_ghost(canvas, cam, *ghost, t)
+        else:
+            self.draw_lighting(canvas, state, cam, stage, t)
+            self.draw_atmosphere(canvas, stage, t)
         # 6. indicadores por cima da luz (no escuro da caverna eles têm que aparecer): barrinha das
         #    drills e raio de "sem energia". Ficam no mundo, então crescem com o zoom.
         self.draw_machine_status(canvas, state, cam, t)
+
+    def draw_cave_darkness(self, canvas, state: GameState, cam, t: float) -> None:
+        """Escuridão da caverna (game/lighting.py) e, por cima, o brilho dos minérios no escuro."""
+        self.lighting.apply(canvas, cam, cave_lights(state), ambient=0.0, t=t)
+        tx0, tx1, ty0, ty1 = self.visible_tiles(cam)
+        self.lighting.draw_glints(canvas, cam, ore_glints(state.world, tx0, tx1, ty0, ty1 + 1), t=t)
 
     # ---- tiles ----------------------------------------------------------------
     def visible_tiles(self, cam) -> tuple[int, int, int, int]:
@@ -439,7 +501,10 @@ class Renderer:
             ctx, cty = world.crater
             cx, cy = ctx * T - cam_x, cty * T - cam_y
             if -96 < cx < self.view_w and -96 < cy < self.view_h:
-                items.append(((cty + 3) * T, lambda cx=cx, cy=cy: canvas.blit(self.crater_surface(), (cx, cy))))
+                surf, key = self.crater_surface(state.active.has_base)
+                lit = self.highlight == ("ramp", (ctx, cty))
+                items.append(((cty + 3) * T, lambda cx=cx, cy=cy, surf=surf, key=key, lit=lit: self._draw_ramp(
+                    canvas, surf, key, cx, cy, lit)))
         # recursos soltos (16×16, ponto de chão = (8, 14) do PNG)
         if state.pickups is not None:
             for pk in state.pickups.items:
@@ -485,9 +550,17 @@ class Renderer:
         items.append((p.y, lambda: self._draw_player(canvas, state, p.x - cam_x, p.y - cam_y, t)))
         return items
 
-    def crater_surface(self) -> pygame.Surface:
-        """Cratera fechada (Marco 1). No Marco 2: crater_ramp com a rampa aberta (art.crater(open_ramp=True))."""
-        return self.surface("crater", art.crater)[0]
+    def crater_surface(self, surface_layer: bool = True) -> tuple[pygame.Surface, str]:
+        """A rampa da camada (96×96) e a chave dela: na superfície a cratera com a rampa de descida aberta
+        (crater_ramp), na caverna a rampa de subida (cave_ramp_up, pendente: fallback art.cave_ramp_up)."""
+        if surface_layer:
+            return self.surface("crater_ramp", lambda: art.crater(open_ramp=True))[0], "crater_ramp"
+        return self.surface("cave_ramp_up", art.cave_ramp_up)[0], "cave_ramp_up"
+
+    def _draw_ramp(self, canvas, surf, key, x, y, lit: bool) -> None:
+        canvas.blit(surf, (x, y))
+        if lit:                                   # alvo do E: contorno igual ao das máquinas
+            canvas.blit(self.outline_of(("ramp", key), surf), (x - 1, y - 1))
 
     def draw_small_rock(self, canvas, x: int, y: int, resource: str) -> None:
         """Rocha pequena em (tx·32, ty·32) + o cristalzinho do minério que ela dá (pra ler de longe)."""
@@ -664,6 +737,8 @@ class Renderer:
                                      "icon_drone_station#fallback" if name is None else None)[0]
             elif item == "drone":
                 small = self.drone_icon()
+            elif item == "lamp":
+                small = self.surface("icon_lamp", art.lamp_icon)[0]
             elif item == "solar" and self.sprites.get("icon_solar"):
                 small = self.sprites.get("icon_solar")
             else:   # máquina sem ícone próprio: o sprite dela encolhido pra caber (sem suavizar)
@@ -691,6 +766,8 @@ class Renderer:
             return self.chest_surface()
         if kind == "drone_station":
             return self.station_surface()
+        if kind == "lamp":
+            return pygame.transform.scale_by(self.lamp_surface(), 2)   # 16×32 → 32×64, pixel a pixel
         if kind == "drill":
             icon = self.sprites.get("icon_drill")
             if icon:
@@ -699,7 +776,17 @@ class Renderer:
             return frame.subsurface((0, 16, 64, 64))              # sem a cabeça, pra caber na caixinha
         return self.surface(C.MACHINES[kind].sprite, lambda: art.machine(kind))[0]
 
+    def lamp_surface(self) -> pygame.Surface:
+        return self.surface("lamp", art.lamp)[0]
+
     def draw_machine(self, canvas, kind, ax, ay, t, rotation=0, alpha=None) -> None:
+        if kind == "lamp":                       # luminária: sem animação nem rotação (a luz vem do lighting)
+            surf = self.lamp_surface()
+            if alpha is not None:
+                surf = surf.copy()
+                surf.set_alpha(alpha)
+            self._blit_anchored(canvas, surf, ax, ay)
+            return
         if kind == "chest":                      # baú: sem animação nem rotação (é o fantasma de colocar)
             surf = self.chest_surface().copy()
             if alpha is not None:
@@ -897,7 +984,7 @@ class Renderer:
                 bx, by = spots["beacon"]
                 lights.append((pod_x + bx, pod_y + by, 44, (255, 90, 74), 0.5, 0.5))
         machine_light = {"o2": ((89, 208, 230), 80, -30, 0.2), "heater": ((255, 138, 61), 100, -20, 0.3),
-                         "melter": ((159, 230, 255), 70, -36, 0.18)}
+                         "melter": ((159, 230, 255), 70, -36, 0.18), "lamp": ((255, 222, 184), 96, -26, 0.22)}
         # no déficit de energia o brilho das máquinas fica mais fraco (metade com fator 0)
         dim = 0.5 + 0.5 * state.power.factor
         for m in state.machines:

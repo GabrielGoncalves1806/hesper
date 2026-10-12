@@ -32,9 +32,9 @@ def placed_near_base(state: GameState, kind: str) -> bool:
                for m in state.surface.machines)
 
 
-def has_terminals(state: GameState) -> bool:
-    """Alguma camada (já criada) tem terminal de lore?"""
-    return any(layer.world.terminals for layer in state.layers.values())
+def visited_cave(state: GameState) -> bool:
+    """Já desceu pela rampa? (a caverna só é criada na primeira descida e fica no save)"""
+    return "cave" in state.layers
 
 
 @dataclass(frozen=True)
@@ -58,13 +58,16 @@ OBJECTIVES = [
     Objective("Fabrique um Gerador de O2", lambda s: crafted(s, "o2") >= 1),
     Objective("Coloque o gerador perto da base", lambda s: placed_near_base(s, "o2")),
     Objective("Fabrique um baú", lambda s: crafted(s, "chest") >= 1),
+    # v0.3 Marco 2: a caverna é onde se minera de verdade (escura: lanterna + luminárias)
+    Objective("Desça na caverna pela cratera [E]", visited_cave),
+    Objective("Coloque uma luminária", lambda s: s.lamps_placed >= 1),
     Objective("Minere gelo e fabrique um Derretedor", lambda s: crafted(s, "melter") >= 1),
     Objective("Chegue a Ti 500", lambda s: s.ti >= 500),
     Objective("Fabrique um Aquecedor", lambda s: crafted(s, "heater") >= 1),
     # energia (bíblia §8): o aquecedor é o ponto em que os 5 kW da cápsula começam a apertar
     Objective("Fabrique um painel solar", lambda s: crafted(s, "solar") >= 1),
-    # v0.3: os terminais ficam na caverna. Sem nenhuma camada com terminal (Marco 1), não trava a lista.
-    Objective("Leia um terminal", lambda s: len(s.logs_read) >= 1 or not has_terminals(s)),
+    # v0.3: os terminais ficam na caverna (a 19, 31 e 45 tiles da rampa)
+    Objective("Leia um terminal", lambda s: len(s.logs_read) >= 1),
     Objective("Chegue ao estágio Névoa", lambda s: s.stage >= 2),
     Objective("Coloque uma drill num veio", lambda s: s.drills_placed >= 1),
     Objective("Colete minério de uma drill", lambda s: sum(s.drill_collected.values()) >= 1),

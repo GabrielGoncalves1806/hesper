@@ -73,6 +73,12 @@ WORLD_W, WORLD_H = CAVE_W, CAVE_H   # nome antigo: tamanho padrão do World (a c
 CAVE_CENTER = (64, 64)          # centro da caverna, em tiles (no Marco 2 a rampa de subida fica aqui)
 CAVE_HALL_RADIUS = 12           # raio médio do salão aberto da caverna (a borda é irregular por causa do noise)
 CAVE_SAFE_RADIUS = 8            # dentro desse raio é sempre chão, não importa o noise
+# Rampa de subida (Marco 2): 3×3 de tiles CRATER no meio do salão. Canto de cima à esquerda; o E mira no tile
+# do meio de baixo (tx+1, ty+2) e o player chega/sai em (tx+1, ty+3), que é o CAVE_CENTER.
+CAVE_RAMP = (CAVE_CENTER[0] - 1, CAVE_CENTER[1] - 3)
+# Minério da caverna: um tile de rocha vira minério se o noise passar de  base - extra × longe  (longe = 0 no
+# salão, 1 a 45+ tiles dele). Era 0,66/0,11 até o Marco 1 (~35% das paredes); agora ~45%, mais rico longe.
+CAVE_ORE_THRESHOLD = (0.62, 0.15)
 
 # Tipos de tile (inteiros pra caber numa grade simples)
 FLOOR, ROCK, IRON, SILICON, ICE, BEDROCK, TERMINAL = range(7)
@@ -259,6 +265,11 @@ LOGS = [
 ]
 TERMINAL_REACH = 48   # px entre os pés do player e a base do terminal
 
+# Rampa entre as camadas (v0.3 Marco 2 · game/layers.py e GameState.start_ramp)
+RAMP_REACH = 64         # px dos pés até o meio da borda de baixo da rampa (quem chega já está no alcance)
+RAMP_SWITCH_AT = 0.6    # s: no meio do fade preto troca de camada
+RAMP_DURATION = 1.3     # s: fade completo (escurece, "Descendo..."/"Subindo...", clareia)
+
 # ---------------------------------------------------------------------------
 # Cores (§3)
 # ---------------------------------------------------------------------------
@@ -427,12 +438,27 @@ VOLUME.update({"drone_loop": 0.5, "drone_deliver": 0.8, "solar_hum": 0.5})
 # A ordem dentro de cada aba é a do MACHINE_ORDER.
 # ---------------------------------------------------------------------------
 FAB_TABS = (("terraform", "Terraformação"), ("energy", "Energia"),
-            ("automation", "Automação"), ("storage", "Armazenamento"))
+            ("automation", "Automação"), ("storage", "Armazenamento"), ("light", "Luz"))
 MACHINE_CATEGORY = {
     "o2": "terraform", "melter": "terraform", "heater": "terraform",
     "o2_t2": "terraform", "melter_t2": "terraform", "heater_t2": "terraform",
     "solar": "energy",
     "drill": "automation", "drone_station": "automation", "drone": "automation",
     "chest": "storage",
+    "lamp": "light",
 }
 FAB_VISIBLE_ROWS = 5            # receitas que cabem de uma vez na aba; com mais, a lista rola
+
+# ---------------------------------------------------------------------------
+# Luminária (v0.3 Marco 2 · bíblia §9): luz de chão pra caverna. 1 Fe + 1 Si, liberada desde o começo, sem
+# energia, colocável nas duas camadas. A luz (raio ~5 tiles) vem do game/lighting.py (lamp(tx, ty)).
+# Sprites lamp.png (16×32) e icon_lamp.png (16×16) pendentes: até lá, art.lamp / art.lamp_icon.
+# ---------------------------------------------------------------------------
+MACHINES["lamp"] = MachineType("lamp", "Luminária", "luz na caverna", {"iron": 1, "silicon": 1}, None, 0, 0, "lamp")
+MACHINE_ORDER.append("lamp")
+LAMP_SPRITE_SIZE = (16, 32)
+# Sons da caverna (assets/audio/, pendentes de aprovação: sem o arquivo, silêncio)
+VOLUME.update({"ramp_down": 0.8, "ramp_up": 0.8, "lamp_place": 0.8})
+CAVE_AMBIENT_OUT_MS = 1500      # descendo/subindo: o ambiente que sai (e o vento) some em 1,5 s...
+CAVE_AMBIENT_IN_MS = 2500       # ...e o novo entra em 2,5 s...
+CAVE_AMBIENT_DELAY = 0.5        # ...meio segundo depois (dica do Som)

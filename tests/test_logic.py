@@ -56,12 +56,14 @@ def test_world_size_and_border():
 
 
 def test_crater_center_is_free():
+    """O salão da caverna é chão, menos a rampa de subida 3×3 (Marco 2)."""
     w = World.generate()
-    cx, cy = C.CAVE_CENTER
+    rx, ry = C.CAVE_RAMP
+    ramp = {(rx + dx, ry + dy) for dx in range(3) for dy in range(3)}
     for y in range(128):
         for x in range(128):
             if w.dist_from_center(x, y) < C.CAVE_SAFE_RADIUS:
-                assert w.tiles[y][x] == C.FLOOR, (x, y)
+                assert w.tiles[y][x] == (C.CRATER if (x, y) in ramp else C.FLOOR), (x, y)
 
 
 def test_more_ore_far_from_center():
@@ -285,8 +287,12 @@ def test_mining_turns_player_to_target(game):
 
 
 def test_no_water_in_stage1_but_water_later():
+    """A caverna nunca tem água (Marco 2); o mesmo World com terraforms ligado tem poças da Névoa em diante.
+    (A água da superfície de verdade é testada em tests/test_water.py.)"""
     w = World.generate()
     tiles = [(x, y) for y in range(128) for x in range(128)]
+    assert not any(w.is_water(x, y, 3) for x, y in tiles)       # caverna: rocha fria, sem poça
+    w.terraforms = True
     assert not any(w.is_water(x, y, 1) for x, y in tiles)       # Morto: nenhuma poça
     stage2 = {t for t in tiles if w.is_water(*t, 2)}
     stage3 = {t for t in tiles if w.is_water(*t, 3)}

@@ -1,8 +1,8 @@
 """Mapa de uma camada: uma grade de tiles gerada por noise com seed fixa.
 
 `World` é o mapa em si (consultas e regras de tile). `World.generate(seed)` gera a CAVERNA
-(128×128, paredes com minério, terminais), que era o mapa inteiro até o v0.2 e entra de verdade no
-Marco 2 do v0.3. A SUPERFÍCIE (deserto 192×192, onde fica a base) é montada pelo game/surface_gen.py
+(128×128, paredes com minério, terminais, rampa de subida 3×3 no meio do salão), que era o mapa inteiro
+até o v0.2. A caverna não terraforma (`terraforms = False`: sem água nem plantas). A SUPERFÍCIE (deserto 192×192, onde fica a base) é montada pelo game/surface_gen.py
 em cima do mesmo `World`.
 
 Paredes altas (rocha, minério, borda, terminal) × sólidos baixos (rocha pequena, cratera): os dois
@@ -74,7 +74,10 @@ class World:
         self._vein_tiles: dict[tuple[int, int], Vein] = {}        # tile -> veio que ocupa ele
         self.center: tuple[int, int] = C.CAVE_CENTER              # "centro" da camada (base ou rampa), em tiles
         self.floor_kind = C.FLOOR                                 # o chão que fica quando um sólido quebra
-        self.crater: tuple[int, int] | None = None                # cratera 3×3 (só na superfície): canto de cima à esquerda
+        # Rampa 3×3 da camada (tiles CRATER): a cratera de descida na superfície, a rampa de subida na caverna.
+        # Canto de cima à esquerda; as regras de uso ficam em game/layers.py (ramp_target, ramp_arrival).
+        self.crater: tuple[int, int] | None = None
+        self.terraforms = True                                    # False na caverna: sem água nem plantas, nunca
         self.sand_variants: list[bytes] | None = None             # variação do sand_{stage}_{v} por tile (superfície)
 
     # ---- geração ----------------------------------------------------------
@@ -87,6 +90,12 @@ class World:
                 dist = math.hypot(x + 0.5 - cx, y + 0.5 - cy)
                 world.tiles[y][x] = world._pick_tile(x, y, dist)
                 world.lowness[y][x] = value_noise(x * 0.22 + 200, y * 0.22 + 50, seed + 21)
+        world.terraforms = False                              # rocha fria: não muda com o Ti (bíblia §9)
+        world.crater = C.CAVE_RAMP                           # rampa de subida no meio do salão
+        rx, ry = C.CAVE_RAMP
+        for dy in range(3):
+            for dx in range(3):
+                world.set(rx + dx, ry + dy, C.CRATER)
         world._place_terminals()
         world._place_veins()
         return world
@@ -105,7 +114,8 @@ class World:
             return C.FLOOR
         # Minério: quanto mais longe do centro, mais fácil de aparecer.
         far = min(1.0, max(0.0, (dist - C.CAVE_HALL_RADIUS) / 45))
-        threshold = 0.66 - 0.11 * far
+        base, extra = C.CAVE_ORE_THRESHOLD
+        threshold = base - extra * far
         if value_noise(x * 0.5 + 40, y * 0.5 + 9, seed + 7) > threshold:
             kind = value_noise(x * 0.15 + 90, y * 0.15 + 3, seed + 13)
             if kind < 0.47:
@@ -137,7 +147,8 @@ class World:
         uns em caverna aberta e outros enterrados num bolsão escavado na rocha (achados cavando)."""
         rng = random.Random(self.seed * 7919 + 13)
         cx, cy = C.CAVE_CENTER
-        blocked = {(cx - 1, cy - 1), (cx, cy - 1)}          # o meio do salão (era a cápsula; no Marco 2, a rampa)
+        rx, ry = C.CAVE_RAMP                                # a rampa de subida + 2 tiles de folga (e a chegada)
+        blocked = {(rx + dx, ry + dy) for dx in range(-2, 5) for dy in range(-2, 6)}
         for tx, ty in self.terminals:                       # terminal + salinha + folga
             blocked |= {(tx + dx, ty + dy) for dx in range(-2, 3) for dy in range(-2, 4)}
 
@@ -255,7 +266,7 @@ class World:
 
     def _low_wet(self, tx: int, ty: int, stage: int) -> bool:
         """Água "crua": chão baixo o bastante pro estágio (antes da suavização do is_water)."""
-        if stage < 2 or not (0 <= tx < self.width and 0 <= ty < self.height):
+        if stage < 2 or not self.terraforms or not (0 <= tx < self.width and 0 <= ty < self.height):
             return False
         if self.lowness[ty][tx] >= C.WATER_THRESHOLD[stage]:   # o teste mais barato primeiro
             return False
@@ -281,7 +292,8 @@ class World:
 
     def plant_at(self, tx: int, ty: int) -> str | None:
         """Planta decorativa do estágio 3 (sem colisão). Retorna 'bush', 'tree', 'flower' ou None."""
-        if not self.is_floor(tx, ty) or self.dist_from_center(tx, ty) < 7 or self.is_water(tx, ty, 3):
+        if not self.terraforms or not self.is_floor(tx, ty) or self.dist_from_center(tx, ty) < 7 \
+                or self.is_water(tx, ty, 3):
             return None
         if (tx, ty) in self._vein_tiles:      # nem planta em cima de veio
             return None

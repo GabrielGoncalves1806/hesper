@@ -74,3 +74,11 @@ def test_desert_wind_volume_follows_ramp_ducking_and_sliders():
     assert wind_volume(0.0, 1.0, full) == 0.0               # na caverna: rampa em 0
     assert wind_volume(1.0, 0.0, full) == 0.0               # desmaio: cai junto com o ambiente
     assert wind_volume(1.0, 1.0, full * 0.5) == pytest.approx(C.DESERT_WIND_VOLUME * 0.5)
+
+
+def test_ambient_for_layer():
+    """Caverna toca amb_cave (se o arquivo existir); senão fica o ambiente do estágio."""
+    from game import audio
+    assert audio.ambient_for("cave", "mist", True) == "cave"
+    assert audio.ambient_for("cave", "mist", False) == "mist"
+    assert audio.ambient_for("surface", "green", True) == "green"

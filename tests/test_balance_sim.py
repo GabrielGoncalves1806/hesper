@@ -27,11 +27,14 @@ def test_proposta_chega_no_fim_dentro_da_meta(proposal, strategy):
     # Teto provisório de 50 min até o Marco 2/4 (referência do v0.3: 25–40 min).
     ceiling = 50
     assert 20 * 60 <= r.total <= ceiling * 60
-    assert 9 * 60 <= r.milestones["Névoa"] <= 13 * 60     # Névoa por volta dos 10–12 min
+    # Névoa por volta dos 10–12 min. Marco 2: quem só minera na caverna começa mais devagar (não pega solto
+    # e cada viagem paga ~20 tiles de rampa: base -> cratera -> fade), ~14 min na proposta.
+    nevoa_max = 15 if strategy == "caverna" else 13
+    assert 9 * 60 <= r.milestones["Névoa"] <= nevoa_max * 60
     # nenhuma espera longa no meio do jogo; a da reta final ("o fim chega antes da próxima máquina") é o
-    # jogador esperando o Ti fechar, e no Marco 1 (superfície, mais lento) ela chega a ~3 min
+    # jogador esperando o Ti fechar: no Marco 1 (superfície) chega a ~3 min, na caverna (proposta) a ~5 min
     end_wait = r.idle_longest_reason == "fim chega antes da próxima máquina"
-    assert r.idle_longest <= (4 if end_wait else 2.5) * 60
+    assert r.idle_longest <= ((6 if strategy == "caverna" else 4) if end_wait else 2.5) * 60
     assert sum(r.machines[k] for k in ("o2_t2", "melter_t2", "heater_t2")) > 0
 
 
@@ -55,3 +58,15 @@ def test_desmaio_usa_a_regra_real_e_o_jogo_continua(proposal):
     r = sim.simulate(afobado, seed=1, overrides=proposal)
     assert r.faints > 0
     assert r.finished
+
+
+def test_estrategia_caverna_minera_la_embaixo():
+    """Marco 2: a estratégia "caverna" minera na caverna (drills nos veios de lá, sem drones, sem soltos) e
+    fecha a partida na referência do v0.3 (25–40 min) com os números atuais."""
+    sim_ = sim.Sim(sim.STRATEGIES["caverna"], seed=1)
+    r = sim_.run()
+    assert r.finished and 25 * 60 <= r.total <= 40 * 60
+    cave = sim_.gs.layers["cave"]
+    assert sum(m.is_drill for m in cave.machines) == 3 and not any(m.is_drill for m in sim_.gs.surface.machines)
+    assert r.drill_units > 0 and r.drone_units == 0 and r.faints == 0
+    assert sim_.ramp_k > 15                       # a viagem até a caverna custa (cratera a 15–20 tiles)

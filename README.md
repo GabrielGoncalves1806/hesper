@@ -2,8 +2,8 @@
 
 Jogo 2D top-down de sobrevivência e terraformação. Tu cai num deserto de um planeta morto, junta
 minério das rochas e do chão, fabrica máquinas que aumentam O₂, calor e água, e vê o planeta mudar de cara.
-No v0.3 o mundo ganha duas camadas: a **superfície** (deserto aberto, onde fica a base) e, no Marco 2, a
-**caverna** (mineração em volume). O v0.3 exige jogo novo: save do v0.2 não carrega (fica guardado como
+No v0.3 o mundo ganha duas camadas: a **superfície** (deserto aberto, onde fica a base) e a **caverna**
+(escura, com minério em volume), ligadas pela rampa da cratera. O v0.3 exige jogo novo: save do v0.2 não carrega (fica guardado como
 `saves/slot1.v5.json` quando tu começa um jogo novo).
 A fonte da verdade do design é `docs/GAME_BIBLE.md`.
 
@@ -39,7 +39,9 @@ uv run python -m game --scale 2   # força o zoom da janela (padrão: o maior qu
 | Zoom do mundo | + / - (ou = e o teclado numérico) · Ctrl+rodinha (Cmd no Mac) · 0,75× · 1× · 1,5× · 2× · HUD e menus não mudam de tamanho |
 | Tela cheia | F11 ou Alt+Enter (resolução do monitor, 16:9 com tarja preta se precisar) |
 | Tamanho da interface | Pausa > Opções > Interface: Grande (a de sempre) · Média (~75%, padrão) · Pequena (~50%) · só HUD e menus mudam, o mundo não · em janela pequena (960×540) os três ficam iguais |
-| Ler terminal | E perto dele |
+| Ler terminal | E perto dele (os terminais ficam na caverna) |
+| Descer / subir | E na **cratera** (mouse em cima, no alcance, ou parado do lado dela) desce pra caverna · lá embaixo, E na **rampa de subida** volta · sempre chega ao lado da rampa · na caverna não tem zona de O₂: o tanque dura os mesmos 100 s, e a seta do O₂ crítico aponta pra rampa · desmaiou lá embaixo, acorda na cápsula |
+| Luminária | aba **Luz** do fabricador (1 ferro + 1 silício, desde o começo) · coloca como máquina (hotbar + clique), em qualquer camada · ilumina ~5 tiles, sem energia · clique direito desmonta |
 | E (interagir) | abre o que está **debaixo do mouse** (baú, drill, estação, terminal) se estiver no alcance; senão o mais perto · Shift+E na drill segue a mesma regra · o alvo ganha um contorno e o texto do canto diz o que o E vai abrir |
 | Debug | F1 acelera o tempo ×10 (O₂ e máquinas) · F2 soma +10.000 Ti |
 
@@ -59,15 +61,16 @@ assim o jogo anda na mesma velocidade num PC rápido ou lento. O código separa 
 | Módulo | O que faz |
 |---|---|
 | `game/config.py` | todos os números e tabelas da bíblia: paletas, receitas, tempos de mineração, O₂, estágios, textos dos logs |
-| `game/world.py` | o mapa de uma camada (consultas, paredes altas × sólidos baixos, poças, plantas) e o gerador da caverna 128×128 (minério, terminais) |
+| `game/world.py` | o mapa de uma camada (consultas, paredes altas × sólidos baixos, poças, plantas) e o gerador da caverna 128×128 (minério, terminais, rampa de subida; sem água nem plantas) |
 | `game/surface_gen.py` | o deserto 192×192 da superfície: borda, morros, cratera, 3–5 veios, rochas pequenas e a variação da areia (cache por seed) |
-| `game/layers.py` | as camadas (superfície e caverna): cada uma com mapa, máquinas e recursos soltos |
+| `game/layers.py` | as camadas (superfície e caverna): cada uma com mapa, máquinas e recursos soltos · regras da rampa (alvo do E, ponto de chegada) |
+| `game/lighting.py` | escuridão da caverna: mapa de luz em degraus multiplicado no mundo, lanterna, luminárias, luz de máquina e brilho dos minérios |
 | `game/pickups.py` | recursos soltos no chão: geração, reaparecimento (fora da tela, longe da base, com teto) e save |
 | `game/player.py` | o astronauta: posição, direção (baixo/cima/esquerda/direita) e movimento com colisão |
 | `game/systems.py` | as regras (`GameState`): camadas, mineração, recursos soltos, O₂, desmaio, fabricador, máquinas, Ti e estágios. **Python puro, sem pygame**, por isso dá pra testar fácil |
 | `game/drones.py` | estação e drones: Envia/Recebe/Lote de baús e drills, escolha do par origem → destino, reservas entre drones e o ciclo de voo (Python puro) |
 | `game/app.py` | o game loop: transforma teclado/mouse num `Controls`, chama `GameState.update(dt, controls)`, reage aos eventos (som, textos flutuantes, banner) e manda desenhar |
-| `game/render.py` | desenha o mundo: só os tiles visíveis, paredes altas, objetos por profundidade, luz e clima do estágio |
+| `game/render.py` | desenha o mundo: só os tiles visíveis, paredes altas, objetos por profundidade, luz e clima do estágio (na caverna: arte fixa da névoa + escuridão do `lighting.py`) |
 | `game/ui.py` | HUD, fabricador, terminal, banner, O₂ crítico, desmaio e tela de fim (desenhado em 480×270 e esticado 2×, igual ao mockup) |
 | `game/art.py` | os desenhos "de retângulos" usados enquanto não tem sprite aprovado |
 | `game/assets.py` | carrega sprites e fontes; se o PNG não existir, devolve nada e o jogo usa o desenho de fallback |

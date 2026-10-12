@@ -1568,13 +1568,13 @@ def check_surface(bot) -> None:
     bot.frames(0.1)
     assert w.get(*rock) == C.SAND and 2 <= s.inventory.count(res) - before <= 4
 
-    # 3) cratera (fechada no Marco 1): obstáculo, com a dica
+    # 3) cratera (rampa de descida no Marco 2): obstáculo, com a dica do E
     tx, ty = w.crater
     bot.teleport((tx + 1, ty + 4))
     s.o2 = C.O2_MAX
     bot.mouse_to(bot.tile_on_screen((tx + 1, ty + 1)))
     bot.frames(0.2)
-    assert app.hint() == "Cratera · fechada por enquanto", app.hint()
+    assert app.hint() == "[E] Descer pela rampa", app.hint()
     y0 = s.player.y
     bot.key(pygame.K_w, hold=0.8)                  # anda pra cima: a cratera segura
     assert s.player.y >= (ty + 3) * C.TILE + C.PLAYER_BOX_H - 0.01 and s.player.y < y0
@@ -1624,6 +1624,172 @@ def check_surface(bot) -> None:
           f"({len(ft)} frames, orçamento 16,7 ms)")
     assert avg < 1 / 60, "deserto no zoom 0,75 passou do orçamento de 16,7 ms"
     app.set_zoom(zoom_before, notify=False)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+
+
+def cave_spot(world, lo=14, hi=30):
+    """Chão da caverna com mais minério em volta (raio de ~8 tiles), entre `lo` e `hi` tiles da rampa."""
+    def score(x, y):
+        return sum(world.get(xx, yy) in C.ORE_TILES for yy in range(y - 6, y + 7) for xx in range(x - 10, x + 11))
+    spots = [(x, y) for y in range(8, world.height - 8, 2) for x in range(8, world.width - 8, 2)
+             if world.is_floor(x, y) and world.is_floor(x, y - 1) and world.is_floor(x + 1, y)
+             and lo <= world.dist_from_center(x, y) <= hi]
+    return max(spots, key=lambda t: score(*t))
+
+
+def open_floor_near(world, spot, n, min_gap=3, radius=12):
+    """`n` tiles de chão livres (sem veio) em volta de `spot`, com `min_gap` tiles entre eles."""
+    out = []
+    cx, cy = spot
+    cand = sorted(((x, y) for y in range(cy - radius, cy + radius + 1) for x in range(cx - radius, cx + radius + 1)
+                   if world.is_floor(x, y) and not world.vein_at(x, y) and (x, y) != spot),
+                  key=lambda t: math.hypot(t[0] - cx, t[1] - cy))
+    for t in cand:
+        if all(max(abs(t[0] - o[0]), abs(t[1] - o[1])) >= min_gap for o in out):
+            out.append(t)
+        if len(out) == n:
+            break
+    return out
+
+
+def check_cave(bot) -> None:
+    """v0.3 Marco 2 · caverna: E na cratera, fade, chegada, escuro com luminárias, mineração, mapa, perf, subir."""
+    from game import layers
+    from game.systems import Machine
+    s, app = bot.state, bot.app
+    assert s.layer == "surface"
+    zoom_before = app.zoom
+    app.set_zoom(1.0, notify=False)
+    w = s.world
+    tx, ty = w.crater
+    # 0) a luminária no fabricador, aba "Luz" (1 Fe + 1 Si, liberada desde o começo)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    bot.key(pygame.K_e)
+    assert app.mode == "fabricator"
+    app.fab.set_tab([t for t, _ in C.FAB_TABS].index("light"))
+    bot.frames(0.1)
+    assert app.fab.current == "lamp"
+    bot.shot("fabricador_luz.png")
+    app.fab.set_tab(0)
+    bot.key(pygame.K_ESCAPE)
+    # 1) mouse na cratera, no alcance: a dica e o contorno
+    bot.teleport((tx + 1, ty + 3))
+    s.o2 = C.O2_MAX
+    bot.mouse_to(bot.tile_on_screen((tx + 1, ty + 1)))
+    bot.frames(0.2)
+    assert app.hint() == "[E] Descer pela rampa", app.hint()
+    assert app.highlight_target() == ("ramp", (tx, ty))
+    bot.shot("caverna_rampa_superficie.png")
+    # 2) E: fade com "Descendo..." e troca de camada no preto
+    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_e, mod=0, unicode="", scancode=0))
+    bot.frames(0.42)
+    assert s.ramp is not None and s.layer == "surface"
+    bot.shot("caverna_transicao.png")
+    pygame.event.post(pygame.event.Event(pygame.KEYUP, key=pygame.K_e, mod=0, unicode="", scancode=0))
+    bot.frames(C.RAMP_DURATION)
+    cave = s.world
+    assert s.layer == "cave" and s.ramp is None and (s.player.x, s.player.y) == layers.ramp_arrival(cave)
+    bot.mouse_to((700, 300))
+    bot.frames(0.3)
+    bot.shot("caverna_chegada.png")
+    print(f"  caverna: chegou em {s.player.tile} · {len(cave.veins)} veios · ambiente {app.audio.ambient_key!r}")
+
+    # 3) no escuro: lanterna + 6 luminárias + minério brilhando
+    spot = cave_spot(cave)
+    bot.teleport(spot)
+    s.o2 = C.O2_MAX
+    lamps = open_floor_near(cave, spot, 6, min_gap=4, radius=11)
+    first = lamps[0]
+    give(s, lamp=6)
+    bot.key(hotbar_key(bot, "lamp"))
+    assert app.placing == "lamp"
+    s.player.x, s.player.y = (first[0] + 0.5) * C.TILE, (first[1] + 3) * C.TILE - 2    # perto (alcance 4)
+    if not cave.is_floor(*s.player.tile):
+        s.player.x, s.player.y = (spot[0] + 0.5) * C.TILE, (spot[1] + 1) * C.TILE - 2
+    bot.click(bot.tile_on_screen(first))
+    assert any(m.is_lamp for m in s.machines), "a luminária devia ter sido colocada pelo clique"
+    for t in lamps[1:]:
+        s.machines.append(Machine("lamp", *t))
+    bot.key(pygame.K_ESCAPE)
+    bot.teleport(spot)
+    s.player.direction = "right"
+    bot.mouse_to((760, 260))
+    bot.frames(0.4)
+    bot.shot("caverna_escura.png")
+
+    # 4) mineração no escuro (a lanterna ilumina o tile; as rachaduras ficam por cima do escuro)
+    ore = min(((x, y) for y in range(2, 126) for x in range(2, 126)
+               if cave.get(x, y) in C.ORE_TILES and cave.is_floor(x, y + 1) and cave.is_floor(x, y + 2)),
+              key=lambda t: math.hypot(t[0] - spot[0], t[1] - spot[1]))
+    bot.teleport((ore[0], ore[1] + 1))
+    s.o2 = C.O2_MAX
+    s.player.direction = "up"
+    pos = bot.tile_on_screen(ore)
+    bot.mouse_to(pos)
+    bot.mouse_down(pos)
+    bot.frames(0.5)
+    bot.shot("caverna_mineracao.png")
+    bot.frames(0.9)
+    bot.mouse_up(pos)
+    bot.frames(0.1)
+    assert cave.is_floor(*ore), "o minério da caverna devia ter quebrado"
+
+    # 5) mapa da caverna inteiro reduzido 4× (sem escuridão)
+    r = app.renderer
+    chunk = 1024
+    full = pygame.Surface((cave.width * C.TILE // 4, cave.height * C.TILE // 4))
+    piece = pygame.Surface((chunk, chunk))
+    r.stage_map = r.cave_map
+    for cy in range(0, cave.height * C.TILE, chunk):
+        for cx in range(0, cave.width * C.TILE, chunk):
+            piece.fill((0, 0, 0))
+            r.view_w, r.view_h = chunk, chunk
+            r.draw_floors(piece, s, (cx, cy), "mist", 0.0)
+            r.draw_veins(piece, s, (cx, cy))
+            r.draw_walls_and_objects(piece, s, (cx, cy), "mist", 0.0)
+            full.blit(pygame.transform.smoothscale(piece, (chunk // 4, chunk // 4)), (cx // 4, cy // 4))
+    for v in cave.veins:
+        pygame.draw.circle(full, C.ORE_COLORS[v.resource][0], ((v.tx + 1) * 8, (v.ty + 1) * 8), 12, 2)
+    for t in cave.terminals:
+        pygame.draw.circle(full, C.C_TERMINAL, ((t[0] + 0.5) * 8, (t[1] + 0.5) * 8), 14, 2)
+    rx, ry = cave.crater
+    pygame.draw.circle(full, (255, 255, 255), ((rx + 1.5) * 8, (ry + 1.5) * 8), 20, 2)
+    pygame.image.save(full, str(OUT / "caverna_mapa.png"))
+    ores = sum(cave.get(x, y) in C.ORE_TILES for y in range(128) for x in range(128))
+    walls = sum(cave.is_wall(x, y) for y in range(128) for x in range(128))
+    print(f"  screenshot: reports/dev/caverna_mapa.png  (128×128 reduzido 4×; anéis: veios, verde = terminais, "
+          f"branco = rampa) · minério {ores} de {walls} paredes ({100 * ores / walls:.0f}%)")
+
+    # 6) perf: caverna escura com 30 luminárias na tela, zoom 0,75, andando
+    app.set_zoom(0.75, notify=False)
+    perf_spot = cave_spot(cave, 10, 40)
+    extra = open_floor_near(cave, perf_spot, 30, min_gap=2, radius=18)
+    s.machines.extend(Machine("lamp", *t) for t in extra)
+    bot.teleport(perf_spot)
+    start = len(bot.frame_times)
+    for key in (pygame.K_d, pygame.K_s, pygame.K_a, pygame.K_w):
+        s.o2 = C.O2_MAX
+        bot.key(key, hold=0.75)
+    ft = bot.frame_times[start:]
+    avg = sum(ft) / len(ft)
+    lit = sum(1 for m in s.machines if m.is_lamp)
+    print(f"  perf caverna escura, {lit} luminárias, zoom 0,75×: média {avg * 1000:.1f} ms · pior {max(ft) * 1000:.1f} ms "
+          f"({len(ft)} frames, orçamento 16,7 ms)")
+    assert avg < 1 / 60, "caverna escura no zoom 0,75 passou do orçamento de 16,7 ms"
+    for m in [m for m in s.machines if m.is_lamp][6:]:
+        s.machines.remove(m)
+    app.set_zoom(zoom_before, notify=False)
+
+    # 7) sobe pela rampa: volta pra superfície ao lado da cratera
+    s.player.x, s.player.y = layers.ramp_arrival(cave)
+    s.o2 = C.O2_MAX
+    bot.key(pygame.K_e)
+    assert s.ramp is not None and s.ramp.to == "surface"
+    bot.frames(C.RAMP_DURATION + 0.1)
+    assert s.layer == "surface" and (s.player.x, s.player.y) == layers.ramp_arrival(s.world)
+    s.inventory.remove("lamp", s.inventory.count("lamp"))     # o resto do smoke conta com o inventário de antes
     bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
     s.o2 = C.O2_MAX
     bot.frames(0.2)
@@ -1717,6 +1883,7 @@ def main() -> None:
     bot.frames(0.5)
     bot.shot("stage1.png")
     check_surface(bot)
+    check_cave(bot)
     check_veins(bot)
 
     print("2) mineração")
@@ -1773,7 +1940,7 @@ def main() -> None:
     check_energy(bot)
     check_transition(bot, 1, [("transicao_25.png", 0.25), ("transicao_60.png", 0.60), ("transicao_90.png", 0.90)])
 
-    print("4) terminal (na caverna: no Marco 1 ela só existe pela estrutura de camadas)")
+    print("4) terminal (na caverna; o check_cave já testou a rampa de verdade)")
     s.enter_layer("cave")
     tx, ty = s.world.terminals[0]
     bot.teleport((tx, ty + 1))

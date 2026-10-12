@@ -57,11 +57,14 @@ def test_normal_sequence_walks_every_objective(game):
     craft_free(game, "o2"); step()
     place_at(game, "o2", (93, 98)); step()
     craft_free(game, "chest"); step()
+    game.enter_layer("cave"); step()            # desceu pela rampa
+    game.lamps_placed = 1; step()               # colocou uma luminária (lá embaixo ou em qualquer lugar)
+    game.enter_layer("surface")
     craft_free(game, "melter"); step()
     game.indices["o2"] = 500; step()
     craft_free(game, "heater"); step()
     craft_free(game, "solar"); step()
-    # (sem "Leia um terminal": no Marco 1 não tem terminal na superfície)
+    game.read_terminal(0); step()               # terminal da caverna
     game.debug_add_ti(); step()                 # Ti 10.500 -> Névoa
     vein = game.world.veins[0]                  # drill de verdade num veio de verdade
     game.player.x, game.player.y = (vein.tx + 0.5) * C.TILE, (vein.ty + 3) * C.TILE - 4
@@ -84,11 +87,14 @@ def test_normal_sequence_walks_every_objective(game):
         "Fabrique um Gerador de O2",
         "Coloque o gerador perto da base",
         "Fabrique um baú",
+        "Desça na caverna pela cratera [E]",
+        "Coloque uma luminária",
         "Minere gelo e fabrique um Derretedor",
         "Chegue a Ti 500",
         "Fabrique um Aquecedor",
         "Fabrique um painel solar",
-        "Chegue ao estágio Névoa",          # "Leia um terminal" pula: no Marco 1 não tem terminal (caverna)
+        "Leia um terminal",
+        "Chegue ao estágio Névoa",
         "Coloque uma drill num veio",
         "Colete minério de uma drill",
         "Fabrique uma estação de drones",
@@ -186,6 +192,9 @@ def test_everything_done_list_disappears(game):
         craft_free(game, kind)
     place_at(game, "o2", (93, 98))
     game.read_terminal(0)
+    game.enter_layer("cave")
+    game.enter_layer("surface")
+    game.lamps_placed = 1
     game.drills_placed = 1
     game.drill_collected["iron"] = 5
     game.drone_deliveries = 1
@@ -212,17 +221,17 @@ def test_crafted_counter_does_not_go_back_when_placed_or_dismantled(game):
     assert game.crafted["chest"] == 1
 
 
-def test_terminal_objective_only_when_a_terminal_exists(game):
-    """v0.3: os terminais ficam na caverna. Sem caverna, o objetivo não trava a lista."""
+def test_terminal_objective_needs_reading_one(game):
+    """Marco 2: a caverna sempre abre pela rampa, então "Leia um terminal" não pula mais."""
     game.mined_total.update(iron=10, silicon=4)
     game.fabricator_opened = True
     for kind in ("o2", "chest", "melter", "heater", "solar"):
         craft_free(game, kind)
     place_at(game, "o2", (C.BASE_TILE[0] - 2, C.BASE_TILE[1] + 1))
-    game.indices["o2"] = 500
-    assert current_text(game) == "Chegue ao estágio Névoa"
-    game.enter_layer("cave")                    # a caverna existe: agora vale ler um terminal
+    game.enter_layer("cave")
     game.enter_layer("surface")
+    game.lamps_placed = 1
+    game.indices["o2"] = 500
     assert current_text(game) == "Leia um terminal"
     game.read_terminal(0)
     assert current_text(game) == "Chegue ao estágio Névoa"

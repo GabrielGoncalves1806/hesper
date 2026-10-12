@@ -13,6 +13,11 @@ sem caverna. Minério = minério dos morros + rochas pequenas (`C.TILE_RESOURCE`
 (`game/pickups.py`, com o reaparecimento real rodando junto da produção). O volume de minério da superfície
 é baixo de propósito (a mineração em volume vem com a caverna no Marco 2).
 
+v0.3 Marco 2: a estratégia "caverna" minera só na CAVERNA (`Strategy.cave`). A base continua na superfície; o
+mapa de mineração vira a caverna e a base é um índice virtual ligado à chegada da rampa por uma aresta de
+`ramp_k` tiles (caminho real na superfície da zona de O₂ até a cratera + o fade da rampa). O O₂ cai no trecho todo.
+As drills vão nos veios da caverna e ele busca à mão (drones só atendem a superfície: sem estação). Sem soltos.
+
 Real (vem do jogo): o mapa (`GameState(seed).world`, a superfície), o inventário, os drops (`GameState._break_tile`,
 com o `rng` do estado), `can_mine` (alcance), `craft`/`can_place`/`place`, a produção das máquinas
 (`GameState._update_machines`), os estágios (`stage_for_ti`), o desmaio (`_faint` + `_update_faint` frame a frame) e
@@ -72,6 +77,8 @@ if str(ROOT) not in sys.path:
 
 from game import config as C  # noqa: E402
 from game import drones  # noqa: E402
+from game import layers  # noqa: E402
+from game.layers import CAVE, SURFACE  # noqa: E402
 from game.systems import GameState  # noqa: E402
 
 PROPOSAL_PATH = Path(__file__).with_name("balance_proposal.json")
@@ -145,6 +152,7 @@ class Strategy:
     drills: int = 3               # quantas drills ele monta depois da Névoa (uma por veio)
     stations: int = 1             # quantas estações de drones ele monta depois das drills
     drones: int = 2               # quantos drones (item) ele fabrica e põe na estação
+    cave: bool = False            # Marco 2: minera na CAVERNA (desce pela rampa), drills nos veios de lá
 
 
 STRATEGIES = {
@@ -155,7 +163,38 @@ STRATEGIES = {
     # humano normal: anda 30% mais que o planejado (pode até desmaiar), volta com folga, demora pra mirar
     "casual": Strategy("casual", pick="balanced", walk_factor=1.3, o2_margin=12.0, craft_overhead=6.0,
                        mine_overhead=0.3),
+    # v0.3 Marco 2: o mesmo humano casual, mas que desce pela cratera e minera na caverna (minério em volume,
+    # sem soltos). As drills vão nos veios da caverna e ele busca à mão (os drones só atendem a superfície).
+    "caverna": Strategy("caverna", pick="balanced", walk_factor=1.3, o2_margin=12.0, craft_overhead=6.0,
+                        mine_overhead=0.3, stations=0, cave=True),
 }
+
+
+def surface_walk_to_zone(world, target) -> float:
+    """Tiles andando (8 vizinhos, sem cortar quina) do tile `target` até a zona de O₂ da base, na superfície."""
+    W, H = world.width, world.height
+    def zone(x, y):
+        return math.hypot((x + 0.5) * C.TILE - C.BASE_CENTER[0], y * C.TILE + 24 - C.BASE_CENTER[1]) <= C.BASE_RADIUS
+    def free(x, y):
+        return world.is_floor(x, y) and (x, y) not in C.POD_TILES
+    dist = {target: 0.0}
+    heap = [(0.0, target)]
+    while heap:
+        d, (x, y) = heapq.heappop(heap)
+        if d > dist[(x, y)]:
+            continue
+        if zone(x, y):
+            return d
+        for dx, dy, step in NEIGHBORS:
+            nx, ny = x + dx, y + dy
+            if not (0 < nx < W - 1 and 0 < ny < H - 1) or not free(nx, ny):
+                continue
+            if dx and dy and not (free(x + dx, y) and free(x, y + dy)):
+                continue
+            if d + step < dist.get((nx, ny), INF):
+                dist[(nx, ny)] = d + step
+                heapq.heappush(heap, (d + step, (nx, ny)))
+    return INF
 
 
 class Fainted(Exception):
@@ -184,6 +223,7 @@ class Result:
     units: int = 0                                   # recursos coletados
     time_by: dict = field(default_factory=dict)      # andar / minerar / base / espera
     deficit_time: float = 0.0                        # segundos com falta de energia (máquinas mais lentas)
+    ramp_tiles: float = 0.0                          # estratégia caverna: "tiles" da base até a chegada na caverna
 
 
 # ---------------------------------------------------------------------------
@@ -193,8 +233,19 @@ class Sim:
     def __init__(self, strategy: Strategy, seed: int = 1, max_time: float = 6 * 3600):
         self.s = strategy
         self.gs = GameState(rng=random.Random(seed))
-        self.world = self.gs.world
+        # Mapa onde ele minera: a superfície (padrão) ou a caverna (Strategy.cave). A base (fabricar, colocar
+        # máquinas, encher O₂) é sempre na superfície (`base_world`). Na caverna, a base vira um índice virtual
+        # BASE (= W·H) ligado à chegada da rampa por uma "aresta" de `ramp_k` tiles: o caminho na superfície da
+        # zona de O₂ até a cratera + o tempo do fade da rampa. O O₂ cai nesse trecho todo (não há zona lá).
+        self.cave = strategy.cave
+        self.base_world = self.gs.surface.world
+        self.mine_layer = CAVE if self.cave else SURFACE
+        if self.cave:
+            self.gs.layers[CAVE] = layers.make_cave(self.gs.seed)
+        self.world = self.gs.layers[self.mine_layer].world
         self.W, self.H = self.world.width, self.world.height
+        self.N = self.W * self.H
+        self.BASE = self.N
         self.t = 0.0
         self.max_time = max_time
         self.tw = C.TILE / C.PLAYER_SPEED                 # segundos por tile andado
@@ -206,9 +257,19 @@ class Sim:
         self.plan_unlocked: tuple = ()
         self.rr = 0                                       # índice do round-robin (estratégia "variado")
         self.idle_run = 0.0
-        self.cur = self._i(*self.gs.player.tile)
-        self.blocked = {self._i(*t) for t in C.POD_TILES}
-        self.zone = [self._in_zone(i) for i in range(self.W * self.H)]
+        if self.cave:
+            self.home = self.BASE
+            self.blocked = set()
+            self.arrival = self._i(*layers.ramp_target(self.world)) + self.W     # tile logo abaixo da rampa
+            crater = layers.ramp_target(self.base_world)
+            self.ramp_k = (surface_walk_to_zone(self.base_world, (crater[0], crater[1] + 1))
+                           + C.RAMP_DURATION / self.tw)
+            self.res.ramp_tiles = self.ramp_k
+        else:
+            self.home = self._i(*self._xy_spawn())
+            self.blocked = {self._i(*t) for t in C.POD_TILES}
+        self.cur = self.home
+        self.zone = [self._in_zone(i) for i in range(self.N)] + [self.cave]  # [BASE] = a base (virtual, só caverna)
         self._init_near_ore()
         self._init_pickups()
         self._init_field()
@@ -226,6 +287,8 @@ class Sim:
         return (x + 0.5) * C.TILE, y * C.TILE + 24          # pés no meio do tile (player.tile == (x, y))
 
     def _in_zone(self, i):
+        if self.cave:
+            return False                                      # não tem zona de O₂ na caverna
         px, py = self._pos(i)
         return math.hypot(px - C.BASE_CENTER[0], py - C.BASE_CENTER[1]) <= C.BASE_RADIUS
 
@@ -234,6 +297,8 @@ class Sim:
         return self.world.tiles[y][x]
 
     def _walkable(self, i):
+        if i == self.BASE:
+            return self.cave
         return self._tile(i) in C.FLOOR_TILES and i not in self.blocked
 
     def _passable(self, i):
@@ -241,10 +306,31 @@ class Sim:
         return i not in self.blocked and (self._tile(i) in C.FLOOR_TILES or self._tile(i) in C.MINE_TIME)
 
     def _set_player(self, i):
+        if self.cave and i == self.BASE:                     # na base, lá em cima
+            self.gs.enter_layer(SURFACE, C.SPAWN_POS)
+            self.cur = i
+            return
+        if self.gs.layer != self.mine_layer:
+            self.gs.enter_layer(self.mine_layer)
         self.gs.player.x, self.gs.player.y = self._pos(i)
         self.cur = i
 
+    @staticmethod
+    def _tile_pos(x, y):
+        """Pés no meio do tile (x, y) de qualquer camada."""
+        return (x + 0.5) * C.TILE, y * C.TILE + 24
+
+    def _base_free(self, t):
+        return self.base_world.is_floor(*t) and t not in C.POD_TILES
+
+    def _drills(self):
+        """Drills do mapa onde ele minera (na estratégia caverna, as da caverna)."""
+        return [m for m in self.gs.layers[self.mine_layer].machines if m.is_drill]
+
     def _neighbors(self, i, walk_only):
+        if self.cave and i == self.BASE:                       # base -> rampa -> chegada na caverna
+            yield self.arrival, self.ramp_k
+            return
         x, y = self._xy(i)
         for dx, dy, step in NEIGHBORS:
             nx, ny = x + dx, y + dy
@@ -261,7 +347,7 @@ class Sim:
     # ---- minério ao alcance (contadores 5×5) ----
     def _init_near_ore(self):
         R = C.MINE_REACH
-        self.near = {r: [0] * (self.W * self.H) for r in C.RESOURCES}
+        self.near = {r: [0] * (self.N + 1) for r in C.RESOURCES}
         for y in range(self.H):
             for x in range(self.W):
                 res = C.TILE_RESOURCE.get(self.world.tiles[y][x])
@@ -270,12 +356,12 @@ class Sim:
 
     # ---- recursos soltos ao alcance (contadores 3×3, refeitos quando a lista muda) ----
     def _init_pickups(self):
-        self.pnear = {r: [0] * (self.W * self.H) for r in C.RESOURCES}
+        self.pnear = {r: [0] * (self.N + 1) for r in C.RESOURCES}
         self._pickup_sig = None
         self._sync_pickups()
 
     def _sync_pickups(self):
-        items = self.gs.pickups.items if self.gs.pickups else []
+        items = self.gs.surface.pickups.items if self.gs.surface.pickups and not self.cave else []
         sig = tuple((p.tile, p.resource) for p in items)
         if sig == self._pickup_sig:
             return
@@ -290,8 +376,10 @@ class Sim:
                     arr[yy * self.W + xx] += 1
 
     def _pickups_in_reach(self, i):
+        if self.cave or i == self.BASE:                         # soltos só na superfície
+            return []
         x, y = self._xy(i)
-        return [p for p in (self.gs.pickups.items if self.gs.pickups else [])
+        return [p for p in (self.gs.surface.pickups.items if self.gs.surface.pickups else [])
                 if max(abs(p.tile[0] - x), abs(p.tile[1] - y)) <= PICKUP_R]
 
     def _bump_near(self, res, x, y, d, R=None):
@@ -303,6 +391,8 @@ class Sim:
                 arr[base + xx] += d
 
     def _ores_in_reach(self, i):
+        if i == self.BASE:
+            return []
         x, y = self._xy(i)
         R = C.MINE_REACH
         out = []
@@ -315,9 +405,9 @@ class Sim:
 
     # ---- distância andando até a zona de O₂ (em tiles), atualizada a cada tile quebrado ----
     def _init_field(self):
-        self.field = [INF] * (self.W * self.H)
+        self.field = [INF] * (self.N + 1)
         heap = []
-        for i in range(self.W * self.H):
+        for i in range(self.N + 1):
             if self.zone[i] and self._walkable(i):
                 self.field[i] = 0.0
                 heap.append((0.0, i))
@@ -411,7 +501,7 @@ class Sim:
             # o update real também roda as máquinas; aqui a produção passa pelo _produce pra marcar os limiares
             self.gs._update_faint(dt)
             self._produce(dt)
-        self.cur = self._i(*self.gs.player.tile)
+        self.cur = self.home                    # acorda na cápsula (superfície)
         raise Fainted
 
     def _not_idle(self):
@@ -495,8 +585,8 @@ class Sim:
 
     def free_vein(self):
         """Veio livre alcançável a pé com um tanque de O₂, preferindo tipo ainda sem drill (ferro primeiro)."""
-        taken = {(d.tx, d.ty) for d in self.gs.drills}
-        have = {d.resource for d in self.gs.drills}
+        taken = {(d.tx, d.ty) for d in self._drills()}
+        have = {d.resource for d in self._drills()}
         options = [v for v in self.world.veins if (v.tx, v.ty) not in taken
                    and self._vein_walk(v) < INF and self._trip_fits_o2(v)]
         order = {r: i for i, r in enumerate(C.RESOURCES)}
@@ -505,23 +595,22 @@ class Sim:
     def want_drill(self) -> bool:
         if "drill" not in C.MACHINES or self.gs.recipe_status("drill") == "locked":
             return False
-        built = len(self.gs.drills) + self.gs.inventory.count("drill")
+        built = len(self._drills()) + self.gs.inventory.count("drill")
         return built < self.s.drills and self.free_vein() is not None
 
     def _visit_vein(self, vein, action):
         """Sai da base, vai até o veio (O₂ caindo), faz `action` lá e volta pra base (go_base)."""
-        self._set_player(self._i(*self._xy_spawn()))
+        self._set_player(self.home)
         walk = self._vein_walk(vein) * self.tw * self.s.walk_factor
         self._advance(walk, outside=True, what="andar")
         below = (vein.tx, vein.ty + 2)                 # parado logo abaixo do veio (sempre chão)
-        self.gs.player.x, self.gs.player.y = self._pos(self._i(*below))
-        self.cur = self._i(*below)
+        self._set_player(self._i(*below))
         action()
         self._advance(self.s.craft_overhead / 2, outside=True, what="base")
         self.go_base()
 
     def craft_and_place_drill(self):
-        self._set_player(self._i(*self._xy_spawn()))
+        self._set_player(self.home)
         vein = self.free_vein()
         if vein is None or not self.gs.craft("drill"):
             return False
@@ -537,7 +626,7 @@ class Sim:
     def collect_trip(self, missing) -> bool:
         """Na base: vale ir buscar o que uma drill guardou em vez de minerar isso?"""
         best = None
-        for d in self.gs.drills:
+        for d in self._drills():
             if d.resource not in missing or d.stored <= 0:
                 continue
             vein = self.world.vein_at(d.tx, d.ty)
@@ -560,7 +649,7 @@ class Sim:
         """Depois das drills: 1 estação (perto de um baú na base), se a receita já liberou."""
         if "drone_station" not in C.MACHINES or self.gs.recipe_status("drone_station") == "locked":
             return False
-        if len(self.gs.drills) < self.s.drills and self.free_vein() is not None:
+        if len(self._drills()) < self.s.drills and self.free_vein() is not None:
             return False                                  # primeiro as drills
         built = len(self.gs.stations) + self.gs.inventory.count("drone_station")
         return built < self.s.stations
@@ -582,7 +671,7 @@ class Sim:
 
     def craft_and_dock_drone(self) -> bool:
         """Fabrica 1 drone e põe no primeiro slot livre da estação (regra real: station_dock)."""
-        self._set_player(self._i(*self._xy_spawn()))
+        self._set_player(self.home)
         if not self.gs.craft("drone"):
             return False
         station = next(m for m in self.gs.stations if m.station.free_slots())
@@ -595,11 +684,11 @@ class Sim:
         """Tenta colocar `kind` no primeiro tile de `tiles` que der, com o player parado do lado."""
         for tx, ty in tiles:
             for stand in ((tx, ty + 2), (tx + 1, ty + 2), (tx - 1, ty), (tx + 2, ty), (tx, ty - 1), (tx, ty + 1)):
-                if not self._walkable(self._i(*stand)):
+                if not self._base_free(stand):
                     continue
-                self.gs.player.x, self.gs.player.y = self._pos(self._i(*stand))
+                self.gs.player.x, self.gs.player.y = self._tile_pos(*stand)
                 if self.gs.place(kind, (tx, ty)):
-                    self._set_player(self._i(*self._xy_spawn()))
+                    self._set_player(self.home)
                     self._advance(self.s.craft_overhead)
                     return True
         return False
@@ -612,14 +701,14 @@ class Sim:
             for tx in range(cx - 4, cx + 4):
                 tiles = [(tx + dx, ty + dy) for dx in (0, 1) for dy in (0, 1)]
                 if ((cx, cy) not in tiles
-                        and all(self.world.is_floor(*t) and not self.gs.machine_at(t)
-                                and t not in C.POD_TILES and not self.world.vein_at(*t) for t in tiles)):
+                        and all(self.base_world.is_floor(*t) and not self.gs.machine_at(t)
+                                and t not in C.POD_TILES and not self.base_world.vein_at(*t) for t in tiles)):
                     spots.append((tx, ty))
         return spots
 
     def craft_and_place_chest(self) -> bool:
         """Baú dentro da zona de O₂ (o fabricador enxerga ele), num lugar com espaço pra estação do lado."""
-        self._set_player(self._i(*self._xy_spawn()))
+        self._set_player(self.home)
         if not self.gs.craft("chest"):
             return False
         bx, by = C.BASE_CENTER
@@ -635,7 +724,7 @@ class Sim:
 
     def craft_and_place_station(self) -> bool:
         """Fabrica a estação e coloca num 2×2 livre a até 3 tiles do baú da base."""
-        self._set_player(self._i(*self._xy_spawn()))
+        self._set_player(self.home)
         chests = self.gs.base_chests()
         if not chests or not self.gs.craft("drone_station"):
             return False
@@ -665,22 +754,21 @@ class Sim:
         d = self.field[self.cur]
         if d > 0:
             self._advance(d * self.tw * self.s.walk_factor, outside=True, what="andar")
-        self._set_player(self._i(*self._xy_spawn()))
+        self._set_player(self.home)
         self._advance((C.O2_MAX - self.gs.o2) / C.O2_REFILL)
 
     def _xy_spawn(self):
         return int(C.SPAWN_POS[0] // C.TILE), int((C.SPAWN_POS[1] - 1) // C.TILE)
 
     def craft_and_place(self, kind) -> bool:
-        self._set_player(self._i(*self._xy_spawn()))
+        self._set_player(self.home)
         if not self.gs.craft(kind):
             return False
-        site = self._next_site()
-        sx, sy = self._xy(site)
-        self.gs.player.x, self.gs.player.y = self._pos(self._i(sx + 1, sy))
+        sx, sy = self._next_site()
+        self.gs.player.x, self.gs.player.y = self._tile_pos(sx + 1, sy)
         ok = self.gs.place(kind, (sx, sy))
         assert ok, f"não conseguiu colocar {kind} em {(sx, sy)}"
-        self._set_player(self._i(*self._xy_spawn()))
+        self._set_player(self.home)
         self._advance(self.s.craft_overhead)
         if C.MACHINES[kind].index is not None:   # painel solar não conta como "a próxima máquina de Ti"
             self.plan = None
@@ -691,17 +779,18 @@ class Sim:
     def _next_site(self):
         """Tiles pares (x e y) de chão, do mais perto pro mais longe da base: sobra corredor entre as máquinas."""
         if not self.sites:
-            used = {(m.tx, m.ty) for m in self.gs.machines}
+            bw = self.base_world                             # as máquinas de Ti ficam na base (superfície)
+            used = {(m.tx, m.ty) for m in self.gs.surface.machines}
             cx, cy = C.BASE_TILE
-            cand = [(math.hypot(x - cx, y - cy), self._i(x, y))
-                    for y in range(2, self.H - 2, 2) for x in range(2, self.W - 2, 2)
-                    if self.world.is_floor(x, y) and (x, y) not in used and (x, y) not in C.POD_TILES
+            cand = [(math.hypot(x - cx, y - cy), (x, y))
+                    for y in range(2, bw.height - 2, 2) for x in range(2, bw.width - 2, 2)
+                    if bw.is_floor(x, y) and (x, y) not in used and (x, y) not in C.POD_TILES
                     and (x, y) != self._xy_spawn() and math.hypot(x - cx, y - cy) >= 2
-                    and self.world.is_floor(x + 1, y)]
+                    and bw.is_floor(x + 1, y)]
             cand.sort()
-            self.sites = [i for _, i in cand[:40]][::-1]   # pop() pega o mais perto
+            self.sites = [t for _, t in cand[:40]][::-1]   # pop() pega o mais perto
         site = self.sites.pop()
-        while self.gs.machine_at(self._xy(site)):           # a estação (2×2) pode ter ocupado o lugar
+        while self.gs.machine_at(site):                     # a estação (2×2) pode ter ocupado o lugar
             site = self.sites.pop()
         return site
 
@@ -780,9 +869,12 @@ class Sim:
         for i in path:
             if self._tile(i) not in C.FLOOR_TILES:
                 self._mine(i)
-            x0, y0 = self._xy(self.cur)
-            x1, y1 = self._xy(i)
-            step = SQRT2 if (x0 != x1 and y0 != y1) else 1.0
+            if self.cur == self.BASE and self.cave:          # base -> cratera -> rampa -> chegada
+                step = self.ramp_k
+            else:
+                x0, y0 = self._xy(self.cur)
+                x1, y1 = self._xy(i)
+                step = SQRT2 if (x0 != x1 and y0 != y1) else 1.0
             self._advance(step * self.tw * self.s.walk_factor, outside=not self.zone[i], what="andar")
             self._set_player(i)
 
@@ -867,8 +959,8 @@ class Sim:
                 trip_t0, trip_units = self.t, 0
         self.res.total = self.t
         self.res.units = self._units() + sum(
-            sum(C.MACHINES[m.kind].cost.values()) for m in self.gs.machines)
-        self.res.machines = {k: sum(1 for m in self.gs.machines if m.kind == k) for k in C.MACHINES}
+            sum(C.MACHINES[m.kind].cost.values()) for m in self.gs.all_machines)
+        self.res.machines = {k: sum(1 for m in self.gs.all_machines if m.kind == k) for k in C.MACHINES}
         self.res.machines["drone"] = sum(len(m.station.drones) for m in self.gs.stations)   # drones nas estações
         return self.res
 

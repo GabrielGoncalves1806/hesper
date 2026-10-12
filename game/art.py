@@ -170,6 +170,64 @@ def crater(open_ramp: bool = False) -> pygame.Surface:
     return s
 
 
+def cave_ramp_up() -> pygame.Surface:
+    """Rampa de subida da caverna (96×96, fallback do cave_ramp_up.png): poço na rocha com luz fria vindo de
+    cima e degraus de metal subindo (de baixo pra cima). Mesma linguagem da crater_ramp."""
+    s = pygame.Surface((96, 96), pygame.SRCALPHA)
+    pygame.draw.ellipse(s, (0, 0, 0, 90), (6, 14, 88, 80))                  # sombra no chão
+    pygame.draw.ellipse(s, Color("#1b1630"), (3, 4, 90, 86))
+    pygame.draw.ellipse(s, Color("#4a4447"), (5, 6, 86, 82))                # borda de rocha (névoa)
+    pygame.draw.ellipse(s, Color("#6c6467"), (9, 8, 78, 66))
+    pygame.draw.ellipse(s, Color("#2b272a"), (17, 14, 62, 58))              # parede do poço
+    pygame.draw.ellipse(s, Color("#9fc4d6"), (24, 16, 48, 30))              # céu lá em cima (luz fria)
+    pygame.draw.ellipse(s, Color("#d9eef6"), (32, 19, 32, 18))
+    for i in range(6):                                                      # feixe de luz descendo
+        a = 70 - i * 10
+        pygame.draw.polygon(s, (200, 228, 240, a), [(30 + i, 32), (66 - i, 32), (60 - i, 70), (36 + i, 70)])
+    _r(s, Color("#3b3f4a"), 36, 34, 24, 52)                                 # trilho dos degraus
+    for i, y in enumerate(range(82, 36, -7)):                               # degraus de metal (sobem)
+        w = 24 - i
+        _r(s, Color("#1b1630"), 48 - w // 2, y + 2, w, 2)
+        _r(s, Color("#8f98a8"), 48 - w // 2, y, w, 2)
+        _r(s, Color("#c5ccd8"), 48 - w // 2, y, w, 1)
+    _r(s, Color("#f2c46d"), 36, 84, 24, 2)                                  # faixa de aviso no pé
+    for x, y in ((12, 16), (70, 20), (10, 58), (68, 66), (42, 6)):          # pedras na borda
+        pygame.draw.ellipse(s, Color("#1b1630"), (x, y, 14, 10))
+        pygame.draw.ellipse(s, Color("#6c6467"), (x + 1, y + 1, 12, 8))
+        _r(s, Color("#8c8487"), x + 4, y + 2, 4, 1)
+    return s
+
+
+def lamp() -> pygame.Surface:
+    """Luminária de chão (16×32, fallback do lamp.png): poste baixo com luz quente no topo. Âncora: centro
+    da base. A luz do mundo vem do game/lighting.py; aqui só o objeto."""
+    s = pygame.Surface(C.LAMP_SPRITE_SIZE, pygame.SRCALPHA)
+    _ellipse(s, (0, 0, 0, 90), 8, 30, 6, 2)                                 # sombra
+    _r(s, Color("#1b1630"), 3, 26, 10, 5)                                   # pé
+    _r(s, Color("#5d5659"), 4, 27, 8, 3)
+    _r(s, Color("#1b1630"), 6, 10, 4, 17)                                   # poste
+    _r(s, Color("#7c757d"), 7, 10, 2, 17)
+    _r(s, Color("#1b1630"), 2, 2, 12, 10)                                   # cúpula
+    _r(s, Color("#c98a3c"), 3, 3, 10, 8)
+    _r(s, Color("#ffd27a"), 4, 4, 8, 6)
+    _r(s, Color("#fff3c4"), 5, 5, 4, 3)
+    _r(s, Color("#5d5659"), 3, 1, 10, 2)                                    # tampa
+    return s
+
+
+def lamp_icon() -> pygame.Surface:
+    """Ícone 16×16 da luminária (fallback do icon_lamp.png)."""
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    _r(s, Color("#1b1630"), 4, 1, 8, 7)
+    _r(s, Color("#ffd27a"), 5, 2, 6, 5)
+    _r(s, Color("#fff3c4"), 6, 3, 3, 2)
+    _r(s, Color("#1b1630"), 7, 8, 2, 5)
+    _r(s, Color("#9a9086"), 7, 8, 1, 5)
+    _r(s, Color("#1b1630"), 4, 13, 8, 3)
+    _r(s, Color("#5d5659"), 5, 13, 6, 2)
+    return s
+
+
 def wall(stage: str, variant: int) -> pygame.Surface:
     """Topo da rocha (32×32). Com chão embaixo, só os 8 px de cima aparecem e a face (24 px) cobre o resto."""
     P = C.PALETTES[stage]

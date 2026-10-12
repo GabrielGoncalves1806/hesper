@@ -44,6 +44,12 @@ WIND_FADE_IN, WIND_FADE_OUT = 2.5, 1.5   # s: vento sobe devagar ao sair pra sup
 
 
 # ---------------------------------------------------------------- regras puras (testáveis)
+def ambient_for(layer: str, stage_key: str, has_cave: bool) -> str:
+    """Qual ambiente toca: na caverna o amb_cave (se o arquivo existir; senão fica o do estágio), na
+    superfície o amb_{estágio}. Mudar de estágio lá embaixo não troca o ambiente: o novo entra ao subir."""
+    return "cave" if layer == "cave" and has_cave else stage_key
+
+
 def alarm_should_play(currently_on: bool, o2: float) -> bool:
     """Histerese do alarme: liga abaixo de 25%, só desliga quando voltar a 27%."""
     if currently_on:
@@ -131,6 +137,7 @@ class Audio:
         self._amb_level = 1.0                    # 1 = normal; abaixa no jingle, no terminal e no desmaio
         self._amb_target = 1.0
         self._pending_ambient: list | None = None  # [segundos até o crossfade, chave do estágio novo]
+        self._pending_start: list | None = None    # [segundos, chave, fade_ms]: ambiente novo entrando atrasado
         self._fade_busy = 0.0                    # enquanto > 0 não mexe no volume do ambiente (fade rolando)
         self.mix = {"master": 1.0, "sfx": 1.0, "ambient": 1.0}   # sliders do menu de pausa
         self.wind_on = False                     # pediu vento (superfície)
@@ -313,18 +320,41 @@ class Audio:
         self._amb_target = 0.4
         self._pending_ambient = [STAGE_JINGLE_TIME, stage_key]
 
-    def _crossfade(self, stage_key: str) -> None:
-        sounds = self._get(f"amb_{stage_key}")
+    def has(self, name: str) -> bool:
+        """O som existe (arquivo em assets/audio/ e áudio ligado)?"""
+        return self.ok and bool(self._get(name))
+
+    def crossfade_to(self, key: str, out_ms: int = C.CAVE_AMBIENT_OUT_MS, in_ms: int = C.CAVE_AMBIENT_IN_MS,
+                     delay: float = C.CAVE_AMBIENT_DELAY) -> None:
+        """Troca de ambiente na rampa (dica do Som): o atual some em `out_ms` e o novo entra em `in_ms`,
+        `delay` s depois. Mesmos canais A/B do ambiente (substitui, não soma)."""
+        if self.ok:
+            self._crossfade(key, out_ms, in_ms, delay)
+
+    def _crossfade(self, stage_key: str, out_ms: int = CROSSFADE_MS, in_ms: int = CROSSFADE_MS,
+                   delay: float = 0.0) -> None:
+        if stage_key == self.ambient_key:              # já é esse (ex.: estágio mudou com o player na caverna)
+            self._amb_level = self._amb_target = 1.0
+            self.amb[self._amb_index].set_volume(self.ambient_gain)
+            return
         old = self.amb[self._amb_index]
-        old.fadeout(CROSSFADE_MS)
+        old.fadeout(out_ms)
         self._amb_index = 1 - self._amb_index
         self.ambient_key = stage_key
         self._amb_level = self._amb_target = 1.0
+        self._pending_start = None
+        if delay > 0:
+            self._pending_start = [delay, stage_key, in_ms]
+        else:
+            self._start_on_channel(stage_key, in_ms)
+        self._fade_busy = delay + in_ms / 1000
+
+    def _start_on_channel(self, key: str, fade_ms: int) -> None:
+        sounds = self._get(f"amb_{key}")
         if sounds:
             new = self.amb[self._amb_index]
             new.set_volume(self.ambient_gain)
-            new.play(sounds[0], loops=-1, fade_ms=CROSSFADE_MS)
-        self._fade_busy = CROSSFADE_MS / 1000
+            new.play(sounds[0], loops=-1, fade_ms=fade_ms)
 
     def set_wind(self, on: bool) -> None:
         """Vento do deserto por cima do ambiente (desert_wind.wav). Sem o arquivo, silêncio."""
@@ -344,6 +374,11 @@ class Audio:
         if self._wind_started:   # cai junto com o ambiente (desmaio, terminal)
             self.wind_channel.set_volume(wind_volume(self._wind_level, self._amb_level, self.ambient_gain))
 
+    @property
+    def busy_with_stage(self) -> bool:
+        """O jingle de estágio está tocando e o crossfade dele ainda não aconteceu."""
+        return self._pending_ambient is not None
+
     def duck_ambient(self, level: float) -> None:
         """Nível alvo do ambiente: 1 normal, 0.6 lendo terminal, 0 desmaiado."""
         if self._pending_ambient is None:   # durante o jingle quem manda é o stage_up
@@ -360,6 +395,13 @@ class Audio:
         self._delayed = [it for it in self._delayed if it[0] > 0]
 
         self._update_wind(dt)
+        if self._pending_start:
+            self._pending_start[0] -= dt
+            if self._pending_start[0] <= 0:
+                _, key, fade_ms = self._pending_start
+                self._pending_start = None
+                if key == self.ambient_key:
+                    self._start_on_channel(key, fade_ms)
         if self._pending_ambient:
             self._pending_ambient[0] -= dt
             if self._pending_ambient[0] <= 0:

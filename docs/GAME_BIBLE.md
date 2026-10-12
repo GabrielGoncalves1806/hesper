@@ -393,6 +393,21 @@ A caverna usa a arte de chão e parede do estágio **névoa** já aprovada (`flo
 | `ramp_down.wav` `ramp_up.wav` | sfx ~1 s | descer e subir pela rampa (passos metálicos + mudança de espaço) |
 | `lamp_place.wav` | sfx curto | colocou uma luminária (clique + acender) |
 
+### Marco 2 · como ficou na implementação (números de partida, ajustáveis em `game/config.py`)
+- **Rampa** (as duas camadas usam a mesma regra): um 3×3 de tiles `CRATER` em `world.crater` (sólido baixo, não minera). Na superfície é a cratera (agora com o `crater_ramp`); na caverna é a **rampa de subida**, no meio do salão (canto em (63, 61), `CAVE_RAMP`). O E mira o tile do meio de baixo (tx+1, ty+2) e o player chega/sai em (tx+1, ty+3).
+- **E na rampa** segue a regra do jogo: o que está debaixo do mouse, se no alcance; senão o mais perto no alcance. Alcance de **64 px** dos pés até o meio da borda de baixo da rampa (quem acabou de chegar já está no alcance). Dicas: "[E] Descer pela rampa" / "[E] Subir pela rampa"; longe: "Cratera · chegue mais perto pra descer" / "Rampa · chegue mais perto pra subir".
+- **Fade**: 1,3 s no total; troca de camada no preto aos 0,6 s; texto "Descendo..." / "Subindo...". Durante o fade o player fica parado e o O₂ continua. Desmaio cancela a viagem (acorda na cápsula).
+- **Caverna**: 128×128, gerador do `world.py`. Minério: um tile vira minério se o noise passar de 0,62 − 0,15 × longe (era 0,66 − 0,11): **~47% das paredes** (era ~35%), ~33% perto do salão e ~51% a 40–60 tiles. 18 veios (1 de cada perto, 5 de cada longe), 3 terminais (19, 31 e 45 tiles da rampa). Visual fixo do estágio névoa, `terraforms = False` (sem água, sem plantas, sem clima).
+- **O₂ na caverna**: sem zona; 100 s; a seta do O₂ crítico aponta pra rampa ("Suba pela rampa · N m", rótulo RAMPA).
+- **Escuridão** (`game/lighting.py`, `Lighting(cell=4, banding=True)`, ambiente 0 = breu): lanterna do capacete (4 tiles, viés de 10 px pra onde o player olha); **luz do dia na boca da rampa** de subida ((tx·32+48, ty·32+30), 3,5 tiles, `#fff0d6`); luminária (5 tiles, quente, tremidinha leve); luz fraca de cada máquina (1,8 tile, na cor dela; baú não tem, drill cheia apaga); terminais com verde fraco (2 tiles); brilho nos minérios (~40% dos tiles, por cima do escuro). Rachaduras da mineração e fantasma de colocar ficam por cima do escuro; HUD e textos flutuantes também.
+- **Luminária** (`lamp`): 1 Fe + 1 Si, Ti 0, sem energia, sem Ti, 1 tile (só o pé bloqueia, 12×12 px), colocável nas duas camadas. Fica na aba nova **"Luz"** do fabricador (junto vai a "luminária melhor" do Marco 3). Na superfície ela também ganha um brilho quente no sistema de luz de lá. *(Dono: revisar a aba.)*
+- **Duas camadas**: drill na caverna funciona e o jogador busca à mão; **estação de drones não pode ser colocada na caverna** (dica "Drones só funcionam na superfície"); fabricador puxa só dos baús da base; energia e Ti globais.
+- **Áudio** (dica do Som): `amb_cave` (0,7, nos mesmos canais A/B do ambiente) substitui o `amb_{estágio}` e o vento; descendo, o ambiente e o vento saem em 1,5 s e o `amb_cave` entra em 2,5 s, meio segundo depois (subindo, o inverso; o vento volta em 2,5 s). Mudar de estágio lá embaixo não troca o ambiente: o novo entra ao subir. `ramp_down`/`ramp_up` 0,8; `lamp_place` 0,8 no lugar do `place`. Sem o arquivo: silêncio (sem `amb_cave`, fica o ambiente do estágio, sem vento).
+- **Objetivos**: depois de "Fabrique um baú" entram "Desça na caverna pela cratera [E]" e "Coloque uma luminária" (contador `lamps_placed`, só cresce). "Leia um terminal" não pula mais. *(Dono: revisar a posição.)*
+- **Save v6** (sem subir versão): a camada atual e a caverna (se já foi gerada) já iam no save; entrou `progress.lamps_placed` (save do Marco 1 sem o campo carrega com 0). A viagem pela rampa não é salva (salvou no meio do fade, carrega antes da troca).
+- **Desempenho** (smoke, headless): caverna escura com 36 luminárias no zoom 0,75 ≈ 5,3 ms por frame.
+- **Duração** (simulador, estratégia nova "caverna" = o casual que só minera na caverna, drills nos veios de lá, sem drones): **31–37 min** nos números atuais (casual da superfície: 34–42), 37–38 min na proposta. A viagem custa ~20 "tiles" de cada lado (cratera + fade). Nenhum ajuste de número foi preciso.
+
 ### Assets do Marco 3 · Destroços (contrato)
 | Sprite | Tamanho | Observação |
 |---|---|---|

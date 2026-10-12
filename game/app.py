@@ -142,7 +142,7 @@ class App:
         self.toast: str | None = None   # aviso neutro rápido ("Zoom 1,5×")
         self.toast_time = 0.0
         self.audio.set_mix(**settings.mix(self.settings))
-        self.audio.start_ambient(stage_key(self.state.stage))
+        self.audio.start_ambient(self.ambient_want())
         # save/load e tela de título (game/save.py, game/title.py)
         self.autosave_timer = 0.0       # segundos jogando (modo "play") desde o último save
         self.saved_notice = 0.0         # quanto falta do aviso "Jogo salvo" no HUD
@@ -373,7 +373,9 @@ class App:
         else:  # play
             if key == pygame.K_e:
                 target = self.e_target()          # o do mouse (no alcance) ou o mais perto
-                if target and target[0] == "pickup":
+                if target and target[0] == "ramp":
+                    state.start_ramp()                    # cratera/rampa: desce ou sobe (fade)
+                elif target and target[0] == "pickup":
                     state.take_pickup(target[1])          # recurso solto: vai pro inventário
                 elif target and target[0] == "terminal":
                     state.read_terminal(target[1])
@@ -860,7 +862,7 @@ class App:
                 self.select_hotbar(index)
 
     def controls(self) -> Controls:
-        if self.mode != "play":
+        if self.mode != "play" or self.state.ramp is not None:
             return Controls()
         mx = sum(MOVE_KEYS[k][0] for k in self.keys_down if k in MOVE_KEYS)
         my = sum(MOVE_KEYS[k][1] for k in self.keys_down if k in MOVE_KEYS)
@@ -952,7 +954,15 @@ class App:
         elif kind == "power_low":             # o déficit de energia começou (sem o arquivo, fica em silêncio)
             self.audio.play("power_low")
         elif kind == "place":
-            self.audio.play("place")
+            # luminária: o som próprio dela no lugar do place (sem o arquivo, o place de sempre)
+            self.audio.play("lamp_place" if event[1] == "lamp" and self.audio.has("lamp_place") else "place")
+        elif kind == "ramp":                  # começou a descer/subir: passos na rampa (sem arquivo, silêncio)
+            self.audio.play("ramp_down" if event[1] == "cave" else "ramp_up")
+            self.mouse_held = False
+        elif kind == "layer":                 # trocou de camada no meio do fade: o que era de lá fica lá
+            self.floaters = FloatingTexts()
+            self.renderer.particles.clear()
+            self.drills_near.clear()
         elif kind == "refill":
             self.audio.play("o2_refill")
         elif kind == "faint":
@@ -967,7 +977,7 @@ class App:
         elif kind == "stage_up":
             self.banner_stage = event[1]
             self.banner_time = 0.0
-            self.audio.stage_up(stage_key(event[1]))
+            self.audio.stage_up(self.ambient_want(event[1]))   # na caverna o ambiente não troca lá embaixo
             if event[1] == 3:
                 self.end_timer = END_SCREEN_DELAY
 
@@ -989,7 +999,11 @@ class App:
         audio.set_solar_hum(sound.solar_hum_volume(nearest_solar))
         # ambiente: some no desmaio, abaixa lendo terminal
         audio.duck_ambient(0.0 if state.fainted else 0.6 if self.mode == "terminal" else 1.0)
-        audio.set_wind(state.active.has_base)     # vento do deserto: só na superfície (some na caverna)
+        # vento e ambiente seguem a camada de DESTINO: descendo, já começam a sair junto com o fade
+        audio.set_wind(self.ambient_layer() == "surface")    # vento do deserto: só na superfície
+        want = self.ambient_want()
+        if want != audio.ambient_key and not audio.busy_with_stage:
+            audio.crossfade_to(want)              # amb_{estágio} <-> amb_cave (1,5 s sai, 2,5 s entra)
         audio.update(dt)
         if state.player.moving and self.mode == "play":
             self.footstep_timer -= dt
@@ -999,6 +1013,16 @@ class App:
                 self.footstep_timer = FOOTSTEP_INTERVAL
         else:
             self.footstep_timer = 0.0
+
+    def ambient_layer(self) -> str:
+        """Camada que o som deve seguir: a de destino se estiver passando pela rampa."""
+        ramp = self.state.ramp
+        return ramp.to if ramp is not None else self.state.layer
+
+    def ambient_want(self, stage: int | None = None) -> str:
+        """Ambiente que deveria tocar agora (game/audio.ambient_for)."""
+        key = stage_key(stage or self.state.stage)
+        return sound.ambient_for(self.ambient_layer(), key, self.audio.has("amb_cave"))
 
     def update_drills_feedback(self, dt: float) -> None:
         """Som e poeira das drills: loop pelas 2 trabalhando mais perto, aviso de cheia, poeirinha na base."""
@@ -1061,6 +1085,8 @@ class App:
         state = self.state
         if self.placing == "drill" and self.place_target() is None:
             return "Coloque a drill em cima de um veio"
+        if self.placing == "drone_station" and not state.active.has_base:
+            return "Drones só funcionam na superfície · Esc cancela"
         if self.placing == "drone_station":
             return "Clique para colocar · drones atendem o mapa todo · Esc cancela"
         if self.placing:
@@ -1106,8 +1132,9 @@ class App:
             p = hover[1]
             return f"{p.amount} {C.RESOURCE_NAME[p.resource]} solto · chegue mais perto"
         tile = self.mouse_tile()
-        if state.world.get(*tile) == C.CRATER:
-            return "Cratera · fechada por enquanto"
+        if state.world.get(*tile) == C.CRATER:            # rampa debaixo do mouse, mas longe
+            return ("Cratera · chegue mais perto pra descer" if state.active.has_base
+                    else "Rampa · chegue mais perto pra subir")
         if state.in_base_zone():
             return "[E] Fabricador" if self.t > 6 else "Rochas e recursos soltos no deserto têm minério"
         if state.world.is_minable(*tile):
@@ -1127,6 +1154,8 @@ class App:
             return None
         if target[0] == "terminal":
             return "terminal", tuple(self.state.world.terminals[target[1]])
+        if target[0] == "ramp":
+            return "ramp", target[1]
         return target[1]                          # máquina ou recurso solto
 
     def e_label(self, target: tuple[str, object]) -> str:
@@ -1134,6 +1163,8 @@ class App:
         kind, obj = target
         if kind == "terminal":
             return "[E] Ler terminal"
+        if kind == "ramp":
+            return "[E] Descer pela rampa" if self.state.active.has_base else "[E] Subir pela rampa"
         if kind == "pickup":
             return f"[E] Pegar {obj.amount} {C.RESOURCE_NAME[obj.resource]}"
         if kind == "chest":
@@ -1221,6 +1252,7 @@ class App:
             ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4))
         if state.fainted:
             ui.draw_faint(state)
+        ui.draw_ramp_fade(state)
         if self.mode not in INVENTORY_MODES:
             ui.draw_cursor(*mouse_ui)
         ui.finish(window)
@@ -1287,8 +1319,8 @@ class App:
         self.autosave_timer, self.saved_notice = 0.0, 0.0
         self.mode = "play"
         self.audio.play("ui_close")
-        if self.audio.ambient_key != stage_key(state.stage):
-            self.audio.start_ambient(stage_key(state.stage))
+        if self.audio.ambient_key != self.ambient_want():
+            self.audio.start_ambient(self.ambient_want())
 
     def save_game(self, notify: bool = True) -> bool:
         """Salva agora. `notify` mostra o "Jogo salvo" no HUD e toca o som de save."""

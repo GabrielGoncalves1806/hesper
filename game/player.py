@@ -26,6 +26,11 @@ class Player:
         self.walk_time = 0.0     # acumula tempo andando (pra animação e passos)
 
     @property
+    def facing(self) -> str:
+        """Pra onde a lanterna do capacete aponta: a última direção de movimento ou mineração."""
+        return self.direction
+
+    @property
     def box(self) -> Rect:
         return (self.x - C.PLAYER_BOX_W / 2, self.y - C.PLAYER_BOX_H, C.PLAYER_BOX_W, C.PLAYER_BOX_H)
 

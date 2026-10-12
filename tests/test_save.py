@@ -37,6 +37,7 @@ def rich_state() -> GameState:
     state.mined_total.update(iron=37, silicon=12, ice=8)
     state.fabricator_opened = True
     state.read_terminal(1)
+    state.lamps_placed = 3
     give(state, iron=17, silicon=9, ice=33)
     # máquinas colocadas (uma girada) e uma drill com conteúdo e tempo acumulado
     give(state, o2=1, heater=1, drill=1, chest=1)
@@ -84,6 +85,7 @@ def snapshot(state: GameState) -> dict:
         "smoothed_rate": state.smoothed_rate, "play_time": state.play_time,
         "mined_total": dict(state.mined_total), "fabricator_opened": state.fabricator_opened,
         "drills_placed": state.drills_placed, "drill_collected": dict(state.drill_collected),
+        "lamps_placed": state.lamps_placed,
         "logs_read": set(state.logs_read), "transition_sources": set(state.transition_sources),
     }
 
@@ -292,6 +294,29 @@ def test_cave_layer_roundtrip(tmp_path):
     assert loaded.layer == "cave" and loaded.world.get(*tile) == C.FLOOR
     assert loaded.chests[0].name == "Fundo" and loaded.chests[0].storage.count("iron") == 9
     assert loaded.layers["surface"].pickups is not None and loaded.layers["cave"].pickups is None
+    assert snapshot(loaded) == snapshot(state)
+
+
+def test_marco1_save_without_lamps_loads_with_zero(tmp_path):
+    data = save.state_to_dict(rich_state())
+    del data["progress"]["lamps_placed"]
+    loaded = save.state_from_dict(save.migrate(data))
+    assert loaded.lamps_placed == 0
+
+
+def test_cave_with_lamps_and_drill_roundtrip(tmp_path):
+    """Caverna com luminárias e uma drill: tudo volta, e a rampa (tile CRATER) não vira "tile mudado"."""
+    state = rich_state()
+    state.enter_layer("cave")
+    state.machines += [Machine("lamp", 60, 70), Machine("lamp", 66, 58)]
+    vein = state.world.veins[0]
+    state.machines.append(Machine("drill", vein.tx, vein.ty, resource=vein.resource, stored_init=5))
+    data = save.state_to_dict(state)
+    assert data["layers"]["cave"]["changed_tiles"] == []
+    path = tmp_path / "slot1.json"
+    save.write_save(state, path)
+    loaded = save.load_game(path)
+    assert [m.kind for m in loaded.machines] == ["lamp", "lamp", "drill"] and loaded.drills[0].stored == 5
     assert snapshot(loaded) == snapshot(state)
 
 

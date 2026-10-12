@@ -495,12 +495,14 @@ class UI:
         tick = t * 9
         if tick % 8 < 5:
             self.text("OXIGENIO CRITICO", self.w / 2, 62, "#ff5a4a", self.font_big, "center")
-        meters = round(state.dist_to_base() / C.TILE)
-        self.text(f"Volte para a base · {meters} m", self.w / 2, 84, "#ffd0c8", self.body, "center")
+        sx, sy, label = state.safe_point()      # a base, ou a rampa de subida na caverna (não tem O₂ lá embaixo)
+        meters = round(math.hypot(state.player.x - sx, state.player.y - sy) / C.TILE)
+        call = "Volte para a base" if label == "BASE" else "Suba pela rampa"
+        self.text(f"{call} · {meters} m", self.w / 2, 84, "#ffd0c8", self.body, "center")
         # seta apontando pra base, numa elipse em volta do centro da tela
         # só a direção importa (o zoom não muda o ângulo); a elipse acompanha o tamanho da área de jogo
         px, py = state.player.x - cam[0], state.player.y - 16 - cam[1]
-        bx, by = C.BASE_CENTER[0] - cam[0], C.BASE_CENTER[1] - cam[1]
+        bx, by = sx - cam[0], sy - cam[1]
         ang = math.atan2(by - py, bx - px)
         wobble = math.sin(t * 7) * 3
         rx, ry = 200 * self.w / UW, 105 * self.h / UH
@@ -510,7 +512,7 @@ class UI:
         right = (cx + math.cos(ang - 2.4) * 9, cy + math.sin(ang - 2.4) * 9)
         pygame.draw.polygon(self.surf, pygame.Color(C.C_ALERT), [tip, left, right])
         lx, ly = cx - math.cos(ang) * 16, cy - math.sin(ang) * 14
-        self.text("BASE", lx, ly - 4, "#ff9a8a", align="center")
+        self.text(label, lx, ly - 4, "#ff9a8a", align="center")
 
     # ---- fabricador -----------------------------------------------------------
     def draw_fabricator(self, state: GameState, menu, machine_preview, t: float) -> None:
@@ -535,7 +537,7 @@ class UI:
         # abas: largura pelo texto; aba sem nada liberado fica apagada (mas abre e mostra as bloqueadas)
         tx = x + 8
         for i, (tab_id, label) in enumerate(C.FAB_TABS):
-            tw = self.body.size(label)[0] + 12
+            tw = self.body.size(label)[0] + 10          # 5 abas (Luz no Marco 2) cabem nos 400 px
             rect = pygame.Rect(tx, y + 21, tw, 15)
             active = i == menu.tab
             unlocked = any(state.recipe_status(k) != "locked" for k in tab_kinds(tab_id))
@@ -544,7 +546,7 @@ class UI:
             if active:                                  # a aba ativa "abre" pra lista
                 self.surf.fill(pygame.Color("#2c1e18"), (rect.x + 1, rect.bottom - 1, rect.w - 2, 2))
             color = C.C_TEXT if active else C.C_MUTED if unlocked else "#5a4a40"
-            self.text(label, rect.x + 6, rect.y + 1, color, self.body)
+            self.text(label, rect.x + 5, rect.y + 1, color, self.body)
             self.fabricator_tabs.append((rect, i))
             tx += tw + 3
         pygame.draw.line(self.surf, pygame.Color("#3a2c25"), (x + 8, y + 35), (x + w - 9, y + 35))
@@ -1065,6 +1067,19 @@ class UI:
         if a > 0.6:
             self.text("Tu apagou. Acordando na cápsula...", self.w / 2, self.h / 2 - 6, "#d9cfc4", self.body, "center")
 
+    def draw_ramp_fade(self, state: GameState) -> None:
+        """Descendo/subindo pela rampa: escurece até o RAMP_SWITCH_AT (troca de camada no preto) e clareia."""
+        trip = state.ramp
+        if trip is None:
+            return
+        t, mid, end = trip.time, C.RAMP_SWITCH_AT, C.RAMP_DURATION
+        a = t / mid if t < mid else (end - t) / (end - mid)
+        a = max(0.0, min(1.0, a * 1.25))                # fica um tiquinho no preto inteiro
+        self.fill((0, 0, 0, int(255 * a)), (0, 0, self.w, self.h))
+        if a > 0.5:
+            text = "Descendo..." if trip.to == "cave" else "Subindo..."
+            self.text(text, self.w / 2, self.h / 2 - 6, "#d9cfc4", self.body, "center")
+
     # ---- fim do MVP -----------------------------------------------------------
     def draw_end(self, state: GameState, t: float) -> None:
         self.fill((6, 12, 6, 200), (0, 0, self.w, self.h))
@@ -1095,6 +1110,7 @@ class UI:
         ("WASD / SETAS", "Andar"),
         ("SEGURAR CLIQUE", "Minerar a parede mirada"),
         ("E", "Abrir o que está no mouse (ou o mais perto)"),
+        ("E NA CRATERA", "Descer pra caverna (e subir pela rampa)"),
         ("SHIFT+E", "Coletar a drill sem abrir o painel"),
         ("1 A 8 · RODINHA", "Escolher slot da hotbar"),
         ("CLIQUE", "Colocar a máquina da hotbar"),

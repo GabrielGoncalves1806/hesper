@@ -239,6 +239,7 @@ def progress_to_dict(state: GameState) -> dict:
         "crafted": dict(state.crafted),
         "drone_deliveries": state.drone_deliveries,
         "drones_docked": state.drones_docked,
+        "lamps_placed": state.lamps_placed,
         "logs_read": sorted(state.logs_read),
         "transition_sources": sorted([list(t) for t in state.transition_sources]),
     }
@@ -260,6 +261,7 @@ def progress_from_dict(state: GameState, data: dict) -> None:
         state.crafted[k] = int(data["crafted"].get(k, 0))
     state.drone_deliveries = int(data["drone_deliveries"])
     state.drones_docked = int(data["drones_docked"])
+    state.lamps_placed = int(data.get("lamps_placed", 0))     # Marco 2: save v6 do Marco 1 não tem
     state.logs_read = {int(i) for i in data["logs_read"] if 0 <= int(i) < len(C.LOGS)}
     state.transition_sources = {(int(x), int(y)) for x, y in data["transition_sources"]}
 

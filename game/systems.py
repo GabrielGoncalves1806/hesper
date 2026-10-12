@@ -80,6 +80,10 @@ class Machine:
         return self.kind == "drone_station"
 
     @property
+    def is_lamp(self) -> bool:
+        return self.kind == "lamp"
+
+    @property
     def is_logistic(self) -> bool:
         """Baú e drill: têm inventário que os drones atendem (Envia/Recebe/Lote)."""
         return self.is_chest or self.is_drill
@@ -114,6 +118,8 @@ class Machine:
         """Caixa de colisão (só a base, no chão)."""
         if self.size > 1:
             return (self.tx * C.TILE + 4, self.ty * C.TILE + 20, self.size * C.TILE - 8, self.size * C.TILE - 20)
+        if self.is_lamp:                       # poste fino: só o pé bloqueia
+            return (self.tx * C.TILE + 10, self.ty * C.TILE + 20, 12, 12)
         return (self.tx * C.TILE + 4, self.ty * C.TILE + 14, C.TILE - 8, C.TILE - 14)
 
     @property
@@ -125,10 +131,20 @@ class Machine:
             w, h = C.CHEST_SPRITE_SIZE
         elif self.is_station:
             w, h = C.DRONE_STATION_SPRITE_SIZE
+        elif self.is_lamp:
+            w, h = C.LAMP_SPRITE_SIZE
         else:
             w, h = C.MACHINE_SPRITE_SIZE[2 if self.kind.endswith("_t2") else 1]
         ax, ay = self.anchor
         return (ax - w / 2, ay - h, w, h)
+
+
+@dataclass
+class RampTrip:
+    """Viagem pela rampa (fade): no RAMP_SWITCH_AT troca de camada, no RAMP_DURATION acaba."""
+    to: str              # camada de destino
+    time: float = 0.0
+    switched: bool = False
 
 
 @dataclass
@@ -238,6 +254,8 @@ class GameState:
         self.drones_docked = 0                         # drones já colocados numa estação (só cresce)
         self.power_alert = PowerAlert()                # quando tocar o power_low (game/energy.py)
         self._pickup_warned: set[int] = set()          # soltos que já deram "Inventário cheio" (id), enquanto pisa neles
+        self.ramp: RampTrip | None = None              # descendo/subindo pela rampa (o fade está rolando)
+        self.lamps_placed = 0                          # luminárias já colocadas (só cresce, pros objetivos)
         self.events: list[tuple] = []
 
     # ---- camadas --------------------------------------------------------------
@@ -276,14 +294,48 @@ class GameState:
         return self.active.pickups
 
     def enter_layer(self, key: str, pos: tuple[float, float] | None = None) -> None:
-        """Troca a camada ativa (cria a caverna na primeira vez). `pos` = onde o player aparece.
-        Ponto de extensão do Marco 2 (rampa da cratera)."""
+        """Troca a camada ativa (cria a caverna na primeira vez). `pos` = onde o player aparece."""
         if key not in self.layers:
             self.layers[key] = layers.MAKERS[key](self.seed)
         self.layer = key
         self.mining = None
         if pos is not None:
             self.player.x, self.player.y = pos
+
+    # ---- rampa (Marco 2): cratera da superfície <-> rampa de subida da caverna --------
+    def ramp_distance(self) -> float:
+        """Distância (px) dos pés até o meio da borda de baixo da rampa desta camada (inf sem rampa)."""
+        if self.world.crater is None:
+            return math.inf
+        mx, my = layers.ramp_mouth(self.world)
+        return math.hypot(self.player.x - mx, self.player.y - my)
+
+    def start_ramp(self) -> bool:
+        """E na rampa (no alcance): começa o fade. A troca de camada acontece no meio dele."""
+        if self.ramp is not None or self.fainted or self.ramp_distance() > C.RAMP_REACH:
+            return False
+        self.ramp = RampTrip(layers.other_layer(self.layer))
+        self.mining = None
+        self.events.append(("ramp", self.ramp.to))
+        return True
+
+    def _update_ramp(self, dt: float) -> None:
+        trip = self.ramp
+        trip.time += dt
+        if not trip.switched and trip.time >= C.RAMP_SWITCH_AT:
+            trip.switched = True
+            if trip.to not in self.layers:
+                self.layers[trip.to] = layers.MAKERS[trip.to](self.seed)
+            self.enter_layer(trip.to, layers.ramp_arrival(self.layers[trip.to].world))
+            self.events.append(("layer", trip.to))
+        if trip.time >= C.RAMP_DURATION:
+            self.ramp = None
+
+    def safe_point(self) -> tuple[float, float, str]:
+        """Pra onde a seta do O₂ crítico aponta: a base (superfície) ou a rampa de subida (caverna)."""
+        if self.active.has_base or self.world.crater is None:
+            return C.BASE_CENTER[0], C.BASE_CENTER[1], "BASE"
+        return (*layers.ramp_mouth(self.world), "RAMPA")
 
     # ---- consultas ----------------------------------------------------------
     @property
@@ -353,7 +405,11 @@ class GameState:
         sim_dt = dt * self.time_scale     # O₂ e máquinas andam mais rápido com F1
 
         if self.fainted:
+            self.ramp = None                  # desmaiou no meio do fade: acorda na cápsula, sem viagem
             self._update_faint(dt)
+        elif self.ramp is not None:           # descendo/subindo: parado, só o O₂ continua
+            self._update_ramp(dt)
+            self._update_o2(sim_dt)
         else:
             self.player.move(controls.move_x, controls.move_y, dt, self.solids_near)
             self._update_mining(dt, controls.mine_tile)
@@ -506,6 +562,8 @@ class GameState:
         tx, ty = tile
         if not C.MACHINES[kind].placeable:      # o drone é item, mas vai na estação, não no chão
             return False
+        if kind == "drone_station" and not self.active.has_base:   # drones só atendem a superfície (v0.3)
+            return False
         if self.inventory.count(kind) <= 0:     # precisa ter a máquina (item) no inventário
             return False
         machine = Machine(kind, tx, ty)
@@ -543,6 +601,8 @@ class GameState:
             machine.name = C.CHEST_DEFAULT_NAME
         if machine.is_station:
             machine.station = drones.new_station(machine)      # vem vazia: os drones vão pelo painel (E)
+        if machine.is_lamp:
+            self.lamps_placed += 1
         self.machines.append(machine)
         if self.active.has_base:                               # a caverna não muda com o Ti
             self.transition_sources.add(tuple(tile))
@@ -596,12 +656,16 @@ class GameState:
         for i, tile in enumerate(self.world.terminals):
             if tuple(tile) in tiles:
                 return "terminal", i
+        if self.world.crater is not None and tiles & set(layers.ramp_tiles(self.world)):
+            return "ramp", tuple(self.world.crater)
         return None
 
     def in_reach(self, kind: str, target) -> bool:
         """O alvo está no alcance do E? (mesmas distâncias do "mais perto")"""
         if kind == "terminal":
             return self.terminal_distance(target) <= C.TERMINAL_REACH
+        if kind == "ramp":
+            return self.ramp_distance() <= C.RAMP_REACH
         if kind == "pickup":
             return (self.pickups is not None and any(p is target for p in self.pickups.items)
                     and self.pickup_distance(target) <= C.PICKUP_REACH)
@@ -630,6 +694,8 @@ class GameState:
         loose = self.nearby_pickup()
         if loose is not None:
             options.append((self.pickup_distance(loose), "pickup", loose))
+        if self.ramp_distance() <= C.RAMP_REACH:
+            options.append((self.ramp_distance(), "ramp", tuple(self.world.crater)))
         if not options:
             return None
         _, kind, target = min(options, key=lambda o: o[0])
