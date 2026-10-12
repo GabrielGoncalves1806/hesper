@@ -345,6 +345,20 @@ Design completo e aprovado: `docs/superpowers/specs/2026-10-12-v03-superficie-de
   - v0.4: biomas de caverna, mochila, drill melhor, peças raras e elevador de carga;
   - depois: água e comida.
 
+### Marco 1 · como ficou na implementação (números de partida, ajustáveis em `game/config.py`)
+- **Base no centro** do deserto: cápsula nos tiles (95, 95)–(96, 95), zona de O₂ de 5 tiles. Areia limpa num raio de **8 tiles**.
+- **Borda**: 2 ou 3 tiles de rocha indestrutível (o noise decide), desenhada com a parede escurecida.
+- **Morros**: 24 a 32 por mapa, de 3 a 8 tiles, com 2 tiles de folga entre eles; 12% dos tiles de morro têm minério. Morro minerado vira areia.
+- **Cratera**: 3×3, centro a 15–20 tiles da base, com areia limpa em volta. É obstáculo plano (bloqueia, não minera); a dica diz "Cratera · fechada por enquanto". O canto fica em `world.crater` pra virar a rampa no Marco 2 (alvo do E no tile do meio de baixo).
+- **Veios**: 3 a 5, um de cada minério garantido, todos a ≥ 35 tiles da base e ≥ 14 entre si, em areia aberta.
+- **Rochas pequenas**: ~1,1% da areia (~350 no mapa), fora da área da base; 0,7 s pra quebrar, dão 2 a 4 (45% ferro, 30% silício, 25% gelo). Um cristalzinho na cor do minério em cima da pedra diz o que ela dá.
+- **Recursos soltos**: 70 no começo, teto de 120, reaparecem 1 a cada 15 s (4/min) fora da meia-tela do zoom 0,75 e a ≥ 12 tiles da base, nunca onde vai virar lago. Pega passando por cima (12 px dos pés), ou E/clique até 56 px. Inventário cheio: fica no chão e avisa uma vez. Soltos e rochas contam como "minerado" nos objetivos.
+- **Objetivo "Leia um terminal"**: só aparece quando existe uma camada com terminal (no Marco 1 os terminais estão na caverna, que ainda não abre).
+- **Vento do deserto** (`desert_wind.wav`): volume 0,45 por cima do ambiente, canal próprio, sobe em 2,5 s e desce em 1,5 s; some na caverna e no desmaio.
+- **Save v6** por camada. Save v1–v5: a tela de título mostra "Save de uma versão antiga · comece um novo jogo" com Continuar apagado; ao começar um jogo novo, o arquivo antigo é guardado como `saves/slot1.v5.json` (não é apagado).
+- **Transição de estágio**: a frente da mancha vai até ~152 tiles (o canto do deserto fica a ~136 da base).
+- **Duração** (simulador, só superfície): 28–42 min nos números atuais, contra 23–30 min no v0.2. Quase todo o tempo a mais é andando; a caverna (Marco 2) é que traz minério em volume.
+
 ### Assets do Marco 1 · Superfície (contrato)
 Entregues em `_pending/` até o dono aprovar. Os morros usam a arte de parede que já existe (`wall_*`, `wall_face_*`), e a cordilheira da borda também (o jogo escurece ela).
 

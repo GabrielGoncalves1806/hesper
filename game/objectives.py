@@ -29,7 +29,12 @@ def crafted(state: GameState, kind: str) -> int:
 def placed_near_base(state: GameState, kind: str) -> bool:
     bx, by = C.BASE_CENTER
     return any(m.kind == kind and math.hypot((m.tx + 0.5) * C.TILE - bx, (m.ty + 0.5) * C.TILE - by) <= NEAR_BASE
-               for m in state.machines)
+               for m in state.surface.machines)
+
+
+def has_terminals(state: GameState) -> bool:
+    """Alguma camada (já criada) tem terminal de lore?"""
+    return any(layer.world.terminals for layer in state.layers.values())
 
 
 @dataclass(frozen=True)
@@ -58,7 +63,8 @@ OBJECTIVES = [
     Objective("Fabrique um Aquecedor", lambda s: crafted(s, "heater") >= 1),
     # energia (bíblia §8): o aquecedor é o ponto em que os 5 kW da cápsula começam a apertar
     Objective("Fabrique um painel solar", lambda s: crafted(s, "solar") >= 1),
-    Objective("Leia um terminal", lambda s: len(s.logs_read) >= 1),
+    # v0.3: os terminais ficam na caverna. Sem nenhuma camada com terminal (Marco 1), não trava a lista.
+    Objective("Leia um terminal", lambda s: len(s.logs_read) >= 1 or not has_terminals(s)),
     Objective("Chegue ao estágio Névoa", lambda s: s.stage >= 2),
     Objective("Coloque uma drill num veio", lambda s: s.drills_placed >= 1),
     Objective("Colete minério de uma drill", lambda s: sum(s.drill_collected.values()) >= 1),

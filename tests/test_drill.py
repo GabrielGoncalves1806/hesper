@@ -18,7 +18,7 @@ def world() -> World:
 
 
 def near_veins(world):
-    cx, cy = C.CRATER_CENTER
+    cx, cy = C.CAVE_CENTER
     return [v for v in world.veins if ((v.tx + 1 - cx) ** 2 + (v.ty + 1 - cy) ** 2) ** 0.5 <= 20]
 
 
@@ -31,7 +31,7 @@ def test_veins_are_deterministic(world):
 def test_one_of_each_type_near_base_and_reachable(world):
     near = near_veins(world)
     assert sorted(v.resource for v in near) == sorted(C.RESOURCES)
-    reach = world.reachable_from(C.CRATER_CENTER)
+    reach = world.reachable_from(C.CAVE_CENTER)
     for v in near:
         assert all(t in reach for t in v.tiles)          # dá pra chegar andando, sem cavar
 
@@ -48,7 +48,7 @@ def test_veins_do_not_overlap_anything(world):
     for v in world.veins:
         tiles = set(v.tiles)
         assert not tiles & seen                           # veio não encosta em outro
-        assert not tiles & set(C.POD_TILES)
+        assert not tiles & {(63, 63), (64, 63)}          # meio do salão (a rampa do Marco 2)
         assert not tiles & terminal_tiles
         assert all(2 < x < world.width - 3 and 2 < y < world.height - 3 for x, y in tiles)   # longe da borda
         assert all(world.get(x, y) == C.FLOOR for x, y in tiles)
@@ -167,6 +167,8 @@ def test_collect_needs_to_be_close():
 def test_interaction_prefers_the_closest_between_terminal_and_drill():
     game = mist_game()
     drill = place_drill(game)
+    game.layers["surface"].world.terminals.append(cave_terminal := (90, 60))   # terminal "de mentira" na superfície
+    game.world.set(*cave_terminal, C.TERMINAL)
     tx, ty = game.world.terminals[0]
     game.player.x, game.player.y = (tx + 0.5) * C.TILE, (ty + 2) * C.TILE - 4
     assert game.interaction() == ("terminal", 0)                   # longe da drill, perto do terminal

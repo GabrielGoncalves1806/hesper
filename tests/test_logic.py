@@ -6,6 +6,7 @@ import pytest
 
 from game import config as C
 from game.systems import Controls, GameState, stage_for_ti
+from game.layers import CAVE
 from game.world import World
 from tests.helpers import give
 
@@ -56,10 +57,10 @@ def test_world_size_and_border():
 
 def test_crater_center_is_free():
     w = World.generate()
-    cx, cy = C.CRATER_CENTER
+    cx, cy = C.CAVE_CENTER
     for y in range(128):
         for x in range(128):
-            if w.dist_from_center(x, y) < C.CRATER_SAFE_RADIUS:
+            if w.dist_from_center(x, y) < C.CAVE_SAFE_RADIUS:
                 assert w.tiles[y][x] == C.FLOOR, (x, y)
 
 
@@ -92,7 +93,7 @@ def test_mining_time_depends_on_hardness(game, kind):
     run(game, C.MINE_TIME[kind] - 0.1, hold)
     assert game.world.get(*tile) == kind          # ainda não quebrou
     run(game, 0.15, hold)
-    assert game.world.get(*tile) == C.FLOOR       # agora quebrou
+    assert game.world.get(*tile) == C.SAND        # agora quebrou (no deserto vira areia)
 
 
 @pytest.mark.parametrize("kind,resource", [(C.IRON, "iron"), (C.SILICON, "silicon"), (C.ICE, "ice")])
@@ -107,7 +108,7 @@ def test_ore_drops_1_to_2(kind, resource):
 def test_rock_drops_nothing(game):
     tile = put_wall_next_to_player(game, C.ROCK)
     run(game, 1.0, Controls(mine_tile=tile))
-    assert game.world.get(*tile) == C.FLOOR
+    assert game.world.get(*tile) == C.SAND
     assert game.inventory.is_empty()
 
 
@@ -256,6 +257,7 @@ def test_player_collides_with_walls(game):
 
 
 def test_terminal_read(game):
+    game.enter_layer(CAVE)                       # v0.3: os terminais ficam na caverna
     tx, ty = game.world.terminals[0]
     game.player.x, game.player.y = (tx + 0.5) * C.TILE, (ty + 2) * C.TILE - 4
     assert game.nearby_terminal() == 0

@@ -1,9 +1,10 @@
 """Desenha o mundo na tela: tiles, objetos, luz e clima.
 
 Ordem de cada frame (de trás pra frente, como camadas de papel):
-  1. tiles visíveis (chão, água, paredes com face, minério, terminais)
-  2. zona de O₂ (círculo tracejado)
-  3. objetos ordenados pelo Y do pé (cápsula, máquinas, plantas, player):
+  1. tiles visíveis (chão ou areia do deserto, água, paredes com face, minério, terminais)
+  2. zona de O₂ (círculo tracejado, só na superfície)
+  3. objetos ordenados pelo Y do pé (cratera, rochas pequenas, recursos soltos, cápsula, máquinas,
+     plantas, player):
      quem está mais embaixo na tela é desenhado por último e fica "na frente"
   4. efeitos de mineração, fantasma da máquina sendo colocada e drones voando (por cima de tudo)
   5. luz (escurece tudo e "abre buracos" de luz) e clima do estágio (poeira, névoa, chuva...)
@@ -48,7 +49,7 @@ def build_draw_list(world, objects, tx0: int, tx1: int, ty0: int, ty1: int) -> l
     order = []
     for row in sorted(set(wall_rows) | set(by_row)):
         if row in wall_rows:
-            order += [("wall", tx, row) for tx in range(tx0, tx1 + 1) if world.is_solid(tx, row)]
+            order += [("wall", tx, row) for tx in range(tx0, tx1 + 1) if world.is_wall(tx, row)]
         order += [("obj", obj) for _, obj in sorted(by_row.get(row, []), key=lambda o: o[0])]
     return order
 
@@ -190,7 +191,8 @@ class Renderer:
         self.stage_map.update(state.ti, [BASE_SOURCE, *state.transition_sources])
         self.draw_floors(canvas, state, cam, stage, t)
         self.draw_veins(canvas, state, cam)
-        self.draw_zone(canvas, cam, t)
+        if state.active.has_base:
+            self.draw_zone(canvas, cam, t)
         self.draw_walls_and_objects(canvas, state, cam, stage, t)
         if state.mining:
             self.draw_mining(canvas, state, state.mining, cam)
@@ -217,7 +219,7 @@ class Renderer:
         for ty in range(ty0, ty1 + 1):
             for tx in range(tx0, tx1 + 1):
                 sx, sy = tx * T - cam[0], ty * T - cam[1]
-                if world.is_solid(tx, ty):
+                if world.is_wall(tx, ty):
                     canvas.fill(backstop, (sx, sy, T, T))   # fundo escuro (só aparece na borda do mapa)
                 else:
                     num = self.stage_map.stage_at(tx, ty)   # pode estar "à frente" no meio da transição
@@ -257,7 +259,7 @@ class Renderer:
         p = state.player
         row_below = int((p.y - 1) // T) + 1
         cols = {int((p.x - 10) // T), int((p.x + 9) // T)}
-        return any(state.world.is_solid(tx, row_below) for tx in cols)
+        return any(state.world.is_wall(tx, row_below) for tx in cols)
 
     def _draw_player_silhouette(self, canvas, state: GameState, cam) -> None:
         """Player escondido atrás de parede (ex.: túnel de 1 tile): redesenha ele translúcido por cima,
@@ -281,9 +283,9 @@ class Renderer:
         if self.stage_map.step > 0:
             self._blend_edges(canvas, world, tx, ty, sx, top_y, self.stage_map.stage_at(tx, ty), True,
                               lambda st: (f"wall_{st}_{v}", lambda: art.wall(st, v)))
-        open_up = not world.is_solid(tx, ty - 1)
-        open_left = not world.is_solid(tx - 1, ty)
-        open_right = not world.is_solid(tx + 1, ty)
+        open_up = not world.is_wall(tx, ty - 1)
+        open_left = not world.is_wall(tx - 1, ty)
+        open_right = not world.is_wall(tx + 1, ty)
         if fallback:   # bordas iluminadas onde o topo encontra o vazio (os PNGs não precisam)
             if open_up:
                 canvas.fill(P["edge"], (sx, top_y, T, 2))
@@ -306,7 +308,7 @@ class Renderer:
             canvas.blit(self.surface(f"ore_{resource}", lambda: art.ore(resource, ov), f"ore_{resource}#{ov}")[0], (sx, top_y))
         if kind == C.BEDROCK:
             canvas.blit(self.bedrock_shade, (sx, top_y))
-        if not world.is_solid(tx, ty + 1):
+        if not world.is_wall(tx, ty + 1):
             canvas.blit(self.surface(f"wall_face_{stage}", lambda: art.wall_face(stage))[0], (sx, sy + FACE_Y))
             if kind == C.TERMINAL:   # o terminal fica pendurado na face
                 term = self.surface("terminal", art.terminal)[0]
@@ -316,11 +318,17 @@ class Renderer:
 
     def _draw_floor(self, canvas, world, tx, ty, sx, sy, stage, stage_num, t) -> None:
         P = C.PALETTES[stage]
-        v = int(hash01(tx, ty, 3) * 4)
-        canvas.blit(self.surface(f"floor_{stage}_{v}", lambda: art.floor(stage, v))[0], (sx, sy))
+        # deserto: areia com a variação da Designer (dunas em faixas); FLOOR (caverna) com o sorteio de sempre
+        if world.sand_variants is not None and world.get(tx, ty) != C.FLOOR and 0 <= ty < world.height \
+                and 0 <= tx < world.width:
+            v = world.sand_variants[ty][tx]
+            sprite = lambda st: (f"sand_{st}_{v}", lambda: art.sand(st, v))       # noqa: E731
+        else:
+            v = int(hash01(tx, ty, 3) * 4)
+            sprite = lambda st: (f"floor_{st}_{v}", lambda: art.floor(st, v))     # noqa: E731
+        canvas.blit(self.surface(*sprite(stage))[0], (sx, sy))
         if self.stage_map.step > 0:
-            self._blend_edges(canvas, world, tx, ty, sx, sy, stage_num, False,
-                              lambda st: (f"floor_{st}_{v}", lambda: art.floor(st, v)))
+            self._blend_edges(canvas, world, tx, ty, sx, sy, stage_num, False, sprite)
         # cada vizinho é água (ou não) no estágio visual DELE (na transição, pode ser outro)
         wet = lambda x, y: world.is_water(x, y, self.stage_map.stage_at(x, y))   # noqa: E731
         if wet(tx, ty):
@@ -350,9 +358,9 @@ class Renderer:
             canvas.fill((170, 214, 230), (sx + 4 + o, sy + 10 + int(h * 12), 5, 1))
             canvas.fill((170, 214, 230), (sx + 4 + (o + 12) % 22, sy + 21 + int(h * 5), 4, 1))
         # sombra que a parede projeta no chão
-        if world.is_solid(tx, ty - 1):
+        if world.is_wall(tx, ty - 1):
             canvas.blit(self.shadow_top, (sx, sy))
-        if world.is_solid(tx - 1, ty):
+        if world.is_wall(tx - 1, ty):
             canvas.blit(self.shadow_left, (sx, sy))
 
     # Ordem de "pontilhado" (Bayer 4×4): espalha os pixels da mistura sem formar listras.
@@ -367,7 +375,7 @@ class Renderer:
         faixa de mistura em vez de um degrau de cor. `sprite(stage)` devolve (nome, desenho de fallback)."""
         for direction, (dx, dy) in (("left", (-1, 0)), ("right", (1, 0)), ("up", (0, -1)), ("down", (0, 1))):
             other = self.stage_map.stage_at(tx + dx, ty + dy)
-            if other != stage_num and world.is_solid(tx + dx, ty + dy) == solid:
+            if other != stage_num and world.is_wall(tx + dx, ty + dy) == solid:
                 canvas.blit(self._fringe(*sprite(stage_key(other)), direction), (x, y))
 
     def _fringe(self, name: str, painter, direction: str) -> pygame.Surface:
@@ -409,8 +417,22 @@ class Renderer:
         cam_x, cam_y = cam
         items: list[tuple[float, callable]] = []
 
-        ax, ay = C.POD_ANCHOR
-        items.append((ay, lambda: self._draw_pod(canvas, ax - cam_x, ay - cam_y, t)))
+        world = state.world
+        if state.active.has_base:
+            ax, ay = C.POD_ANCHOR
+            items.append((ay, lambda: self._draw_pod(canvas, ax - cam_x, ay - cam_y, t)))
+        # cratera (3×3): objeto com o pé na borda de baixo (a borda de trás cobre os pés de quem está acima)
+        if world.crater is not None:
+            ctx, cty = world.crater
+            cx, cy = ctx * T - cam_x, cty * T - cam_y
+            if -96 < cx < self.view_w and -96 < cy < self.view_h:
+                items.append(((cty + 3) * T, lambda cx=cx, cy=cy: canvas.blit(self.crater_surface(), (cx, cy))))
+        # recursos soltos (16×16, ponto de chão = (8, 14) do PNG)
+        if state.pickups is not None:
+            for pk in state.pickups.items:
+                px, py = pk.x - cam_x, pk.y - cam_y
+                if -16 < px < self.view_w + 16 and -16 < py < self.view_h + 16:
+                    items.append((pk.y, lambda pk=pk, px=px, py=py: self.draw_pickup(canvas, pk, px, py, t)))
 
         for m in state.machines:
             mx, my = m.anchor                                  # centro da base (drill: centro dos 2×2)
@@ -428,8 +450,15 @@ class Renderer:
                     items.append((my, lambda m=m, mx=mx, my=my: self._blit_anchored(
                         canvas, self.highlight_outline(m), mx - cam_x, my - cam_y + 1)))
 
+        tx0, ty0 = cam_x // T, cam_y // T
+        for ty in range(max(0, ty0), min(world.height, ty0 + self.view_h // T + 2)):   # rochas pequenas (pé na borda de baixo)
+            row = world.tiles[ty]
+            for tx in range(max(0, tx0), min(world.width, tx0 + self.view_w // T + 2)):
+                resource = C.SMALL_ROCKS.get(row[tx])
+                if resource:
+                    items.append(((ty + 1) * T, lambda tx=tx, ty=ty, r=resource: self.draw_small_rock(
+                        canvas, tx * T - cam_x, ty * T - cam_y, r)))
         if self.stage_map.next_stage >= 3:   # plantas nascem junto com a mancha verde
-            tx0, ty0 = cam_x // T, cam_y // T
             for ty in range(ty0, ty0 + self.view_h // T + 3):
                 for tx in range(tx0, tx0 + self.view_w // T + 2):
                     kind = state.world.plant_at(tx, ty)
@@ -442,6 +471,27 @@ class Renderer:
         p = state.player
         items.append((p.y, lambda: self._draw_player(canvas, state, p.x - cam_x, p.y - cam_y, t)))
         return items
+
+    def crater_surface(self) -> pygame.Surface:
+        """Cratera fechada (Marco 1). No Marco 2: crater_ramp com a rampa aberta (art.crater(open_ramp=True))."""
+        return self.surface("crater", art.crater)[0]
+
+    def draw_small_rock(self, canvas, x: int, y: int, resource: str) -> None:
+        """Rocha pequena em (tx·32, ty·32) + o cristalzinho do minério que ela dá (pra ler de longe)."""
+        canvas.blit(self.surface("rock_small", art.rock_small)[0], (x, y))
+        canvas.blit(self.surface(None, lambda: art.ore_fleck(resource), f"fleck#{resource}")[0], (x, y))
+
+    def pickup_surface(self, resource: str) -> pygame.Surface:
+        return self.surface(f"pickup_{resource}", lambda: art.pickup(resource))[0]
+
+    def draw_pickup(self, canvas, pk, x: float, y: float, t: float) -> None:
+        """Solto no chão: blit em (x − 8, y − 14), balançando 1 px de leve. Contorno se for o alvo do E."""
+        surf = self.pickup_surface(pk.resource)
+        bob = 1 if (t * 1.6 + (pk.x + pk.y) * 0.013) % 2 < 1 else 0
+        bx, by = round(x) - 8, round(y) - 14 - bob
+        canvas.blit(surf, (bx, by))
+        if self.highlight is pk:
+            canvas.blit(self.outline_of(("pickup", pk.resource), surf), (bx - 1, by - 1))
 
     HIGHLIGHT_RGBA = (255, 236, 176, 150)   # contorno do alvo do E: creme claro, meio transparente
 
@@ -714,8 +764,11 @@ class Renderer:
             return
         prog = mining.progress(kind)
         px = tx * T - cam[0]
-        py = ty * T - WALL_LIFT - cam[1]                          # topo elevado da parede
-        h = WALL_LIFT + (T if not state.world.is_solid(tx, ty + 1) else FACE_Y)   # topo + face (se tiver)
+        if kind in C.FLAT_SOLIDS:                                 # rocha pequena: sem topo elevado
+            py, h = ty * T - cam[1], T
+        else:
+            py = ty * T - WALL_LIFT - cam[1]                      # topo elevado da parede
+            h = WALL_LIFT + (T if not state.world.is_wall(tx, ty + 1) else FACE_Y)   # topo + face (se tiver)
         # rachaduras aparecendo no topo conforme o progresso
         cracks = [(4, 3), (5, 4), (6, 5), (7, 6), (8, 7), (9, 8), (9, 9), (8, 10), (8, 11), (7, 12), (7, 13), (6, 14),
                   (10, 8), (11, 8), (12, 7), (13, 7), (14, 7), (15, 8), (16, 9), (17, 10), (18, 10), (19, 11),
@@ -822,10 +875,14 @@ class Renderer:
         cam_x, cam_y = cam
         tick = t * 9
         lights = []   # (x, y, raio, cor, força do brilho, quanto "corta" o escuro)
-        pod_x, pod_y = C.POD_ANCHOR[0] - 32 - cam_x, C.POD_ANCHOR[1] - 70 - cam_y
-        lights.append((pod_x + 20, pod_y + 29, 170, (89, 208, 230), 0.2, 1.0))
-        if tick % 10 < 5:
-            lights.append((pod_x + 50, pod_y + 2, 44, (255, 90, 74), 0.5, 0.5))
+        if state.active.has_base:   # luz da janela e do beacon da cápsula (pontos relativos ao canto do PNG)
+            pod_x, pod_y = C.POD_ANCHOR[0] - 32 - cam_x, C.POD_ANCHOR[1] - 72 - cam_y
+            spots = C.POD_LIGHTS["v4" if C.POD_SPRITE_REDESIGN else "v3"]
+            wx, wy = spots["window"]
+            lights.append((pod_x + wx, pod_y + wy, 170, (89, 208, 230), 0.2, 1.0))
+            if tick % 10 < 5:
+                bx, by = spots["beacon"]
+                lights.append((pod_x + bx, pod_y + by, 44, (255, 90, 74), 0.5, 0.5))
         machine_light = {"o2": ((89, 208, 230), 80, -30, 0.2), "heater": ((255, 138, 61), 100, -20, 0.3),
                          "melter": ((159, 230, 255), 70, -36, 0.18)}
         # no déficit de energia o brilho das máquinas fica mais fraco (metade com fator 0)

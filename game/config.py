@@ -40,6 +40,7 @@ VOLUME = {
     "stage_up": 0.85,
 }
 AMBIENT_VOLUME = 0.7    # ambiente: o dono gostou, NÃO mexer sem pedir
+DESERT_WIND_VOLUME = 0.45  # vento do deserto (desert_wind.wav, pendente): por cima do ambiente (0,7), só na superfície
 HUM_MAX_VOLUME = 0.6    # zumbido das máquinas quando o player está colado nelas
 
 # ---------------------------------------------------------------------------
@@ -62,29 +63,77 @@ DEBUG_TI_BONUS = 10_000         # F2: soma isso no Ti
 # ---------------------------------------------------------------------------
 TILE = 32
 WALL_LIFT = 24                  # o topo da parede é desenhado 24 px acima do tile (dá altura, estilo Core Keeper)
-WORLD_W = WORLD_H = 128
 WORLD_SEED = 7
-CRATER_CENTER = (64, 64)        # em tiles
-CRATER_RADIUS = 12              # raio médio da cratera (a borda é irregular por causa do noise)
-CRATER_SAFE_RADIUS = 8          # dentro desse raio é sempre chão, não importa o noise
+
+# Duas camadas (v0.3, bíblia §9): a SUPERFÍCIE (deserto aberto, onde fica a base) e a CAVERNA (o gerador
+# antigo do world.py, que entra de verdade no Marco 2). Cada uma tem o próprio mapa (game/layers.py).
+SURFACE_W = SURFACE_H = 192     # deserto (game/surface_gen.py)
+CAVE_W = CAVE_H = 128           # caverna (game/world.py)
+WORLD_W, WORLD_H = CAVE_W, CAVE_H   # nome antigo: tamanho padrão do World (a caverna)
+CAVE_CENTER = (64, 64)          # centro da caverna, em tiles (no Marco 2 a rampa de subida fica aqui)
+CAVE_HALL_RADIUS = 12           # raio médio do salão aberto da caverna (a borda é irregular por causa do noise)
+CAVE_SAFE_RADIUS = 8            # dentro desse raio é sempre chão, não importa o noise
 
 # Tipos de tile (inteiros pra caber numa grade simples)
 FLOOR, ROCK, IRON, SILICON, ICE, BEDROCK, TERMINAL = range(7)
-SOLID_TILES = {ROCK, IRON, SILICON, ICE, BEDROCK, TERMINAL}
-ORE_TILES = {IRON: "iron", SILICON: "silicon", ICE: "ice"}
+SAND = 7                        # chão do deserto (superfície)
+SMALL_IRON, SMALL_SILICON, SMALL_ICE = 8, 9, 10   # rocha pequena no chão: 1 tile, quebra com a broca, não volta
+CRATER = 11                     # os 3×3 da cratera: obstáculo plano (no Marco 2 vira a rampa de descida)
+ORE_TILES = {IRON: "iron", SILICON: "silicon", ICE: "ice"}            # minério NA PAREDE (overlay no topo)
+SMALL_ROCKS = {SMALL_IRON: "iron", SMALL_SILICON: "silicon", SMALL_ICE: "ice"}
+WALL_TILES = {ROCK, IRON, SILICON, ICE, BEDROCK, TERMINAL}            # paredes ALTAS (topo elevado + face)
+FLAT_SOLIDS = set(SMALL_ROCKS) | {CRATER}                             # sólidos baixos: bloqueiam, mas não têm altura
+SOLID_TILES = WALL_TILES | FLAT_SOLIDS
+FLOOR_TILES = {FLOOR, SAND}
+TILE_RESOURCE = {**ORE_TILES, **SMALL_ROCKS}                          # o que cada tile dá ao quebrar
 
-# Terminais de lore: (distância em tiles do centro, ângulo em graus). Distâncias crescentes.
+# Terminais de lore da caverna: (distância em tiles do centro, ângulo em graus). Distâncias crescentes.
 TERMINAL_SPOTS = [(19, 35), (31, 160), (45, 280)]
 
+# Gerador do deserto (game/surface_gen.py · bíblia §9, Marco 1)
+SURFACE_BORDER = (2, 3)         # cordilheira da borda: 2 ou 3 tiles de espessura (intransponível, não minera)
+HILLS = (24, 32)                # quantos morros de rocha (a única parede da superfície, minerável)
+HILL_SIZE = (3, 8)              # largura do morro em tiles
+HILL_ORE_CHANCE = 0.12          # chance de um tile de morro ter minério (pouco: o volume fica na caverna)
+SURFACE_CLEAR_RADIUS = 8        # raio de areia limpa em volta da cápsula
+SURFACE_CRATER_DIST = (15, 20)  # distância (tiles) do centro da cratera até a base
+SURFACE_VEINS = (3, 5)          # veios de drill na superfície: poucos, longe, obrigam a explorar
+SURFACE_VEIN_MIN_DIST = 35      # nenhum tile de veio a menos disso da base
+SURFACE_VEIN_SPACING = 14       # distância mínima entre veios (tiles)
+SMALL_ROCK_CHANCE = 0.011       # chance de um tile de areia virar rocha pequena (~350 no mapa)
+SMALL_ROCK_MIN_DIST = SURFACE_CLEAR_RADIUS   # a área da cápsula fica limpa
+SMALL_ROCK_WEIGHTS = {"iron": 0.45, "silicon": 0.3, "ice": 0.25}
+
+# Recursos soltos no chão da superfície (game/pickups.py · bíblia §9, Marco 1)
+PICKUP_AMOUNT = (1, 3)          # cada solto vale de 1 a 3 unidades
+PICKUP_START = 70               # quantos já tem no mapa num jogo novo
+PICKUP_MAX = 120                # teto de soltos no mapa (o reaparecimento para aqui)
+PICKUP_RESPAWN = 15.0           # segundos por solto novo (= 4 por minuto)
+PICKUP_BASE_DIST = 12           # reaparece só a 12+ tiles da base...
+PICKUP_HIDDEN = (21, 13)        # ...e fora da tela: meia-tela em tiles no zoom 0,75 (1280×720 = 20×11) + folga
+PICKUP_START_BASE_DIST = SURFACE_CLEAR_RADIUS   # os do começo podem nascer um pouco mais perto
+PICKUP_AUTO_RADIUS = 12         # px: passando por cima (pés do player) pega sozinho
+PICKUP_REACH = 56               # px: alcance do E e do clique
+PICKUP_HIT = 10                 # px: raio do solto pro mouse "acertar"
+PICKUP_WEIGHTS = {"iron": 0.45, "silicon": 0.3, "ice": 0.25}
+
 # ---------------------------------------------------------------------------
-# Base (cápsula) e player
+# Base (cápsula) e player · a base fica no CENTRO da superfície
 # ---------------------------------------------------------------------------
-# A cápsula ocupa 2 tiles de largura na linha 63. A âncora é o centro da base (chão).
-POD_TILES = [(63, 63), (64, 63)]
-POD_ANCHOR = (64 * TILE, 64 * TILE)           # pixel: centro da base da cápsula
-BASE_CENTER = (64 * TILE, 64 * TILE - 16)     # centro da zona de O₂
-BASE_RADIUS = 5 * TILE                        # raio da zona de O₂ (5 tiles)
-SPAWN_POS = (64 * TILE, 65 * TILE + 8)        # onde o player nasce/acorda (pés)
+BASE_TILE = (SURFACE_W // 2, SURFACE_H // 2)  # (96, 96): o tile logo abaixo da cápsula, à direita do meio
+# A cápsula ocupa 2 tiles de largura na linha de cima do BASE_TILE. A âncora é o centro da base (chão).
+POD_TILES = [(BASE_TILE[0] - 1, BASE_TILE[1] - 1), (BASE_TILE[0], BASE_TILE[1] - 1)]
+POD_ANCHOR = (BASE_TILE[0] * TILE, BASE_TILE[1] * TILE)           # pixel: centro da base da cápsula
+BASE_CENTER = (BASE_TILE[0] * TILE, BASE_TILE[1] * TILE - 16)     # centro da zona de O₂
+BASE_RADIUS = 5 * TILE                                            # raio da zona de O₂ (5 tiles)
+SPAWN_POS = (BASE_TILE[0] * TILE, (BASE_TILE[1] + 1) * TILE + 8)  # onde o player nasce/acorda (pés)
+
+# Pontos de luz da cápsula (janela e beacon), relativos ao canto de cima à esquerda do pod.png (64×72).
+# O redesenho do pod (v4.0 da Designer, em _pending) mudou os pontos: quando ele for promovido, troque
+# POD_SPRITE_REDESIGN pra True.
+POD_LIGHTS = {"v3": {"window": (20, 31), "beacon": (50, 4)},
+              "v4": {"window": (19, 36), "beacon": (51, 4), "led": (31, 41)}}
+POD_SPRITE_REDESIGN = True
 
 PLAYER_SPEED = 120          # px/s (~3,7 tiles por segundo)
 PLAYER_BOX_W, PLAYER_BOX_H = 14, 8   # caixa de colisão nos pés
@@ -92,8 +141,10 @@ PLAYER_BOX_W, PLAYER_BOX_H = 14, 8   # caixa de colisão nos pés
 # ---------------------------------------------------------------------------
 # Mineração (§4 Mineração)
 # ---------------------------------------------------------------------------
-MINE_TIME = {ROCK: 0.6, IRON: 1.0, SILICON: 1.2, ICE: 0.8}
-DROP_MIN, DROP_MAX = 1, 2
+MINE_TIME = {ROCK: 0.6, IRON: 1.0, SILICON: 1.2, ICE: 0.8,
+             SMALL_IRON: 0.7, SMALL_SILICON: 0.7, SMALL_ICE: 0.7}   # rocha pequena: rapidinha
+DROP_MIN, DROP_MAX = 1, 2       # minério de parede
+DROP_RANGE = {k: (2, 4) for k in SMALL_ROCKS}   # rocha pequena dá 2 a 4 (o resto usa DROP_MIN/MAX)
 MINE_REACH = 2              # alcance em tiles (distância de Chebyshev a partir do tile do player)
 MINE_HIT_INTERVAL = 0.25    # som de picareta a cada 0,25 s
 
@@ -218,6 +269,7 @@ PALETTES = {
         "rock": "#4b3332", "rock2": "#563a38", "rock_hi": "#6e4b47", "rock_dot": "#352323", "edge": "#7f5b56",
         "face": "#2f1f1f", "face_hi": "#5f4240", "face_dark": "#221616",
         "water": "#3d6f86", "water_d": "#2f5a70", "foam": "#b8e2ee",
+        "sand": ["#a4583a", "#985034", "#af6343"], "sand_dark": "#86452c", "sand_hi": "#bf7350",
         "ambient": (26, 8, 12, 87),
     },
     "mist": {
@@ -226,6 +278,7 @@ PALETTES = {
         "rock": "#4a4447", "rock2": "#544d50", "rock_hi": "#6c6467", "rock_dot": "#343033", "edge": "#7c757d",
         "face": "#2b272a", "face_hi": "#5d5659", "face_dark": "#1f1c1e",
         "water": "#3f7690", "water_d": "#315f78", "foam": "#b8e2ee",
+        "sand": ["#787677", "#6e6c6e", "#838183"], "sand_dark": "#605e61", "sand_hi": "#959397",
         "ambient": (16, 24, 34, 56),
     },
     "green": {
@@ -235,6 +288,7 @@ PALETTES = {
         "rock": "#4b4a45", "rock2": "#55544e", "rock_hi": "#6d6c64", "rock_dot": "#353530", "edge": "#76805f",
         "face": "#2c2c28", "face_hi": "#5c5b54", "face_dark": "#1f1f1c",
         "water": "#2c7ea6", "water_d": "#22668a", "foam": "#b8e2ee",
+        "sand": ["#a08e66", "#94835d", "#ab9a71"], "sand_dark": "#80714e", "sand_hi": "#bcab82",
         "ambient": (10, 22, 12, 31),
     },
 }
@@ -267,7 +321,7 @@ STAGE_COLOR = {1: C_ACCENT, 2: "#9fd2e6", 3: "#a6e07a"}
 TRANSITION_WINDOW = 0.35        # fração final da barra de progresso em que a mancha cresce
 TRANSITION_STEPS = 100          # "degraus" da janela: o visual só muda a cada 1% (deixa cachear)
 TRANSITION_FRONT_NEAR = 14      # tiles que a frente da mancha anda "em linha reta" ao longo da janela
-TRANSITION_FRONT_FAR = 100      # tiles extras que ela dispara no fim, pra chegar nas bordas do mapa
+TRANSITION_FRONT_FAR = 150      # tiles extras que ela dispara no fim, pra chegar nas bordas do mapa (deserto 192×192)
 TRANSITION_FRONT_POWER = 8      # quão no fim é esse disparo (maior = mais concentrado no final)
 TRANSITION_NOISE_SCALE = 0.11   # tamanho das "manchas" do ruído (menor = manchas maiores)
 TRANSITION_WOBBLE = 0.7         # quanto o ruído estica/encolhe a distância (0 = círculo perfeito)

@@ -39,8 +39,8 @@ def test_clean_name_rules():
 
 def placed_chest(state: GameState) -> Machine:
     give(state, chest=1)
-    state.player.x, state.player.y = 62.5 * C.TILE, 70 * C.TILE
-    assert state.place("chest", (62, 68))
+    state.player.x, state.player.y = 94.5 * C.TILE, 102 * C.TILE
+    assert state.place("chest", (94, 100))
     return state.chests[0]
 
 
@@ -58,7 +58,7 @@ def test_name_survives_save_and_load(tmp_path):
     state.rename_chest(chest, "Ferro do norte")
     path = tmp_path / "slot1.json"
     assert save.write_save(state, path)
-    saved = next(m for m in json.loads(path.read_text(encoding="utf-8"))["machines"] if m["kind"] == "chest")
+    saved = next(m for m in json.loads(path.read_text(encoding="utf-8"))["layers"]["surface"]["machines"] if m["kind"] == "chest")
     assert saved["name"] == "Ferro do norte"
     assert save.load_game(path).chests[0].name == "Ferro do norte"
 
@@ -67,7 +67,7 @@ def test_weird_name_in_save_is_cleaned(tmp_path):
     state = save.new_state()
     placed_chest(state)
     data = save.state_to_dict(state)
-    data["machines"][0]["name"] = "x" * 50
+    data["layers"]["surface"]["machines"][0]["name"] = "x" * 50
     assert save.state_from_dict(data).chests[0].name == "x" * C.CHEST_NAME_MAX
 
 

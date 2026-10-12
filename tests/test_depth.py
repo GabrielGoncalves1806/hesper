@@ -59,3 +59,14 @@ def test_visual_tile_picks_raised_wall_top():
     assert w.visual_tile_at(1 * T + 10, 1 * T + 20) == (1, 1)
     # na face da própria parede: a própria parede
     assert w.visual_tile_at(4 * T + 10, 5 * T + 20) == (4, 5)
+
+
+def test_flat_solids_are_not_walls_in_draw_list():
+    """Rocha pequena e cratera não têm topo elevado: entram como objeto, não como parede."""
+    w = World(seed=1, width=10, height=10)
+    w.set(3, 3, C.SMALL_ICE)
+    w.set(5, 5, C.CRATER)
+    w.set(4, 3, C.ROCK)
+    order = build_draw_list(w, [], 0, 9, 0, 9)
+    assert ("wall", 4, 3) in order
+    assert ("wall", 3, 3) not in order and ("wall", 5, 5) not in order

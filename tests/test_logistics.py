@@ -63,8 +63,8 @@ def total(game, item: str) -> int:
 # ---------------------------------------------------------------- configuração
 def test_new_chest_and_new_drill_start_with_nothing(game):
     give(game, chest=1, drill=1)
-    game.player.x, game.player.y = 62.5 * C.TILE, 70 * C.TILE
-    assert game.place("chest", (62, 68))
+    game.player.x, game.player.y = 94.5 * C.TILE, 102 * C.TILE
+    assert game.place("chest", (94, 100))
     c = game.chests[0]
     assert c.sends == set() and c.receives == set() and c.batch == 10
     assert not drones.configured(c)
@@ -342,7 +342,7 @@ def test_logistics_config_roundtrip(tmp_path):
     path = tmp_path / "slot1.json"
     assert save.write_save(state, path)
     data = json.loads(path.read_text(encoding="utf-8"))
-    md = next(m for m in data["machines"] if m["kind"] == "drill" and m["resource"] == "silicon")
+    md = next(m for m in data["layers"]["surface"]["machines"] if m["kind"] == "drill" and m["resource"] == "silicon")
     assert md["storage"] == [["silicon", 13]] and "stored" not in md
     assert md["sends"] == ["silicon"] and md["receives"] == [] and md["batch"] == 20
     loaded = save.load_game(path)
@@ -355,7 +355,7 @@ def test_logistics_config_roundtrip(tmp_path):
 
 def test_load_sanitizes_logistics():
     data = save.state_to_dict(save.new_state())
-    data["machines"] = [
+    data["layers"]["surface"]["machines"] = [
         {"kind": "chest", "tx": 1, "ty": 1, "rotation": 0, "storage": [], "name": "x",
          "sends": ["iron", "o2", "bogus"], "receives": ["iron", "ice"], "batch": 7},
         {"kind": "drill", "tx": 5, "ty": 5, "rotation": 0, "resource": "ice", "timer": 0,
@@ -367,57 +367,3 @@ def test_load_sanitizes_logistics():
     assert d.sends == {"ice"} and d.receives == set() and d.batch == 1 and d.stored == C.DRILL_CAPACITY
 
 
-def v4_save() -> dict:
-    """Um save v4 de verdade: baús com filtro, drill com contador e estação com drone carregado."""
-    state = save.new_state()
-    state.debug_add_ti()
-    st = Machine("drone_station", 66, 68)
-    st.station = drones.new_station(st, 2)
-    st.station.buffer = {"iron": 5}
-    state.machines += [Machine("chest", 62, 68), Machine("chest", 63, 68), st,
-                       Machine("drill", 70, 70, resource="ice")]
-    data = save.state_to_dict(state)
-    data["version"] = 4
-    for md in data["machines"]:
-        for key in ("sends", "receives", "batch"):
-            md.pop(key, None)
-        if md["kind"] == "chest":
-            md["filter"] = "all" if md["tx"] == 62 else "silicon"
-        if md["kind"] == "drill":
-            md.pop("storage")
-            md["stored"] = 14
-        if md["kind"] == "drone_station":
-            md["drones"] = [["iron", 6], [None, 0], None, None]
-    return data
-
-
-def test_migration_v4_to_v5(tmp_path):
-    path = tmp_path / "slot1.json"
-    path.write_text(json.dumps(v4_save()), encoding="utf-8")
-    loaded = save.load_game(path)
-    assert loaded is not None
-    every, only_si = sorted(loaded.chests, key=lambda c: c.tx)
-    assert every.receives == set(C.RESOURCES) and every.sends == set() and every.batch == 10
-    assert only_si.receives == {"silicon"} and only_si.sends == set()
-    d = loaded.drills[0]
-    assert d.stored == 14 and d.storage.to_data() == [["ice", 14]]
-    assert d.sends == {"ice"} and d.receives == set()                     # drill antiga continua enviando
-    st = loaded.stations[0]
-    assert st.station.buffer == {"iron": 5}                                # sobras: só tirar
-    assert st.station.drones[0].cargo == 6 and st.station.drones[0].resource == "iron"
-    save.write_save(loaded, path)
-    data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["version"] == 5
-    assert all("filter" not in m and "stored" not in m for m in data["machines"])
-
-
-def test_migrated_base_keeps_working(tmp_path):
-    """A base v4 continua andando: o drone com ferro entrega no baú "Tudo" e a drill de gelo também chega lá."""
-    path = tmp_path / "slot1.json"
-    path.write_text(json.dumps(v4_save()), encoding="utf-8")
-    loaded = save.load_game(path)
-    every = min(loaded.chests, key=lambda c: c.tx)
-    for _ in range(int(40 / (1 / 30))):
-        loaded._update_machines(1 / 30)
-    assert every.storage.count("iron") == 6
-    assert every.storage.count("ice") >= 10

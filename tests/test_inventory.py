@@ -167,7 +167,7 @@ def test_mining_with_full_inventory_breaks_the_tile_but_loses_the_ore(game):
     px, py = game.player.tile
     game.world.set(px + 1, py, C.IRON)
     game._break_tile((px + 1, py), C.IRON)
-    assert game.world.get(px + 1, py) == C.FLOOR        # quebrou
+    assert game.world.get(px + 1, py) == C.SAND         # quebrou (areia, no deserto)
     assert game.inventory.count("iron") == 0            # mas não pegou
     assert game.mined_total["iron"] == 0
     events = game.pop_events()

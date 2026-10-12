@@ -202,3 +202,51 @@ a produção das 3 drills, não o voo; os 6 tiles/s são pra viagem não ficar c
 ~13 s ida e volta em vez de 20 s). Leitura igual à anterior: drone é conforto (menos caminhada), não acelerador, e
 a meta (20–35 min) continua batida. Comparado ao Marco 3 antigo (24m40 · 26m02 · 29m56 com drones), o jogo com
 drones ficou ~1–1,5 min mais rápido.
+
+## v0.3 Marco 1 · superfície (2026-10-12)
+
+O simulador agora joga na **superfície** (deserto 192×192, ainda sem caverna). Minério = minério dos morros +
+rochas pequenas (2–4 cada) + recursos soltos (1–3, reaparecem 4/min fora da vista, teto 120), com a regra
+real de cada um. Não mexi na economia: o volume da superfície é baixo de propósito até a caverna (Marco 2).
+
+| | v0.2 (cratera) | v0.3 Marco 1 (superfície) |
+|---|---|---|
+| Verde, números atuais (guloso/variado) | 22m45s – 24m56s | 27m47s – 39m05s |
+| Verde, números atuais (casual) | ~30 min | 34m00s – 42m23s |
+| Verde, proposta (todas) | ~25–33 min | 32m07s – 49m19s |
+| Névoa (atuais) | 8m21s – 9m03s | 8m20s – 10m31s |
+
+- O jogo **termina só com a superfície** (nenhuma seed travou), então não precisou de ajuste temporário.
+- A partida ficou mais lenta pelo **andar**: ~75% do tempo é deslocamento (ex.: casual seed 3: 31 min andando,
+  1,6 min minerando, 6,5 min na base). O deserto é aberto e o minério está espalhado em pedrinhas de 2–4.
+- O teste do simulador (`tests/test_balance_sim.py`) ganhou teto provisório de 50 min (era 35) e separa a espera
+  da reta final ("o fim chega antes da próxima máquina", até 4 min) das esperas no meio do jogo (até 2,5 min).
+
+
+### Números atuais (game/config.py)
+
+| estratégia | seed | Ti 500 | Névoa | Verde | total | espera total | maior espera | desm. | drill un. | drone un. | déficit | máquinas (o2/melter/heater/o2_t2/melter_t2/heater_t2/drill/solar/chest/drone_station/drone) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| guloso | 1 | 1m38s | 8m20s | 31m59s | 31m59s | 1m40s | 1m38s | 0 | 127 | 160 | 18m39s | 11/2/1/0/0/2/3/6/1/1/2 |
+| guloso | 2 | 1m42s | 8m28s | 28m10s | 28m10s | 0m00s | 0m00s | 0 | 108 | 130 | 15m19s | 11/0/1/0/2/3/3/7/1/1/2 |
+| guloso | 3 | 1m42s | 8m27s | 27m47s | 27m47s | 0m08s | 0m06s | 0 | 72 | 170 | 17m05s | 11/1/0/0/0/5/3/8/1/1/2 |
+| variado | 1 | 1m51s | 9m04s | 29m52s | 29m52s | 0m00s | 0m00s | 0 | 98 | 140 | 13m36s | 4/7/4/2/2/1/3/8/1/1/2 |
+| variado | 2 | 1m55s | 9m17s | 31m23s | 31m23s | 0m50s | 0m50s | 0 | 130 | 120 | 13m31s | 4/5/3/2/2/1/3/8/1/1/2 |
+| variado | 3 | 1m51s | 9m10s | 39m05s | 39m05s | 3m32s | 3m32s | 0 | 159 | 170 | 16m16s | 4/7/3/1/1/0/3/6/1/1/2 |
+| casual | 1 | 2m15s | 10m31s | 38m42s | 38m42s | 2m03s | 2m03s | 0 | 167 | 140 | 13m13s | 4/6/3/0/2/1/3/7/1/1/2 |
+| casual | 2 | 2m16s | 10m13s | 34m00s | 34m00s | 0m00s | 0m00s | 0 | 88 | 170 | 12m44s | 5/4/2/1/2/2/3/8/1/1/2 |
+| casual | 3 | 2m08s | 10m00s | 42m23s | 42m23s | 2m56s | 2m56s | 0 | 170 | 190 | 15m00s | 5/9/3/0/0/1/3/6/1/1/2 |
+
+### Proposta (balance_proposal.json)
+
+| estratégia | seed | Ti 500 | Névoa | Verde | total | espera total | maior espera | desm. | drill un. | drone un. | déficit | máquinas (o2/melter/heater/o2_t2/melter_t2/heater_t2/drill/solar/chest/drone_station/drone) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| guloso | 1 | 2m19s | 11m27s | 45m42s | 45m42s | 2m14s | 2m14s | 0 | 199 | 210 | 35m09s | 4/4/6/0/1/1/3/7/1/1/2 |
+| guloso | 2 | 2m18s | 11m09s | 32m07s | 32m07s | 0m00s | 0m00s | 0 | 45 | 200 | 23m38s | 4/1/6/0/2/5/3/10/1/1/2 |
+| guloso | 3 | 2m17s | 11m09s | 49m19s | 49m19s | 0m24s | 0m24s | 0 | 219 | 250 | 39m17s | 4/2/6/0/0/2/3/7/1/1/2 |
+| variado | 1 | 2m28s | 11m30s | 35m10s | 35m10s | 0m00s | 0m00s | 0 | 61 | 200 | 21m56s | 5/6/4/2/2/2/3/9/1/1/2 |
+| variado | 2 | 2m24s | 11m25s | 37m40s | 37m40s | 1m51s | 1m51s | 0 | 115 | 170 | 24m37s | 5/6/4/1/2/1/3/8/1/1/2 |
+| variado | 3 | 2m18s | 11m20s | 38m56s | 38m56s | 6m19s | 6m19s | 0 | 134 | 100 | 27m27s | 5/6/3/0/2/1/3/7/1/1/2 |
+| casual | 1 | 2m43s | 12m47s | 43m45s | 43m45s | 2m44s | 2m44s | 0 | 116 | 200 | 18m23s | 4/8/4/2/1/0/3/7/1/1/2 |
+| casual | 2 | 2m45s | 12m36s | 47m07s | 47m07s | 1m37s | 1m37s | 0 | 193 | 190 | 17m20s | 5/10/3/1/1/0/3/7/1/1/2 |
+| casual | 3 | 2m44s | 12m44s | 42m33s | 42m33s | 0m06s | 0m06s | 0 | 128 | 230 | 14m21s | 4/6/2/1/2/2/3/8/1/1/2 |

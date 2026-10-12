@@ -1,5 +1,8 @@
 """Tela de título (Continuar · Novo jogo · Sair) e o aviso "Jogo salvo" do HUD.
 
+Save de uma versão antiga (v0.1/v0.2, que o v0.3 não carrega): "Continuar" aparece apagado, não dá pra
+escolher, e embaixo do menu vem o aviso "Save de uma versão antiga · comece um novo jogo".
+
 O App (app.py) só repassa teclado/mouse pra cá e recebe de volta uma ação:
 "continue", "new" ou "quit". Quem carrega, salva e troca de modo é o App.
 
@@ -36,6 +39,7 @@ class TitleScreen:
         self.play = play                # audio.play: sons de menu
         self.font_title = load_font("Silkscreen-Regular.ttf", 32, 48)
         self.saved: GameState | None = None   # o save já carregado (None = não tem save válido)
+        self.old = False                # tem um save de versão antiga (não carrega; Continuar apagado)
         self.confirming = False         # "Novo jogo" com save existente: pedindo confirmação
         self.selected = 0
         self.items: list[pygame.Rect] = []    # linhas clicáveis (coordenadas da UI)
@@ -44,22 +48,25 @@ class TitleScreen:
         self._shade = pygame.Surface((C.SCREEN_W, C.SCREEN_H), pygame.SRCALPHA)
         self._shade.fill((10, 5, 4, 135))
 
-    def open(self, saved: GameState | None) -> None:
+    def open(self, saved: GameState | None, old: bool = False) -> None:
         self.saved = saved
+        self.old = old and saved is None
         self.confirming = False
-        self.selected = 0
+        self.selected = 1 if self.old else 0
 
     # ---- opções ----------------------------------------------------------------
     def options(self) -> list[tuple[str, str]]:
         """(ação, texto) de cada linha do menu, na ordem."""
         if self.confirming:
             return [("cancel", "Não, voltar"), ("confirm_new", "Sim, começar do zero")]
-        options = [("continue", "Continuar")] if self.saved else []
+        options = [("continue", "Continuar")] if self.saved else [("old", "Continuar")] if self.old else []
         return options + [("new", "Novo jogo"), ("quit", "Sair")]
 
     def activate(self, index: int) -> str | None:
         """Executa a linha `index`. Devolve a ação pro App ("continue", "new", "quit") ou None."""
         action = self.options()[index][0]
+        if action == "old":                         # save antigo: Continuar apagado
+            return None
         if action == "new" and self.saved:          # já tem save: confirma antes de apagar
             self.confirming, self.selected = True, 0
             self.play("ui_open")
@@ -78,7 +85,10 @@ class TitleScreen:
     def on_key(self, key: int) -> str | None:
         if key in UP_KEYS or key in DOWN_KEYS:
             step = -1 if key in UP_KEYS else 1
-            self.selected = (self.selected + step) % len(self.options())
+            options = self.options()
+            self.selected = (self.selected + step) % len(options)
+            if options[self.selected][0] == "old":     # a linha apagada não é escolhível
+                self.selected = (self.selected + step) % len(options)
             self.play("ui_click")
         elif key in OK_KEYS:
             return self.activate(self.selected)
@@ -88,7 +98,7 @@ class TitleScreen:
 
     def hover(self, ux: float, uy: float) -> None:
         for i, rect in enumerate(self.items):
-            if rect.collidepoint(ux, uy) and i != self.selected:
+            if rect.collidepoint(ux, uy) and i != self.selected and self.options()[i][0] != "old":
                 self.selected = i
 
     def click(self, ux: float, uy: float) -> str | None:
@@ -161,14 +171,15 @@ class TitleScreen:
         surf.fill(pygame.Color(C.C_ACCENT), (cx - 40, line_y, 80, 2))
         self.ui.text("Planeta sem ar. Por enquanto.", cx, line_y + 8, "#d9cfc4", self.ui.body, "center")
 
-    def _row(self, i: int, label: str, y: int) -> pygame.Rect:
-        """Uma linha de menu no estilo do menu de pausa."""
+    def _row(self, i: int, label: str, y: int, enabled: bool = True) -> pygame.Rect:
+        """Uma linha de menu no estilo do menu de pausa (apagada se `enabled` for False)."""
         ui = self.ui
         row = pygame.Rect(self.menu_x + 8, y, MENU_W - 16, ROW_H)
-        selected = i == self.selected
-        ui.surf.fill(pygame.Color("#2c1e18" if selected else "#211915"), row)
-        pygame.draw.rect(ui.surf, pygame.Color(C.C_ACCENT if selected else "#3a2c25"), row, 1)
-        ui.text(label, row.x + 8, row.y + 3, C.C_TEXT if selected else "#d9cfc4", ui.body)
+        selected = i == self.selected and enabled
+        ui.surf.fill(pygame.Color("#2c1e18" if selected else "#211915" if enabled else "#181210"), row)
+        pygame.draw.rect(ui.surf, pygame.Color(C.C_ACCENT if selected else "#3a2c25" if enabled else "#2a201b"), row, 1)
+        color = C.C_TEXT if selected else "#d9cfc4" if enabled else "#5e524a"
+        ui.text(label, row.x + 8, row.y + 3, color, ui.body)
         self.items.append(row)
         return row
 
@@ -186,12 +197,18 @@ class TitleScreen:
         top = MENU_Y + self.oy
         self._box(top, 8 + ROW_GAP * len(options) + 2)
         for i, (action, label) in enumerate(options):
-            row = self._row(i, label, top + 8 + i * ROW_GAP)
+            row = self._row(i, label, top + 8 + i * ROW_GAP, enabled=action != "old")
+            if action == "old":
+                self.ui.text("SAVE ANTIGO", row.right - 8, row.y + 6, "#5e524a", align="right")
             if action == "continue":     # resumo do save, à direita da linha
                 minutes = int(self.saved.play_time // 60)
                 info = f"TI {fmt(self.saved.ti)} · {minutes} MIN"
                 self.ui.text(info, row.right - 8, row.y + 6, C.C_TI if i == self.selected else C.C_MUTED,
                              align="right")
+        if self.old:                    # aviso embaixo da caixa do menu
+            y = top + 8 + ROW_GAP * len(options) + 10
+            self.ui.text("Save de uma versão antiga · comece um novo jogo", self.ui.w // 2, y, C.C_TI,
+                         self.ui.body, "center")
 
     def _draw_confirm(self) -> None:
         self.items = []

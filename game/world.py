@@ -1,4 +1,12 @@
-"""Mapa do jogo: uma grade de 128×128 tiles gerada por noise com seed fixa.
+"""Mapa de uma camada: uma grade de tiles gerada por noise com seed fixa.
+
+`World` é o mapa em si (consultas e regras de tile). `World.generate(seed)` gera a CAVERNA
+(128×128, paredes com minério, terminais), que era o mapa inteiro até o v0.2 e entra de verdade no
+Marco 2 do v0.3. A SUPERFÍCIE (deserto 192×192, onde fica a base) é montada pelo game/surface_gen.py
+em cima do mesmo `World`.
+
+Paredes altas (rocha, minério, borda, terminal) × sólidos baixos (rocha pequena, cratera): os dois
+bloqueiam o player, mas só a parede alta tem topo elevado e face (ver render.py).
 
 Não usa pygame: é só dados + regras. Por isso dá pra testar sem abrir janela.
 """
@@ -64,12 +72,16 @@ class World:
         self.lowness = [[0.0] * width for _ in range(height)]    # "altura" do chão: valores baixos viram poça
         self.veins: list[Vein] = []                               # veios de minério 2×2 no chão
         self._vein_tiles: dict[tuple[int, int], Vein] = {}        # tile -> veio que ocupa ele
+        self.center: tuple[int, int] = C.CAVE_CENTER              # "centro" da camada (base ou rampa), em tiles
+        self.floor_kind = C.FLOOR                                 # o chão que fica quando um sólido quebra
+        self.crater: tuple[int, int] | None = None                # cratera 3×3 (só na superfície): canto de cima à esquerda
+        self.sand_variants: list[bytes] | None = None             # variação do sand_{stage}_{v} por tile (superfície)
 
     # ---- geração ----------------------------------------------------------
     @classmethod
     def generate(cls, seed: int = C.WORLD_SEED) -> "World":
         world = cls(seed)
-        cx, cy = C.CRATER_CENTER
+        cx, cy = C.CAVE_CENTER
         for y in range(world.height):
             for x in range(world.width):
                 dist = math.hypot(x + 0.5 - cx, y + 0.5 - cy)
@@ -85,14 +97,14 @@ class World:
         if x == 0 or y == 0 or x == self.width - 1 or y == self.height - 1:
             return C.BEDROCK
         # Cratera: um círculo com a borda "mordida" pelo noise.
-        edge = C.CRATER_RADIUS + (value_noise(x * 0.18, y * 0.18, seed) - 0.5) * 7
-        if dist < C.CRATER_SAFE_RADIUS or dist < edge:
+        edge = C.CAVE_HALL_RADIUS + (value_noise(x * 0.18, y * 0.18, seed) - 0.5) * 7
+        if dist < C.CAVE_SAFE_RADIUS or dist < edge:
             return C.FLOOR
         # Algumas cavernas naturais longe da base, pra exploração não ser só cavar reto.
         if dist > 20 and value_noise(x * 0.13 + 70, y * 0.13 + 30, seed + 3) > 0.74:
             return C.FLOOR
         # Minério: quanto mais longe do centro, mais fácil de aparecer.
-        far = min(1.0, max(0.0, (dist - C.CRATER_RADIUS) / 45))
+        far = min(1.0, max(0.0, (dist - C.CAVE_HALL_RADIUS) / 45))
         threshold = 0.66 - 0.11 * far
         if value_noise(x * 0.5 + 40, y * 0.5 + 9, seed + 7) > threshold:
             kind = value_noise(x * 0.15 + 90, y * 0.15 + 3, seed + 13)
@@ -105,7 +117,7 @@ class World:
 
     def _place_terminals(self) -> None:
         """Enterra cada terminal numa parede, com uma salinha de chão embaixo dele."""
-        cx, cy = C.CRATER_CENTER
+        cx, cy = C.CAVE_CENTER
         for dist, angle in C.TERMINAL_SPOTS:
             tx = int(round(cx + dist * math.cos(math.radians(angle))))
             ty = int(round(cy + dist * math.sin(math.radians(angle))))
@@ -124,8 +136,8 @@ class World:
         """Veios 2×2: 1 de cada tipo perto da base (chão aberto e alcançável) e mais alguns longe,
         uns em caverna aberta e outros enterrados num bolsão escavado na rocha (achados cavando)."""
         rng = random.Random(self.seed * 7919 + 13)
-        cx, cy = C.CRATER_CENTER
-        blocked = set(C.POD_TILES)
+        cx, cy = C.CAVE_CENTER
+        blocked = {(cx - 1, cy - 1), (cx, cy - 1)}          # o meio do salão (era a cápsula; no Marco 2, a rampa)
         for tx, ty in self.terminals:                       # terminal + salinha + folga
             blocked |= {(tx + dx, ty + dy) for dx in range(-2, 3) for dy in range(-2, 4)}
 
@@ -146,7 +158,7 @@ class World:
             return all(self.get(tx + dx, ty + dy) == C.FLOOR for dx in (0, 1) for dy in (0, 1, 2))
 
         # perto da base: chão aberto, alcançável a pé a partir da cratera
-        reach = self.reachable_from(C.CRATER_CENTER)
+        reach = self.reachable_from(C.CAVE_CENTER)
         lo, hi = C.VEINS_NEAR_BASE
         for resource in C.RESOURCES:
             candidates = [(tx, ty) for ty in range(self.height - 1) for tx in range(self.width - 1)
@@ -211,7 +223,16 @@ class World:
             self.tiles[ty][tx] = kind
 
     def is_solid(self, tx: int, ty: int) -> bool:
+        """Bloqueia o player (parede alta OU sólido baixo, como rocha pequena e cratera)."""
         return self.get(tx, ty) in C.SOLID_TILES
+
+    def is_wall(self, tx: int, ty: int) -> bool:
+        """Parede ALTA: tem topo elevado 24 px e face (rocha, minério, borda, terminal)."""
+        return self.get(tx, ty) in C.WALL_TILES
+
+    def is_floor(self, tx: int, ty: int) -> bool:
+        """Chão livre (o da caverna ou a areia do deserto)."""
+        return self.get(tx, ty) in C.FLOOR_TILES
 
     def visual_tile_at(self, px: float, py: float) -> tuple[int, int]:
         """Tile que a pessoa VÊ no pixel (px, py) do mundo.
@@ -221,7 +242,7 @@ class World:
         """
         tx, ty = int(px // C.TILE), int(py // C.TILE)
         below = int((py + C.WALL_LIFT) // C.TILE)
-        if below != ty and self.is_solid(tx, below):
+        if below != ty and self.is_wall(tx, below):
             return tx, below
         return tx, ty
 
@@ -229,12 +250,12 @@ class World:
         return self.get(tx, ty) in C.MINE_TIME
 
     def dist_from_center(self, tx: int, ty: int) -> float:
-        cx, cy = C.CRATER_CENTER
+        cx, cy = self.center
         return math.hypot(tx + 0.5 - cx, ty + 0.5 - cy)
 
     def is_water(self, tx: int, ty: int, stage: int) -> bool:
         """Poça cosmética (dá pra andar por cima). Só a partir da Névoa, em chão 'baixo', e cresce com o estágio."""
-        if stage < 2 or self.get(tx, ty) != C.FLOOR or self.dist_from_center(tx, ty) < 7:
+        if stage < 2 or not self.is_floor(tx, ty) or self.dist_from_center(tx, ty) < 7:
             return False
         if (tx, ty) in self._vein_tiles:      # água não cobre veio
             return False
@@ -242,7 +263,7 @@ class World:
 
     def plant_at(self, tx: int, ty: int) -> str | None:
         """Planta decorativa do estágio 3 (sem colisão). Retorna 'bush', 'tree', 'flower' ou None."""
-        if self.get(tx, ty) != C.FLOOR or self.dist_from_center(tx, ty) < 7 or self.is_water(tx, ty, 3):
+        if not self.is_floor(tx, ty) or self.dist_from_center(tx, ty) < 7 or self.is_water(tx, ty, 3):
             return None
         if (tx, ty) in self._vein_tiles:      # nem planta em cima de veio
             return None

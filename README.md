@@ -1,7 +1,10 @@
-# Hesper (MVP v0.1)
+# Hesper (v0.3 em desenvolvimento)
 
-Jogo 2D top-down de sobrevivência e terraformação. Tu cai numa cratera de um planeta morto,
-minera as paredes, fabrica máquinas que aumentam O₂, calor e água, e vê o planeta mudar de cara.
+Jogo 2D top-down de sobrevivência e terraformação. Tu cai num deserto de um planeta morto, junta
+minério das rochas e do chão, fabrica máquinas que aumentam O₂, calor e água, e vê o planeta mudar de cara.
+No v0.3 o mundo ganha duas camadas: a **superfície** (deserto aberto, onde fica a base) e, no Marco 2, a
+**caverna** (mineração em volume). O v0.3 exige jogo novo: save do v0.2 não carrega (fica guardado como
+`saves/slot1.v5.json` quando tu começa um jogo novo).
 A fonte da verdade do design é `docs/GAME_BIBLE.md`.
 
 ## Instalar e rodar
@@ -19,7 +22,8 @@ uv run python -m game --scale 2   # força o zoom da janela (padrão: o maior qu
 | Ação | Tecla |
 |---|---|
 | Andar | WASD (ou setas) |
-| Minerar | segurar o botão esquerdo do mouse em cima da parede (alcance 2 tiles) |
+| Minerar | segurar o botão esquerdo do mouse em cima da parede, do morro ou da rocha pequena (alcance 2 tiles) · rocha pequena dá 2 a 4 do minério da cor do cristal dela e não volta |
+| Recurso solto | passa por cima que pega · ou E / clique com ele no alcance · reaparecem devagar longe da base, fora da tela |
 | Fabricador | E (só dentro do círculo azul da base) · A/D, ←/→ ou Tab trocam de aba · W/S escolhe · rodinha rola a lista · clique ou Enter fabrica · Shift+Enter ou Shift+clique fabrica até 5 |
 | Colocar máquina | depois de fabricar, clique no chão · R gira · Esc ou botão direito cancela |
 | Hotbar | 1 a 8 ou a rodinha do mouse escolhem o slot · se for máquina, já entra no modo de colocar |
@@ -55,9 +59,12 @@ assim o jogo anda na mesma velocidade num PC rápido ou lento. O código separa 
 | Módulo | O que faz |
 |---|---|
 | `game/config.py` | todos os números e tabelas da bíblia: paletas, receitas, tempos de mineração, O₂, estágios, textos dos logs |
-| `game/world.py` | o mapa 128×128: gera com noise (seed fixa = sempre o mesmo mapa), cratera, minério, terminais, poças e plantas |
+| `game/world.py` | o mapa de uma camada (consultas, paredes altas × sólidos baixos, poças, plantas) e o gerador da caverna 128×128 (minério, terminais) |
+| `game/surface_gen.py` | o deserto 192×192 da superfície: borda, morros, cratera, 3–5 veios, rochas pequenas e a variação da areia (cache por seed) |
+| `game/layers.py` | as camadas (superfície e caverna): cada uma com mapa, máquinas e recursos soltos |
+| `game/pickups.py` | recursos soltos no chão: geração, reaparecimento (fora da tela, longe da base, com teto) e save |
 | `game/player.py` | o astronauta: posição, direção (baixo/cima/esquerda/direita) e movimento com colisão |
-| `game/systems.py` | as regras (`GameState`): mineração, O₂, desmaio, fabricador, máquinas, Ti e estágios. **Python puro, sem pygame**, por isso dá pra testar fácil |
+| `game/systems.py` | as regras (`GameState`): camadas, mineração, recursos soltos, O₂, desmaio, fabricador, máquinas, Ti e estágios. **Python puro, sem pygame**, por isso dá pra testar fácil |
 | `game/drones.py` | estação e drones: Envia/Recebe/Lote de baús e drills, escolha do par origem → destino, reservas entre drones e o ciclo de voo (Python puro) |
 | `game/app.py` | o game loop: transforma teclado/mouse num `Controls`, chama `GameState.update(dt, controls)`, reage aos eventos (som, textos flutuantes, banner) e manda desenhar |
 | `game/render.py` | desenha o mundo: só os tiles visíveis, paredes altas, objetos por profundidade, luz e clima do estágio |

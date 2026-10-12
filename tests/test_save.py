@@ -10,7 +10,7 @@ from game import config as C
 from game import save
 from game.objectives import current_index
 from game.inventory import Stack
-from game.systems import GameState
+from game.systems import GameState, Machine
 from tests.helpers import give
 
 
@@ -25,7 +25,7 @@ def rich_state() -> GameState:
         state._break_tile(tile, C.IRON)
     world.set(10, 10, C.FLOOR)
     # player longe da base, virado pra esquerda, com O₂ pela metade
-    state.player.x, state.player.y = 70.5 * C.TILE, 80.25 * C.TILE
+    state.player.x, state.player.y = 102.5 * C.TILE, 112.25 * C.TILE
     state.player.direction = "left"
     state.o2 = 42.125
     state.was_in_base = False
@@ -40,18 +40,18 @@ def rich_state() -> GameState:
     give(state, iron=17, silicon=9, ice=33)
     # máquinas colocadas (uma girada) e uma drill com conteúdo e tempo acumulado
     give(state, o2=1, heater=1, drill=1, chest=1)
-    state.player.x, state.player.y = 64 * C.TILE, 66 * C.TILE
-    assert state.place("o2", (61, 66), rotation=2)
-    assert state.place("heater", (67, 66))
-    vein = min(world.veins, key=lambda v: abs(v.tx - 64) + abs(v.ty - 64))
+    state.player.x, state.player.y = 96 * C.TILE, 98 * C.TILE
+    assert state.place("o2", (93, 98), rotation=2)
+    assert state.place("heater", (99, 98))
+    vein = min(world.veins, key=lambda v: abs(v.tx - 96) + abs(v.ty - 96))
     state.player.x, state.player.y = (vein.tx + 1) * C.TILE, (vein.ty + 4) * C.TILE
     assert state.place("drill", (vein.tx, vein.ty), rotation=1)
     drill = state.drills[0]
     drill.stored, drill.timer = 7, 4.75
     state.drill_collected["ice"] = 20
     # baú na base com itens espalhados (slot 0, 5 e o último)
-    state.player.x, state.player.y = 64 * C.TILE, 66 * C.TILE
-    assert state.place("chest", (62, 68))
+    state.player.x, state.player.y = 96 * C.TILE, 98 * C.TILE
+    assert state.place("chest", (94, 100))
     chest = state.chests[0]
     chest.storage.slots[0] = Stack("iron", 50)
     chest.storage.slots[5] = Stack("solar", 2)
@@ -61,7 +61,7 @@ def rich_state() -> GameState:
     state.inventory.move(state.inventory.slots.index(Stack("melter", 2)), 6)
     state.inventory.slots[12] = Stack("o2_t2", 1)         # na mochila
     state.crafted.update(o2=2, heater=1, drill=1, melter=2, chest=1, o2_t2=1)
-    state.player.x, state.player.y = 70.5 * C.TILE, 80.25 * C.TILE
+    state.player.x, state.player.y = 102.5 * C.TILE, 112.25 * C.TILE
     state.pop_events()
     return state
 
@@ -70,14 +70,16 @@ def snapshot(state: GameState) -> dict:
     """Tudo que importa num GameState, em tipos fáceis de comparar."""
     p = state.player
     return {
-        "seed": state.world.seed,
-        "tiles": [row[:] for row in state.world.tiles],
+        "seed": state.seed, "layer": state.layer, "layers": sorted(state.layers),
+        "tiles": {k: [row[:] for row in layer.world.tiles] for k, layer in state.layers.items()},
+        "pickups": [(p.resource, p.amount, p.x, p.y) for p in state.layers["surface"].pickups.items],
+        "pickup_timer": state.layers["surface"].pickups.timer,
         "player": (p.x, p.y, p.direction),
         "o2": state.o2, "fainted": state.fainted, "faint_time": state.faint_time,
         "was_in_base": state.was_in_base,
         "inventory": state.inventory.to_data(), "crafted": dict(state.crafted),
         "machines": [(m.kind, m.tx, m.ty, m.rotation, m.resource, m.stored, m.timer,
-                      m.storage.to_data() if m.storage else None) for m in state.machines],
+                      m.storage.to_data() if m.storage else None) for m in state.all_machines],
         "indices": dict(state.indices), "stage": state.stage, "ti": state.ti,
         "smoothed_rate": state.smoothed_rate, "play_time": state.play_time,
         "mined_total": dict(state.mined_total), "fabricator_opened": state.fabricator_opened,
@@ -115,11 +117,12 @@ def test_loaded_game_keeps_running(tmp_path):
 def test_save_only_stores_what_changed(tmp_path):
     state = rich_state()
     data = save.state_to_dict(state)
-    assert data["version"] == save.SAVE_VERSION
-    assert set(data) == {"version", "seed", "world", "player", "inventory", "machines", "progress"}
-    assert len(data["world"]["changed_tiles"]) == 6       # 5 minérios + 1 cavado na marra
+    assert data["version"] == save.SAVE_VERSION == 6
+    assert set(data) == {"version", "seed", "layer", "layers", "player", "inventory", "progress"}
+    assert set(data["layers"]) == {"surface"} and data["layer"] == "surface"
+    assert len(data["layers"]["surface"]["changed_tiles"]) == 6   # 5 minérios + 1 cavado na marra
     # mapa novo, sem mexer em nada: nenhum tile no save
-    assert save.state_to_dict(save.new_state())["world"]["changed_tiles"] == []
+    assert save.state_to_dict(save.new_state())["layers"]["surface"]["changed_tiles"] == []
 
 
 def test_fainted_state_roundtrip(tmp_path):
@@ -180,17 +183,16 @@ def test_missing_version_is_no_save(tmp_path):
 def test_migration_hook_runs(tmp_path, monkeypatch):
     """Uma migração registrada leva um save antigo até a versão atual."""
     data = save.state_to_dict(rich_state())
-    data["version"] = 1
     data["progress"]["play_time"] = 1.0
 
     def old_to_new(d):
         d["progress"]["play_time"] = 99.0
         return d
 
-    monkeypatch.setattr(save, "SAVE_VERSION", 2)
-    monkeypatch.setattr(save, "MIGRATIONS", {1: old_to_new})
+    monkeypatch.setattr(save, "SAVE_VERSION", 7)
+    monkeypatch.setattr(save, "MIGRATIONS", {6: old_to_new})
     migrated = save.migrate(data)
-    assert migrated["version"] == 2 and migrated["progress"]["play_time"] == 99.0
+    assert migrated["version"] == 7 and migrated["progress"]["play_time"] == 99.0
 
 
 def test_atomic_write_keeps_old_save_on_crash(tmp_path, monkeypatch):
@@ -222,44 +224,83 @@ def test_write_creates_folder_and_overwrites(tmp_path):
     assert sorted(p.name for p in path.parent.iterdir()) == ["slot1.json"]
 
 
-def v1_save() -> dict:
-    """Um save no formato v1 (antes do inventário com slots): contador de recursos + machines_owned,
-    sem `crafted`, com um gerador colocado no mundo."""
-    state = save.new_state()
-    state.player.x, state.player.y = 64 * C.TILE, 66 * C.TILE
-    give(state, o2=1)
-    assert state.place("o2", (61, 66))
-    data = save.state_to_dict(state)
-    data["version"] = 1
-    data["inventory"] = {"resources": {"iron": 120, "silicon": 7, "ice": 0},
-                         "machines_owned": {"o2": 2, "melter": 1, "drill": 0}}
-    del data["progress"]["crafted"]
-    return data
-
-
-def test_migration_v1_to_v2_turns_counters_into_slots(tmp_path):
+# ---------------------------------------------------------------- v0.3: saves antigos e camadas
+@pytest.mark.parametrize("version", [1, 2, 3, 4, 5])
+def test_old_versions_are_reported_as_old_and_kept(tmp_path, version, capsys):
+    """v0.3 exige novo jogo: save v1–v5 não migra, é reconhecido como antigo e o arquivo fica."""
     path = tmp_path / "slot1.json"
-    path.write_text(json.dumps(v1_save()), encoding="utf-8")
+    text = json.dumps({"version": version, "seed": 7, "world": {"changed_tiles": []}})
+    path.write_text(text, encoding="utf-8")
+    assert save.probe(path) == ("old", None)
+    assert save.load_game(path) is None and path.read_text(encoding="utf-8") == text
+    assert "versão" in capsys.readouterr().out
+    backup = save.backup_old(path)
+    assert backup == tmp_path / f"slot1.v{version}.json"
+    assert backup.read_text(encoding="utf-8") == text and not path.exists()
+
+
+def test_backup_old_never_overwrites_and_ignores_new_saves(tmp_path):
+    path = tmp_path / "slot1.json"
+    assert save.backup_old(path) is None                           # sem arquivo
+    save.write_save(rich_state(), path)
+    assert save.backup_old(path) is None and path.exists()        # v6 não é "antigo"
+    (tmp_path / "slot1.v5.json").write_text("antes", encoding="utf-8")
+    path.write_text(json.dumps({"version": 5}), encoding="utf-8")
+    assert save.backup_old(path).name == "slot1.v5-2.json"
+    assert (tmp_path / "slot1.v5.json").read_text(encoding="utf-8") == "antes"
+
+
+def test_probe_statuses(tmp_path):
+    path = tmp_path / "slot1.json"
+    assert save.probe(path) == ("none", None)
+    path.write_text("{quebrado", encoding="utf-8")
+    assert save.probe(path) == ("broken", None)
+    save.write_save(rich_state(), path)
+    status, state = save.probe(path)
+    assert status == "ok" and state.ti > 10_000
+
+
+def test_broken_small_rocks_and_pickups_roundtrip(tmp_path):
+    state = save.new_state()
+    state.rng = random.Random(4)
+    world = state.world
+    rock = next((x, y) for y in range(world.height) for x in range(world.width) if world.get(x, y) in C.SMALL_ROCKS)
+    state._break_tile(rock, world.get(*rock))
+    taken = state.pickups.items[0]
+    state.take_pickup(taken)
+    state.pickups.timer = 7.5
+    path = tmp_path / "slot1.json"
+    save.write_save(state, path)
     loaded = save.load_game(path)
-    assert loaded is not None
-    inv = loaded.inventory
-    assert len(inv) == C.INVENTORY_SLOTS
-    # recursos primeiro (ferro em pilhas de 50), depois as máquinas na ordem do fabricador
-    assert inv.to_data()[:6] == [["iron", 50], ["iron", 50], ["iron", 20], ["silicon", 7], ["o2", 2], ["melter", 1]]
-    assert inv.counts() == {"iron": 120, "silicon": 7, "o2": 2, "melter": 1}
-    # crafted estimado = guardado + colocado (o que os objetivos contavam no v1)
-    assert loaded.crafted["o2"] == 3 and loaded.crafted["melter"] == 1 and loaded.crafted["chest"] == 0
-    # e o save regravado já sai em v2
-    save.write_save(loaded, path)
-    data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["version"] == 5 == save.SAVE_VERSION and "slots" in data["inventory"]
+    assert loaded.world.get(*rock) == C.SAND                       # a rocha quebrada não volta
+    assert len(loaded.pickups.items) == C.PICKUP_START - 1
+    assert snapshot(loaded) == snapshot(state)
 
 
-def test_migration_v1_drops_what_does_not_fit():
-    data = v1_save()
-    data["inventory"]["resources"] = {"iron": 5000, "silicon": 0, "ice": 0}   # v0.1 não tinha limite
-    state = save.state_from_dict(save.migrate(data))
-    assert state.inventory.counts() == {"iron": C.INVENTORY_SLOTS * C.STACK_RESOURCE}
+def test_cave_layer_roundtrip(tmp_path):
+    state = rich_state()
+    state.enter_layer("cave")
+    tile = next((x, y) for y in range(state.world.height) for x in range(state.world.width)
+                if state.world.get(x, y) == C.ICE)
+    state._break_tile(tile, C.ICE)
+    cave_chest = Machine("chest", 60, 70, name="Fundo")
+    cave_chest.storage.add("iron", 9)
+    state.machines.append(cave_chest)
+    path = tmp_path / "slot1.json"
+    save.write_save(state, path)
+    loaded = save.load_game(path)
+    assert loaded.layer == "cave" and loaded.world.get(*tile) == C.FLOOR
+    assert loaded.chests[0].name == "Fundo" and loaded.chests[0].storage.count("iron") == 9
+    assert loaded.layers["surface"].pickups is not None and loaded.layers["cave"].pickups is None
+    assert snapshot(loaded) == snapshot(state)
+
+
+def test_unknown_layer_is_no_save(tmp_path):
+    data = save.state_to_dict(rich_state())
+    data["layers"]["lua"] = data["layers"]["surface"]
+    path = tmp_path / "slot1.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert save.load_game(path) is None
 
 
 def test_unknown_items_become_empty_slots():
@@ -267,3 +308,32 @@ def test_unknown_items_become_empty_slots():
     data["inventory"]["slots"][0] = ["unobtanium", 3]
     state = save.state_from_dict(data)
     assert state.inventory.slots[0] is None and len(state.inventory) == C.INVENTORY_SLOTS
+
+
+# ---------------------------------------------------------------- tela de título com save antigo
+def title_screen():
+    import pygame
+    pygame.font.init()
+    from game.title import TitleScreen
+    played = []
+    return TitleScreen(ui=None, renderer=None, play=played.append), played
+
+
+def test_title_with_old_save_shows_disabled_continue():
+    import pygame
+    title, played = title_screen()
+    title.open(None, old=True)
+    assert [a for a, _ in title.options()] == ["old", "new", "quit"]
+    assert title.selected == 1                                    # começa em "Novo jogo"
+    assert title.activate(0) is None and title.selected == 1      # Continuar apagado: não faz nada
+    title.on_key(pygame.K_UP)
+    assert title.selected == 2                                    # pula a linha apagada (dá a volta)
+    title.on_key(pygame.K_DOWN)
+    assert title.selected == 1
+    assert title.activate(1) == "new"                             # sem confirmação: o antigo vira backup
+
+
+def test_title_without_old_save_is_unchanged():
+    title, _ = title_screen()
+    title.open(None)
+    assert [a for a, _ in title.options()] == ["new", "quit"] and title.selected == 0

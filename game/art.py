@@ -73,6 +73,103 @@ def floor(stage: str, variant: int) -> pygame.Surface:
     return s
 
 
+def sand(stage: str, variant: int) -> pygame.Surface:
+    """Chão do deserto (32×32): 0 areia lisa, 1 cascalho, 2 dunas (ondulação), 3 laje de rocha.
+    Fallback do sand_{stage}_{v}.png (Designer, pendente); a escolha da variação é do surface_gen."""
+    P = C.PALETTES[stage]
+    rng = random.Random(f"sand-{stage}-{variant}")
+    s = pygame.Surface((C.TILE, C.TILE))
+    s.fill(P["sand"][0])
+    for _ in range(4):   # manchinhas suaves
+        _r(s, P["sand"][1 + rng.randrange(2)], rng.randrange(26), rng.randrange(29), rng.choice((3, 5, 7)), 2)
+    for _ in range(7):   # grãos
+        _r(s, P["sand_dark"] if rng.random() < 0.6 else P["sand_hi"], rng.randrange(31), rng.randrange(31), 1, 1)
+    if variant == 1:     # cascalho
+        for _ in range(6):
+            x, y = 2 + rng.randrange(27), 2 + rng.randrange(26)
+            _r(s, P["sand_dark"], x, y + 1, 2, 1)
+            _r(s, P["sand_hi"], x, y, 2, 1)
+    elif variant == 2:   # ondulações de duna (o vento risca na horizontal)
+        for row in (7, 16, 25):
+            x = 2 + rng.randrange(6)
+            w = 14 + rng.randrange(10)
+            _r(s, P["sand"][1], x, row + 1, w, 1)
+            _r(s, P["sand"][2], x + 1, row, w - 2, 1)
+    elif variant == 3:   # laje de rocha aflorando
+        x, y = 6 + rng.randrange(8), 8 + rng.randrange(8)
+        _r(s, P["sand_dark"], x, y + 6, 14, 2)
+        _r(s, P["sand"][1], x, y, 14, 6)
+        _r(s, P["sand_hi"], x, y, 13, 1)
+    if "grass" in P:      # algum tufo de grama no verde
+        if rng.random() < 0.6:
+            gx, gy = 3 + rng.randrange(22), 10 + rng.randrange(18)
+            for b in range(3):
+                bh = 2 + rng.randrange(3)
+                _r(s, P["grass2"] if b % 2 else P["grass"], gx + b * 2, gy - bh, 1, bh)
+    return s
+
+
+def rock_small() -> pygame.Surface:
+    """Rocha pequena (32×32), fallback do rock_small.png: pedra cinza-arroxeada com sombra no chão.
+    Serve nos 3 estágios. O pontinho do minério que ela dá é desenhado à parte (ore_fleck)."""
+    s = pygame.Surface((C.TILE, C.TILE), pygame.SRCALPHA)
+    pygame.draw.ellipse(s, (0, 0, 0, 92), (3, 21, 27, 8))                  # sombra
+    pygame.draw.ellipse(s, Color("#1b1630"), (3, 8, 24, 19))               # contorno
+    pygame.draw.ellipse(s, Color("#625a6c"), (4, 9, 22, 17))
+    pygame.draw.ellipse(s, Color("#867c8f"), (6, 10, 16, 9))
+    _r(s, Color("#a69cad"), 9, 11, 7, 2)
+    pygame.draw.ellipse(s, Color("#1b1630"), (20, 18, 10, 9))              # pedrinha do lado
+    pygame.draw.ellipse(s, Color("#5a5264"), (21, 19, 8, 7))
+    _r(s, Color("#867c8f"), 23, 20, 3, 1)
+    return s
+
+
+def ore_fleck(resource: str) -> pygame.Surface:
+    """Cristalzinho do minério que a rocha pequena dá (por cima do rock_small, pra ler de longe)."""
+    color, shadow = (Color(c) for c in C.ORE_COLORS[resource])
+    s = pygame.Surface((C.TILE, C.TILE), pygame.SRCALPHA)
+    for x, y, size in ((11, 12, 4), (16, 14, 3)):
+        _r(s, Color("#1b1630"), x - 1, y - 2, size + 2, size + 4)          # contorno: lê em cima da pedra
+    _crystal(s, 11, 12, color, shadow, 4)
+    _crystal(s, 16, 14, color, shadow, 3)
+    return s
+
+
+def pickup(resource: str) -> pygame.Surface:
+    """Recurso solto no chão (16×16), fallback do pickup_<recurso>.png. Ponto de chão = (8, 14)."""
+    color, shadow = (Color(c) for c in C.ORE_COLORS[resource])
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    pygame.draw.ellipse(s, (0, 0, 0, 92), (2, 12, 12, 4))                   # sombrinha
+    for x, y, size in ((3, 8, 4), (8, 9, 3), (6, 5, 3)):
+        _r(s, Color("#1b1630"), x - 1, y - 1, size + 2, size + 3)
+    for x, y, size in ((3, 8, 4), (8, 9, 3), (6, 5, 3)):
+        _crystal(s, x, y, color, shadow, size)
+    return s
+
+
+def crater(open_ramp: bool = False) -> pygame.Surface:
+    """Cratera 3×3 (96×96), fallback do crater.png / crater_ramp.png: borda de rocha, fundo escuro.
+    `open_ramp` (Marco 2): a rampa de descida aberta embaixo, no meio."""
+    s = pygame.Surface((96, 96), pygame.SRCALPHA)
+    pygame.draw.ellipse(s, (0, 0, 0, 80), (6, 14, 88, 80))                  # sombra no chão
+    pygame.draw.ellipse(s, Color("#1b1630"), (3, 5, 90, 84))
+    pygame.draw.ellipse(s, Color("#625a6c"), (5, 7, 86, 80))
+    pygame.draw.ellipse(s, Color("#867c8f"), (9, 9, 78, 66))
+    pygame.draw.ellipse(s, Color("#322c3c"), (18, 18, 60, 50))              # boca
+    pygame.draw.ellipse(s, Color("#120e18"), (22, 24, 52, 40))
+    pygame.draw.ellipse(s, Color("#0b0810"), (28, 32, 40, 28))
+    for x, y in ((14, 14), (70, 22), (12, 56), (66, 66), (40, 8)):      # pedras na borda
+        pygame.draw.ellipse(s, Color("#1b1630"), (x, y, 14, 10))
+        pygame.draw.ellipse(s, Color("#867c8f"), (x + 1, y + 1, 12, 8))
+        _r(s, Color("#a69cad"), x + 4, y + 2, 4, 1)
+    if open_ramp:
+        _r(s, Color("#453e50"), 38, 48, 20, 36)
+        for i in range(0, 34, 6):
+            _r(s, Color("#5a5264"), 38, 50 + i, 20, 2)
+        _r(s, Color("#f2c46d"), 38, 82, 20, 2)
+    return s
+
+
 def wall(stage: str, variant: int) -> pygame.Surface:
     """Topo da rocha (32×32). Com chão embaixo, só os 8 px de cima aparecem e a face (24 px) cobre o resto."""
     P = C.PALETTES[stage]

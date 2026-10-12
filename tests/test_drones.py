@@ -301,8 +301,8 @@ def test_save_roundtrip_keeps_buffer_slots_and_cargo(tmp_path):
     path = tmp_path / "slot1.json"
     assert save.write_save(state, path)
     data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["version"] == 5
-    saved = next(m for m in data["machines"] if m["kind"] == "drone_station")
+    assert data["version"] == save.SAVE_VERSION
+    saved = next(m for m in data["layers"]["surface"]["machines"] if m["kind"] == "drone_station")
     assert saved["buffer"] == {"iron": 11, "silicon": 4}
     assert saved["drones"] == [["ice", 9], None, [None, 0], None]
     loaded = save.load_game(path)
@@ -322,15 +322,3 @@ def test_save_roundtrip_keeps_buffer_slots_and_cargo(tmp_path):
         loaded._update_machines(1 / 30)
     assert chest.storage.count("ice") == 9 and st.station.drones[0].cargo == 0
     assert st.station.buffer == {"iron": 11, "silicon": 4}
-
-
-def test_migration_v2_to_v3(tmp_path):
-    data = save.state_to_dict(save.new_state())
-    data["version"] = 2
-    del data["progress"]["drone_deliveries"]            # v2 não tinha drones
-    path = tmp_path / "slot1.json"
-    path.write_text(json.dumps(data), encoding="utf-8")
-    loaded = save.load_game(path)
-    assert loaded is not None and loaded.drone_deliveries == 0 and loaded.stations == []
-    save.write_save(loaded, path)
-    assert json.loads(path.read_text(encoding="utf-8"))["version"] == 5

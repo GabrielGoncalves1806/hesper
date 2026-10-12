@@ -40,6 +40,7 @@ ALARM_ON_BELOW = 25.0    # % de O₂ que liga o alarme
 ALARM_OFF_AT = 27.0      # % que desliga (histerese: não fica ligando/desligando na borda)
 STAGE_JINGLE_TIME = 4.5  # duração do stage_up; o ambiente fica baixo durante ele
 CROSSFADE_MS = 7000
+WIND_FADE_IN, WIND_FADE_OUT = 2.5, 1.5   # s: vento sobe devagar ao sair pra superfície, desce mais rápido
 
 
 # ---------------------------------------------------------------- regras puras (testáveis)
@@ -77,6 +78,11 @@ def solar_hum_volume(distance_tiles: float | None) -> float:
     if distance_tiles is None:
         return 0.0
     return VOLUME.get("solar_hum", 0.5) * fade_by_distance(distance_tiles, 2, 6)
+
+
+def wind_volume(level: float, ambient_level: float, ambient_gain: float) -> float:
+    """Volume do vento: DESERT_WIND_VOLUME (relativo ao 0,7 do ambiente) × rampa × ducking × sliders."""
+    return C.DESERT_WIND_VOLUME / AMBIENT_VOLUME * level * ambient_level * ambient_gain
 
 
 def hum_volume(distance_tiles: float | None) -> float:
@@ -127,13 +133,16 @@ class Audio:
         self._pending_ambient: list | None = None  # [segundos até o crossfade, chave do estágio novo]
         self._fade_busy = 0.0                    # enquanto > 0 não mexe no volume do ambiente (fade rolando)
         self.mix = {"master": 1.0, "sfx": 1.0, "ambient": 1.0}   # sliders do menu de pausa
+        self.wind_on = False                     # pediu vento (superfície)
+        self._wind_level = 0.0                   # 0 a 1 (rampa: sobe em WIND_FADE_IN s, desce em WIND_FADE_OUT s)
+        self._wind_started = False
         if not (C.ENABLE_AUDIO if enabled is None else enabled):
             return
         try:
             if not pygame.mixer.get_init():
                 pygame.mixer.init(44100, -16, 2, 512)
             pygame.mixer.set_num_channels(16)
-            pygame.mixer.set_reserved(9)
+            pygame.mixer.set_reserved(10)
             self.amb = [pygame.mixer.Channel(0), pygame.mixer.Channel(1)]
             self.alarm_channel = pygame.mixer.Channel(2)
             self.hum_channel = pygame.mixer.Channel(3)
@@ -143,6 +152,9 @@ class Audio:
             self._drone_on = [False, False]
             self.solar_channel = pygame.mixer.Channel(8)
             self._solar_on = [False]
+            # vento do deserto (v0.3): canal próprio (não os A/B do crossfade, senão a troca de estágio
+            # corta o vento). Toca em loop sempre; só o volume sobe/desce (não reinicia indo e voltando).
+            self.wind_channel = pygame.mixer.Channel(9)
             self.ok = True
         except pygame.error as err:
             print(f"[audio] sem áudio ({err}). Seguindo em silêncio.")
@@ -314,6 +326,24 @@ class Audio:
             new.play(sounds[0], loops=-1, fade_ms=CROSSFADE_MS)
         self._fade_busy = CROSSFADE_MS / 1000
 
+    def set_wind(self, on: bool) -> None:
+        """Vento do deserto por cima do ambiente (desert_wind.wav). Sem o arquivo, silêncio."""
+        self.wind_on = on
+
+    def _update_wind(self, dt: float) -> None:
+        target = 1.0 if self.wind_on else 0.0
+        step = dt / (WIND_FADE_IN if target > self._wind_level else WIND_FADE_OUT)
+        self._wind_level = target if abs(target - self._wind_level) <= step else \
+            self._wind_level + (step if target > self._wind_level else -step)
+        if not self._wind_started and self._wind_level > 0:
+            sounds = self._get("desert_wind")
+            if not sounds:
+                return
+            self.wind_channel.play(sounds[0], loops=-1)
+            self._wind_started = True
+        if self._wind_started:   # cai junto com o ambiente (desmaio, terminal)
+            self.wind_channel.set_volume(wind_volume(self._wind_level, self._amb_level, self.ambient_gain))
+
     def duck_ambient(self, level: float) -> None:
         """Nível alvo do ambiente: 1 normal, 0.6 lendo terminal, 0 desmaiado."""
         if self._pending_ambient is None:   # durante o jingle quem manda é o stage_up
@@ -329,6 +359,7 @@ class Audio:
             self.play(name)
         self._delayed = [it for it in self._delayed if it[0] > 0]
 
+        self._update_wind(dt)
         if self._pending_ambient:
             self._pending_ambient[0] -= dt
             if self._pending_ambient[0] <= 0:

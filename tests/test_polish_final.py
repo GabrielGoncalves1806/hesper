@@ -48,6 +48,7 @@ def test_interactable_at_finds_chest_drill_station_and_terminal(game):
     assert game.interactable_at(*point_on(station)) == ("station", station)
     assert game.interactable_at(*point_on(drill)) == ("drill", drill)
     assert game.interactable_at(*point_on(o2)) is None          # máquina que o E não abre
+    game.enter_layer("cave")                                    # v0.3: os terminais ficam na caverna
     tx, ty = game.world.terminals[0]
     assert game.interactable_at((tx + 0.5) * C.TILE, (ty + 0.5) * C.TILE) == ("terminal", 0)
 

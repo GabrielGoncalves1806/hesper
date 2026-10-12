@@ -63,3 +63,14 @@ def test_drone_and_solar_volumes_by_distance():
     assert drone_deliver_gain(2) == 1 and 0 < drone_deliver_gain(7) < 1 and drone_deliver_gain(15) == 0
     assert solar_hum_volume(None) == 0
     assert solar_hum_volume(2) == 0.5 and 0 < solar_hum_volume(4) < 0.5 and solar_hum_volume(6) == 0
+
+
+def test_desert_wind_volume_follows_ramp_ducking_and_sliders():
+    import pytest
+    from game import config as C
+    from game.audio import AMBIENT_VOLUME, wind_volume
+    full = AMBIENT_VOLUME                                   # ambient_gain com os sliders em 100%
+    assert wind_volume(1.0, 1.0, full) == pytest.approx(C.DESERT_WIND_VOLUME)
+    assert wind_volume(0.0, 1.0, full) == 0.0               # na caverna: rampa em 0
+    assert wind_volume(1.0, 0.0, full) == 0.0               # desmaio: cai junto com o ambiente
+    assert wind_volume(1.0, 1.0, full * 0.5) == pytest.approx(C.DESERT_WIND_VOLUME * 0.5)

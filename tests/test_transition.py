@@ -7,8 +7,8 @@ from game.systems import GameState
 from game.transition import BASE_SOURCE, StageMap, front_distance, tile_stage, window_progress
 from tests.helpers import give
 
-SOURCES = [BASE_SOURCE, (61, 66), (67, 66)]
-TILES = [(x, y) for x in range(0, C.WORLD_W, 5) for y in range(0, C.WORLD_H, 5)]
+SOURCES = [BASE_SOURCE, (93, 98), (99, 98)]
+TILES = [(x, y) for x in range(0, C.SURFACE_W, 5) for y in range(0, C.SURFACE_H, 5)]
 
 
 def ti_at(stage: int, window_fraction: float) -> float:
@@ -72,7 +72,7 @@ def test_is_monotonic_with_ti_and_growing_sources():
     while ti < 120_000:
         ti += rng.uniform(50, 1_500)
         if rng.random() < 0.1:
-            sources.append((rng.randrange(C.WORLD_W), rng.randrange(C.WORLD_H)))
+            sources.append((rng.randrange(C.SURFACE_W), rng.randrange(C.SURFACE_H)))
         for x, y in TILES:
             now = tile_stage(x, y, ti, sources)
             assert now >= previous[(x, y)], (x, y, ti)
@@ -97,7 +97,7 @@ def test_stage_map_only_rebuilds_on_new_step_or_new_source():
     m = StageMap()
     ti = ti_at(1, 0.505)              # meio do degrau 50 (longe da borda do degrau)
     m.update(ti, SOURCES)
-    m.stage_at(64, 64)
+    m.stage_at(96, 96)
     assert m._stages
     m.update(ti + 1, SOURCES)                        # mesmo degrau: cache continua
     assert m._stages
@@ -111,7 +111,7 @@ def test_placed_machines_stay_as_sources_forever():
     game = GameState(rng=random.Random(1))
     give(game, iron=60, silicon=30, ice=20)
     game.craft("o2")
-    assert game.place("o2", (61, 66))
-    assert (61, 66) in game.transition_sources
+    assert game.place("o2", (93, 98))
+    assert (93, 98) in game.transition_sources
     game.machines.clear()                            # "desmontar" (outro branch): a marca fica
-    assert (61, 66) in game.transition_sources
+    assert (93, 98) in game.transition_sources

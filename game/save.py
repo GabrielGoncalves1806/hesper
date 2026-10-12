@@ -2,43 +2,44 @@
 
 Python puro (nada de pygame), testado em tests/test_save.py.
 
-Ideia central: **salvar só o que muda**. O mapa sai sempre igual da seed (world.py), então o save
-não guarda as 128×128 casas: guarda a seed e só os tiles que ficaram diferentes do mapa gerado
-(os que o jogador minerou). Pra carregar, gera o mapa da seed de novo e aplica as diferenças.
+Ideia central: **salvar só o que muda**. O mapa de cada camada sai sempre igual da seed (o deserto do
+surface_gen.py, a caverna do world.py), então o save não guarda as 192×192 casas: guarda a seed e só os
+tiles que ficaram diferentes do mapa gerado (paredes mineradas, rochas pequenas quebradas). Pra carregar,
+gera o mapa da seed de novo e aplica as diferenças.
 
-Formato do arquivo (JSON):
+Formato do arquivo (JSON, v6 · v0.3, com camadas):
 
     {
-      "version": 5,              # sobe quando o formato mudar (ver MIGRATIONS)
+      "version": 6,
       "seed": 7,
-      "world":     {...},        # tiles que mudaram
-      "player":    {...},        # posição, direção, O₂, desmaio
-      "inventory": {"slots": [...]},   # os 16 slots: [item, quantidade] ou null (v2)
-      "machines":  [...],        # máquinas colocadas (inventário de baús e drills, nome do baú, logística
-                                 # Envia/Recebe/Lote: v5; na estação, "buffer" + os 4 slots de drone: v4)
-      "progress":  {...}         # índices, estágio, objetivos, terminais lidos, tempo de jogo...
+      "layer": "surface",          # camada em que o player está
+      "layers": {                  # uma entrada por camada que já existe ("surface", e "cave" no Marco 2)
+        "surface": {
+          "changed_tiles": [[x, y, tipo], ...],
+          "machines": [...],        # máquinas da camada (baús, drills e estações com o conteúdo)
+          "pickups": {"items": [[recurso, qtd, x, y], ...], "timer": 3.5}   # soltos (só superfície)
+        }
+      },
+      "player":    {...},          # posição, direção, O₂, desmaio
+      "inventory": {"slots": [...]},
+      "progress":  {...}           # índices, estágio, objetivos, terminais lidos, tempo de jogo...
     }
 
-Baú (v5): {"kind": "chest", ..., "storage": [...], "name": "Minério",
-            "sends": ["ice"], "receives": ["iron", "silicon"], "batch": 10}
-Drill (v5): {"kind": "drill", ..., "resource": "iron", "timer": 3.2, "storage": [["iron", 12]],
-             "sends": ["iron"], "receives": [], "batch": 10}
-"sends"/"receives" = logística dos drones (Envia/Recebe, ids de C.LOGISTIC_ITEMS); "batch" = lote por viagem.
+Baú: {"kind": "chest", ..., "storage": [...], "name": "Minério",
+      "sends": ["ice"], "receives": ["iron", "silicon"], "batch": 10}
+Drill: {"kind": "drill", ..., "resource": "iron", "timer": 3.2, "storage": [["iron", 12]],
+        "sends": ["iron"], "receives": [], "batch": 10}
+Estação: {"kind": "drone_station", ..., "buffer": {"iron": 12}, "drones": [["ice", 8], [None, 0], None, None]}
+"drones" são os 4 slots: null = vazio; [minério, carga] = tem drone. Os drones nascem pousados nos pads.
 
-Estação de drones (v4): fica dentro da própria máquina, como os slots do baú:
-    {"kind": "drone_station", "tx": .., "ty": .., "rotation": 0,
-     "buffer": {"iron": 12}, "drones": [["ice", 8], [null, 0], null, null]}
-"drones" são os 4 slots: null = slot vazio; [minério, carga] = tem drone (carga 0 = vazio).
-Os drones NÃO guardam posição nem tarefa: ao carregar, nascem pousados nos pads. A carga que cada um
-levava vem junto e ele sai pra entregar num inventário que Recebe aquele item, então nada some.
-"buffer" é legado (≤ v4): não recebe mais nada, só dá pra tirar as sobras.
-O contador de entregas (objetivo) fica em progress["drone_deliveries"], e o de drones colocados
-numa estação em progress["drones_docked"].
+**Saves antigos (v1 a v5, do v0.1/v0.2) NÃO migram** (decisão do dono: o v0.3 exige novo jogo). O `probe`
+devolve "old" e a tela de título mostra "Save de uma versão antiga · comece um novo jogo"; o arquivo não é
+apagado: quando um jogo novo é salvo por cima, ele vira `slot1.v5.json` (`backup_old`).
 
-Como um sistema novo entra no save (baú, energia, drones...):
+Como um sistema novo entra no save:
     1. escreva `coisa_to_dict(state)` e `coisa_from_dict(state, data)` aqui embaixo;
-    2. acrescente ("coisa", coisa_to_dict, coisa_from_dict) em SECTIONS;
-    3. se um save antigo não tiver essa chave, crie uma migração (ver MIGRATIONS) que preenche o padrão;
+    2. acrescente ("coisa", coisa_to_dict, coisa_from_dict) em SECTIONS (ou no dict da camada);
+    3. se um save v6 não tiver essa chave, crie uma migração v6 -> v7 (ver MIGRATIONS);
     4. acrescente o campo no teste de ida e volta (tests/test_save.py).
 
 Segurança contra crash: a escrita é atômica (grava num arquivo temporário e renomeia por cima).
@@ -53,13 +54,15 @@ from pathlib import Path
 
 from game import config as C
 from game import drones
+from game import layers
 from game.inventory import Inventory
+from game.pickups import Pickups
+from game.surface_gen import pristine_tiles as surface_pristine
 from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 
-SAVE_VERSION = 5   # v5: logística (Envia/Recebe/Lote) em baús e drills, drill com inventário
-                   # v4: nome e filtro do baú, drone vira item (4 slots na estação) · v3: estação de drones
-                   # v2: inventário com slots, baús e `crafted` (v1 = contador)
+SAVE_VERSION = 6   # v6 (v0.3): camadas (superfície/caverna), soltos, rochas quebradas · sem migração de antes
+FIRST_VERSION = 6  # saves com versão menor que essa são de outra época do jogo: "save antigo"
 SAVE_PATH = C.ROOT_DIR / "saves" / "slot1.json"   # o smoke e os testes apontam pra outro lugar
 
 
@@ -69,44 +72,64 @@ def _path(path: Path | str | None) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Mapa "virgem" de cada seed (pra saber o que mudou sem gerar o mundo a cada save)
+# Mapa "virgem" de cada camada e seed (pra saber o que mudou sem gerar o mundo a cada save)
 # ---------------------------------------------------------------------------
-_pristine: dict[int, list[list[int]]] = {}   # seed -> cópia dos tiles recém-gerados
+_pristine: dict[tuple[str, int], list[list[int]]] = {}   # (camada, seed) -> cópia dos tiles recém-gerados
 
 
-def remember_pristine(world: World) -> None:
-    """Guarda uma cópia dos tiles do mundo ANTES do jogador mexer (chamar logo depois de gerar)."""
-    _pristine.setdefault(world.seed, [row[:] for row in world.tiles])
+def remember_pristine(world: World, key: str = layers.CAVE) -> None:
+    """Guarda uma cópia dos tiles da caverna ANTES do jogador mexer (o deserto já tem cache próprio)."""
+    if key != layers.SURFACE:
+        _pristine.setdefault((key, world.seed), [row[:] for row in world.tiles])
 
 
-def pristine_tiles(seed: int) -> list[list[int]]:
-    if seed not in _pristine:
-        remember_pristine(World.generate(seed))   # ~0,15 s, só na primeira vez de cada seed
-    return _pristine[seed]
+def pristine_tiles(seed: int, key: str = layers.SURFACE) -> list[list[int]]:
+    if key == layers.SURFACE:
+        return surface_pristine(seed)
+    if (key, seed) not in _pristine:
+        remember_pristine(World.generate(seed), key)   # ~0,15 s, só na primeira vez de cada seed
+    return _pristine[(key, seed)]
 
 
 def new_state(seed: int = C.WORLD_SEED) -> GameState:
     """GameState novinho, já com o mapa virgem guardado (o primeiro autosave não engasga)."""
-    state = GameState(seed)
-    remember_pristine(state.world)
-    return state
+    return GameState(seed)
 
 
 # ---------------------------------------------------------------------------
 # Cada sistema: to_dict (estado -> dados) e from_dict (dados -> estado)
 # ---------------------------------------------------------------------------
-def world_to_dict(state: GameState) -> dict:
-    """Só os tiles diferentes do mapa gerado pela seed, como [x, y, tipo]."""
-    world, original = state.world, pristine_tiles(state.world.seed)
-    changed = [[x, y, world.tiles[y][x]]
-               for y in range(world.height) for x in range(world.width)
-               if world.tiles[y][x] != original[y][x]]
-    return {"changed_tiles": changed}
+def tiles_to_list(state: GameState, key: str) -> list:
+    """Só os tiles da camada diferentes do mapa gerado pela seed, como [x, y, tipo]."""
+    world, original = state.layers[key].world, pristine_tiles(state.seed, key)
+    return [[x, y, world.tiles[y][x]]
+            for y in range(world.height) for x in range(world.width)
+            if world.tiles[y][x] != original[y][x]]
 
 
-def world_from_dict(state: GameState, data: dict) -> None:
-    for x, y, kind in data["changed_tiles"]:
-        state.world.set(int(x), int(y), int(kind))
+def layers_to_dict(state: GameState) -> dict:
+    out = {}
+    for key, layer in state.layers.items():
+        data = {"changed_tiles": tiles_to_list(state, key),
+                "machines": [machine_to_dict(m) for m in layer.machines]}
+        if layer.pickups is not None:
+            data["pickups"] = layer.pickups.to_data()
+        out[key] = data
+    return out
+
+
+def layers_from_dict(state: GameState, data: dict) -> None:
+    for key, ldata in data.items():
+        if key not in layers.MAKERS:
+            raise ValueError(f"camada desconhecida: {key!r}")
+        if key not in state.layers:
+            state.layers[key] = layers.MAKERS[key](state.seed)
+        layer = state.layers[key]
+        for x, y, kind in ldata["changed_tiles"]:
+            layer.world.set(int(x), int(y), int(kind))
+        layer.machines = [machine_from_dict(d) for d in ldata["machines"]]
+        if layer.pickups is not None and "pickups" in ldata:
+            layer.pickups = Pickups.from_data(ldata["pickups"])
 
 
 def player_to_dict(state: GameState) -> dict:
@@ -202,14 +225,6 @@ def machine_from_dict(data: dict) -> Machine:
     return machine
 
 
-def machines_to_dict(state: GameState) -> list:
-    return [machine_to_dict(m) for m in state.machines]
-
-
-def machines_from_dict(state: GameState, data: list) -> None:
-    state.machines = [machine_from_dict(d) for d in data]
-
-
 def progress_to_dict(state: GameState) -> dict:
     """Terraformação, objetivos e tudo que "só cresce"."""
     return {
@@ -252,16 +267,15 @@ def progress_from_dict(state: GameState, data: dict) -> None:
 # A ORDEM importa no load: o mundo vem antes de quem depende dele.
 # Sistema novo? Uma linha aqui (veja o passo a passo no topo do arquivo).
 SECTIONS = [
-    ("world", world_to_dict, world_from_dict),
+    ("layers", layers_to_dict, layers_from_dict),
     ("player", player_to_dict, player_from_dict),
     ("inventory", inventory_to_dict, inventory_from_dict),
-    ("machines", machines_to_dict, machines_from_dict),
     ("progress", progress_to_dict, progress_from_dict),
 ]
 
 
 def state_to_dict(state: GameState) -> dict:
-    data = {"version": SAVE_VERSION, "seed": state.world.seed}
+    data = {"version": SAVE_VERSION, "seed": state.seed, "layer": state.layer}
     for name, to_dict, _ in SECTIONS:
         data[name] = to_dict(state)
     return data
@@ -272,6 +286,10 @@ def state_from_dict(data: dict) -> GameState:
     state = new_state(int(data["seed"]))
     for name, _, from_dict in SECTIONS:
         from_dict(state, data[name])
+    layer = data.get("layer", layers.SURFACE)
+    if layer not in state.layers:
+        raise ValueError(f"camada ativa sem dados: {layer!r}")
+    state.layer = layer
     return state
 
 
@@ -280,83 +298,29 @@ def state_from_dict(data: dict) -> GameState:
 # ---------------------------------------------------------------------------
 # Quando o formato mudar: suba SAVE_VERSION e registre aqui a função que converte
 # um save da versão N pra N+1 (ela recebe o dict e devolve o dict atualizado).
-def _v1_to_v2(data: dict) -> dict:
-    """v1 -> v2: o inventário era um contador ({"resources": {...}, "machines_owned": {...}}).
-    Agora são slots: empilha tudo do jeito que o jogo empilharia (recursos primeiro, depois as
-    máquinas, na ordem do fabricador). O que não couber nos 16 slots é perdido (save v1 com
-    centenas de itens; o v0.1 não tinha limite). `crafted` não existia: estima com o que o
-    jogador tinha (guardado + colocado), que é o que os objetivos contavam no v1."""
-    old = data["inventory"]
-    inv = Inventory(C.INVENTORY_SLOTS)
-    for r in C.RESOURCES:
-        inv.add(r, int(old.get("resources", {}).get(r, 0)))
-    owned = old.get("machines_owned", {})
-    for k in C.MACHINE_ORDER:
-        inv.add(k, int(owned.get(k, 0)))
-    data["inventory"] = {"slots": inv.to_data()}
-    placed = [m["kind"] for m in data["machines"]]
-    data["progress"]["crafted"] = {k: int(owned.get(k, 0)) + placed.count(k) for k in C.MACHINES}
-    return data
-
-
-def _v2_to_v3(data: dict) -> dict:
-    """v2 -> v3: chegou a estação de drones. Um save v2 não tem estação nenhuma, então só falta
-    o contador de entregas (zero). As máquinas e o resto continuam iguais."""
-    data["progress"]["drone_deliveries"] = 0
-    return data
-
-
-def _v3_to_v4(data: dict) -> dict:
-    """v3 -> v4: baú ganhou nome e filtro pros drones ("all"), e o drone virou item (a estação tem 4 slots e vem vazia).
-    Pra ninguém perder o que tinha: todo baú vira "Baú" e toda estação ganha 2 drones nos slots 1 e 2
-    (os mesmos 2 que vinham de graça), com a carga que eles levavam ("drone_cargo" do v3)."""
-    has_station = False
-    for m in data["machines"]:
-        if m.get("kind") == "chest":
-            m.setdefault("name", C.CHEST_DEFAULT_NAME)
-            m.setdefault("filter", "all")
-        elif m.get("kind") == "drone_station":
-            has_station = True
-            cargo = list(m.pop("drone_cargo", None) or [])[:2]
-            cargo += [None] * (2 - len(cargo))
-            m["drones"] = [list(c) if c else [None, 0] for c in cargo] + [None] * (C.STATION_DRONE_SLOTS - 2)
-    data["progress"]["drones_docked"] = 2 if has_station else 0
-    return data
-
-
-def _v4_to_v5(data: dict) -> dict:
-    """v4 -> v5: logística estilo Planet Crafter (Envia/Recebe/Lote) e a drill com inventário.
-    Pra base que já funcionava continuar funcionando:
-    - baú: filtro "all" -> Recebe {ferro, silício, gelo}; filtro X -> Recebe {X}; Envia nada; lote 10;
-    - drill: o contador "stored" vira o inventário de 1 slot, e Envia = o minério dela (drill NOVA vem sem nada);
-    - estação: igual (o buffer vira as sobras tiráveis; drone com carga continua com ela)."""
-    for m in data["machines"]:
-        if m.get("kind") == "chest":
-            old = m.pop("filter", "all")
-            m["receives"] = list(C.RESOURCES) if old == "all" else [old] if old in C.RESOURCES else []
-            m["sends"] = []
-            m["batch"] = C.DRONE_BATCH_DEFAULT
-        elif m.get("kind") == "drill":
-            stored = int(m.pop("stored", 0))
-            res = m.get("resource")
-            m["storage"] = [[res, stored]] if stored > 0 else [None]
-            m["sends"] = [res] if res in C.RESOURCES else []
-            m["receives"] = []
-            m["batch"] = C.DRONE_BATCH_DEFAULT
-    return data
-
-
-MIGRATIONS: dict = {1: _v1_to_v2, 2: _v2_to_v3, 3: _v3_to_v4, 4: _v4_to_v5}
+# As migrações v1 -> v5 (v0.1/v0.2) saíram no v0.3: o mundo mudou inteiro (deserto + camadas) e o dono
+# decidiu que o v0.3 começa do zero. Ver o histórico do git (game/save.py até o commit ec889a6).
+MIGRATIONS: dict = {}
 
 
 class SaveError(Exception):
     """Save que não dá pra usar (estragado, de versão desconhecida...)."""
 
 
+class OldSaveError(SaveError):
+    """Save de uma versão antiga do jogo (antes do v0.3): não migra, pede novo jogo."""
+
+    def __init__(self, version: int):
+        super().__init__(f"save da versão {version} (o v0.3 exige novo jogo)")
+        self.version = version
+
+
 def migrate(data: dict) -> dict:
     """Leva um save de qualquer versão conhecida até a SAVE_VERSION atual."""
     version = data.get("version")
-    if not isinstance(version, int) or isinstance(version, bool) or not 1 <= version <= SAVE_VERSION:
+    if isinstance(version, int) and not isinstance(version, bool) and 1 <= version < FIRST_VERSION:
+        raise OldSaveError(version)
+    if not isinstance(version, int) or isinstance(version, bool) or not FIRST_VERSION <= version <= SAVE_VERSION:
         raise SaveError(f"versão de save desconhecida: {version!r} (este jogo entende até a {SAVE_VERSION})")
     while version < SAVE_VERSION:
         if version not in MIGRATIONS:
@@ -395,22 +359,50 @@ def write_save(state: GameState, path: Path | str | None = None) -> bool:
         return False
 
 
-def load_game(path: Path | str | None = None) -> GameState | None:
-    """Carrega o save. Sem arquivo, arquivo estragado ou versão desconhecida: avisa e devolve None."""
+def probe(path: Path | str | None = None) -> tuple[str, GameState | None]:
+    """Olha o save: ("none", None) sem arquivo, ("old", None) de versão antiga (v1–v5), ("broken", None)
+    estragado ou de versão desconhecida, ("ok", estado) carregado. Nunca apaga nada."""
     path = _path(path)
     if not path.exists():
-        return None
+        return "none", None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             raise SaveError("o arquivo não é um objeto JSON")
-        return state_from_dict(migrate(data))
+        return "ok", state_from_dict(migrate(data))
+    except OldSaveError as err:
+        print(f"[save] {path.name}: {err}")
+        return "old", None
     except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError, SaveError) as err:
         # ValueError cobre JSON quebrado; KeyError/TypeError cobrem campo faltando ou do tipo errado
         print(f"[save] ignorando {path.name}: {err}")
-        return None
+        return "broken", None
+
+
+def load_game(path: Path | str | None = None) -> GameState | None:
+    """Carrega o save. Sem arquivo, estragado, antigo ou de versão desconhecida: avisa e devolve None."""
+    return probe(path)[1]
 
 
 def has_save(path: Path | str | None = None) -> bool:
     """Existe um save que dá pra carregar?"""
     return load_game(path) is not None
+
+
+def backup_old(path: Path | str | None = None) -> Path | None:
+    """Save antigo (v1–v5) vira slot1.v<N>.json, pra um jogo novo poder salvar sem apagar ele.
+    Devolve o caminho novo (None se não tinha save antigo)."""
+    path = _path(path)
+    try:
+        version = json.loads(path.read_text(encoding="utf-8")).get("version")
+    except (OSError, ValueError, AttributeError):
+        return None
+    if not (isinstance(version, int) and 1 <= version < FIRST_VERSION):
+        return None
+    target = path.with_name(f"{path.stem}.v{version}{path.suffix}")
+    n = 2
+    while target.exists():                       # nunca sobrescreve um backup que já existia
+        target = path.with_name(f"{path.stem}.v{version}-{n}{path.suffix}")
+        n += 1
+    os.replace(path, target)
+    return target

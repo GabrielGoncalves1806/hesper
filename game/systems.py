@@ -13,8 +13,11 @@ from dataclasses import dataclass, field
 
 from game import config as C
 from game import drones
+from game import layers
 from game.inventory import Inventory
 from game.energy import PowerAlert, PowerReport, power_report
+from game.layers import CAVE, SURFACE, Layer
+from game.pickups import Pickup, Pickups
 from game.player import Player, Rect, overlaps
 from game.world import World
 
@@ -200,7 +203,11 @@ def smooth_rate(previous: float, target: float, dt: float, tau: float = C.RATE_S
 
 class GameState:
     def __init__(self, seed: int = C.WORLD_SEED, rng: random.Random | None = None):
-        self.world = World.generate(seed)
+        # Camadas (game/layers.py): cada uma com o próprio mapa, máquinas e soltos. O jogo começa na
+        # superfície; `world` e `machines` sempre apontam pra camada ATIVA.
+        self.seed = seed
+        self.layers: dict[str, Layer] = {SURFACE: layers.make_surface(seed)}
+        self.layer = SURFACE
         self.rng = rng or random.Random()
         self.player = Player(*C.SPAWN_POS)
         # mochila com slots (game/inventory.py): recursos E máquinas fabricadas ainda não colocadas.
@@ -230,7 +237,53 @@ class GameState:
         self.drone_deliveries = 0                      # entregas feitas por drones (só cresce)
         self.drones_docked = 0                         # drones já colocados numa estação (só cresce)
         self.power_alert = PowerAlert()                # quando tocar o power_low (game/energy.py)
+        self._pickup_warned: set[int] = set()          # soltos que já deram "Inventário cheio" (id), enquanto pisa neles
         self.events: list[tuple] = []
+
+    # ---- camadas --------------------------------------------------------------
+    @property
+    def active(self) -> Layer:
+        return self.layers[self.layer]
+
+    @property
+    def surface(self) -> Layer:
+        return self.layers[SURFACE]
+
+    @property
+    def world(self) -> World:
+        return self.active.world
+
+    @world.setter
+    def world(self, value: World) -> None:
+        self.active.world = value
+
+    @property
+    def machines(self) -> list:
+        """Máquinas da camada ativa (a lista de verdade: dá pra dar append)."""
+        return self.active.machines
+
+    @machines.setter
+    def machines(self, value: list) -> None:
+        self.active.machines = value
+
+    @property
+    def all_machines(self) -> list:
+        """Máquinas de todas as camadas (energia, Ti e produção são globais)."""
+        return [m for key in layers.ORDER if key in self.layers for m in self.layers[key].machines]
+
+    @property
+    def pickups(self) -> Pickups | None:
+        return self.active.pickups
+
+    def enter_layer(self, key: str, pos: tuple[float, float] | None = None) -> None:
+        """Troca a camada ativa (cria a caverna na primeira vez). `pos` = onde o player aparece.
+        Ponto de extensão do Marco 2 (rampa da cratera)."""
+        if key not in self.layers:
+            self.layers[key] = layers.MAKERS[key](self.seed)
+        self.layer = key
+        self.mining = None
+        if pos is not None:
+            self.player.x, self.player.y = pos
 
     # ---- consultas ----------------------------------------------------------
     @property
@@ -241,12 +294,12 @@ class GameState:
     @property
     def ti_rate(self) -> float:
         """Ti por segundo, já com o ritmo da energia (no déficit, todas rendem menos)."""
-        return sum(m.type.rate for m in self.machines) * self.power.factor
+        return sum(m.type.rate for m in self.all_machines) * self.power.factor
 
     @property
     def power(self) -> PowerReport:
         """Energia agora: produção, consumo e o fator (ritmo) de todas as máquinas. Ver game/energy.py."""
-        return power_report(m.kind for m in self.machines)
+        return power_report(m.kind for m in self.all_machines)
 
     @property
     def drills(self) -> list[Machine]:
@@ -258,14 +311,19 @@ class GameState:
 
     @property
     def logistics(self) -> list[Machine]:
-        """Baús e drills: os inventários que os drones atendem (mapa inteiro)."""
+        """Baús e drills da camada ativa."""
         return [m for m in self.machines if m.is_logistic]
+
+    def drone_logistics(self) -> list[Machine]:
+        """Baús e drills que os drones atendem: o mapa inteiro, mas só da superfície (v0.3)."""
+        return [m for m in self.surface.machines if m.is_logistic]
 
     def dist_to_base(self) -> float:
         return math.hypot(self.player.x - C.BASE_CENTER[0], self.player.y - C.BASE_CENTER[1])
 
     def in_base_zone(self) -> bool:
-        return self.dist_to_base() <= C.BASE_RADIUS
+        """Na zona de O₂ da cápsula (só existe na superfície)."""
+        return self.active.has_base and self.dist_to_base() <= C.BASE_RADIUS
 
     def machine_at(self, tile: tuple[int, int]) -> Machine | None:
         """Máquina que ocupa esse tile (a drill ocupa 4)."""
@@ -284,7 +342,8 @@ class GameState:
                 if self.world.is_solid(tx, ty):
                     solids.append((tx * C.TILE, ty * C.TILE, C.TILE, C.TILE))
         solids += [m.rect for m in self.machines]
-        solids.append(POD_RECT)
+        if self.active.has_base:
+            solids.append(POD_RECT)
         return solids
 
     # ---- loop principal -----------------------------------------------------
@@ -299,7 +358,9 @@ class GameState:
             self.player.move(controls.move_x, controls.move_y, dt, self.solids_near)
             self._update_mining(dt, controls.mine_tile)
             self._update_o2(sim_dt)
+            self._auto_pickup()
         self._update_machines(sim_dt)
+        self._update_pickups(sim_dt)
         # taxa efetiva em segundos reais (com F1 ligado, as máquinas rendem 10×)
         self.smoothed_rate = smooth_rate(self.smoothed_rate, self.ti_rate * self.time_scale, dt)
 
@@ -328,12 +389,12 @@ class GameState:
             self._break_tile(tile, kind)
 
     def _break_tile(self, tile: tuple[int, int], kind: int) -> None:
-        self.world.set(*tile, C.FLOOR)
+        self.world.set(*tile, self.world.floor_kind)       # no deserto vira areia
         self.mining = None
         self.events.append(("break", tile, kind))
-        resource = C.ORE_TILES.get(kind)
+        resource = C.TILE_RESOURCE.get(kind)                # minério de parede (1–2) ou rocha pequena (2–4)
         if resource:
-            amount = self.rng.randint(C.DROP_MIN, C.DROP_MAX)
+            amount = self.rng.randint(*C.DROP_RANGE.get(kind, (C.DROP_MIN, C.DROP_MAX)))
             got = amount - self.inventory.add(resource, amount)   # cheio: o tile quebra, o minério se perde
             if got:
                 self.mined_total[resource] += got
@@ -365,7 +426,7 @@ class GameState:
         self.faint_time += dt
         # No meio do fade preto: acorda na cápsula, com O₂ cheio e o inventário intacto.
         if before < C.FAINT_RESPAWN_AT <= self.faint_time:
-            self.player.x, self.player.y = C.SPAWN_POS
+            self.enter_layer(SURFACE, C.SPAWN_POS)          # desmaiou na caverna: acorda na cápsula, lá em cima
             self.o2 = C.O2_MAX
             self.was_in_base = True
             self.events.append(("wake",))
@@ -378,9 +439,9 @@ class GameState:
         return [m for m in self.machines if m.is_chest]
 
     def base_chests(self) -> list[Machine]:
-        """Baús dentro da zona de O₂ da base: o fabricador também puxa recurso deles."""
-        return [c for c in self.chests
-                if math.hypot(c.anchor[0] - C.BASE_CENTER[0], c.anchor[1] - C.BASE_CENTER[1]) <= C.BASE_RADIUS]
+        """Baús dentro da zona de O₂ da base (superfície): o fabricador também puxa recurso deles."""
+        return [c for c in self.surface.machines if c.is_chest
+                and math.hypot(c.anchor[0] - C.BASE_CENTER[0], c.anchor[1] - C.BASE_CENTER[1]) <= C.BASE_RADIUS]
 
     def available(self, resource: str) -> int:
         """Quanto o fabricador enxerga desse recurso: inventário + baús da base."""
@@ -454,8 +515,9 @@ class GameState:
                 return False
         elif any(self.world.vein_at(*t) for t in machine.tiles):   # veio fica livre pra drill
             return False
+        pod = C.POD_TILES if self.active.has_base else ()
         for t in machine.tiles:
-            if self.world.get(*t) != C.FLOOR or t in C.POD_TILES or self.machine_at(t):
+            if not self.world.is_floor(*t) or t in pod or self.machine_at(t):
                 return False
         px, py = self.player.tile
         if (px, py) in machine.tiles:
@@ -482,7 +544,8 @@ class GameState:
         if machine.is_station:
             machine.station = drones.new_station(machine)      # vem vazia: os drones vão pelo painel (E)
         self.machines.append(machine)
-        self.transition_sources.add(tuple(tile))
+        if self.active.has_base:                               # a caverna não muda com o Ti
+            self.transition_sources.add(tuple(tile))
         if slot is not None:
             self.inventory.remove_from_slot(slot, 1)
         else:
@@ -525,6 +588,10 @@ class GameState:
                 if flag:
                     return kind, machine
             return None                                  # O2, aquecedor...: o E não abre nada
+        if self.pickups is not None:
+            loose = self.pickups.at_point(px, py)
+            if loose is not None:
+                return "pickup", loose
         tiles = {self.world.visual_tile_at(px, py), (int(px // C.TILE), int(py // C.TILE))}
         for i, tile in enumerate(self.world.terminals):
             if tuple(tile) in tiles:
@@ -535,6 +602,9 @@ class GameState:
         """O alvo está no alcance do E? (mesmas distâncias do "mais perto")"""
         if kind == "terminal":
             return self.terminal_distance(target) <= C.TERMINAL_REACH
+        if kind == "pickup":
+            return (self.pickups is not None and any(p is target for p in self.pickups.items)
+                    and self.pickup_distance(target) <= C.PICKUP_REACH)
         reach = {"drill": C.DRILL_REACH, "chest": C.CHEST_REACH, "station": C.STATION_REACH}[kind]
         return any(m is target for m in self.machines) and self.drill_distance(target) <= reach
 
@@ -557,6 +627,9 @@ class GameState:
         station = self.nearby_station()
         if station is not None:
             options.append((self.drill_distance(station), "station", station))
+        loose = self.nearby_pickup()
+        if loose is not None:
+            options.append((self.pickup_distance(loose), "pickup", loose))
         if not options:
             return None
         _, kind, target = min(options, key=lambda o: o[0])
@@ -728,14 +801,14 @@ class GameState:
         if self.power_alert.update(power.deficit, dt):
             self.events.append(("power_low",))
         work_dt = dt * power.factor          # sem energia suficiente, tudo anda mais devagar
-        for m in self.machines:
+        for m in self.all_machines:          # as duas camadas produzem (drill na caverna também)
             if m.is_drill:
                 self._update_drill(m, work_dt)
             elif m.type.index is not None:   # painel solar, baú e estação não somam Ti
                 self.indices[m.type.index] += m.type.rate * work_dt
-        stations = self.stations
-        if stations:                         # drones (game/drones.py): no déficit só voam mais devagar
-            self.drone_deliveries += drones.update_stations(stations, self.logistics, work_dt, self.events)
+        stations = [m for m in self.surface.machines if m.is_station]
+        if stations:                         # drones (game/drones.py): só na superfície; no déficit voam mais devagar
+            self.drone_deliveries += drones.update_stations(stations, self.drone_logistics(), work_dt, self.events)
         self._check_stage()
 
     def _check_stage(self) -> None:
@@ -743,6 +816,49 @@ class GameState:
         if new_stage > self.stage:          # estágio nunca volta
             self.stage = new_stage
             self.events.append(("stage_up", new_stage))
+
+    # ---- recursos soltos (game/pickups.py) ------------------------------------
+    def pickup_distance(self, p: Pickup) -> float:
+        """Distância (px) dos pés do player até o solto."""
+        return math.hypot(self.player.x - p.x, self.player.y - p.y)
+
+    def nearby_pickup(self) -> Pickup | None:
+        """Solto no alcance do E (o mais perto)."""
+        if self.pickups is None:
+            return None
+        near = [p for p in self.pickups.items if self.pickup_distance(p) <= C.PICKUP_REACH]
+        return min(near, key=self.pickup_distance, default=None)
+
+    def take_pickup(self, p: Pickup, warn: bool = True) -> int:
+        """Pega o que couber do solto (o resto fica no chão). Conta como minerado (objetivos)."""
+        got = p.amount - self.inventory.add(p.resource, p.amount)
+        if got:
+            p.amount -= got
+            self.mined_total[p.resource] += got
+            self.events.append(("pickup", p.tile, p.resource, got))
+            if p.amount <= 0:
+                self.pickups.remove(p)
+        if p.amount > 0 and warn:
+            self.events.append(("inv_full",))
+        return got
+
+    def _auto_pickup(self) -> None:
+        """Passando por cima: pega sozinho. Cheio: avisa uma vez por solto enquanto continua em cima."""
+        if self.pickups is None:
+            return
+        touching = self.pickups.touching(self.player.x, self.player.y)
+        for p in touching:
+            self.take_pickup(p, warn=id(p) not in self._pickup_warned)
+            if p.amount > 0:
+                self._pickup_warned.add(id(p))
+        self._pickup_warned &= {id(p) for p in touching}
+
+    def _update_pickups(self, dt: float) -> None:
+        """Reaparecimento dos soltos da superfície (fora da vista do player, longe da base)."""
+        surface = self.surface
+        if surface.pickups is not None:
+            where = (self.player.x, self.player.y) if self.layer == SURFACE else C.SPAWN_POS
+            surface.pickups.update(surface.world, self.rng, dt, where)
 
     # ---- terminais ----------------------------------------------------------
     def nearby_terminal(self) -> int | None:

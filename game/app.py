@@ -90,7 +90,7 @@ class App:
         self.scale = scale or pick_scale()               # escala inteira da janela (fora da tela cheia)
         self.settings = settings.load()
         self.window = self.open_window(self.settings["fullscreen"])
-        pygame.display.set_caption("Hesper · v0.2")
+        pygame.display.set_caption("Hesper · v0.3")
         pygame.mouse.set_visible(False)
         # Tela interna SEM canal alfa, com máscaras explícitas. Sem isso, no macOS (driver Cocoa)
         # o Surface herda o formato da janela, que TEM alfa: os blits gravam alfa 0/255 misturado
@@ -373,7 +373,9 @@ class App:
         else:  # play
             if key == pygame.K_e:
                 target = self.e_target()          # o do mouse (no alcance) ou o mais perto
-                if target and target[0] == "terminal":
+                if target and target[0] == "pickup":
+                    state.take_pickup(target[1])          # recurso solto: vai pro inventário
+                elif target and target[0] == "terminal":
                     state.read_terminal(target[1])
                     self.terminal_index = target[1]
                     self.mode = "terminal"
@@ -815,6 +817,10 @@ class App:
                 if rect.collidepoint(ux, uy):
                     self.fab.select(kind)
         elif self.mode == "play":
+            loose = None if self.placing else self.state.interactable_at(*self.mouse_world())
+            if loose is not None and loose[0] == "pickup" and self.state.in_reach(*loose):
+                self.state.take_pickup(loose[1])          # clique num solto no alcance: pega (não minera)
+                return
             if self.placing:
                 tile = self.place_target()
                 if tile is not None and self.state.place(self.placing, tile, self.rotation, self.hotbar_selected):
@@ -908,7 +914,7 @@ class App:
             self.renderer.spawn_chips(None, "#b0704f", 2, at=self.renderer.drill_tip(self.state))
         elif kind == "break":
             _, tile, tile_kind = event
-            resource = C.ORE_TILES.get(tile_kind)
+            resource = C.TILE_RESOURCE.get(tile_kind)
             color = C.ORE_COLORS[resource][0] if resource else C.PALETTES[stage_key(self.state.stage)]["rock_hi"]
             self.renderer.spawn_chips(tile, color, 12)
             self.audio.play("mine_break")
@@ -983,6 +989,7 @@ class App:
         audio.set_solar_hum(sound.solar_hum_volume(nearest_solar))
         # ambiente: some no desmaio, abaixa lendo terminal
         audio.duck_ambient(0.0 if state.fainted else 0.6 if self.mode == "terminal" else 1.0)
+        audio.set_wind(state.active.has_base)     # vento do deserto: só na superfície (some na caverna)
         audio.update(dt)
         if state.player.moving and self.mode == "play":
             self.footstep_timer -= dt
@@ -1094,10 +1101,20 @@ class App:
             return f"Veio de {name} · " + ("coloque uma drill" if unlocked else "drill libera na Névoa")
         if target:
             return self.e_label(target)
-        if state.in_base_zone():
-            return "[E] Fabricador" if self.t > 6 else "Paredes com cristais têm minério"
+        hover = state.interactable_at(*self.mouse_world())
+        if hover is not None and hover[0] == "pickup":          # solto debaixo do mouse, longe
+            p = hover[1]
+            return f"{p.amount} {C.RESOURCE_NAME[p.resource]} solto · chegue mais perto"
         tile = self.mouse_tile()
+        if state.world.get(*tile) == C.CRATER:
+            return "Cratera · fechada por enquanto"
+        if state.in_base_zone():
+            return "[E] Fabricador" if self.t > 6 else "Rochas e recursos soltos no deserto têm minério"
         if state.world.is_minable(*tile):
+            if state.world.get(*tile) in C.SMALL_ROCKS:
+                name = C.RESOURCE_NAME[C.SMALL_ROCKS[state.world.get(*tile)]]
+                return (f"Rocha com {name} · segure o clique para quebrar" if state.can_mine(tile)
+                        else f"Rocha com {name} · chegue mais perto")
             return "Segure o clique para minerar" if state.can_mine(tile) else "Chegue mais perto pra minerar"
         return None
 
@@ -1110,13 +1127,15 @@ class App:
             return None
         if target[0] == "terminal":
             return "terminal", tuple(self.state.world.terminals[target[1]])
-        return target[1]
+        return target[1]                          # máquina ou recurso solto
 
     def e_label(self, target: tuple[str, object]) -> str:
         """Texto do canto pro alvo do E ("[E] Abrir baú", "[E] Ler terminal"...)."""
         kind, obj = target
         if kind == "terminal":
             return "[E] Ler terminal"
+        if kind == "pickup":
+            return f"[E] Pegar {obj.amount} {C.RESOURCE_NAME[obj.resource]}"
         if kind == "chest":
             name = obj.name or C.CHEST_DEFAULT_NAME
             return "[E] Abrir baú" if name == C.CHEST_DEFAULT_NAME else f"[E] Abrir baú: {name}"
@@ -1225,7 +1244,8 @@ class App:
     # ---- save/load e tela de título (game/save.py, game/title.py) --------------
     def open_title(self) -> None:
         """Vai pra tela de título. Lê o save do disco (se tiver um válido, aparece "Continuar")."""
-        self.title.open(save.load_game())
+        status, saved = save.probe()
+        self.title.open(saved, old=status == "old")    # save do v0.2 ou antes: não carrega (v0.3 = jogo novo)
         self.mode = "title"
         self.placing = None
         self.mouse_held = False
@@ -1235,6 +1255,7 @@ class App:
         self.audio.set_drill_loops([])
         self.audio.set_drone_loops([])
         self.audio.set_solar_hum(0.0)
+        self.audio.set_wind(False)
         self.audio.duck_ambient(1.0)
         if self.audio.ambient_key != "dead":
             self.audio.start_ambient("dead")
@@ -1243,6 +1264,8 @@ class App:
         if action == "continue":
             self.start_game(self.title.saved)
         elif action == "new":
+            if self.title.old:
+                save.backup_old()                # o save antigo não é apagado: vira slot1.v5.json
             self.start_game(save.new_state())
             self.save_game(notify=False)     # o save antigo (se existia) é substituído na hora
         elif action == "quit":

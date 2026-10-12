@@ -26,8 +26,8 @@ from game import config as C
 from game.systems import stage_for_ti, stage_progress
 from game.world import hash01, value_noise
 
-# A base é sempre uma fonte da mancha: o centro da cápsula (em tiles).
-BASE_SOURCE = (64, 63)
+# A base é sempre uma fonte da mancha: o centro da cápsula (em tiles), no meio da superfície.
+BASE_SOURCE = (C.BASE_TILE[0], C.POD_TILES[0][1])
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +82,7 @@ def front_distance(progress: float) -> float:
       então dá tempo de ver ela nascer e crescer em volta da cápsula e das máquinas;
     - uma curva bem fechada (`FAR * progress^8`): quase nada no começo e dispara no fim,
       levando a mancha até as bordas do mapa antes do limiar.
-    Com os valores do config: 25% → ~6 tiles, 60% → ~16, 90% → ~65, 99% → ~116.
+    Com os valores do config: 25% → ~4 tiles, 60% → ~11, 90% → ~77, 99% → ~152 (o canto do deserto fica a ~136).
     Tile mais longe que a frente no último degrau vira junto com o limiar.
     """
     return C.TRANSITION_FRONT_NEAR * progress + C.TRANSITION_FRONT_FAR * progress ** C.TRANSITION_FRONT_POWER

@@ -8,7 +8,12 @@
 
 O que é real e o que é aproximado
 ---------------------------------
-Real (vem do jogo): o mapa (`World.generate`, mesma seed), o inventário, os drops (`GameState._break_tile`,
+v0.3 Marco 1: o mundo é a SUPERFÍCIE (deserto 192×192 do `surface_gen`, a camada ativa do GameState), ainda
+sem caverna. Minério = minério dos morros + rochas pequenas (`C.TILE_RESOURCE`) + recursos soltos no chão
+(`game/pickups.py`, com o reaparecimento real rodando junto da produção). O volume de minério da superfície
+é baixo de propósito (a mineração em volume vem com a caverna no Marco 2).
+
+Real (vem do jogo): o mapa (`GameState(seed).world`, a superfície), o inventário, os drops (`GameState._break_tile`,
 com o `rng` do estado), `can_mine` (alcance), `craft`/`can_place`/`place`, a produção das máquinas
 (`GameState._update_machines`), os estágios (`stage_for_ti`), o desmaio (`_faint` + `_update_faint` frame a frame) e
 todos os números do `game/config.py` (velocidade, tempos de mineração, O₂, receitas, taxas, limiares).
@@ -19,6 +24,9 @@ Aproximado (o simulador decide no lugar do jogador):
   minerar ela. Isso é o caminho ótimo de um jogador que conhece o mapa; o jogador "casual" anda 30% mais devagar
   que o planejado (desvio, mira, colisão), o que é o fator de realismo.
   Não usamos o `Player.move` frame a frame porque seria ~50× mais lento e o resultado é o mesmo em linha reta.
+- Recursos soltos: contam como "minério ao alcance" a até 1 tile (o E/clique alcança ~1,7 tile) e custam
+  `PICKUP_TIME` s pra pegar, pela regra real (`GameState.take_pickup`). O reaparecimento é o real
+  (`Pickups.update` com a posição do jogador simulado).
 - Máquinas colocadas não bloqueiam o caminho no grid (são caixas de 24×18 px num tile de 32: dá pra passar do lado).
 - Craftar e colocar custa um tempo fixo por máquina (`craft_overhead`), cobrindo menu + andar até o lugar.
 - Drills (depois da Névoa): o jogador fabrica até `Strategy.drills` drills e põe cada uma num veio livre alcançável
@@ -73,6 +81,8 @@ NEIGHBORS = [(1, 0, 1.0), (-1, 0, 1.0), (0, 1, 1.0), (0, -1, 1.0),
              (1, 1, SQRT2), (1, -1, SQRT2), (-1, 1, SQRT2), (-1, -1, SQRT2)]
 TILE_NAMES = {"ROCK": C.ROCK, "IRON": C.IRON, "SILICON": C.SILICON, "ICE": C.ICE}
 PANEL_BELOW = 0.9      # o jogador simulado fabrica um painel solar quando o fator da energia cai abaixo disso
+PICKUP_TIME = 0.3      # segundos pra pegar um recurso solto no alcance (mirar + E)
+PICKUP_R = 1           # alcance (tiles, Chebyshev) em que o jogador simulado pega um solto
 
 
 # ---------------------------------------------------------------------------
@@ -200,6 +210,7 @@ class Sim:
         self.blocked = {self._i(*t) for t in C.POD_TILES}
         self.zone = [self._in_zone(i) for i in range(self.W * self.H)]
         self._init_near_ore()
+        self._init_pickups()
         self._init_field()
         self.sites: list[int] | None = None
 
@@ -223,11 +234,11 @@ class Sim:
         return self.world.tiles[y][x]
 
     def _walkable(self, i):
-        return self._tile(i) == C.FLOOR and i not in self.blocked
+        return self._tile(i) in C.FLOOR_TILES and i not in self.blocked
 
     def _passable(self, i):
         """Dá pra chegar nele andando ou minerando."""
-        return i not in self.blocked and (self._tile(i) == C.FLOOR or self._tile(i) in C.MINE_TIME)
+        return i not in self.blocked and (self._tile(i) in C.FLOOR_TILES or self._tile(i) in C.MINE_TIME)
 
     def _set_player(self, i):
         self.gs.player.x, self.gs.player.y = self._pos(i)
@@ -253,9 +264,35 @@ class Sim:
         self.near = {r: [0] * (self.W * self.H) for r in C.RESOURCES}
         for y in range(self.H):
             for x in range(self.W):
-                res = C.ORE_TILES.get(self.world.tiles[y][x])
+                res = C.TILE_RESOURCE.get(self.world.tiles[y][x])
                 if res:
                     self._bump_near(res, x, y, +1, R)
+
+    # ---- recursos soltos ao alcance (contadores 3×3, refeitos quando a lista muda) ----
+    def _init_pickups(self):
+        self.pnear = {r: [0] * (self.W * self.H) for r in C.RESOURCES}
+        self._pickup_sig = None
+        self._sync_pickups()
+
+    def _sync_pickups(self):
+        items = self.gs.pickups.items if self.gs.pickups else []
+        sig = tuple((p.tile, p.resource) for p in items)
+        if sig == self._pickup_sig:
+            return
+        self._pickup_sig = sig
+        for arr in self.pnear.values():
+            arr[:] = [0] * len(arr)
+        for p in items:
+            x, y = p.tile
+            arr = self.pnear[p.resource]
+            for yy in range(max(0, y - PICKUP_R), min(self.H, y + PICKUP_R + 1)):
+                for xx in range(max(0, x - PICKUP_R), min(self.W, x + PICKUP_R + 1)):
+                    arr[yy * self.W + xx] += 1
+
+    def _pickups_in_reach(self, i):
+        x, y = self._xy(i)
+        return [p for p in (self.gs.pickups.items if self.gs.pickups else [])
+                if max(abs(p.tile[0] - x), abs(p.tile[1] - y)) <= PICKUP_R]
 
     def _bump_near(self, res, x, y, d, R=None):
         R = C.MINE_REACH if R is None else R
@@ -272,7 +309,7 @@ class Sim:
         for yy in range(y - R, y + R + 1):
             for xx in range(x - R, x + R + 1):
                 k = self.world.get(xx, yy)
-                if k in C.ORE_TILES:
+                if k in C.TILE_RESOURCE:
                     out.append((self._i(xx, yy), k))
         return out
 
@@ -361,6 +398,7 @@ class Sim:
         if self.gs.power.deficit:
             self.res.deficit_time += dt
         self.gs._update_machines(dt)           # regra real: soma rate*dt×fator em cada índice e checa estágio
+        self.gs._update_pickups(dt)            # regra real: soltos reaparecem fora da vista e longe da base
         self.gs.play_time += dt
         self.t += dt
 
@@ -574,7 +612,7 @@ class Sim:
             for tx in range(cx - 4, cx + 4):
                 tiles = [(tx + dx, ty + dy) for dx in (0, 1) for dy in (0, 1)]
                 if ((cx, cy) not in tiles
-                        and all(self.world.get(*t) == C.FLOOR and not self.gs.machine_at(t)
+                        and all(self.world.is_floor(*t) and not self.gs.machine_at(t)
                                 and t not in C.POD_TILES and not self.world.vein_at(*t) for t in tiles)):
                     spots.append((tx, ty))
         return spots
@@ -654,12 +692,12 @@ class Sim:
         """Tiles pares (x e y) de chão, do mais perto pro mais longe da base: sobra corredor entre as máquinas."""
         if not self.sites:
             used = {(m.tx, m.ty) for m in self.gs.machines}
-            cx, cy = C.CRATER_CENTER
+            cx, cy = C.BASE_TILE
             cand = [(math.hypot(x - cx, y - cy), self._i(x, y))
                     for y in range(2, self.H - 2, 2) for x in range(2, self.W - 2, 2)
-                    if self.world.tiles[y][x] == C.FLOOR and (x, y) not in used and (x, y) not in C.POD_TILES
+                    if self.world.is_floor(x, y) and (x, y) not in used and (x, y) not in C.POD_TILES
                     and (x, y) != self._xy_spawn() and math.hypot(x - cx, y - cy) >= 2
-                    and self.world.tiles[y][x + 1] == C.FLOOR]
+                    and self.world.is_floor(x + 1, y)]
             cand.sort()
             self.sites = [i for _, i in cand[:40]][::-1]   # pop() pega o mais perto
         site = self.sites.pop()
@@ -673,7 +711,7 @@ class Sim:
         kind = self.world.tiles[y][x]
         assert self.gs.can_mine((x, y)), "fora do alcance"
         self._advance(C.MINE_TIME[kind] + self.s.mine_overhead, outside=not self.zone[self.cur], what="minerar")
-        res = C.ORE_TILES.get(kind)
+        res = C.TILE_RESOURCE.get(kind)
         before = self._units()
         self.gs._break_tile((x, y), kind)
         self.res.tiles_mined += 1
@@ -697,7 +735,7 @@ class Sim:
             d, u = heapq.heappop(heap)
             if d > g[u]:
                 continue
-            if u != start and any(self.near[r][u] for r in wanted):
+            if u != start and any(self.near[r][u] or self.pnear[r][u] for r in wanted):
                 ret = min(self.field[u], walk[u] + base_ret) * tw
                 if used[u] + max(C.MINE_TIME.values()) + ret <= o2:
                     path = [u]
@@ -706,7 +744,7 @@ class Sim:
                     return path[::-1][1:]
             for v, step in self._neighbors(u, walk_only=False):
                 k = self._tile(v)
-                cost = step * tw + (C.MINE_TIME[k] if k != C.FLOOR else 0.0)
+                cost = step * tw + (C.MINE_TIME[k] if k not in C.FLOOR_TILES else 0.0)
                 nd = d + cost
                 nu = used[u] + (0.0 if self.zone[v] else cost)
                 if nu > o2:
@@ -722,7 +760,16 @@ class Sim:
     def mine_here(self, wanted):
         """Minera o que der ao alcance (primeiro o que falta), sem passar do O₂ pra voltar."""
         got = 0
-        ores = sorted(self._ores_in_reach(self.cur), key=lambda o: C.ORE_TILES[o[1]] not in wanted)
+        self._sync_pickups()
+        for p in sorted(self._pickups_in_reach(self.cur), key=lambda p: p.resource not in wanted):
+            if self.gs.o2 / C.O2_DRAIN - PICKUP_TIME - self._ret_cost(self.cur) < self.s.o2_margin:
+                return got
+            self._advance(PICKUP_TIME, outside=not self.zone[self.cur], what="minerar")
+            before = self._units()
+            self.gs.take_pickup(p, warn=False)
+            got += self._units() - before
+        self._sync_pickups()
+        ores = sorted(self._ores_in_reach(self.cur), key=lambda o: C.TILE_RESOURCE[o[1]] not in wanted)
         for i, kind in ores:
             if self.gs.o2 / C.O2_DRAIN - C.MINE_TIME[kind] - self._ret_cost(self.cur) < self.s.o2_margin:
                 break
@@ -731,7 +778,7 @@ class Sim:
 
     def walk_path(self, path):
         for i in path:
-            if self._tile(i) != C.FLOOR:
+            if self._tile(i) not in C.FLOOR_TILES:
                 self._mine(i)
             x0, y0 = self._xy(self.cur)
             x1, y1 = self._xy(i)

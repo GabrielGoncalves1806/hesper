@@ -12,7 +12,7 @@ from game.inventory import Stack
 from game.systems import GameState, Machine
 from tests.helpers import give
 
-ST = (60, 70)
+ST = (92, 102)
 
 
 @pytest.fixture
@@ -143,58 +143,8 @@ def test_dismantle_refuses_if_drones_do_not_fit(game):
     assert st in game.machines and len(st.station.drones) == 2
 
 
-# ---------------------------------------------------------------- save v3 -> v4
-def v3_save() -> dict:
-    state = save.new_state()
-    state.debug_add_ti()
-    give(state, chest=1)
-    state.player.x, state.player.y = 62.5 * C.TILE, 70 * C.TILE
-    assert state.place("chest", (62, 68))
-    m = Machine("drone_station", 66, 68)
-    m.station = drones.new_station(m)
-    m.station.buffer = {"iron": 5}
-    state.machines.append(m)
-    data = save.state_to_dict(state)
-    data["version"] = 3
-    for md in data["machines"]:
-        md.pop("name", None)
-        md.pop("filter", None)                                          # o v3 não tinha nome nem filtro
-        if md["kind"] == "drone_station":
-            md.pop("drones")
-            md["drone_cargo"] = [["ice", 4], None]                     # o formato do v3
-    del data["progress"]["drones_docked"]
-    return data
-
-
-def test_migration_v3_to_v4_names_chests_and_gives_two_drones(tmp_path):
-    path = tmp_path / "slot1.json"
-    path.write_text(json.dumps(v3_save()), encoding="utf-8")
-    loaded = save.load_game(path)
-    assert loaded is not None
-    assert loaded.chests[0].name == "Baú" and loaded.chests[0].receives == set(C.RESOURCES)   # v4 "all" -> v5
-    st = loaded.stations[0]
-    assert [d.pad for d in st.station.drones] == [0, 1]
-    assert st.station.drones[0].cargo == 4 and st.station.drones[0].resource == "ice"
-    assert st.station.drones[1].cargo == 0 and st.station.buffer == {"iron": 5}
-    assert loaded.drones_docked == 2
-    save.write_save(loaded, path)
-    data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["version"] == 5
-    assert next(m for m in data["machines"] if m["kind"] == "chest")["receives"] == list(C.RESOURCES)
-    assert next(m for m in data["machines"] if m["kind"] == "drone_station")["drones"] == \
-        [["ice", 4], [None, 0], None, None]
-
-
-def test_migration_v3_without_station_docks_nothing():
-    data = save.state_to_dict(save.new_state())
-    data["version"] = 3
-    del data["progress"]["drones_docked"]
-    state = save.state_from_dict(save.migrate(data))
-    assert state.drones_docked == 0 and state.stations == []
-
-
 def test_drone_as_placed_machine_in_save_is_rejected():
     data = save.state_to_dict(save.new_state())
-    data["machines"] = [{"kind": "drone", "tx": 60, "ty": 66, "rotation": 0}]
+    data["layers"]["surface"]["machines"] = [{"kind": "drone", "tx": 60, "ty": 66, "rotation": 0}]
     with pytest.raises(ValueError):
         save.state_from_dict(data)

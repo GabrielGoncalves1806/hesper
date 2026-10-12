@@ -127,7 +127,7 @@ def find_ore_with_floor_below(state, kind=C.IRON):
     best = None
     for ty in range(1, w.height - 1):
         for tx in range(1, w.width - 1):
-            if w.get(tx, ty) == kind and w.get(tx, ty + 1) == C.FLOOR and w.get(tx, ty + 2) == C.FLOOR:
+            if w.get(tx, ty) == kind and w.is_floor(tx, ty + 1) and w.is_floor(tx, ty + 2):
                 d = w.dist_from_center(tx, ty)
                 if best is None or d < best[0]:
                     best = (d, (tx, ty))
@@ -145,7 +145,7 @@ def check_directions_and_order(bot) -> None:
     s = bot.state
     frames = []
     for key in (pygame.K_s, pygame.K_w, pygame.K_d, pygame.K_a):
-        bot.teleport((64, 67))
+        bot.teleport((96, 99))
         pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=key, mod=0, unicode="", scancode=0))
         bot.frames(0.25)
         frames.append(crop_around_player(bot))      # tirado no meio da caminhada
@@ -167,11 +167,11 @@ def check_directions_and_order(bot) -> None:
         order.blit(crop_around_player(bot), (i * 96, 0))
     pygame.image.save(pygame.transform.scale_by(order, 3), str(OUT / "ordem_desenho.png"))
     print("  screenshot: reports/dev/ordem_desenho.png  (esquerda: player atrás da máquina · direita: na frente)")
-    bot.teleport((64, 66))
+    bot.teleport((96, 98))
     bot.frames(0.1)
 
 
-def carve(state, tiles, kind=C.FLOOR):
+def carve(state, tiles, kind=C.SAND):
     for t in tiles:
         state.world.set(*t, kind)
 
@@ -183,7 +183,7 @@ def check_walls_and_hover(bot) -> None:
     assert bot.app.canvas.get_masks()[3] == 0, "canvas não pode ter canal alfa"
 
     # 1) túnel horizontal e vertical de 1 tile cavados num maciço, longe da base
-    cx, cy = 64, 96
+    cx, cy = 96, 128
     carve(s, [(x, y) for x in range(cx - 8, cx + 9) for y in range(cy - 6, cy + 7)], C.ROCK)
     carve(s, [(x, cy) for x in range(cx - 7, cx + 1)])                 # túnel horizontal
     carve(s, [(cx, y) for y in range(cy - 5, cy + 6)])                 # túnel vertical
@@ -208,20 +208,20 @@ def check_walls_and_hover(bot) -> None:
     s.o2 = C.O2_MAX
 
     # 3) cursor em cima de máquina colocada (com e sem fantasma) — playtest 1 mostrou quadrado preto aqui
-    bot.teleport((64, 66))
+    bot.teleport((96, 98))
     bot.frames(0.1)
     give(s, iron=60, silicon=30, ice=40)
     s.craft("melter")
-    s.place("melter", (62, 67))
+    s.place("melter", (94, 99))
     s.craft("melter")
     bot.key(hotbar_key(bot, "melter"))
     assert bot.app.placing == "melter"
-    bot.mouse_to(bot.tile_on_screen((62, 67)))          # fantasma em cima da máquina colocada (inválido)
+    bot.mouse_to(bot.tile_on_screen((94, 99)))          # fantasma em cima da máquina colocada (inválido)
     bot.frames(0.2)
     shot_hover = pygame.Surface((240, 120))
-    cxp, cyp = bot.tile_on_screen((62, 67))
+    cxp, cyp = bot.tile_on_screen((94, 99))
     shot_hover.blit(bot.app.frame, (0, 0), (cxp - 60, cyp - 80, 120, 120))
-    bot.mouse_to(bot.tile_on_screen((60, 67)))          # fantasma num lugar válido, ao lado
+    bot.mouse_to(bot.tile_on_screen((92, 99)))          # fantasma num lugar válido, ao lado
     bot.frames(0.2)
     bot.app.placing = None
     shot_hover.blit(bot.app.frame, (120, 0), (cxp - 100, cyp - 80, 120, 120))
@@ -233,7 +233,7 @@ def check_walls_and_hover(bot) -> None:
 def check_drill(bot) -> None:
     """Minera nas 4 direções (sem quebrar) e monta reports/dev/broca.png."""
     s = bot.state
-    cx, cy = 40, 100
+    cx, cy = 72, 132
     carve(s, [(x, y) for x in range(cx - 3, cx + 4) for y in range(cy - 3, cy + 4)])          # salinha
     crops = []
     for target in [(cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)]:                   # dir, esq, baixo, cima
@@ -324,7 +324,7 @@ def check_zoom_and_fullscreen(bot) -> None:
     s, app = bot.state, bot.app
     settings.SETTINGS_PATH.unlink(missing_ok=True)
     assert app.zoom == 1.0
-    bot.teleport((64, 66))
+    bot.teleport((96, 98))
     s.o2 = C.O2_MAX
     bot.frames(0.2)
     machine = s.machines[0]
@@ -344,7 +344,7 @@ def check_zoom_and_fullscreen(bot) -> None:
     assert app.zoom == 0.75 and settings.load()["zoom"] == 0.75, "zoom tem que ir pro settings.json"
     assert app.cam == app.renderer.camera(s, (1280, 720))
     hover_machine_check()
-    tile_check((60, 62))
+    tile_check((92, 94))
     app.floaters.add("+15 FERRO", s.player.x, s.player.y - 40, C.ORE_COLORS["iron"][0])
     start = len(bot.frame_times)
     bot.frames(1.0)
@@ -370,17 +370,17 @@ def check_zoom_and_fullscreen(bot) -> None:
     # zoom in até o máximo (= e + do teclado numérico), e para no 2×
     bot.key(pygame.K_EQUALS)
     assert app.zoom == 1.5
-    tile_check((62, 64))
+    tile_check((94, 96))
     bot.key(pygame.K_KP_PLUS)
     bot.key(pygame.K_KP_PLUS)
     assert app.zoom == 2.0
     hover_machine_check()
-    tile_check((63, 64))
+    tile_check((95, 96))
     # fantasma de colocação no tile certo com zoom
     s.inventory.add("o2", 1)
     bot.key(hotbar_key(bot, "o2"))
     assert app.placing == "o2"
-    target = (65, 64)
+    target = (97, 96)
     bot.mouse_to(bot.tile_on_screen(target))
     assert app.place_target() == target
     app.floaters.add("+15 FERRO", s.player.x, s.player.y - 40, C.ORE_COLORS["iron"][0])
@@ -446,13 +446,13 @@ def check_zoom_and_fullscreen(bot) -> None:
 def check_dismantle(bot) -> None:
     """Clique direito numa máquina: volta pro estoque, para de somar; dica com o mouse em cima."""
     s, app = bot.state, bot.app
-    bot.teleport((64, 66))
+    bot.teleport((96, 98))
     bot.frames(0.1)
     give(s, iron=60, silicon=30, ice=40)
     kind = "heater" if s.recipe_status("heater") == "ok" else "o2"   # aquecedor só libera com Ti 500
     s.craft(kind)
-    s.place(kind, (66, 66))
-    m = s.machine_at((66, 66))
+    s.place(kind, (98, 98))
+    m = s.machine_at((98, 98))
     camx, camy = app.cam
     body = (int((m.tx + 0.5) * C.TILE - camx), int((m.ty + 1) * C.TILE - 40 - camy))   # no corpo, acima do tile
     bot.mouse_to(body)
@@ -472,13 +472,13 @@ def check_dismantle(bot) -> None:
     pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=pod, button=3))
     bot.frames(0.1)
     assert len(s.machines) == n
-    s.place(kind, (66, 66))      # devolve a máquina pro resto do smoke
+    s.place(kind, (98, 98))      # devolve a máquina pro resto do smoke
 
 
 def check_inventory_and_chest(bot) -> None:
     """Hotbar, Tab, baú (pegar/soltar/metade/Shift+clique), baú com coisa não desmonta, inventário cheio."""
     s, app = bot.state, bot.app
-    bot.teleport((64, 66))
+    bot.teleport((96, 98))
     s.o2 = C.O2_MAX
     s.inventory.clear()
     give(s, iron=80, silicon=30, ice=24)                # ferro em 2 pilhas (50 + 30)
@@ -487,8 +487,8 @@ def check_inventory_and_chest(bot) -> None:
     # hotbar: tecla do baú seleciona o slot e já entra no modo de colocar
     bot.key(hotbar_key(bot, "chest"))
     assert app.placing == "chest"
-    site = (63, 67)                                     # dentro da zona de O₂ da base
-    assert s.world.get(*site) == C.FLOOR and s.machine_at(site) is None
+    site = (95, 99)                                     # dentro da zona de O₂ da base
+    assert s.world.is_floor(*site) and s.machine_at(site) is None
     bot.mouse_to(bot.tile_on_screen(site))
     bot.frames(0.2)
     bot.shot("hotbar.png")
@@ -607,8 +607,8 @@ def check_inventory_and_chest(bot) -> None:
     s.inventory.add("o2", 1)
     s.inventory.add("melter", 1)
     assert None not in s.inventory.slots
-    bot.teleport((64, 66))
-    ore = (64, 68)
+    bot.teleport((96, 98))
+    ore = (96, 100)
     s.world.set(*ore, C.IRON)
     bot.frames(0.1)
     pos = bot.tile_on_screen(ore)
@@ -617,7 +617,7 @@ def check_inventory_and_chest(bot) -> None:
     bot.frames(1.15)
     bot.mouse_up(pos)
     bot.frames(0.3)
-    assert s.world.get(*ore) == C.FLOOR and s.inventory.count("iron") == 200
+    assert s.world.is_floor(*ore) and s.inventory.count("iron") == 200
     assert app.notice == "Inventário cheio" and app.notice_time > 0
     bot.shot("inventario_cheio.png")
     s.inventory.clear()
@@ -629,24 +629,24 @@ def check_energy(bot) -> None:
     medidor vermelho + aviso + ritmo no hover + power_low disparado uma vez."""
     from game.systems import Machine
     s, app = bot.state, bot.app
-    bot.teleport((64, 66))
+    bot.teleport((96, 98))
     bot.frames(0.1)
     give(s, iron=max(8, s.inventory.count("iron")), silicon=max(6, s.inventory.count("silicon")))
     assert s.craft("solar")
     bot.key(hotbar_key(bot, "solar"))
     assert app.placing == "solar"
-    spot = next(t for t in [(62, 67), (61, 68), (63, 68), (60, 67), (66, 68)] if s.can_place("solar", t))
+    spot = next(t for t in [(94, 99), (93, 100), (95, 100), (92, 99), (98, 100)] if s.can_place("solar", t))
     bot.click(bot.tile_on_screen(spot))
     panel = s.machine_at(spot)
     assert panel is not None and panel.kind == "solar", "o painel devia ter sido colocado"
     assert s.power.production == C.POD_POWER + C.POWER_GEN["solar"] and not s.power.deficit
-    bot.mouse_to(bot.tile_on_screen((64, 69)))
+    bot.mouse_to(bot.tile_on_screen((96, 101)))
     bot.frames(0.5)
     bot.shot("energia_ok.png")
 
     # déficit forçado: máquinas nv.2 direto no mundo (o teste é do HUD, não do fabricador)
-    free = [(x, y) for y in range(67, 71) for x in range(58, 71)
-            if s.world.get(x, y) == C.FLOOR and not s.machine_at((x, y)) and (x, y) not in C.POD_TILES
+    free = [(x, y) for y in range(99, 103) for x in range(90, 103)
+            if s.world.is_floor(x, y) and not s.machine_at((x, y)) and (x, y) not in C.POD_TILES
             and s.world.vein_at(x, y) is None and (x, y) != s.player.tile]
     extra = [Machine("heater_t2", *t) for t in free[::3][:3]]
     s.machines += extra
@@ -687,7 +687,7 @@ def check_transition(bot, stage: int, shots: list[tuple[str, float]]) -> None:
     """Prints da mancha do próximo estágio se espalhando a partir da base e das máquinas."""
     s = bot.state
     before = dict(s.indices)
-    bot.teleport((64, 66))
+    bot.teleport((96, 98))
     s.o2 = C.O2_MAX
     for name, fraction in shots:
         s.indices.update(o2=ti_in_window(stage, fraction), heat=0.0, water=0.0)
@@ -699,11 +699,11 @@ def check_transition(bot, stage: int, shots: list[tuple[str, float]]) -> None:
 
 
 def check_veins(bot) -> None:
-    """Estágio 1: os 3 veios perto da base aparecem; mouse em cima de um mostra a dica."""
+    """Estágio 1: um veio de cada minério (longe, no deserto); mouse em cima de um mostra a dica."""
     s, app = bot.state, bot.app
-    cx, cy = C.CRATER_CENTER
-    near = [v for v in s.world.veins if math.hypot(v.tx + 1 - cx, v.ty + 1 - cy) <= 20]
-    assert sorted(v.resource for v in near) == sorted(C.RESOURCES), near
+    cx, cy = C.BASE_TILE
+    near = [min((v for v in s.world.veins if v.resource == r), key=lambda v: math.hypot(v.tx - cx, v.ty - cy))
+            for r in C.RESOURCES]
     # os 3 não cabem juntos na tela (HUD em cima e embaixo): monta um recorte de cada
     # (a dica "Veio de ... · drill libera na Névoa" é conferida pelo assert)
     crops = []
@@ -722,8 +722,8 @@ def check_veins(bot) -> None:
     for i, c in enumerate(crops):
         sheet.blit(c, (i * 244, 0))
     pygame.image.save(pygame.transform.scale_by(sheet, 2), str(OUT / "veios.png"))
-    print("  screenshot: reports/dev/veios.png  (ferro, silício, gelo perto da base, estágio 1)")
-    bot.teleport((64, 65))
+    print("  screenshot: reports/dev/veios.png  (ferro, silício, gelo, estágio 1)")
+    bot.teleport((96, 97))
     bot.frames(0.1)
 
 
@@ -733,12 +733,12 @@ def check_drill_feature(bot) -> None:
     s, app = bot.state, bot.app
     assert s.stage >= 2 and s.recipe_status("drill") != "locked"
     give(s, iron=60, silicon=40)
-    bot.teleport((64, 65))
+    bot.teleport((96, 97))
     bot.frames(0.1)
     s.craft("drill")
     s.craft("drill")
     assert s.inventory.count("drill") == 2
-    cx, cy = C.CRATER_CENTER
+    cx, cy = C.BASE_TILE
     vein = min(s.world.veins, key=lambda v: math.hypot(v.tx - cx, v.ty - cy))
     bot.teleport((vein.tx, vein.ty + 2))          # logo abaixo do veio
     bot.frames(0.1)
@@ -807,7 +807,7 @@ def check_drill_feature(bot) -> None:
     bot.frames(0.3)
     assert s.inventory.count(drill.resource) == before + C.DRILL_CAPACITY and drill.stored == 0
     bot.shot("drill_coletou.png")
-    bot.teleport((64, 65))
+    bot.teleport((96, 97))
     bot.frames(0.1)
 
 
@@ -828,7 +828,7 @@ def check_drones(bot) -> None:
     from game import drones
     s, app = bot.state, bot.app
     assert s.recipe_status("drone_station") != "locked"
-    bot.teleport((64, 65))
+    bot.teleport((96, 97))
     s.o2 = C.O2_MAX
     bot.frames(0.1)
     give(s, iron=60, silicon=40, ice=20)
@@ -969,7 +969,7 @@ def check_drones(bot) -> None:
     cxw, cyw = chest.anchor
     shot_zoom(bot, "drones_entrega.png", ((ax + cxw) / 2, (ay + cyw) / 2 - 30))
     carve(s, [(mid[0] + i, mid[1] + j) for i in (-1, 0, 1) for j in (0, 1)])
-    bot.teleport((64, 65))
+    bot.teleport((96, 97))
     bot.frames(0.1)
 
 
@@ -1005,7 +1005,7 @@ def check_logistics(bot) -> None:
     # baú novo do lado: nada configurado (dica no painel)
     fresh = None
     for t in ((chest.tx + 1, chest.ty), (chest.tx - 1, chest.ty), (chest.tx, chest.ty + 1)):
-        if not s.machine_at(t) and s.world.get(*t) == C.FLOOR and t not in C.POD_TILES:
+        if not s.machine_at(t) and s.world.is_floor(*t) and t not in C.POD_TILES:
             fresh = Machine("chest", *t, name="Gelo")
             s.machines.append(fresh)
             break
@@ -1098,7 +1098,7 @@ def check_logistics(bot) -> None:
     s.machines.remove(far)
     if fresh is not None:
         s.machines.remove(fresh)
-    bot.teleport((64, 65))
+    bot.teleport((96, 97))
     bot.frames(0.1)
 
 
@@ -1108,7 +1108,7 @@ def check_final_polish(bot) -> None:
     from game import drones, viewport
     from game.systems import Machine
     s, app = bot.state, bot.app
-    bot.teleport((64, 65))
+    bot.teleport((96, 97))
     s.o2 = C.O2_MAX
     bot.frames(0.1)
     chest = s.chests[0]
@@ -1123,7 +1123,7 @@ def check_final_polish(bot) -> None:
     # 1) dois baús no alcance: sem mouse, o E abre o mais perto; com o mouse no outro, abre o outro
     other = None
     for t in ((chest.tx + 1, chest.ty), (chest.tx - 1, chest.ty)):
-        if not s.machine_at(t) and s.world.get(*t) == C.FLOOR and t not in C.POD_TILES:
+        if not s.machine_at(t) and s.world.is_floor(*t) and t not in C.POD_TILES:
             other = Machine("chest", *t, name="Ferro")
             s.machines.append(other)
             break
@@ -1205,7 +1205,7 @@ def check_final_polish(bot) -> None:
     print(f"  rótulo do baú (UI): {tuple(label)} · floaters: {[f.text for f in app.floaters.items]}")
     shot_zoom(bot, "rotulo_floater.png", (ax, ay - 70), w=220, h=150, k=3)
     bot.mouse_to((20, 20))
-    bot.teleport((64, 65))
+    bot.teleport((96, 97))
     bot.frames(0.1)
 
 
@@ -1232,7 +1232,7 @@ def check_polish(bot) -> None:
     from game import drones
     from game.systems import Machine
     s, app = bot.state, bot.app
-    bot.teleport((64, 65))
+    bot.teleport((96, 97))
     s.o2 = C.O2_MAX
     bot.mouse_to((20, 20))
     bot.frames(0.1)
@@ -1278,7 +1278,7 @@ def check_polish(bot) -> None:
     assert s.power.factor == 1 or not any(m.kind == "heater_t2" and m.tx < 10 for m in s.machines)
 
     # fabricador: abas (D vai pra direita), rolagem (W/S e rodinha) e Shift+Enter fabrica 5
-    bot.teleport((64, 65))
+    bot.teleport((96, 97))
     give(s, iron=100, silicon=60, ice=30)
     bot.frames(0.1)
     bot.key(pygame.K_e)
@@ -1327,7 +1327,7 @@ def check_polish(bot) -> None:
         for d, (st, dx, dy) in zip(landed, saved):
             d.state, d.x, d.y = st, dx, dy
     app.set_zoom(zoom, notify=False)
-    bot.teleport((64, 65))
+    bot.teleport((96, 97))
     bot.frames(0.1)
 
 
@@ -1348,7 +1348,7 @@ def check_ui_size(bot) -> None:
     app.scale = 2
     app.window = app.open_window(False)
     assert app.window.get_size() == (1920, 1080), app.window.get_size()
-    bot.teleport((64, 66))
+    bot.teleport((96, 98))
     s.o2 = C.O2_MAX
     bot.frames(0.2)
     # pela pausa: Opções > INTERFACE, D diminui (Média -> Pequena), A aumenta
@@ -1371,7 +1371,7 @@ def check_ui_size(bot) -> None:
     assert app.mode == "play"
 
     # mundo igual nos 3 tamanhos: a câmera e o mouse do mundo não dependem da interface
-    tile = (66, 64)
+    tile = (98, 96)
     hover = bot.tile_on_screen(tile)
     times = {}
     for ui_size in ("grande", "media", "pequena"):
@@ -1393,7 +1393,7 @@ def check_ui_size(bot) -> None:
 
     # Pequena: fabricador (clique na aba) e baú (clique no slot transfere)
     app.set_ui_size("pequena")
-    bot.teleport((64, 65))
+    bot.teleport((96, 97))
     bot.frames(0.2)
     bot.key(pygame.K_e)
     assert app.mode == "fabricator"
@@ -1464,7 +1464,7 @@ def check_ui_size(bot) -> None:
 def check_save(bot) -> None:
     """Autosave com o aviso no HUD, "Salvar e sair" pela pausa, tela de título com save e Continuar."""
     s, app = bot.state, bot.app
-    bot.teleport((64, 66))
+    bot.teleport((96, 98))
     s.o2 = C.O2_MAX
     bot.frames(0.2)
     # autosave: só conta jogando (pausado o relógio não anda)
@@ -1510,6 +1510,143 @@ def check_save(bot) -> None:
     save.SAVE_PATH.unlink(missing_ok=True)
 
 
+def check_surface(bot) -> None:
+    """v0.3 Marco 1 · superfície: base, deserto (morros, rochas, soltos), cratera, veio, mapa inteiro e perf."""
+    s, app = bot.state, bot.app
+    w = s.world
+    assert s.layer == "surface" and (w.width, w.height) == (C.SURFACE_W, C.SURFACE_H)
+    zoom_before = app.zoom
+    # 1) base no zoom 0,75 (mostra a área limpa em volta da cápsula)
+    app.set_zoom(0.75, notify=False)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    bot.mouse_to((700, 420))
+    bot.frames(0.3)
+    bot.shot("superficie_base.png")
+
+    # 2) um pedaço do deserto com morro, rochas pequenas e soltos (o lugar com mais coisa à vista)
+    app.set_zoom(1.0, notify=False)
+    def score(cx, cy):
+        walls = sum(w.is_wall(x, y) for y in range(cy - 7, cy + 8) for x in range(cx - 13, cx + 14))
+        rocks = sum(w.get(x, y) in C.SMALL_ROCKS for y in range(cy - 7, cy + 8) for x in range(cx - 13, cx + 14))
+        loose = sum(abs(p.tile[0] - cx) <= 13 and abs(p.tile[1] - cy) <= 7 for p in s.pickups.items)
+        return min(walls, 40) + 4 * rocks + 6 * loose if walls and rocks and loose else 0
+    spots = [(x, y) for y in range(12, w.height - 12, 3) for x in range(16, w.width - 16, 3)
+             if w.is_floor(x, y) and w.dist_from_center(x, y) > 14 and not w.is_solid(x, y - 1)]
+    spot = max(spots, key=lambda t: score(*t))
+    bot.teleport(spot)
+    s.o2 = C.O2_MAX
+    loose = min(s.pickups.items, key=lambda p: math.hypot(p.x - s.player.x, p.y - s.player.y))
+    camx, camy = app.cam
+    bot.mouse_to((int(loose.x - camx), int(loose.y - 6 - camy)))
+    bot.frames(0.3)
+    print(f"  deserto em {spot}: dica = {app.hint()!r}")
+    bot.shot("superficie_deserto.png")
+
+    # pegar um solto: passando por cima vai pro inventário (com o +N e o som de pickup)
+    before = s.inventory.count(loose.resource)
+    s.player.x, s.player.y = loose.x, loose.y + 2
+    bot.frames(0.1)
+    assert loose not in s.pickups.items and s.inventory.count(loose.resource) > before
+    # rocha pequena: quebra com a broca e dá 2–4
+    rock = min(((x, y) for y in range(w.height) for x in range(w.width) if w.get(x, y) in C.SMALL_ROCKS),
+               key=lambda t: math.hypot(t[0] - spot[0], t[1] - spot[1]))
+    res = C.SMALL_ROCKS[w.get(*rock)]
+    carve(s, [(rock[0], rock[1] + 1)])
+    bot.teleport((rock[0], rock[1] + 1))
+    s.o2 = C.O2_MAX
+    before = s.inventory.count(res)
+    pos = bot.tile_on_screen(rock)
+    bot.mouse_to(pos)
+    bot.frames(0.05)
+    assert "Rocha com" in (app.hint() or ""), app.hint()
+    bot.mouse_down(pos)
+    bot.frames(0.4)
+    shot_zoom(bot, "superficie_rocha.png", ((rock[0] + 0.5) * C.TILE, (rock[1] + 0.5) * C.TILE), w=200, h=120)
+    bot.frames(0.5)
+    bot.mouse_up(pos)
+    bot.frames(0.1)
+    assert w.get(*rock) == C.SAND and 2 <= s.inventory.count(res) - before <= 4
+
+    # 3) cratera (fechada no Marco 1): obstáculo, com a dica
+    tx, ty = w.crater
+    bot.teleport((tx + 1, ty + 4))
+    s.o2 = C.O2_MAX
+    bot.mouse_to(bot.tile_on_screen((tx + 1, ty + 1)))
+    bot.frames(0.2)
+    assert app.hint() == "Cratera · fechada por enquanto", app.hint()
+    y0 = s.player.y
+    bot.key(pygame.K_w, hold=0.8)                  # anda pra cima: a cratera segura
+    assert s.player.y >= (ty + 3) * C.TILE + C.PLAYER_BOX_H - 0.01 and s.player.y < y0
+    bot.shot("superficie_cratera.png")
+
+    # 4) veio longe da base
+    vein = min(w.veins, key=lambda v: w.dist_from_center(v.tx, v.ty))
+    bot.teleport((vein.tx + 1, vein.ty + 3))
+    s.o2 = C.O2_MAX
+    bot.mouse_to(bot.tile_on_screen((vein.tx, vein.ty)))
+    bot.frames(0.2)
+    print(f"  veio mais perto: {vein.resource} a {w.dist_from_center(vein.tx, vein.ty):.0f} tiles · {len(w.veins)} veios")
+    bot.shot("superficie_veio.png")
+
+    # 5) mapa inteiro reduzido 8× (chão, paredes e objetos, sem luz nem clima)
+    r = app.renderer
+    chunk = 1024
+    full = pygame.Surface((w.width * C.TILE // 8, w.height * C.TILE // 8))
+    piece = pygame.Surface((chunk, chunk))
+    s.player.x, s.player.y = C.SPAWN_POS
+    for cy in range(0, w.height * C.TILE, chunk):
+        for cx in range(0, w.width * C.TILE, chunk):
+            piece.fill((0, 0, 0))
+            r.view_w, r.view_h = chunk, chunk
+            r.stage_map.update(s.ti, [])
+            r.draw_floors(piece, s, (cx, cy), "dead", 0.0)
+            r.draw_veins(piece, s, (cx, cy))
+            r.draw_zone(piece, (cx, cy), 0.0)
+            r.draw_walls_and_objects(piece, s, (cx, cy), "dead", 0.0)
+            full.blit(pygame.transform.smoothscale(piece, (chunk // 8, chunk // 8)), (cx // 8, cy // 8))
+    for v in w.veins:                              # anéis nos veios e na cratera, pra achar no mapa
+        pygame.draw.circle(full, C.ORE_COLORS[v.resource][0], ((v.tx + 1) * 4, (v.ty + 1) * 4), 9, 2)
+    pygame.draw.circle(full, (255, 255, 255), ((tx + 1.5) * 4, (ty + 1.5) * 4), 10, 1)
+    pygame.image.save(full, str(OUT / "superficie_mapa.png"))
+    print("  screenshot: reports/dev/superficie_mapa.png  (mapa 192×192 reduzido 8×; anéis = veios, branco = cratera)")
+
+    # 6) perf no deserto, zoom 0,75 (o mais afastado), andando
+    app.set_zoom(0.75, notify=False)
+    bot.teleport(spot)
+    start = len(bot.frame_times)
+    for key in (pygame.K_d, pygame.K_s, pygame.K_a, pygame.K_w):
+        s.o2 = C.O2_MAX
+        bot.key(key, hold=0.75)
+    ft = bot.frame_times[start:]
+    avg = sum(ft) / len(ft)
+    print(f"  perf deserto 192×192, zoom 0,75×: média {avg * 1000:.1f} ms · pior {max(ft) * 1000:.1f} ms "
+          f"({len(ft)} frames, orçamento 16,7 ms)")
+    assert avg < 1 / 60, "deserto no zoom 0,75 passou do orçamento de 16,7 ms"
+    app.set_zoom(zoom_before, notify=False)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+
+
+def check_old_save_title(bot) -> None:
+    """Save do v0.2 (versão 5): a tela de título não carrega, avisa e só deixa começar um novo jogo."""
+    app = bot.app
+    save.SAVE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    save.SAVE_PATH.write_text('{"version": 5, "seed": 7}', encoding="utf-8")
+    app.open_title()
+    assert app.title.old and [label for _, label in app.title.options()] == ["Continuar", "Novo jogo", "Sair"]
+    assert app.title.options()[app.title.selected][0] == "new"
+    bot.mouse_to((480, 300))
+    bot.frames(0.5)
+    bot.shot("titulo_save_antigo.png")
+    bot.key(pygame.K_RETURN)                       # Novo jogo: o antigo vira slot1.v5.json
+    backup = save.SAVE_PATH.with_name("slot1.v5.json")
+    assert app.mode == "play" and backup.exists() and save.probe()[0] == "ok"
+    backup.unlink()
+    bot.state = app.state
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     bot = Bot()
@@ -1521,6 +1658,7 @@ def main() -> None:
     bot.key(pygame.K_s, hold=0.3)
     bot.frames(0.5)
     bot.shot("stage1.png")
+    check_surface(bot)
     check_veins(bot)
 
     print("2) mineração")
@@ -1535,13 +1673,13 @@ def main() -> None:
     bot.frames(0.6)
     bot.mouse_up(pos)
     bot.frames(0.3)
-    assert s.world.get(*ore) == C.FLOOR, "o minério devia ter quebrado"
+    assert s.world.is_floor(*ore), "o minério devia ter quebrado"
     assert s.inventory.count("iron") >= 1, "devia ter ganhado ferro"
     print(f"  inventário depois de minerar: {s.inventory.counts()}")
 
     print("3) fabricador")
     give(s, iron=60, silicon=30, ice=24)
-    bot.teleport((64, 65))
+    bot.teleport((96, 97))
     bot.frames(0.3)
     bot.key(pygame.K_e)
     bot.frames(0.2)
@@ -1551,13 +1689,13 @@ def main() -> None:
     button = next(rect for rect, kind in bot.app.ui.fabricator_buttons if kind == "o2")
     bot.click((button.centerx * 2, button.centery * 2))
     assert bot.app.placing == "o2", "craftar devia entrar no modo de colocar"
-    bot.mouse_to(bot.tile_on_screen((61, 66)))
+    bot.mouse_to(bot.tile_on_screen((93, 98)))
     bot.frames(0.3)
     bot.shot("placing.png")
-    bot.click(bot.tile_on_screen((61, 66)))
+    bot.click(bot.tile_on_screen((93, 98)))
     assert len(s.machines) == 1
     # mais duas máquinas pelo teclado: S (desce) + Enter
-    for target, steps in [((67, 66), 1), ((60, 64), 0)]:
+    for target, steps in [((99, 98), 1), ((92, 96), 0)]:
         bot.key(pygame.K_e)
         for _ in range(steps):
             bot.key(pygame.K_s)
@@ -1577,7 +1715,8 @@ def main() -> None:
     check_energy(bot)
     check_transition(bot, 1, [("transicao_25.png", 0.25), ("transicao_60.png", 0.60), ("transicao_90.png", 0.90)])
 
-    print("4) terminal")
+    print("4) terminal (na caverna: no Marco 1 ela só existe pela estrutura de camadas)")
+    s.enter_layer("cave")
     tx, ty = s.world.terminals[0]
     bot.teleport((tx, ty + 1))
     bot.frames(0.2)
@@ -1599,6 +1738,7 @@ def main() -> None:
     bot.shot("desmaio.png")
     bot.frames(2.0)
     assert not s.fainted and s.o2 == C.O2_MAX and s.inventory.to_data() == inventory_before
+    assert s.layer == "surface", "desmaiou na caverna: acorda na cápsula, na superfície"
     bot.frames(0.5)
 
     print("6) estágios")
@@ -1638,6 +1778,7 @@ def main() -> None:
 
     print("8) save/load e tela de título")
     check_save(bot)
+    check_old_save_title(bot)
 
     # folha ampliada (4×) com o player de fallback: parado e andando, nas 3 direções
     from game import art
