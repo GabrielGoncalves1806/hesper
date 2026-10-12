@@ -160,6 +160,7 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 | `wall_{stage}_{0..2}.png` | 32×32 | topo da rocha, 3 variações |
 | `wall_face_{stage}.png` | 32×24 | face frontal alta. Quando o tile abaixo é chão, o tile da parede mostra os 8 px de cima do `wall_{stage}_N` + essa face de 24 px |
 | `water_{stage}.png` | 32×32 | |
+| `water_auto_{stage}.png` | 64×96 | autotile da água no layout A2 (minitiles 16×16): (0,0)–(32,32) poça isolada, (32,0)–(64,32) cantos internos, (0,32)–(64,96) lago 2×2 com cantos externos, bordas e miolo. Fora da margem é transparente (o chão aparece). Sem ele, o jogo gera o atlas por código a partir do `water_{stage}` (`game/autotile.py`) |
 | `ore_iron.png` `ore_silicon.png` `ore_ice.png` | 32×32 | overlay transparente por cima da parede |
 | `icon_iron.png` `icon_silicon.png` `icon_ice.png` | 16×16 | ícones do inventário/HUD |
 | `pod.png` | 64×72 | cápsula/base |
@@ -356,6 +357,7 @@ Design completo e aprovado: `docs/superpowers/specs/2026-10-12-v03-superficie-de
 - **Objetivo "Leia um terminal"**: só aparece quando existe uma camada com terminal (no Marco 1 os terminais estão na caverna, que ainda não abre).
 - **Vento do deserto** (`desert_wind.wav`): volume 0,45 por cima do ambiente, canal próprio, sobe em 2,5 s e desce em 1,5 s; some na caverna e no desmaio.
 - **Save v6** por camada. Save v1–v5: a tela de título mostra "Save de uma versão antiga · comece um novo jogo" com Continuar apagado; ao começar um jogo novo, o arquivo antigo é guardado como `saves/slot1.v5.json` (não é apagado).
+- **Água**: poça em chão baixo (noise), sem colisão, a partir da Névoa. Desenhada com autotile A2 (cantos redondos, margem, brilho). A geração é suavizada: água ligada só pela quina some; gota de 1 tile só fica se nem nas diagonais tem água (olhando o estágio 3, então a água da Névoa está sempre dentro da do Verde).
 - **Transição de estágio**: a frente da mancha vai até ~152 tiles (o canto do deserto fica a ~136 da base).
 - **Duração** (simulador, só superfície): 28–42 min nos números atuais, contra 23–30 min no v0.2. Quase todo o tempo a mais é andando; a caverna (Marco 2) é que traz minério em volume.
 
@@ -364,11 +366,12 @@ Entregues em `_pending/` até o dono aprovar. Os morros usam a arte de parede qu
 
 | Sprite | Tamanho | Observação |
 |---|---|---|
-| `sand_{stage}_{0..3}.png` | 32×32 | chão do deserto, 4 variações (areia, cascalho, dunas, manchas de rocha). stage = `dead`, `mist`, `green` |
+| `sand_{stage}_{0..3}.png` | 32×32 | chão da superfície, 4 variações. `dead` = areia avermelhada (o planeta morto); `mist` = terra marrom úmida; `green` = grama de verdade (a terraformação transforma o deserto) |
 | `rock_small.png` | 32×32 | rocha pequena no chão (1 tile, quebrável), contorno `#1b1630`, funciona nos 3 chãos |
 | `pickup_iron.png` `pickup_silicon.png` `pickup_ice.png` | 16×16 | recurso solto no chão, legível de longe, com sombrinha no chão |
 | `crater.png` | 96×96 | cratera 3×3 fechada (Marco 1), escura no centro, borda de rocha |
 | `crater_ramp.png` | 96×96 | a mesma cratera com a rampa de descida aberta (usada no Marco 2) |
+| `water_auto_{mist,green}.png` | 64×96 | autotile de água no layout A2 do RPG Maker (minitiles 16×16): poça isolada, cantos internos e bloco 2×3 de bordas. Margem de lama/terra molhada, fora dela transparente |
 
 | Áudio | Tipo | Quando toca |
 |---|---|---|
