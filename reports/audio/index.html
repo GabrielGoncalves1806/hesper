@@ -88,9 +88,10 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Hesper · report de som · v7</div>
+    <div class="eyebrow">Hesper · report de som · v8</div>
     <h1>Som do planeta</h1>
     <p class="lede">Os 19 arquivos do contrato de áudio da bíblia (§6), todos gerados por síntese procedural com seed fixa em <code>tools/audio/build_audio.py</code>. A estética é 8/16-bit refinada: osciladores limitados em banda, ruído filtrado, envelopes, varreduras de pitch e um reverb de cratera. Dá o play em cada um, os loops tocam em repetição pra tu ouvir a emenda.</p>
+    <div class="note" style="border-left-color:#9b8cff"><b style="color:#9b8cff">v8 · v0.3 Marcos 2 e 3 · Caverna e Destroços · pendente:</b> 8 sons novos em <code>assets/audio/_pending/</code>, esperando teu ouvido. Caverna: <code>amb_cave</code> (loop de 28 s), <code>ramp_down</code>, <code>ramp_up</code> e <code>lamp_place</code>. Destroços: <code>crate_open</code>, <code>blueprint_found</code>, <code>equip</code> e <code>map_open</code>. Estão em <a href="#caverna">Caverna e destroços · pendentes</a>, logo abaixo, com prévias: a caverna mixada nos volumes sugeridos, a descida e a subida com o crossfade de verdade (superfície ↔ caverna) e o saque com projeto. Nenhum som oficial nem candidata mudou (conferido por md5, os 39 arquivos idênticos byte a byte).</div>
     <div class="note" style="border-left-color:#e8b46a"><b style="color:#e8b46a">v7 · v0.3 Marco 1 · Superfície · aprovado:</b> o <code>desert_wind.wav</code> (som e volume 0,45) foi aprovado e agora é oficial em <code>assets/audio/</code>, idêntico byte a byte ao que tu ouviu. É a camada de vento seco que toca por cima do ambiente do estágio na superfície. Está na seção <a href="#superficie">Superfície</a>, com a prévia mixada com cada um dos 3 ambientes. Nenhum outro som mudou (conferido por md5). O contrato agora tem 32 arquivos.</div>
     <div class="note" style="border-left-color:#7fd67a"><b style="color:#7fd67a">v6.1 · sons do v0.2 aprovados:</b> os 9 sons do v0.2 saíram de <code>_pending/</code> e agora são oficiais em <code>assets/audio/</code>, idênticos byte a byte aos que tu aprovou. Baú, inventário e save estão em <a href="#interface">Interface</a>. Painel solar e queda de energia estão em <a href="#energia">Energia</a>. Os drones estão em <a href="#drones">Drones</a>. Os volumes sugeridos estão na tabela de integração. O contrato agora tem 31 arquivos.</div>
     <div class="note" style="border-left-color:#c3d1e2"><b style="color:#c3d1e2">v5:</b> três sons novos da drill automática (§4 "Veios e drills automáticas"), na seção <a href="#drill">Drill</a>: <code>drill_loop</code> (loop), <code>drill_collect</code> e <code>drill_full</code>. Nenhum som existente mudou (conferido por md5).</div>
@@ -102,14 +103,82 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
       <div class="stat"><b>32</b><span>arquivos oficiais</span></div>
       <div class="stat"><b>44,1k · 16b · mono</b><span>formato</span></div>
       <div class="stat"><b class="ok" id="st-peak">≤ −1 dBFS</b><span>pico máximo</span></div>
-      <div class="stat"><b class="ok">9 / 9</b><span>loops sem estalo</span></div>
+      <div class="stat"><b>8</b><span>pendentes (v8)</span></div>
+      <div class="stat"><b class="ok">10 / 10</b><span>loops sem estalo</span></div>
     </div>
     <nav class="toc">
-      <a href="#superficie">Superfície</a><a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
+      <a href="#caverna">Caverna e destroços (pendente)</a><a href="#superficie">Superfície</a><a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
       <a href="#maquinas">Máquinas</a><a href="#drill">Drill</a><a href="#energia">Energia</a><a href="#drones">Drones</a><a href="#ambiente">Ambiente</a><a href="#recompensa">Recompensa</a>
       <a href="#direcao">Direção de ambientação</a><a href="#integracao">Integração</a><a href="#checagens">Checagens</a>
     </nav>
   </header>
+
+  <section class="pick" id="caverna" style="border-color:#9b8cff">
+    <div class="sec-head" style="border-color:#3d3570"><span class="num">v8 · pendente</span><h2 style="color:#9b8cff">Caverna e destroços · pendentes de aprovação</h2>
+      <p>Os 8 sons dos contratos dos Marcos 2 e 3 do v0.3 (bíblia §9). Estão em <code>assets/audio/_pending/</code> e só vão pra pasta oficial depois que tu aprovar. Seguem as lições aprovadas: ambiente sem bicho e quase sem chiado, tudo em Lá; nada de tambor nem de latinha nos impactos (a tampa da caixa e os degraus são ruído de banda larga, sem modo fixo); jingle e bipes na família do <code>stage_up</code>/<code>save</code>. Se algum incomodar, diz qual e o quê.</p></div>
+    <h3 style="margin:4px 0 12px">Marco 2 · Caverna</h3>
+    <div class="cards" id="pend-cave"></div>
+    <div class="cards" style="margin-top:16px">
+      <article class="card">
+        <div class="card-top"><span class="fname">Prévia: a caverna no jogo</span><span class="tags"><span class="tag">amb_cave 0,7</span><span class="tag">sfx nos volumes sugeridos</span></span></div>
+        <div class="btns" id="cave-mix">
+          <button class="btn" data-k="solo">▶ caverna (0,7)</button>
+          <button class="btn" data-k="mine">▶ caverna + minerando</button>
+          <button class="btn" data-k="lamp">+ colocar luminária</button>
+          <button class="btn" data-k="stop">■ parar</button>
+        </div>
+        <p class="what" id="cave-status">Parado.</p>
+        <p class="what">"Caverna + minerando" toca o <code>amb_cave</code> a 0,7 e, por cima, uma rodada de 4 golpes + quebra + pickup a cada ~5 s (sfx a 1,0), como se tu estivesse minerando lá embaixo. "+ colocar luminária" dispara o <code>lamp_place</code> (0,8) por cima do que estiver tocando.</p>
+      </article>
+      <article class="card">
+        <div class="card-top"><span class="fname">Prévia: descer e subir</span><span class="tags"><span class="tag">crossfade</span><span class="tag">morto + vento ↔ caverna</span></span></div>
+        <div class="btns" id="ramp-mix">
+          <button class="btn" data-k="surface">▶ começar na superfície</button>
+          <button class="btn" data-k="down">↓ descer (E)</button>
+          <button class="btn" data-k="up">↑ subir (E)</button>
+          <button class="btn" data-k="stop">■ parar</button>
+        </div>
+        <p class="what" id="ramp-status">Parado.</p>
+        <p class="what">Faz o crossfade que o Dev vai fazer: na descida, o <code>amb_dead</code> (0,7) e o vento (0,45) saem em 1,5 s, o <code>ramp_down</code> toca e a caverna entra em 2,5 s logo depois. Na subida, o contrário, com o vento voltando em 2,5 s. Começa na superfície, espera uns segundos e desce.</p>
+      </article>
+    </div>
+    <div class="tbl" style="margin-top:16px">
+      <table>
+        <thead><tr><th>amb_cave (análise, não ouvido)</th><th>Caverna</th><th>Referência aprovada</th></tr></thead>
+        <tbody>
+          <tr><td>Loudness aprox. do loop</td><td>−28 dB</td><td>amb_* −27 dB (a caverna sai 1 dB abaixo: substitui ambiente + vento, sem somar nada)</td></tr>
+          <tr><td>Energia por banda (&lt;150 · 150–600 · 0,6–2,5k · 2,5–8k · &gt;8k)</td><td>−1,4 · −6,1 · −14,8 · −35,9 · −59,2 dB</td><td>amb_dead −1,6 · −5,3 · −19,6 · −65,9 · −75,3 dB</td></tr>
+          <tr><td>Centroide espectral</td><td>159 Hz</td><td>dead 134 · mist 162 · green 278 Hz</td></tr>
+          <tr><td>Gotas por volta (28 s)</td><td>10 (3 com respingo), intervalos de 0,4 a 5 s, desiguais</td><td>amb_mist: 6 gotas abafadas</td></tr>
+          <tr><td>Gota acima do fundo, na faixa dela (0,7–4 kHz)</td><td>~17 dB (mediana)</td><td>dá pra ouvir cada gota sem ela pular na cara</td></tr>
+          <tr><td>Emenda do loop</td><td>salto de 5 lsb (percentil 11 dos saltos normais), agudos na emenda no percentil 33</td><td>limite: percentil 99</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 style="margin:28px 0 12px">Marco 3 · Destroços, projetos e equipamento</h3>
+    <div class="cards" id="pend-wreck"></div>
+    <div class="cards" style="margin-top:16px">
+      <article class="card">
+        <div class="card-top"><span class="fname">Prévia: saque com projeto</span><span class="tags"><span class="tag">sequência</span></span></div>
+        <div class="btns" id="loot-mix">
+          <button class="btn" data-k="crate">▶ abrir caixa (vazia de projeto)</button>
+          <button class="btn" data-k="bp">▶ abrir caixa + projeto</button>
+          <button class="btn" data-k="equip">▶ fabricar e equipar tanque</button>
+        </div>
+        <p class="what">"+ projeto" toca o <code>crate_open</code> (0,9) e, 0,45 s depois, o <code>blueprint_found</code> (1,0) com o ambiente abaixado, como o Dev deve fazer. "Fabricar e equipar" é <code>craft</code> seguido de <code>equip</code> (0,7), pra ouvir se o encaixe combina com o resto da base.</p>
+      </article>
+    </div>
+    <div class="tbl" style="margin-top:16px">
+      <table>
+        <thead><tr><th>Checagem de "latinha" (pico estreito mais saliente, espectro médio em janelas de 46 ms vs mediana de 2/3 de oitava)</th><th>Resultado</th></tr></thead>
+        <tbody>
+          <tr><td>Aprovados de referência: <code>mine_break</code> · <code>chest_open</code> · <code>chest_close</code> · <code>drill_collect</code></td><td>4,4 · 4,2 · 4,3 · 4,2 dB (= ruído, sem tom)</td></tr>
+          <tr><td><code>crate_open</code> · <code>ramp_down</code> · <code>ramp_up</code></td><td class="pass">3,6 · 5,8 · 4,4 dB (mesma faixa dos aprovados: nenhuma ressonância)</td></tr>
+          <tr><td><code>equip</code> · <code>lamp_place</code> · <code>map_open</code></td><td>14,9 dB em 883 Hz · 16,3 dB em 323 Hz · 29,4 dB em 1314 Hz: são as notas de propósito (Lá5 do bipe, Mi4 da luz, Mi6 do bipe), não ressonância de impacto</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 
   <section class="pick" id="superficie" style="border-color:#e8b46a">
     <div class="sec-head" style="border-color:#5a4524"><span class="num">v7 · aprovado</span><h2 style="color:#e8b46a">Superfície · vento do deserto</h2>
@@ -245,6 +314,13 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
           <tr><td>v0.2</td><td><code>save</code></td><td>0,6</td><td>no save manual; no autosave pode ir a 0,4, ou ficar em silêncio se for muito frequente</td></tr>
         
           <tr><td>v0.3</td><td><code>desert_wind</code></td><td>0,45 (faixa 0,35–0,5)</td><td>canal próprio reservado, <code>loops=-1</code>, por cima do ambiente. Entra com <code>fade_ms=2500</code> ao sair pra superfície e sai com <code>fadeout(1500)</code> ao entrar na caverna. Não acompanha o crossfade de estágio: continua tocando igual.</td></tr>
+          <tr><td>v0.3 · caverna</td><td><code>amb_cave</code></td><td>0,7</td><td>usa os mesmos canais A/B do ambiente. <b>Descer:</b> no E, toca <code>ramp_down</code>, o <code>amb_{estágio}</code> sai com <code>fadeout(1500)</code> junto com o fade pro preto, o vento sai com <code>fadeout(1500)</code> e o <code>amb_cave</code> entra no outro canal com <code>fade_ms=2500</code> uns 0,5 s depois. <b>Subir:</b> o contrário; o vento volta com <code>fade_ms=2500</code> como já está combinado.</td></tr>
+          <tr><td>v0.3 · caverna</td><td><code>ramp_down</code> / <code>ramp_up</code></td><td>0,8</td><td>um por troca de camada, no E. Não tocar passos durante o fade.</td></tr>
+          <tr><td>v0.3 · caverna</td><td><code>lamp_place</code></td><td>0,8</td><td>no lugar do <code>place</code> (não tocar os dois). Pitch ±3% se der.</td></tr>
+          <tr><td>v0.3 · destroços</td><td><code>crate_open</code></td><td>0,9</td><td>ao abrir a caixa (a UI de saque). Caixa vazia: pode tocar a 0,6 ou só o <code>ui_open</code>. Fechar: <code>chest_close</code> a 0,7.</td></tr>
+          <tr><td>v0.3 · destroços</td><td><code>blueprint_found</code></td><td>1,0</td><td>quando o projeto entra no inventário, junto com o aviso "PROJETO: …". Se veio da caixa, ~0,4 s depois do <code>crate_open</code>. Abaixar o ambiente pra ~60% por 2 s, igual ao stage_up em escala menor. Não tocar <code>pickup</code> junto.</td></tr>
+          <tr><td>v0.3 · destroços</td><td><code>equip</code></td><td>0,7</td><td>ao soltar o item no slot de equipamento (e ao trocar). Tirar do slot: <code>inv_move</code>.</td></tr>
+          <tr><td>v0.3 · destroços</td><td><code>map_open</code></td><td>0,6</td><td>no M. Fechar: <code>ui_close</code>. Se o jogador abrir/fechar rápido, no máximo 1 a cada ~0,3 s.</td></tr>
           <tr><td>Ambiente</td><td><code>amb_*</code></td><td>0,7</td><td>já saem ~8–10 dB abaixo dos sfx.</td></tr>
           <tr><td>Recompensa</td><td><code>stage_up</code></td><td>1,0</td><td>é o som mais alto do jogo, de propósito.</td></tr>
         </tbody>
@@ -314,6 +390,27 @@ vol += (alvo - vol) * min(1.0, dt / (0.8 if alvo else 0.5))
 VENTO.set_volume(vol)               # o loop roda sempre, só o volume anda</pre>
       </div>
       <div class="box">
+        <h3>Superfície ↔ caverna (v0.3 · pendente)</h3>
+        <ul>
+          <li>A caverna <b>substitui</b> ambiente e vento: na caverna tocam só o <code>amb_cave</code> (0,7) e os sfx. Não deixar o vento em 0,0 "tocando por baixo" e somar: o loop dele pode continuar rodando, mas com volume alvo 0.</li>
+          <li>Ordem no E da rampa: <code>ramp_down</code> → fade pro preto (o ambiente e o vento saem em 1,5 s) → troca o mapa → <code>amb_cave</code> entra com <code>fade_ms=2500</code>. O crossfade é mais curto que o de estágio (7 s) porque a troca é física e imediata.</li>
+          <li>Na subida: <code>ramp_up</code> → a caverna sai em 1,5 s → o <code>amb_{estágio atual}</code> volta no canal livre com <code>fade_ms=2500</code> e o vento sobe pra 0,45 em 2,5 s.</li>
+          <li>Se o estágio mudar com o jogador na caverna, não toca o crossfade de estágio lá embaixo (a caverna não muda com o Ti); o <code>stage_up</code> pode tocar normal. Ao subir, já entra o ambiente novo.</li>
+          <li>Desmaio na caverna: o <code>amb_cave</code> cai junto com o fade e ele acorda na superfície com o <code>amb_{estágio}</code> + vento entrando em 2,5 s.</li>
+          <li>Os sfx não têm reverb de caverna embutido (servem nas duas camadas). Se o Dev quiser "molhar" a caverna, o jeito barato é baixar 10–15% os passos lá embaixo; não precisa de reverb em tempo real.</li>
+        </ul>
+<pre>def descer():
+    sfx(ramp_down, 0.8)
+    AMB[atual].fadeout(1500); vento_alvo = 0.0
+    agendar(0.5, lambda: AMB[prox].play(amb_cave, loops=-1, fade_ms=2500))  # vol 0.7
+
+def subir():
+    sfx(ramp_up, 0.8)
+    AMB[atual].fadeout(1500)
+    agendar(0.5, lambda: AMB[prox].play(amb[estagio], loops=-1, fade_ms=2500))
+    vento_alvo = 0.45</pre>
+      </div>
+      <div class="box">
         <h3>Alarme e base</h3>
         <ul>
           <li><code>o2_low</code>: <code>play(loops=-1)</code> no canal reservado quando O₂ &lt; 25%. Pra parar, usar histerese (para em ≥ 27%) senão ele liga e desliga na borda. Sair com <code>fadeout(300)</code>.</li>
@@ -347,7 +444,7 @@ VENTO.set_volume(vol)               # o loop roda sempre, só o volume anda</pre
       <div class="box">
         <h3>Como os loops emendam</h3>
         <p>Nenhum loop usa crossfade: eles são construídos periódicos. Todo ruído é filtrado no domínio da frequência de forma circular, toda frequência fixa tem número inteiro de ciclos no comprimento do loop, brilhos e gotas que passam do fim continuam no começo e o reverb é convolução circular. A amostra depois da última é, matematicamente, a primeira.</p>
-        <p>Validação: o salto entre a última e a primeira amostra é comparado com todos os saltos entre amostras vizinhas do arquivo (precisa ficar abaixo do percentil 99), e a energia de agudos numa janela de 3 ms em cima da emenda é comparada com o resto do arquivo (também abaixo do percentil 99). Os 5 loops passaram.</p>
+        <p>Validação: o salto entre a última e a primeira amostra é comparado com todos os saltos entre amostras vizinhas do arquivo (precisa ficar abaixo do percentil 99), e a energia de agudos numa janela de 3 ms em cima da emenda é comparada com o resto do arquivo (também abaixo do percentil 99). Os 10 loops passaram (9 oficiais + o <code>amb_cave</code> pendente).</p>
       </div>
       <div class="box">
         <h3>Loudness</h3>
@@ -561,6 +658,121 @@ CANDS.forEach(([key, file, title, src, desc]) => {
   const sl = document.getElementById("wind-vol");
   sl.oninput = () => { windVol = parseFloat(sl.value); document.getElementById("wind-vol-v").textContent = windVol.toFixed(2).replace(".", ","); if (wind && windOn) wind.volume = windVol; show(); };
   document.addEventListener("play", e => { if (e.target.tagName === "AUDIO" && e.target.isConnected) stop(); }, true);
+})();
+
+// ---- v8 (v0.3 Marcos 2 e 3): pendentes de aprovação + prévias ----
+(() => {
+  const A = "../../assets/audio/", P = A + "_pending/";
+  const CAVE = [
+    ["amb_cave","Loop na caverna. Substitui o amb_{estágio} e o vento","O mesmo Lá dos ambientes, uma oitava mais escuro: drone em quinta (Lá1, Mi2, Lá2, Mi3) bem fechado, com um fio de Dó3 (terça menor) que só aparece quando o pad respira, sombra sem medo. Dez gotas por volta em tempo irregular (umas respingam), cada uma com eco de paredes a distâncias diferentes e cauda de 4 s. Dois brilhos frios bem apagados e um rumor de rocha assentando lá longe. Sem bicho, sem vento, quase nada acima de 2,5 kHz. Loop de 28 s (os ambientes têm 32 e o vento 36, então nada se repete junto)."],
+    ["ramp_down","E na rampa da cratera (descendo)","Três passos em degrau de grade metálica (tranco grave de ruído, corpo de banda larga, um \"tinc\" de poucos ms que muda a cada passo, a grade chacoalhando). A cada passo o som fica mais abafado e o eco cresce (cauda de −15 → −8 → −2,5 dB em relação ao passo), e um ar que desce de 1,4 kHz pra 160 Hz e um grave surdo vão fechando em volta. ~1,4 s."],
+    ["ramp_up","E na rampa da caverna (subindo)","Os mesmos degraus ao contrário: o primeiro passo ainda com eco de caverna, os seguintes cada vez mais secos e claros, e um sopro largo que abre de 160 Hz pra 1,2 kHz no fim, chegando no vento. ~1,3 s."],
+    ["lamp_place","Colocou uma luminária","Base apoiando no chão, clique do interruptor e a luz acendendo: um \"fuum\" macio e um brilho quente em Lá (Lá3, Mi4, Lá4) que sobe um tiquinho e assenta, com um zumbido de filamento bem baixo. Curto e aconchegante."],
+  ];
+  const WRECK = [
+    ["crate_open","Abriu uma caixa de saque","Tampa metálica pesada de carga, sem latinha: trava dupla soltando, ar velado escapando, a dobradiça arrastando (atrito de ruído largo com \"agarra-solta\" irregular, nada de rangido com nota), a tampa tombando no batente com baque surdo e um pouco de ferrugem caindo. Mais lenta e pesada que o baú."],
+    ["blueprint_found","Achou um projeto (\"PROJETO: …\")","Mini-jingle de conquista na família do stage_up (mesmo timbre pulse + tri, Lá maior), só que menor: arpejo rápido Mi-Lá-Dó♯-Mi até um Lá5 segurado com vibrato leve, baixo em Lá e três brilhos. ~1,8 s com a cauda, 2 dB abaixo do stage_up."],
+    ["equip","Colocou equipamento no slot","Encaixe no traje: deslizar curtinho, \"clack\" de trava (ruído médio, sem nota), peso do tanque, selo pneumático e um bipezinho Mi5 → Lá5 bem baixo confirmando. 0,4 s."],
+    ["map_open","Abriu o mapa (M)","Mapa holográfico desdobrando: um \"fsss\" curto de grão irregular subindo de banda e dois bipes macios Lá5 → Mi6. Discreto, de interface. Pra fechar o mapa, o ui_close de sempre."],
+  ];
+  function cards(list, rootId, color){
+    const root = document.getElementById(rootId);
+    list.forEach(([name, when, what]) => {
+      const m = META["pend:" + name] || {};
+      const loop = !!m.loop;
+      const card = document.createElement("article");
+      card.className = "card";
+      card.innerHTML = `
+        <div class="card-top"><span class="fname">${name}.wav</span>
+          <span class="tags">${loop ? '<span class="tag loop">loop</span>' : '<span class="tag">sfx</span>'}<span class="tag src">pendente</span>
+          <span class="tag">${fmtDur(m.duration)}</span><span class="tag">pico ${fmtDb(m.peak_db)}</span></span></div>
+        <canvas class="wave" aria-hidden="true"></canvas>
+        <audio controls preload="metadata" ${loop ? "loop" : ""} src="${P}${name}.wav"></audio>
+        <div class="when">${when}</div>
+        <p class="what">${what}</p>`;
+      root.appendChild(card);
+      const cv = card.querySelector("canvas");
+      requestAnimationFrame(() => drawWave(cv, m.wave, color));
+      window.addEventListener("resize", () => drawWave(cv, m.wave, color));
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><code>_pending/${name}.wav</code></td><td>${fmtDur(m.duration)}</td><td class="pass">${fmtDb(m.peak_db)}</td><td>${fmtDb(m.loudness_db)}</td><td>${loop && m.seam_lsb != null ? `<span class="pass">OK · salto ${m.seam_lsb} lsb (percentil ${String(m.seam_pct).replace(".", ",")} dos saltos normais)</span>` : "—"}</td>`;
+      checks.appendChild(tr);
+    });
+  }
+  cards(CAVE, "pend-cave", "#9b8cff");
+  cards(WRECK, "pend-wreck", "#e8b46a");
+
+  // utilitários das prévias: fade de volume por tempo, sons de uma vez
+  const live = new Set(); const timers = new Set();
+  function one(src, vol){ const a = new Audio(src); a.volume = vol; a.play().catch(() => {}); return a; }
+  function later(fn, ms){ const id = setTimeout(() => { timers.delete(id); fn(); }, ms); timers.add(id); }
+  function loopA(src, vol){ const a = new Audio(src); a.loop = true; a.volume = vol; a.play().catch(() => {}); live.add(a); return a; }
+  function fade(a, to, ms, stopAtEnd){
+    const from = a.volume, t0 = performance.now();
+    const step = now => { const k = Math.min(1, (now - t0) / ms); a.volume = from + (to - from) * k;
+      if (k < 1) requestAnimationFrame(step); else if (stopAtEnd){ a.pause(); live.delete(a); } };
+    requestAnimationFrame(step);
+  }
+  function stopAll(){ live.forEach(a => a.pause()); live.clear(); timers.forEach(clearTimeout); timers.clear(); }
+  function quiet(){ document.querySelectorAll("audio").forEach(a => a.pause()); }
+
+  const cs = document.getElementById("cave-status");
+  document.querySelectorAll("#cave-mix [data-k]").forEach(b => b.onclick = () => {
+    const k = b.dataset.k;
+    if (k === "lamp"){ one(P + "lamp_place.wav", 0.8); return; }
+    stopAll(); quiet(); rs.textContent = "Parado.";
+    if (k === "stop"){ cs.textContent = "Parado."; return; }
+    loopA(P + "amb_cave.wav", 0);
+    fade([...live][0], 0.7, 1500);
+    if (k === "mine"){
+      const round = () => {
+        for (let i = 0; i < 4; i++) later(() => one(A + "mine_hit.wav", 1.0), 400 + i * 250);
+        later(() => one(A + "mine_break.wav", 1.0), 1400);
+        later(() => one(A + "pickup.wav", 1.0), 1460);
+        later(round, 5000);
+      };
+      round();
+      cs.textContent = "Tocando: amb_cave (0,7) + minerando a cada ~5 s.";
+    } else cs.textContent = "Tocando: amb_cave (0,7).";
+  });
+
+  const rs = document.getElementById("ramp-status");
+  let surf = null, wind = null, cave = null, where = null;
+  document.querySelectorAll("#ramp-mix [data-k]").forEach(b => b.onclick = () => {
+    const k = b.dataset.k;
+    if (k === "stop" || k === "surface"){ stopAll(); quiet(); cs.textContent = "Parado."; surf = wind = cave = null; where = null; rs.textContent = "Parado."; }
+    if (k === "surface"){
+      surf = loopA(A + "amb_dead.wav", 0); wind = loopA(A + "desert_wind.wav", 0);
+      fade(surf, 0.7, 2000); fade(wind, 0.45, 2500); where = "sup";
+      rs.textContent = "Na superfície: amb_dead (0,7) + vento (0,45). Agora desce.";
+    }
+    if (k === "down"){
+      if (where !== "sup"){ rs.textContent = "Começa na superfície primeiro."; return; }
+      one(P + "ramp_down.wav", 0.8);
+      fade(surf, 0, 1500, true); fade(wind, 0, 1500, true);
+      later(() => { cave = loopA(P + "amb_cave.wav", 0); fade(cave, 0.7, 2500); }, 600);
+      where = "cav"; rs.textContent = "Descendo: superfície sai em 1,5 s, ramp_down (0,8), caverna entra em 2,5 s.";
+    }
+    if (k === "up"){
+      if (where !== "cav"){ rs.textContent = "Tem que estar na caverna pra subir."; return; }
+      one(P + "ramp_up.wav", 0.8);
+      fade(cave, 0, 1500, true);
+      later(() => { surf = loopA(A + "amb_dead.wav", 0); wind = loopA(A + "desert_wind.wav", 0);
+        fade(surf, 0.7, 2500); fade(wind, 0.45, 2500); }, 600);
+      where = "sup"; rs.textContent = "Subindo: caverna sai em 1,5 s, ramp_up (0,8), superfície e vento voltam em 2,5 s.";
+    }
+  });
+
+  document.querySelectorAll("#loot-mix [data-k]").forEach(b => b.onclick = () => {
+    const k = b.dataset.k;
+    if (k === "crate") one(P + "crate_open.wav", 0.9);
+    if (k === "bp"){ one(P + "crate_open.wav", 0.9);
+      live.forEach(a => fade(a, a.volume * 0.6, 300));
+      setTimeout(() => one(P + "blueprint_found.wav", 1.0), 450); }
+    if (k === "equip"){ one(A + "craft.wav", 1.0); setTimeout(() => one(P + "equip.wav", 0.7), 1700); }
+  });
+  // play num player da página para as prévias
+  document.addEventListener("play", e => { if (e.target.tagName === "AUDIO" && e.target.isConnected){ stopAll(); cs.textContent = "Parado."; rs.textContent = "Parado."; } }, true);
 })();
 
 // só uma faixa tocando por vez

@@ -1096,10 +1096,251 @@ def loop_desert_wind(rng):
     return reverb(out, rng, decay=4.5, mix=0.35, lp=1600, circular=True)
 
 
+# ---------------------------------------------------------------------------
+# v8 (v0.3 · Marcos 2 e 3 · Caverna e Destroços): pendentes de aprovação
+# ---------------------------------------------------------------------------
+
+def cave_space(x: np.ndarray, rng, circular: bool = False, decay: float = 4.5, mix: float = 0.9,
+               lp: float = 2200.0) -> np.ndarray:
+    """Espaço de caverna: reflexões iniciais em atrasos irregulares (paredes a distâncias
+    diferentes, nada periódico, então nenhum pente/tom) + cauda longa e escura."""
+    taps = [(0.071, 0.42), (0.113, 0.33), (0.187, 0.27), (0.262, 0.2), (0.349, 0.14), (0.458, 0.09)]
+    if circular:
+        er = x.copy()
+        for d, g in taps:
+            er += np.roll(filt(x, 120, lp, 1, circular=True), ns(d)) * g
+    else:
+        er = np.concatenate([x, np.zeros(ns(0.5))])
+        xf = filt(x, 120, lp, 1)
+        for d, g in taps:
+            er[ns(d):ns(d) + len(x)] += xf * g
+    return reverb(er, rng, decay=decay, mix=mix, lp=lp, circular=circular)
+
+
+def amb_cave(rng):
+    """Caverna: o mesmo Lá dos ambientes, uma oitava mais escuro. Drone grave em quinta
+    (Lá1, Mi2, Lá2) bem fechado num passa-baixa, um fio de Dó3 (terça menor, sombra sem
+    medo) que só aparece no swell, gotas esparsas em tempo irregular com eco de caverna,
+    dois brilhos frios bem apagados e um rumor de rocha quase inaudível. Sem bicho.
+    Periódico em L = 28 s (≠ 32 s dos ambientes e 36 s do vento)."""
+    L = 28.0
+    n = ns(L)
+    drone = sum(g * pad_voice(n, L, rng, midi(m), detune=(-0.1, 0.0, 0.1), harm=(1.0, 0.15, 0.04),
+                              swell=(1, 3))
+                for m, g in ((33, 0.4), (40, 0.6), (45, 1.0), (52, 0.55)))       # A1 E2 A2 E3
+    shade = pad_voice(n, L, rng, midi(48), harm=(1.0,), swell=(2, 4)) * 0.15      # C3, só respirando
+    pad = norm_rms(filt(drone + shade, 30, 900, 2, circular=True))
+    # brilhos: só 2 por volta, graves pra brilho (Mi4, Lá4), atrás do passa-baixa
+    shimmer = filt(glints(n, rng, (64, 69), 2, (4.0, 7.0), (0.12, 0.18)), None, 1800, 1, circular=True)
+    # gotas: esparsas e irregulares (às vezes uma dupla), com o espaço da caverna
+    drops = np.zeros(n)
+    gaps = rng.uniform(0.6, 4.6, 10) ** 1.3                    # intervalos bem desiguais (0,5 a 7 s)
+    starts = np.cumsum(gaps / gaps.sum() * L) + rng.uniform(0, 1)  # 10 gotas por volta, espalhadas
+    for t in starts:
+        f0 = rng.uniform(900, 1700)
+        amp = rng.uniform(1.6, 3.6)
+        add_circ(drops, filt(plink(rng, f0, 0.08), 300, 3200, 1) * amp, ns(t) % n)
+        if rng.uniform() < 0.3:                                                  # gota que respinga
+            add_circ(drops, filt(plink(rng, f0 * rng.uniform(1.1, 1.35), 0.06), 300, 3200, 1) * amp * 0.5,
+                     ns(t + rng.uniform(0.12, 0.3)) % n)
+    drops = cave_space(drops, rng, circular=True, decay=4.0, mix=1.1, lp=2400)
+    # rocha assentando bem longe: um sopro de ruído grave, sem tom, uma vez por volta
+    m = ns(3.5)
+    settle = filt(rng.standard_normal(m), 30, 160, 2) * bump(m, 0.2) * 0.35
+    rumble = norm_rms(filt(rng.standard_normal(n), 22, 140, 2, circular=True))
+    rumble *= 0.06 * (0.5 + 0.5 * periodic_ctrl(n, L, rng, 1, 4))
+    add_circ(rumble, settle * 0.25, ns(17.0))
+    air = norm_rms(filt(rng.standard_normal(n), 150, 900, 1, circular=True)) * 0.006  # ar parado, um fio
+    # as gotas já têm o espaço da caverna, então entram fora do reverb dos brilhos
+    return space_mix(rng, pad, shimmer, drops + rumble + air,
+                     pad_rev=(6.5, 0.5, 1600), sh_rev=(6.0, 0.6, 3500))
+
+
+def metal_step(rng, weight: float = 1.0) -> np.ndarray:
+    """Bota em degrau de grade metálica: tranco de ruído grave, corpo médio de banda larga,
+    um "tinc" curtíssimo (parciais inarmônicos sorteados a cada passo, decaimento de
+    poucos ms, então não fica nota) e a grade chacoalhando de leve."""
+    tr = Track()
+    tr.add(noise_burst(rng, None, 300, 0.002, 0.02, 0.09, order=2), 0, 0.7 * weight)        # peso
+    tr.add(noise_burst(rng, 400, 3500, 0.0004, 0.012, 0.06, order=1), 0, 0.8)               # corpo
+    base = rng.uniform(700, 1100)
+    ratios = sorted(rng.uniform(1.0, 6.5, 6))
+    tr.add(metal(rng, base, ratios, rng.uniform(0.003, 0.006, 6), rng.uniform(0.3, 1.0, 6), 0.05),
+           0.001, 0.07)                                                                    # tinc abafado
+    for _ in range(int(rng.integers(3, 6))):                                               # grade chacoalhando
+        at = rng.uniform(0.012, 0.06)
+        hi = rng.uniform(1500, 5000)
+        tr.add(noise_burst(rng, hi / 3, hi, 0.0002, rng.uniform(0.001, 0.003), 0.01, order=1),
+               at, rng.uniform(0.1, 0.25))
+    return tr.render()
+
+
+def _ramp(rng, down: bool):
+    """3 passos na escada de metal + a mudança de espaço. Descer: o ar escurece e o eco
+    cresce passo a passo (cada passo com mais caverna). Subir: o eco encolhe e o vento abre."""
+    tr = Track()
+    times = (0.0, 0.27, 0.55)
+    for i, at in enumerate(times):
+        k = i / 2 if down else 1 - i / 2                                   # 0 = superfície, 1 = caverna
+        step = metal_step(rng, 1.0 - 0.15 * i if down else 0.85 + 0.1 * i)
+        step = filt(step, None, 6000 - 3500 * k, 1)                         # mais fundo, mais abafado
+        dry = 1 - 0.35 * k
+        wet = cave_space(step, rng, decay=0.4 + 1.1 * k, mix=0.15 + 0.9 * k, lp=2800)
+        wet[:len(step)] -= step                                            # só o eco
+        tr.add(step * dry, at, 0.9)
+        tr.add(wet, at, 0.9)
+    # o ar: banda de ruído larga que fecha (desce) ou abre (sobe)
+    dur = 1.15
+    n = ns(dur)
+    x = np.linspace(0, 1, n)
+    if down:
+        air = noise_sweep(rng, dur, 1400, 160, width=4.0) * bump(n, 0.25) * 0.5
+        dark = filt(rng.standard_normal(n), 25, 140, 2) * np.clip(x * 1.4, 0, 1) ** 1.5 * bump(n, 0.75)
+        tr.add(air, 0.0, 0.16)
+        tr.add(dark, 0.15, 0.3)                                             # caverna "fechando" em volta
+    else:
+        air = noise_sweep(rng, dur, 160, 1200, width=4.0) * bump(n, 0.7)    # vento abrindo
+        tr.add(air, 0.05, 0.2)
+        tr.add(filt(rng.standard_normal(n), 25, 140, 2) * (1 - x) ** 2, 0.0, 0.2)  # caverna ficando pra trás
+    out = tr.render()
+    t = tvec(len(out))
+    return out * np.clip((1.45 - t) / 0.4, 0, 1) ** 2                       # ~1,4 s no total
+
+
+def sfx_ramp_down(rng):
+    return _ramp(rng, True)
+
+
+def sfx_ramp_up(rng):
+    return _ramp(rng, False)
+
+
+def sfx_lamp_place(rng):
+    """Base apoiando no chão, clique do interruptor e a luz acendendo: um "fuum" macio e
+    um brilho quente em Lá (Lá3 + Mi4 + Lá4) que abre o filtro e assenta, com um zumbido
+    de filamento bem baixo."""
+    tr = Track()
+    tr.add(noise_burst(rng, 150, 1200, 0.001, 0.012, 0.06, order=1), 0, 0.6)               # base no chão
+    tr.add(noise_burst(rng, 2000, 7000, 0.0002, 0.0008, 0.006, order=1), 0.07, 0.55)        # clique
+    tr.add(noise_burst(rng, 900, 3000, 0.0003, 0.003, 0.015, order=1), 0.072, 0.35)
+    n = ns(0.45)
+    t = tvec(n)
+    tr.add(filt(rng.standard_normal(n), 200, 1500, 1) * bump(n, 0.15) ** 2, 0.08, 0.18)     # fuum
+    glow = np.zeros(n)
+    for m, g in ((57, 1.0), (64, 0.6), (69, 0.35)):
+        f = midi(m) * (1 - 0.03 * np.exp(-t / 0.05))                                      # sobe e assenta
+        glow += g * np.sin(phase_of(f, n, rng.uniform(0, 6.28)))
+    glow *= np.minimum(1, t / 0.04) * np.exp(-t / 0.22) * (1 - np.exp(-t / 0.015))
+    tr.add(glow, 0.085, 0.22)
+    hum = bl_wave(110, n, "saw", 600) * np.minimum(1, t / 0.05) * np.exp(-t / 0.18)        # filamento
+    tr.add(hum, 0.085, 0.04)
+    return reverb(tr.render(), rng, decay=0.5, mix=0.15, lp=3500)
+
+
+def sfx_crate_open(rng):
+    """Tampa metálica pesada de caixa de carga: trava dupla soltando, ar velado escapando,
+    a dobradiça arrastando (atrito de ruído largo com "agarra-solta" irregular, sem
+    rangido tonal), a tampa tombando no batente (baque de ruído grave) e poeira caindo."""
+    tr = Track()
+    for at in (0.0, 0.05):                                                                  # trava dupla
+        tr.add(noise_burst(rng, 1200, 5000, 0.0002, 0.0015, 0.012, order=1), at, 0.45)
+        tr.add(noise_burst(rng, 150, 900, 0.0008, 0.012, 0.06, order=2), at + 0.002, 0.45)
+    n = ns(0.35)
+    tr.add(filt(rng.standard_normal(n), 900, 4000, 1) * bump(n, 0.08) ** 1.8, 0.08, 0.13)   # ar velado
+    # dobradiça arrastando: banda larga que sobe devagar + agarra-solta irregular
+    dur = 0.42
+    n = ns(dur)
+    t = tvec(n)
+    drag = noise_sweep(rng, dur, 180, 520, width=3.5)
+    stick = np.zeros(n)
+    tt = 0.0
+    while tt < dur:
+        tt += rng.uniform(0.012, 0.035)                                     # irregular: não vira tom
+        i = ns(tt)
+        if i < n:
+            stick[i:i + ns(0.006)] += rng.uniform(0.4, 1.0)
+    stick = filt(stick, None, 120, 1)
+    drag *= (0.35 + stick / (stick.max() + 1e-9)) * bump(n, 0.4)
+    tr.add(drag, 0.16, 0.5)
+    tr.add(noise_burst(rng, None, 260, 0.003, 0.05, 0.25, order=2), 0.6, 1.0)              # tampa no batente
+    tr.add(noise_burst(rng, 300, 2000, 0.0008, 0.015, 0.08, order=1), 0.6, 0.45)           # corpo do metal
+    for _ in range(9):                                                                     # poeira/ferrugem
+        at = 0.62 + rng.gamma(1.5, 0.05)
+        hi = rng.uniform(1500, 5000)
+        tr.add(noise_burst(rng, hi / 4, hi, 0.0003, rng.uniform(0.001, 0.003), 0.012, order=1),
+               at, rng.uniform(0.05, 0.14))
+    return reverb(tr.render(), rng, decay=0.45, mix=0.13, lp=3500)
+
+
+def sfx_blueprint_found(rng):
+    """Mini-jingle de conquista, da família do stage_up (pulse + tri dobrado, Lá maior),
+    só que menor: arpejo rápido Mi-Lá-Dó#-Mi subindo até Lá5 segurado, baixo em Lá e
+    três brilhos. ~1,5 s com a cauda."""
+    tr = Track()
+    lead = [(64, 0.00, 0.09), (69, 0.075, 0.09), (73, 0.15, 0.09), (76, 0.225, 0.11), (81, 0.31, 0.75)]
+    for m, at, d in lead:
+        long = d > 0.5
+        tr.add(chip_note(midi(m), d, "pulse", 3600, 0.35 if long else 0.3, a=0.005, sustain=0.7,
+                         release=0.45 if long else 0.04, vib=0.005 if long else 0.0, vib_delay=0.2), at, 0.38)
+        tr.add(chip_note(midi(m) * 1.003, d, "tri", 3000, a=0.005, sustain=0.7,
+                         release=0.45 if long else 0.04), at, 0.16)
+    tr.add(chip_note(midi(45), 0.3, "tri", 1500, a=0.006, sustain=0.8, release=0.05), 0.0, 0.4)
+    tr.add(chip_note(midi(45), 0.85, "tri", 1500, a=0.006, sustain=0.8, release=0.4), 0.31, 0.45)
+    for i, m in enumerate((88, 85, 93)):
+        x = np.sin(phase_of(midi(m), ns(0.3))) * perc(ns(0.3), 0.002, 0.07)
+        tr.add(x, 0.33 + 0.07 * i, 0.13)
+    out = echo(tr.render(), 0.16, 0.2, taps=2, lp=3000)
+    return reverb(out, rng, decay=1.2, mix=0.22, lp=4500)
+
+
+def sfx_equip(rng):
+    """Encaixe no traje: deslizar curto, "clack" de trava (ruído médio, sem tom), selo
+    pneumático e um bipezinho Mi5->Lá5 bem baixo confirmando."""
+    tr = Track()
+    tr.add(noise_sweep(rng, 0.07, 600, 2000, width=2.5) * bump(ns(0.07), 0.7), 0, 0.2)      # deslizando
+    tr.add(noise_burst(rng, 500, 2800, 0.0003, 0.006, 0.035, order=1), 0.07, 0.9)          # clack
+    tr.add(noise_burst(rng, 2000, 7000, 0.0002, 0.0008, 0.006, order=1), 0.07, 0.4)
+    tr.add(noise_burst(rng, None, 350, 0.001, 0.012, 0.05, order=2), 0.071, 0.4)           # peso do tanque
+    n = ns(0.12)
+    tr.add(filt(rng.standard_normal(n), 1500, 5000, 1) * bump(n, 0.1) ** 2, 0.09, 0.1)      # pssh
+    for m, at in ((76, 0.12), (81, 0.17)):
+        nn = ns(0.12)
+        tr.add(np.sin(phase_of(midi(m), nn)) * perc(nn, 0.003, 0.03), at, 0.16)
+    return reverb(tr.render(), rng, decay=0.35, mix=0.1, lp=4000)
+
+
+def sfx_map_open(rng):
+    """Mapa holográfico abrindo: um "fsss" curto de desdobrar (ruído com grão irregular,
+    banda subindo) e dois bipes macios Lá5 -> Mi6. Discreto, de interface."""
+    tr = Track()
+    dur = 0.16
+    n = ns(dur)
+    grain = (rng.uniform(0, 1, n) < 0.08) * rng.standard_normal(n) + 0.35 * rng.standard_normal(n)
+    unfold = (filt(grain, 900, 3000, 1) * np.linspace(1, 0.3, n)
+              + filt(grain, 2500, 6500, 1) * np.linspace(0.2, 1, n)) * bump(n, 0.5)
+    tr.add(unfold, 0, 0.35)
+    for m, at in ((81, 0.06), (88, 0.12)):
+        nn = ns(0.16)
+        f = midi(m)
+        x = np.sin(phase_of(f, nn)) + 0.15 * bl_wave(f, nn, "tri", 3000)
+        tr.add(x * perc(nn, 0.004, 0.04), at, 0.32)
+    return reverb(echo(tr.render(), 0.11, 0.15, taps=1, lp=2500), rng, decay=0.5, mix=0.12, lp=4500)
+
+
 # v6.1: os 9 sons do v0.2 foram aprovados e entraram no SOUNDS.
 # Próximas rodadas: o que for novo entra aqui e sai em assets/audio/_pending/.
 # v7: desert_wind (v0.3 Marco 1) aprovado e promovido pro SOUNDS.
-PENDING: dict = {}
+# v8: Marcos 2 (caverna) e 3 (destroços) do v0.3, pendentes.
+PENDING: dict = {
+    "amb_cave": (amb_cave, True, -28.0),
+    "ramp_down": (sfx_ramp_down, False, -21.0),
+    "ramp_up": (sfx_ramp_up, False, -21.0),
+    "lamp_place": (sfx_lamp_place, False, -21.0),
+    "crate_open": (sfx_crate_open, False, -20.0),
+    "blueprint_found": (sfx_blueprint_found, False, -16.0),
+    "equip": (sfx_equip, False, -23.0),
+    "map_open": (sfx_map_open, False, -24.0),
+}
 
 SOUNDS.update({
     "chest_open": (sfx_chest_open, False, -21.0),
