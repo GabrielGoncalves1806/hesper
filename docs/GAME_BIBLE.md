@@ -231,7 +231,7 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 - Craftável desde o início, custa **6 ferro**. Tem **24 slots** e ocupa 1 tile. **E** abre e mostra o baú ao lado do inventário.
 - Desmontar o baú só funciona se ele estiver vazio (aparece um aviso se não estiver).
 - **Nome**: cada baú tem um nome (padrão "Baú"). No painel do baú, clicar no nome (título) abre a edição: até **16 caracteres**, **Enter** confirma, **Esc** cancela, **Backspace** apaga, e clicar fora do campo também confirma. Nome vazio volta pra "Baú". Enquanto edita, nenhuma tecla do jogo (E, Tab, números, WASD, +/-) faz nada além de digitar.
-- No mundo, o nome aparece flutuando em cima do baú quando o mouse está em cima dele ou o player está no alcance do E (o mesmo do aviso "[E] Abrir baú"). O tamanho da letra não muda com o zoom.
+- No mundo, o nome aparece flutuando em cima do baú só quando o mouse está em cima dele (decisão do dono: perto não mostra, pra não poluir a base). O tamanho da letra não muda com o zoom.
 
 **Transferência entre painéis (estilo Planet Crafter)** · vale no baú, na drill (só tirar) e na estação de drones
 - Com os dois painéis abertos (inventário + baú/estação): **clique esquerdo** num item manda a **pilha inteira** pro outro lado, **clique direito** manda **1 unidade**, e **Shift+clique** manda **todas as pilhas daquele item**. O que não couber fica onde está (com o aviso "Baú cheio" / "Inventário cheio").

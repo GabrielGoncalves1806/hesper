@@ -563,8 +563,13 @@ def check_inventory_and_chest(bot) -> None:
     assert app.name_edit is None and chest.name == "Minérios da base" and app.mode == "chest"
     bot.key(pygame.K_ESCAPE)                            # agora fecha
     assert app.mode == "play" and app.held is None and inv.count("o2") == 2
-    # no mundo: o nome flutua em cima do baú (player no alcance do E)
+    # no mundo: o nome flutua em cima do baú só com o mouse em cima dele
     bot.mouse_to((40, 40))
+    bot.frames(0.2)
+    assert app.labeled_chests() == []                   # perto, mas sem apontar: nada
+    from game import viewport
+    pos = viewport.world_to_canvas((chest.anchor[0], chest.anchor[1] - 8), app.cam, app.zoom)
+    bot.mouse_to((round(pos[0]), round(pos[1])))
     bot.frames(0.2)
     assert chest in app.labeled_chests()
     assert app.ui.chest_label_parts(chest) == [("text", "Minérios da base")]   # sem filtro: só o nome
@@ -1015,9 +1020,12 @@ def check_logistics(bot) -> None:
         bot.shot("logistica_bau_vazio.png")
         app.set_mode("play")
         drones.toggle_send(fresh, "ice")
-    # rótulo no mundo: player perto (sem o mouse em cima)
+    # rótulo no mundo: só com o mouse em cima do baú
     s.player.x, s.player.y = ax, ay + 10
-    bot.mouse_to((20, 20))
+    bot.frames(0.1)
+    from game import viewport
+    pos = viewport.world_to_canvas((ax, ay - 8), app.cam, app.zoom)
+    bot.mouse_to((round(pos[0]), round(pos[1])))
     bot.frames(0.1)
     assert chest in app.labeled_chests()
     shot_zoom(bot, "bau_rotulo.png", (ax, ay - 30), w=240, h=90)

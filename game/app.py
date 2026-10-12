@@ -648,12 +648,9 @@ class App:
         return text
 
     def labeled_chests(self) -> list:
-        """Baús que mostram o rótulo flutuante (↓recebe ↑envia Nome): os no alcance do E e o debaixo do mouse."""
-        found = []
-        for chest in (self.hovered_machine(), *self.state.chests_showing_name()):
-            if chest is not None and chest.is_chest and not any(chest is c for c in found):
-                found.append(chest)
-        return found
+        """Baús que mostram o rótulo flutuante (↓recebe ↑envia Nome): só o que está debaixo do mouse."""
+        chest = self.hovered_machine()
+        return [chest] if chest is not None and chest.is_chest else []
 
     def stash_held(self) -> bool:
         """Devolve a pilha da mão pro inventário (ou pro baú aberto). False se não coube tudo."""
