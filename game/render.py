@@ -39,6 +39,13 @@ LANDED_SHADOW_DROP = 6   # px abaixo do centro do drone: a sombra encostada nele
 FACE_Y = 8       # a face (32×24) começa 8 px abaixo do topo do tile e vai até a borda de baixo
 
 
+def snap(v: float) -> int:
+    """Pixel inteiro do mundo onde o player é desenhado. A câmera usa o MESMO pixel: assim o sprite fica
+    parado na tela enquanto anda (antes a câmera truncava e o sprite arredondava; na diagonal, 1,41 px por
+    quadro, a parte quebrada cruzava 0,5 quase todo quadro e o sprite pulava 1 px pra lá e pra cá)."""
+    return math.floor(v + 0.5)
+
+
 def build_draw_list(world, objects, tx0: int, tx1: int, ty0: int, ty1: int) -> list[tuple]:
     """Ordem de desenho por profundidade (função pura, testável sem tela).
 
@@ -221,8 +228,8 @@ class Renderer:
         vw, vh = view
         max_x = state.world.width * T - vw
         max_y = state.world.height * T - vh
-        cx = min(max(0, state.player.x - vw / 2), max_x)
-        cy = min(max(0, state.player.y - 16 - vh / 2), max_y)
+        cx = min(max(0, snap(state.player.x) - vw // 2), max_x)
+        cy = min(max(0, snap(state.player.y) - 16 - vh // 2), max_y)
         return int(cx), int(cy)
 
     # ---- frame completo -------------------------------------------------------
@@ -316,7 +323,7 @@ class Renderer:
             frame, (dx, dy), behind = self.drill_sprite(state, t)
             if not behind:
                 p = state.player
-                canvas.blit(frame, (round(p.x - cam[0]) + dx, round(p.y - cam[1]) + dy))
+                canvas.blit(frame, (snap(p.x) - cam[0] + dx, snap(p.y) - cam[1] + dy))
 
     def player_occluded(self, state: GameState) -> bool:
         """O topo elevado de alguma parede da linha de baixo está cobrindo o player?"""
@@ -334,7 +341,7 @@ class Renderer:
         ghost = (pygame.transform.flip(surf, True, False) if flip else surf.copy())
         ghost.set_alpha(95)
         p = state.player
-        canvas.blit(ghost, (round(p.x - cam[0]) - ghost.get_width() // 2, round(p.y - cam[1]) - ghost.get_height()))
+        canvas.blit(ghost, (snap(p.x) - cam[0] - ghost.get_width() // 2, snap(p.y) - cam[1] - ghost.get_height()))
 
     def _draw_wall(self, canvas, world, tx, ty, sx, sy, stage) -> None:
         """Parede alta: topo 32×32 em (x, y-24) e, se embaixo tem chão, face 32×24 em (x, y+8)."""
@@ -561,7 +568,7 @@ class Renderer:
                             s, (px - cam_x - s.get_width() // 2, py - cam_y - s.get_height()))))
 
         p = state.player
-        items.append((p.y, lambda: self._draw_player(canvas, state, p.x - cam_x, p.y - cam_y, t)))
+        items.append((p.y, lambda: self._draw_player(canvas, state, snap(p.x) - cam_x, snap(p.y) - cam_y, t)))
         return items
 
     def crater_surface(self, surface_layer: bool = True) -> tuple[pygame.Surface, str]:
