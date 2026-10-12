@@ -24,6 +24,7 @@ from game import config as C  # noqa: E402
 from game import save  # noqa: E402
 from game import settings  # noqa: E402
 from game.app import NUMBER_KEYS, App  # noqa: E402
+from game.ui import TAB_CRAFT, TAB_INVENTORY, TAB_LOGS  # noqa: E402
 
 # o smoke mexe nos volumes: grava num arquivo temporário, nunca no settings.json de verdade
 import tempfile  # noqa: E402
@@ -1360,6 +1361,44 @@ def ui_to_window(app, rect) -> tuple[int, int]:
     return round(x + rect.centerx * k), round(y + rect.centery * k)
 
 
+def check_field_craft(bot) -> None:
+    """Tab > aba Fabricar (fabricar em campo) nos 3 tamanhos de interface (janela 1920×1080): o kit de campo
+    (drill, luminária, luminária forte "???" sem projeto, baú), custo só do inventário (falta em vermelho),
+    clique na aba pela posição na janela; na Pequena, clica em CRAFTAR da luminária e confere o modo de colocar.
+    Prints: inventario_fabricar_<tamanho>.png."""
+    from game.inventory import Stack
+    s, app = bot.state, bot.app
+    slots_before = [Stack(st.item, st.count) if st else None for st in s.inventory.slots]
+    blueprints_before = set(s.blueprints)
+    s.blueprints.discard("lamp_t2")
+    s.inventory.slots[:] = [None] * len(s.inventory)
+    s.inventory.add("iron", 8)
+    s.inventory.add("silicon", 3)
+    for ui_size in ("grande", "media", "pequena"):
+        app.set_ui_size(ui_size)
+        bot.key(pygame.K_TAB)
+        assert app.mode == "inventory" and app.inv_tab == TAB_INVENTORY
+        bot.frames(DT)
+        tab = next(r for r, i in app.ui.inv_tab_rects if i == TAB_CRAFT)
+        bot.click(ui_to_window(app, tab))
+        assert app.inv_tab == TAB_CRAFT, f"clique na aba Fabricar ({ui_size})"
+        bot.frames(DT)
+        assert [k for _, k in app.ui.fabricator_rows] == list(C.FIELD_RECIPES)
+        assert "lamp" in [k for _, k in app.ui.fabricator_buttons] and s.recipe_status("lamp_t2", True) == "blueprint"
+        bot.shot(f"inventario_fabricar_{ui_size}.png")
+        if ui_size == "pequena":
+            button = next(r for r, k in app.ui.fabricator_buttons if k == "lamp")
+            bot.click(ui_to_window(app, button))
+            bot.frames(DT)
+            assert app.mode == "play" and app.placing == "lamp" and s.inventory.count("lamp") == 1
+            app.placing = None
+        else:
+            bot.key(pygame.K_TAB)
+        assert app.mode == "play"
+    s.inventory.slots[:] = slots_before
+    s.blueprints = blueprints_before
+
+
 def check_inventory_logs(bot) -> None:
     """Tab > aba LOGs nos 3 tamanhos de interface (janela 1920×1080): ordem da história, lidos clicáveis,
     não achados "???", um "NOVO". Clique na aba e numa linha pela posição na janela; fechar a leitura volta
@@ -1372,12 +1411,12 @@ def check_inventory_logs(bot) -> None:
     for ui_size in ("grande", "media", "pequena"):
         app.set_ui_size(ui_size)
         bot.key(pygame.K_TAB)
-        assert app.mode == "inventory" and app.inv_tab == 0
+        assert app.mode == "inventory" and app.inv_tab == TAB_INVENTORY
         bot.frames(DT)
         bot.shot(f"inventario_abas_{ui_size}.png")
-        tab = next(r for r, i in app.ui.inv_tab_rects if i == 1)
+        tab = next(r for r, i in app.ui.inv_tab_rects if i == TAB_LOGS)
         bot.click(ui_to_window(app, tab))
-        assert app.inv_tab == 1, f"clique na aba LOGs ({ui_size})"
+        assert app.inv_tab == TAB_LOGS, f"clique na aba LOGs ({ui_size})"
         bot.frames(DT)
         assert [lg for _, lg in app.ui.log_rows] == [0, 5, 1, 3]      # só os lidos, na ordem da história
         assert len(app.ui.log_rows) == 4 and app.ui.log_visible == len(C.LOGS)
@@ -1389,7 +1428,7 @@ def check_inventory_logs(bot) -> None:
             bot.frames(0.2)
             bot.shot("inventario_logs_leitura.png")
             bot.key(pygame.K_e)
-            assert app.mode == "inventory" and app.inv_tab == 1 and s.new_logs == 0
+            assert app.mode == "inventory" and app.inv_tab == TAB_LOGS and s.new_logs == 0
         bot.key(pygame.K_TAB)
         assert app.mode == "play"
     s.logs_read, s.logs_seen = read_before, seen_before
@@ -1510,6 +1549,7 @@ def check_ui_size(bot) -> None:
     assert app.mode == "play"
 
     check_inventory_logs(bot)
+    check_field_craft(bot)
 
     # volta pro tamanho do resto do smoke
     app.set_ui_size(settings.DEFAULTS["ui_size"])

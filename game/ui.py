@@ -19,7 +19,7 @@ import pygame
 from game import config as C
 from game import energy
 from game.assets import Sprites, load_font
-from game.fabricator import tab_kinds
+from game.fabricator import field_kinds, tab_kinds
 from game.floaters import LANE_PX, RISE, FloatingTexts, dodge_labels
 from game.inventory import Inventory, Stack
 from game.systems import GameState, eta_label, stage_progress
@@ -41,8 +41,10 @@ BATCH_BTN_W = 17                                 # botões do lote: 1 / 5 / 10 /
 SIDE_GRID_Y = 22
 SIDE_BUTTONS_Y = SIDE_GRID_Y + 3 * (20 + 2) - 2 + 5
 SIDE_LOGI_Y = SIDE_BUTTONS_Y + 15 + 4
-# abas do Tab (Inventário / LOGs), no estilo das abas do fabricador
+# abas do Tab (Inventário / Fabricar / LOGs), no estilo das abas do fabricador
 INV_TABS_H = 17                                  # faixa das abas embaixo do título (aba de 15 + linha + respiro)
+TAB_INVENTORY, TAB_CRAFT, TAB_LOGS = range(3)    # índices das abas do Tab
+FIELD_ROW_H = 36                                 # linha de receita da aba Fabricar (o fabricador usa ~41)
 LOG_ROW_H, LOG_ROW_STEP = 15, 16                 # linha da aba LOGs e o passo entre elas
 # altura da janela do Tab na aba Inventário (título, abas, mochila, HOTBAR, TRAJE): a aba LOGs usa pro mesmo topo
 TAB_INV_H = 20 + INV_TABS_H + 6 + SLOT + 14 + SLOT + 8 + 14 + SLOT + 2
@@ -184,7 +186,7 @@ class UI:
         self.logistics_buttons: list[tuple[pygame.Rect, tuple[str, object]]] = []
         self.slot_img = Sprites().get("ui_slot")      # moldura opcional (bíblia §8); sem ela, desenhamos
         self.equip_rects: list[tuple[pygame.Rect, str]] = []      # slots de equipamento (Tab): (retângulo, tipo)
-        self.inv_tab_rects: list[tuple[pygame.Rect, int]] = []    # abas do Tab: (retângulo, 0 Inventário / 1 LOGs)
+        self.inv_tab_rects: list[tuple[pygame.Rect, int]] = []    # abas do Tab: (retângulo, TAB_INVENTORY/CRAFT/LOGS)
         self.log_rows: list[tuple[pygame.Rect, int]] = []         # aba LOGs: linhas clicáveis (retângulo, índice em LOGS)
         self.log_visible = len(C.LOGS)                             # quantas linhas da aba LOGs couberam no último desenho
         self.energy_bottom = 110                                   # onde acaba o medidor de energia (minimapa embaixo)
@@ -578,6 +580,13 @@ class UI:
             self.fabricator_tabs.append((rect, i))
             tx += tw + 3
         pygame.draw.line(self.surf, pygame.Color("#3a2c25"), (x + 8, y + 35), (x + w - 9, y + 35))
+        self._recipe_list(state, menu, x, w, list_y, row_h, machine_preview)
+
+    def _recipe_list(self, state: GameState, menu, x: int, w: int, list_y: int, row_h: int, machine_preview,
+                     field: bool = False) -> None:
+        """As linhas de receita (prévia, nome, custo com falta em vermelho e o botão CRAFTAR) da aba atual do
+        `menu`, numa janela de largura `w` em `x`. Usada pelo fabricador e pela aba Fabricar do Tab (`field`:
+        o custo conta só o inventário). Preenche fabricator_rows e fabricator_buttons."""
         kinds = menu.kinds
         selected, first = menu.selected[menu.tab], menu.first[menu.tab]
         if len(kinds) > menu.visible:                   # barra de rolagem na margem direita
@@ -588,7 +597,7 @@ class UI:
             self.surf.fill(pygame.Color(C.C_ACCENT), (track.x, thumb_y, 3, thumb_h))
         for i, kind in menu.window():
             m = C.MACHINES[kind]
-            status = state.recipe_status(kind)
+            status = state.recipe_status(kind, field)
             ry = list_y + (i - first) * (row_h + 1)
             sel = i == selected
             row = pygame.Rect(x + 8, ry, w - 16, row_h)
@@ -627,7 +636,7 @@ class UI:
             if hidden:
                 self.text("Ache o projeto num destroço do deserto", cx, text_y + 18, "#6e6058", self.body)
             for res, n in ({} if hidden else m.cost).items():
-                have = state.available(res)              # inventário + baús da base
+                have = state.available(res, field)       # inventário + baús da base (em campo: só o inventário)
                 label = f"{have}/{n} {C.RESOURCE_LABEL[res]}"
                 color = "#6e6058" if locked else C.C_OK if have >= n else C.C_ALERT
                 cx += self.text(label, cx, text_y + 21, color) + 8
@@ -651,7 +660,7 @@ class UI:
                 self.fabricator_buttons.append((button, kind))
             elif status == "missing":
                 pygame.draw.rect(self.surf, pygame.Color(C.C_ALERT), button, 1)
-                res = state.missing_resource(kind)
+                res = state.missing_resource(kind, field)
                 self.text(f"SEM {C.RESOURCE_LABEL[res]}", bx + bw / 2, by + 6, C.C_ALERT, align="center")
             elif hidden:
                 pygame.draw.rect(self.surf, pygame.Color("#5a4a40"), button, 1)
@@ -740,7 +749,8 @@ class UI:
                        mouse: tuple[float, float], t: float = 0.0, editing=None, status: str = "",
                        info: str | None = None, equipment=None, state: GameState | None = None) -> None:
         """Tela do Tab (só o inventário) ou com um painel do lado: baú ou estação de drones.
-        No Tab, com `state`, ganha as abas Inventário / LOGs no topo (a aba LOGs é draw_logs).
+        No Tab, com `state`, ganha as abas Inventário / Fabricar / LOGs no topo (as outras abas são
+        draw_field_craft e draw_logs).
 
         `side` = None (Tab) ou a Machine aberta (baú ou estação). `editing` = TextField do nome do
         baú sendo editado (ou None). `status` = linha de estado da estação ("2 drones · 1 kW").
@@ -756,7 +766,10 @@ class UI:
         self.name_rect = None
         self.fill((8, 5, 4, 158), (0, 0, self.w, self.h))
         pw = GRID_W + 16
-        tabbed = side is None and state is not None             # Tab: abas Inventário / LOGs no topo
+        tabbed = side is None and state is not None             # Tab: abas Inventário / Fabricar / LOGs no topo
+        if tabbed:                                              # alarga pra as 3 abas caberem
+            pw = max(pw, self.inv_tabs_width() + 16)
+        x_pad = (pw - GRID_W) // 2                              # grade centralizada (8 px sem as abas)
         top = 20 + (INV_TABS_H if tabbed else 0)                # onde começa a mochila (título + abas)
         ph_inv = top + 6 + SLOT + 14 + SLOT + 8                 # título, mochila, rótulo HOTBAR, hotbar
         if side is None and equipment is not None:
@@ -775,14 +788,14 @@ class UI:
         used = sum(1 for s in inventory.slots if s)
         self.text(f"{used}/{len(inventory)}", x + pw - 8, y + 6, C.C_MUTED, align="right")
         if tabbed:
-            self._inventory_tabs(x, y, pw, 0, state, mouse)
+            self._inventory_tabs(x, y, pw, TAB_INVENTORY, state, mouse)
         hb = C.HOTBAR_SLOTS
-        gy = y + top + 6
-        self._grid(inventory, list(range(hb, len(inventory))), x + 8, gy, item_icon, mouse)
-        self.text("HOTBAR", x + 8, gy + SLOT + 4, C.C_MUTED)
-        self._grid(inventory, list(range(hb)), x + 8, gy + SLOT + 14, item_icon, mouse, hotbar_selected)
+        gx, gy = x + x_pad, y + top + 6
+        self._grid(inventory, list(range(hb, len(inventory))), gx, gy, item_icon, mouse)
+        self.text("HOTBAR", gx, gy + SLOT + 4, C.C_MUTED)
+        self._grid(inventory, list(range(hb)), gx, gy + SLOT + 14, item_icon, mouse, hotbar_selected)
         if side is None and equipment is not None:
-            self._equipment_row(equipment, x + 8, gy + 2 * SLOT + 14 + 6, item_icon, mouse)
+            self._equipment_row(equipment, gx, gy + 2 * SLOT + 14 + 6, item_icon, mouse)
 
         if side is None:
             keys = ("[CLIQUE] PEGA/SOLTA · [DIREITO] METADE · [ESC] FECHA" if equipment is None else
@@ -807,24 +820,33 @@ class UI:
 
     NOTICE_H = 18                                      # altura do aviso (draw_notice)
 
-    # ---- abas do Tab: Inventário / LOGs ------------------------------------------
-    INV_TAB_LABELS = ("Inventário", "LOGs")
+    # ---- abas do Tab: Inventário / Fabricar / LOGs ---------------------------------
+    INV_TAB_LABELS = ("Inventário", "Fabricar", "LOGs")
+    TAB_DOT = 5                                        # espaço do ponto laranja de LOG novo
+
+    def inv_tab_labels(self, state: GameState) -> list[str]:
+        found = len(state.logs_read)
+        return [*self.INV_TAB_LABELS[:TAB_LOGS], f"{self.INV_TAB_LABELS[TAB_LOGS]} {found}/{len(C.LOGS)}"]
+
+    def inv_tabs_width(self) -> int:
+        """Largura das 3 abas no pior caso (contador 7/7 e o ponto de NOVO): a janela não muda conforme acha."""
+        labels = [*self.INV_TAB_LABELS[:TAB_LOGS], f"{self.INV_TAB_LABELS[TAB_LOGS]} {len(C.LOGS)}/{len(C.LOGS)}"]
+        return sum(self.body.size(lb)[0] + 10 for lb in labels) + self.TAB_DOT + 3 * (len(labels) - 1)
 
     def inv_tabs_top(self, h: int) -> int:
-        """y do topo da janela do Tab: o mesmo nas duas abas (sai da mais alta), pra as abas não pularem."""
-        tallest = max(h, self.logs_window_size()[1])
+        """y do topo da janela do Tab: o mesmo nas 3 abas (sai da mais alta), pra as abas não pularem."""
+        tallest = max(h, self.logs_window_size()[1], self.field_window_size()[1])
         return max(4, (self.h - tallest) // 2 - 16)
 
     def _inventory_tabs(self, x: int, y: int, w: int, active: int, state: GameState, mouse) -> None:
         """Abas embaixo do título, iguais às do fabricador. A de LOGs leva o contador (3/7) e um ponto
         laranja se tem LOG lido que ainda não foi aberto por ela."""
         self.inv_tab_rects.clear()
-        found = len(state.logs_read)
-        labels = [self.INV_TAB_LABELS[0], f"{self.INV_TAB_LABELS[1]} {found}/{len(C.LOGS)}"]
+        labels = self.inv_tab_labels(state)
         tx = x + 8
         for i, label in enumerate(labels):
-            dot = i == 1 and state.new_logs > 0
-            tw = self.body.size(label)[0] + 10 + (5 if dot else 0)
+            dot = i == TAB_LOGS and state.new_logs > 0
+            tw = self.body.size(label)[0] + 10 + (self.TAB_DOT if dot else 0)
             rect = pygame.Rect(tx, y + 20, tw, 15)
             on = i == active
             hover = not on and rect.collidepoint(mouse)
@@ -839,6 +861,46 @@ class UI:
             tx += tw + 3
         pygame.draw.line(self.surf, pygame.Color("#3a2c25"), (x + 8, y + 34), (x + w - 9, y + 34))
 
+    # ---- aba Fabricar do Tab (fabricar em campo) -------------------------------------
+    FIELD_SAMPLE_HAVE = 999                            # largura do custo reservada pra "999/12 FERRO"
+    FIELD_HIDDEN_LINE = "Ache o projeto num destroço do deserto"
+
+    def field_window_size(self) -> tuple[int, int]:
+        """(largura, altura) da janela da aba Fabricar. A largura sai do texto mais comprido das receitas do kit
+        (nome + descrição + "x5", custo com 3 dígitos, linha de projeto não encontrado) mais a prévia e o botão;
+        não muda conforme o inventário. Altura: o kit inteiro, sem rolagem."""
+        text_w = self.body.size(self.FIELD_HIDDEN_LINE)[0]
+        for kind in field_kinds():
+            m = C.MACHINES[kind]
+            line1 = self.body_big.size(m.name)[0] + 6 + self.body.size(m.desc)[0] + 8 + self.font.size("x5")[0]
+            line2 = sum(self.font.size(f"{self.FIELD_SAMPLE_HAVE}/{n} {C.RESOURCE_LABEL[r]}")[0] + 8
+                        for r, n in m.cost.items())
+            text_w = max(text_w, line1, line2)
+        w = min(self.w - 8, max(self.inv_tabs_width() + 16, 56 + text_w + 8 + 86))
+        rows = len(field_kinds())
+        return w, 20 + INV_TABS_H + 4 + rows * (FIELD_ROW_H + 1) + 3
+
+    def draw_field_craft(self, state: GameState, menu, machine_preview, mouse) -> None:
+        """Aba Fabricar do Tab: o kit de campo (C.FIELD_RECIPES) com o mesmo visual das linhas do fabricador
+        (_recipe_list), mas o custo conta só o inventário. `menu` = fabricator.field_menu().
+        Hit-test: fabricator_rows, fabricator_buttons e inv_tab_rects."""
+        self.slot_rects.clear()
+        self.equip_rects.clear()
+        self.log_rows.clear()
+        self.fabricator_rows.clear()
+        self.fabricator_buttons.clear()
+        self.fill((8, 5, 4, 158), (0, 0, self.w, self.h))
+        w, h = self.field_window_size()
+        x = (self.w - w) // 2
+        y = self.inv_tabs_top(TAB_INV_H)               # mesmo topo das outras abas
+        self._window(x, y, w, h, "FABRICAR EM CAMPO", C.C_TI)
+        self.text("SÓ DO INVENTÁRIO", x + w - 8, y + 6, C.C_MUTED, align="right")
+        self._inventory_tabs(x, y, w, TAB_CRAFT, state, mouse)
+        self._recipe_list(state, menu, x, w, y + 20 + INV_TABS_H + 4, FIELD_ROW_H, machine_preview, field=True)
+        keys = f"[W/S] ESCOLHE · [ENTER] CRAFTA · [SHIFT+ENTER] X{C.CRAFT_BATCH} · [A/D] ABA · [ESC] FECHA"
+        self.text(keys, self.w / 2, y + h + 6, C.C_MUTED, align="center")
+        self.notice_y = self.panel_notice_y(y, y + h + 18)
+
     NEW_TAG = "NOVO"
 
     def log_row_text(self, log: int, number: int, read: bool) -> str:
@@ -852,7 +914,7 @@ class UI:
         ou não), então não muda conforme acha; se a altura não cabe na tela, mostra menos linhas (rola)."""
         tag_w = self.font.size(self.NEW_TAG)[0] + 6
         text_w = max(self.body.size(self.log_row_text(log, n, True))[0] for n, log in enumerate(C.LOG_ORDER, 1))
-        w = min(self.w - 8, max(GRID_W + 16, 8 + 6 + text_w + 8 + tag_w + 6 + 8 + 4))
+        w = min(self.w - 8, max(GRID_W + 16, self.inv_tabs_width() + 16, 8 + 6 + text_w + 8 + tag_w + 6 + 8 + 4))
         room = self.h - 20 - INV_TABS_H - 6 - 6 - 40       # tela menos título, abas, margens e ajuda/hotbar
         rows = max(1, min(len(C.LOGS), room // LOG_ROW_STEP))
         self.log_visible = rows
@@ -871,7 +933,7 @@ class UI:
         x = (self.w - w) // 2
         y = self.inv_tabs_top(TAB_INV_H)               # mesmo topo da aba Inventário
         self._window(x, y, w, h, "LOGS ENCONTRADOS", C.C_TERMINAL)
-        self._inventory_tabs(x, y, w, 1, state, mouse)
+        self._inventory_tabs(x, y, w, TAB_LOGS, state, mouse)
         entries = state.log_entries()
         rows = self.log_visible
         first = max(0, min(first, len(entries) - rows))
@@ -1311,7 +1373,7 @@ class UI:
         ("1 A 8 · RODINHA", "Escolher slot da hotbar"),
         ("CLIQUE · R", "Colocar a máquina da hotbar · girar"),
         ("M", "Mapa (com o scanner de navegação)"),
-        ("TAB", "Inventário e LOGs (A/D troca a aba)"),
+        ("TAB", "Inventário, fabricar em campo e LOGs (A/D: aba)"),
         ("CLIQUE DIREITO", "Desmontar (volta pro inventário)"),
         ("ESC", "Cancelar / fechar / pausar"),
         ("+ / -", "Aproximar / afastar (ou Ctrl+rodinha)"),

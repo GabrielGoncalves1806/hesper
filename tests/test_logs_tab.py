@@ -18,6 +18,7 @@ from game import config as C  # noqa: E402
 from game import save  # noqa: E402
 from game import settings  # noqa: E402
 from game.systems import GameState  # noqa: E402
+from game.ui import TAB_INVENTORY, TAB_LOGS  # noqa: E402
 
 # índices em LOGS (nunca mudam: o save guarda índices) -> dia da história
 DAY_3, DAY_97, DAY_212, DAY_188, DAY_140, DAY_41, DAY_230 = range(7)
@@ -168,17 +169,17 @@ def test_click_on_found_log_opens_reading_and_comes_back(app):
     s.logs_read, s.logs_seen = {DAY_3, DAY_188}, {DAY_3}
     app.mode = "play"
     app.on_key(pygame.K_TAB)
-    assert app.mode == "inventory" and app.inv_tab == 0
+    assert app.mode == "inventory" and app.inv_tab == TAB_INVENTORY
     app.draw()
-    tab = next(r for r, i in app.ui.inv_tab_rects if i == 1)
+    tab = next(r for r, i in app.ui.inv_tab_rects if i == TAB_LOGS)
     click(app, tab)
-    assert app.inv_tab == 1 and app.log_selected == C.LOG_ORDER.index(DAY_188)   # começa no NOVO
+    assert app.inv_tab == TAB_LOGS and app.log_selected == C.LOG_ORDER.index(DAY_188)   # começa no NOVO
     app.draw()
     row = next(r for r, lg in app.ui.log_rows if lg == DAY_188)
     click(app, row)
     assert app.mode == "terminal" and app.terminal_index == DAY_188 and s.new_logs == 0
     app.on_key(pygame.K_e)                                # fecha a leitura: volta pra aba LOGs
-    assert app.mode == "inventory" and app.inv_tab == 1
+    assert app.mode == "inventory" and app.inv_tab == TAB_LOGS
     app.on_key(pygame.K_TAB)
     assert app.mode == "play"
 
@@ -188,7 +189,7 @@ def test_unread_rows_are_not_clickable(app):
     s.logs_read, s.logs_seen = {DAY_3}, {DAY_3}
     app.mode = "play"
     app.on_key(pygame.K_TAB)
-    app.switch_inv_tab(1)
+    app.switch_inv_tab(TAB_LOGS)
     app.draw()
     assert [lg for _, lg in app.ui.log_rows] == [DAY_3]   # os ??? não entram no hit-test
     app.on_key(pygame.K_s)                                 # W/S pula os não achados (não tem outro lido)
@@ -196,7 +197,7 @@ def test_unread_rows_are_not_clickable(app):
     app.on_key(pygame.K_RETURN)
     assert app.mode == "terminal" and app.terminal_index == DAY_3
     app.on_key(pygame.K_ESCAPE)
-    app.on_key(pygame.K_d)                                 # A/D troca a aba
-    assert app.mode == "inventory" and app.inv_tab == 0
+    app.on_key(pygame.K_d)                                 # A/D troca a aba (D na última dá a volta)
+    assert app.mode == "inventory" and app.inv_tab == TAB_INVENTORY
     app.on_key(pygame.K_ESCAPE)
     assert app.mode == "play"

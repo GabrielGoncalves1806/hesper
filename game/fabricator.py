@@ -4,6 +4,8 @@ tests/test_fabricator.py; quem desenha é o ui.draw_fabricator e quem lê as tec
 Controles: A/D, ←/→ ou Tab trocam de aba (E não: E fecha o menu) · W/S ou ↑/↓ escolhem dentro da aba
 (a lista rola junto) · a rodinha rola a lista sem mexer na seleção · clique na aba ou na receita.
 Cada aba lembra a sua seleção e a sua rolagem.
+
+A aba Fabricar do Tab (fabricar em campo) usa o mesmo FabMenu, com uma aba só: o kit de campo (field_menu).
 """
 
 from game import config as C
@@ -14,21 +16,28 @@ def tab_kinds(tab_id: str) -> list[str]:
     return [k for k in C.MACHINE_ORDER if C.MACHINE_CATEGORY.get(k) == tab_id]
 
 
+def field_kinds(_tab_id: str = "field") -> list[str]:
+    """Receitas do kit de campo (aba Fabricar do Tab), na ordem do C.FIELD_RECIPES."""
+    return list(C.FIELD_RECIPES)
+
+
 class FabMenu:
-    def __init__(self, visible: int = C.FAB_VISIBLE_ROWS):
+    def __init__(self, visible: int = C.FAB_VISIBLE_ROWS, tabs=C.FAB_TABS, kinds_of=tab_kinds):
         self.visible = visible
+        self.tabs = tabs                         # ((id, rótulo), ...)
+        self.kinds_of = kinds_of                 # id da aba -> receitas dela
         self.tab = 0
-        self.selected = [0] * len(C.FAB_TABS)     # seleção de cada aba
-        self.first = [0] * len(C.FAB_TABS)        # primeira linha visível de cada aba
+        self.selected = [0] * len(tabs)          # seleção de cada aba
+        self.first = [0] * len(tabs)             # primeira linha visível de cada aba
 
     # ---- leitura
     @property
     def tab_id(self) -> str:
-        return C.FAB_TABS[self.tab][0]
+        return self.tabs[self.tab][0]
 
     @property
     def kinds(self) -> list[str]:
-        return tab_kinds(self.tab_id)
+        return self.kinds_of(self.tab_id)
 
     @property
     def current(self) -> str | None:
@@ -46,7 +55,7 @@ class FabMenu:
 
     # ---- ações
     def set_tab(self, index: int) -> None:
-        self.tab = index % len(C.FAB_TABS)
+        self.tab = index % len(self.tabs)
 
     def switch_tab(self, step: int) -> None:
         self.set_tab(self.tab + step)
@@ -64,10 +73,9 @@ class FabMenu:
 
     def select(self, kind: str) -> None:
         """Seleciona uma receita (clique), trocando de aba se precisar."""
-        tab_id = C.MACHINE_CATEGORY.get(kind)
-        ids = [t for t, _ in C.FAB_TABS]
-        if tab_id in ids:
-            self.tab = ids.index(tab_id)
+        index = next((i for i, (t, _) in enumerate(self.tabs) if kind in self.kinds_of(t)), None)
+        if index is not None:
+            self.tab = index
             self.selected[self.tab] = self.kinds.index(kind)
             self._follow()
 
@@ -78,3 +86,8 @@ class FabMenu:
         elif sel >= f + self.visible:
             f = sel - self.visible + 1
         self.first[self.tab] = max(0, min(self.max_first, f))
+
+
+def field_menu() -> FabMenu:
+    """Menu da aba Fabricar do Tab: uma aba só, com o kit de campo inteiro à vista (sem rolagem)."""
+    return FabMenu(visible=len(C.FIELD_RECIPES), tabs=(("field", "Fabricar"),), kinds_of=field_kinds)

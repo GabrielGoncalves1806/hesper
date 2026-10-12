@@ -12,7 +12,7 @@ janela, no tamanho escolhido em Opções > Interface (Grande/Média/Pequena): el
 e o mundo não muda com ela. F11 ou Alt+Enter alternam a tela cheia; +/- ou Ctrl+rodinha mudam o zoom.
 
 Modos de tela: "play" (jogando), "fabricator" (menu de receitas),
-"terminal" (lendo um log), "inventory" (Tab), "chest" (baú aberto com E), "drill" (drill aberta com E;
+"terminal" (lendo um log), "inventory" (Tab: abas Inventário, Fabricar em campo e LOGs), "chest" (baú aberto com E), "drill" (drill aberta com E;
 Shift+E coleta direto), "station" (estação com E),
 "crate" (caixa de saque de um destroço, só tirar), "map" (mapa grande do scanner, M),
 "pause" (menu do Esc) e "end" (tela de fim do MVP).
@@ -39,7 +39,7 @@ from game import viewport
 from game.assets import Sprites
 from game.audio import Audio
 from game.equipment import is_equipment
-from game.fabricator import FabMenu
+from game.fabricator import FabMenu, field_menu
 from game.inventory import Stack
 from game.objectives import ObjectiveTracker
 from game.render import Renderer, stage_key
@@ -47,7 +47,7 @@ from game.systems import Controls, GameState
 from game.textedit import TextField
 from game.ui import item_name
 from game.title import TitleScreen, draw_saved_notice
-from game.ui import UI, FloatingTexts
+from game.ui import TAB_CRAFT, TAB_INVENTORY, TAB_LOGS, UI, FloatingTexts
 
 MOVE_KEYS = {
     pygame.K_a: (-1, 0), pygame.K_LEFT: (-1, 0),
@@ -136,7 +136,8 @@ class App:
         self.rotation = 0
         self.fab = FabMenu()            # aba, seleção e rolagem do fabricador (game/fabricator.py)
         self.terminal_index = 0
-        self.inv_tab = 0                # Tab: 0 = Inventário, 1 = LOGs
+        self.inv_tab = TAB_INVENTORY    # Tab: Inventário / Fabricar (em campo) / LOGs
+        self.field = field_menu()       # aba Fabricar do Tab: seleção do kit de campo (C.FIELD_RECIPES)
         self.log_selected = 0           # aba LOGs: linha escolhida (posição na cronologia) e a 1ª visível
         self.log_first = 0
         self.banner_stage = 1
@@ -317,7 +318,7 @@ class App:
                 self.on_click(event.button)
             elif event.type == pygame.MOUSEWHEEL and self.mode != "title" and self.zoom_modifier():
                 self.zoom_step(1 if event.y > 0 else -1)        # Ctrl+rodinha pra cima = aproxima
-            elif event.type == pygame.MOUSEWHEEL and self.mode == "inventory" and self.inv_tab == 1:
+            elif event.type == pygame.MOUSEWHEEL and self.mode == "inventory" and self.inv_tab == TAB_LOGS:
                 self.scroll_logs(-1 if event.y > 0 else 1)      # rodinha rola a aba LOGs (se não couber)
             elif event.type == pygame.MOUSEWHEEL and self.mode == "fabricator":
                 self.fab.scroll(-1 if event.y > 0 else 1)       # rodinha rola a lista de receitas
@@ -388,9 +389,12 @@ class App:
             if key in (pygame.K_TAB, pygame.K_ESCAPE, pygame.K_e):
                 self.close_inventory()
             elif self.mode == "inventory" and key in (pygame.K_a, pygame.K_LEFT, pygame.K_d, pygame.K_RIGHT):
-                self.switch_inv_tab(1 - self.inv_tab)          # só 2 abas: A e D trocam
-            elif self.mode == "inventory" and self.inv_tab == 1:
+                step = -1 if key in (pygame.K_a, pygame.K_LEFT) else 1
+                self.switch_inv_tab((self.inv_tab + step) % len(UI.INV_TAB_LABELS))   # dá a volta
+            elif self.mode == "inventory" and self.inv_tab == TAB_LOGS:
                 self.on_logs_key(key)
+            elif self.mode == "inventory" and self.inv_tab == TAB_CRAFT:
+                self.on_field_key(key)
         elif self.mode == "end":
             if key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_ESCAPE):
                 self.set_mode("play")
@@ -438,7 +442,7 @@ class App:
                 self.rotation = (self.rotation + 1) % 4
             elif key == pygame.K_TAB:
                 self.placing = None
-                self.inv_tab = 0                     # o Tab sempre abre na aba Inventário
+                self.inv_tab = TAB_INVENTORY         # o Tab sempre abre na aba Inventário
                 self.set_mode("inventory")
             elif key == pygame.K_m:
                 self.open_map()
@@ -493,16 +497,17 @@ class App:
         self.mode = "crate"
         self.mouse_held = False
 
-    # ---- aba LOGs do Tab ------------------------------------------------------------
+    # ---- abas do Tab: Fabricar (em campo) e LOGs ---------------------------------------
     def switch_inv_tab(self, tab: int) -> None:
-        """Troca a aba do Tab. Indo pros LOGs, a pilha da mão volta pro inventário antes (sem lugar: fica)."""
+        """Troca a aba do Tab. Saindo do Inventário (Fabricar ou LOGs, sem slots), a pilha da mão volta pro
+        inventário antes (sem lugar: não troca e avisa)."""
         if tab == self.inv_tab:
             return
-        if tab == 1 and not self.stash_held():
+        if tab != TAB_INVENTORY and not self.stash_held():
             self.show_notice("Sem espaço pro item na mão")
             return
         self.inv_tab = tab
-        if tab == 1:                             # começa no 1º NOVO (ou no 1º lido)
+        if tab == TAB_LOGS:                      # começa no 1º NOVO (ou no 1º lido)
             entries = self.state.log_entries()
             pick = next((i for i, e in enumerate(entries) if e[3]), None)
             if pick is None:
@@ -510,6 +515,24 @@ class App:
             self.log_selected = pick
             self.scroll_logs(0)
         self.audio.play("ui_click")
+
+    def on_field_key(self, key: int) -> None:
+        """Aba Fabricar: W/S escolhem a receita, Enter/Espaço fabricam (Shift: até 5), igual ao fabricador."""
+        if key in (pygame.K_w, pygame.K_UP, pygame.K_s, pygame.K_DOWN):
+            self.field.move(-1 if key in (pygame.K_w, pygame.K_UP) else 1)
+            self.audio.play("ui_click")
+        elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE) and self.field.current:
+            self.try_craft(self.field.current, batch=self.shift_held(), field=True)
+
+    def on_field_click(self, pos) -> None:
+        """Clique na aba Fabricar: o botão CRAFTAR fabrica (Shift: até 5), a linha só escolhe."""
+        kind = next((k for rect, k in self.ui.fabricator_buttons if rect.collidepoint(pos)), None)
+        if kind is not None:
+            self.try_craft(kind, batch=self.shift_held(), field=True)
+            return
+        kind = next((k for rect, k in self.ui.fabricator_rows if rect.collidepoint(pos)), None)
+        if kind is not None:
+            self.field.select(kind)
 
     def on_logs_key(self, key: int) -> None:
         """W/S escolhem a linha (pulando os não achados), Enter/Espaço leem de novo."""
@@ -548,12 +571,15 @@ class App:
         self.mouse_held = False
 
     def on_logs_click(self, pos) -> bool:
-        """Clique nas abas do Tab ou numa linha da aba LOGs. Devolve True se usou o clique."""
+        """Clique nas abas do Tab, na aba Fabricar ou numa linha da aba LOGs. Devolve True se usou o clique."""
         tab = next((i for rect, i in self.ui.inv_tab_rects if rect.collidepoint(pos)), None)
         if tab is not None:
             self.switch_inv_tab(tab)
             return True
-        if self.inv_tab != 1:
+        if self.inv_tab == TAB_CRAFT:
+            self.on_field_click(pos)
+            return True
+        if self.inv_tab != TAB_LOGS:
             return False
         log = next((lg for rect, lg in self.ui.log_rows if rect.collidepoint(pos)), None)
         if log is not None:
@@ -596,7 +622,7 @@ class App:
             return
         if self.mode == "inventory" and button == 1 and self.on_logs_click((ux, uy)):
             return
-        if self.mode == "inventory" and self.inv_tab == 1:      # aba LOGs: sem slots
+        if self.mode == "inventory" and self.inv_tab != TAB_INVENTORY:   # Fabricar e LOGs: sem slots
             return
         if self.mode == "inventory" and self.on_equip_click(button, (ux, uy)):
             return
@@ -1074,9 +1100,12 @@ class App:
         self.mode = mode
         self.mouse_held = False
 
-    def try_craft(self, kind: str, batch: bool = False) -> None:
-        """Fabrica 1 (ou, com Shift, até C.CRAFT_BATCH: para quando faltar recurso). O lote mostra "Drone x5"."""
-        made = self.state.craft_many(kind) if batch else int(self.state.craft(kind))
+    def try_craft(self, kind: str, batch: bool = False, field: bool = False) -> None:
+        """Fabrica 1 (ou, com Shift, até C.CRAFT_BATCH: para quando faltar recurso). O lote mostra "Drone x5".
+        `field` = aba Fabricar do Tab (kit de campo, só do inventário). Fabricou: fecha o menu e, se a máquina
+        caiu na hotbar, já entra no modo de colocar (nos dois casos)."""
+        made = (self.state.craft_many(kind, field=field) if batch
+                else int(self.state.craft(kind, field=field)))
         if batch and made:
             self.show_toast(f"{item_name(kind)} x{made}")
         if made:
@@ -1505,8 +1534,10 @@ class App:
         elif self.mode == "pause":
             ui.draw_pause(self.pause_screen, self.pause_selected, self.settings, viewport_label(self.zoom),
                           viewport.UI_SIZE_LABEL[self.settings["ui_size"]], self.controls_page)
-        elif self.mode == "inventory" and self.inv_tab == 1:
+        elif self.mode == "inventory" and self.inv_tab == TAB_LOGS:
             ui.draw_logs(state, self.log_selected, self.log_first, mouse_ui)
+        elif self.mode == "inventory" and self.inv_tab == TAB_CRAFT:
+            ui.draw_field_craft(state, self.field, self.renderer.machine_preview, mouse_ui)
         elif self.mode in INVENTORY_MODES:
             side = self.open_chest or self.open_drill or self.open_station or self.open_crate
             status = (self.station_status() if self.open_station is not None
