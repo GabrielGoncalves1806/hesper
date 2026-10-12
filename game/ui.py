@@ -28,14 +28,15 @@ SLOT_STEP = SLOT + SLOT_GAP
 GRID_W = 8 * SLOT_STEP - SLOT_GAP                # 8 colunas = 174
 HOTBAR_X, HOTBAR_Y = (UW - GRID_W) // 2, UH - 6 - SLOT
 # seção "DRONES" dos painéis de baú e drill (draw_logistics): Envia, Recebe e Lote
-LOGI_H = 50                                      # altura da seção (cabeçalho + 2 linhas de botões)
+LOGI_ROW = 20                                    # passo entre as linhas ENVIA / RECEBE / LOTE
+LOGI_H = 13 + 3 * LOGI_ROW - 2                   # altura da seção: cabeçalho + 3 linhas de botões
 LOGI_BTN = 18                                    # toggle com ícone: 18×18 (ícone 16 + 1 de borda)
 LOGI_LABEL_W = 42                                # coluna dos rótulos "ENVIA" / "RECEBE"
 BATCH_BTN_W = 17                                 # botões do lote: 1 / 5 / 10 / 20
 # painel do lado (baú/drill): título, grade de 3 linhas, botões e a seção DRONES
 SIDE_GRID_Y = 22
 SIDE_BUTTONS_Y = SIDE_GRID_Y + 3 * (20 + 2) - 2 + 5
-SIDE_LOGI_Y = SIDE_BUTTONS_Y + 15 + 6
+SIDE_LOGI_Y = SIDE_BUTTONS_Y + 15 + 4
 
 
 # Dígitos 5×7 desenhados à mão, no traço fino da Pixelify. Em 11 px a fonte desenha o "5" igual
@@ -621,7 +622,7 @@ class UI:
         self.fill((8, 5, 4, 158), (0, 0, UW, UH))
         pw = GRID_W + 16
         ph_inv = 20 + 6 + SLOT + 14 + SLOT + 8                  # título, mochila, rótulo HOTBAR, hotbar
-        ph_side = SIDE_LOGI_Y + LOGI_H + 6                      # baú/drill: grade, botões e a seção DRONES
+        ph_side = SIDE_LOGI_Y + LOGI_H + 5                      # baú/drill: grade, botões e a seção DRONES
         total_w = pw if side is None else 2 * pw + 10
         x = (UW - total_w) // 2
         h = ph_inv if side is None else max(ph_inv, ph_side)
@@ -791,35 +792,35 @@ class UI:
         self.native.append((icon, (rect.x * 2 + 2, rect.y * 2 + 2)))
 
     def draw_logistics(self, x: int, y: int, w: int, machine, item_icon, mouse) -> None:
-        """Seção "DRONES" a partir de (x, y), largura `w`, altura LOGI_H:
+        """Seção "DRONES" a partir de (x, y), largura `w`, altura LOGI_H, uma coisa por linha:
 
-            DRONES                         NADA CONFIGURADO
-            ENVIA   [fe][si][ge]           LOTE
-            RECEBE  [fe][si][ge]           [1][5][10][20]
+            DRONES                          NADA CONFIGURADO
+            ENVIA            [fe][si][ge]
+            RECEBE           [fe][si][ge]
+            LOTE POR VIAGEM  [1][5][10][20]
 
-        A drill só mostra o minério dela no ENVIA e não tem RECEBE. Guarda os botões em `logistics_buttons`."""
+        A drill pula o RECEBE (ela só produz) e só mostra o minério dela no ENVIA.
+        Guarda os botões em `logistics_buttons`."""
         from game import drones                      # (import local: a UI não depende da lógica no topo)
         self.fill((255, 255, 255, 28), (x, y, w, 1))
         self.text("DRONES", x, y + 4, C.C_O2)
         if not drones.configured(machine):
             self.text("NADA CONFIGURADO", x + w, y + 4, C.C_TI, align="right")
-        y1, y2 = y + 14, y + 14 + LOGI_BTN + 2
-        rows = (("ENVIA", "send", y1, machine.sends, C.C_ACCENT, drones.can_send),
-                ("RECEBE", "recv", y2, machine.receives, C.C_O2, drones.can_receive))
-        for label, kind, ry, chosen, color, allowed in rows:
+        col = x + self.font.size("LOTE POR VIAGEM")[0] + 8     # todos os botões começam na mesma coluna
+        ry = y + 13
+        rows = [("ENVIA", "send", machine.sends, C.C_ACCENT, drones.can_send)]
+        if not machine.is_drill:
+            rows.append(("RECEBE", "recv", machine.receives, C.C_O2, drones.can_receive))
+        for label, kind, chosen, color, allowed in rows:
             self.text(label, x, ry + 6, C.C_MUTED)
-            items = [i for i in C.LOGISTIC_ITEMS if allowed(machine, i)]
-            if not items:
-                self.text("NÃO RECEBE" if machine.is_drill else "-", x + LOGI_LABEL_W, ry + 6, "#6e6058")
-            for k, item in enumerate(items):
-                rect = pygame.Rect(x + LOGI_LABEL_W + k * (LOGI_BTN + 2), ry, LOGI_BTN, LOGI_BTN)
+            for k, item in enumerate(i for i in C.LOGISTIC_ITEMS if allowed(machine, i)):
+                rect = pygame.Rect(col + k * (LOGI_BTN + 2), ry, LOGI_BTN, LOGI_BTN)
                 self._toggle(rect, item, item in chosen, color, item_icon, mouse)
                 self.logistics_buttons.append((rect, (kind, item)))
-        n = len(C.DRONE_BATCH_OPTIONS)
-        lx = x + w - n * BATCH_BTN_W - (n - 1) * 2
-        self.text("LOTE/VIAGEM", lx, y1 + 6, C.C_MUTED)
+            ry += LOGI_ROW
+        self.text("LOTE POR VIAGEM", x, ry + 6, C.C_MUTED)
         for k, amount in enumerate(C.DRONE_BATCH_OPTIONS):
-            rect = pygame.Rect(lx + k * (BATCH_BTN_W + 2), y2, BATCH_BTN_W, LOGI_BTN)
+            rect = pygame.Rect(col + k * (BATCH_BTN_W + 2), ry, BATCH_BTN_W, LOGI_BTN)
             active, hover = amount == machine.batch, rect.collidepoint(mouse)
             self.surf.fill(pygame.Color("#3a2a22" if active else "#120d0b"), rect)
             if hover and not active:
@@ -895,8 +896,16 @@ class UI:
             if held.count > 1:
                 self.native_text(str(held.count), mx + 20, my + 14, C.C_TEXT, "right")
         elif label:
+            # ancorado no elemento debaixo do mouse (slot ou botão da seção DRONES): logo acima dele, ou
+            # abaixo se não couber, pra nunca cobrir a própria linha
             w = self.body.size(label)[0] + 12
-            tx, ty = min(mx + 8, UW - w - 2), my - 18
+            under = next((r for r in [*(r for r, _, _ in self.slot_rects), *(r for r, _ in self.logistics_buttons)]
+                          if r.collidepoint(mouse)), None)
+            if under is None:
+                tx, ty = min(mx + 8, UW - w - 2), my - 18
+            else:
+                tx = max(2, min(under.x, UW - w - 2))
+                ty = under.top - 18 if under.top - 18 >= 2 else under.bottom + 2
             self.panel(tx, ty, w, 16, (14, 10, 9, 235))
             self.text(label, tx + 6, ty + 2, C.C_TEXT, self.body)
 
