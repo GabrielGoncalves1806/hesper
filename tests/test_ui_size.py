@@ -170,6 +170,24 @@ def test_menus_centered(ui, size):
     assert rows[0].top > 0 and rows[-1].bottom < size[1]
 
 
+@pytest.mark.parametrize("size", [(480, 270), (640, 360), (960, 540)])
+def test_inventory_notice_clear_of_hotbar_and_help(ui, size):
+    """Aviso temporário com o inventário aberto: não cobre a hotbar (moldura em hotbar_y - 11) nem a
+    linha de ajuda, nem com um painel alto (ex.: a logística deixando o baú maior)."""
+    from game.inventory import Inventory
+    ui.set_layout((0, 0, size[0] * 2, size[1] * 2), 2.0, size)
+    ui.begin()
+    ui.draw_inventory(Inventory(16), None, 0, lambda item: art.icon("iron"), (0, 0))
+    hotbar_top = ui.hotbar_y - 11
+    assert ui.notice_y + ui.NOTICE_H < hotbar_top
+    for panel_h in (150, 180, 200):                      # painel cada vez mais alto (200: o máximo que cabe no Grande)
+        top = (size[1] - panel_h) // 2 - 16
+        help_y = top + panel_h + 6
+        y = ui.panel_notice_y(top, help_y + 12)
+        assert y + ui.NOTICE_H < hotbar_top, (size, panel_h, y)
+        assert y + ui.NOTICE_H <= top or y >= help_y + 10, (size, panel_h, y)   # nem no painel/ajuda
+
+
 def test_finish_blends_like_before(ui):
     """Painel semitransparente: a cor final na janela é a mesma em qualquer escala (sem camada alfa
     intermediária escurecendo ou clareando)."""

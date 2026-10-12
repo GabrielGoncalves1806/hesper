@@ -715,7 +715,17 @@ class UI:
             self._station_panel(side, x + pw + 10, y, pw, h, item_icon, mouse, status, info)
             keys = "[CLIQUE] PILHA/DRONE · [DIREITO] 1 · [ESC] FECHA"
         self.text(keys, self.w / 2, y + h + 6, C.C_MUTED, align="center")
-        self.notice_y = y + h + 18                     # aviso ("Inventário cheio") logo abaixo da linha de ajuda
+        self.notice_y = self.panel_notice_y(y, y + h + 18)
+
+    NOTICE_H = 18                                      # altura do aviso (draw_notice)
+
+    def panel_notice_y(self, panel_top: int, below_help: int) -> int:
+        """Onde vai o aviso ("Inventário cheio") com um painel aberto: logo abaixo da linha de ajuda,
+        se couber sem encostar na hotbar (moldura começa em hotbar_y - 11); senão, em cima do painel.
+        Nunca cobre a linha de ajuda nem a hotbar, em qualquer tamanho de interface."""
+        if below_help + self.NOTICE_H <= self.hotbar_y - 11 - 2:
+            return below_help
+        return max(0, panel_top - self.NOTICE_H - 4)
 
     def _button(self, rect: pygame.Rect, label: str, action: str, mouse, enabled: bool = True) -> None:
         """Botão pequeno de painel ("Pegar tudo"). Só entra em `panel_buttons` se estiver ativo."""
