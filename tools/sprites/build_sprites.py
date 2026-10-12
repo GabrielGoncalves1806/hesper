@@ -2032,7 +2032,7 @@ def make_ui_slot() -> Canvas:
     return cv
 
 
-# ---------------------------------------------------------------- v0.3 · Marco 1 · superfície (pendentes)
+# ---------------------------------------------------------------- v0.3 · Marco 1 · superfície (aprovados na v4.0)
 
 SAND = {
     # base, faixa escura, faixa clara, grão escuro, grão claro, sombra da ondulação, crista,
@@ -2527,7 +2527,19 @@ def make_pod_lander(name: str) -> Canvas:
 
 def build_pending() -> dict[str, Canvas]:
     """Assets novos aguardando aprovação do dono: vão pra assets/sprites/_pending/.
-    Depois de aprovados, saem daqui e entram em build_v02()/build_sprites() (pasta oficial)."""
+    Depois de aprovados, saem daqui e entram em build_v02()/build_v03()/build_sprites() (pasta oficial)."""
+    return {}
+
+
+FUTURE = OUT / "_future"  # guardados pelo dono pro futuro: fora do contrato, o jogo não carrega daqui
+
+
+def build_future() -> dict[str, Canvas]:
+    return {"pod_wide.png": make_pod_lander("pod_wide.png")}   # cápsula larga 96x64 (proposta, guardada)
+
+
+def build_v03() -> dict[str, Canvas]:
+    """Sprites do v0.3 · Marco 1 (superfície), aprovados na v4.0. A cápsula nova entra em build_sprites()."""
     out: dict[str, Canvas] = {}
     for st in STAGES:
         for v in range(4):
@@ -2537,8 +2549,6 @@ def build_pending() -> dict[str, Canvas]:
         out[f"pickup_{o}.png"] = make_pickup(o)
     out["crater.png"] = make_crater()
     out["crater_ramp.png"] = make_crater_ramp()
-    out["pod.png"] = make_pod_lander("pod.png")            # redesign (substitui o oficial se aprovado)
-    out["pod_wide.png"] = make_pod_lander("pod_wide.png")  # proposta de contrato novo: 96x64, 3x1 tiles
     return out
 
 
@@ -2580,7 +2590,7 @@ def build_sprites() -> dict[str, Canvas]:
         out[f"vein_{o}.png"] = make_vein(o)
     out["machine_drill.png"] = make_machine_drill_sheet()
     out["icon_drill.png"] = make_icon_drill()
-    out["pod.png"] = make_pod()
+    out["pod.png"] = make_pod_lander("pod.png")   # v4.0: módulo de fuga pousado (o make_pod antigo fica de histórico)
     out["machine_o2.png"] = m_o2(1)
     out["machine_heater.png"] = m_heater(1)
     out["machine_melter.png"] = m_melter(1)
@@ -2592,6 +2602,7 @@ def build_sprites() -> dict[str, Canvas]:
     out["plant_tree.png"] = make_tree()
     out["plant_flower.png"] = make_flower()
     out.update(build_v02())
+    out.update(build_v03())
     return out
 
 
@@ -2816,7 +2827,7 @@ def render_sand_field(stage: str, spr: dict[str, Image.Image], uniform=False) ->
     for y in range(GH):
         for x in range(GW):
             v = int(hsh(x, y, 3) * 4) if uniform else sand_variant(x, y)
-            img.alpha_composite(spr[f"_pending/sand_{stage}_{v}.png"], (x * T, y * T))
+            img.alpha_composite(spr[f"sand_{stage}_{v}.png"], (x * T, y * T))
     return img.crop((0, 0, 960, 540)).convert("RGB")
 
 
@@ -2838,7 +2849,7 @@ SURF_CRATER = (22, 2)       # tile de cima/esquerda dos 3x3
 def render_surface(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
     """Superfície, com a mesma ordem do jogo: (1) areia, água e veio; (2) linha por linha: topo da parede
     (y−24) + face (y+8) e depois os objetos cuja âncora cai na linha (cratera, rochas, pickups, máquinas)."""
-    P = "_pending/"
+    P = ""
     hills = set(SURF_HILLS)
     water = set()
     if stage == "mist":
@@ -2874,7 +2885,7 @@ def render_surface(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
     for (px_, py_, o) in SURF_PICKUPS:
         obj(f"{P}pickup_{o}.png", px_, py_)
     if stage == "green":                                       # proposta larga: 3x1, centro do tile do meio
-        obj(f"{P}pod_wide.png", 15 * T + 16, 9 * T)
+        obj("_future/pod_wide.png", 15 * T + 16, 9 * T)
     else:                                                      # redesign no contrato atual (2x1)
         obj(f"{P}pod.png", 15 * T, 9 * T)
     t2 = stage != "dead"
@@ -2924,7 +2935,7 @@ def render_surface(stage: str, spr: dict[str, Image.Image]) -> Image.Image:
 
 def make_pickup_check(spr: dict[str, Image.Image]) -> Image.Image:
     """Pickups e rocha pequena em 1x (como no jogo) e 2x, sobre as 3 areias."""
-    P = "_pending/"
+    P = ""
     names = ["pickup_iron.png", "pickup_silicon.png", "pickup_ice.png", "rock_small.png"]
     out = Image.new("RGBA", (6 * T, 3 * 2 * T))
     for j, st in enumerate(STAGES):
@@ -2982,8 +2993,8 @@ def colors_of(imgs: list[Image.Image]) -> list[str]:
 
 
 def build_surface_report(spr: dict[str, Image.Image], scale: dict[str, int]) -> str:
-    """Seção v4.0 (superfície, pendente): prévias, teste de ladrilho, sprites ampliados, cratera e cápsula."""
-    P = "_pending/"
+    """Seção v4.0 (superfície, aprovada): prévias, teste de ladrilho, sprites ampliados, cratera e cápsula."""
+    P = ""
 
     def card(n, s, anim=False):
         im = spr[n]
@@ -2997,7 +3008,7 @@ def build_surface_report(spr: dict[str, Image.Image], scale: dict[str, int]) -> 
         for st, lab, sub in (
             ("dead", "Superfície · 1 · Morto", "areia avermelhada, cápsula nova 64×72, máquinas nv.1, morros, rochas, pickups, veio de ferro, cratera fechada"),
             ("mist", "Superfície · 2 · Névoa", "areia fria úmida, poça, nv.1 + nv.2, estação de drones, drill no veio, cratera fechada"),
-            ("green", "Superfície · 3 · Verde", "areia com brotos e tufos, lagos, plantas, <b>pod_wide (proposta 96×64)</b> e <b>cratera com rampa</b> (Marco 2)"),
+            ("green", "Superfície · 3 · Verde", "areia com brotos e tufos, lagos, plantas, <b>pod_wide 96×64 (guardado pro futuro, fora do jogo)</b> e <b>cratera com rampa</b> (Marco 2)"),
         ))
     tiling = "".join(
         f'<figure class="pv"><img src="sand_tiling_{st}.png" width="960" height="540" alt="Areia {st}">'
@@ -3015,11 +3026,11 @@ def build_surface_report(spr: dict[str, Image.Image], scale: dict[str, int]) -> 
                   f'<div>com rampa (Marco 2)<img src="../../assets/sprites/{P}crater_ramp.png" width="{cr.width * 4}" '
                   f'height="{cr.height * 4}" alt="cratera com rampa"></div></div><figcaption>crater.png × crater_ramp.png · 96×96 · 4×</figcaption></figure>')
     pod_old = REP / "before" / "pod_v33.png"
-    pw = spr[P + "pod_wide.png"]
+    pw = spr["_future/pod_wide.png"]
     pod_cmp = (f'<figure><div class="pair">'
                + (f'<div>antes (v3.3)<img src="before/pod_v33.png" width="{64 * 5}" height="{72 * 5}" alt="pod antes"></div>' if pod_old.exists() else "")
                + f'<div>depois · pod.png 64×72<img src="../../assets/sprites/{P}pod.png" width="{64 * 5}" height="{72 * 5}" alt="pod novo"></div>'
-               f'<div>proposta · pod_wide.png 96×64<img src="../../assets/sprites/{P}pod_wide.png" width="{pw.width * 5}" height="{pw.height * 5}" alt="pod largo"></div>'
+               f'<div>guardado pro futuro · _future/pod_wide.png 96×64<img src="../../assets/sprites/_future/pod_wide.png" width="{pw.width * 5}" height="{pw.height * 5}" alt="pod largo"></div>'
                f'</div><figcaption>cápsula · 5×</figcaption></figure>')
     L1, L2 = POD_LIGHTS["pod.png"], POD_LIGHTS["pod_wide.png"]
     dev_rows = [
@@ -3039,13 +3050,13 @@ def build_surface_report(spr: dict[str, Image.Image], scale: dict[str, int]) -> 
          "É objeto: entra na ordenação com <code>ay = (ty+3)·32</code> (assim a borda de trás cobre os pés de quem está logo acima). "
          "Colisão sugerida: os 9 tiles sólidos. Na rampa, o alvo do E é o tile de baixo do meio <code>(tx+1, ty+2)</code>, onde fica a soleira com faixa de alerta; "
          "o player chega/sai em <code>(tx+1, ty+3)</code>. A cratera é um sprite só pros 3 estágios (rocha roxo-acinzentada, como a rocha pequena)."),
-        ("<code>pod.png</code> (redesign)", "64×72",
+        ("<code>pod.png</code> (novo, aprovado)", "64×72",
          f"Mesmo contrato e mesma âncora de hoje (<code>POD_ANCHOR</code>, centro da base, 2×1 tiles, blit em <code>(ax − 32, ay − 72)</code>). "
          f"<b>Os pontos de luz mudaram</b> (relativos ao canto sup. esquerdo do PNG): janela ciano <code>{L1['window']}</code>, beacon vermelho <code>{L1['beacon']}</code>, "
          f"LED verde <code>{L1['led']}</code>. No <code>render.py</code> o beacon está fixo em <code>(50, 2)</code> e a janela em <code>(20, 29)</code> relativo a "
          "<code>(ax − 32, ay − 70)</code>; troque pelos valores novos (lembrando do −72 em vez de −70)."),
-        ("<code>pod_wide.png</code> (proposta)", "96×64",
-         f"<b>Precisa de aprovação do contrato.</b> Colisão sugerida <b>3×1 tiles</b> (a linha de baixo), o teto e a antena sobem pro tile de cima, como no pod atual. "
+        ("<code>_future/pod_wide.png</code> (guardado)", "96×64",
+         f"<b>Não entra no jogo agora</b> (fora do contrato; o jogo não carrega de <code>_future/</code>). Se um dia entrar: colisão sugerida <b>3×1 tiles</b> (a linha de baixo), o teto e a antena sobem pro tile de cima, como no pod atual. "
          f"Âncora no centro da base do tile do meio: <code>ax = (tx+1)·32 + 16</code>, <code>ay = (ty+1)·32</code>, blit em <code>(ax − 48, ay − 64)</code>. "
          f"Luzes: janela <code>{L2['window']}</code>, beacon <code>{L2['beacon']}</code>, LED <code>{L2['led']}</code>, porta (pé) <code>{L2['door']}</code>."),
     ]
@@ -3081,7 +3092,7 @@ def build_surface_report(spr: dict[str, Image.Image], scale: dict[str, int]) -> 
 <section><h2>v4.0 · Pro Dev integrar (superfície)</h2>
 <div class="box dev"><table class="tb"><thead><tr><th>Sprite</th><th>Tamanho</th><th>Âncora / uso</th></tr></thead><tbody>{dev}</tbody></table>
 <h3>Ordem de desenho na superfície</h3>{order}
-<p class="lede">Os morros e a cordilheira usam a parede já aprovada (<code>wall_*</code>, <code>wall_face_*</code>), sem sprite novo. Faltando qualquer PNG pendente, o fallback do jogo continua valendo.</p></div>
+<p class="lede">Os morros e a cordilheira usam a parede já aprovada (<code>wall_*</code>, <code>wall_face_*</code>), sem sprite novo. Faltando qualquer PNG, o fallback do jogo continua valendo.</p></div>
 </section>"""
 
 
@@ -3091,17 +3102,18 @@ def build_report(spr: dict[str, Image.Image]):
         return 0.299 * r + 0.587 * g + 0.114 * b
 
     pal_sets = [
-        ("Tiles · morto", [k for k in spr if "_dead" in k and not k.startswith("_pending/")]),
-        ("Tiles · névoa", [k for k in spr if "_mist" in k and not k.startswith("_pending/")]),
-        ("Tiles · verde", [k for k in spr if "_green" in k and not k.startswith("_pending/")]),
+        ("Tiles · morto", [k for k in spr if "_dead" in k and not k.startswith("sand_")]),
+        ("Tiles · névoa", [k for k in spr if "_mist" in k and not k.startswith("sand_")]),
+        ("Tiles · verde", [k for k in spr if "_green" in k and not k.startswith("sand_")]),
         ("Minérios, veios e ícones", [k for k in spr if k.startswith(("ore_", "icon_", "vein_"))]),
         ("Astronauta e broca", [k for k in spr if k.startswith(("player", "drill"))]),
         ("Cápsula, máquinas e terminal", [k for k in spr if k.startswith(("pod", "machine", "terminal"))]),
         ("Plantas", [k for k in spr if k.startswith("plant_")]),
         ("v0.2 · baú, painel, estação, drone, ícones e slot", [k for k in build_v02()]),
-        ("Pendentes v4.0 · areia", [k for k in spr if k.startswith("_pending/sand_")]),
-        ("Pendentes v4.0 · rocha, pickups, cratera e cápsula",
-         [k for k in spr if k.startswith("_pending/") and not k.startswith("_pending/sand_")]),
+        ("v0.3 · areia", [k for k in build_v03() if k.startswith("sand_")]),
+        ("v0.3 · rocha, pickups, cratera e cápsula",
+         [k for k in build_v03() if not k.startswith("sand_")] + ["pod.png"]),
+        ("Pendentes", [k for k in spr if k.startswith("_pending/")]),
     ]
     total = set()
     pal_html = []
@@ -3165,7 +3177,7 @@ def build_report(spr: dict[str, Image.Image]):
     chest_cmp = "".join(chest_items)
     slot_w, slot_h = Image.open(REP / "slot_preview.png").size if (REP / "slot_preview.png").exists() else (0, 0)
     n_pending = sum(1 for k in spr if k.startswith("_pending/"))
-    n_official = len(spr) - n_pending
+    n_official = sum(1 for k in spr if "/" not in k)
 
     notes = [
         ("Tiles sem costura",
@@ -3196,7 +3208,7 @@ def build_report(spr: dict[str, Image.Image]):
     ]
     integ_html = "".join(f"<li>{s}</li>" for s in integ)
 
-    surf_html = build_surface_report(spr, scale) if any(k.startswith("_pending/sand_") for k in spr) else ""
+    surf_html = build_surface_report(spr, scale)
 
     page = f"""<!doctype html>
 <html lang="pt-BR">
@@ -3276,19 +3288,18 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
   <div class="eyebrow">Hesper · Designer · v4.0 (v0.3 · superfície, pendente)</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
-  <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span><span class="chip">1 proposta de contrato: pod_wide 96×64</span></div>
-  <div class="v2"><b>v4.0 · superfície (pendente, aguardando tua aprovação)</b><ul>
-    <li><b>Arte do Marco 1 do v0.3</b>, em <code>assets/sprites/_pending/</code> (o jogo ainda não usa):
+  <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span><span class="chip">pod largo guardado em _future/ (fora do contrato)</span></div>
+  <div class="v2"><b>v4.0 · aprovado (pod largo guardado pro futuro)</b><ul>
+    <li><b>O dono aprovou a arte do Marco 1 do v0.3</b>, e ela foi promovida pra pasta oficial <code>assets/sprites/</code> com os mesmos bytes da entrega pendente (md5 conferido):
       <ul>
         <li><code>sand_{{dead,mist,green}}_{{0..3}}</code>: chão do deserto (areia, cascalho, ondulação de duna e laje de rocha);</li>
         <li><code>rock_small</code>: rocha quebrável de 1 tile;</li>
         <li><code>pickup_iron</code>, <code>pickup_silicon</code> e <code>pickup_ice</code>: recursos soltos de 16×16;</li>
         <li><code>crater</code> e <code>crater_ramp</code>: cratera 3×3, fechada e com rampa.</li>
       </ul></li>
-    <li><b>Cápsula nova</b> (pedido extra): módulo de fuga pousado. <code>_pending/pod.png</code> está no tamanho atual (64×72), e <code>_pending/pod_wide.png</code> (96×64) é uma <b>proposta</b> de contrato novo. Antes × depois mais abaixo.</li>
-    <li><b>Areia sem papel de parede:</b> nenhum detalhe encosta na borda do tile. A v0, quase lisa, domina, e as dunas aparecem como zonas de ondulação no mundo. O teste 30×17 está logo abaixo das prévias, ao lado de um teste com sorteio uniforme pra comparar.</li>
-    <li><b>Prévias novas:</b> <code>preview_surface_{{dead,mist,green}}</code>, com deserto, cápsula nova, máquinas, morros feitos com a parede aprovada, rochas, pickups, veio com drill e cratera (com rampa no Verde).</li>
-    <li><b>Os 68 sprites oficiais não mudaram</b> (md5 conferido contra o git). As prévias antigas da caverna também não mudaram.</li>
+    <li><b>Cápsula nova aprovada no tamanho atual:</b> o novo <code>pod.png</code> (64×72, módulo de fuga pousado) substitui o antigo, que ficou guardado em <code>reports/design/before/pod_v33.png</code>. Contrato e âncora não mudaram, mas os pontos de luz mudaram (veja "Pro Dev integrar").</li>
+    <li><b>Pod largo guardado pro futuro:</b> <code>assets/sprites/_future/pod_wide.png</code> (96×64). Fica fora do contrato, e o jogo não carrega dessa pasta. Ele aparece só na prévia da superfície Verde, como referência.</li>
+    <li>O contrato oficial passou a ter 86 arquivos (68 + 18). Os outros 67 oficiais não mudaram (md5 conferido), e a pasta <code>_pending/</code> foi removida. Como o pod mudou, as prévias da caverna também foram regeradas com a cápsula nova.</li>
   </ul></div>
   <div class="v2" style="opacity:.75"><b>v3.3 · aprovado: ícone de item do drone</b><ul>
     <li><b>Novo:</b> <code>assets/sprites/icon_drone.png</code> (16×16). Agora o drone é um item que se fabrica e se coloca na estação, então ganhou ícone próprio. O dono aprovou, e ele foi promovido pra pasta oficial com os mesmos bytes (md5 conferido). O contrato oficial passou a ter 68 arquivos.</li>
@@ -3438,9 +3449,14 @@ def main():
         cv.image().save(PENDING / name)
     spr = {n: Image.open(OUT / n).convert("RGBA") for n in canv}
     spr.update({f"_pending/{n}": Image.open(PENDING / n).convert("RGBA") for n in pend})
+    fut = build_future()
+    FUTURE.mkdir(parents=True, exist_ok=True)
+    for name, cv in fut.items():
+        cv.image().save(FUTURE / name)
+    spr.update({f"_future/{n}": Image.open(FUTURE / n).convert("RGBA") for n in fut})
     for st in STAGES:
         render_scene(st, spr).save(REP / f"preview_{st}.png")
-    if pend:
+    if True:
         for st in STAGES:
             render_surface(st, spr).save(REP / f"preview_surface_{st}.png")
             render_sand_field(st, spr).save(REP / f"sand_tiling_{st}.png")
