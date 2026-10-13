@@ -1,4 +1,10 @@
-"""Gelos-portão derretendo com o calor, destroço rico e contêiner lacrado (v0.4 Marco 3 · M3.2 · bíblia §12)."""
+"""Gelos-portão derretendo com o calor, destroço rico e contêiner lacrado (v0.4 Marco 3 · M3.2 e M3.5 · bíblia §12).
+
+M3.5: o portão é um amontoado de blocos de gelo (game/ice_blocks.py). Os testes do M3.2 que olhavam a pegada em tiles
+por etapa (4×2 → 3×2 → 2×1) viraram testes da colisão por retângulo: fechado em p = 0, a fresta abre num p < 1 (e o
+player passa andando de verdade), nada sobra em p = 1. Os eventos agora são só 2 por portão (começou a derreter e
+abriu a fresta), e não 3. O resto (destroço rico, contêiner, save sem os portões) continua igual.
+"""
 
 import json
 import os
@@ -10,11 +16,10 @@ import pygame
 import pytest
 
 from game import config as C
-from game import layers
+from game import ice_blocks, layers, player
 from game import save
 from game import thaw
 from game import wrecks
-from game.geo import GATE_FOOTPRINTS, gate_at
 from game.surface_gen import generate_surface
 from game.systems import GameState
 
@@ -26,14 +31,15 @@ def game(seed: int = C.WORLD_SEED) -> GameState:
     return GameState(seed, rng=random.Random(1))
 
 
-def heat_for(i: int, stage: int) -> float:
-    """Calor que deixa o portão `i` exatamente na etapa `stage` (0..3)."""
-    return 0.0 if stage == 0 else float(C.THAW_GATE_HEAT[i][stage - 1])
+def heat_for(i: int, p: float) -> float:
+    """Calor que deixa o portão `i` exatamente no progresso `p` (0..1, linear entre o 1º e o último marco)."""
+    lo, hi = C.THAW_GATE_HEAT[i][0], C.THAW_GATE_HEAT[i][-1]
+    return lo + (hi - lo) * p
 
 
-def formation_tiles(world, gate) -> set:
-    """Tiles FORMATION dentro da caixa 4×2 do portão (a pegada da etapa 0)."""
-    return {t for t in gate.tiles if world.get(*t) == C.FORMATION}
+def set_melt(g: GameState, i: int, p: float) -> None:
+    g.indices["heat"] = heat_for(i, p)
+    g._apply_thaw()
 
 
 def open_interior(world, pocket) -> set:
@@ -41,96 +47,188 @@ def open_interior(world, pocket) -> set:
     return {t for t in pocket.interior if not world.is_solid(*t)}
 
 
-# ---- gate_stage (função pura) --------------------------------------------------------------------------------
-def test_gate_stage_steps_with_heat_and_gate_0_opens_first():
+def real_rects(g: GameState, i: int) -> list:
+    """Tudo o que bate na caixa do player em volta do portão `i`, no mundo de verdade (tiles sólidos, máquinas e os
+    blocos de gelo), relativo ao base_px: é o que o `solids_near` do movimento devolve ali."""
+    bx, by = g.surface.geo.pockets[i].gate.base_px
+    x0, x1, y0, y1 = ice_blocks.AREA
+    rects = []
+    for ty in range(int((by + y0) // T) - 1, int((by + y1) // T) + 2):
+        for tx in range(int((bx + x0) // T) - 1, int((bx + x1) // T) + 2):
+            if g.surface.world.is_solid(tx, ty):
+                rects.append((tx * T, ty * T, T, T))
+    rects += [m.rect for m in g.surface.machines] + g.surface.gate_solids
+    return [(x - bx, y - by, w, h) for x, y, w, h in rects]
+
+
+def real_passable(g: GameState, i: int) -> bool:
+    """A busca da fresta da Designer, mas com as paredes de verdade do mapa (sem o corredor de mentira)."""
+    return ice_blocks.passable(real_rects(g, i), walls=False)
+
+
+def walk_path(g: GameState, i: int) -> list[tuple[int, int]]:
+    """Caminho (px relativos ao base_px, passo de 1 px) do avental pro bolsão na grade de colisão de verdade."""
+    return ice_blocks.path_through(real_rects(g, i), walls=False)
+
+
+# ---- progresso e etapa (funções puras) -------------------------------------------------------------------------
+def test_gate_progress_goes_from_first_to_last_mark_and_gate_0_melts_first():
     for i, marks in enumerate(C.THAW_GATE_HEAT):
-        assert len(marks) == 3 and list(marks) == sorted(marks)
-        assert thaw.gate_stage(0, i) == 0
-        assert thaw.gate_stage(marks[0] - 1, i) == 0
-        assert thaw.gate_stage(marks[0], i) == 1
-        assert thaw.gate_stage(marks[1], i) == 2
-        assert thaw.gate_stage(marks[2], i) == 3
-        assert thaw.gate_stage(marks[2] * 10, i) == 3
+        assert list(marks) == sorted(marks)
+        assert thaw.gate_progress(0, i) == 0.0 and thaw.gate_progress(marks[0], i) == 0.0
+        assert thaw.gate_progress(marks[-1], i) == 1.0 and thaw.gate_progress(marks[-1] * 10, i) == 1.0
+        assert thaw.gate_progress((marks[0] + marks[-1]) / 2, i) == pytest.approx(0.5)
     for heat in range(0, 12000, 250):                       # o portão 0 nunca fica atrás dos outros
-        stages = [thaw.gate_stage(heat, i) for i in range(len(C.THAW_GATE_HEAT))]
-        assert stages == sorted(stages, reverse=True), (heat, stages)
-    stages = [thaw.gate_stage(heat, 0) for heat in range(0, 12000, 50)]
-    assert stages == sorted(stages)                         # monótona
+        ps = [thaw.gate_progress(heat, i) for i in range(len(C.THAW_GATE_HEAT))]
+        assert ps == sorted(ps, reverse=True), (heat, ps)
+    ps = [thaw.gate_progress(heat, 0) for heat in range(0, 5000, 10)]
+    assert ps == sorted(ps)                                 # monótona
 
 
-# ---- pegada por etapa (bate com o JSON da Designer) ----------------------------------------------------------
-def test_gate_footprints_come_from_the_designer_json():
-    data = json.loads(C.REGIONS_PALETTES.read_text(encoding="utf-8"))["formations"]
-    x0 = min(x for x, _ in data["ice_gate_0"]["tiles"])
-    y0 = min(y for _, y in data["ice_gate_0"]["tiles"])
-    for s in range(3):
-        info = data[f"ice_gate_{s}"]
-        assert info["foot"] == data["ice_gate_0"]["foot"]             # a âncora não anda entre as etapas
-        want = sorted((x - x0, y - y0) for x, y in info["tiles"])
-        assert sorted(GATE_FOOTPRINTS[s]) == want
-    assert [len(f) for f in GATE_FOOTPRINTS] == [8, 6, 2]              # 4×2 → 3×2 → 2×1
+def test_gate_stage_is_derived_from_progress_and_the_gap():
+    assert thaw.gate_stage(0.0, 0.6) == 0
+    assert thaw.gate_stage(0.01, 0.6) == thaw.GATE_MELTING == 1
+    assert thaw.gate_stage(0.5999, 0.6) == 1
+    assert thaw.gate_stage(0.6, 0.6) == thaw.GATE_OPEN == 3
+    assert thaw.gate_stage(1.0, 0.6) == 3
 
 
-@pytest.mark.parametrize("seed", SEEDS)
-def test_gate_formation_keeps_its_anchor_at_every_stage(seed):
-    w = generate_surface(seed)
-    for p in w.geo.pockets:
-        gate = p.gate
-        for s in range(3):
-            g = gate_at(gate, s)
-            assert g.variant == s and g.base_px == gate.base_px and g.size == gate.size
-            assert set(g.tiles) <= set(gate.tiles)
-        assert gate_at(gate, 3) is None
+# ---- blocos e receitas (o JSON da Designer) --------------------------------------------------------------------
+def test_ice_block_strips_have_8_frames_of_the_json_size():
+    pygame.init()
+    assert len(ice_blocks.BLOCKS) == 6 and ice_blocks.RECIPE_KEYS == ("A", "B", "C")
+    for key, info in ice_blocks.BLOCKS.items():
+        fw, fh = info["frame"]
+        surf = pygame.image.load(str(C.REGIONS_DIR / info["sprite"]))
+        assert surf.get_size() == (fw * 8, fh), key
+        assert len(info["collision"]) == 8 and 0 <= info["anchor"][0] < fw and 0 < info["anchor"][1] <= fh
+    for r in ice_blocks.RECIPES.values():
+        assert len(r["blocks"]) >= 3
+        assert all(b["b"] in ice_blocks.BLOCKS and 0 <= b["melt"][0] < b["melt"][1] <= 1 for b in r["blocks"])
+        assert max(b["melt"][1] for b in r["blocks"]) == 1.0            # em p = 1 não sobra bloco
 
 
-@pytest.mark.parametrize("seed", SEEDS)
-def test_formation_tiles_follow_the_stage_and_the_open_gate_lets_you_in(seed):
+def test_frame_follows_the_melt_window_and_the_block_vanishes_at_the_end():
+    melt = (0.4, 0.8)
+    assert ice_blocks.frame_at(melt, 0.0) == 0 and ice_blocks.frame_at(melt, 0.399) == 0
+    assert ice_blocks.frame_at(melt, 0.4) == 0 and ice_blocks.frame_at(melt, 0.45) == 1
+    assert ice_blocks.frame_at(melt, 0.6) == 4 and ice_blocks.frame_at(melt, 0.7999) == 7
+    assert ice_blocks.frame_at(melt, 0.8) is None and ice_blocks.frame_at(melt, 1.0) is None
+    frames = [ice_blocks.frame_at(melt, p / 100) for p in range(80)]
+    assert frames == sorted(frames)                          # só encolhe
+
+
+def test_hitbox_shrinks_with_the_block():
+    """Cada bloco diminui junto com a hitbox: a área de colisão nunca cresce com o p e zera em p = 1."""
+    for recipe in ice_blocks.RECIPE_KEYS:
+        last = None
+        for k in range(101):
+            area = sum(w * h for _, _, w, h in ice_blocks.rel_rects(recipe, k / 100))
+            assert last is None or area <= last, (recipe, k)
+            last = area
+        assert last == 0
+
+
+def test_gap_opens_before_p1_where_the_designer_measured():
+    """A fresta (a caixa 14×8 do player passa) abre antes de p = 1; a Designer mediu 0,60 / 0,57 / 0,58 com passo de
+    0,01 (aqui é exato: só testa os p em que a colisão muda)."""
+    measured = {k: r["opens_at"] for k, r in ice_blocks.RECIPES.items()}
+    for recipe in ice_blocks.RECIPE_KEYS:
+        p = ice_blocks.opens_at(recipe)
+        assert 0 < p < 1 and abs(p - measured[recipe]) <= 0.0101, (recipe, p)
+        assert not ice_blocks.passable(ice_blocks.rel_rects(recipe, 0.0))
+        assert not ice_blocks.passable(ice_blocks.rel_rects(recipe, p - 1e-6))
+        assert ice_blocks.passable(ice_blocks.rel_rects(recipe, p))
+
+
+def test_recipe_is_picked_by_the_seed_and_all_three_show_up():
+    assert ice_blocks.recipe_for(7, 0) == ice_blocks.recipe_for(7, 0)
+    seen = {ice_blocks.recipe_for(seed, i) for seed in range(1, 30) for i in range(3)}
+    assert seen == set(ice_blocks.RECIPE_KEYS)
+
+
+# ---- no jogo: colisão por retângulo, sem pegada em tiles --------------------------------------------------------
+@pytest.mark.parametrize("seed", (3, 7, 1, 42))
+def test_closed_at_0_gap_opens_before_1_and_nothing_left_at_1(seed):
+    """Substitui o teste da pegada por etapa do M3.2: fechado em p = 0 pra caixa do player (no mapa de verdade),
+    ainda fechado logo antes da fresta, aberto nela (com gelo sobrando) e sem colisão nenhuma em p = 1."""
     g = game(seed)
     w, geo = g.surface.world, g.surface.geo
-    assert g.surface.gate_ice == [0] * len(geo.pockets)
-    for i, p in enumerate(geo.pockets):
-        assert formation_tiles(w, p.gate) == set(gate_at(p.gate, 0).tiles)
-    for stage in range(4):
-        g.indices["heat"] = heat_for(0, stage)
-        g._apply_thaw()
-        p = geo.pockets[0]
-        assert g.surface.gate_ice[0] == stage
-        want = set() if stage == 3 else set(gate_at(p.gate, stage).tiles)
-        assert formation_tiles(w, p.gate) == want
-        assert all(w.get(*t) == w.floor_kind for t in set(p.gate.tiles) - want)
-        reach = w.reachable_from(C.BASE_TILE)
-        if stage == 0:
-            assert not reach & set(p.interior)
-        if stage == 3:
-            assert open_interior(w, p) <= reach
-        # nas etapas 1 e 2 a pegada da Designer (3×2, 2×1) já deixa uma fresta de 1 tile no corredor de 4: o
-        # player passa (ver a bíblia §12). O teste só fixa o que é contrato: fechado na 0, aberto na 3.
-        assert all(w.get(*t) == C.BEDROCK and not w.is_minable(*t) for t in p.ring)   # o anel continua inteiro
-        for j, q in enumerate(geo.pockets[1:], 1):                   # os outros, inteiros, ainda fechados
-            if g.surface.gate_ice[j] == 0:
-                assert not reach & set(q.interior)
+    assert g.surface.gate_melt == [0.0] * len(geo.pockets) and g.surface.gate_ice == [0] * len(geo.pockets)
+    p0 = geo.pockets[0]
+    assert not any(w.get(*t) == C.FORMATION for t in p0.gate.tiles)           # sem pegada em tiles
+    assert g.surface.gate_solids                                                 # bate pelos retângulos
+    for i in range(len(geo.pockets)):
+        assert not real_passable(g, i), (seed, i)                               # p = 0: fechado pra caixa
+        assert not w.reachable_from(C.BASE_TILE) & set(geo.pockets[i].interior)
+    opens = ice_blocks.opens_at(g.surface.gate_recipes[0])
+    set_melt(g, 0, opens - 0.001)
+    assert g.surface.gate_ice[0] == 1 and not real_passable(g, 0)
+    set_melt(g, 0, opens)
+    assert g.surface.gate_ice[0] == 3 and real_passable(g, 0) and g.surface.gate_melt[0] < 1
+    assert [b for b in g.surface.gate_blocks if b.gate == 0]                     # ainda tem gelo derretendo
+    assert open_interior(w, p0) <= w.reachable_from(C.BASE_TILE)                # a sombra em tiles saiu
+    for j, q in enumerate(geo.pockets[1:], 1):                                  # os outros continuam fechados
+        if g.surface.gate_melt[j] == 0:
+            assert not real_passable(g, j) and not w.reachable_from(C.BASE_TILE) & set(q.interior)
+    set_melt(g, 0, 1.0)
+    assert not [b for b in g.surface.gate_blocks if b.gate == 0]                # p = 1: nenhum bloco nem colisão
+    bx, by = p0.gate.base_px
+    assert not [r for r in g.surface.gate_solids if abs(r[0] - bx) < 200 and abs(r[1] - by) < 200]
+    assert all(w.get(*t) == C.BEDROCK and not w.is_minable(*t) for t in p0.ring)   # o anel continua inteiro
 
 
-def test_state_emits_one_event_per_stage_and_never_goes_back():
+@pytest.mark.parametrize("seed", (3, 7, 1))                       # o portão 0 nelas usa a receita A, B e C
+def test_the_player_walks_through_the_gap(seed):
+    """No primeiro p em que a fresta abre, o player anda de verdade (Player.move com o solids_near do jogo) do
+    avental pro bolsão pelo caminho da busca, 1 px por passo, sem ser empurrado por nada."""
+    g = game(seed)
+    assert g.surface.gate_recipes[0] == {3: "A", 7: "B", 1: "C"}[seed]
+    set_melt(g, 0, ice_blocks.opens_at(g.surface.gate_recipes[0]))
+    gate = g.surface.geo.pockets[0].gate
+    bx, by = gate.base_px
+    path = walk_path(g, 0)
+    assert path
+    g.player.x, g.player.y = bx + path[0][0], by + path[0][1]
+    dt = 1.0 / C.PLAYER_SPEED
+    for (x0, y0), (x1, y1) in zip(path, path[1:]):
+        g.player.move(x1 - x0, y1 - y0, dt, g.solids_near)
+        assert abs(g.player.x - (bx + x1)) < 1e-6 and abs(g.player.y - (by + y1)) < 1e-6, (seed, x1, y1)
+        g.player.x, g.player.y = bx + x1, by + y1
+    assert g.player.y < gate.ty * T - 8                                          # dentro do bolsão
+    assert g.player.tile in g.surface.geo.pockets[0].interior
+
+
+def test_events_when_it_starts_melting_and_when_the_gap_opens():
+    """Substitui o "um evento por etapa" do M3.2: agora são 2 (1 = começou a derreter, 3 = a fresta abriu)."""
     g = game()
-    g.indices["heat"] = heat_for(0, 3)
-    g._apply_thaw()
-    assert [e for e in g.events if e[0] == "gate_thaw" and e[1] == 0] == [("gate_thaw", 0, 1), ("gate_thaw", 0, 2),
-                                                           ("gate_thaw", 0, 3)]
+    set_melt(g, 0, 0.1)
+    assert [e for e in g.events if e[0] == "gate_thaw"] == [("gate_thaw", 0, 1)]
+    g.events.clear()
+    set_melt(g, 0, 0.3)
+    assert not g.events                                                          # derretendo: nada de novo
+    set_melt(g, 0, 1.0)
+    assert [e for e in g.events if e[0] == "gate_thaw"] == [("gate_thaw", 0, 3)]
     g.events.clear()
     g._apply_thaw()
     assert not g.events
     g.indices["heat"] = 0.0
     g._apply_thaw()                                          # o índice não desce no jogo, mas mesmo assim
-    assert g.surface.gate_ice[0] == 3 and not g.events
+    assert g.surface.gate_melt[0] == 1.0 and g.surface.gate_ice[0] == 3 and not g.events
+
+
+def test_a_jump_straight_to_open_emits_both_events_in_order():
+    g = game()
+    set_melt(g, 0, 1.0)
+    assert [e for e in g.events if e[0] == "gate_thaw" and e[1] == 0] == [("gate_thaw", 0, 1), ("gate_thaw", 0, 3)]
 
 
 def test_machines_tick_melts_the_gates():
     """O _apply_thaw roda no fim do _update_machines (depois de somar os índices)."""
     g = game()
-    g.indices["heat"] = float(C.THAW_GATE_HEAT[0][0])
+    g.indices["heat"] = heat_for(0, 0.2)
     g._update_machines(0.016)
-    assert g.surface.gate_ice[0] == 1 and ("gate_thaw", 0, 1) in g.events
+    assert g.surface.gate_melt[0] == pytest.approx(0.2) and ("gate_thaw", 0, 1) in g.events
 
 
 def test_third_gate_only_counts_when_it_exists():
@@ -138,65 +236,103 @@ def test_third_gate_only_counts_when_it_exists():
         w = generate_surface(seed)
         if len(w.geo.pockets) == 3:
             g = game(seed)
-            g.indices["heat"] = float(C.THAW_GATE_HEAT[2][2])
+            g.indices["heat"] = float(C.THAW_GATE_HEAT[2][-1])
             g._apply_thaw()
-            assert g.surface.gate_ice == [3, 3, 3]
+            assert g.surface.gate_ice == [3, 3, 3] and g.surface.gate_melt == [1.0] * 3
+            assert g.surface.gate_blocks == []
             return
     pytest.skip("nenhuma seed com 3 bolsões")
 
 
-def test_gate_ice_is_derived_and_load_rebuilds_open_gates():
+def test_gate_melt_is_derived_and_load_rebuilds_the_blocks():
     g = game()
-    g.indices["heat"] = heat_for(0, 3) + 1
-    g._apply_thaw()
+    set_melt(g, 0, 0.5)
     data = save.state_to_dict(g)
     assert save.SAVE_VERSION == 7
-    assert "gate_ice" not in json.dumps(data["layers"]["surface"].keys().__repr__())
-    assert "gate_ice" not in data["layers"]["surface"]
+    for name in ("gate_ice", "gate_melt", "gate_blocks", "gate_recipes"):
+        assert name not in data["layers"]["surface"]
     loaded = save.state_from_dict(json.loads(json.dumps(data)))
-    assert loaded.surface.gate_ice == g.surface.gate_ice
+    assert loaded.surface.gate_melt == g.surface.gate_melt and loaded.surface.gate_ice == g.surface.gate_ice
+    assert loaded.surface.gate_blocks == g.surface.gate_blocks and loaded.surface.gate_blocks
     assert not [e for e in loaded.events if e[0] == "gate_thaw"]      # o load não solta aviso
-    p = loaded.surface.geo.pockets[0]
-    assert not formation_tiles(loaded.surface.world, p.gate)
+
+
+def test_load_with_high_heat_opens_the_gates():
+    """Save com o calor alto (o save não guarda os portões): o load derrete na hora, sem aviso."""
+    g = game()
+    data = save.state_to_dict(g)
+    data["progress"]["indices"]["heat"] = float(C.THAW_GATE_HEAT[1][-1])
+    loaded = save.state_from_dict(json.loads(json.dumps(data)))
+    assert loaded.surface.gate_melt[:2] == [1.0, 1.0] and loaded.surface.gate_ice[:2] == [3, 3]
+    p = loaded.surface.geo.pockets[1]
     assert open_interior(loaded.surface.world, p) <= loaded.surface.world.reachable_from(C.BASE_TILE)
 
 
-def test_load_with_high_heat_opens_gates_even_without_tile_changes():
-    """Save com o calor alto mas os tiles do portão ainda fechados (o save não guarda os portões): o load abre."""
-    g = game()
-    data = save.state_to_dict(g)
-    data["progress"]["indices"]["heat"] = heat_for(1, 2)
-    loaded = save.state_from_dict(json.loads(json.dumps(data)))
-    assert loaded.surface.gate_ice[:2] == [3, 2]
-    pockets = loaded.surface.geo.pockets
-    assert formation_tiles(loaded.surface.world, pockets[1].gate) == set(gate_at(pockets[1].gate, 2).tiles)
+@pytest.mark.parametrize("seed", SEEDS)
+def test_blocks_are_deterministic_by_seed(seed):
+    a, b = game(seed), game(seed)
+    for g in (a, b):
+        set_melt(g, 0, 0.45)
+    assert a.surface.gate_recipes == b.surface.gate_recipes
+    assert a.surface.gate_recipes == [ice_blocks.recipe_for(seed, i) for i in range(len(a.surface.geo.pockets))]
+    assert a.surface.gate_blocks == b.surface.gate_blocks
 
 
 def test_geo_is_never_mutated_by_the_thaw():
-    """O geo é dividido entre os mundos da mesma seed (cache): o derretimento mexe só no world e na camada."""
+    """O geo é dividido entre os mundos da mesma seed (cache): o derretimento mexe só na camada."""
     g = game()
     gate = g.surface.geo.pockets[0].gate
-    before = (gate.variant, list(gate.footprint))
-    g.indices["heat"] = heat_for(0, 3)
-    g._apply_thaw()
-    assert (gate.variant, list(gate.footprint)) == before
+    before = (gate.variant, list(gate.footprint), gate.base_px)
+    set_melt(g, 0, 1.0)
+    assert (gate.variant, list(gate.footprint), gate.base_px) == before
     fresh = game()
-    assert formation_tiles(fresh.surface.world, fresh.surface.geo.pockets[0].gate) == set(gate.tiles)
+    assert fresh.surface.gate_melt[0] == 0.0 and fresh.world.closed_gate_tiles >= set(gate.tiles)
 
 
-def test_current_formations_swap_the_gate_by_stage():
+def test_current_formations_leave_the_gate_out():
+    """Substitui o "troca o sprite pela etapa" do M3.2: o portão não é mais um sprite inteiro, vai em blocos."""
     g = game()
     geo = g.surface.geo
-    n = len(geo.formations)
-    gates = [f for f in layers.current_formations(g.surface) if f.kind == "ice_gate"]
-    assert len(layers.current_formations(g.surface)) == n and all(f.variant == 0 for f in gates)
-    g.indices["heat"] = heat_for(0, 2)
-    g._apply_thaw()
-    gates = [f for f in layers.current_formations(g.surface) if f.kind == "ice_gate"]
-    assert sorted(f.variant for f in gates)[-1] == 2
-    g.indices["heat"] = heat_for(0, 3)
-    g._apply_thaw()
-    assert len(layers.current_formations(g.surface)) == n - 1
+    forms = layers.current_formations(g.surface)
+    assert len(forms) == len(geo.formations) - len(geo.pockets) and all(f.kind != "ice_gate" for f in forms)
+
+
+def test_cannot_place_a_machine_on_an_ice_block():
+    g = game()
+    p = g.surface.geo.pockets[0]
+    tile = next(t for t in p.gate.tiles if any(
+        player.overlaps((t[0] * T, t[1] * T, T, T), r) for r in g.surface.gate_solids))
+    g.inventory.add("o2", 1)
+    g.player.x, g.player.y = (tile[0] + 0.5) * T, (p.gate.ty + 3.5) * T          # no avental, no alcance
+    assert not g.can_place("o2", tile)
+    set_melt(g, 0, 1.0)
+    assert g.can_place("o2", tile)                                                # sem gelo: chão livre
+
+
+def test_ice_blocks_collide_only_on_the_surface():
+    g = game()
+    assert g.surface.gate_solids
+    g.enter_layer("cave")
+    assert g.active.gate_solids == [] and g.active.gate_blocks == []
+
+
+def test_map_tooltip_says_melting_with_the_percent():
+    from game import map_view
+    g = game()
+    assert map_view._gate_state(g.surface, 0) == "fecha a passagem · gelo"
+    set_melt(g, 0, 0.42)
+    assert map_view._gate_state(g.surface, 0) == "derretendo · 42%"
+    set_melt(g, 0, 1.0)
+    assert map_view._gate_state(g.surface, 0) == "aberto · passagem livre"
+
+
+def test_scanner_map_paints_the_closed_gate_until_the_gap_opens():
+    from game import minimap
+    g = game()
+    tile = g.surface.geo.pockets[0].gate.tiles[0]
+    assert minimap.tile_color(g.world, *tile) == minimap.TILE_COLORS[C.FORMATION]
+    set_melt(g, 0, 1.0)
+    assert minimap.tile_color(g.world, *tile) != minimap.TILE_COLORS[C.FORMATION]
 
 
 # ---- destroço rico e contêiner lacrado ------------------------------------------------------------------------
@@ -276,8 +412,10 @@ def test_container_marker_appears_on_the_map_once_seen():
     assert len(entries) == 1 and entries[0].title == "Contêiner"
 
 
-# ---- render: sprite pela etapa, aberto sem sprite e com a geada ------------------------------------------------
-def test_render_uses_the_stage_sprite_and_frost_ring_when_open():
+# ---- render: um objeto por bloco, pelo pé, recolorido pela rampa ICE, e a geada no chão ------------------------
+def test_render_draws_each_ice_block_by_its_foot_and_the_frost_ring():
+    """Substitui o "sprite pela etapa" do M3.2: cada bloco é um objeto próprio no desenho (pé = base_px + (x, y) da
+    receita, âncora do JSON), some quando derrete, e a geada vai no chão a partir de p > 0."""
     pygame.init()
     from game.assets import Sprites
     from game.render import Renderer
@@ -288,22 +426,59 @@ def test_render_uses_the_stage_sprite_and_frost_ring_when_open():
     cam = (int(bx - 480), int(by - 270))
     r.view_w, r.view_h = C.SCREEN_W, C.SCREEN_H
 
-    def gate_sprites():
-        return [f for f, *_ in r.visible_formations(g, cam) if f.kind == "ice_gate" and f.tx == gate.tx]
+    def drawn():
+        return [(f, s, x, y) for f, s, x, y in r.visible_formations(g, cam) if f.kind == "ice_block" and f.gate == 0]
 
-    assert [f.variant for f in gate_sprites()] == [0] and r.gate_frost(g, cam) == []
-    g.indices["heat"] = heat_for(0, 2)
-    g._apply_thaw()
-    assert [f.variant for f in gate_sprites()] == [2]
-    g.indices["heat"] = heat_for(0, 3)
-    g._apply_thaw()
-    assert gate_sprites() == []
+    recipe = ice_blocks.RECIPES[g.surface.gate_recipes[0]]
+    vis = drawn()
+    assert len(vis) == len(recipe["blocks"]) and r.gate_frost(g, cam) == []
+    for (b, surf, x, y), spec in zip(vis, recipe["blocks"]):
+        info = ice_blocks.BLOCKS[spec["b"]]
+        assert b.key == spec["b"] and b.frame == 0 and b.foot == (bx + spec["x"], by + spec["y"])
+        assert surf.get_size() == tuple(info["frame"])
+        assert (x + info["anchor"][0], y + info["anchor"][1]) == (round(b.foot[0]), round(b.foot[1]))
+    set_melt(g, 0, 0.5)
+    assert sorted(b.frame for b, *_ in drawn()) != [0] * len(drawn())            # encolhendo
+    assert len(r.gate_frost(g, cam)) == 1
+    canvas = pygame.Surface((C.SCREEN_W, C.SCREEN_H))
+    items = r.collect_objects(canvas, g, cam, 0.0)
+    feet = {b.foot[1] for b, *_ in drawn()}
+    assert feet <= {ay for ay, _ in items}                                       # cada um ordena pelo pé dele
+    set_melt(g, 0, 1.0)
+    assert drawn() == []
     rings = r.gate_frost(g, cam)
     assert len(rings) == 1
     surf, x, y = rings[0]
     assert surf.get_size() == (176, 72) and x == round(bx - 88) and y == round(by - 60)
-    canvas = pygame.Surface((C.SCREEN_W, C.SCREEN_H))
     r.draw(canvas, g, cam, 0.0)                                       # desenha sem quebrar
+
+
+def test_ice_blocks_recolor_by_stage_and_fall_back_without_art():
+    pygame.init()
+    from game import hills
+    b = ice_blocks.blocks_at((0, 0), "A", 0.0)[0]
+    sprites = hills.IceBlockSprites()
+    arid, green = sprites.surface(b, 2), sprites.surface(b, 4)
+    assert arid.get_size() == green.get_size() == b.frame_size
+    ax, ay = b.anchor
+    probe = [(x, y) for x in range(arid.get_width()) for y in range(arid.get_height())
+             if arid.get_at((x, y)).a == 255]
+    assert probe and any(arid.get_at(p) != green.get_at(p) for p in probe)        # a rampa ICE muda com o estágio
+    fb = hills.IceBlockSprites._fallback(b)
+    assert fb.get_size() == b.frame_size
+
+
+def test_ice_block_in_front_turns_on_the_xray():
+    """Player logo atrás (acima do pé) de um bloco que o cobre: o raio-x acende, igual às formações."""
+    pygame.init()
+    from game.assets import Sprites
+    from game.render import Renderer
+    g = game()
+    r = Renderer(Sprites())
+    r.view_w, r.view_h = C.SCREEN_W, C.SCREEN_H
+    b = max(g.surface.gate_blocks, key=lambda b: b.foot[1])                      # o da frente
+    g.player.x, g.player.y = b.foot[0], b.foot[1] - 6
+    assert r.formation_occludes(g)
 
 
 def test_save_diff_leaves_out_the_gate_tiles():

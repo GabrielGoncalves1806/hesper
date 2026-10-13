@@ -97,6 +97,10 @@ class World:
         # v0.4 Marco 3 (M3.3, só com geo): até que altura (escala do geo.height) a água das bacias subiu. Derivado do
         # índice de água (game/thaw.py · lake_level, GameState._apply_thaw), não vai no save. -1 = seco.
         self.water_level = -1.0
+        # v0.4 Marco 3 · M3.5: tiles da caixa 4×2 dos gelos-portão ainda fechados (a fresta não abriu). Derivado
+        # (nasce com todos na geração; o Layer.refresh_gates refaz). A colisão do gelo é por retângulo, não por tile:
+        # isto é a sombra dele em tiles, pro `reachable_from` e pro mapa do scanner (pinta como pegada de formação).
+        self.closed_gate_tiles: frozenset[tuple[int, int]] = frozenset()
         self._geo_rows = None                                     # (altura, bacia, beira) em listas (ver _rows)
 
     # ---- geração ----------------------------------------------------------
@@ -224,31 +228,18 @@ class World:
             self._vein_tiles[t] = vein
 
     def reachable_from(self, start: tuple[int, int]) -> set[tuple[int, int]]:
-        """Tiles de chão alcançáveis a pé a partir de `start` (sem cavar). Busca em largura."""
+        """Tiles de chão alcançáveis a pé a partir de `start` (sem cavar; o gelo-portão ainda fechado conta como
+        parede, `closed_gate_tiles`). Busca em largura."""
         seen = {start}
         queue = deque([start])
         while queue:
             x, y = queue.popleft()
             for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
-                if (nx, ny) not in seen and self.in_bounds(nx, ny) and not self.is_solid(nx, ny):
+                if (nx, ny) not in seen and self.in_bounds(nx, ny) and not self.is_solid(nx, ny) \
+                        and (nx, ny) not in self.closed_gate_tiles:
                     seen.add((nx, ny))
                     queue.append((nx, ny))
         return seen
-
-    def swap_footprint(self, old_tiles, new_tiles) -> list[tuple[int, int]]:
-        """Pegada de uma formação mudou (gelo-portão derretendo, v0.4 Marco 3): o que era C.FORMATION e saiu vira chão,
-        o que entrou vira C.FORMATION. Devolve os tiles que mudaram (pro mapa do scanner repintar)."""
-        new = set(new_tiles)
-        changed = []
-        for t in old_tiles:
-            if t not in new and self.get(*t) == C.FORMATION:
-                self.set(*t, self.floor_kind)
-                changed.append(t)
-        for t in new:
-            if self.get(*t) != C.FORMATION:
-                self.set(*t, C.FORMATION)
-                changed.append(t)
-        return changed
 
     def vein_at(self, tx: int, ty: int) -> Vein | None:
         return self._vein_tiles.get((tx, ty))

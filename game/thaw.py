@@ -14,11 +14,24 @@ from game import config as C
 DRY = -1.0      # lake_level: seco (nenhum tile tem altura abaixo disso)
 
 
-def gate_stage(heat: float, i: int) -> int:
-    """Etapa do gelo-portão `i` (0 = inteiro .. 3 = aberto) pelos marcos C.THAW_GATE_HEAT[i]. O portão 0 abre
-    primeiro. Bater no marco já conta (heat == marco sobe a etapa)."""
+GATE_MELTING = 1   # gate_stage: o gelo começou a derreter, mas o corredor ainda está fechado pra caixa do player
+GATE_OPEN = 3      # gate_stage: a fresta abriu (o player passa); o resto dos blocos continua derretendo até p = 1
+
+
+def gate_progress(heat: float, i: int) -> float:
+    """Progresso do degelo do gelo-portão `i` (0 = inteiro .. 1 = sem gelo nenhum), linear no calor entre o 1º e o
+    último marco de C.THAW_GATE_HEAT[i]. O portão 0 derrete primeiro. Monótona."""
     marks = C.THAW_GATE_HEAT[min(i, len(C.THAW_GATE_HEAT) - 1)]
-    return bisect.bisect_right(marks, heat)
+    lo, hi = marks[0], marks[-1]
+    return min(1.0, max(0.0, (heat - lo) / (hi - lo)))
+
+
+def gate_stage(p: float, opens_at: float) -> int:
+    """Etapa derivada do progresso (M3.5): 0 inteiro, GATE_MELTING derretendo e fechado, GATE_OPEN com a fresta
+    aberta (`opens_at` = game/ice_blocks.py · opens_at da receita do portão). A etapa 2 do M3.2 não existe mais."""
+    if p >= opens_at:
+        return GATE_OPEN
+    return GATE_MELTING if p > 0 else 0
 
 
 def lake_level(water: float) -> float:

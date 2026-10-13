@@ -184,10 +184,14 @@ def _near(tiles, r):
 @pytest.mark.parametrize("seed", SEEDS)
 def test_formation_tiles_are_exactly_the_footprints(seed):
     w = generate_surface(seed)
-    feet = {t for f in w.geo.formations for t in f.tiles}
+    # M3.5: o gelo-portão não tem pegada em tiles (bate pelos retângulos dos blocos, game/ice_blocks.py): a caixa
+    # 4×2 dele fica areia e entra só no `closed_gate_tiles` (a sombra em tiles do portão fechado)
+    feet = {t for f in w.geo.formations if f.kind != "ice_gate" for t in f.tiles}
     assert feet and {t for t in ALL if w.get(*t) == C.FORMATION} == feet
     for t in feet:
         assert w.is_solid(*t) and not w.is_wall(*t) and not w.is_minable(*t)
+    gates = {t for p in w.geo.pockets for t in p.gate.tiles}
+    assert w.closed_gate_tiles == gates and all(w.get(*t) == C.SAND and not w.is_minable(*t) for t in gates)
 
 
 @pytest.mark.parametrize("seed", SEEDS)
@@ -258,9 +262,7 @@ def test_wrecks_and_veins_reachable_on_foot_and_gates_block_only_their_pocket(se
         assert all(w.geo.region_at(*t) == FROST for t in p.interior + p.gate.tiles)
         assert p.wreck_spot in p.interior and p.container_spot in p.interior
     opened = generate_surface(seed)
-    for p in pockets:
-        for t in p.gate.tiles:
-            opened.set(*t, C.SAND)
+    opened.closed_gate_tiles = frozenset()       # M3.5: o portão fechado é só a sombra em tiles (o chão já é areia)
     reach2 = opened.reachable_from(C.BASE_TILE)
     for p in pockets:
         assert {t for t in p.interior if not opened.is_solid(*t)} <= reach2   # menos o destroço rico e o contêiner

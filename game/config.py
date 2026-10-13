@@ -664,9 +664,11 @@ POCKET_WALL = 2                     # espessura do anel de rocha
 POCKET_SPACING = 26                 # tiles entre os centros de dois bolsões
 
 # v0.4 Marco 3 · M3.2 (bíblia §12, "Gelos-portão"): os portões derretem com o calor, do 0 (o da esquerda) pro último.
-# Cada um tem 3 marcos de calor (pK): etapa 1, 2 e 3 (3 = aberto, sem gelo). O 3º trio só vale com 3 bolsões.
-# A etapa é derivada do índice (layer.gate_ice, não vai no save). Números de partida: o balanceamento é no Marco 4.
+# M3.5: cada portão é um amontoado de blocos (game/ice_blocks.py) e o progresso p (0..1) anda linear entre o 1º e o
+# último marco de calor (pK) do trio dele (o do meio fica de referência). O 3º trio só vale com 3 bolsões.
+# p é derivado do índice (layer.gate_melt, não vai no save). Números de partida: o balanceamento é no Marco 4.
 THAW_GATE_HEAT = ((1500, 2500, 3500), (3500, 5000, 6500), (6000, 8000, 10000))
+THAW_GATE_RECIPE_SALT = 9203        # a seed do mundo + isto escolhe a receita (A, B ou C) de cada portão
 THAW_GATE_NOTICE = "Um gelo-portão abriu ao norte"
 THAW_GATE_NOTICE_TIME = 4.0         # s do aviso
 VOLUME.setdefault("ice_crack", 0.7)  # estalo do gelo (ice_crack.wav + ice_crack_1.wav, v11)
