@@ -69,6 +69,7 @@ def run_worker(driver: str, out: Path) -> None:
     tmp = Path(tempfile.mkdtemp(prefix=f"hesper_video_{driver}_"))
     settings.SETTINGS_PATH = tmp / "settings.json"
     save.SAVE_PATH = tmp / "saves" / "slot1.json"
+    smoke.worlds.SAVES_DIR = tmp / "saves"
     random.seed(1)
 
     class Checker(smoke.Bot):
@@ -96,7 +97,7 @@ def run_worker(driver: str, out: Path) -> None:
     bot.mouse_to(mouse)
     bot.frames(0.5)
     bot.capture("titulo")
-    bot.key(pygame.K_RETURN)
+    bot.new_world(1, "Video", str(C.WORLD_SEED))   # Mundos -> Novo mundo (seed 7: as cenas contam com ela)
     assert app.mode == "play"
     s = bot.state = app.state
     s.equipment.slots["scanner"] = "scanner"     # minimapa no HUD (a textura dele vem do game/minimap.py)

@@ -24,14 +24,28 @@ from game import config as C  # noqa: E402
 from game import rock_respawn  # noqa: E402
 from game import save  # noqa: E402
 from game import settings  # noqa: E402
+from game import worlds  # noqa: E402
 from game.app import NUMBER_KEYS, App  # noqa: E402
 from game.ui import TAB_CRAFT, TAB_INVENTORY, TAB_LOGS, TI_PANEL_W  # noqa: E402
 
 # o smoke mexe nos volumes: grava num arquivo temporário, nunca no settings.json de verdade
 import tempfile  # noqa: E402
-settings.SETTINGS_PATH = Path(tempfile.gettempdir()) / "hesper_smoke_settings.json"
-# ...e o save também: o smoke nunca deixa um saves/slot1.json de verdade pra trás
-save.SAVE_PATH = Path(tempfile.gettempdir()) / "hesper_smoke_save" / "slot1.json"
+# (pasta própria de cada execução: um smoke que quebrou no meio, ou outro rodando junto, não deixa
+# zoom/interface/save velhos pro próximo)
+SMOKE_TMP = Path(tempfile.mkdtemp(prefix="hesper_smoke_"))
+settings.SETTINGS_PATH = SMOKE_TMP / "hesper_smoke_settings.json"
+# ...e o save também: o smoke nunca deixa um saves/ de verdade pra trás
+save.SAVE_PATH = SMOKE_TMP / "saves" / "slot1.json"
+worlds.SAVES_DIR = save.SAVE_PATH.parent       # mundos (world1..3.json + worlds.json) na mesma pasta temporária
+
+
+def clear_saves() -> None:
+    """Esvazia a pasta temporária de saves do smoke (nunca a saves/ de verdade)."""
+    folder = worlds.saves_dir()
+    assert folder != C.ROOT_DIR / "saves"
+    if folder.exists():
+        for file in folder.glob("*.json"):
+            file.unlink()
 
 # Tempestade (v0.4): sem rajada sorteada no smoke. Uma rajada no meio de outra cena empurra o player e
 # quebra posições e dicas; quem quer rajada (check_storm_gust) liga ela na mão, no pico e sem fim.
@@ -43,17 +57,46 @@ DT = 1 / 60
 
 class Bot:
     def __init__(self):
-        save.SAVE_PATH.unlink(missing_ok=True)
+        clear_saves()
         self.app = App(scale=1)
         self.frame_times: list[float] = []
-        # o jogo abre na tela de título: sem save, só "Novo jogo" e "Sair"
+        # o jogo abre na tela de título: sem mundo, só "Mundos" e "Sair"
         assert self.app.mode == "title"
-        assert [label for _, label in self.app.title.options()] == ["Novo jogo", "Sair"]
+        assert [label for _, label in self.app.title.options()] == ["Mundos", "Sair"]
         self.frames(0.5)
         self.shot("titulo.png")
-        self.key(pygame.K_RETURN)               # "Novo jogo" já vem selecionado
-        assert self.app.mode == "play"
+        # o resto do smoke conta com o mapa da seed 7 (posições da base, cratera, destroços...)
+        self.new_world(1, "Smoke", str(C.WORLD_SEED), shots=True)
+        assert self.app.state.seed == C.WORLD_SEED and self.app.slot == 1
         self.state = self.app.state
+
+    def type_text(self, text: str) -> None:
+        pygame.event.post(pygame.event.Event(pygame.TEXTINPUT, text=text))
+        self.frames(DT)
+
+    def new_world(self, slot: int, name: str, seed: str, shots: bool = False) -> None:
+        """Título -> Mundos -> espaço `slot` (vazio) -> Novo mundo (nome e seed pelo teclado) -> Criar."""
+        title = self.app.title
+        assert self.app.mode == "title" and title.screen == "main"
+        title.selected = [a for a, _ in title.options()].index("worlds")
+        self.key(pygame.K_RETURN)
+        assert title.screen == "worlds"
+        while title.selected != slot - 1:
+            self.key(pygame.K_s)
+        if shots:
+            self.frames(0.2)
+            self.shot("titulo_mundos_vazio.png")
+        self.key(pygame.K_RETURN)
+        assert title.screen == "form" and title.form_slot == slot and self.app.text_input
+        self.type_text(name)
+        self.key(pygame.K_TAB)
+        self.type_text(seed)
+        if shots:
+            self.frames(0.2)
+            self.shot("titulo_novo_mundo.png")
+        self.key(pygame.K_RETURN)
+        assert self.app.mode == "play" and self.app.slot == slot and not self.app.text_input
+        assert self.app.state.world_name == name and self.app.state.seed == worlds.parse_seed(seed)
 
     def frames(self, seconds: float) -> None:
         for _ in range(max(1, round(seconds / DT))):
@@ -1726,6 +1769,14 @@ def check_ui_size(bot) -> None:
     bot.mouse_to(ui_to_window(app, row))
     assert app.title.selected == 0
     bot.shot("titulo_pequena.png")
+    app.title.open_worlds()
+    bot.frames(0.1)
+    bot.shot("titulo_mundos_pequena.png")
+    assert all(pygame.Rect(0, 0, app.ui.w, app.ui.h).contains(r) for r in app.title.items)
+    app.title.open_form(3, rolled=123456)
+    bot.frames(0.1)
+    bot.shot("titulo_novo_mundo_pequena.png")
+    app.title.screen = "main"
     app.start_game(saved_state)
     bot.frames(0.2)
 
@@ -1758,7 +1809,8 @@ def check_ui_size(bot) -> None:
 
 
 def check_save(bot) -> None:
-    """Autosave com o aviso no HUD, "Salvar e sair" pela pausa, tela de título com save e Continuar."""
+    """Autosave com o aviso no HUD, "Salvar e sair" pela pausa, Mundos (novo mundo com nome e seed, jogar,
+    salvar, voltar, Continuar), apagar com confirmação e voltar pro mundo 1 pela lista."""
     s, app = bot.state, bot.app
     bot.teleport((96, 98))
     s.o2 = C.O2_MAX
@@ -1769,9 +1821,10 @@ def check_save(bot) -> None:
     bot.frames(0.5)
     assert app.autosave_timer < C.AUTOSAVE_INTERVAL and app.saved_notice == 0, "pausa não pode contar pro autosave"
     bot.key(pygame.K_ESCAPE)
-    save.SAVE_PATH.unlink(missing_ok=True)
+    world1 = worlds.path(1)
+    world1.unlink(missing_ok=True)
     bot.frames(0.3)
-    assert save.SAVE_PATH.exists() and app.saved_notice > 0, "o autosave devia ter salvo"
+    assert world1.exists() and app.saved_notice > 0, "o autosave devia ter salvo no mundo 1"
     bot.shot("salvo.png")
     bot.frames(C.SAVED_NOTICE_TIME)
     assert app.saved_notice == 0
@@ -1783,28 +1836,54 @@ def check_save(bot) -> None:
     bot.key(pygame.K_RETURN)
     assert app.mode == "title"
     saved = app.title.saved
-    assert saved is not None and saved is not s
+    assert saved is not None and saved is not s and app.title.saved_slot == 1
     assert saved.world.tiles == s.world.tiles and saved.inventory.to_data() == s.inventory.to_data()
     assert saved.ti == s.ti and len(saved.machines) == len(s.machines) and saved.logs_read == s.logs_read
-    assert [label for _, label in app.title.options()] == ["Continuar", "Novo jogo", "Sair"]
+    assert [label for _, label in app.title.options()] == ["Continuar", "Mundos", "Sair"]
     bot.frames(0.5)
     bot.shot("titulo_continuar.png")
-    # "Novo jogo" com save existente: pede confirmação; Esc volta
-    bot.key(pygame.K_s)
-    bot.key(pygame.K_RETURN)
-    assert app.title.confirming and app.mode == "title"
-    bot.frames(0.2)
-    bot.shot("titulo_confirmar.png")
+
+    # Mundos -> Novo mundo no espaço 2 (nome + seed em texto) -> joga -> salva e sai -> Continuar abre ele
+    bot.new_world(2, "Duna Azul", "hesper")
+    duna = app.state
+    assert duna.seed == worlds.text_seed("hesper") and duna.world.tiles != s.world.tiles
+    bot.frames(1.0)
+    bot.shot("mundo_novo.png")
+    assert app.renderer.surface_map.seed == duna.seed, "a transição tem que usar a seed do mundo"
     bot.key(pygame.K_ESCAPE)
-    assert not app.title.confirming
-    # Continuar pelo mouse
-    row = app.title.items[0]
-    bot.click((row.centerx * 2, row.centery * 2))
-    assert app.mode == "play" and app.state is saved
+    for _ in range(3):
+        bot.key(pygame.K_s)
+    bot.key(pygame.K_RETURN)                       # Salvar e sair
+    assert app.mode == "title" and worlds.path(2).exists()
+    assert app.title.saved_slot == 2 and app.title.saved.world_name == "Duna Azul"
+    bot.key(pygame.K_RETURN)                       # Continuar = o último jogado (o 2)
+    assert app.mode == "play" and app.slot == 2 and app.state.seed == duna.seed
+    bot.frames(0.3)
+    app.save_game(notify=False)
+    app.open_title()
+
+    # lista com os 2 mundos; apagar o 2 com dois cliques no APAGAR
+    title = app.title
+    bot.key(pygame.K_s)                            # Continuar -> Mundos
+    bot.key(pygame.K_RETURN)
+    assert title.screen == "worlds" and [w.status for w in title.worlds] == ["ok", "ok", "empty"]
+    bot.frames(0.2)
+    bot.shot("titulo_mundos.png")
+    rect = next(r for r, slot in title.delete_rects if slot == 2)
+    bot.click(ui_to_window(app, rect))
+    assert title.armed == 2
+    bot.frames(0.2)
+    bot.shot("titulo_mundos_apagar.png")
+    rect = next(r for r, slot in title.delete_rects if slot == 2)
+    bot.click(ui_to_window(app, rect))
+    assert title.armed is None and not worlds.path(2).exists() and title.worlds[1].empty
+    # volta pro mundo 1 pelo clique na linha dele
+    bot.click(ui_to_window(app, title.items[0]))
+    assert app.mode == "play" and app.slot == 1 and app.state.seed == C.WORLD_SEED
+    loaded = app.state
+    assert loaded.world.tiles == s.world.tiles and loaded.world_name == "Smoke"
     bot.frames(0.5)
     bot.state = app.state
-    save.SAVE_PATH.unlink(missing_ok=True)
-
 
 def check_surface(bot) -> None:
     """v0.3 Marco 1 · superfície: base, deserto (morros, rochas), rocha reaparecendo, cratera, veio, mapa e perf."""
@@ -2931,23 +3010,24 @@ def check_water(bot, stage: int) -> None:
 
 
 def check_old_save_title(bot) -> None:
-    """Save do v0.3 / v0.4 Marco 1 (versão 6): o v0.4 Marco 2 (geografia nova) não carrega, avisa e só deixa
-    começar um novo jogo."""
+    """saves/slot1.json do v0.3 / v0.4 Marco 1 (versão 6), sem mundo nenhum: o título avisa "save antigo",
+    não migra, e ao criar um mundo ele vira slot1.v6.json (sem apagar)."""
     app = bot.app
-    save.SAVE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    save.SAVE_PATH.write_text('{"version": 6, "seed": 7}', encoding="utf-8")
+    clear_saves()
+    legacy = worlds.legacy_path()
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_text('{"version": 6, "seed": 7}', encoding="utf-8")
     app.open_title()
-    assert app.title.old and [label for _, label in app.title.options()] == ["Continuar", "Novo jogo", "Sair"]
-    assert app.title.options()[app.title.selected][0] == "new"
+    assert app.title.old and [label for _, label in app.title.options()] == ["Continuar", "Mundos", "Sair"]
+    assert app.title.options()[app.title.selected][0] == "worlds"
     bot.mouse_to((480, 300))
     bot.frames(0.5)
     bot.shot("titulo_save_antigo.png")
-    bot.key(pygame.K_RETURN)                       # Novo jogo: o antigo vira slot1.v6.json
-    backup = save.SAVE_PATH.with_name("slot1.v6.json")
-    assert app.mode == "play" and backup.exists() and save.probe()[0] == "ok"
-    backup.unlink()
+    bot.new_world(1, "Mundo 1", "7")
+    backup = legacy.with_name("slot1.v6.json")
+    assert backup.exists() and not legacy.exists() and worlds.load(1)[0] == "ok"
+    clear_saves()
     bot.state = app.state
-
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)

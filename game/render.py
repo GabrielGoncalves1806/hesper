@@ -139,7 +139,9 @@ class Renderer:
         self.stage_map = self.surface_map        # o da camada que está sendo desenhada (troca no draw)
         self.lighting = Lighting(cell=4, banding=True)   # escuridão da caverna (degraus: decisão do dono)
         self.storm_dust = dust.DustLayer()              # poeira da tempestade (v0.4): nuvens + visão
-        self.storm_particles = dust.DustParticles(seed=C.WORLD_SEED)   # determinístico no smoke
+        # grãos da tempestade: sorteados pela seed do mundo (trocou de mundo, troca junto: use_seed)
+        self.storm_particles = dust.DustParticles(seed=C.WORLD_SEED)
+        self.seed = C.WORLD_SEED                 # seed do mundo que está sendo desenhado
         self._fade_cache: dict[str, tuple[int, pygame.Surface]] = {}   # clima esmaecido (ver _faded)
         # Relógio das animações das máquinas: o App soma dt × fator da energia (game/energy.py).
         # No déficit ele anda mais devagar, então a drill gira e as máquinas animam mais devagar.
@@ -266,6 +268,7 @@ class Renderer:
     def draw(self, canvas: pygame.Surface, state: GameState, cam: tuple[int, int], t: float,
              ghost: tuple[str, tuple[int, int], int, bool] | None = None, overlay: dict | None = None) -> None:
         self.view_w, self.view_h = canvas.get_size()     # tamanho da visão (com zoom, não é 960×540)
+        self.use_seed(state.seed)
         cave = not state.active.has_base
         if cave:                                         # rocha fria: sempre névoa, sem transição
             self.stage_map = self.cave_map
@@ -300,6 +303,14 @@ class Renderer:
         # 6. indicadores por cima da luz (no escuro da caverna eles têm que aparecer): barrinha das
         #    drills e raio de "sem energia". Ficam no mundo, então crescem com o zoom.
         self.draw_machine_status(canvas, state, cam, t)
+
+    def use_seed(self, seed: int) -> None:
+        """A transição e os grãos da poeira saem da seed do mundo (state.seed), não da C.WORLD_SEED."""
+        if seed == self.seed:
+            return
+        self.seed = seed
+        self.surface_map = StageMap(seed)
+        self.storm_particles = dust.DustParticles(seed=seed)
 
     def draw_storm(self, canvas, state: GameState, cam, t: float) -> None:
         """Tempestade de poeira (game/dust.py): poeira com a visão recortada + grãos e faixas de vento.

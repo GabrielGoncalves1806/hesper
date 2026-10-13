@@ -1,4 +1,4 @@
-"""Save/load: guarda o jogo em saves/slot1.json e traz de volta.
+"""Save/load: guarda um jogo num arquivo JSON e traz de volta (os arquivos de cada mundo: game/worlds.py).
 
 Python puro (nada de pygame), testado em tests/test_save.py.
 
@@ -24,8 +24,13 @@ Formato do arquivo (JSON, v7 · v0.4 Marco 2, geografia nova; o v6 do v0.3 tinha
       },
       "player":    {...},          # posição, direção, O₂, desmaio
       "inventory": {"slots": [...]},
-      "progress":  {...}           # índices, estágio, objetivos, terminais lidos, tempo de jogo...
+      "progress":  {...},          # índices, estágio, objetivos, terminais lidos, tempo de jogo...
+      "world": {"name": "Mundo 1", "seed": 7, "created": "2026-10-13T14:02", "played_s": 734.2}
     }
+
+`world` (mundos com nome e seed, game/worlds.py): entrou SEM subir a versão (o v7 é do Marco 2 do v0.4). É
+opcional no load: save sem ele carrega como "Mundo 1" criado "agora". A seed que gera o mapa continua sendo
+a `seed` da raiz; `world.seed` é a mesma, repetida, e `world.played_s` repete o `progress.play_time`.
 
 Baú: {"kind": "chest", ..., "storage": [...], "name": "Minério",
       "sends": ["ice"], "receives": ["iron", "silicon"], "batch": 10}
@@ -73,6 +78,8 @@ FIRST_VERSION = 7  # saves com versão menor que essa são de outra época do jo
 # Numeração dos estágios dentro do "progress": 2 = v0.4 (Tempestade, Árido, Névoa, Verde). O 1 (os 3 estágios do
 # v0.3) só existia no save v6, que não carrega mais.
 STAGE_SCHEME = 2
+# Save único de antes dos mundos (v0.4): o jogo agora usa saves/world1..3.json (game/worlds.py), que migra
+# este arquivo pro mundo 1 sem apagar. Continua sendo o padrão do write_save/probe sem caminho (testes).
 SAVE_PATH = C.ROOT_DIR / "saves" / "slot1.json"   # o smoke e os testes apontam pra outro lugar
 
 
@@ -325,6 +332,21 @@ SECTIONS = [
 ]
 
 
+def world_to_dict(state: GameState) -> dict:
+    """Nome e seed do mundo (a lista de mundos lê isso sem carregar o resto)."""
+    return {"name": state.world_name, "seed": state.seed, "created": state.world_created,
+            "played_s": round(state.play_time, 1)}
+
+
+def world_from_dict(state: GameState, data) -> None:
+    if not isinstance(data, dict):                 # save de antes dos mundos
+        return
+    name = " ".join(str(data.get("name", "")).split())
+    if name:
+        state.world_name = name[:C.WORLD_NAME_MAX]
+    state.world_created = str(data.get("created", state.world_created))
+
+
 def state_to_dict(state: GameState) -> dict:
     trip = state.ramp
     if trip is not None and not trip.switched and trip.to not in state.layers:
@@ -332,6 +354,7 @@ def state_to_dict(state: GameState) -> dict:
     data = {"version": SAVE_VERSION, "seed": state.seed, "layer": state.layer}
     for name, to_dict, _ in SECTIONS:
         data[name] = to_dict(state)
+    data["world"] = world_to_dict(state)
     if trip is not None and not trip.switched:
         # salvou no meio do fade, antes da troca: grava o destino (camada + chegada da rampa), como se a
         # viagem já tivesse acabado. Depois da troca o estado já está no destino e sai igual.
@@ -345,6 +368,7 @@ def state_from_dict(data: dict) -> GameState:
     state = new_state(int(data["seed"]))
     for name, _, from_dict in SECTIONS:
         from_dict(state, data[name])
+    world_from_dict(state, data.get("world"))
     layer = data.get("layer", layers.SURFACE)
     if layer not in state.layers:
         raise ValueError(f"camada ativa sem dados: {layer!r}")

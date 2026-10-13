@@ -231,7 +231,9 @@ class GameState:
     def __init__(self, seed: int = C.WORLD_SEED, rng: random.Random | None = None):
         # Camadas (game/layers.py): cada uma com o próprio mapa e máquinas. O jogo começa na
         # superfície; `world` e `machines` sempre apontam pra camada ATIVA.
-        self.seed = seed
+        self.seed = seed               # seed do MUNDO: tudo que é gerado (mapa, clima, transição) sai dela
+        self.world_name = "Mundo 1"    # nome do mundo (game/worlds.py); vai no bloco "world" do save
+        self.world_created = ""        # quando o mundo foi criado (ISO, até o minuto)
         self.layers: dict[str, Layer] = {SURFACE: layers.make_surface(seed)}
         self.layer = SURFACE
         self.rng = rng or random.Random()
