@@ -525,3 +525,32 @@ def test_e_on_the_container_shows_the_lore_and_opens_nothing(app):
     pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_e, mod=0, unicode="e", scancode=0))
     app.handle_events()
     assert app.mode == "play" and app.toast == C.CONTAINER_LORE
+
+
+def test_hovering_the_ice_gate_shows_the_heat_it_needs(app, monkeypatch):
+    """Dono: com o mouse em cima do gelo do portão, a dica mostra o calor em que a passagem abre e o de agora."""
+    s = app.state
+    s.indices["heat"] = 0.0
+    layer = s.surface                                    # o app é compartilhado e o degelo só sobe: volta pro inteiro
+    layer.gate_melt = [0.0] * len(layer.gate_melt)
+    layer.gate_ice = [0] * len(layer.gate_ice)
+    layer.refresh_gates()
+    pocket = s.surface.geo.pockets[0]
+    xs = [x for x, _ in pocket.gate.tiles]
+    ys = [y for _, y in pocket.gate.tiles]
+    spot = ((min(xs) + max(xs) + 1) / 2 * T, (max(ys) + 0.5) * T)
+    monkeypatch.setattr(app, "mouse_world", lambda: spot)
+    monkeypatch.setattr(app, "e_target", lambda: None)
+    assert app.gate_under_mouse() == 0
+    need = heat_for(0, ice_blocks.opens_at(s.surface.gate_recipes[0]))
+    from game.ui import fmt
+    assert app.hint() == f"Gelo-portão · a passagem abre com ~{fmt(need)} pK (agora 0)"
+    set_melt(s, 0, 1.0)                                  # derreteu tudo: sem bloco, sem dica do portão
+    assert app.gate_under_mouse() is None
+
+
+def test_crater_ice_hint_shows_the_heat_it_needs(app):
+    s = app.state
+    s.surface.crater_ice = 0
+    s.indices["heat"] = 12.0
+    assert app.crater_ice_hint().endswith(f"abre com {C.THAW_CRATER_HEAT[-1]} pK (agora 12)")

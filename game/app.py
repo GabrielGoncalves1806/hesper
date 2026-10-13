@@ -38,6 +38,7 @@ from game import energy
 from game import settings
 from game import worlds
 from game import viewport
+from game import ice_blocks, thaw
 from game.assets import Sprites
 from game.audio import Audio
 from game.equipment import is_equipment
@@ -50,7 +51,7 @@ from game.render import Renderer, art_key, stage_key
 from game.surfaces import opaque
 from game.systems import Controls, GameState
 from game.textedit import TextField
-from game.ui import item_name, submerged_notice
+from game.ui import fmt, item_name, submerged_notice
 from game.title import TitleScreen, draw_saved_notice
 from game.ui import TAB_CRAFT, TAB_INVENTORY, TAB_LOGS, UI, FloatingTexts
 
@@ -1537,6 +1538,39 @@ class App:
         perto do player (None = nada; aí, na base, o E abre o fabricador)."""
         return self.state.interaction(self.state.interactable_at(*self.mouse_world()))
 
+    def crater_ice_hint(self) -> str:
+        """Tampa de gelo da cratera: quanto calor falta pra abrir (o último marco de C.THAW_CRATER_HEAT)."""
+        need, now = C.THAW_CRATER_HEAT[-1], self.state.indices["heat"]
+        return f"{CRATER_ICE_HINT} · abre com {fmt(need)} pK (agora {fmt(now)})"
+
+    def gate_under_mouse(self) -> int | None:
+        """Índice do gelo-portão (geo.pockets) debaixo do mouse, enquanto ainda tem bloco de gelo: a caixa do portão
+        e uns tiles pra cima (os blocos são altos)."""
+        layer = self.state.active
+        geo = getattr(layer, "geo", None)
+        if geo is None:
+            return None
+        mx, my = self.mouse_world()
+        T = C.TILE
+        for i, pocket in enumerate(geo.pockets):
+            if not any(b.gate == i for b in layer.gate_blocks):
+                continue
+            xs = [x for x, _ in pocket.gate.tiles]
+            ys = [y for _, y in pocket.gate.tiles]
+            x0, x1, y1 = min(xs) * T, (max(xs) + 1) * T, (max(ys) + 1) * T
+            if x0 <= mx < x1 and y1 - C.GATE_HINT_HEIGHT_TILES * T <= my < y1:
+                return i
+        return None
+
+    def gate_ice_hint(self, i: int) -> str:
+        """Gelo-portão: o calor em que a fresta abre (o p da receita no calor do portão) e o calor de agora."""
+        layer, heat = self.state.active, self.state.indices["heat"]
+        if i < len(layer.gate_ice) and layer.gate_ice[i] >= thaw.GATE_OPEN:
+            return "Gelo-portão · a passagem já abriu"
+        marks = C.THAW_GATE_HEAT[min(i, len(C.THAW_GATE_HEAT) - 1)]
+        need = marks[0] + ice_blocks.opens_at(layer.gate_recipes[i]) * (marks[-1] - marks[0])
+        return f"Gelo-portão · a passagem abre com ~{fmt(need)} pK (agora {fmt(heat)})"
+
     def hint(self) -> str | None:
         state = self.state
         if self.placing == "drill" and self.place_target() is None:
@@ -1601,10 +1635,13 @@ class App:
             return "Terminal · chegue mais perto"
         if hover is not None and hover[0] == "container":
             return "Contêiner lacrado · chegue mais perto"
+        gate = self.gate_under_mouse()                    # v0.4 M3.5: gelo-portão debaixo do mouse
+        if gate is not None:
+            return self.gate_ice_hint(gate)
         tile = self.mouse_tile()
         if state.world.get(*tile) == C.CRATER:            # rampa debaixo do mouse, mas longe
             if state.ramp_blocked():
-                return CRATER_ICE_HINT
+                return self.crater_ice_hint()
             return ("Cratera · chegue mais perto pra descer" if state.active.has_base
                     else "Rampa · chegue mais perto pra subir")
         if state.in_base_zone():
@@ -1647,7 +1684,7 @@ class App:
             return "[E] Ler terminal"
         if kind == "ramp":
             if self.state.ramp_blocked():                 # v0.4: a cratera nasce tampada de gelo
-                return CRATER_ICE_HINT
+                return self.crater_ice_hint()
             return "[E] Descer pela rampa" if self.state.active.has_base else "[E] Subir pela rampa"
         if kind == "crate":
             return "[E] Caixa vazia" if obj.empty else "[E] Abrir caixa de saque"

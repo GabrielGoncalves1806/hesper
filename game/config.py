@@ -719,6 +719,7 @@ CRATER_ICE_STAGES = 4
 
 # v0.4 Marco 3 · M3.1: a cratera derrete com o calor e as fumarolas do basalto acordam (game/thaw.py · bíblia §12).
 # Números de partida: o balanceamento é no Marco 4 (balance_sim registra em quanto tempo o casual abre a cratera).
+GATE_HINT_HEIGHT_TILES = 5   # dica do gelo-portão: a caixa do portão e mais uns tiles pra cima (os blocos são altos)
 THAW_CRATER_HEAT = (40, 90, 150, 220)   # pK: o calor em que a tampa baixa pra etapa 1, 2, 3 e 4 (~1 min de 1 aquecedor)
 # Fumarolas (v9.1 da Designer, regions_palettes.json: formations.vent_*, smoke, vent_density). Cada uma acorda num
 # limiar próprio entre THAW_FUMAROLE_HEAT[0] e [1] (o `wake` do JSON: entre a etapa 1 e a 4 da tampa da cratera).

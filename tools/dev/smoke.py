@@ -1955,7 +1955,7 @@ def check_surface(bot) -> None:
     s.o2 = C.O2_MAX
     bot.mouse_to(bot.tile_on_screen((tx + 1, ty + 1)))
     bot.frames(0.2)
-    assert app.hint() == CRATER_ICE_HINT, app.hint()
+    assert app.hint().startswith(CRATER_ICE_HINT), app.hint()
     y0 = s.player.y
     bot.key(pygame.K_w, hold=0.8)                  # anda pra cima: a cratera segura
     assert s.player.y >= (ty + 3) * C.TILE + C.PLAYER_BOX_H - 0.01 and s.player.y < y0
@@ -2780,7 +2780,7 @@ def check_crater(bot) -> None:
     s.o2 = C.O2_MAX
     bot.mouse_to(bot.tile_on_screen((tx + 1, ty + 1)))
     ground_settle(bot)
-    assert app.hint() == CRATER_ICE_HINT, app.hint()
+    assert app.hint().startswith(CRATER_ICE_HINT), app.hint()
     bot.shot("cratera_dica.png")
     shot_zoom(bot, "cratera_tampada.png", (center[0], center[1] + 10), w=240, h=180)
     bot.key(pygame.K_e)
@@ -2790,7 +2790,7 @@ def check_crater(bot) -> None:
     s.o2 = C.O2_MAX
     bot.mouse_to(bot.tile_on_screen((tx + 1, ty + 1)))
     bot.frames(0.1)
-    assert app.hint() == CRATER_ICE_HINT, app.hint()
+    assert app.hint().startswith(CRATER_ICE_HINT), app.hint()
     # 2) as 5 etapas lado a lado (o M3 é que derrete; aqui o estado é setado na mão)
     bot.teleport((tx + 1, ty + 4))
     bot.mouse_to((900, 500))
