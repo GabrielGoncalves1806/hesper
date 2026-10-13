@@ -22,6 +22,7 @@ O jogo abre em "title" (tela de título, game/title.py); o save/load fica em gam
 """
 
 import math
+from pathlib import Path
 import random
 
 import warnings
@@ -98,10 +99,13 @@ class App:
     def __init__(self, scale: int | None = None, skip_title: bool = False):
         sound.pre_init()   # configura o mixer antes do pygame.init() (só se o áudio estiver ligado)
         pygame.init()
+        icon = Path(__file__).resolve().parent.parent / "assets" / "icon.png"
+        if icon.exists():                                # o "H" sobre a poeira (tools/dev/mac_icon.py): no macOS
+            pygame.display.set_icon(pygame.image.load(icon))   # vira o ícone do Dock, no lugar da cobrinha do pygame
         self.scale = scale or pick_scale()               # escala inteira da janela (fora da tela cheia)
         self.settings = settings.load()
         self.window = self.open_window(self.settings["fullscreen"])
-        pygame.display.set_caption("Hesper · v0.3")
+        pygame.display.set_caption("Hesper · v0.4")
         pygame.mouse.set_visible(False)
         # Tela interna SEM canal alfa, com máscaras explícitas. Sem isso, no macOS (driver Cocoa)
         # o Surface herda o formato da janela, que TEM alfa: os blits gravam alfa 0/255 misturado

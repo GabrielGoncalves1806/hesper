@@ -39,6 +39,7 @@ EOF
 # Ícone: o "H" do logo sobre a nuvem de poeira da tela de título (tools/dev/mac_icon.py, desenhado pelo próprio jogo).
 (cd "$REPO" && SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$UV" run python tools/dev/mac_icon.py "$TMP/icon_1024.png" >/dev/null)
 
+sips -z 256 256 "$TMP/icon_1024.png" --out "$REPO/assets/icon.png" >/dev/null   # o jogo usa no Dock (set_icon)
 ICONSET="$TMP/Hesper.iconset"
 mkdir -p "$ICONSET"
 for size in 16 32 128 256 512; do
