@@ -1497,7 +1497,7 @@ def check_b2_screens(bot) -> None:
         bot.key(pygame.K_m)
         assert app.mode == "map"
         bot.frames(DT)
-        base = next(r for r, name in app.ui.map_markers if name.startswith("Base"))
+        base = next(r for r, e in app.ui.map_markers if e.category == "base")
         bot.mouse_to(ui_to_window(app, base))
         bot.frames(DT)
         bot.shot(f"b2_mapa_{ui_size}.png")
@@ -2039,6 +2039,80 @@ def check_cave(bot) -> None:
     bot.frames(0.2)
 
 
+def check_map_panorama(bot) -> None:
+    """Mapa aberto panorâmico (B2): superfície 1× e 2×, tooltip de destroço com distância e direção, filtro
+    "Máquinas" desligado pelo chip, rodinha ancorada no mouse, arrasto e, numa janela 1920×1080, a interface
+    Pequena. Tudo pelo mouse/teclado na posição da janela. Prints: mapa_pan_*.png."""
+    from game import map_view as MV
+    s, app = bot.state, bot.app
+    view = app.map_view
+    zoom_before, hidden_before = view.zoom, set(view.hidden)
+    view.zoom, view.hidden = 2, set()
+    bot.key(pygame.K_m)
+    assert app.mode == "map" and view.layer == "surface"
+    bot.frames(0.1)
+    bot.mouse_to((4, 4))
+    bot.shot("mapa_pan_superficie_2x.png")
+    # tooltip num destroço (o mais perto que está na área), com cantoneiras e "N tiles a <direção>"
+    wreck = next((r, e) for r, e in app.ui.map_markers if e.category in ("wreck", "wreck_empty"))
+    bot.mouse_to(ui_to_window(app, wreck[0]))
+    bot.frames(0.05)
+    hover = app.ui.map_hover
+    assert hover is not None and hover.category in ("wreck", "wreck_empty") and " tiles " in hover.sub, hover
+    print(f"  tooltip: {hover.title} · {hover.sub}")
+    bot.shot("mapa_pan_tooltip.png")
+    # chip "Máquinas" desligado: o marcador some e o chip fica apagado (e vai pro settings.json)
+    chip = next(r for r, c in app.ui.map_chips if c == "machine")
+    bot.click(ui_to_window(app, chip))
+    assert "machine" in view.hidden and app.mode == "map"
+    assert not any(e.category == "machine" for _, e in app.ui.map_markers)
+    assert settings.load()["map_hidden"] == ["machine"]
+    bot.mouse_to(ui_to_window(app, wreck[0]))
+    bot.shot("mapa_pan_filtro.png")
+    bot.click(ui_to_window(app, chip))
+    assert "machine" not in view.hidden
+    # rodinha pra trás (1×): a superfície inteira cabe na altura
+    pygame.event.post(pygame.event.Event(pygame.MOUSEWHEEL, x=0, y=-1, flipped=False))
+    bot.frames(0.05)
+    assert view.zoom == 1 and settings.load()["map_zoom"] == 1
+    bot.mouse_to((4, 4))
+    bot.shot("mapa_pan_superficie_1x.png")
+    # arrasto no 3×: o mapa anda 1:1 com o mouse
+    view.set_zoom(3)
+    bot.frames(0.05)
+    area = app.ui.map_area
+    start = (view.cx, view.cy)
+    p0 = ui_to_window(app, area)
+    bot.mouse_to(p0)
+    bot.mouse_down(p0)
+    bot.frames(0.05)
+    bot.mouse_to((p0[0] - 60, p0[1] - 30))
+    bot.mouse_up((p0[0] - 60, p0[1] - 30))
+    bot.frames(0.05)
+    assert view.cx > start[0] and app.mode == "map" and not app.mouse_held
+    bot.key(pygame.K_c)
+    bot.key(pygame.K_ESCAPE)
+    assert app.mode == "play"
+    # interface Pequena numa janela 1920×1080
+    ui_before = app.settings["ui_size"]
+    app.scale = 2
+    app.window = app.open_window(False)
+    app.set_ui_size("pequena")
+    view.zoom = 2
+    bot.key(pygame.K_m)
+    bot.frames(0.1)
+    assert app.mode == "map" and (app.ui.w, app.ui.h) == (960, 540)
+    bot.mouse_to((8, 8))
+    bot.shot("mapa_pan_pequena.png")
+    bot.key(pygame.K_m)
+    app.set_ui_size(ui_before)
+    app.scale = 1
+    app.window = app.open_window(False)
+    bot.frames(0.05)
+    view.zoom, view.hidden = zoom_before, hidden_before
+    app.save_map_prefs()
+
+
 def check_wrecks(bot) -> None:
     """v0.3 Marco 3 · destroços, caixa, projeto, fabricador trancado, equipamento, tanque, minimapa e mapas."""
     from game import layers
@@ -2153,20 +2227,25 @@ def check_wrecks(bot) -> None:
     app.set_zoom(1.0, notify=False)
     bot.frames(0.2)
     bot.shot("minimapa.png")
+    # baú e máquina perto da base: marcadores novos do mapa (Máquinas e Baús)
+    extra = [Machine("chest", C.BASE_TILE[0] + 4, C.BASE_TILE[1] + 2), Machine("o2", C.BASE_TILE[0] - 4, C.BASE_TILE[1] + 2)]
+    s.surface.machines.extend(extra)
+    check_map_panorama(bot)
     bot.key(pygame.K_m)
     assert app.mode == "map"
     bot.frames(0.3)
     bot.shot("mapa_grande.png")
     # mouse no mapa (bug do dono): tooltip no marcador, FECHAR com hover, clique dentro não fecha, fora fecha
-    you = next(r for r, name in app.ui.map_markers if name == "Você")
+    you = next(r for r, e in app.ui.map_markers if e.category == "you")
     bot.mouse_to((you.centerx * 2, you.centery * 2))
     bot.frames(0.1)
-    assert app.ui.map_marker_at(app.mouse_ui) == "Você"
+    assert app.ui.map_hover is not None and app.ui.map_hover.title == "Você"
     bot.shot("mapa_tooltip.png")
-    hotbar = app.hotbar_selected
+    hotbar, map_zoom, world_zoom = app.hotbar_selected, app.map_view.zoom, app.zoom
     pygame.event.post(pygame.event.Event(pygame.MOUSEWHEEL, x=0, y=-1, flipped=False))
-    bot.click((app.ui.map_rect.centerx * 2, app.ui.map_rect.centery * 2))
-    assert app.mode == "map" and app.hotbar_selected == hotbar and not app.mouse_held
+    bot.click((app.ui.map_area.centerx * 2, app.ui.map_area.centery * 2))
+    assert app.mode == "map" and app.hotbar_selected == hotbar and not app.mouse_held and app.zoom == world_zoom
+    app.map_view.set_zoom(map_zoom)
     close = app.ui.map_close_rect
     bot.mouse_to((close.centerx * 2, close.centery * 2))
     bot.frames(0.1)
@@ -2191,13 +2270,23 @@ def check_wrecks(bot) -> None:
     bot.frames(0.2)
     bot.key(pygame.K_m)
     bot.frames(0.3)
+    # caverna: abre na camada do player; só os chips do que existe nela (sem Base/Destroço/Máquinas)
+    assert app.map_view.layer == "cave"
+    chips = [c for _, c in app.ui.map_chips]
+    assert "base" not in chips and "wreck" not in chips and "crater" in chips, chips
     bot.shot("mapa_caverna.png")
+    bot.key(pygame.K_q)                                   # Q: a superfície, centrada na cratera
+    assert app.map_view.layer == "surface" and app.mode == "map"
+    bot.frames(0.05)
+    bot.shot("mapa_pan_outra_camada.png")
     bot.key(pygame.K_ESCAPE)
     bot.shot("caverna_escura_marco3.png")
     for m in [m for m in s.machines if m.is_lamp][-3:]:
         s.machines.remove(m)
     # volta pra superfície e deixa o resto do smoke como estava (sem equipamento)
     s.enter_layer("surface")
+    for m in extra:
+        s.surface.machines.remove(m)
     s.equipment.unequip("o2_tank")
     s.equipment.unequip("scanner")
     s.inventory.remove("scanner", s.inventory.count("scanner"))

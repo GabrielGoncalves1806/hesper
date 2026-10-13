@@ -25,6 +25,8 @@ import pygame
 from game import art
 from game import config as C
 from game import energy
+from game import map_markers
+from game import map_view
 from game.assets import Sprites, load_font
 from game.fabricator import field_kinds, tab_kinds
 from game.floaters import LANE_PX, RISE, FloatingTexts, dodge_labels, hud_fade  # noqa: F401 (FloatingTexts: app)
@@ -334,7 +336,12 @@ class UI:
         # mapa grande (M): janela, botão FECHAR e marcadores com nome (tooltip)
         self.map_rect: pygame.Rect | None = None
         self.map_close_rect: pygame.Rect | None = None
-        self.map_markers: list[tuple[pygame.Rect, str]] = []
+        self.map_area: pygame.Rect | None = None                   # área de desenho (zoom, arrasto, marcadores)
+        self.map_markers: list = []                                # (retângulo, map_view.Entry) de cada marcador
+        self.map_layer_rects: list[tuple[pygame.Rect, str]] = []   # Superfície | Caverna no cabeçalho
+        self.map_buttons: list[tuple[pygame.Rect, str]] = []       # + / − / centralizar
+        self.map_chips: list[tuple[pygame.Rect, str]] = []         # filtros embaixo (retângulo, categoria)
+        self.map_hover = None                                      # marcador com o mouse (tooltip)
         self.name_pill: pygame.Rect | None = None                  # pílula com o nome do item da hotbar (draw_hotbar)
 
     # ---- tamanho e âncoras -------------------------------------------------------
@@ -2225,125 +2232,17 @@ class UI:
         ic.set_alpha(int(255 * alpha))
         self.native.append((ic, (icon_rect.x * 2, icon_rect.y * 2)))
 
-    # ---- scanner: minimapa e mapa grande (Marco 3) -------------------------------------
+    # ---- scanner: minimapa e mapa aberto (M), panorâmico do redesign B2 --------------------------
     MINIMAP_SIZE = 64                                  # px da UI (= C.MINIMAP_TILES tiles a 2 px nativos)
-
-    # Cada marcador tem forma e cor próprias (a legenda usa o mesmo desenho): (forma, cor).
-    # Veio não tem cor fixa: o ponto sai na cor do minério (MAP_VEIN_COLORS).
-    MAP_MARKERS = {
-        "you": ("arrow", "#ffd84a"),          # você: seta amarela piscando, apontando pra onde olha
-        "crater": ("ring", "#ffffff"),        # cratera (superfície) / rampa (caverna): anel branco
-        "wreck": ("diamond", "#f2a33a"),      # destroço: losango laranja (cinza quando a caixa esvaziou)
-        "vein": ("dot", None),                # veio: ponto cheio na cor do minério
-        "terminal": ("square", C.C_TERMINAL),  # terminal da caverna: quadrado verde
-        "base": ("capsule", C.C_O2),          # base: a cápsula (retângulo 2×1) ciano
-    }
-    MAP_VEIN_COLORS = {r: C.ORE_COLORS[r][0] for r in C.RESOURCES}
-    MAP_WRECK_EMPTY = "#7a6c62"
-
-    @staticmethod
-    def draw_marker(surf: pygame.Surface, shape: str, x: int, y: int, m: int, color, direction=(0, 1)) -> None:
-        """Um marcador do mapa centrado em (x, y), com contorno preto. `m` = meia-largura base (px nativos)."""
-        color = pygame.Color(color)
-        black = (0, 0, 0)
-        if shape == "arrow":
-            dx, dy = direction
-            px, py = -dy, dx                                       # perpendicular
-            r = m + 2
-            tip = (x + dx * r, y + dy * r)
-            left = (x - dx * r + px * r, y - dy * r + py * r)
-            right = (x - dx * r - px * r, y - dy * r - py * r)
-            back = (x - dx * (r - 2), y - dy * (r - 2))
-            pts = [tip, left, back, right]
-            grow = (r + 1.5) / r                                   # contorno: a mesma seta, um pouco maior
-            pygame.draw.polygon(surf, black, [(x + (a - x) * grow, y + (b - y) * grow) for a, b in pts])
-            pygame.draw.polygon(surf, color, pts)
-        elif shape == "ring":
-            r = m + 3
-            pygame.draw.circle(surf, black, (x, y), r + 1, 4)
-            pygame.draw.circle(surf, color, (x, y), r, 2)
-        elif shape == "diamond":
-            r = m + 2
-            pygame.draw.polygon(surf, black, [(x, y - r - 1), (x + r + 1, y), (x, y + r + 1), (x - r - 1, y)])
-            pygame.draw.polygon(surf, color, [(x, y - r), (x + r, y), (x, y + r), (x - r, y)])
-        elif shape == "dot":
-            pygame.draw.circle(surf, black, (x, y), m + 1)
-            pygame.draw.circle(surf, color, (x, y), m)
-        elif shape == "square":
-            pygame.draw.rect(surf, black, (x - m, y - m, 2 * m, 2 * m))
-            pygame.draw.rect(surf, color, (x - m + 1, y - m + 1, 2 * m - 2, 2 * m - 2))
-        elif shape == "capsule":
-            w, h = 2 * m + 2, m + 2
-            pygame.draw.rect(surf, black, (x - w // 2 - 1, y - h // 2 - 1, w + 2, h + 2))
-            pygame.draw.rect(surf, color, (x - w // 2, y - h // 2, w, h))
-
-    def _map_markers(self, surf: pygame.Surface, state: GameState, origin, k: int, t: float,
-                     hits: list | None = None) -> None:
-        """Marcadores por cima da textura já esticada (`k` px por tile, `origin` = tile do canto).
-        `hits`: recebe (x, y, raio, nome) de cada marcador, em px nativos da textura (tooltip do mapa)."""
-        ox, oy = origin
-        world = state.world
-        explored = state.active.explored
-        mk = self.MAP_MARKERS
-
-        def at(tx, ty):
-            return round((tx - ox) * k), round((ty - oy) * k)
-
-        def hit(x, y, r, name):
-            if hits is not None:
-                hits.append((x, y, r, name))
-
-        m = max(2, k)
-        if state.active.has_base:                                   # base: a cápsula
-            x, y = at(C.POD_TILES[0][0] + 1, C.POD_TILES[0][1] + 0.5)
-            self.draw_marker(surf, "capsule", x, y, m, mk["base"][1])
-            hit(x, y, m + 3, "Base (cápsula)")
-        if world.crater is not None:                                # cratera / rampa
-            x, y = at(world.crater[0] + 1.5, world.crater[1] + 1.5)
-            r = max(m, round(1.5 * k))
-            self.draw_marker(surf, "ring", x, y, r, mk["crater"][1])
-            hit(x, y, r + 4, "Cratera · desce pra caverna" if state.active.has_base else "Rampa · sobe pra superfície")
-        for v in world.veins:                                       # veios vistos
-            if any(explored.seen(*tt) for tt in v.tiles):
-                x, y = at(v.tx + 1, v.ty + 1)
-                self.draw_marker(surf, "dot", x, y, m + 1, self.MAP_VEIN_COLORS[v.resource])
-                hit(x, y, m + 3, f"Veio de {C.RESOURCE_NAME[v.resource]}")
-        for wreck in world.wrecks:                                  # destroços vistos
-            if any(explored.seen(*tt) for tt in wreck.tiles):
-                x, y = at(*wreck.center)
-                crate = state.crates.get(wreck.crate)
-                empty = crate is not None and crate.empty
-                self.draw_marker(surf, "diamond", x, y, m, self.MAP_WRECK_EMPTY if empty else mk["wreck"][1])
-                hit(x, y, m + 3, f"{wreck.name} · {'caixa vazia' if empty else 'destroço'}")
-        for tx, ty in world.terminals:                              # terminais da caverna vistos
-            if explored.seen(tx, ty) or explored.seen(tx, ty + 1):
-                x, y = at(tx + 0.5, ty + 0.5)
-                self.draw_marker(surf, "square", x, y, m, mk["terminal"][1])
-                hit(x, y, m + 2, "Terminal")
-        p = state.player                                            # você: seta amarela piscando
-        x, y = at(p.x / C.TILE, (p.y - 8) / C.TILE)
-        d = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}[p.direction]
-        bright = (t * 3) % 2 < 1.4
-        self.draw_marker(surf, "arrow", x, y, m if bright else m - 1, mk["you"][1] if bright else "#b89a2e", d)
-        hit(x, y, m + 3, "Você")
-
-    def map_legend(self, state: GameState) -> list[tuple[str, str]]:
-        """Itens da legenda do mapa da camada ativa: (marcador, rótulo). Só o que existe na camada."""
-        world = state.world
-        items = [("base", "BASE")] if state.active.has_base else []
-        if world.crater is not None:
-            items.append(("crater", "CRATERA" if state.active.has_base else "RAMPA"))
-        if world.wrecks:
-            items.append(("wreck", "DESTROÇO"))
-        if world.terminals:
-            items.append(("terminal", "TERMINAL"))
-        if world.veins:
-            items.append(("vein", "VEIO"))
-        items.append(("you", "VOCÊ"))
-        return items
+    # no minimapa só os pontos de referência (máquina e baú amontoam em volta da base); sem filtro
+    MINIMAP_SKIP = ("machine", "chest")
+    MAP_INK, MAP_DOT, MAP_FOG = "#0b0d13", "#202638", "#1d2231"   # não visto, grade de pontos, névoa da borda
+    MAP_DOT_STEP = 8                                   # um ponto a cada 8 tiles
+    MAP_TOOLTIP_H = 28
 
     def draw_minimap(self, state: GameState, tex: pygame.Surface, t: float, item_icon=None) -> None:
-        """Minimapa no canto direito, embaixo do medidor de energia: 64×64 tiles em volta do player."""
+        """Minimapa no canto direito, embaixo do medidor de energia: 64×64 tiles em volta do player, com os
+        pictogramas do mapa em 1× (game/map_markers.py)."""
         size = self.MINIMAP_SIZE
         n = C.MINIMAP_TILES
         k = size * 2 // n                                            # px nativos por tile
@@ -2352,7 +2251,9 @@ class UI:
         ox = max(0, min(w - n, ptx - n // 2))
         oy = max(0, min(h - n, pty - n // 2))
         view = pygame.transform.scale_by(tex.subsurface((ox, oy, min(n, w), min(n, h))), k)
-        self._map_markers(view, state, (ox, oy), k, t)
+        for e in map_view.visible(map_view.map_entries(state, state.layer), ()):
+            if e.category not in self.MINIMAP_SKIP:
+                map_markers.put(view, map_markers.marker(e.kind, e.color, e.direction), (e.x - ox) * k, (e.y - oy) * k)
         px = self.w - 6 - (size + 8)
         py = self.energy_bottom + 4
         self.hud_panel(px, py, size + 8, size + 8)
@@ -2370,69 +2271,279 @@ class UI:
         if item_icon is not None:
             self.native.append((self.small_icon(item_icon, "scanner"), ((px + size - 6) * 2, (py + size - 7) * 2)))
 
-    def draw_map(self, state: GameState, tex: pygame.Surface, t: float, mouse=(-1, -1)) -> None:
-        """Mapa grande (M): a camada inteira, preto onde não foi visto, com legenda e o botão FECHAR.
-        Hit-test: map_close_rect (fecha), map_rect (clique fora fecha) e map_markers (nome no tooltip)."""
-        self.fill((4, 6, 8, 200), (0, 0, self.w, self.h))
+    def map_layout(self) -> tuple[pygame.Rect, pygame.Rect]:
+        """(janela, área de desenho) do mapa aberto, em px da UI. No Grande: janela 464×258 e área 444×196
+        (o mockup); no Média/Pequena e em janela grande a janela cresce junto e mostra mais tiles."""
+        win = pygame.Rect(8, 6, self.w - 16, self.h - 12)
+        return win, pygame.Rect(win.x + 10, win.y + 28, win.w - 20, win.h - 62)
+
+    def map_styled(self, tex: pygame.Surface) -> pygame.Surface:
+        """A textura da camada (1 px por tile) com o "não visto" do mockup: fundo escuro da B com um ponto a
+        cada 8 tiles e 1 tile de névoa mais clara em volta do explorado. Tudo com máscaras (rápido)."""
+        w, h = tex.get_size()
+        key = ("map_bg", w, h)
+        bg = self._icon_cache.get(key)
+        if bg is None:
+            bg = pygame.Surface((w, h))
+            bg.fill(self.MAP_INK)
+            step = self.MAP_DOT_STEP
+            for y in range(0, h, step):
+                for x in range(0, w, step):
+                    bg.set_at((x, y), pygame.Color(self.MAP_DOT))
+            self._icon_cache[key] = bg
+        seen = pygame.mask.from_threshold(tex, (0, 0, 0), (1, 1, 1, 255))   # preto = não visto
+        seen.invert()
+        fog = seen.copy()
+        for off in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            fog.draw(seen, off)
+        fog.erase(seen, (0, 0))
+        out = bg.copy()
+        out.blit(fog.to_surface(setcolor=pygame.Color(self.MAP_FOG), unsetcolor=(0, 0, 0, 0)), (0, 0))
+        top = tex.copy()
+        top.set_colorkey((0, 0, 0))
+        out.blit(top, (0, 0))
+        return out
+
+    def _map_reset(self) -> None:
         self.slot_rects.clear()
         self.equip_rects.clear()
         self.logistics_buttons.clear()
         self.bay_rects.clear()
         self.buffer_rects.clear()
         self.header_rects.clear()
-        w, h = tex.get_size()
-        k = max(1, min((self.w * 2 - 48) // w, (self.h * 2 - 96) // h))   # px nativos por tile (inteiro)
-        mw, mh = w * k // 2, h * k // 2                                      # tamanho do mapa em px da UI
-        # legenda: o mesmo desenho dos marcadores (veio: os 3 minérios). Mede antes pra janela caber tudo.
-        legend = []
-        for kind, label in self.map_legend(state):
-            shape, color = self.MAP_MARKERS[kind]
-            colors = list(self.MAP_VEIN_COLORS.values()) if kind == "vein" else [color]
-            icon = pygame.Surface((8 * len(colors) + 6, 16), pygame.SRCALPHA)
-            for i, c in enumerate(colors):
-                self.draw_marker(icon, shape, 7 + 8 * i, 8, 3 if kind != "vein" else 2, c, (1, 0))
-            legend.append((icon, label))
-        legend_w = sum(icon.get_width() // 2 + 2 + self.font.size(label)[0] + 8 for icon, label in legend)
-        close_w = self.font.size("FECHAR")[0] + 14
-        key_w = self.key_cap_width("M")
-        pw, ph = min(self.w - 4, max(mw + 16, 300, legend_w + close_w + key_w + 28)), mh + 50
-        x, y = (self.w - pw) // 2, (self.h - ph) // 2
-        self.map_rect = pygame.Rect(x, y, pw, ph)
-        explored = state.active.explored
-        pct = 100 * explored.count / (w * h)
-        self.window(x, y, pw, ph, "Mapa · " + ("Superfície" if state.active.has_base else "Caverna"),
-                    f"EXPLORADO {pct:.0f}%", C.C_TERMINAL)
-        mx, my = x + (pw - mw) // 2, y + 22
-        self.surf.fill((0, 0, 0), (mx - 1, my - 1, mw + 2, mh + 2))
-        view = pygame.transform.scale_by(tex, k)
-        hits: list = []
-        self._map_markers(view, state, (0, 0), k, t, hits)
-        self.native.append((view, (mx * 2, my * 2)))
-        # marcadores com nome (hit-test do tooltip), em px da UI; os de cima (você) ganham dos de baixo
-        self.map_markers = [(pygame.Rect(round(mx + (hx - r) / 2), round(my + (hy - r) / 2),
-                                         max(4, round(r)), max(4, round(r))), name)
-                            for hx, hy, r, name in reversed(hits)]
-        ly = my + mh + 8
-        lx = x + 8
-        for icon, label in legend:
-            self.native.append((icon, (lx * 2, ly * 2 - 1)))
-            iw = icon.get_width() // 2
-            lx += iw + 2 + self.tx(label, lx + iw + 2, ly, B_MUTED) + 8
-        close = pygame.Rect(x + pw - 8 - close_w, ly - 2, close_w, 15)
-        self.button(close, "FECHAR", "ghost", hover=close.collidepoint(mouse))
-        self.key_cap(close.x - 4 - key_w, ly, "M")
-        self.map_close_rect = close
+        self.map_markers = []
+        self.map_layer_rects = []
+        self.map_buttons = []
+        self.map_chips = []
+        self.map_hover = None
 
-    def map_marker_at(self, pos) -> str | None:
-        """Nome do marcador do mapa debaixo de `pos` (px da UI), ou None."""
+    def draw_map(self, state: GameState, view, texture, t: float, mouse=(-1, -1)) -> None:
+        """Mapa aberto (M), variação panorâmica: cabeçalho (Mapa, Superfície | Caverna, EXPLORADO, FECHAR [M]),
+        a área com zoom/arrasto (`view`, game/map_view.MapView) e a fileira de filtros embaixo.
+        `texture(key)` = textura da camada (game/minimap.py). Hit-test: map_rect (fora fecha), map_close_rect,
+        map_layer_rects, map_buttons (zoom_in/zoom_out/center), map_chips, map_area e map_markers."""
+        self._map_reset()
+        self.fill((4, 6, 8, 200), (0, 0, self.w, self.h))
+        win, area = self.map_layout()
+        self.map_rect, self.map_area = win, area
+        x, y, w, h = win
+        view.set_area(area.w, area.h)
+        key = view.layer
+        tex = texture(key)
+        layer = state.layers[key]
+        self.card(x, y, w, h, B_WINDOW, B_LINE)
+        self.header_rects.append(pygame.Rect(x, y, w, 22))
+        self._map_header(state, layer, win, key, mouse)
+        self.fill(B_LINE, (x + 8, y + 22, w - 16, 1))
+        # área: textura recortada na janela visível e esticada por inteiro (2·zoom px nativos por tile)
+        self.round_rect(area.inflate(4, 4), B_WELL, B_LINE)
+        entries = map_view.map_entries(state, key)
+        shown = map_view.visible(entries, view.hidden)
+        surf, k, off = self._map_surface(tex, view, area)
+        self._map_overlay_buttons(area)
+        hits = []
+        for e in shown:
+            img = map_markers.marker(e.kind, e.color, e.direction, scale=2)
+            nx, ny = e.x * k - off[0], e.y * k - off[1]
+            if e.category == "you":
+                map_markers.put(surf, map_markers.marker("ring", scale=2), nx, ny)
+            map_markers.put(surf, img, nx, ny)
+            rect = pygame.Rect(0, 0, max(8, img.get_width() // 2 + 2), max(8, img.get_height() // 2 + 2))
+            rect.center = (round(area.x + nx / 2), round(area.y + ny / 2))
+            if area.collidepoint(rect.center):
+                hits.append((rect, e))
+        self.map_markers = hits
+        on_button = any(r.collidepoint(mouse) for r, _ in self.map_buttons)
+        self.map_hover = None if view.dragging or on_button or not area.collidepoint(mouse) \
+            else self.map_marker_at(mouse)
+        if self.map_hover is not None:                                 # cantoneiras laranja no marcador
+            e = self.map_hover
+            self._map_brackets(surf, e.x * k - off[0], e.y * k - off[1])
+        self.native.append((surf, (area.x * 2, area.y * 2)))
+        self._map_overlay(view, area, mouse)
+        self._map_chips(entries, view, area, key, mouse)
+
+    def _map_surface(self, tex: pygame.Surface, view, area: pygame.Rect):
+        """A janela visível da camada em px nativos. Devolve (superfície, px nativos por tile, deslocamento do
+        canto em px nativos). Fora da camada continua o fundo pontilhado (igual ao mockup)."""
+        k = 2 * view.zoom
+        ox, oy = view.origin()
+        off = (round(ox * k), round(oy * k))
+        vw, vh = area.w * 2, area.h * 2
+        surf = pygame.Surface((vw, vh))
+        surf.fill(self.MAP_INK)
+        step = self.MAP_DOT_STEP
+        dot = pygame.Color(self.MAP_DOT)
+        tx0, ty0 = math.floor(off[0] / k / step) * step, math.floor(off[1] / k / step) * step
+        for ty in range(ty0, math.ceil((off[1] + vh) / k) + 1, step):
+            for tx in range(tx0, math.ceil((off[0] + vw) / k) + 1, step):
+                surf.fill(dot, (tx * k - off[0], ty * k - off[1], k, k))
+        tw, th = tex.get_size()
+        x0, y0 = max(0, math.floor(off[0] / k)), max(0, math.floor(off[1] / k))
+        x1, y1 = min(tw, math.ceil((off[0] + vw) / k)), min(th, math.ceil((off[1] + vh) / k))
+        if x1 > x0 and y1 > y0:
+            styled = self.map_styled(tex)
+            part = pygame.transform.scale_by(styled.subsurface((x0, y0, x1 - x0, y1 - y0)), k)
+            surf.blit(part, (x0 * k - off[0], y0 * k - off[1]))
+        return surf, k, off
+
+    @staticmethod
+    def _map_brackets(surf: pygame.Surface, x: float, y: float) -> None:
+        """Cantoneiras laranja (15×15 do desenho, 2×) em volta do marcador com o mouse (o hover do mockup)."""
+        c = pygame.Color(C.C_ACCENT)
+        left, top = round(x) - 15, round(y) - 15
+        right, bottom = left + 28, top + 28
+        for ax, ay, sx, sy in ((left, top, 1, 1), (right, top, -1, 1), (left, bottom, 1, -1), (right, bottom, -1, -1)):
+            surf.fill(c, (ax if sx > 0 else ax - 6, ay, 8, 2))
+            surf.fill(c, (ax, ay if sy > 0 else ay - 6, 2, 8))
+
+    def _map_header(self, state: GameState, layer, win: pygame.Rect, key: str, mouse) -> None:
+        x, y, w, _ = win
+        title_w = self.tx("Mapa", x + 8, y + 2, B_TEXT, self.body)
+        # Superfície | Caverna (a caverna fica apagada e sem clique até a primeira descida)
+        labels = [("surface", "Superfície"), ("cave", "Caverna")]
+        widths = [self.body.size(lb)[0] + 14 for _, lb in labels]
+        sx, sy = x + 8 + title_w + 6, y + 3
+        self.round_rect((sx, sy, sum(widths) + 2, 15), B_WELL, B_LINE)
+        xx = sx + 1
+        for (lk, label), lw in zip(labels, widths):
+            rect = pygame.Rect(xx, sy + 1, lw, 13)
+            on, enabled = lk == key, lk in state.layers
+            if on or (enabled and rect.collidepoint(mouse)):
+                self.round_rect(rect, B_HOVER)
+            if on:
+                self.fill(C.C_ACCENT, (xx + 3, sy + 13, lw - 6, 1))
+            self.tx(label, xx + 7, sy, B_TEXT if on else B_MUTED if enabled else B_DIM, self.body)
+            if enabled:
+                self.map_layer_rects.append((rect, lk))
+            xx += lw
+        # FECHAR [M]: botão fantasma com a tecla por dentro
+        bw = 62
+        close = pygame.Rect(x + w - bw - 6, y + 3, bw, 15)
+        hover = close.collidepoint(mouse)
+        self.round_rect(close, B_HOVER if hover else B_CARD2, C.C_ACCENT if hover else B_LINE2)
+        self.tx("FECHAR", close.x + 6, y + 2, B_TEXT if hover else B_MUTED)
+        self.round_rect((close.right - 15, y + 5, 11, 11), B_WELL, B_LINE2)
+        self.tx("M", close.right - 9, y + 3, B_TEXT, align="center")
+        self.map_close_rect = close
+        # EXPLORADO N% com a barrinha
+        explored = layer.explored
+        frac = explored.count / max(1, explored.width * explored.height)
+        ex = close.x - 100
+        self.tx("EXPLORADO", ex, y + 2, B_MUTED)
+        self.tx(f"{round(frac * 100)}%", close.x - 8, y + 2, C.C_TI, align="right")
+        self.bar(ex, y + 13, 92, frac, C.C_TI, h=2)
+
+    def _map_overlay_buttons(self, area: pygame.Rect) -> None:
+        """Retângulos dos botões + / − / centralizar (no canto de cima à direita da área)."""
+        bx = area.right - 18
+        self.map_buttons = [(pygame.Rect(bx, area.y + 4, 14, 14), "zoom_in"),
+                            (pygame.Rect(bx, area.y + 20, 14, 14), "zoom_out"),
+                            (pygame.Rect(bx, area.y + 38, 14, 14), "center")]
+
+    def _map_overlay(self, view, area: pygame.Rect, mouse) -> None:
+        """Por cima da textura (camada nativa): selo do zoom, botões, escala "16 tiles" e o N."""
+        over = pygame.Surface(area.size, pygame.SRCALPHA)
+        ax, ay = area.topleft
+        label = f"ZOOM {view.zoom}×"
+        self.round_rect((4, 4, self.font.size(label)[0] + 8, 11), (15, 17, 25, 230), B_LINE, target=over)
+        self.tx(label, 8, 1, B_MUTED, target=over)
+        for rect, action in self.map_buttons:
+            r = rect.move(-ax, -ay)
+            enabled = not (action == "zoom_in" and view.zoom >= map_view.ZOOMS[-1]) and \
+                not (action == "zoom_out" and view.zoom <= map_view.ZOOMS[0])
+            hover = enabled and rect.collidepoint(mouse)
+            self.round_rect(r, (35, 40, 56, 240) if hover else (15, 17, 25, 230), C.C_ACCENT if hover else B_LINE2,
+                            target=over)
+            color = B_TEXT if enabled else B_DIM
+            if action in ("zoom_in", "zoom_out"):
+                self.fill(color, (r.x + 4, r.y + 6, 6, 2), over)
+            if action == "zoom_in":
+                self.fill(color, (r.x + 6, r.y + 4, 2, 6), over)
+        # escala: 16 tiles (16·zoom px da UI) e o N, cada um num fundinho pra ler em cima da areia
+        sl = 16 * view.zoom
+        tw = self.body.size("16 tiles")[0]
+        self.round_rect((2, area.h - 15, sl + tw + 12, 13), (15, 17, 25, 200), target=over)
+        self.fill(B_MUTED, (5, area.h - 6, sl, 1), over)
+        self.fill(B_MUTED, (5, area.h - 8, 1, 3), over)
+        self.fill(B_MUTED, (5 + sl - 1, area.h - 8, 1, 3), over)
+        self.tx("16 tiles", 9 + sl, area.h - 16, B_MUTED, self.body, target=over)
+        nx = area.w - 15
+        self.round_rect((nx, area.h - 21, 13, 19), (15, 17, 25, 200), target=over)
+        for i in range(3):                                         # setinha pro norte em cima do N
+            self.fill(B_MUTED, (nx + 6 - i, area.h - 18 + i, 2 * i + 1, 1), over)
+        self.tx("N", nx + 7, area.h - 15, B_TEXT, align="center", target=over)
+        self.native.append((pygame.transform.scale_by(over, 2), (ax * 2, ay * 2)))
+        # centralizar: a setinha de "você" apontando pra cima (1 px nativo por pixel do desenho)
+        rect = self.map_buttons[2][0]
+        icon = map_markers.marker("you", direction="up")
+        self.native.append((icon, (rect.centerx * 2 - icon.get_width() // 2, rect.centery * 2 - icon.get_height() // 2)))
+
+    def _map_chips(self, entries, view, area: pygame.Rect, key: str, mouse) -> None:
+        """Fileira de filtros embaixo: um chip por categoria que existe na camada (o mesmo pictograma do
+        marcador). Ligado = fundo hover + borda line2; desligado = escuro, ícone e texto apagados."""
+        fy = area.bottom + 6
+        xx = area.x
+        chips = []
+        for cat in map_view.categories(entries):
+            kind = {"crater": "crater" if key == "surface" else "ramp_up", "vein": "veins"}.get(cat, cat)
+            chips.append((cat, map_markers.marker(kind, direction="right", scale=2), map_view.chip_label(cat, key)))
+        # o espaçamento do mockup (8 entre ícone e texto, 3 entre chips); não coube: aperta; nem assim: só ícone
+        for pad, gap, labels in ((8, 3, True), (6, 2, True), (8, 3, False)):
+            total = sum(icon.get_width() // 2 + (pad + self.body.size(label)[0] + 4 if labels else 8)
+                        for _, icon, label in chips) + gap * (len(chips) - 1)
+            if total <= area.w:
+                break
+        for cat, icon, label in chips:
+            iw = icon.get_width() // 2
+            cw = iw + (pad + self.body.size(label)[0] + 4 if labels else 8)
+            rect = pygame.Rect(xx, fy, cw, 16)
+            on = cat not in view.hidden
+            hover = rect.collidepoint(mouse)
+            border = C.C_ACCENT if hover else B_LINE2 if on else B_LINE
+            self.round_rect(rect, B_HOVER if on else B_WELL, border)
+            self.native.append((icon if on else self.dark_icon(icon, 70),
+                                ((xx + 4) * 2, (fy + 8) * 2 - icon.get_height() // 2)))
+            if labels:
+                self.tx(label, xx + pad - 2 + iw + 2, fy, B_TEXT if on else B_DIM, self.body)
+            self.map_chips.append((rect, cat))
+            xx += cw + gap
+        # ajuda à direita, se couber
+        pairs = [("Q/E", "camada"), ("C", "centrar")]
+        hw = self.help_width(pairs)
+        if xx + 8 + hw <= area.right:
+            self.help_line(fy + 3, pairs, center=area.right - hw / 2)
+
+    def map_marker_at(self, pos):
+        """Marcador do mapa (map_view.Entry) debaixo de `pos` (px da UI), ou None. Encostou em dois: ganha
+        a prioridade (você › base › destroço › terminal › rampa › veio › máquina › baú)."""
         if self.map_rect is None:
             return None
-        return next((name for rect, name in self.map_markers if rect.collidepoint(pos)), None)
+        under = [e for rect, e in self.map_markers if rect.collidepoint(pos)]
+        return min(under, key=lambda e: e.priority) if under else None
 
-    def draw_map_tooltip(self, label: str, mouse) -> None:
-        """Tooltip do marcador do mapa: numa camada depois da textura (senão o mapa cobre ele)."""
-        w = self.body.size(label)[0] + 12
-        self.draw_tooltip_box(self.tooltip_rect(w, mouse), label)
+    def map_tooltip_rect(self, entry, mouse) -> pygame.Rect:
+        """Cartão do tooltip: abaixo do cursor, preso dentro da área do mapa (sem espaço embaixo: em cima)."""
+        w = max(self.body.size(entry.title)[0], self.body.size(entry.sub)[0]) + 28
+        h = self.MAP_TOOLTIP_H
+        area = self.map_area or pygame.Rect(0, 0, self.w, self.h)
+        mx, my = int(mouse[0]), int(mouse[1])
+        x = max(area.x + 2, min(mx - 10, area.right - 2 - w))
+        y = my + 14
+        if y + h > area.bottom - 2:
+            y = my - 6 - h
+        return pygame.Rect(x, max(area.y + 2, y), w, h)
+
+    def draw_map_tooltip(self, entry, mouse) -> None:
+        """Tooltip do marcador (cartão B2: pictograma, nome e "estado · distância direção"). Vai numa camada
+        depois da textura (senão o mapa cobre ele)."""
+        rect = self.map_tooltip_rect(entry, mouse)
+        self.round_rect(rect, (11, 13, 20, 255), B_LINE2)
+        icon = map_markers.marker(entry.kind, entry.color, entry.direction, scale=2)
+        self.native.append((icon, ((rect.x + 10) * 2 - icon.get_width() // 2,
+                                   (rect.y + 14) * 2 - icon.get_height() // 2)))
+        self.tx(entry.title, rect.x + 21, rect.y, B_TEXT, self.body)
+        self.tx(entry.sub, rect.x + 21, rect.y + 12, B_MUTED, self.body)
 
     # ---- cursor ---------------------------------------------------------------
     def draw_cursor(self, x: float, y: float) -> None:

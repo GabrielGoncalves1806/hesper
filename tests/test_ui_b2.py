@@ -314,18 +314,19 @@ def test_map_marker_tooltip(app):
     s = reset(app)
     open_map(app)
     ui = app.ui
-    names = [name for _, name in ui.map_markers]
-    assert "Você" in names and "Base (cápsula)" in names
-    you = next(r for r, name in ui.map_markers if name == "Você")
-    assert ui.map_marker_at(you.center) == "Você"
+    names = [e.title for _, e in ui.map_markers]
+    assert "Você" in names and "Base" in names
+    you = next(r for r, e in ui.map_markers if e.category == "you")
+    assert ui.map_marker_at(you.center).title == "Você"         # base embaixo: "você" tem a prioridade
     assert ui.map_rect.contains(you)
     corner = (ui.map_rect.left + 2, ui.map_rect.top + 2)
     assert ui.map_marker_at(corner) is None
     # o tooltip vai na última camada, por cima da textura do mapa (antes até o cursor sumia embaixo dela)
     app.mouse_window = to_window(app, you.center)
     app.draw()
-    rect = ui.tooltip_rect(ui.body.size("Você")[0] + 12, you.center)
-    assert not rect.collidepoint(you.center)
+    assert ui.map_hover is not None and ui.map_hover.title == "Você"
+    rect = ui.map_tooltip_rect(ui.map_hover, you.center)
+    assert not rect.collidepoint(you.center) and ui.map_area.contains(rect)
     assert ui.surf.get_at(rect.center).a == 255          # a caixa do tooltip está na camada de cima
     assert ui.surf.get_at((round(you.centerx), round(you.centery))).a > 0     # e o cursor também
     app.set_mode("play")

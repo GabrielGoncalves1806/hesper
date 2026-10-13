@@ -17,7 +17,8 @@ def test_corrupted_file_uses_defaults(tmp_path):
 
 def test_save_and_load_roundtrip(tmp_path):
     path = tmp_path / "settings.json"
-    values = {"master": 0.5, "sfx": 0.3, "ambient": 0.9, "fullscreen": True, "zoom": 1.5, "ui_size": "pequena"}
+    values = {"master": 0.5, "sfx": 0.3, "ambient": 0.9, "fullscreen": True, "zoom": 1.5, "ui_size": "pequena",
+              "map_zoom": 3, "map_hidden": ["wreck_empty", "machine"]}
     settings.save(values, path)
     assert settings.load(path) == values
 
@@ -44,6 +45,21 @@ def test_invalid_display_values_fall_back(tmp_path):
     path.write_text('{"fullscreen": true, "zoom": 2}', encoding="utf-8")      # inteiro de um nível vale
     loaded = settings.load(path)
     assert loaded["fullscreen"] is True and loaded["zoom"] == 2.0
+
+
+def test_map_prefs_persist_and_bad_values_fall_back(tmp_path):
+    """Mapa (M): último zoom e filtros escondidos são preferência do jogador (settings.json, não o save).
+    Zoom fora de 1-4 e filtro desconhecido caem no padrão; arquivo antigo sem as chaves fica no padrão."""
+    path = tmp_path / "settings.json"
+    path.write_text('{"map_zoom": 4, "map_hidden": ["chest", "xyz", "chest", "base"]}', encoding="utf-8")
+    loaded = settings.load(path)
+    assert loaded["map_zoom"] == 4 and loaded["map_hidden"] == ["base", "chest"]
+    path.write_text('{"map_zoom": 2.5, "map_hidden": "chest"}', encoding="utf-8")
+    loaded = settings.load(path)
+    assert loaded["map_zoom"] == 2 and loaded["map_hidden"] == []
+    path.write_text('{"map_zoom": true}', encoding="utf-8")
+    assert settings.load(path)["map_zoom"] == 2
+    assert settings.DEFAULTS["map_zoom"] == 2 and settings.DEFAULTS["map_hidden"] == []
 
 
 def test_default_volumes():

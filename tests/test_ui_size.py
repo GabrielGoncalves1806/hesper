@@ -251,32 +251,49 @@ def test_controls_fit_every_ui_size(ui, size):
     assert len(ui.controls_layout()[2]) == (2 if size[1] < 300 else 1)
 
 
+MARKER_KINDS = ("you", "base", "crater", "ramp_up", "wreck", "wreck_empty", "vein", "terminal", "machine", "chest")
+
+
 def test_map_markers_are_all_distinct(ui):
-    """Cada marcador do mapa tem forma ou cor só dele (antes cratera e você eram brancos, destroço e veio laranja)."""
-    specs = list(ui.MAP_MARKERS.values())
-    shapes = [shape for shape, _ in specs]
-    assert len(set(shapes)) == len(shapes)
-    colors = [c.lower() for _, c in specs if c] + [c.lower() for c in ui.MAP_VEIN_COLORS.values()]
-    assert ui.MAP_MARKERS["you"][1].lower() not in colors[1:] and len(set(colors)) == len(colors)
+    """Cada pictograma do mapa (game/map_markers.py, porte do marker() do mockup) é um desenho só dele."""
+    from game import map_markers as MM
+    pictures = {}
+    for kind in MARKER_KINDS:
+        surf = MM.marker(kind)
+        pictures[kind] = (surf.get_size(), pygame.image.tobytes(surf, "RGBA"))
+    assert len(set(pictures.values())) == len(MARKER_KINDS)
+    assert MM.marker("base").get_size() == (13, 11)                 # opção A, "módulo de frente"
+    assert MM.marker("base", scale=2).get_size() == (26, 22)        # mapa: 1 px da UI por pixel do desenho
+    # "você" gira pra onde o player olha (o desenho aponta pra cima)
+    up, right = MM.marker("you", direction="up"), MM.marker("you", direction="right")
+    assert up.get_size() == (9, 8) and right.get_size() == (8, 9)
+    assert up.get_at((4, 0)) == pygame.Color(MM.INK) and right.get_at((7, 4)) == pygame.Color(MM.INK)
 
 
-def test_map_legend_matches_the_layer(ui):
+def test_map_categories_match_the_layer(ui):
+    """Chips de filtro: só as categorias que existem na camada (com tudo revelado)."""
+    from game import map_view as MV
     from game.systems import GameState
     g = GameState(rng=random.Random(1))
-    assert [k for k, _ in ui.map_legend(g)] == ["base", "crater", "wreck", "vein", "you"]
+    g.surface.explored.bits[:] = b"\x01" * len(g.surface.explored.bits)
+    assert MV.categories(MV.map_entries(g, "surface")) == ["base", "crater", "wreck", "vein"]
     g.enter_layer("cave")
-    assert [k for k, _ in ui.map_legend(g)] == ["crater", "terminal", "vein", "you"]
-    assert dict(ui.map_legend(g))["crater"] == "RAMPA"
+    g.active.explored.bits[:] = b"\x01" * len(g.active.explored.bits)
+    assert MV.categories(MV.map_entries(g, "cave")) == ["crater", "vein", "terminal"]
+    assert MV.chip_label("crater", "cave") == "Rampa" and MV.chip_label("crater", "surface") == "Cratera"
 
 
-def test_marker_shapes_draw_their_color(ui):
-    """Desenha cada forma num quadro vazio: a cor do marcador aparece e tem contorno preto em volta."""
-    for kind, (shape, color) in ui.MAP_MARKERS.items():
-        color = color or ui.MAP_VEIN_COLORS["iron"]
-        surf = pygame.Surface((24, 24), pygame.SRCALPHA)
-        ui.draw_marker(surf, shape, 12, 12, 3, color, (1, 0))
-        px = {tuple(surf.get_at((x, y)))[:3] for x in range(24) for y in range(24) if surf.get_at((x, y)).a}
-        assert tuple(pygame.Color(color))[:3] in px and (0, 0, 0) in px, kind
+def test_marker_pictograms_draw_their_color(ui):
+    """Cada pictograma tem a cor do marcador e o contorno escuro (INK)."""
+    from game import map_markers as MM
+    for kind in MARKER_KINDS:
+        surf = MM.marker(kind)
+        px = {tuple(surf.get_at((x, y)))[:3] for x in range(surf.get_width()) for y in range(surf.get_height())
+              if surf.get_at((x, y)).a}
+        color = "#efe5da" if kind == "base" else MM.COLORS.get(kind, "#ffffff")
+        assert tuple(pygame.Color(color))[:3] in px and tuple(pygame.Color(MM.INK))[:3] in px, kind
+    iron = MM.marker("vein", MM.VEIN_COLORS["iron"])
+    assert iron.get_at((1, 1)) == pygame.Color(MM.VEIN_COLORS["iron"])
 
 
 @pytest.mark.parametrize("size", [(480, 270), (640, 360), (960, 540)])

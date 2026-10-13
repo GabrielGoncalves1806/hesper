@@ -41,6 +41,7 @@ from game.audio import Audio
 from game.equipment import is_equipment
 from game.fabricator import FabMenu, field_menu
 from game.inventory import Stack
+from game.map_view import MapView
 from game.objectives import ObjectiveTracker
 from game.render import Renderer, stage_key
 from game.systems import Controls, GameState
@@ -130,6 +131,8 @@ class App:
         self.blueprint_duck = 0.0                         # s com o ambiente abaixado (projeto encontrado)
         self.crate_open_t = -10.0                         # quando tocou o crate_open (o blueprint_found vem 0,4 s depois)
         self.map_sound_t = -10.0                          # M: no máximo 1 som de abrir a cada 0,3 s
+        # mapa aberto (M): câmera, camada e filtros. Zoom e filtros vêm do settings.json (preferência do jogador)
+        self.map_view = MapView(self.settings["map_zoom"], self.settings["map_hidden"])
         self.name_edit: TextField | None = None           # editando o nome do baú (texto digitado)
         self.notice: str | None = None                    # aviso curto ("Inventário cheio")
         self.notice_time = 0.0
@@ -308,7 +311,9 @@ class App:
             elif event.type == pygame.MOUSEMOTION:
                 self.mouse_window = event.pos
                 self.mouse = self.window_to_canvas(event.pos)
-                if self.mode == "pause":
+                if self.mode == "map":
+                    self.map_view.move_press(self.mouse_ui)       # passou de 3 px com o botão apertado: arrasta
+                elif self.mode == "pause":
                     self.pause_hover()
                 elif self.mode == "title":
                     self.title.hover(*self.mouse_ui)
@@ -316,6 +321,8 @@ class App:
                 self.mouse_window = event.pos
                 self.mouse = self.window_to_canvas(event.pos)
                 self.on_click(event.button)
+            elif event.type == pygame.MOUSEWHEEL and self.mode == "map":
+                self.map_zoom(1 if event.y > 0 else -1, self.mouse_ui)   # zoom do mapa (com ou sem Ctrl)
             elif event.type == pygame.MOUSEWHEEL and self.mode != "title" and self.zoom_modifier():
                 self.zoom_step(1 if event.y > 0 else -1)        # Ctrl+rodinha pra cima = aproxima
             elif event.type == pygame.MOUSEWHEEL and self.mode == "inventory" and self.inv_tab == TAB_LOGS:
@@ -328,6 +335,7 @@ class App:
                 self.select_hotbar((self.hotbar_selected + (1 if event.y < 0 else -1)) % C.HOTBAR_SLOTS)
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 self.mouse_held = False
+                self.map_view.end_drag()
                 if self.dragging_slider is not None:
                     self.dragging_slider = None
                     settings.save(self.settings)
@@ -343,6 +351,9 @@ class App:
         alt = bool(mod & pygame.KMOD_ALT) or bool({pygame.K_LALT, pygame.K_RALT} & self.keys_down)
         if key == pygame.K_F11 or (alt and key in (pygame.K_RETURN, pygame.K_KP_ENTER)):
             self.toggle_fullscreen()
+            return True
+        if self.mode == "map" and key in ZOOM_IN_KEYS + ZOOM_OUT_KEYS:   # mapa aberto: +/- é o zoom do mapa
+            self.map_zoom(1 if key in ZOOM_IN_KEYS else -1)
             return True
         if self.mode != "title" and key in ZOOM_IN_KEYS:
             self.zoom_step(1)
@@ -383,8 +394,13 @@ class App:
             if key in (pygame.K_e, pygame.K_ESCAPE, pygame.K_RETURN):
                 self.close_terminal()
         elif self.mode == "map":
-            if key in (pygame.K_m, pygame.K_ESCAPE, pygame.K_TAB, pygame.K_e):
-                self.set_mode("play")
+            if key in (pygame.K_m, pygame.K_ESCAPE, pygame.K_TAB):
+                self.close_map()
+            elif key in (pygame.K_q, pygame.K_e):                 # troca a camada (a caverna só depois de descer)
+                if self.map_view.cycle_layer(state, -1 if key == pygame.K_q else 1):
+                    self.audio.play("ui_click")
+            elif key == pygame.K_c:                                # centra em você (ou na rampa da outra camada)
+                self.map_view.show_layer(state, self.map_view.layer)
         elif self.mode in INVENTORY_MODES:
             if key in (pygame.K_TAB, pygame.K_ESCAPE, pygame.K_e):
                 self.close_inventory()
@@ -616,16 +632,62 @@ class App:
             self.map_sound_t = self.t
         self.mode = "map"
         self.mouse_held = False
-        self.ui.map_rect = self.ui.map_close_rect = None   # até o 1º desenho, clique nenhum fecha
+        self.map_view.open(self.state)                     # sempre abre centrado em você, no último zoom
+        self.ui.map_rect = self.ui.map_close_rect = self.ui.map_area = None   # até o 1º desenho, clique nenhum fecha
+        self.ui.map_buttons, self.ui.map_chips, self.ui.map_layer_rects = [], [], []
+
+    def close_map(self) -> None:
+        self.map_view.end_drag()
+        self.set_mode("play")
+
+    def save_map_prefs(self) -> None:
+        """Último zoom e filtros do mapa: preferência do jogador (settings.json), não vai no save."""
+        view = self.map_view
+        self.settings = settings.clean({**self.settings, "map_zoom": view.zoom, "map_hidden": sorted(view.hidden)})
+        settings.save(self.settings)
+
+    def map_zoom(self, step: int, mouse=None) -> None:
+        """Zoom do mapa: ancorado no tile debaixo do mouse (rodinha) ou no centro (teclas e botões)."""
+        area = self.ui.map_area
+        anchor = None
+        if mouse is not None and area is not None and area.collidepoint(mouse):
+            anchor = (mouse[0] - area.x, mouse[1] - area.y)
+        if self.map_view.zoom_step(step, anchor):
+            self.save_map_prefs()
 
     def on_map_click(self) -> None:
-        """Mapa aberto: o botão FECHAR e o clique fora da janela fecham; dentro dela não faz nada."""
-        ui = self.ui
+        """Mapa aberto: FECHAR e clique fora da janela fecham; Superfície | Caverna troca a camada; + / − /
+        centralizar; um chip liga/desliga o filtro; na área, o botão apertado pode virar arrasto (3 px).
+        Nada disso chega no jogo."""
+        ui, view = self.ui, self.map_view
         pos = self.mouse_ui
-        on_close = ui.map_close_rect is not None and ui.map_close_rect.collidepoint(pos)
-        outside = ui.map_rect is not None and not ui.map_rect.collidepoint(pos)
-        if on_close or outside:
-            self.set_mode("play")
+        if ui.map_close_rect is not None and ui.map_close_rect.collidepoint(pos):
+            self.close_map()
+            return
+        if ui.map_rect is not None and not ui.map_rect.collidepoint(pos):
+            self.close_map()
+            return
+        for rect, key in ui.map_layer_rects:
+            if rect.collidepoint(pos):
+                if key != view.layer and view.show_layer(self.state, key):
+                    self.audio.play("ui_click")
+                return
+        for rect, action in ui.map_buttons:
+            if rect.collidepoint(pos):
+                if action == "center":
+                    view.show_layer(self.state, view.layer)
+                else:
+                    self.map_zoom(1 if action == "zoom_in" else -1)
+                self.audio.play("ui_click")
+                return
+        for rect, category in ui.map_chips:
+            if rect.collidepoint(pos):
+                view.toggle(category)
+                self.save_map_prefs()
+                self.audio.play("ui_click")
+                return
+        if ui.map_area is not None and ui.map_area.collidepoint(pos):
+            view.start_press(pos)
 
     def show_notice(self, text: str) -> None:
         self.notice, self.notice_time = text, C.NOTICE_TIME
@@ -1178,6 +1240,11 @@ class App:
             return
         if self.mode != "end":
             self.state.update(dt, self.controls())
+        if self.mode == "map" and not self.map_view.dragging:     # WASD/setas andam a câmera do mapa
+            mx = max(-1, min(1, sum(MOVE_KEYS[k][0] for k in self.keys_down if k in MOVE_KEYS)))
+            my = max(-1, min(1, sum(MOVE_KEYS[k][1] for k in self.keys_down if k in MOVE_KEYS)))
+            if mx or my:
+                self.map_view.key_pan(mx, my, dt)
         # a máquina na mão tem que continuar no slot selecionado (pode ter sido movida no Tab)
         stack = self.state.inventory.slots[self.hotbar_selected]
         if self.placing and (stack is None or stack.item != self.placing):
@@ -1568,7 +1635,7 @@ class App:
         elif self.mode == "terminal":
             ui.draw_terminal(self.terminal_index, self.t)
         elif self.mode == "map":
-            ui.draw_map(state, self.renderer.minimap.texture(state), self.t, mouse_ui)
+            ui.draw_map(state, self.map_view, lambda key: self.renderer.minimap.texture(state, key), self.t, mouse_ui)
         elif self.mode == "end":
             ui.draw_end(state, self.t)
         elif self.mode == "pause":
@@ -1605,10 +1672,8 @@ class App:
             ui.draw_held_and_tooltip(self.held, label, mouse_ui, self.renderer.item_icon)
             if self.notice_time > 0:
                 ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4), ui.notice_y)
-        elif self.mode == "map":
-            label = ui.map_marker_at(mouse_ui)
-            if label:
-                ui.draw_map_tooltip(label, mouse_ui)
+        elif self.mode == "map" and ui.map_hover is not None:     # marcador escondido não tem tooltip
+            ui.draw_map_tooltip(ui.map_hover, mouse_ui)
         ui.draw_cursor(*mouse_ui)
         ui.finish(window)
 
