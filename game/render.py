@@ -22,6 +22,7 @@ A UI (HUD, menus) vem depois, no ui.py.
 import math
 import random
 
+import numpy as np
 import pygame
 
 from game import art
@@ -31,6 +32,7 @@ from game import drones
 from game import dust
 from game import energy
 from game import ground
+from game import hills
 from game import layers
 from game.assets import Sprites
 from game.lighting import LightSource, Lighting, helmet_lamp, lamp as lamp_light, ore_glints
@@ -54,7 +56,8 @@ def snap(v: float) -> int:
     return math.floor(v + 0.5)
 
 
-def build_draw_list(world, objects, tx0: int, tx1: int, ty0: int, ty1: int) -> list[tuple]:
+def build_draw_list(world, objects, tx0: int, tx1: int, ty0: int, ty1: int,
+                    hill_rows=None) -> list[tuple]:
     """Ordem de desenho por profundidade (função pura, testável sem tela).
 
     Percorre as linhas de cima pra baixo. Em cada linha: primeiro as paredes da linha,
@@ -63,14 +66,20 @@ def build_draw_list(world, objects, tx0: int, tx1: int, ty0: int, ty1: int) -> l
     é desenhado antes e fica meio escondido atrás do topo.
 
     objects: lista de (ay, qualquer_coisa). Devolve ("wall", tx, ty) e ("obj", qualquer_coisa).
+    hill_rows (morros orgânicos da superfície, v0.4): linhas que têm morro assado. No lugar das paredes da
+    linha entra um ("hills", ty) só, a tira inteira daquela linha (game/hills.py), no mesmo lugar da ordem.
     """
     by_row: dict[int, list] = {}
     for ay, obj in objects:
         by_row.setdefault(int((ay - 1) // T), []).append((ay, obj))
     wall_rows = range(ty0, ty1 + 1)
+    rows = set(wall_rows) | set(by_row) | (set(hill_rows) if hill_rows is not None else set())
     order = []
-    for row in sorted(set(wall_rows) | set(by_row)):
-        if row in wall_rows:
+    for row in sorted(rows):
+        if hill_rows is not None:
+            if row in hill_rows:
+                order.append(("hills", row))
+        elif row in wall_rows:
             order += [("wall", tx, row) for tx in range(tx0, tx1 + 1) if world.is_wall(tx, row)]
         order += [("obj", obj) for _, obj in sorted(by_row.get(row, []), key=lambda o: o[0])]
     return order
@@ -164,6 +173,9 @@ class Renderer:
         self._item_icons: dict[str, pygame.Surface] = {}
         self.minimap = Minimap()                 # textura do mapa (1 px por tile), incremental (game/minimap.py)
         self.ground = ground.Ground(getattr(sprites, "enabled", True))  # chão assado da superfície com geo (v0.4 M2, game/ground.py)
+        # v0.4 Marco 2 (trilha C, game/hills.py): morros orgânicos assados em blocos
+        self._hills: hills.HillBlocks | None = None
+        self._hill_stage_tags: dict[tuple[int, int], tuple] = {}
 
     # ---- utilitários ----------------------------------------------------------
     @staticmethod
@@ -326,21 +338,25 @@ class Renderer:
         if geo is not None:   # chão assado em blocos de 512 px (game/ground.py); por tile só água e sombra
             self.ground.draw(canvas, geo, cam, (self.view_w, self.view_h), self.stage_map)
             self._wet_memo.clear()
+            shadows = not self.organic_hills(state)   # morro orgânico: a face curva já faz a borda (sem sombra quadrada)
             for ty in range(ty0, ty1 + 1):
                 for tx in range(tx0, tx1 + 1):
                     if not world.is_wall(tx, ty):
-                        self._floor_overlays(canvas, world, tx, ty, tx * T - cam[0], ty * T - cam[1], t)
+                        self._floor_overlays(canvas, world, tx, ty, tx * T - cam[0], ty * T - cam[1], t, shadows)
             return
         backstop = C.PALETTES[stage]["face_dark"]
         self._wet_memo.clear()   # cada vizinho é consultado por até 9 tiles: guarda só neste frame
+        # Morro orgânico (v0.4): a silhueta arredonda nos cantos e não cobre o tile inteiro, então embaixo da
+        # parede vai chão (e sem a sombra retangular da parede: quem faz a borda agora é a face curva)
+        organic = self.organic_hills(state)
         for ty in range(ty0, ty1 + 1):
             for tx in range(tx0, tx1 + 1):
                 sx, sy = tx * T - cam[0], ty * T - cam[1]
-                if world.is_wall(tx, ty):
+                if world.is_wall(tx, ty) and not organic:
                     canvas.fill(backstop, (sx, sy, T, T))   # fundo escuro (só aparece na borda do mapa)
                 else:
                     num = self.stage_map.stage_at(tx, ty)   # pode estar "à frente" no meio da transição
-                    self._draw_floor(canvas, world, tx, ty, sx, sy, art_key(num), num, t)
+                    self._draw_floor(canvas, world, tx, ty, sx, sy, art_key(num), num, t, not organic)
 
     def draw_veins(self, canvas, state: GameState, cam) -> None:
         """Veios 2×2: overlay do chão (vale pra todos os estágios), antes das paredes e dos objetos."""
@@ -354,12 +370,21 @@ class Renderer:
         """Passada 2: linha por linha, paredes com topo elevado e objetos ordenados pelo pé."""
         tx0, tx1, ty0, ty1 = self.visible_tiles(cam)
         objects = self.collect_objects(canvas, state, cam, t)
+        strips = self.hill_strips(state, cam) if self.organic_hills(state) else None
+        hill_rows = None if strips is None else {r for rows in strips.values() for r in rows}
         # +1 linha embaixo: o topo elevado de uma parede logo abaixo da tela ainda aparece
-        for item in build_draw_list(state.world, objects, tx0, tx1, ty0, ty1 + 1):
+        for item in build_draw_list(state.world, objects, tx0, tx1, ty0, ty1 + 1, hill_rows):
             if item[0] == "wall":
                 _, tx, ty = item
                 tile_stage = art_key(self.stage_map.stage_at(tx, ty))
                 self._draw_wall(canvas, state.world, tx, ty, tx * T - cam[0], ty * T - cam[1], tile_stage)
+            elif item[0] == "hills":
+                row = item[1]
+                for rows in strips.values():
+                    strip = rows.get(row)
+                    if strip is not None:
+                        surf, x, y = strip
+                        canvas.blit(surf, (x - cam[0], y - cam[1]))
             else:
                 item[1]()
         self._draw_player_silhouette(canvas, state, cam, t)
@@ -370,6 +395,79 @@ class Renderer:
             if not behind:
                 p = state.player
                 canvas.blit(frame, (snap(p.x) - cam[0] + dx, snap(p.y) - cam[1] + dy))
+
+    # ---- morros orgânicos da superfície (v0.4 Marco 2 · game/hills.py) ----------
+    def organic_hills(self, state: GameState) -> bool:
+        """Morro com borda orgânica? Só na superfície, com sprites e com a arte das regiões presente.
+        A caverna continua com as paredes de hoje."""
+        if not (C.ORGANIC_HILLS and state.active.has_base and self.sprites.enabled):
+            return False
+        return self.hill_blocks().ok
+
+    def hill_blocks(self) -> hills.HillBlocks:
+        if self._hills is None:
+            ore = {}
+            for resource in C.ORE_TILES.values():
+                surf = self.surface(f"ore_{resource}", lambda r=resource: art.ore(r, 0), f"ore_{resource}#0")[0]
+                rgb = pygame.surfarray.array3d(surf).transpose(1, 0, 2)
+                alpha = pygame.surfarray.array_alpha(surf).T
+                ore[resource] = np.dstack([rgb, alpha]).astype(np.uint8)
+            self._hills = hills.HillBlocks(ore)
+        return self._hills
+
+    def _hill_stage(self, bx: int, by: int) -> tuple:
+        """(etiqueta, estágios) do bloco: o estágio do mapa inteiro, ou por tile no meio de uma transição."""
+        m = self.stage_map
+        if m.step == 0:
+            return ("all", m.stage), m.stage
+        key = (m.stage, m.step, m._sources)
+        memo = self._hill_stage_tags.get((bx, by))
+        if memo is not None and memo[0] == key:
+            return memo[1], memo[2]
+        i0, i1, j0, j1 = hills.window_bounds(bx, by)
+        grid = np.array([[m.stage_at(i, j) for i in range(i0, i1)] for j in range(j0, j1)], np.uint8)
+        tag = ("tiles", grid.tobytes())
+        if (grid == grid.flat[0]).all():           # o bloco inteiro num estágio só: dá pra dividir a cor
+            tag, grid = ("all", int(grid.flat[0])), int(grid.flat[0])
+        self._hill_stage_tags[(bx, by)] = (key, tag, grid)
+        return tag, grid
+
+    def hill_strips(self, state: GameState, cam) -> dict:
+        """{(bx, by): {linha: (surf, x, y)}} dos blocos que aparecem na tela (assando o que faltar) e, de
+        folga, assa até C.HILL_PREFETCH bloco(s) da volta por frame (o que vai aparecer andando)."""
+        hb = self.hill_blocks()
+        world = state.world
+        geo = getattr(state.active, "geo", None)   # trilha A: layer.geo; sem ele, tudo planalto
+
+        def regions(i0, i1, j0, j1):
+            out = np.zeros((j1 - j0, i1 - i0), np.uint8)
+            if geo is not None:
+                a, b, c, d = max(0, i0), min(world.width, i1), max(0, j0), min(world.height, j1)
+                out[c - j0:d - j0, a - i0:b - i0] = geo.region[c:d, a:b]
+            return out
+
+        bp = C.HILL_BLOCK * T
+        cam_x, cam_y = cam
+        bx0, bx1 = cam_x // bp, (cam_x + self.view_w) // bp
+        # linhas visíveis: do topo (24 px acima) da 1ª até a face da última que ainda aparece
+        by0 = (cam_y // T - 1) // C.HILL_BLOCK
+        by1 = ((cam_y + self.view_h) // T + 2) // C.HILL_BLOCK
+        nb_x = -(-world.width // C.HILL_BLOCK)
+        nb_y = -(-world.height // C.HILL_BLOCK)
+        out = {}
+        for by in range(max(0, by0), min(nb_y, by1 + 1)):
+            for bx in range(max(0, bx0), min(nb_x, bx1 + 1)):
+                out[(bx, by)] = hb.strips(world, regions, self._hill_stage(bx, by), bx, by)
+        budget = C.HILL_PREFETCH
+        ring = C.HILL_PREFETCH and 1
+        for by in range(max(0, by0 - ring), min(nb_y, by1 + ring + 1)):
+            for bx in range(max(0, bx0 - ring), min(nb_x, bx1 + ring + 1)):
+                if budget <= 0:
+                    return out
+                if (bx, by) not in out and not hb.cached(world, bx, by):
+                    hb.strips(world, regions, self._hill_stage(bx, by), bx, by)
+                    budget -= 1
+        return out
 
     def player_occluded(self, state: GameState) -> bool:
         """O topo elevado de alguma parede da linha de baixo está cobrindo o player?"""
@@ -433,7 +531,7 @@ class Renderer:
                 if self.highlight is not None and self.highlight == ("terminal", (tx, ty)):
                     canvas.blit(self.outline_of("terminal", term), (sx - 1, sy - 1))
 
-    def _draw_floor(self, canvas, world, tx, ty, sx, sy, stage, stage_num, t) -> None:
+    def _draw_floor(self, canvas, world, tx, ty, sx, sy, stage, stage_num, t, wall_shadows=True) -> None:
         # deserto: areia com a variação da Designer (dunas em faixas); FLOOR (caverna) com o sorteio de sempre
         if world.sand_variants is not None and world.get(tx, ty) != C.FLOOR and 0 <= ty < world.height \
                 and 0 <= tx < world.width:
@@ -448,18 +546,18 @@ class Renderer:
         if self._wet(world, tx, ty):
             self._draw_water(canvas, world, tx, ty, sx, sy, stage, t)
         # sombra que a parede projeta no chão
-        if world.is_wall(tx, ty - 1):
+        if wall_shadows and world.is_wall(tx, ty - 1):
             canvas.blit(self.shadow_top, (sx, sy))
-        if world.is_wall(tx - 1, ty):
+        if wall_shadows and world.is_wall(tx - 1, ty):
             canvas.blit(self.shadow_left, (sx, sy))
 
-    def _floor_overlays(self, canvas, world, tx, ty, sx, sy, t) -> None:
+    def _floor_overlays(self, canvas, world, tx, ty, sx, sy, t, wall_shadows=True) -> None:
         """Por cima do chão assado: a água de hoje (o Marco 3 troca pelas bacias) e a sombra das paredes."""
         if self._wet(world, tx, ty):
             self._draw_water(canvas, world, tx, ty, sx, sy, art_key(self.stage_map.stage_at(tx, ty)), t)
-        if world.is_wall(tx, ty - 1):
+        if wall_shadows and world.is_wall(tx, ty - 1):
             canvas.blit(self.shadow_top, (sx, sy))
-        if world.is_wall(tx - 1, ty):
+        if wall_shadows and world.is_wall(tx - 1, ty):
             canvas.blit(self.shadow_left, (sx, sy))
 
     # ---- água (autotile A2, ver game/autotile.py) ------------------------------

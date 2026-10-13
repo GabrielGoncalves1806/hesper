@@ -2100,6 +2100,124 @@ def check_ground(bot) -> None:
     bot.frames(0.2)
 
 
+def hill_spot(geo, world, reg, half=(10, 6)):
+    """Tile de chão na região `reg` com mais morro em volta (~1 tela): pros prints dos morros."""
+    import numpy as np
+    hx, hy = half
+    wall = np.array([[world.is_wall(x, y) for x in range(world.width)] for y in range(world.height)], np.int32)
+    wall[:4, :] = wall[-4:, :] = 0                     # sem a cordilheira da borda
+    wall[:, :4] = wall[:, -4:] = 0
+    best, best_key = None, None
+    for ty in range(hy + 4, world.height - hy - 4, 2):
+        for tx in range(hx + 4, world.width - hx - 4, 2):
+            if geo.region[ty, tx] != reg or not world.is_floor(tx, ty) or world.is_solid(tx, ty - 1):
+                continue
+            n = int(wall[ty - hy:ty + hy + 1, tx - hx:tx + hx + 1].sum())
+            key = (min(n, 60), -world.dist_from_center(tx, ty))
+            if best_key is None or key > best_key:
+                best, best_key = (tx, ty), key
+    return best
+
+
+def check_hills(bot) -> None:
+    """v0.4 Marco 2 · trilha C · morros orgânicos (game/hills.py): antes × depois em 2 regiões, minerar um tile
+    (rachadura, e só o bloco tocado é re-assado), o fantasma de colocar ao lado do morro e o desempenho."""
+    s, app = bot.state, bot.app
+    r = app.renderer
+    w = s.world
+    geo = s.active.geo
+    before = dict(s.indices)
+    stage_before, storm_before = s.stage, s.storm
+    zoom_before = app.zoom
+    s.stage, s.storm = C.ARID_STAGE, 0.0
+    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    app.set_zoom(1.0, notify=False)
+    assert r.organic_hills(s), "morro orgânico desligado (sem a arte hill_top/hill_face?)"
+    # 1) antes × depois (C.ORGANIC_HILLS desliga), no planalto e no basalto
+    for name, reg in (("planalto", 0), ("basalto", 2)):
+        spot = hill_spot(geo, w, reg)
+        bot.teleport(spot)
+        s.o2 = C.O2_MAX
+        bot.mouse_to((900, 500))
+        for organic, tag in ((False, "antes"), (True, "depois")):
+            C.ORGANIC_HILLS = organic
+            ground_settle(bot)
+            bot.shot(f"morros_{name}_{tag}.png")
+        print(f"  morros {name}: {spot}")
+    C.ORGANIC_HILLS = True
+    # 2) minerar um tile do morro: rachadura por cima e, quebrado, só o bloco dele re-assa
+    hb = r.hill_blocks()
+    target = None
+    for ty in range(8, w.height - 8):
+        for tx in range(8, w.width - 8):
+            if (w.get(tx, ty) == C.ROCK and w.is_wall(tx, ty - 1) and w.is_floor(tx, ty + 1)
+                    and w.is_floor(tx, ty + 2) and tx % C.HILL_BLOCK not in (0, C.HILL_BLOCK - 1)
+                    and ty % C.HILL_BLOCK not in (0, 1, C.HILL_BLOCK - 1) and geo.region[ty, tx] == 0):
+                target = (tx, ty)
+                break
+        if target:
+            break
+    assert target, "nenhum tile de morro minerável de frente no planalto"
+    bot.teleport((target[0], target[1] + 1))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+    pos = bot.tile_on_screen(target)
+    bot.mouse_to(pos)
+    bot.frames(0.1)
+    bakes = hb.bakes
+    bot.mouse_down(pos)
+    bot.frames(0.35)
+    assert s.mining is not None
+    shot_zoom(bot, "morros_minerando.png", ((target[0] + 0.5) * C.TILE, (target[1] + 0.2) * C.TILE), w=200, h=120)
+    for _ in range(120):
+        bot.frames(DT)
+        if not w.is_wall(*target):
+            break
+    bot.mouse_up(pos)
+    bot.frames(0.1)
+    assert not w.is_wall(*target), "o tile do morro devia ter quebrado"
+    rebaked = hb.bakes - bakes
+    assert rebaked == 1, f"minerar 1 tile no meio do bloco re-assou {rebaked} blocos (devia ser só o dele)"
+    shot_zoom(bot, "morros_minerado.png", ((target[0] + 0.5) * C.TILE, (target[1] + 0.2) * C.TILE), w=200, h=120)
+    print(f"  minerou {target}: re-assou {rebaked} bloco")
+    # 3) o fantasma de colocar uma máquina encostada no morro
+    give(s, chest=1)
+    bot.key(hotbar_key(bot, "chest"))
+    assert app.placing == "chest"
+    bot.mouse_to(bot.tile_on_screen((target[0], target[1] + 1)))
+    bot.frames(0.2)
+    shot_zoom(bot, "morros_fantasma.png", ((target[0] + 0.5) * C.TILE, (target[1] + 0.5) * C.TILE), w=200, h=120)
+    bot.key(pygame.K_ESCAPE)
+    assert app.placing is None
+    give(s, chest=0)
+    # 4) desempenho: o mesmo passeio no basalto (mais morro), com e sem o morro orgânico, zoom 0,75
+    app.set_zoom(0.75, notify=False)
+    spot = hill_spot(geo, w, 2)
+    avg = lambda ft: 1000 * sum(ft) / len(ft)   # noqa: E731
+    res = {}
+    for _ in range(2):                                # alternado, vale a melhor média (o relógio oscila)
+        for organic in (False, True):
+            C.ORGANIC_HILLS = organic
+            res[organic] = min(res.get(organic, 1e9), avg(walk_perf(bot, spot)))
+    C.ORGANIC_HILLS = True
+    hb.reset()                                        # cache fria: o 1º quadro assa a tela inteira na hora
+    bot.teleport(spot)
+    cold = len(bot.frame_times)
+    bot.frames(DT)
+    cold_ms = 1000 * bot.frame_times[cold]
+    fast_ft = walk_perf(bot, spot, fast=True)
+    print(f"  perf morros, zoom 0,75× no basalto: antes {res[False]:.1f} ms · orgânico {res[True]:.1f} ms "
+          f"({res[True] - res[False]:+.1f} ms) · 1º quadro frio {cold_ms:.0f} ms · "
+          f"F3 média {avg(fast_ft):.1f} ms, pior {max(fast_ft) * 1000:.1f} ms")
+    assert res[True] < 1000 / 60, "morro orgânico passou do orçamento de 16,7 ms"
+    s.indices.update(before)
+    s.stage, s.storm = stage_before, storm_before
+    app.set_zoom(zoom_before, notify=False)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+
+
 def set_weather(state, gust: float, angle: float = 20.0) -> None:
     """Clima de verdade (game/weather.py) preso numa direção e numa rajada: gust 1 = no pico e sem fim,
     gust 0 = calmo (o smoke já desliga as rajadas sorteadas)."""
@@ -2742,6 +2860,7 @@ def main() -> None:
     bot.shot("stage1.png")
     check_surface(bot)
     check_ground(bot)
+    check_hills(bot)
     check_cave(bot)
     check_wrecks(bot)
     check_storm(bot)

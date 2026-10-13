@@ -638,3 +638,12 @@ GROUND_PREFETCH_PX = 320         # assa antes os blocos até essa distância da 
 GROUND_DECAL_MARGIN = 128        # px: um decalque pode invadir o bloco vizinho até aqui (o maior tem 224×96)
 GROUND_BASE_CLEAR = 6            # tiles: sem decalque nem decoração solta em volta da base
 GROUND_DECOR_P = 0.035           # chance de decoração solta (lasca, cristal, gelo) por tile de basalto/salar/gelo
+
+# ---------------------------------------------------------------------------
+# Morros orgânicos da superfície (v0.4 Marco 2 · trilha C · bíblia §11): game/hills.py. A caverna fica igual.
+# ---------------------------------------------------------------------------
+ORGANIC_HILLS = True            # False = paredes da superfície do jeito antigo (tile + face), como a caverna
+HILL_BLOCK = 8                  # morros assados em blocos de 8×8 tiles (256 px): ~3 ms por bloco
+HILL_FACE = 24                  # px da face (a silhueta do topo extrudada pra baixo)
+HILL_CACHE_BLOCKS = 96          # teto de blocos assados guardados (LRU): ~3 telas no zoom 0,75
+HILL_PREFETCH = 1               # blocos de folga em volta da tela, assados no máximo 1 por frame

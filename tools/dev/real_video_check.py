@@ -34,7 +34,7 @@ CELL = 40                 # lado da célula da grade (px da janela 960×540): 24
 BLACK_MAX = 12            # canal <= isso conta como "preto"
 BLACK_SLACK = 0.25        # o real pode ter até +25% de preto numa célula sem falhar (partículas, cursor)
 CLEAR_SLACK = 0.01        # alfa < 255 em mais de 1% da célula já é bug (a janela é opaca)
-SCENES = ("titulo", "superficie", "chao_regioes", "mapa_superficie", "tempestade", "mapa_tempestade", "inventario", "fabricador",
+SCENES = ("titulo", "superficie", "chao_regioes", "morros", "mapa_superficie", "tempestade", "mapa_tempestade", "inventario", "fabricador",
           "bau", "opcoes", "caverna_escura", "mapa_caverna")
 
 
@@ -113,6 +113,12 @@ def run_worker(driver: str, out: Path) -> None:
     bot.mouse_to(mouse)
     smoke.ground_settle(bot, 0.3)
     bot.capture("chao_regioes")
+    # morros orgânicos (v0.4 M2, game/hills.py): tiras SRCALPHA assadas, no basalto (o que tem mais morro)
+    bot.teleport(smoke.hill_spot(s.active.geo, s.world, 2))
+    s.o2 = C.O2_MAX
+    bot.mouse_to(mouse)
+    smoke.ground_settle(bot, 0.3)
+    bot.capture("morros")
     s.stage, s.storm = stage0, storm0
     s.indices.update(ind0)
     s.player.x, s.player.y = pos0
