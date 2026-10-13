@@ -47,7 +47,7 @@ Detalhes em `GAME_BIBLE.md` §9 e no design `docs/superpowers/specs/2026-10-12-v
 ## v0.4 · Mundo vivo
 Design em `docs/superpowers/specs/2026-10-13-v04-mundo-vivo-design.md`. Novo jogo obrigatório (save v7, no Marco 2).
 
-- [ ] Marco 1: Tempestade (4 estágios: Tempestade → Árido → Névoa → Verde; poeira, rajadas com empurrão, O₂ ×1,25)
+- [x] Marco 1: Tempestade (4 estágios: Tempestade → Árido → Névoa → Verde; poeira, rajadas com empurrão, O₂ ×1,25)
 - [ ] Marco 2: geografia nova (relevo, 3 regiões, formações fixas com afloramentos, decoração que quebra a grade)
 - [ ] Marco 3: gelo (cratera congelada + gelos-portão) e água (chuva, lagos enchendo as depressões, máquina submersa)
 - [ ] Marco 4: polimento + playtest do dono
