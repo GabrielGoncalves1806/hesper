@@ -294,10 +294,9 @@ def test_minimap_paints_the_lake():
     assert minimap.tile_color(w, x, y) == minimap.WATER_COLOR != dry
 
 
-def test_small_rocks_in_the_lake_stand_in_water():
-    w = surface()
-    w.water_level = C.GEO_LEVELS[2]
+@pytest.mark.parametrize("seed", (1, 7, 42))
+def test_no_ore_spawns_in_a_basin(seed):
+    """Nem rocha pequena nem afloramento no chão de bacia: quando o lago enche, não sobra minério boiando."""
+    w = generate_surface(seed)
     rocks = [(x, y) for y, x in zip(*np.nonzero(w.geo.basin >= 0)) if w.get(x, y) in C.SMALL_ROCKS]
-    assert rocks
-    assert all(w.is_water(x, y, C.GREEN_STAGE) == (w.geo.height[y, x] < w.water_level) for x, y in rocks)
-    assert not any(w.future_water(x, y) for x, y in rocks)     # rocha não é "lago futuro" (não é chão)
+    assert rocks == []

@@ -395,7 +395,8 @@ def _outcrops(world: World) -> None:
         box = set(f.box)
         w, _ = f.size
         cands = sorted(t for t in _ring(f.tiles, 2) - box
-                       if world.get(*t) == C.SAND and not (f.kind == "arch" and f.tx < t[0] < f.tx + w - 1))
+                       if world.get(*t) == C.SAND and world.geo.basin_at(*t) < 0     # nem na bacia (vira lago)
+                       and not (f.kind == "arch" and f.tx < t[0] < f.tx + w - 1))
         rng.shuffle(cands)
         ores = C.OUTCROP_ORE[REGION_NAMES[f.region]]
         kinds = {C.SMALL_IRON: ores.get("iron", 0), C.SMALL_SILICON: ores.get("silicon", 0),
@@ -412,7 +413,8 @@ def _outcrops(world: World) -> None:
 
 
 def _small_rocks(world: World) -> None:
-    """Rochas pequenas espalhadas pela areia (por hash, sem formar padrão)."""
+    """Rochas pequenas espalhadas pela areia (por hash, sem formar padrão). Nunca na bacia: no Marco 3 ela vira lago."""
+    geo = world.geo
     keep_free = set(world._vein_tiles) | wreck_gen.keep_free(world.wrecks) | world.keep_clear
     for v in world.veins:                         # a linha de baixo do veio fica livre (o player para ali)
         keep_free |= {(v.tx + dx, v.ty + 2) for dx in (0, 1)}
@@ -423,6 +425,8 @@ def _small_rocks(world: World) -> None:
             if world.tiles[y][x] != C.SAND or (x, y) in keep_free:
                 continue
             if world.dist_from_center(x, y) < C.SMALL_ROCK_MIN_DIST:
+                continue
+            if geo is not None and geo.basin_at(x, y) >= 0:
                 continue
             if hash01(x, y, world.seed + 61) < C.SMALL_ROCK_CHANCE:
                 world.tiles[y][x] = _weighted(hash01(x, y, world.seed + 62), kinds)

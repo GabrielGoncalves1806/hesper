@@ -216,8 +216,13 @@ def test_every_formation_has_outcrops(seed):
     for f in w.geo.formations:
         if f.kind == "ice_gate" or f.small or f.kind.startswith("vent_"):   # portão, pequenas da v9 e fumarolas: sem afloramento
             continue
-        rocks = [t for t in _near(f.tiles, 2) - set(f.box) if w.get(*t) in C.SMALL_ROCKS]
-        assert C.OUTCROPS[0] <= len(rocks) <= C.OUTCROPS[1], (f.kind, rocks)
+        ring = _near(f.tiles, 2) - set(f.box)
+        rocks = [t for t in ring if w.get(*t) in C.SMALL_ROCKS]
+        assert not any(w.geo.basin_at(*t) >= 0 for t in rocks)        # nunca na bacia (vira lago no M3)
+        dry = [t for t in ring if w.geo.basin_at(*t) < 0]
+        # a crosta de sal fica no salar (quase todo bacia): com pouco chão seco em volta, sai com menos
+        low = C.OUTCROPS[0] if len(dry) >= 3 * C.OUTCROPS[1] else 0
+        assert low <= len(rocks) <= C.OUTCROPS[1], (f.kind, rocks)
         ores = set(C.OUTCROP_ORE[REGION_NAMES[f.region]])
         assert {C.SMALL_ROCKS[w.get(*t)] for t in rocks} <= ores
         if f.kind == "arch":                                   # o vão do arco e o que fica na frente/atrás
