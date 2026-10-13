@@ -186,8 +186,10 @@ def grid(w, h, ox=0, oy=0):
     return xs, ys
 
 
-def voronoi(xs, ys, cell: float, seed: int, period: int | None = None, jitter=0.85):
-    """(d1, d2 - d1, id) do Voronoi (sítios 1 por célula). Com `period` (células), emenda."""
+def voronoi(xs, ys, cell: float, seed: int, period: int | None = None, jitter=0.85, nudge=None):
+    """(d1, d2 - d1, id) do Voronoi (sítios 1 por célula). Com `period` (células), emenda.
+    `nudge` = {(kx, ky): (dx, dy)} empurra sítios específicos (em células), pra quebrar célula com cara de retângulo
+    sem mexer no resto da textura."""
     fx, fy = np.asarray(xs, float) / cell, np.asarray(ys, float) / cell
     ix, iy = np.floor(fx).astype(np.int64), np.floor(fy).astype(np.int64)
     d1 = np.full(fx.shape, 9e9)
@@ -199,6 +201,10 @@ def voronoi(xs, ys, cell: float, seed: int, period: int | None = None, jitter=0.
             kx, ky = (cx % period, cy % period) if period else (cx, cy)
             sx = cx + 0.5 + (hash2(kx, ky, seed) - 0.5) * jitter
             sy = cy + 0.5 + (hash2(kx, ky, seed + 7) - 0.5) * jitter
+            for (nx, ny), (ddx, ddy) in (nudge or {}).items():
+                hit = (kx == nx) & (ky == ny)
+                sx = sx + hit * ddx
+                sy = sy + hit * ddy
             d = np.hypot(fx - sx, fy - sy) * cell
             closer = d < d1
             d2 = np.where(closer, d1, np.minimum(d2, d))
@@ -274,7 +280,15 @@ def tex_salar(seed=21) -> np.ndarray:
     return idx
 
 
-def tex_basalt(seed=31) -> np.ndarray:
+# v9: 4 sítios do Voronoi das fraturas do basalto caíam alinhados com os vizinhos e davam célula quase
+# retangular (a pior em x 64–133, y 215–290). Empurrar só esses sítios quebra o retângulo e não mexe no resto.
+# Aprovado pelo dono na v9: BASALT_FIX = True (False reproduz a textura da v8.1–v8.3, pro antes × depois do report).
+BASALT_FIX = True
+BASALT_NUDGE = {(3, 1): (-0.3, -0.3), (1, 4): (-0.3, -0.3), (0, 7): (-0.3, -0.3), (3, 5): (-0.3, -0.3)}
+
+
+def tex_basalt(seed=31, fix=None) -> np.ndarray:
+    fix = BASALT_FIX if fix is None else fix
     xs, ys = grid(TEX, TEX)
     p = TEX
     n = organic(xs, ys, p, 6, seed)
@@ -282,7 +296,8 @@ def tex_basalt(seed=31) -> np.ndarray:
     idx[n < np.quantile(n, 0.24)] = 2
     idx[n < np.quantile(n, 0.03)] = 1
     idx[n > np.quantile(n, 0.90)] = 4
-    _, edge, cid = voronoi(xs, ys, p / 9, seed + 2, 9, jitter=0.95)   # fraturas retas e angulosas
+    _, edge, cid = voronoi(xs, ys, p / 9, seed + 2, 9, jitter=0.95,   # fraturas retas e angulosas
+                           nudge=BASALT_NUDGE if fix else None)
     crack = (edge < 1.0) & (hash2(cid, 0, seed + 3) < 0.5) & (vnoise(xs, ys, p / 8, seed + 10, 8) > 0.35)
     idx[crack] = 0
     idx[np.roll(crack, 1, axis=0) & ~crack & (hash2(xs // 3, ys, seed + 4) < 0.6)] = 5

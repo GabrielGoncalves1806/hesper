@@ -49,8 +49,8 @@ Design em `docs/superpowers/specs/2026-10-13-v04-mundo-vivo-design.md`. Novo jog
 
 - [x] Marco 1: Tempestade (4 estágios: Tempestade → Árido → Névoa → Verde; poeira, rajadas com empurrão, O₂ ×1,25)
 - [x] Marco 2: geografia nova (relevo, 3 regiões, formações fixas com afloramentos, decoração que quebra a grade) + mundos com nome e seed (3 espaços)
-- [ ] Marco 3: gelo (cratera congelada + gelos-portão) e água (chuva, lagos enchendo as depressões, máquina submersa)
-- [ ] Marco 4: polimento + playtest do dono
+- [ ] Marco 3: elementos v9 das regiões, gelo (cratera congelada + gelos-portão), fumarolas do basalto acordando com o calor (esboço do dono em `reports/design/refs/fumarolas_esboco_dono.png`) e água (chuva, lagos enchendo as depressões, máquina submersa)
+- [ ] Marco 4: polimento + playtest do dono + **re-skin das máquinas** com o motor 3D da sessão experimental (`~/Desktop/hesper_sprites_experimento/gerador/r3d.py` + `machines3d.py`: família branco/laranja/metal com animação; a Designer porta pro `tools/sprites/` e o dono aprova o report antes)
 
 ## v0.5 · Fundo
 Biomas de caverna, mochila, broca nv.2 (perfuratriz térmica, que também minera a rocha dura dos anéis dos bolsões), peças raras (o contêiner lacrado do v0.4), elevador de carga (drones atendem a caverna). Ganchos: basalto → vulcão, espécie nativa nas cavernas.

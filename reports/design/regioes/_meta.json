@@ -334,6 +334,356 @@
    "26×18",
    "frost",
    "ICE"
+  ],
+  "decal_vein_0.png": [
+   "102×43",
+   "plateau",
+   "BASE"
+  ],
+  "decal_oxide_0.png": [
+   "67×44",
+   "plateau",
+   "BASE"
+  ],
+  "decal_saltpoly_0.png": [
+   "115×69",
+   "salar",
+   "BASE"
+  ],
+  "decal_efflor_0.png": [
+   "37×29",
+   "salar",
+   "BASE"
+  ],
+  "decal_fumarole_0.png": [
+   "49×31",
+   "basalt",
+   "BASE"
+  ],
+  "decal_ropy_0.png": [
+   "95×56",
+   "basalt",
+   "BASE"
+  ],
+  "decal_icepoly_0.png": [
+   "115×77",
+   "frost",
+   "BASE"
+  ],
+  "decal_rime_0.png": [
+   "67×43",
+   "frost",
+   "BASE"
+  ],
+  "decal_trail_0.png": [
+   "146×58",
+   "bed",
+   "BASE"
+  ],
+  "decal_ripples_0.png": [
+   "97×57",
+   "bed",
+   "BASE"
+  ],
+  "decal_vein_1.png": [
+   "79×41",
+   "plateau",
+   "BASE"
+  ],
+  "decal_oxide_1.png": [
+   "53×36",
+   "plateau",
+   "BASE"
+  ],
+  "decal_saltpoly_1.png": [
+   "88×52",
+   "salar",
+   "BASE"
+  ],
+  "decal_efflor_1.png": [
+   "34×31",
+   "salar",
+   "BASE"
+  ],
+  "decal_fumarole_1.png": [
+   "44×31",
+   "basalt",
+   "BASE"
+  ],
+  "decal_ropy_1.png": [
+   "76×47",
+   "basalt",
+   "BASE"
+  ],
+  "decal_icepoly_1.png": [
+   "94×64",
+   "frost",
+   "BASE"
+  ],
+  "decal_rime_1.png": [
+   "53×35",
+   "frost",
+   "BASE"
+  ],
+  "decal_trail_1.png": [
+   "112×38",
+   "bed",
+   "BASE"
+  ],
+  "decal_ripples_1.png": [
+   "78×46",
+   "bed",
+   "BASE"
+  ],
+  "decal_vein_2.png": [
+   "129×22",
+   "plateau",
+   "BASE"
+  ],
+  "decal_oxide_2.png": [
+   "87×48",
+   "plateau",
+   "BASE"
+  ],
+  "decal_saltpoly_2.png": [
+   "131×80",
+   "salar",
+   "BASE"
+  ],
+  "decal_efflor_2.png": [
+   "32×22",
+   "salar",
+   "BASE"
+  ],
+  "decal_fumarole_2.png": [
+   "68×38",
+   "basalt",
+   "BASE"
+  ],
+  "decal_ropy_2.png": [
+   "107×64",
+   "basalt",
+   "BASE"
+  ],
+  "decal_icepoly_2.png": [
+   "141×92",
+   "frost",
+   "BASE"
+  ],
+  "decal_rime_2.png": [
+   "63×48",
+   "frost",
+   "BASE"
+  ],
+  "decal_trail_2.png": [
+   "174×73",
+   "bed",
+   "BASE"
+  ],
+  "decal_ripples_2.png": [
+   "105×62",
+   "bed",
+   "BASE"
+  ],
+  "decor_pebbles_0.png": [
+   "17×17",
+   "plateau",
+   "HILL"
+  ],
+  "decor_boulder_0.png": [
+   "24×24",
+   "plateau",
+   "HILL"
+  ],
+  "decor_boulder_moss_0.png": [
+   "24×24",
+   "plateau",
+   "MOSS (fixa, só Verde)"
+  ],
+  "decor_slabs_0.png": [
+   "21×16",
+   "plateau",
+   "HILL"
+  ],
+  "decor_salt_slabs_0.png": [
+   "19×14",
+   "salar",
+   "BASE"
+  ],
+  "decor_salt_mound_0.png": [
+   "17×15",
+   "salar",
+   "BASE"
+  ],
+  "decor_bombs_0.png": [
+   "29×21",
+   "basalt",
+   "HILL"
+  ],
+  "decor_column_stub_0.png": [
+   "20×25",
+   "basalt",
+   "HILL"
+  ],
+  "decor_column_stub_moss_0.png": [
+   "20×25",
+   "basalt",
+   "MOSS (fixa, só Verde)"
+  ],
+  "decor_penitentes_0.png": [
+   "15×19",
+   "frost",
+   "ICE"
+  ],
+  "decor_rimed_rock_0.png": [
+   "27×25",
+   "frost",
+   "HILL"
+  ],
+  "decor_mud_curls_0.png": [
+   "26×9",
+   "bed",
+   "BASE"
+  ],
+  "decor_pebbles_1.png": [
+   "17×15",
+   "plateau",
+   "HILL"
+  ],
+  "decor_boulder_1.png": [
+   "25×23",
+   "plateau",
+   "HILL"
+  ],
+  "decor_boulder_moss_1.png": [
+   "25×23",
+   "plateau",
+   "MOSS (fixa, só Verde)"
+  ],
+  "decor_slabs_1.png": [
+   "15×16",
+   "plateau",
+   "HILL"
+  ],
+  "decor_salt_slabs_1.png": [
+   "24×14",
+   "salar",
+   "BASE"
+  ],
+  "decor_salt_mound_1.png": [
+   "19×15",
+   "salar",
+   "BASE"
+  ],
+  "decor_bombs_1.png": [
+   "31×19",
+   "basalt",
+   "HILL"
+  ],
+  "decor_column_stub_1.png": [
+   "25×25",
+   "basalt",
+   "HILL"
+  ],
+  "decor_column_stub_moss_1.png": [
+   "25×25",
+   "basalt",
+   "MOSS (fixa, só Verde)"
+  ],
+  "decor_penitentes_1.png": [
+   "26×20",
+   "frost",
+   "ICE"
+  ],
+  "decor_rimed_rock_1.png": [
+   "26×24",
+   "frost",
+   "HILL"
+  ],
+  "decor_mud_curls_1.png": [
+   "23×11",
+   "bed",
+   "BASE"
+  ],
+  "decor_pebbles_2.png": [
+   "24×14",
+   "plateau",
+   "HILL"
+  ],
+  "decor_boulder_2.png": [
+   "28×25",
+   "plateau",
+   "HILL"
+  ],
+  "decor_boulder_moss_2.png": [
+   "28×25",
+   "plateau",
+   "MOSS (fixa, só Verde)"
+  ],
+  "decor_slabs_2.png": [
+   "29×15",
+   "plateau",
+   "HILL"
+  ],
+  "decor_salt_slabs_2.png": [
+   "20×13",
+   "salar",
+   "BASE"
+  ],
+  "decor_salt_mound_2.png": [
+   "20×16",
+   "salar",
+   "BASE"
+  ],
+  "decor_bombs_2.png": [
+   "29×22",
+   "basalt",
+   "HILL"
+  ],
+  "decor_column_stub_2.png": [
+   "27×26",
+   "basalt",
+   "HILL"
+  ],
+  "decor_column_stub_moss_2.png": [
+   "27×26",
+   "basalt",
+   "MOSS (fixa, só Verde)"
+  ],
+  "decor_penitentes_2.png": [
+   "23×26",
+   "frost",
+   "ICE"
+  ],
+  "decor_rimed_rock_2.png": [
+   "24×23",
+   "frost",
+   "HILL"
+  ],
+  "decor_mud_curls_2.png": [
+   "24×13",
+   "bed",
+   "BASE"
+  ],
+  "form_split_rock.png": [
+   "72×64",
+   "plateau",
+   "HILL"
+  ],
+  "form_salt_pillar.png": [
+   "68×60",
+   "salar",
+   "BASE"
+  ],
+  "form_lava_tube.png": [
+   "124×56",
+   "basalt",
+   "HILL"
+  ],
+  "form_ice_needles.png": [
+   "84×72",
+   "frost",
+   "ICE"
   ]
  },
  "feet": [

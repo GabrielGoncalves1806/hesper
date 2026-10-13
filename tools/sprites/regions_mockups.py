@@ -359,9 +359,9 @@ def populate(scene, world, stage, decor=True, crater_stage=0, gate_scale=None, p
 # =================================================================================================================
 def storm_overlay(img, scene):
     cloud = Image.open(SPR / "_pending" / "storm" / "dust_cloud_b.png").convert("RGB")
-    big = Image.new("RGB", (1024, 768))
-    for yy in range(0, 768, 256):
-        for xx in range(0, 1024, 256):
+    big = Image.new("RGB", (1280, 1024))           # 960 + 256 e 540 + 256: o recorte nunca passa da borda
+    for yy in range(0, 1024, 256):
+        for xx in range(0, 1280, 256):
             big.paste(cloud, (xx, yy))
     ox, oy = scene.x0 % 256, scene.y0 % 256
     big = big.crop((ox, oy, ox + 960, oy + 540))
@@ -695,6 +695,11 @@ def export_pending():
             table = {"HILL": R.HILL, "BASE": R.BASE, "ICE": {"frost": R.ICE}}[tname]
             save_indexed(idx, R.ramp(reg, "arid", table), PEND / f"decor_{name}_{v}.png")
             files[f"decor_{name}_{v}.png"] = (f"{idx.shape[1]}×{idx.shape[0]}", reg, tname)
+    # v9 (aprovado pelo dono): decalques, soltos, musgo do Verde+ e formações pequenas
+    import regions_v9 as V9
+    v9_files, v9_forms, v9_density = V9.export_assets(PEND)
+    files.update({k: (v["size"], v["region"], v["ramp"]) for k, v in v9_files.items()})
+    forms.update(v9_forms)
     ramps = {}
     for tname, table in (("BASE", R.BASE), ("HILL", R.HILL), ("SAND", {"plateau": R.SAND}),
                          ("ICE", {"frost": R.ICE})):
@@ -702,11 +707,13 @@ def export_pending():
         for reg in table:
             ramps[tname][reg] = {st: [R.hexc(c) for c in R.ramp(reg, st, table)[:8]] for st in R.STAGES}
     ramps["METAL"] = [R.hexc(c) for c in METAL]
+    ramps["MOSS"] = list(V9.E.MOSS)              # v9: overlay de musgo do Verde+ (fixa, não muda com estágio)
     data = dict(note="Sprites indexados: 0..7 = rampa, 8 = contorno #1b1630, 9 = sombra (preto, alfa %d), "
                      "255 = transparente. Cor final = ramps[tabela][região][estágio][índice]. crater_impact_*: 10..17 = ramps.ICE.frost, "
-                     "18..20 = ramps.METAL." % R.SHADOW_A,
+                     "18..20 = ramps.METAL. decor_*_moss_*: 0..3 = ramps.MOSS (só no Verde). Formações com small=true "
+                     "são as pequenas da v9." % R.SHADOW_A,
                 levels=R.LEVELS, warp_px=SC.WARP, decal_cell=R.DECAL_CELL, decal_p=R.DECAL_P,
-                decal_mix=R.DECAL_MIX, formations=forms, ramps=ramps,
+                decal_mix=R.DECAL_MIX, v9_density=v9_density, formations=forms, ramps=ramps,
                 files={k: dict(size=v[0], region=v[1], ramp=v[2]) for k, v in sorted(files.items())})
     (PEND / "regions_palettes.json").write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n")
     return files

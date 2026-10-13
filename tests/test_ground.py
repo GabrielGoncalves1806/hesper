@@ -46,7 +46,7 @@ def test_indexed_png_keeps_the_index(art):
     for tex in art.textures:
         assert tex.shape == (BP, BP) and tex.dtype == np.uint8 and tex.max() <= 7
     assert {"crack", "gravel", "patch_dark", "wind", "ridges", "scoria", "icesheet"} <= set(art.decals)
-    assert set(art.decor) == {"shards", "salt_crystals", "ice_chunks"}
+    assert {"shards", "salt_crystals", "ice_chunks"} <= set(art.decor)   # v9 acrescenta tipos (o M3.0 integra)
 
 
 def test_bake_is_deterministic_and_strip_size_does_not_matter(geo, art, monkeypatch):

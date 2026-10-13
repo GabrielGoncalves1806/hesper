@@ -503,5 +503,7 @@ livres da região.</li>
 aparece quando o gelo some.</li></ul></div></section>
 </div></body></html>
 """
+    import regions_v9_report                     # v9 (proposta): nota + seção injetadas, se existirem
+    html = regions_v9_report.inject(html)
     (OUT / "index.html").write_text(html, encoding="utf-8")
     return OUT / "index.html"

@@ -1,0 +1,109 @@
+<!-- v91:begin -->
+<section class="v91" id="v91"><h2>v9.1 · Fumarolas ativas que acordam com o calor (PROPOSTA)</h2>
+<p class="lede">Ideia do dono: conforme o índice de calor sobe no Marco 3 (o mesmo que derrete a cratera), as
+fumarolas do basalto acordam e soltam fumaça. Do esboço (<code>reports/design/refs/fumarolas_esboco_dono.png</code>)
+aproveitei só as 3 formas: cone baixo e largo com boca, par de cones e chaminé alta e fina com veios escorrendo, todas
+com a boca aberta no topo. O desenho é original, feito no mesmo motor de volume do cone de escória e do basalto
+colunar, com a rampa <code>HILL</code> do basalto. Nada disso está em <code>assets/</code>: os PNGs indexados ficam em
+<code>reports/design/regioes/v91/pendentes/</code>, com o <code>regions_v91.json</code>. O decalque <code>fumarole</code> da v9
+continua sendo o respiro apagado de chão.</p>
+
+<h3 style="margin-top:22px">As 3 fumarolas · dormente × ativa</h3>
+<p class="lede"><b>Dormente</b>: boca escura e fria, veios de óxido. <b>Ativa</b>: brilho de brasa leve no fundo da boca,
+crosta de enxofre em manchas na borda e veios amarelados escorrendo. O resto do sprite é igual, então a troca não
+pula.</p>
+<table style="margin-top:10px"><tr><th>fumarola</th><th>sprite (3×)</th><th>pegada</th><th>fumaça</th></tr>
+<tr><td><b>Fumarola · cone baixo</b><br><code>form_vent_cone_{dormant,active}.png</code><br>60×48 ·
+rampa HILL+VENT<br>âncora (30, 38) = centro de baixo da pegada<br>bloqueia 1 tile<br>
+boca (fumaça): (30, 24)<br>
+2.5 puffs/s por boca</td>
+<td><div class="chk" style="padding:8px"><figure><img src="v91/cat/vent_cone_dormant.png" width="180" height="144" alt=""><figcaption>dormente</figcaption></figure>
+<figure><img src="v91/cat/vent_cone_active.png" width="180" height="144" alt=""><figcaption>ativa</figcaption></figure></div></td>
+<td><div class="chk" style="padding:8px"><figure><img src="v91/cat/foot_vent_cone.png" width="160" height="96" alt=""><figcaption>pegada · âncora (ponto) · boca (quadrado)</figcaption></figure></div></td>
+<td><style>.smk_cone{width:252px;height:354px;background-image:url(v91/smoke_cone.png);background-size:8064px 354px;animation:smk_cone 4.00s steps(32) infinite}@keyframes smk_cone{from{background-position:0 0}to{background-position:-8064px 0}}</style><div class="smk smk_cone"></div><figcaption>ativa com a fumaça (3×, 8 qps, laço de 4 s)</figcaption></td></tr>
+<tr><td colspan="4"><img class="strip" src="v91/cat/strip_vent_cone.png" width="1140" height="120" alt="">
+<figcaption>dormente e ativa nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×</figcaption></td></tr><tr><td><b>Fumarola · par de cones</b><br><code>form_vent_pair_{dormant,active}.png</code><br>72×64 ·
+rampa HILL+VENT<br>âncora (36, 52) = centro de baixo da pegada<br>bloqueia 2×1<br>
+bocas (fumaça): (26, 21), (48, 39)<br>
+2.0 puffs/s por boca</td>
+<td><div class="chk" style="padding:8px"><figure><img src="v91/cat/vent_pair_dormant.png" width="216" height="192" alt=""><figcaption>dormente</figcaption></figure>
+<figure><img src="v91/cat/vent_pair_active.png" width="216" height="192" alt=""><figcaption>ativa</figcaption></figure></div></td>
+<td><div class="chk" style="padding:8px"><figure><img src="v91/cat/foot_vent_pair.png" width="160" height="128" alt=""><figcaption>pegada · âncora (ponto) · boca (quadrado)</figcaption></figure></div></td>
+<td><style>.smk_pair{width:288px;height:402px;background-image:url(v91/smoke_pair.png);background-size:9216px 402px;animation:smk_pair 4.00s steps(32) infinite}@keyframes smk_pair{from{background-position:0 0}to{background-position:-9216px 0}}</style><div class="smk smk_pair"></div><figcaption>ativa com a fumaça (3×, 8 qps, laço de 4 s)</figcaption></td></tr>
+<tr><td colspan="4"><img class="strip" src="v91/cat/strip_vent_pair.png" width="1332" height="152" alt="">
+<figcaption>dormente e ativa nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×</figcaption></td></tr><tr><td><b>Fumarola · chaminé</b><br><code>form_vent_chimney_{dormant,active}.png</code><br>40×78 ·
+rampa HILL+VENT<br>âncora (20, 68) = centro de baixo da pegada<br>bloqueia 1 tile<br>
+boca (fumaça): (20, 19)<br>
+3.5 puffs/s por boca</td>
+<td><div class="chk" style="padding:8px"><figure><img src="v91/cat/vent_chimney_dormant.png" width="120" height="234" alt=""><figcaption>dormente</figcaption></figure>
+<figure><img src="v91/cat/vent_chimney_active.png" width="120" height="234" alt=""><figcaption>ativa</figcaption></figure></div></td>
+<td><div class="chk" style="padding:8px"><figure><img src="v91/cat/foot_vent_chimney.png" width="160" height="128" alt=""><figcaption>pegada · âncora (ponto) · boca (quadrado)</figcaption></figure></div></td>
+<td><style>.smk_chimney{width:240px;height:444px;background-image:url(v91/smoke_chimney.png);background-size:7680px 444px;animation:smk_chimney 4.00s steps(32) infinite}@keyframes smk_chimney{from{background-position:0 0}to{background-position:-7680px 0}}</style><div class="smk smk_chimney"></div><figcaption>ativa com a fumaça (3×, 8 qps, laço de 4 s)</figcaption></td></tr>
+<tr><td colspan="4"><img class="strip" src="v91/cat/strip_vent_chimney.png" width="820" height="180" alt="">
+<figcaption>dormente e ativa nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×</figcaption></td></tr></table>
+
+<h3 style="margin-top:26px">Paleta · rampa nova <code>VENT</code> (índices 10..13)</h3>
+<div class="grid2"><div class="box"><div class="sws"><i style="background:#86773a" title="#86773a"></i><i style="background:#c9b65e" title="#c9b65e"></i><i style="background:#b8431e" title="#b8431e"></i><i style="background:#ff9a3c" title="#ff9a3c"></i></div><ul>
+<li><b>10, 11 · enxofre</b> (escuro, claro): é mineral, então segue o estágio como o resto (a mesma conta do
+<code>stage_color</code> do basalto). Na Tempestade fica empoeirado; na Névoa, apagado; no Verde, mais oliva.</li>
+<li><b>12, 13 · brasa</b> (escura, clara): emite luz, então é <b>fixa</b> nos 4 estágios, como as cores de LED das
+máquinas. É pequena (só o fundo da boca) pra ficar “leve”.</li>
+<li>0..9 é a rampa <code>HILL</code> do basalto, igual às formações: o dormente nem usa a <code>VENT</code>.</li></ul></div>
+<table><tr><th>estágio</th><th>10 · 11 · 12 · 13</th></tr><tr><td>Tempestade</td><td><div class="sws"><i style="background:#937c48" title="#937c48"></i><i style="background:#bda35e" title="#bda35e"></i><i style="background:#b8431e" title="#b8431e"></i><i style="background:#ff9a3c" title="#ff9a3c"></i></div></td></tr><tr><td>Árido</td><td><div class="sws"><i style="background:#86773a" title="#86773a"></i><i style="background:#c9b65e" title="#c9b65e"></i><i style="background:#b8431e" title="#b8431e"></i><i style="background:#ff9a3c" title="#ff9a3c"></i></div></td></tr><tr><td>Névoa</td><td><div class="sws"><i style="background:#5f5b44" title="#5f5b44"></i><i style="background:#938a5c" title="#938a5c"></i><i style="background:#b8431e" title="#b8431e"></i><i style="background:#ff9a3c" title="#ff9a3c"></i></div></td></tr><tr><td>Verde</td><td><div class="sws"><i style="background:#686239" title="#686239"></i><i style="background:#a0954e" title="#a0954e"></i><i style="background:#b8431e" title="#b8431e"></i><i style="background:#ff9a3c" title="#ff9a3c"></i></div></td></tr></table></div>
+
+<h3 style="margin-top:26px">Fumaça (partícula do jogo, não sprite)</h3>
+<div class="grid2"><div><div class="chk" style="padding:10px"><figure><img src="v91/smoke_puff_life.png" width="960" height="240" alt=""><figcaption>a vida de 1 puff em 8 passos (sem vento)</figcaption></figure></div></div>
+<div class="box dev"><ul>
+<li><b>Taxa</b>: 2.5 puffs/s por boca no cone, 2.0 em cada boca do par,
+3.5 na chaminé. Nasce na <code>mouths</code> do JSON (px do sprite) ± 1 px.</li>
+<li><b>Vida</b>: 2.6–3.4 s. <b>Subida</b>: 16–22 px/s na saída,
+freando até ~35% no fim.</li>
+<li><b>Tamanho</b>: raio 1.5–2.5 px ao nascer, abre até 7–10 px
+(rápido no começo, devagar no fim). Disco levemente achatado (y × 1,1).</li>
+<li><b>Vento</b>: o puff anda com 45% do vento da superfície (o mesmo da poeira), mais uma tremida lateral de
+± 3 px num seno lento. Na Tempestade a coluna deita.</li>
+<li><b>Cor</b>: 3 tons chapados, sem gradiente: miolo <code>#e9e4dc</code> (de cima-esquerda, onde bate a
+luz), corpo <code>#c4bdb4</code>, borda de baixo <code>#958e88</code>. Na Tempestade e na Névoa os tons
+puxam 40% pra <code>#c9a37e</code> e <code>#aab3bb</code>.</li>
+<li><b>Alfa em degraus</b> (pixel art, nada de fade contínuo): 150 até 35% da vida, 110 até
+70%, 70 no fim. O puff novo vai por cima do velho.</li>
+<li>Desenhada depois dos objetos (por cima da fumarola e do player), antes da HUD. No máximo ~12 puffs vivos por
+boca.</li></ul></div></div>
+
+<h3 style="margin-top:26px">Na cena do basalto · dormente × ativa</h3>
+<p class="lede">Mesma vista do basalto da v9 aprovada, com um campo de 3 fumarolas perto do cone de escória.</p>
+<div class="grid2" style="margin-top:12px">
+<figure><img src="v91/vents_dormant_crop.png" width="960" height="540" style="image-rendering:pixelated;max-width:100%;height:auto" alt="">
+<figcaption><b>dormente</b> (2×)</figcaption></figure>
+<figure><img src="v91/vents_active.gif" width="960" height="540" style="image-rendering:pixelated;max-width:100%;height:auto" alt="">
+<figcaption><b>ativa</b> (GIF, 8 qps, 4 s em laço, vento do Árido) · <code>v91/vents_active.gif</code></figcaption></figure>
+</div>
+<div class="grid2" style="margin-top:12px">
+<figure><img class="px" src="v91/scene_arid_dormant.png" alt=""><figcaption><b>Árido · dormente</b> · a cena inteira</figcaption></figure>
+<figure><img class="px" src="v91/scene_arid_active.png" alt=""><figcaption><b>Árido · ativa</b></figcaption></figure>
+<figure><img class="px" src="v91/scene_storm_active.png" alt=""><figcaption><b>Tempestade · ativa</b> · a coluna deita com o vento</figcaption></figure>
+<figure><img class="px" src="v91/scene_mist_active.png" alt=""><figcaption><b>Névoa · ativa</b></figcaption></figure>
+<figure><img class="px" src="v91/scene_green_dormant.png" alt=""><figcaption><b>Verde · dormente</b></figcaption></figure>
+<figure><img class="px" src="v91/scene_green_active.png" alt=""><figcaption><b>Verde · ativa</b></figcaption></figure>
+</div>
+<figure class="one" style="margin-top:12px"><img class="px" src="v91/vents_active_panel.png" alt="">
+<figcaption>painel de 4 quadros (0, 1, 2 e 3 s) da ativa</figcaption></figure>
+
+<h3 style="margin-top:26px">Onde nascem, quantas e quando acordam</h3>
+<div class="box"><ul>
+<li><b>Quantas</b>: 5–8 no basalto (cone 2–3, par 1–2, chaminé 1–2).</li>
+<li><b>Onde</b>: inteira no basalto com 2 tiles de folga na mesma região, fora de bacia, a 26+ tiles da base, a 8+ tiles uma da outra e 6+ das formações grandes; de preferência em grupo (campo de fumarolas): 60% sorteadas num raio de 10–30 tiles do cone de escória, o resto livre no basalto. Não nascem no bolsão nem no avental dos gelos-portão.</li>
+<li><b>Quando acordam</b>: cada fumarola sorteia um limiar de calor entre o calor da etapa 1 e o da etapa 4 da tampa da cratera (o mesmo índice de calor do Marco 3): abaixo, dormente; acima, ativa. Assim elas acordam aos poucos enquanto o gelo da cratera derrete. Na troca, 1 s de transição: a fumaça começa com 1/3 da taxa e sobe; o sprite troca na hora (o brilho é leve).</li>
+<li><b>Colisão e desenho</b>: igual às formações (tile <code>FORMATION</code> na pegada, âncora no centro de baixo da
+pegada, ordem pelo pé, não minera, sombra no sprite). O sprite troca de <code>_dormant</code> pra <code>_active</code>
+pelo estado; a paleta é <code>HILL</code> do basalto (0..9) + <code>VENT</code> do estágio (10..13), no estágio do tile do pé.</li>
+<li><b>Mapa</b>: entram como “Formação” (pictograma de pico) só se o dono quiser; por padrão não marcam.</li></ul></div>
+
+<h3 style="margin-top:26px">Se o dono aprovar · contrato (bíblia §6)</h3>
+<div class="box"><ul>
+<li>Linha nova: <code>form_vent_{cone,pair,chimney}_{dormant,active}.png</code> · 60×48, 72×64 e 40×78 · fumarolas do
+basalto, bloqueiam 1, 2×1 e 1 tile · paleta 0..9 <code>HILL</code> do basalto + 10..13 <code>VENT</code> · <code>mouths</code> no JSON.</li>
+<li>Rampa nova <code>VENT</code> no <code>regions_palettes.json</code> (por estágio, 4 cores) e o bloco <code>smoke</code> com os
+números da partícula.</li></ul></div>
+</section>
+<!-- v91:end -->

@@ -1,0 +1,204 @@
+{
+ "note": "PROPOSTA v9.1 (pendente). 0..9 = HILL do basalto (como as formações), 10..13 = ramps.VENT[estágio]: 10 enxofre escuro, 11 enxofre claro (seguem o estágio), 12 brasa, 13 brasa clara (fixas). mouths = px do sprite de onde sai a fumaça (partícula, não sprite).",
+ "formations": {
+  "vent_cone": {
+   "foot": [
+    30,
+    38
+   ],
+   "tiles": [
+    [
+     0,
+     0
+    ]
+   ],
+   "size": [
+    1,
+    1
+   ],
+   "name": "Fumarola · cone baixo",
+   "sprites": {
+    "dormant": "form_vent_cone_dormant.png",
+    "active": "form_vent_cone_active.png"
+   },
+   "mouths": [
+    [
+     30,
+     24
+    ]
+   ],
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  },
+  "vent_pair": {
+   "foot": [
+    36,
+    52
+   ],
+   "tiles": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "size": [
+    2,
+    1
+   ],
+   "name": "Fumarola · par de cones",
+   "sprites": {
+    "dormant": "form_vent_pair_dormant.png",
+    "active": "form_vent_pair_active.png"
+   },
+   "mouths": [
+    [
+     26,
+     21
+    ],
+    [
+     48,
+     39
+    ]
+   ],
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  },
+  "vent_chimney": {
+   "foot": [
+    20,
+    68
+   ],
+   "tiles": [
+    [
+     0,
+     0
+    ]
+   ],
+   "size": [
+    1,
+    1
+   ],
+   "name": "Fumarola · chaminé",
+   "sprites": {
+    "dormant": "form_vent_chimney_dormant.png",
+    "active": "form_vent_chimney_active.png"
+   },
+   "mouths": [
+    [
+     20,
+     19
+    ]
+   ],
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  }
+ },
+ "ramps": {
+  "VENT": {
+   "storm": [
+    "#937c48",
+    "#bda35e",
+    "#b8431e",
+    "#ff9a3c"
+   ],
+   "arid": [
+    "#86773a",
+    "#c9b65e",
+    "#b8431e",
+    "#ff9a3c"
+   ],
+   "mist": [
+    "#5f5b44",
+    "#938a5c",
+    "#b8431e",
+    "#ff9a3c"
+   ],
+   "green": [
+    "#686239",
+    "#a0954e",
+    "#b8431e",
+    "#ff9a3c"
+   ]
+  }
+ },
+ "smoke": {
+  "rate": {
+   "cone": 2.5,
+   "pair": 2.0,
+   "chimney": 3.5
+  },
+  "life": [
+   2.6,
+   3.4
+  ],
+  "rise": [
+   16.0,
+   22.0
+  ],
+  "radius": [
+   1.5,
+   2.5,
+   7.0,
+   10.0
+  ],
+  "jitter": 3.0,
+  "wind": 0.45,
+  "color": [
+   "#e9e4dc",
+   "#c4bdb4",
+   "#958e88"
+  ],
+  "alpha": [
+   150,
+   110,
+   70
+  ],
+  "stage_tint": {
+   "storm": "#c9a37e",
+   "arid": null,
+   "mist": "#aab3bb",
+   "green": null
+  }
+ },
+ "density": {
+  "per_world": "5–8 no basalto (cone 2–3, par 1–2, chaminé 1–2)",
+  "rule": "inteira no basalto com 2 tiles de folga na mesma região, fora de bacia, a 26+ tiles da base, a 8+ tiles uma da outra e 6+ das formações grandes; de preferência em grupo (campo de fumarolas): 60% sorteadas num raio de 10–30 tiles do cone de escória, o resto livre no basalto. Não nascem no bolsão nem no avental dos gelos-portão.",
+  "wake": "cada fumarola sorteia um limiar de calor entre o calor da etapa 1 e o da etapa 4 da tampa da cratera (o mesmo índice de calor do Marco 3): abaixo, dormente; acima, ativa. Assim elas acordam aos poucos enquanto o gelo da cratera derrete. Na troca, 1 s de transição: a fumaça começa com 1/3 da taxa e sobe; o sprite troca na hora (o brilho é leve)."
+ },
+ "files": {
+  "form_vent_cone_dormant.png": {
+   "size": "60×48",
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  },
+  "form_vent_cone_active.png": {
+   "size": "60×48",
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  },
+  "form_vent_pair_dormant.png": {
+   "size": "72×64",
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  },
+  "form_vent_pair_active.png": {
+   "size": "72×64",
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  },
+  "form_vent_chimney_dormant.png": {
+   "size": "40×78",
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  },
+  "form_vent_chimney_active.png": {
+   "size": "40×78",
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  }
+ }
+}

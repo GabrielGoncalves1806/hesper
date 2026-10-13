@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Hesper · Geografia nova · v8.3</title>
+<title>Hesper · Geografia nova · v9.1</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Pixelify+Sans:wght@400;600&family=Silkscreen&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#15100e;--panel:#1e1714;--panel2:#241b17;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;--alert:#ff6a55;
@@ -51,14 +51,52 @@ th{font:12px var(--f-label);color:var(--gold);background:var(--panel2)}td{color:
 .cyc.c5 img,.cyc.c5 span{animation-name:show5}
 @keyframes show5{0%,19.9%{opacity:1}20%,100%{opacity:0}}
 .d1{animation-delay:calc(var(--d,8s) * -0.75)!important}.d2{animation-delay:calc(var(--d,8s) * -0.5)!important}.d3{animation-delay:calc(var(--d,8s) * -0.25)!important}
+/* v9css */
+.v9{border:1px solid var(--gold);padding:22px 22px 30px;margin-top:40px;background:rgba(242,196,109,.03)}
+.v9 > h2::before{background:var(--gold)}
+.cat{display:grid;grid-template-columns:240px 1fr;gap:14px;border-top:1px solid var(--line);padding:14px 0}
+.cat h3{margin:0}.cat p{color:var(--muted);margin:4px 0 0;font-size:14px}
+.cat .meta{font:12px var(--f-mono);color:var(--gold)}
+.cat .chk{gap:16px;padding:10px}
+.strip{image-rendering:pixelated;display:block;margin-top:8px;max-width:100%;height:auto}
+.tog{position:relative;aspect-ratio:16/9;border:1px solid var(--line);overflow:hidden}
+.tog img{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+.tog img.b,.tog span.b{animation:togB 4s infinite}
+.tog span{position:absolute;left:8px;bottom:8px;font:12px var(--f-label);background:#0f1119;padding:3px 7px}
+.tog span.a{animation:togA 4s infinite}
+@keyframes togB{0%,49.9%{opacity:1}50%,100%{opacity:0}}
+@keyframes togA{0%,49.9%{opacity:0}50%,100%{opacity:1}}
+.rg{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:middle;border:1px solid #0006}
+
+.v91{border:1px solid var(--rust);padding:22px 22px 30px;margin-top:40px;background:rgba(226,115,58,.04)}
+.v91 > h2::before{background:var(--rust)}
+.smk{image-rendering:pixelated;background-repeat:no-repeat;border:1px solid var(--line)}
+/* /v9css */
 </style></head><body><div class="wrap">
-<div class="eyebrow">Hesper · Designer · v8.3 · v0.4 Marco 2 (geografia nova) · aprovado · pedra de topo do hoodoo</div>
+<div class="eyebrow">Hesper · Designer · v9.1 · v0.4 regiões · PROPOSTA: fumarolas ativas · v9 aprovada (a v8.3 continua abaixo)</div>
 <h1>Regiões, relevo e água</h1>
 <p class="lede">Objetivo: tirar a cara de “mapa gerado com tileset” e deixar a superfície orgânica e explorável. O
 planeta é <b>árido e vazio, não areia</b>: rocha, terra seca, sal, basalto e geada. Tudo aqui sai de script
 (<code>tools/sprites/regions_mockups.py</code>), em pixels reais 960×540 com a HUD B2 por cima. Nada disso está
 no jogo ainda: é pra tu aprovar antes do código.</p>
 
+<!-- v91note:begin -->
+<div class="v2"><b>v9.1 · o que mudou (PROPOSTA, pendente)</b><ul>
+<li><b>Fumarolas ativas</b> no basalto: cone baixo, par de cones e chaminé, cada uma dormente × ativa (brasa leve e
+crosta de enxofre), a rampa nova <code>VENT</code>, a fumaça como partícula (com os números), a cena dormente × ativa
+com GIF e a regra de onde nascem e de quando acordam com o calor. <a href="#v91">Seção v9.1</a>.</li>
+<li>A v9 foi <b>aprovada</b> e promovida pra <code>assets/sprites/regions/</code> (os 70 PNGs, o basalto novo e os
+dados no <code>regions_palettes.json</code>).</li></ul></div>
+<!-- v91note:end -->
+<!-- v9note:begin -->
+<div class="v2"><b>v9.0 · o que mudou (aprovado e promovido)</b><ul>
+<li><b>Basalto sem o retângulo</b>: a célula quase retangular do <code>ground_basalt.png</code> (e mais 3 parecidas)
+quebrada empurrando só 4 sítios do Voronoi. Continua emendando e com a mesma cara. Antes × depois e ladrilhado 3×3
+na <a href="#v9">seção v9</a>.</li>
+<li><b>Mais elementos por região</b>: 10 decalques novos, 10 soltos com altura novos (3 variações cada), musgo
+Verde+ em 2 deles e 4 formações pequenas, com cenas antes × depois no Árido e no Verde e a densidade sugerida.</li>
+<li>A v8.3 continua aprovada e intacta logo abaixo.</li></ul></div>
+<!-- v9note:end -->
 <div class="v2"><b>v8.3 · o que mudou</b><ul>
 <li><b>Pedra de topo do hoodoo</b> de volta à forma e à paleta da v8.1 (o dono preferiu ela à laje cinza da v8.2).
 Mudou só o que incomodava: <b>saiu o salpicado</b> de pixels cinza e claros. Agora a superfície é limpa, em
@@ -95,6 +133,407 @@ pé dos morros, e coisas soltas com altura por região.</li>
 <li><b>Relevo e água</b>: bacias com leito seco e marca d'água (L1, L2, L3) que enchem na Névoa e no Verde; o salar
 vira o grande lago.</li>
 <li>Sem ossada nenhuma, como pedido.</li></ul></div>
+
+<!-- v91:begin -->
+<section class="v91" id="v91"><h2>v9.1 · Fumarolas ativas que acordam com o calor (PROPOSTA)</h2>
+<p class="lede">Ideia do dono: conforme o índice de calor sobe no Marco 3 (o mesmo que derrete a cratera), as
+fumarolas do basalto acordam e soltam fumaça. Do esboço (<code>reports/design/refs/fumarolas_esboco_dono.png</code>)
+aproveitei só as 3 formas: cone baixo e largo com boca, par de cones e chaminé alta e fina com veios escorrendo, todas
+com a boca aberta no topo. O desenho é original, feito no mesmo motor de volume do cone de escória e do basalto
+colunar, com a rampa <code>HILL</code> do basalto. Nada disso está em <code>assets/</code>: os PNGs indexados ficam em
+<code>reports/design/regioes/v91/pendentes/</code>, com o <code>regions_v91.json</code>. O decalque <code>fumarole</code> da v9
+continua sendo o respiro apagado de chão.</p>
+
+<h3 style="margin-top:22px">As 3 fumarolas · dormente × ativa</h3>
+<p class="lede"><b>Dormente</b>: boca escura e fria, veios de óxido. <b>Ativa</b>: brilho de brasa leve no fundo da boca,
+crosta de enxofre em manchas na borda e veios amarelados escorrendo. O resto do sprite é igual, então a troca não
+pula.</p>
+<table style="margin-top:10px"><tr><th>fumarola</th><th>sprite (3×)</th><th>pegada</th><th>fumaça</th></tr>
+<tr><td><b>Fumarola · cone baixo</b><br><code>form_vent_cone_{dormant,active}.png</code><br>60×48 ·
+rampa HILL+VENT<br>âncora (30, 38) = centro de baixo da pegada<br>bloqueia 1 tile<br>
+boca (fumaça): (30, 24)<br>
+2.5 puffs/s por boca</td>
+<td><div class="chk" style="padding:8px"><figure><img src="v91/cat/vent_cone_dormant.png" width="180" height="144" alt=""><figcaption>dormente</figcaption></figure>
+<figure><img src="v91/cat/vent_cone_active.png" width="180" height="144" alt=""><figcaption>ativa</figcaption></figure></div></td>
+<td><div class="chk" style="padding:8px"><figure><img src="v91/cat/foot_vent_cone.png" width="160" height="96" alt=""><figcaption>pegada · âncora (ponto) · boca (quadrado)</figcaption></figure></div></td>
+<td><style>.smk_cone{width:252px;height:354px;background-image:url(v91/smoke_cone.png);background-size:8064px 354px;animation:smk_cone 4.00s steps(32) infinite}@keyframes smk_cone{from{background-position:0 0}to{background-position:-8064px 0}}</style><div class="smk smk_cone"></div><figcaption>ativa com a fumaça (3×, 8 qps, laço de 4 s)</figcaption></td></tr>
+<tr><td colspan="4"><img class="strip" src="v91/cat/strip_vent_cone.png" width="1140" height="120" alt="">
+<figcaption>dormente e ativa nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×</figcaption></td></tr><tr><td><b>Fumarola · par de cones</b><br><code>form_vent_pair_{dormant,active}.png</code><br>72×64 ·
+rampa HILL+VENT<br>âncora (36, 52) = centro de baixo da pegada<br>bloqueia 2×1<br>
+bocas (fumaça): (26, 21), (48, 39)<br>
+2.0 puffs/s por boca</td>
+<td><div class="chk" style="padding:8px"><figure><img src="v91/cat/vent_pair_dormant.png" width="216" height="192" alt=""><figcaption>dormente</figcaption></figure>
+<figure><img src="v91/cat/vent_pair_active.png" width="216" height="192" alt=""><figcaption>ativa</figcaption></figure></div></td>
+<td><div class="chk" style="padding:8px"><figure><img src="v91/cat/foot_vent_pair.png" width="160" height="128" alt=""><figcaption>pegada · âncora (ponto) · boca (quadrado)</figcaption></figure></div></td>
+<td><style>.smk_pair{width:288px;height:402px;background-image:url(v91/smoke_pair.png);background-size:9216px 402px;animation:smk_pair 4.00s steps(32) infinite}@keyframes smk_pair{from{background-position:0 0}to{background-position:-9216px 0}}</style><div class="smk smk_pair"></div><figcaption>ativa com a fumaça (3×, 8 qps, laço de 4 s)</figcaption></td></tr>
+<tr><td colspan="4"><img class="strip" src="v91/cat/strip_vent_pair.png" width="1332" height="152" alt="">
+<figcaption>dormente e ativa nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×</figcaption></td></tr><tr><td><b>Fumarola · chaminé</b><br><code>form_vent_chimney_{dormant,active}.png</code><br>40×78 ·
+rampa HILL+VENT<br>âncora (20, 68) = centro de baixo da pegada<br>bloqueia 1 tile<br>
+boca (fumaça): (20, 19)<br>
+3.5 puffs/s por boca</td>
+<td><div class="chk" style="padding:8px"><figure><img src="v91/cat/vent_chimney_dormant.png" width="120" height="234" alt=""><figcaption>dormente</figcaption></figure>
+<figure><img src="v91/cat/vent_chimney_active.png" width="120" height="234" alt=""><figcaption>ativa</figcaption></figure></div></td>
+<td><div class="chk" style="padding:8px"><figure><img src="v91/cat/foot_vent_chimney.png" width="160" height="128" alt=""><figcaption>pegada · âncora (ponto) · boca (quadrado)</figcaption></figure></div></td>
+<td><style>.smk_chimney{width:240px;height:444px;background-image:url(v91/smoke_chimney.png);background-size:7680px 444px;animation:smk_chimney 4.00s steps(32) infinite}@keyframes smk_chimney{from{background-position:0 0}to{background-position:-7680px 0}}</style><div class="smk smk_chimney"></div><figcaption>ativa com a fumaça (3×, 8 qps, laço de 4 s)</figcaption></td></tr>
+<tr><td colspan="4"><img class="strip" src="v91/cat/strip_vent_chimney.png" width="820" height="180" alt="">
+<figcaption>dormente e ativa nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×</figcaption></td></tr></table>
+
+<h3 style="margin-top:26px">Paleta · rampa nova <code>VENT</code> (índices 10..13)</h3>
+<div class="grid2"><div class="box"><div class="sws"><i style="background:#86773a" title="#86773a"></i><i style="background:#c9b65e" title="#c9b65e"></i><i style="background:#b8431e" title="#b8431e"></i><i style="background:#ff9a3c" title="#ff9a3c"></i></div><ul>
+<li><b>10, 11 · enxofre</b> (escuro, claro): é mineral, então segue o estágio como o resto (a mesma conta do
+<code>stage_color</code> do basalto). Na Tempestade fica empoeirado; na Névoa, apagado; no Verde, mais oliva.</li>
+<li><b>12, 13 · brasa</b> (escura, clara): emite luz, então é <b>fixa</b> nos 4 estágios, como as cores de LED das
+máquinas. É pequena (só o fundo da boca) pra ficar “leve”.</li>
+<li>0..9 é a rampa <code>HILL</code> do basalto, igual às formações: o dormente nem usa a <code>VENT</code>.</li></ul></div>
+<table><tr><th>estágio</th><th>10 · 11 · 12 · 13</th></tr><tr><td>Tempestade</td><td><div class="sws"><i style="background:#937c48" title="#937c48"></i><i style="background:#bda35e" title="#bda35e"></i><i style="background:#b8431e" title="#b8431e"></i><i style="background:#ff9a3c" title="#ff9a3c"></i></div></td></tr><tr><td>Árido</td><td><div class="sws"><i style="background:#86773a" title="#86773a"></i><i style="background:#c9b65e" title="#c9b65e"></i><i style="background:#b8431e" title="#b8431e"></i><i style="background:#ff9a3c" title="#ff9a3c"></i></div></td></tr><tr><td>Névoa</td><td><div class="sws"><i style="background:#5f5b44" title="#5f5b44"></i><i style="background:#938a5c" title="#938a5c"></i><i style="background:#b8431e" title="#b8431e"></i><i style="background:#ff9a3c" title="#ff9a3c"></i></div></td></tr><tr><td>Verde</td><td><div class="sws"><i style="background:#686239" title="#686239"></i><i style="background:#a0954e" title="#a0954e"></i><i style="background:#b8431e" title="#b8431e"></i><i style="background:#ff9a3c" title="#ff9a3c"></i></div></td></tr></table></div>
+
+<h3 style="margin-top:26px">Fumaça (partícula do jogo, não sprite)</h3>
+<div class="grid2"><div><div class="chk" style="padding:10px"><figure><img src="v91/smoke_puff_life.png" width="960" height="240" alt=""><figcaption>a vida de 1 puff em 8 passos (sem vento)</figcaption></figure></div></div>
+<div class="box dev"><ul>
+<li><b>Taxa</b>: 2.5 puffs/s por boca no cone, 2.0 em cada boca do par,
+3.5 na chaminé. Nasce na <code>mouths</code> do JSON (px do sprite) ± 1 px.</li>
+<li><b>Vida</b>: 2.6–3.4 s. <b>Subida</b>: 16–22 px/s na saída,
+freando até ~35% no fim.</li>
+<li><b>Tamanho</b>: raio 1.5–2.5 px ao nascer, abre até 7–10 px
+(rápido no começo, devagar no fim). Disco levemente achatado (y × 1,1).</li>
+<li><b>Vento</b>: o puff anda com 45% do vento da superfície (o mesmo da poeira), mais uma tremida lateral de
+± 3 px num seno lento. Na Tempestade a coluna deita.</li>
+<li><b>Cor</b>: 3 tons chapados, sem gradiente: miolo <code>#e9e4dc</code> (de cima-esquerda, onde bate a
+luz), corpo <code>#c4bdb4</code>, borda de baixo <code>#958e88</code>. Na Tempestade e na Névoa os tons
+puxam 40% pra <code>#c9a37e</code> e <code>#aab3bb</code>.</li>
+<li><b>Alfa em degraus</b> (pixel art, nada de fade contínuo): 150 até 35% da vida, 110 até
+70%, 70 no fim. O puff novo vai por cima do velho.</li>
+<li>Desenhada depois dos objetos (por cima da fumarola e do player), antes da HUD. No máximo ~12 puffs vivos por
+boca.</li></ul></div></div>
+
+<h3 style="margin-top:26px">Na cena do basalto · dormente × ativa</h3>
+<p class="lede">Mesma vista do basalto da v9 aprovada, com um campo de 3 fumarolas perto do cone de escória.</p>
+<div class="grid2" style="margin-top:12px">
+<figure><img src="v91/vents_dormant_crop.png" width="960" height="540" style="image-rendering:pixelated;max-width:100%;height:auto" alt="">
+<figcaption><b>dormente</b> (2×)</figcaption></figure>
+<figure><img src="v91/vents_active.gif" width="960" height="540" style="image-rendering:pixelated;max-width:100%;height:auto" alt="">
+<figcaption><b>ativa</b> (GIF, 8 qps, 4 s em laço, vento do Árido) · <code>v91/vents_active.gif</code></figcaption></figure>
+</div>
+<div class="grid2" style="margin-top:12px">
+<figure><img class="px" src="v91/scene_arid_dormant.png" alt=""><figcaption><b>Árido · dormente</b> · a cena inteira</figcaption></figure>
+<figure><img class="px" src="v91/scene_arid_active.png" alt=""><figcaption><b>Árido · ativa</b></figcaption></figure>
+<figure><img class="px" src="v91/scene_storm_active.png" alt=""><figcaption><b>Tempestade · ativa</b> · a coluna deita com o vento</figcaption></figure>
+<figure><img class="px" src="v91/scene_mist_active.png" alt=""><figcaption><b>Névoa · ativa</b></figcaption></figure>
+<figure><img class="px" src="v91/scene_green_dormant.png" alt=""><figcaption><b>Verde · dormente</b></figcaption></figure>
+<figure><img class="px" src="v91/scene_green_active.png" alt=""><figcaption><b>Verde · ativa</b></figcaption></figure>
+</div>
+<figure class="one" style="margin-top:12px"><img class="px" src="v91/vents_active_panel.png" alt="">
+<figcaption>painel de 4 quadros (0, 1, 2 e 3 s) da ativa</figcaption></figure>
+
+<h3 style="margin-top:26px">Onde nascem, quantas e quando acordam</h3>
+<div class="box"><ul>
+<li><b>Quantas</b>: 5–8 no basalto (cone 2–3, par 1–2, chaminé 1–2).</li>
+<li><b>Onde</b>: inteira no basalto com 2 tiles de folga na mesma região, fora de bacia, a 26+ tiles da base, a 8+ tiles uma da outra e 6+ das formações grandes; de preferência em grupo (campo de fumarolas): 60% sorteadas num raio de 10–30 tiles do cone de escória, o resto livre no basalto. Não nascem no bolsão nem no avental dos gelos-portão.</li>
+<li><b>Quando acordam</b>: cada fumarola sorteia um limiar de calor entre o calor da etapa 1 e o da etapa 4 da tampa da cratera (o mesmo índice de calor do Marco 3): abaixo, dormente; acima, ativa. Assim elas acordam aos poucos enquanto o gelo da cratera derrete. Na troca, 1 s de transição: a fumaça começa com 1/3 da taxa e sobe; o sprite troca na hora (o brilho é leve).</li>
+<li><b>Colisão e desenho</b>: igual às formações (tile <code>FORMATION</code> na pegada, âncora no centro de baixo da
+pegada, ordem pelo pé, não minera, sombra no sprite). O sprite troca de <code>_dormant</code> pra <code>_active</code>
+pelo estado; a paleta é <code>HILL</code> do basalto (0..9) + <code>VENT</code> do estágio (10..13), no estágio do tile do pé.</li>
+<li><b>Mapa</b>: entram como “Formação” (pictograma de pico) só se o dono quiser; por padrão não marcam.</li></ul></div>
+
+<h3 style="margin-top:26px">Se o dono aprovar · contrato (bíblia §6)</h3>
+<div class="box"><ul>
+<li>Linha nova: <code>form_vent_{cone,pair,chimney}_{dormant,active}.png</code> · 60×48, 72×64 e 40×78 · fumarolas do
+basalto, bloqueiam 1, 2×1 e 1 tile · paleta 0..9 <code>HILL</code> do basalto + 10..13 <code>VENT</code> · <code>mouths</code> no JSON.</li>
+<li>Rampa nova <code>VENT</code> no <code>regions_palettes.json</code> (por estágio, 4 cores) e o bloco <code>smoke</code> com os
+números da partícula.</li></ul></div>
+</section>
+<!-- v91:end -->
+
+<!-- v9:begin -->
+<section class="v9" id="v9"><h2>v9 · Mais elementos nas regiões + basalto sem retângulo (aprovado)</h2>
+<p class="lede"><b>Aprovado pelo dono e promovido</b>: os PNGs estão em <code>assets/sprites/regions/</code> e os dados no
+<code>regions_palettes.json</code> (formações pequenas em <code>formations</code>, rampa <code>MOSS</code> em <code>ramps</code>,
+densidade em <code>v9_density</code>). A cópia em <code>reports/design/regioes/v9/pendentes/</code> fica de registro (mesmo
+formato: modo P, 0..7 rampa, 8 contorno, 9 sombra, 255 transparente). São <b>30 decalques</b>, <b>30 soltos com altura</b>, <b>6 overlays de musgo
+(Verde+)</b> e <b>4 formações pequenas</b>, mais a candidata do <code>ground_basalt.png</code>.
+Tudo natural, nada de construção, nada biológico (sem ossada); o musgo é o mesmo da cobertura do Verde que já existe.</p>
+
+<h3 style="margin-top:26px">1 · Basalto: a célula retangular</h3>
+<p class="lede">A fratura do basalto é um Voronoi de 9×9 sítios. O sítio (1, 4) caiu alinhado na horizontal e na
+vertical com os 4 vizinhos, e as 4 bissetrizes viraram um retângulo (x 64–133, y 215–290). Um detector de células
+“quadradas” (quanto da borda fica a menos de 9° de horizontal/vertical) achou mais 3 parecidas, menos visíveis. Os
+4 sítios foram empurrados 0,3 célula na diagonal (<code>BASALT_NUDGE</code> em <code>regions_core.py</code>), e
+nada mais mudou: são <b>1421 px</b> de 262.144 (0,5%). A emenda continua: o Voronoi é periódico e o
+empurrão vale pro sítio em qualquer volta (fração de pixel diferente na emenda 0.187 contra
+0.153 entre colunas vizinhas no miolo, igual à v8.3).</p>
+<div class="grid2" style="margin-top:12px">
+<figure><img src="v9/basalt_zoom_antes.png" width="576" height="528" style="image-rendering:pixelated;max-width:100%;height:auto" alt="">
+<figcaption><b>antes</b> (3×) · a caixa vermelha é a célula</figcaption></figure>
+<figure><img src="v9/basalt_zoom_depois.png" width="576" height="528" style="image-rendering:pixelated;max-width:100%;height:auto" alt="">
+<figcaption><b>depois</b> (3×) · o retângulo virou 3 fraturas tortas</figcaption></figure>
+<figure><img class="px" src="v9/basalt_tile3x3_antes.png" alt=""><figcaption><b>antes</b> · ladrilhado 3×3 (1536 px,
+reduzido) · o retângulo se repete a cada 512 px</figcaption></figure>
+<figure><img class="px" src="v9/basalt_tile3x3_depois.png" alt=""><figcaption><b>depois</b> · ladrilhado 3×3</figcaption></figure>
+</div>
+<div class="grid2" style="margin-top:12px"><div><div class="tog"><img src="v9/basalt_full_depois.png" alt=""><img class="b" src="v9/basalt_full_antes.png" alt=""><span class="b">ANTES</span><span class="a">DEPOIS</span></div>
+<figcaption>a textura inteira (512 px), alternando antes × depois a cada 2 s</figcaption></div>
+<div class="box"><ul><li><b>Promovido</b>: <code>BASALT_FIX = True</code> no <code>regions_core.py</code>; o <code>assets/sprites/regions/ground_basalt.png</code>
+é igual à candidata (<code>v9/ground_basalt.png</code>). Os 1.421 px que mudaram ficam todos nas 4 células empurradas
+(mais 3 px de borda), conferido.</li>
+<li>Com <code>BASALT_FIX = False</code> o script gera byte a byte a textura da v8.3 (é o “antes” do report).</li></ul></div></div>
+
+<h3 style="margin-top:34px">2 · Catálogo dos elementos novos</h3>
+<p class="lede">Cada região ganhou decalques de chão (não colidem) e pelo menos 2 tipos de solto com altura (não
+colidem, ordenados pelo pé, até 32×28), com 3 variações cada. Os soltos são <b>volumes 3D</b> no mesmo renderizador
+das formações (luz em faixas, sombra própria e no chão em alfa fixo, contorno <code>#1b1630</code>), menos as lajes e
+as lascas de lama, que são desenho 2D. A tira de cada um mostra os 4 estágios só trocando a rampa.
+<b>Ficaram de fora</b> (testei e não passaram): o <b>geodo</b> (em 20 px o miolo claro dentro da casca lia como
+comida ou como rosto) e a <b>pedra equilibrada</b> (lia como cogumelo, e o hoodoo já ocupa essa ideia); no lugar
+entraram as <b>lajes lascadas</b> e a <b>pedra rachada</b>.</p>
+<h3 style="margin-top:26px">Planalto</h3><div class="cat"><div><h3><i class="rg" style="background:#8a573a"></i>Veio mineral exposto</h3>
+<div class="meta">decal_vein_{0..2}.png</div><div class="meta">102×43 · 79×41 · 129×22 · rampa BASE</div>
+<p>faixa clara de mineral mais duro, em relevo, que serpenteia e some na terra</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decal_vein_0.png" width="204" height="86" alt=""><figcaption>decal_vein_0 · 102×43</figcaption></figure><figure><img src="v9/cat/decal_vein_1.png" width="158" height="82" alt=""><figcaption>decal_vein_1 · 79×41</figcaption></figure><figure><img src="v9/cat/decal_vein_2.png" width="258" height="44" alt=""><figcaption>decal_vein_2 · 129×22</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decal_vein_0.png" alt=""><img src="v9/cat/decal_vein_1.png" alt=""><img src="v9/cat/decal_vein_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_vein.png" width="2772" height="110" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#8a573a"></i>Anéis de oxidação</h3>
+<div class="meta">decal_oxide_{0..2}.png</div><div class="meta">67×44 · 53×36 · 87×48 · rampa BASE</div>
+<p>faixas concêntricas e tortas de ferrugem e ocre, abertas de um lado</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decal_oxide_0.png" width="134" height="88" alt=""><figcaption>decal_oxide_0 · 67×44</figcaption></figure><figure><img src="v9/cat/decal_oxide_1.png" width="106" height="72" alt=""><figcaption>decal_oxide_1 · 53×36</figcaption></figure><figure><img src="v9/cat/decal_oxide_2.png" width="174" height="96" alt=""><figcaption>decal_oxide_2 · 87×48</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decal_oxide_0.png" alt=""><img src="v9/cat/decal_oxide_1.png" alt=""><img src="v9/cat/decal_oxide_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_oxide.png" width="1948" height="120" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#8a573a"></i>Seixos</h3>
+<div class="meta">decor_pebbles_{0..2}.png</div><div class="meta">17×17 · 17×15 · 24×14 · rampa HILL</div>
+<p>2 a 4 pedrinhas roladas (também no leito seco)</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decor_pebbles_0.png" width="68" height="68" alt=""><figcaption>decor_pebbles_0 · 17×17</figcaption></figure><figure><img src="v9/cat/decor_pebbles_1.png" width="68" height="60" alt=""><figcaption>decor_pebbles_1 · 17×15</figcaption></figure><figure><img src="v9/cat/decor_pebbles_2.png" width="96" height="56" alt=""><figcaption>decor_pebbles_2 · 24×14</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decor_pebbles_0.png" alt=""><img src="v9/cat/decor_pebbles_1.png" alt=""><img src="v9/cat/decor_pebbles_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_pebbles.png" width="756" height="58" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#8a573a"></i>Pedra média</h3>
+<div class="meta">decor_boulder_{0..2}.png</div><div class="meta">24×24 · 25×23 · 28×25 · rampa HILL</div>
+<p>pedra achatada roída pelo vento, com uma face de lasca</p><p><span class="tag">VERDE+</span>ganha musgo no Verde</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decor_boulder_0.png" width="96" height="96" alt=""><figcaption>decor_boulder_0 · 24×24</figcaption></figure><figure><img src="v9/cat/decor_boulder_1.png" width="100" height="92" alt=""><figcaption>decor_boulder_1 · 25×23</figcaption></figure><figure><img src="v9/cat/decor_boulder_2.png" width="112" height="100" alt=""><figcaption>decor_boulder_2 · 28×25</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decor_boulder_0.png" alt=""><img src="v9/cat/decor_boulder_1.png" alt=""><img src="v9/cat/decor_boulder_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_boulder.png" width="908" height="74" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#8a573a"></i>Lajes lascadas</h3>
+<div class="meta">decor_slabs_{0..2}.png</div><div class="meta">21×16 · 15×16 · 29×15 · rampa HILL</div>
+<p>placas chatas e angulosas de rocha que esfoliou, uma sobre a outra</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decor_slabs_0.png" width="84" height="64" alt=""><figcaption>decor_slabs_0 · 21×16</figcaption></figure><figure><img src="v9/cat/decor_slabs_1.png" width="60" height="64" alt=""><figcaption>decor_slabs_1 · 15×16</figcaption></figure><figure><img src="v9/cat/decor_slabs_2.png" width="116" height="60" alt=""><figcaption>decor_slabs_2 · 29×15</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decor_slabs_0.png" alt=""><img src="v9/cat/decor_slabs_1.png" alt=""><img src="v9/cat/decor_slabs_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_slabs.png" width="812" height="56" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><h3 style="margin-top:26px">Leito seco</h3><div class="cat"><div><h3><i class="rg" style="background:#96694d"></i>Rastro de seixo</h3>
+<div class="meta">decal_trail_{0..2}.png</div><div class="meta">146×58 · 112×38 · 174×73 · rampa BASE</div>
+<p>sulco comprido de pedra que o vento arrastou no lodo, e o seixo no fim</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decal_trail_0.png" width="292" height="116" alt=""><figcaption>decal_trail_0 · 146×58</figcaption></figure><figure><img src="v9/cat/decal_trail_1.png" width="224" height="76" alt=""><figcaption>decal_trail_1 · 112×38</figcaption></figure><figure><img src="v9/cat/decal_trail_2.png" width="348" height="146" alt=""><figcaption>decal_trail_2 · 174×73</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decal_trail_0.png" alt=""><img src="v9/cat/decal_trail_1.png" alt=""><img src="v9/cat/decal_trail_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_trail.png" width="3748" height="170" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#96694d"></i>Marcas de onda</h3>
+<div class="meta">decal_ripples_{0..2}.png</div><div class="meta">97×57 · 78×46 · 105×62 · rampa BASE</div>
+<p>cristas paralelas do lago antigo fossilizadas no silte</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decal_ripples_0.png" width="194" height="114" alt=""><figcaption>decal_ripples_0 · 97×57</figcaption></figure><figure><img src="v9/cat/decal_ripples_1.png" width="156" height="92" alt=""><figcaption>decal_ripples_1 · 78×46</figcaption></figure><figure><img src="v9/cat/decal_ripples_2.png" width="210" height="124" alt=""><figcaption>decal_ripples_2 · 105×62</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decal_ripples_0.png" alt=""><img src="v9/cat/decal_ripples_1.png" alt=""><img src="v9/cat/decal_ripples_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_ripples.png" width="2532" height="148" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#96694d"></i>Lascas de lama</h3>
+<div class="meta">decor_mud_curls_{0..2}.png</div><div class="meta">26×9 · 23×11 · 24×13 · rampa BASE</div>
+<p>plaquinhas de lodo seco com a borda de trás enrolando</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decor_mud_curls_0.png" width="104" height="36" alt=""><figcaption>decor_mud_curls_0 · 26×9</figcaption></figure><figure><img src="v9/cat/decor_mud_curls_1.png" width="92" height="44" alt=""><figcaption>decor_mud_curls_1 · 23×11</figcaption></figure><figure><img src="v9/cat/decor_mud_curls_2.png" width="96" height="52" alt=""><figcaption>decor_mud_curls_2 · 24×13</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decor_mud_curls_0.png" alt=""><img src="v9/cat/decor_mud_curls_1.png" alt=""><img src="v9/cat/decor_mud_curls_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_mud_curls.png" width="876" height="50" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><h3 style="margin-top:26px">Salar</h3><div class="cat"><div><h3><i class="rg" style="background:#c6b8a4"></i>Polígonos de sal miúdos</h3>
+<div class="meta">decal_saltpoly_{0..2}.png</div><div class="meta">115×69 · 88×52 · 131×80 · rampa BASE</div>
+<p>favo torto de cristas de sal empurradas (~14 px)</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decal_saltpoly_0.png" width="230" height="138" alt=""><figcaption>decal_saltpoly_0 · 115×69</figcaption></figure><figure><img src="v9/cat/decal_saltpoly_1.png" width="176" height="104" alt=""><figcaption>decal_saltpoly_1 · 88×52</figcaption></figure><figure><img src="v9/cat/decal_saltpoly_2.png" width="262" height="160" alt=""><figcaption>decal_saltpoly_2 · 131×80</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decal_saltpoly_0.png" alt=""><img src="v9/cat/decal_saltpoly_1.png" alt=""><img src="v9/cat/decal_saltpoly_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_saltpoly.png" width="2964" height="184" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#c6b8a4"></i>Eflorescência</h3>
+<div class="meta">decal_efflor_{0..2}.png</div><div class="meta">37×29 · 34×31 · 32×22 · rampa BASE</div>
+<p>rosetas de sal em grupinho</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decal_efflor_0.png" width="74" height="58" alt=""><figcaption>decal_efflor_0 · 37×29</figcaption></figure><figure><img src="v9/cat/decal_efflor_1.png" width="68" height="62" alt=""><figcaption>decal_efflor_1 · 34×31</figcaption></figure><figure><img src="v9/cat/decal_efflor_2.png" width="64" height="44" alt=""><figcaption>decal_efflor_2 · 32×22</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decal_efflor_0.png" alt=""><img src="v9/cat/decal_efflor_1.png" alt=""><img src="v9/cat/decal_efflor_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_efflor.png" width="1116" height="86" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#c6b8a4"></i>Montinho de sal</h3>
+<div class="meta">decor_salt_mound_{0..2}.png</div><div class="meta">17×15 · 19×15 · 20×16 · rampa BASE</div>
+<p>sal em couve-flor (eflorescência que cresceu)</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decor_salt_mound_0.png" width="68" height="60" alt=""><figcaption>decor_salt_mound_0 · 17×15</figcaption></figure><figure><img src="v9/cat/decor_salt_mound_1.png" width="76" height="60" alt=""><figcaption>decor_salt_mound_1 · 19×15</figcaption></figure><figure><img src="v9/cat/decor_salt_mound_2.png" width="80" height="64" alt=""><figcaption>decor_salt_mound_2 · 20×16</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decor_salt_mound_0.png" alt=""><img src="v9/cat/decor_salt_mound_1.png" alt=""><img src="v9/cat/decor_salt_mound_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_salt_mound.png" width="740" height="56" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#c6b8a4"></i>Crosta solta</h3>
+<div class="meta">decor_salt_slabs_{0..2}.png</div><div class="meta">19×14 · 24×14 · 20×13 · rampa BASE</div>
+<p>lascas finas de crosta de sal soltas e encavaladas</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decor_salt_slabs_0.png" width="76" height="56" alt=""><figcaption>decor_salt_slabs_0 · 19×14</figcaption></figure><figure><img src="v9/cat/decor_salt_slabs_1.png" width="96" height="56" alt=""><figcaption>decor_salt_slabs_1 · 24×14</figcaption></figure><figure><img src="v9/cat/decor_salt_slabs_2.png" width="80" height="52" alt=""><figcaption>decor_salt_slabs_2 · 20×13</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decor_salt_slabs_0.png" alt=""><img src="v9/cat/decor_salt_slabs_1.png" alt=""><img src="v9/cat/decor_salt_slabs_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_salt_slabs.png" width="796" height="52" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><h3 style="margin-top:26px">Basalto</h3><div class="cat"><div><h3><i class="rg" style="background:#3a343e"></i>Respiro de fumarola apagada</h3>
+<div class="meta">decal_fumarole_{0..2}.png</div><div class="meta">49×31 · 44×31 · 68×38 · rampa BASE</div>
+<p>boca escura, crosta mineral clara, halo de óxido</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decal_fumarole_0.png" width="98" height="62" alt=""><figcaption>decal_fumarole_0 · 49×31</figcaption></figure><figure><img src="v9/cat/decal_fumarole_1.png" width="88" height="62" alt=""><figcaption>decal_fumarole_1 · 44×31</figcaption></figure><figure><img src="v9/cat/decal_fumarole_2.png" width="136" height="76" alt=""><figcaption>decal_fumarole_2 · 68×38</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decal_fumarole_0.png" alt=""><img src="v9/cat/decal_fumarole_1.png" alt=""><img src="v9/cat/decal_fumarole_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_fumarole.png" width="1580" height="100" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#3a343e"></i>Lava em corda</h3>
+<div class="meta">decal_ropy_{0..2}.png</div><div class="meta">95×56 · 76×47 · 107×64 · rampa BASE</div>
+<p>frente de um lóbulo de lava lisa com as dobras em arco</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decal_ropy_0.png" width="190" height="112" alt=""><figcaption>decal_ropy_0 · 95×56</figcaption></figure><figure><img src="v9/cat/decal_ropy_1.png" width="152" height="94" alt=""><figcaption>decal_ropy_1 · 76×47</figcaption></figure><figure><img src="v9/cat/decal_ropy_2.png" width="214" height="128" alt=""><figcaption>decal_ropy_2 · 107×64</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decal_ropy_0.png" alt=""><img src="v9/cat/decal_ropy_1.png" alt=""><img src="v9/cat/decal_ropy_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_ropy.png" width="2516" height="152" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#3a343e"></i>Bombas vulcânicas</h3>
+<div class="meta">decor_bombs_{0..2}.png</div><div class="meta">29×21 · 31×19 · 29×22 · rampa HILL</div>
+<p>pedras porosas de escória, uma em fuso, com vesículas e óxido</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decor_bombs_0.png" width="116" height="84" alt=""><figcaption>decor_bombs_0 · 29×21</figcaption></figure><figure><img src="v9/cat/decor_bombs_1.png" width="124" height="76" alt=""><figcaption>decor_bombs_1 · 31×19</figcaption></figure><figure><img src="v9/cat/decor_bombs_2.png" width="116" height="88" alt=""><figcaption>decor_bombs_2 · 29×22</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decor_bombs_0.png" alt=""><img src="v9/cat/decor_bombs_1.png" alt=""><img src="v9/cat/decor_bombs_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_bombs.png" width="1004" height="68" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#3a343e"></i>Toco de coluna</h3>
+<div class="meta">decor_column_stub_{0..2}.png</div><div class="meta">20×25 · 25×25 · 27×26 · rampa HILL</div>
+<p>1 a 3 prismas hexagonais curtos, quina quebrada, junta</p><p><span class="tag">VERDE+</span>ganha musgo no Verde</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decor_column_stub_0.png" width="80" height="100" alt=""><figcaption>decor_column_stub_0 · 20×25</figcaption></figure><figure><img src="v9/cat/decor_column_stub_1.png" width="100" height="100" alt=""><figcaption>decor_column_stub_1 · 25×25</figcaption></figure><figure><img src="v9/cat/decor_column_stub_2.png" width="108" height="104" alt=""><figcaption>decor_column_stub_2 · 27×26</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decor_column_stub_0.png" alt=""><img src="v9/cat/decor_column_stub_1.png" alt=""><img src="v9/cat/decor_column_stub_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_column_stub.png" width="868" height="76" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><h3 style="margin-top:26px">Faixa gelada</h3><div class="cat"><div><h3><i class="rg" style="background:#90a6b9"></i>Solo poligonal</h3>
+<div class="meta">decal_icepoly_{0..2}.png</div><div class="meta">115×77 · 94×64 · 141×92 · rampa BASE</div>
+<p>polígonos de permafrost com cunha de gelo no sulco</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decal_icepoly_0.png" width="230" height="154" alt=""><figcaption>decal_icepoly_0 · 115×77</figcaption></figure><figure><img src="v9/cat/decal_icepoly_1.png" width="188" height="128" alt=""><figcaption>decal_icepoly_1 · 94×64</figcaption></figure><figure><img src="v9/cat/decal_icepoly_2.png" width="282" height="184" alt=""><figcaption>decal_icepoly_2 · 141×92</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decal_icepoly_0.png" alt=""><img src="v9/cat/decal_icepoly_1.png" alt=""><img src="v9/cat/decal_icepoly_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_icepoly.png" width="3092" height="208" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#90a6b9"></i>Geada em pena</h3>
+<div class="meta">decal_rime_{0..2}.png</div><div class="meta">67×43 · 53×35 · 63×48 · rampa BASE</div>
+<p>galhos de cristal de gelo se ramificando</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decal_rime_0.png" width="134" height="86" alt=""><figcaption>decal_rime_0 · 67×43</figcaption></figure><figure><img src="v9/cat/decal_rime_1.png" width="106" height="70" alt=""><figcaption>decal_rime_1 · 53×35</figcaption></figure><figure><img src="v9/cat/decal_rime_2.png" width="126" height="96" alt=""><figcaption>decal_rime_2 · 63×48</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decal_rime_0.png" alt=""><img src="v9/cat/decal_rime_1.png" alt=""><img src="v9/cat/decal_rime_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_rime.png" width="1756" height="120" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#90a6b9"></i>Penitentes</h3>
+<div class="meta">decor_penitentes_{0..2}.png</div><div class="meta">15×19 · 26×20 · 23×26 · rampa ICE</div>
+<p>lâminas de gelo afiadas pela sublimação, inclinadas pro sol</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decor_penitentes_0.png" width="60" height="76" alt=""><figcaption>decor_penitentes_0 · 15×19</figcaption></figure><figure><img src="v9/cat/decor_penitentes_1.png" width="104" height="80" alt=""><figcaption>decor_penitentes_1 · 26×20</figcaption></figure><figure><img src="v9/cat/decor_penitentes_2.png" width="92" height="104" alt=""><figcaption>decor_penitentes_2 · 23×26</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decor_penitentes_0.png" alt=""><img src="v9/cat/decor_penitentes_1.png" alt=""><img src="v9/cat/decor_penitentes_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_penitentes.png" width="804" height="76" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div><div class="cat"><div><h3><i class="rg" style="background:#90a6b9"></i>Pedra com geada</h3>
+<div class="meta">decor_rimed_rock_{0..2}.png</div><div class="meta">27×25 · 26×24 · 24×23 · rampa HILL</div>
+<p>rocha escura com a crosta de geada por cima</p></div>
+<div><div class="chk"><figure><img src="v9/cat/decor_rimed_rock_0.png" width="108" height="100" alt=""><figcaption>decor_rimed_rock_0 · 27×25</figcaption></figure><figure><img src="v9/cat/decor_rimed_rock_1.png" width="104" height="96" alt=""><figcaption>decor_rimed_rock_1 · 26×24</figcaption></figure><figure><img src="v9/cat/decor_rimed_rock_2.png" width="96" height="92" alt=""><figcaption>decor_rimed_rock_2 · 24×23</figcaption></figure><figure><div style="display:flex;gap:8px;align-items:flex-end"><img src="v9/cat/decor_rimed_rock_0.png" alt=""><img src="v9/cat/decor_rimed_rock_1.png" alt=""><img src="v9/cat/decor_rimed_rock_2.png" alt=""></div>
+<figcaption>tamanho real</figcaption></figure></div>
+<img class="strip" src="v9/cat/strip_rimed_rock.png" width="908" height="74" alt="">
+<figcaption>as 3 variações nos 4 estágios (Tempestade · Árido · Névoa · Verde), 2×, só trocando a paleta</figcaption>
+</div></div>
+
+<h3 style="margin-top:30px">Verde+ · musgo nas pedras</h3>
+<p class="lede">Só no Verde. A pedra média do planalto e o toco de coluna do basalto ganham um overlay
+<code>decor_{boulder,column_stub}_moss_{0..2}.png</code> (mesmo tamanho da pedra, desenhado por cima, índices 0..3
+na rampa fixa <code>MOSS</code>: <code>#22331f</code>, <code>#38502e</code>, <code>#5c7d45</code>, <code>#75985a</code>, a família do musgo da cobertura).
+Nos outros estágios a pedra aparece limpa.</p>
+<div class="chk"><figure><img src="v9/cat/decor_boulder_0_green.png" width="96" height="96" alt=""><figcaption>decor_boulder_0 + moss</figcaption></figure><figure><img src="v9/cat/decor_boulder_1_green.png" width="100" height="92" alt=""><figcaption>decor_boulder_1 + moss</figcaption></figure><figure><img src="v9/cat/decor_boulder_2_green.png" width="112" height="100" alt=""><figcaption>decor_boulder_2 + moss</figcaption></figure><figure><img src="v9/cat/decor_column_stub_0_green.png" width="80" height="100" alt=""><figcaption>decor_column_stub_0 + moss</figcaption></figure><figure><img src="v9/cat/decor_column_stub_1_green.png" width="100" height="100" alt=""><figcaption>decor_column_stub_1 + moss</figcaption></figure><figure><img src="v9/cat/decor_column_stub_2_green.png" width="108" height="104" alt=""><figcaption>decor_column_stub_2 + moss</figcaption></figure></div>
+
+<h3 style="margin-top:30px">Formações pequenas (opcionais)</h3>
+<p class="lede">Menores que as de hoje, mesmo esquema: volume 3D, ancoradas no centro da base, ordenadas pelo pé,
+bloqueiam só os tiles do pé (tile <code>FORMATION</code>), não mineram. Não viram marcador “Formação” no mapa
+(são miúdas); se o dono quiser, entram com o mesmo pictograma.</p>
+<table style="margin-top:10px"><tr><th>formação</th><th>sprite (2×)</th><th>pegada</th><th>4 estágios</th></tr>
+<tr><td><b>Pedra rachada</b><br>planalto<br><code>form_split_rock.png</code><br>72×64 ·
+rampa HILL<br>âncora (36, 52) · bloqueia 1 tile<br>4–6 no planalto</td>
+<td><div class="chk" style="padding:8px"><figure><img src="v9/cat/form_split_rock.png" width="144" height="128" alt=""><figcaption>2×</figcaption></figure></div></td>
+<td><div class="chk" style="padding:8px"><figure><img src="v9/cat/foot_split_rock.png" width="160" height="128" alt=""><figcaption>pegada (vermelho) · âncora (ponto)</figcaption></figure></div></td>
+<td><img class="strip" src="v9/cat/strip_form_split_rock.png" width="370" height="76" alt=""></td></tr><tr><td><b>Pilares de sal</b><br>salar<br><code>form_salt_pillar.png</code><br>68×60 ·
+rampa BASE<br>âncora (34, 52) · bloqueia 1 tile<br>3–4 no salar</td>
+<td><div class="chk" style="padding:8px"><figure><img src="v9/cat/form_salt_pillar.png" width="136" height="120" alt=""><figcaption>2×</figcaption></figure></div></td>
+<td><div class="chk" style="padding:8px"><figure><img src="v9/cat/foot_salt_pillar.png" width="160" height="96" alt=""><figcaption>pegada (vermelho) · âncora (ponto)</figcaption></figure></div></td>
+<td><img class="strip" src="v9/cat/strip_form_salt_pillar.png" width="354" height="72" alt=""></td></tr><tr><td><b>Tubo de lava colapsado</b><br>basalto<br><code>form_lava_tube.png</code><br>124×56 ·
+rampa HILL<br>âncora (62, 40) · bloqueia 3 tiles<br>2–4 no basalto</td>
+<td><div class="chk" style="padding:8px"><figure><img src="v9/cat/form_lava_tube.png" width="248" height="112" alt=""><figcaption>2×</figcaption></figure></div></td>
+<td><div class="chk" style="padding:8px"><figure><img src="v9/cat/foot_lava_tube.png" width="160" height="96" alt=""><figcaption>pegada (vermelho) · âncora (ponto)</figcaption></figure></div></td>
+<td><img class="strip" src="v9/cat/strip_form_lava_tube.png" width="578" height="68" alt=""></td></tr><tr><td><b>Agulhas de gelo</b><br>faixa gelada<br><code>form_ice_needles.png</code><br>84×72 ·
+rampa ICE<br>âncora (42, 62) · bloqueia 3 tiles<br>3–5 na faixa gelada</td>
+<td><div class="chk" style="padding:8px"><figure><img src="v9/cat/form_ice_needles.png" width="168" height="144" alt=""><figcaption>2×</figcaption></figure></div></td>
+<td><div class="chk" style="padding:8px"><figure><img src="v9/cat/foot_ice_needles.png" width="160" height="128" alt=""><figcaption>pegada (vermelho) · âncora (ponto)</figcaption></figure></div></td>
+<td><img class="strip" src="v9/cat/strip_form_ice_needles.png" width="418" height="84" alt=""></td></tr></table>
+
+<h3 style="margin-top:34px">3 · As regiões antes × depois</h3>
+<p class="lede">Mesma vista, mesmo mundo de exemplo da v8 (sem HUD, pra ver o chão). O “depois” só acrescenta: os
+decalques novos num 3º sorteio por célula de 96 px, os soltos novos por tile e 1 ou 2 formações pequenas por vista.
+No Verde as bacias estão cheias (L3), então o leito seco some debaixo d'água, como vai ser no jogo.</p>
+<div class="grid2" style="margin-top:12px"><div><div class="tog"><img src="v9/scene_plateau_arid_depois.png" alt=""><img class="b" src="v9/scene_plateau_arid_antes.png" alt=""><span class="b">ANTES</span><span class="a">DEPOIS</span></div>
+<figcaption>planalto no Árido, alternando a cada 2 s</figcaption></div>
+<div><div class="tog"><img src="v9/scene_basalt_arid_depois.png" alt=""><img class="b" src="v9/scene_basalt_arid_antes.png" alt=""><span class="b">ANTES</span><span class="a">DEPOIS</span></div>
+<figcaption>basalto no Árido, alternando a cada 2 s</figcaption></div></div>
+<h3 style="margin-top:22px">Planalto (com a depressão de leito seco) · Árido</h3><div class="grid2">
+<figure><img class="px" src="v9/scene_plateau_arid_antes.png" alt=""><figcaption><b>antes</b> · v8.3 aprovada</figcaption></figure><figure><img class="px" src="v9/scene_plateau_arid_depois.png" alt=""><figcaption><b>depois</b> · com os elementos da v9</figcaption></figure></div><h3 style="margin-top:22px">Planalto (com a depressão de leito seco) · Verde</h3><div class="grid2">
+<figure><img class="px" src="v9/scene_plateau_green_antes.png" alt=""><figcaption><b>antes</b> · v8.3 aprovada</figcaption></figure><figure><img class="px" src="v9/scene_plateau_green_depois.png" alt=""><figcaption><b>depois</b> · com os elementos da v9</figcaption></figure></div><h3 style="margin-top:22px">Salar · Árido</h3><div class="grid2">
+<figure><img class="px" src="v9/scene_salar_arid_antes.png" alt=""><figcaption><b>antes</b> · v8.3 aprovada</figcaption></figure><figure><img class="px" src="v9/scene_salar_arid_depois.png" alt=""><figcaption><b>depois</b> · com os elementos da v9</figcaption></figure></div><h3 style="margin-top:22px">Salar · Verde</h3><div class="grid2">
+<figure><img class="px" src="v9/scene_salar_green_antes.png" alt=""><figcaption><b>antes</b> · v8.3 aprovada</figcaption></figure><figure><img class="px" src="v9/scene_salar_green_depois.png" alt=""><figcaption><b>depois</b> · com os elementos da v9</figcaption></figure></div><h3 style="margin-top:22px">Basalto · Árido</h3><div class="grid2">
+<figure><img class="px" src="v9/scene_basalt_arid_antes.png" alt=""><figcaption><b>antes</b> · v8.3 aprovada</figcaption></figure><figure><img class="px" src="v9/scene_basalt_arid_depois.png" alt=""><figcaption><b>depois</b> · com os elementos da v9</figcaption></figure></div><h3 style="margin-top:22px">Basalto · Verde</h3><div class="grid2">
+<figure><img class="px" src="v9/scene_basalt_green_antes.png" alt=""><figcaption><b>antes</b> · v8.3 aprovada</figcaption></figure><figure><img class="px" src="v9/scene_basalt_green_depois.png" alt=""><figcaption><b>depois</b> · com os elementos da v9</figcaption></figure></div><h3 style="margin-top:22px">Faixa gelada · Árido</h3><div class="grid2">
+<figure><img class="px" src="v9/scene_frost_arid_antes.png" alt=""><figcaption><b>antes</b> · v8.3 aprovada</figcaption></figure><figure><img class="px" src="v9/scene_frost_arid_depois.png" alt=""><figcaption><b>depois</b> · com os elementos da v9</figcaption></figure></div><h3 style="margin-top:22px">Faixa gelada · Verde</h3><div class="grid2">
+<figure><img class="px" src="v9/scene_frost_green_antes.png" alt=""><figcaption><b>antes</b> · v8.3 aprovada</figcaption></figure><figure><img class="px" src="v9/scene_frost_green_depois.png" alt=""><figcaption><b>depois</b> · com os elementos da v9</figcaption></figure></div>
+<h3 style="margin-top:22px">Os outros 2 estágios (planalto, depois)</h3><div class="grid2">
+<figure><img class="px" src="v9/scene_plateau_storm_depois.png" alt=""><figcaption><b>Tempestade</b></figcaption></figure><figure><img class="px" src="v9/scene_plateau_mist_depois.png" alt=""><figcaption><b>Névoa</b> · água no L2</figcaption></figure></div>
+
+<h3 style="margin-top:34px">4 · Densidade sugerida</h3>
+<table><tr><th>região</th><th>decalques v9 (3º sorteio na célula de 96 px: chance · pesos)</th>
+<th>soltos v9 (chance por tile de chão livre)</th><th>soltos da v8 (continuam)</th><th>formações pequenas por mundo</th></tr>
+<tr><td><b>planalto</b></td><td>30% · <code>vein</code> 3, <code>oxide</code> 2</td><td><code>pebbles</code> 1.2%, <code>boulder</code> 0.6%, <code>slabs</code> 0.8% · <b>total 2.6%</b></td><td>nenhuma</td><td>split_rock 4–6</td></tr><tr><td><b>leito seco</b></td><td>35% · <code>trail</code> 2, <code>ripples</code> 3</td><td><code>mud_curls</code> 2.0%, <code>pebbles</code> 0.6% · <b>total 2.6%</b></td><td>nenhuma</td><td>nenhuma (alaga no M3)</td></tr><tr><td><b>salar</b></td><td>30% · <code>saltpoly</code> 3, <code>efflor</code> 3</td><td><code>salt_mound</code> 1.0%, <code>salt_slabs</code> 1.2% · <b>total 2.2%</b></td><td>salt_crystals 3,5%</td><td>salt_pillar 3–4</td></tr><tr><td><b>basalto</b></td><td>30% · <code>fumarole</code> 3, <code>ropy</code> 2</td><td><code>bombs</code> 1.2%, <code>column_stub</code> 0.8% · <b>total 2.0%</b></td><td>shards 3,5%</td><td>lava_tube 2–4</td></tr><tr><td><b>faixa gelada</b></td><td>30% · <code>icepoly</code> 3, <code>rime</code> 3</td><td><code>penitentes</code> 1.2%, <code>rimed_rock</code> 1.0% · <b>total 2.2%</b></td><td>ice_chunks 3,5%</td><td>ice_needles 3–5</td></tr></table>
+<div class="box" style="margin-top:10px"><p>Os números são de partida, ajustáveis no <code>game/config.py</code>
+(na mesma linha do <code>GROUND_*</code>). Ficam todos em <code>v9/pendentes/regions_v9.json</code>
+(<code>decal_p_v9</code>, <code>decal_mix_v9</code>, <code>decor_p_v9</code>, <code>small_formations</code>).</p></div>
+
+<h3 style="margin-top:34px">Pro Dev integrar (v9)</h3>
+<div class="box dev"><ul>
+<li><b>Basalto</b>: trocar o <code>ground_basalt.png</code> pela candidata. Mesmo tamanho, mesma paleta, mesma regra de
+recorte; nada muda no código.</li>
+<li><b>Decalques</b> (<code>decal_*.png</code> novos, rampa <code>BASE</code> da região onde caem, leito seco = <code>bed</code>):
+na mesma grade de 96 px presa no mundo, um <b>3º sorteio por célula</b>, com hash próprio, posição própria e só a
+lista da v9 da região (<code>decal_mix_v9</code>) com a chance <code>decal_p_v9</code>. Espelhar na horizontal com 50%.
+Mesmas exclusões de hoje (raio de 6 tiles da base, volta das formações). Entram na camada do chão, antes da água e
+da cobertura (a água e a grama tapam).</li>
+<li><b>Soltos</b> (<code>decor_*.png</code> novos): como os de hoje. Âncora no centro da base, pé em
+<code>(tx·32 + 16 ± 7, ty·32 + 26..29)</code>, ordenados pelo pé, espelho horizontal com 50%, não colidem. 1 sorteio por
+tile de chão livre (<code>decor_p_v9</code>, as chances somam); some onde tem máquina, veio, destroço, rocha,
+parede, formação e no tile com o solto da v8; nada abaixo do nível d'água atual. Rampa pela tabela do arquivo
+(<code>files[...].ramp</code> no JSON): seixos, pedra média, lajes, bombas, toco e pedra com geada = <code>HILL</code> da região
+(seixo no leito seco usa o <code>HILL</code> do planalto); montinho de sal, crosta solta e lascas de lama =
+<code>BASE</code>; penitentes = <code>ICE</code>.</li>
+<li><b>Verde+</b>: no estágio Verde, desenhar <code>decor_X_moss_N.png</code> logo depois de <code>decor_X_N.png</code>, no mesmo
+lugar e com o mesmo espelho. Paleta fixa <code>MOSS</code> (índices 0..3; 8 = contorno). Na mancha da transição, segue
+o estágio do tile do pé.</li>
+<li><b>Formações pequenas</b> (<code>form_split_rock</code>, <code>form_salt_pillar</code>, <code>form_lava_tube</code>,
+<code>form_ice_needles</code>): igual às formações de hoje (<code>hills.FormationSprites</code>): âncora do JSON no
+<code>base_px</code>, ordem pelo pé, pegada vira <code>FORMATION</code>, sombra já vem no sprite (índice 9). Rampa: pedra
+rachada e tubo de lava = <code>HILL</code>; pilar de sal = <code>BASE</code> do salar; agulhas = <code>ICE</code>. Geração: inteira na
+região, fora de bacia, 2 tiles de folga, a 10+ tiles uma da outra e das grandes, a 20+ da base; sem afloramento em
+volta (são miúdas).</li>
+<li><b>Ordem de desenho</b> não muda: chão → decalques (v8 + v9) → água/cobertura → por linha: morros, objetos pelo pé
+(soltos, formações, player, máquinas) → efeitos do estágio.</li></ul></div>
+
+<h3 style="margin-top:34px">Contrato · aprovado, já na bíblia §6</h3>
+<div class="box"><ul>
+<li><code>decal_*.png</code>: a tabela já cobre (“variados”, rampa BASE). Entram os nomes novos:
+<code>decal_{vein,oxide,saltpoly,efflor,fumarole,ropy,icepoly,rime,trail,ripples}_{0..2}.png</code>.</li>
+<li><code>decor_*</code>: a linha vira <code>decor_{shards,salt_crystals,ice_chunks,pebbles,boulder,slabs,salt_mound,salt_slabs,
+bombs,column_stub,penitentes,rimed_rock,mud_curls}_{0..2}.png</code>, “até 32×28” (hoje diz 28×24; os novos
+vão até 31×26), com a rampa de cada um no JSON.</li>
+<li>Linha nova: <code>decor_{boulder,column_stub}_moss_{0..2}.png</code> · mesmo tamanho da pedra · overlay só no Verde,
+rampa fixa <code>MOSS</code> (nova no <code>regions_palettes.json</code>, como a <code>METAL</code>).</li>
+<li><code>form_*</code>: entram <code>form_{split_rock,salt_pillar,lava_tube,ice_needles}.png</code> (até 124×56), com a pegada:
+pedra rachada 1, pilar de sal 1, tubo de lava 3×1, agulhas de gelo 3×1.</li>
+<li><code>ground_basalt.png</code>: sem mudança de contrato (mesmo arquivo, mesmo tamanho).</li></ul></div>
+
+<h3 style="margin-top:34px">O que aproveitei de referência</h3>
+<div class="box"><p>Nenhuma imagem de fora: só a geologia de verdade de desertos e lugares frios, desenhada do zero
+no estilo aprovado. Salar: polígonos de sal e eflorescência dos lagos salgados secos. Basalto: lava em corda
+(pahoehoe), tubos de lava com claraboia e bombas vulcânicas. Faixa gelada: penitentes e solo poligonal de permafrost.
+Leito seco: rastro de pedra arrastada no lodo e marca de onda fossilizada. Planalto: veio de quartzo exposto e
+anéis de oxidação.</p></div>
+</section>
+<!-- v9:end -->
 
 <section><h2>Resumo · recomendação e custo</h2>
 <table><tr><th>item</th><th>recomendação</th><th>arte (Designer)</th><th>Dev</th></tr>
@@ -351,7 +790,7 @@ face na linha do topo de onde pende; formações, rochas, soltos, máquinas e pl
 <div class="grid2" style="margin-top:14px">
 <div class="box dev"><h3>O que é sprite e o que é procedural</h3><ul>
 <li><b>Sprite (PNG indexado)</b>: as 5 texturas de chão, topo e face do morro, 36 decalques, 5 formações, gelo-portão
-×3, cratera ×5 + ejeção, geada, 9 soltos. Total <b>67 PNG</b> em
+×3, cratera ×5 + ejeção, geada, 9 soltos. Total <b>137 PNG</b> em
 <code>assets/sprites/regions/</code> (aprovados).</li>
 <li><b>Procedural</b>: mapa de região e de altura (noise), deslocamento da borda, silhueta dos morros (grade
 dual) e extrusão da face, curvas de nível, água, cobertura de grama/umidade, sorteio dos decalques.</li>
@@ -375,7 +814,7 @@ Designer).</li>
 <div class="box dev" style="margin-top:14px"><h3>Formações: âncora e colisão</h3>
 <table><tr><th>sprite</th><th>tamanho</th><th>âncora (px no sprite)</th><th>tiles que bloqueiam (dx, dy) relativos ao
 tile do pé</th></tr>
-<tr><td><code>form_monolith.png</code></td><td>80×140</td><td>(38, 124)</td><td>(0, 0)</td></tr><tr><td><code>form_arch.png</code></td><td>208×150</td><td>(112, 128)</td><td>(-2, 0), (2, 0)</td></tr><tr><td><code>form_basalt_spires.png</code></td><td>156×136</td><td>(78, 116)</td><td>(-1, 0), (0, 0), (1, 0), (-1, -1), (0, -1), (1, -1)</td></tr><tr><td><code>form_salt_ridge.png</code></td><td>204×96</td><td>(102, 70)</td><td>(-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0)</td></tr><tr><td><code>form_cone.png</code></td><td>152×112</td><td>(76, 74)</td><td>(-1, 0), (0, 0), (1, 0), (-1, -1), (0, -1), (1, -1)</td></tr><tr><td><code>ice_gate_0.png</code></td><td>144×132</td><td>(70, 112)</td><td>(-2, 0), (-2, -1), (-1, 0), (-1, -1), (0, 0), (0, -1), (1, 0), (1, -1)</td></tr><tr><td><code>ice_gate_1.png</code></td><td>144×132</td><td>(70, 112)</td><td>(-1, 0), (-1, -1), (0, 0), (0, -1), (1, 0), (1, -1)</td></tr><tr><td><code>ice_gate_2.png</code></td><td>144×132</td><td>(70, 112)</td><td>(-1, 0), (0, 0)</td></tr><tr><td><code>crater_impact_0.png</code></td><td>168×150</td><td>(84, 70) (centro dos 3×3)</td><td>(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 0), (0, 1), (1, -1), (1, 0), (1, 1)</td></tr><tr><td><code>crater_impact_1.png</code></td><td>168×150</td><td>(84, 70) (centro dos 3×3)</td><td>(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 0), (0, 1), (1, -1), (1, 0), (1, 1)</td></tr><tr><td><code>crater_impact_2.png</code></td><td>168×150</td><td>(84, 70) (centro dos 3×3)</td><td>(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 0), (0, 1), (1, -1), (1, 0), (1, 1)</td></tr><tr><td><code>crater_impact_3.png</code></td><td>168×150</td><td>(84, 70) (centro dos 3×3)</td><td>(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 0), (0, 1), (1, -1), (1, 0), (1, 1)</td></tr><tr><td><code>crater_impact_4.png</code></td><td>168×150</td><td>(84, 70) (centro dos 3×3)</td><td>(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 0), (0, 1), (1, -1), (1, 0), (1, 1)</td></tr>
+<tr><td><code>form_monolith.png</code></td><td>80×140</td><td>(38, 124)</td><td>(0, 0)</td></tr><tr><td><code>form_arch.png</code></td><td>208×150</td><td>(112, 128)</td><td>(-2, 0), (2, 0)</td></tr><tr><td><code>form_basalt_spires.png</code></td><td>156×136</td><td>(78, 116)</td><td>(-1, 0), (0, 0), (1, 0), (-1, -1), (0, -1), (1, -1)</td></tr><tr><td><code>form_salt_ridge.png</code></td><td>204×96</td><td>(102, 70)</td><td>(-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0)</td></tr><tr><td><code>form_cone.png</code></td><td>152×112</td><td>(76, 74)</td><td>(-1, 0), (0, 0), (1, 0), (-1, -1), (0, -1), (1, -1)</td></tr><tr><td><code>ice_gate_0.png</code></td><td>144×132</td><td>(70, 112)</td><td>(-2, 0), (-2, -1), (-1, 0), (-1, -1), (0, 0), (0, -1), (1, 0), (1, -1)</td></tr><tr><td><code>ice_gate_1.png</code></td><td>144×132</td><td>(70, 112)</td><td>(-1, 0), (-1, -1), (0, 0), (0, -1), (1, 0), (1, -1)</td></tr><tr><td><code>ice_gate_2.png</code></td><td>144×132</td><td>(70, 112)</td><td>(-1, 0), (0, 0)</td></tr><tr><td><code>crater_impact_0.png</code></td><td>168×150</td><td>(84, 70) (centro dos 3×3)</td><td>(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 0), (0, 1), (1, -1), (1, 0), (1, 1)</td></tr><tr><td><code>crater_impact_1.png</code></td><td>168×150</td><td>(84, 70) (centro dos 3×3)</td><td>(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 0), (0, 1), (1, -1), (1, 0), (1, 1)</td></tr><tr><td><code>crater_impact_2.png</code></td><td>168×150</td><td>(84, 70) (centro dos 3×3)</td><td>(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 0), (0, 1), (1, -1), (1, 0), (1, 1)</td></tr><tr><td><code>crater_impact_3.png</code></td><td>168×150</td><td>(84, 70) (centro dos 3×3)</td><td>(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 0), (0, 1), (1, -1), (1, 0), (1, 1)</td></tr><tr><td><code>crater_impact_4.png</code></td><td>168×150</td><td>(84, 70) (centro dos 3×3)</td><td>(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 0), (0, 1), (1, -1), (1, 0), (1, 1)</td></tr><tr><td><code>form_split_rock.png</code></td><td>72×64</td><td>(36, 52)</td><td>(0, 0)</td></tr><tr><td><code>form_salt_pillar.png</code></td><td>68×60</td><td>(34, 52)</td><td>(0, 0)</td></tr><tr><td><code>form_lava_tube.png</code></td><td>124×56</td><td>(62, 40)</td><td>(-1, 0), (0, 0), (1, 0)</td></tr><tr><td><code>form_ice_needles.png</code></td><td>84×72</td><td>(42, 62)</td><td>(-1, 0), (0, 0), (1, 0)</td></tr>
 </table><p style="color:var(--muted)">A âncora cai no meio da borda de baixo do tile do pé (y = tile·32 + 30). <b>Cratera</b>:
 a âncora é o <b>centro dos 3×3</b> (px (cx·32 + 48, cy·32 + 48)), desenhada pelo pé (borda de baixo dos 3×3), com o
 <code>crater_ejecta.png</code> (256×216) centrado no mesmo ponto na camada de decalques; paleta com 21 índices
@@ -393,8 +832,8 @@ de hoje recoloridas pela rocha da região.</p></div>
 livres da região.</li>
 <li>Morros: ruído de 0,42 na grade dual (±4 px de tremido nas bordas retas). Nenhum morro no salar nem abaixo do L3.</li></ul></div>
 
-<details style="margin-top:14px"><summary style="cursor:pointer;color:var(--gold)">Lista dos 67 PNG pendentes</summary>
-<table style="margin-top:8px"><tr><th>arquivo</th><th>tamanho</th><th>rampa</th><th>região</th></tr><tr><td><code>crater_ejecta.png</code></td><td>256×216</td><td>BASE</td><td>plateau</td></tr><tr><td><code>crater_impact_0.png</code></td><td>168×150</td><td>BASE+ICE+METAL</td><td>plateau</td></tr><tr><td><code>crater_impact_1.png</code></td><td>168×150</td><td>BASE+ICE+METAL</td><td>plateau</td></tr><tr><td><code>crater_impact_2.png</code></td><td>168×150</td><td>BASE+ICE+METAL</td><td>plateau</td></tr><tr><td><code>crater_impact_3.png</code></td><td>168×150</td><td>BASE+ICE+METAL</td><td>plateau</td></tr><tr><td><code>crater_impact_4.png</code></td><td>168×150</td><td>BASE+ICE+METAL</td><td>plateau</td></tr><tr><td><code>decal_crack_0.png</code></td><td>208×65</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_crack_1.png</code></td><td>162×54</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_crack_2.png</code></td><td>126×72</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_gravel_0.png</code></td><td>49×31</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_gravel_1.png</code></td><td>50×20</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_gravel_2.png</code></td><td>50×30</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_gravel_3.png</code></td><td>47×28</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_icesheet_0.png</code></td><td>128×72</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_icesheet_1.png</code></td><td>104×60</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_icesheet_2.png</code></td><td>88×52</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_dark_0.png</code></td><td>224×96</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_dark_1.png</code></td><td>176×80</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_dark_2.png</code></td><td>144×64</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_light_0.png</code></td><td>192×80</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_light_1.png</code></td><td>150×64</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_light_2.png</code></td><td>120×56</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_plates_0.png</code></td><td>54×42</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_plates_1.png</code></td><td>62×40</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_plates_2.png</code></td><td>52×31</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_ridges_0.png</code></td><td>60×24</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_ridges_1.png</code></td><td>53×29</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_ridges_2.png</code></td><td>45×26</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_rubble_0.png</code></td><td>58×14</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_rubble_1.png</code></td><td>44×14</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_rubble_2.png</code></td><td>61×14</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_rubble_3.png</code></td><td>39×14</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_scoria_0.png</code></td><td>50×35</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_scoria_1.png</code></td><td>42×24</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_scoria_2.png</code></td><td>54×32</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_scoria_3.png</code></td><td>48×18</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_stain_0.png</code></td><td>144×88</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_stain_1.png</code></td><td>112×72</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_stain_2.png</code></td><td>96×56</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_wind_0.png</code></td><td>140×40</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_wind_1.png</code></td><td>128×33</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_wind_2.png</code></td><td>106×40</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decor_ice_chunks_0.png</code></td><td>26×18</td><td>ICE</td><td>frost</td></tr><tr><td><code>decor_ice_chunks_1.png</code></td><td>26×18</td><td>ICE</td><td>frost</td></tr><tr><td><code>decor_ice_chunks_2.png</code></td><td>26×18</td><td>ICE</td><td>frost</td></tr><tr><td><code>decor_salt_crystals_0.png</code></td><td>22×16</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_salt_crystals_1.png</code></td><td>22×16</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_salt_crystals_2.png</code></td><td>22×16</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_shards_0.png</code></td><td>28×24</td><td>HILL</td><td>basalt</td></tr><tr><td><code>decor_shards_1.png</code></td><td>28×24</td><td>HILL</td><td>basalt</td></tr><tr><td><code>decor_shards_2.png</code></td><td>28×24</td><td>HILL</td><td>basalt</td></tr><tr><td><code>form_arch.png</code></td><td>208×150</td><td>SAND</td><td>plateau</td></tr><tr><td><code>form_basalt_spires.png</code></td><td>156×136</td><td>HILL</td><td>basalt</td></tr><tr><td><code>form_cone.png</code></td><td>152×112</td><td>HILL</td><td>basalt</td></tr><tr><td><code>form_monolith.png</code></td><td>80×140</td><td>SAND</td><td>plateau</td></tr><tr><td><code>form_salt_ridge.png</code></td><td>204×96</td><td>BASE</td><td>salar</td></tr><tr><td><code>frost_ring.png</code></td><td>176×72</td><td>BASE</td><td>frost</td></tr><tr><td><code>ground_basalt.png</code></td><td>512×512</td><td>BASE</td><td>basalt</td></tr><tr><td><code>ground_bed.png</code></td><td>512×512</td><td>BASE</td><td>bed</td></tr><tr><td><code>ground_frost.png</code></td><td>512×512</td><td>BASE</td><td>frost</td></tr><tr><td><code>ground_plateau.png</code></td><td>512×512</td><td>BASE</td><td>plateau</td></tr><tr><td><code>ground_salar.png</code></td><td>512×512</td><td>BASE</td><td>salar</td></tr><tr><td><code>hill_face.png</code></td><td>512×24</td><td>HILL</td><td>região do morro</td></tr><tr><td><code>hill_top.png</code></td><td>512×512</td><td>HILL</td><td>região do morro</td></tr><tr><td><code>ice_gate_0.png</code></td><td>144×132</td><td>ICE</td><td>frost</td></tr><tr><td><code>ice_gate_1.png</code></td><td>144×132</td><td>ICE</td><td>frost</td></tr><tr><td><code>ice_gate_2.png</code></td><td>144×132</td><td>ICE</td><td>frost</td></tr></table>
+<details style="margin-top:14px"><summary style="cursor:pointer;color:var(--gold)">Lista dos 137 PNG pendentes</summary>
+<table style="margin-top:8px"><tr><th>arquivo</th><th>tamanho</th><th>rampa</th><th>região</th></tr><tr><td><code>crater_ejecta.png</code></td><td>256×216</td><td>BASE</td><td>plateau</td></tr><tr><td><code>crater_impact_0.png</code></td><td>168×150</td><td>BASE+ICE+METAL</td><td>plateau</td></tr><tr><td><code>crater_impact_1.png</code></td><td>168×150</td><td>BASE+ICE+METAL</td><td>plateau</td></tr><tr><td><code>crater_impact_2.png</code></td><td>168×150</td><td>BASE+ICE+METAL</td><td>plateau</td></tr><tr><td><code>crater_impact_3.png</code></td><td>168×150</td><td>BASE+ICE+METAL</td><td>plateau</td></tr><tr><td><code>crater_impact_4.png</code></td><td>168×150</td><td>BASE+ICE+METAL</td><td>plateau</td></tr><tr><td><code>decal_crack_0.png</code></td><td>208×65</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_crack_1.png</code></td><td>162×54</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_crack_2.png</code></td><td>126×72</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_efflor_0.png</code></td><td>37×29</td><td>BASE</td><td>salar</td></tr><tr><td><code>decal_efflor_1.png</code></td><td>34×31</td><td>BASE</td><td>salar</td></tr><tr><td><code>decal_efflor_2.png</code></td><td>32×22</td><td>BASE</td><td>salar</td></tr><tr><td><code>decal_fumarole_0.png</code></td><td>49×31</td><td>BASE</td><td>basalt</td></tr><tr><td><code>decal_fumarole_1.png</code></td><td>44×31</td><td>BASE</td><td>basalt</td></tr><tr><td><code>decal_fumarole_2.png</code></td><td>68×38</td><td>BASE</td><td>basalt</td></tr><tr><td><code>decal_gravel_0.png</code></td><td>49×31</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_gravel_1.png</code></td><td>50×20</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_gravel_2.png</code></td><td>50×30</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_gravel_3.png</code></td><td>47×28</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_icepoly_0.png</code></td><td>115×77</td><td>BASE</td><td>frost</td></tr><tr><td><code>decal_icepoly_1.png</code></td><td>94×64</td><td>BASE</td><td>frost</td></tr><tr><td><code>decal_icepoly_2.png</code></td><td>141×92</td><td>BASE</td><td>frost</td></tr><tr><td><code>decal_icesheet_0.png</code></td><td>128×72</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_icesheet_1.png</code></td><td>104×60</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_icesheet_2.png</code></td><td>88×52</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_oxide_0.png</code></td><td>67×44</td><td>BASE</td><td>plateau</td></tr><tr><td><code>decal_oxide_1.png</code></td><td>53×36</td><td>BASE</td><td>plateau</td></tr><tr><td><code>decal_oxide_2.png</code></td><td>87×48</td><td>BASE</td><td>plateau</td></tr><tr><td><code>decal_patch_dark_0.png</code></td><td>224×96</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_dark_1.png</code></td><td>176×80</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_dark_2.png</code></td><td>144×64</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_light_0.png</code></td><td>192×80</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_light_1.png</code></td><td>150×64</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_light_2.png</code></td><td>120×56</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_plates_0.png</code></td><td>54×42</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_plates_1.png</code></td><td>62×40</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_plates_2.png</code></td><td>52×31</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_ridges_0.png</code></td><td>60×24</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_ridges_1.png</code></td><td>53×29</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_ridges_2.png</code></td><td>45×26</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_rime_0.png</code></td><td>67×43</td><td>BASE</td><td>frost</td></tr><tr><td><code>decal_rime_1.png</code></td><td>53×35</td><td>BASE</td><td>frost</td></tr><tr><td><code>decal_rime_2.png</code></td><td>63×48</td><td>BASE</td><td>frost</td></tr><tr><td><code>decal_ripples_0.png</code></td><td>97×57</td><td>BASE</td><td>bed</td></tr><tr><td><code>decal_ripples_1.png</code></td><td>78×46</td><td>BASE</td><td>bed</td></tr><tr><td><code>decal_ripples_2.png</code></td><td>105×62</td><td>BASE</td><td>bed</td></tr><tr><td><code>decal_ropy_0.png</code></td><td>95×56</td><td>BASE</td><td>basalt</td></tr><tr><td><code>decal_ropy_1.png</code></td><td>76×47</td><td>BASE</td><td>basalt</td></tr><tr><td><code>decal_ropy_2.png</code></td><td>107×64</td><td>BASE</td><td>basalt</td></tr><tr><td><code>decal_rubble_0.png</code></td><td>58×14</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_rubble_1.png</code></td><td>44×14</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_rubble_2.png</code></td><td>61×14</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_rubble_3.png</code></td><td>39×14</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_saltpoly_0.png</code></td><td>115×69</td><td>BASE</td><td>salar</td></tr><tr><td><code>decal_saltpoly_1.png</code></td><td>88×52</td><td>BASE</td><td>salar</td></tr><tr><td><code>decal_saltpoly_2.png</code></td><td>131×80</td><td>BASE</td><td>salar</td></tr><tr><td><code>decal_scoria_0.png</code></td><td>50×35</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_scoria_1.png</code></td><td>42×24</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_scoria_2.png</code></td><td>54×32</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_scoria_3.png</code></td><td>48×18</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_stain_0.png</code></td><td>144×88</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_stain_1.png</code></td><td>112×72</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_stain_2.png</code></td><td>96×56</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_trail_0.png</code></td><td>146×58</td><td>BASE</td><td>bed</td></tr><tr><td><code>decal_trail_1.png</code></td><td>112×38</td><td>BASE</td><td>bed</td></tr><tr><td><code>decal_trail_2.png</code></td><td>174×73</td><td>BASE</td><td>bed</td></tr><tr><td><code>decal_vein_0.png</code></td><td>102×43</td><td>BASE</td><td>plateau</td></tr><tr><td><code>decal_vein_1.png</code></td><td>79×41</td><td>BASE</td><td>plateau</td></tr><tr><td><code>decal_vein_2.png</code></td><td>129×22</td><td>BASE</td><td>plateau</td></tr><tr><td><code>decal_wind_0.png</code></td><td>140×40</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_wind_1.png</code></td><td>128×33</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_wind_2.png</code></td><td>106×40</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decor_bombs_0.png</code></td><td>29×21</td><td>HILL</td><td>basalt</td></tr><tr><td><code>decor_bombs_1.png</code></td><td>31×19</td><td>HILL</td><td>basalt</td></tr><tr><td><code>decor_bombs_2.png</code></td><td>29×22</td><td>HILL</td><td>basalt</td></tr><tr><td><code>decor_boulder_0.png</code></td><td>24×24</td><td>HILL</td><td>plateau</td></tr><tr><td><code>decor_boulder_1.png</code></td><td>25×23</td><td>HILL</td><td>plateau</td></tr><tr><td><code>decor_boulder_2.png</code></td><td>28×25</td><td>HILL</td><td>plateau</td></tr><tr><td><code>decor_boulder_moss_0.png</code></td><td>24×24</td><td>MOSS (fixa, só Verde)</td><td>plateau</td></tr><tr><td><code>decor_boulder_moss_1.png</code></td><td>25×23</td><td>MOSS (fixa, só Verde)</td><td>plateau</td></tr><tr><td><code>decor_boulder_moss_2.png</code></td><td>28×25</td><td>MOSS (fixa, só Verde)</td><td>plateau</td></tr><tr><td><code>decor_column_stub_0.png</code></td><td>20×25</td><td>HILL</td><td>basalt</td></tr><tr><td><code>decor_column_stub_1.png</code></td><td>25×25</td><td>HILL</td><td>basalt</td></tr><tr><td><code>decor_column_stub_2.png</code></td><td>27×26</td><td>HILL</td><td>basalt</td></tr><tr><td><code>decor_column_stub_moss_0.png</code></td><td>20×25</td><td>MOSS (fixa, só Verde)</td><td>basalt</td></tr><tr><td><code>decor_column_stub_moss_1.png</code></td><td>25×25</td><td>MOSS (fixa, só Verde)</td><td>basalt</td></tr><tr><td><code>decor_column_stub_moss_2.png</code></td><td>27×26</td><td>MOSS (fixa, só Verde)</td><td>basalt</td></tr><tr><td><code>decor_ice_chunks_0.png</code></td><td>26×18</td><td>ICE</td><td>frost</td></tr><tr><td><code>decor_ice_chunks_1.png</code></td><td>26×18</td><td>ICE</td><td>frost</td></tr><tr><td><code>decor_ice_chunks_2.png</code></td><td>26×18</td><td>ICE</td><td>frost</td></tr><tr><td><code>decor_mud_curls_0.png</code></td><td>26×9</td><td>BASE</td><td>bed</td></tr><tr><td><code>decor_mud_curls_1.png</code></td><td>23×11</td><td>BASE</td><td>bed</td></tr><tr><td><code>decor_mud_curls_2.png</code></td><td>24×13</td><td>BASE</td><td>bed</td></tr><tr><td><code>decor_pebbles_0.png</code></td><td>17×17</td><td>HILL</td><td>plateau</td></tr><tr><td><code>decor_pebbles_1.png</code></td><td>17×15</td><td>HILL</td><td>plateau</td></tr><tr><td><code>decor_pebbles_2.png</code></td><td>24×14</td><td>HILL</td><td>plateau</td></tr><tr><td><code>decor_penitentes_0.png</code></td><td>15×19</td><td>ICE</td><td>frost</td></tr><tr><td><code>decor_penitentes_1.png</code></td><td>26×20</td><td>ICE</td><td>frost</td></tr><tr><td><code>decor_penitentes_2.png</code></td><td>23×26</td><td>ICE</td><td>frost</td></tr><tr><td><code>decor_rimed_rock_0.png</code></td><td>27×25</td><td>HILL</td><td>frost</td></tr><tr><td><code>decor_rimed_rock_1.png</code></td><td>26×24</td><td>HILL</td><td>frost</td></tr><tr><td><code>decor_rimed_rock_2.png</code></td><td>24×23</td><td>HILL</td><td>frost</td></tr><tr><td><code>decor_salt_crystals_0.png</code></td><td>22×16</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_salt_crystals_1.png</code></td><td>22×16</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_salt_crystals_2.png</code></td><td>22×16</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_salt_mound_0.png</code></td><td>17×15</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_salt_mound_1.png</code></td><td>19×15</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_salt_mound_2.png</code></td><td>20×16</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_salt_slabs_0.png</code></td><td>19×14</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_salt_slabs_1.png</code></td><td>24×14</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_salt_slabs_2.png</code></td><td>20×13</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_shards_0.png</code></td><td>28×24</td><td>HILL</td><td>basalt</td></tr><tr><td><code>decor_shards_1.png</code></td><td>28×24</td><td>HILL</td><td>basalt</td></tr><tr><td><code>decor_shards_2.png</code></td><td>28×24</td><td>HILL</td><td>basalt</td></tr><tr><td><code>decor_slabs_0.png</code></td><td>21×16</td><td>HILL</td><td>plateau</td></tr><tr><td><code>decor_slabs_1.png</code></td><td>15×16</td><td>HILL</td><td>plateau</td></tr><tr><td><code>decor_slabs_2.png</code></td><td>29×15</td><td>HILL</td><td>plateau</td></tr><tr><td><code>form_arch.png</code></td><td>208×150</td><td>SAND</td><td>plateau</td></tr><tr><td><code>form_basalt_spires.png</code></td><td>156×136</td><td>HILL</td><td>basalt</td></tr><tr><td><code>form_cone.png</code></td><td>152×112</td><td>HILL</td><td>basalt</td></tr><tr><td><code>form_ice_needles.png</code></td><td>84×72</td><td>ICE</td><td>frost</td></tr><tr><td><code>form_lava_tube.png</code></td><td>124×56</td><td>HILL</td><td>basalt</td></tr><tr><td><code>form_monolith.png</code></td><td>80×140</td><td>SAND</td><td>plateau</td></tr><tr><td><code>form_salt_pillar.png</code></td><td>68×60</td><td>BASE</td><td>salar</td></tr><tr><td><code>form_salt_ridge.png</code></td><td>204×96</td><td>BASE</td><td>salar</td></tr><tr><td><code>form_split_rock.png</code></td><td>72×64</td><td>HILL</td><td>plateau</td></tr><tr><td><code>frost_ring.png</code></td><td>176×72</td><td>BASE</td><td>frost</td></tr><tr><td><code>ground_basalt.png</code></td><td>512×512</td><td>BASE</td><td>basalt</td></tr><tr><td><code>ground_bed.png</code></td><td>512×512</td><td>BASE</td><td>bed</td></tr><tr><td><code>ground_frost.png</code></td><td>512×512</td><td>BASE</td><td>frost</td></tr><tr><td><code>ground_plateau.png</code></td><td>512×512</td><td>BASE</td><td>plateau</td></tr><tr><td><code>ground_salar.png</code></td><td>512×512</td><td>BASE</td><td>salar</td></tr><tr><td><code>hill_face.png</code></td><td>512×24</td><td>HILL</td><td>região do morro</td></tr><tr><td><code>hill_top.png</code></td><td>512×512</td><td>HILL</td><td>região do morro</td></tr><tr><td><code>ice_gate_0.png</code></td><td>144×132</td><td>ICE</td><td>frost</td></tr><tr><td><code>ice_gate_1.png</code></td><td>144×132</td><td>ICE</td><td>frost</td></tr><tr><td><code>ice_gate_2.png</code></td><td>144×132</td><td>ICE</td><td>frost</td></tr></table>
 </details></section>
 
 <section><h2>Desvios do contrato</h2><div class="box"><ul>
