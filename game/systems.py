@@ -692,6 +692,21 @@ class GameState:
         ax, ay = drill.anchor
         return math.hypot(self.player.x - ax, self.player.y - (ay - C.TILE / 2))
 
+    def vent_distance(self) -> float | None:
+        """Distância (tiles) dos pés do player até a fumarola ACORDADA mais perto da superfície; None se nenhuma
+        acordou. O pé da fumarola é o mesmo tile do hills.foot_tile (não importo o hills aqui: puxa o numpy)."""
+        geo = self.surface.geo
+        if geo is None:
+            return None
+        best = None
+        for f, awake in zip(geo.vents, self.surface.vents_awake):
+            if not awake:
+                continue
+            fx, fy = f.tx + f.size[0] // 2, f.ty + f.size[1] - 1
+            d = math.hypot(self.player.x - (fx + 0.5) * C.TILE, self.player.y - (fy + 1) * C.TILE) / C.TILE
+            best = d if best is None else min(best, d)
+        return best
+
     def nearby_drill(self) -> Machine | None:
         """Drill ao alcance do E (a mais perto)."""
         near = [d for d in self.drills if self.drill_distance(d) <= C.DRILL_REACH]

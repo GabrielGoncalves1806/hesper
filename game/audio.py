@@ -12,6 +12,7 @@ Canais reservados (o pygame não usa eles pra efeitos comuns):
     8     = zumbido do painel solar mais perto
     9     = vento do deserto
     10    = chuva (v0.4 M3.3, amb_rain.wav: volume = intensidade da chuva)
+    11    = chiado da fumarola acordada mais perto (v11, vent_hiss.wav)
 """
 
 import random
@@ -106,8 +107,20 @@ def gust_gain(storm: float) -> float:
 
 
 def rain_volume(intensity: float) -> float:
-    """Loop da chuva (amb_rain): VOLUME['amb_rain'] × intensidade (0..1). Sem amb_rain.wav fica em silêncio."""
+    """Loop da chuva (amb_rain): VOLUME['amb_rain'] (0,55) × intensidade (0..1). Sem o arquivo fica em silêncio."""
     return VOLUME.get("amb_rain", 1.0) * max(0.0, min(1.0, intensity))
+
+
+def vent_hiss_volume(distance_tiles: float | None) -> float:
+    """Chiado da fumarola acordada mais perto: VOLUME['vent_hiss'] (0,6) cheio até 2 tiles, some a partir de 7."""
+    if distance_tiles is None:
+        return 0.0
+    return VOLUME.get("vent_hiss", 0.6) * fade_by_distance(distance_tiles, 2, 7)
+
+
+def ice_collapse_gain(in_cave: bool) -> float:
+    """Gain do ice_collapse: 1 na superfície; na caverna o desabamento sai a ICE_COLLAPSE_CAVE_VOLUME (0,5)."""
+    return C.ICE_COLLAPSE_CAVE_VOLUME / VOLUME["ice_collapse"] if in_cave else 1.0
 
 
 def hum_volume(distance_tiles: float | None) -> float:
@@ -169,7 +182,7 @@ class Audio:
             if not pygame.mixer.get_init():
                 pygame.mixer.init(44100, -16, 2, 512)
             pygame.mixer.set_num_channels(16)
-            pygame.mixer.set_reserved(11)
+            pygame.mixer.set_reserved(12)
             self.amb = [pygame.mixer.Channel(0), pygame.mixer.Channel(1)]
             self.alarm_channel = pygame.mixer.Channel(2)
             self.hum_channel = pygame.mixer.Channel(3)
@@ -184,6 +197,9 @@ class Audio:
             self.wind_channel = pygame.mixer.Channel(9)
             self.rain_channel = pygame.mixer.Channel(10)   # chuva (v0.4 M3.3): loop com o volume da intensidade
             self._rain_on = [False]
+            self._rain_name = "amb_rain"                   # variação tocando (v11: fraca, média ou forte)
+            self.vent_channel = pygame.mixer.Channel(11)   # chiado da fumarola (v11): pela mais perto
+            self._vent_on = [False]
             self.ok = True
         except pygame.error as err:
             print(f"[audio] sem áudio ({err}). Seguindo em silêncio.")
@@ -316,10 +332,20 @@ class Audio:
         if self.ok:
             self._set_loops("solar_hum", [self.solar_channel], self._solar_on, [volume])
 
-    def set_rain(self, volume: float) -> None:
-        """Loop da chuva (amb_rain.wav, pendente do Som) com o volume da intensidade. Sem o arquivo, silêncio."""
+    def set_rain(self, volume: float, name: str = "amb_rain") -> None:
+        """Loop da chuva com o volume da intensidade. `name` é a variação da pancada (amb_rain, _light ou _heavy):
+        se mudar com a chuva rolando, o canal troca de arquivo. Sem o arquivo, silêncio."""
+        if not self.ok:
+            return
+        if name != self._rain_name:
+            self._rain_name = name
+            self._rain_on[0] = False          # força o play() da variação nova (corta a antiga)
+        self._set_loops(name, [self.rain_channel], self._rain_on, [volume])
+
+    def set_vent(self, volume: float) -> None:
+        """Chiado (vent_hiss.wav) da fumarola acordada mais perto, num canal próprio. Volume 0 = some."""
         if self.ok:
-            self._set_loops("amb_rain", [self.rain_channel], self._rain_on, [volume])
+            self._set_loops("vent_hiss", [self.vent_channel], self._vent_on, [volume])
 
     def _set_loops(self, name: str, channels, on: list[bool], volumes: list[float]) -> None:
         """Loop `name` em vários canais, um volume por canal. Volume 0 = some com fadeout(400)."""

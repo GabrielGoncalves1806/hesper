@@ -5,7 +5,8 @@ Duas partes, no mesmo esquema da tempestade:
 - `Rain` (Python puro, determinístico pela seed, mora no GameState): pancadas de chuva no estilo das rajadas do
   game/weather.py. Só começam da Névoa em diante. Na Névoa, C.RAIN_MIST_LEN s de chuva a cada C.RAIN_MIST_EVERY s
   (de começo a começo); no Verde, C.RAIN_GREEN_LEN (mais curtas). A 1ª vem C.RAIN_FIRST s depois de entrar na
-  Névoa. `intensity` (0..1) sobe e desce em C.RAIN_RAMP s. Não vai no save: sai da seed.
+  Névoa. `intensity` (0..1) sobe e desce em C.RAIN_RAMP s. Não vai no save: sai da seed. Cada pancada sorteia a
+  variação (`variant`: fraca, média ou forte, C.RAIN_VARIANTS_*) num RNG próprio (`var_rng`).
 - `RainDrops` (desenho): traços diagonais no ângulo do vento (`state.weather.wind`), presos à câmera (posições
   num "espaço de dobra" com módulo do tamanho da visão, como os grãos do game/dust.py), no máximo
   C.RAIN_MAX_DROPS com a chuva cheia, mais um véu frio bem leve. Custo zero sem chuva.
@@ -29,6 +30,17 @@ DROP_COLOR = (196, 220, 236)
 PAD = 24                          # px fora da tela onde o traço ainda "existe" (entra sem pipocar na borda)
 
 
+def pick_rain_variant(u: float, table) -> str:
+    """Variação da pancada: `u` (0..1, sorteado) escolhe pelo peso de cada (arquivo, peso) da tabela."""
+    total = sum(w for _, w in table)
+    acc = 0.0
+    for name, w in table:
+        acc += w / total
+        if u < acc:
+            return name
+    return table[-1][0]
+
+
 def rain_level(state) -> float:
     """Intensidade da chuva que vale agora: a do `state.rain` na superfície, 0 na caverna."""
     if not state.active.has_base:
@@ -39,6 +51,8 @@ def rain_level(state) -> float:
 class Rain:
     def __init__(self, seed: int):
         self.rng = random.Random(f"rain-{seed}")          # sorteio próprio: não mexe no rng do mundo nem no clima
+        self.var_rng = random.Random(f"rain-var-{seed}")  # variação de cada pancada (fraca/média/forte): outro sorteio
+        self.variant = "amb_rain"                          # arquivo da pancada atual (sorteado quando ela começa)
         self.next_shower = self.rng.uniform(*C.RAIN_FIRST)   # s (já na Névoa) até a próxima pancada começar
         self.left = 0.0                                    # s que a pancada atual ainda dura
         self.intensity = 0.0
@@ -61,6 +75,8 @@ class Rain:
                 # o intervalo conta do começo desta pancada até o começo da próxima
                 every = self.rng.uniform(*(C.RAIN_GREEN_EVERY if green else C.RAIN_MIST_EVERY))
                 self.next_shower += every - self.left
+                table = C.RAIN_VARIANTS_GREEN if green else C.RAIN_VARIANTS_MIST
+                self.variant = pick_rain_variant(self.var_rng.random(), table)
                 started = True
         target = 1.0 if self.left > 0 else 0.0
         step = dt / C.RAIN_RAMP
