@@ -19,7 +19,6 @@ from game.equipment import Equipment, is_equipment
 from game.inventory import Inventory
 from game.energy import PowerAlert, PowerReport, power_report
 from game.layers import CAVE, SURFACE, Layer
-from game.pickups import Pickup, Pickups
 from game.player import Player, Rect, overlaps
 from game.world import World
 from game.wrecks import Crate, Wreck
@@ -222,7 +221,7 @@ def smooth_rate(previous: float, target: float, dt: float, tau: float = C.RATE_S
 
 class GameState:
     def __init__(self, seed: int = C.WORLD_SEED, rng: random.Random | None = None):
-        # Camadas (game/layers.py): cada uma com o próprio mapa, máquinas e soltos. O jogo começa na
+        # Camadas (game/layers.py): cada uma com o próprio mapa e máquinas. O jogo começa na
         # superfície; `world` e `machines` sempre apontam pra camada ATIVA.
         self.seed = seed
         self.layers: dict[str, Layer] = {SURFACE: layers.make_surface(seed)}
@@ -257,7 +256,6 @@ class GameState:
         self.drone_deliveries = 0                      # entregas feitas por drones (só cresce)
         self.drones_docked = 0                         # drones já colocados numa estação (só cresce)
         self.power_alert = PowerAlert()                # quando tocar o power_low (game/energy.py)
-        self._pickup_warned: set[int] = set()          # soltos que já deram "Inventário cheio" (id), enquanto pisa neles
         self.ramp: RampTrip | None = None              # descendo/subindo pela rampa (o fade está rolando)
         self.lamps_placed = 0                          # luminárias já colocadas (só cresce, pros objetivos)
         # Marco 3: projetos achados (liberam receitas), equipamento do traje, destroços visitados e explorado
@@ -298,10 +296,6 @@ class GameState:
     def all_machines(self) -> list:
         """Máquinas de todas as camadas (energia, Ti e produção são globais)."""
         return [m for key in layers.ORDER if key in self.layers for m in self.layers[key].machines]
-
-    @property
-    def pickups(self) -> Pickups | None:
-        return self.active.pickups
 
     def enter_layer(self, key: str, pos: tuple[float, float] | None = None) -> None:
         """Troca a camada ativa (cria a caverna na primeira vez). `pos` = onde o player aparece."""
@@ -425,9 +419,8 @@ class GameState:
             self.player.move(controls.move_x, controls.move_y, dt, self.solids_near)
             self._update_mining(dt, controls.mine_tile)
             self._update_o2(sim_dt)
-            self._auto_pickup()
         self._update_machines(sim_dt)
-        self._update_pickups(sim_dt)
+        self._update_rocks(sim_dt)
         self._update_explore(dt)
         # taxa efetiva em segundos reais (com F1 ligado, as máquinas rendem 10×)
         self.smoothed_rate = smooth_rate(self.smoothed_rate, self.ti_rate * self.time_scale, dt)
@@ -663,10 +656,6 @@ class GameState:
                 if flag:
                     return kind, machine
             return None                                  # O2, aquecedor...: o E não abre nada
-        if self.pickups is not None:
-            loose = self.pickups.at_point(px, py)
-            if loose is not None:
-                return "pickup", loose
         tiles = {self.world.visual_tile_at(px, py), (int(px // C.TILE), int(py // C.TILE))}
         for tile in tiles:                               # destroço: a caixa ou o terminal do módulo
             crate = self.crates.get(tile)
@@ -688,9 +677,6 @@ class GameState:
             return self.terminal_distance(target) <= C.TERMINAL_REACH
         if kind == "ramp":
             return self.ramp_distance() <= C.RAMP_REACH
-        if kind == "pickup":
-            return (self.pickups is not None and any(p is target for p in self.pickups.items)
-                    and self.pickup_distance(target) <= C.PICKUP_REACH)
         if kind == "crate":
             return self.crates.get(target.tile) is target and self.crate_distance(target) <= C.CRATE_REACH
         if kind == "wreck_log":
@@ -717,9 +703,6 @@ class GameState:
         station = self.nearby_station()
         if station is not None:
             options.append((self.drill_distance(station), "station", station))
-        loose = self.nearby_pickup()
-        if loose is not None:
-            options.append((self.pickup_distance(loose), "pickup", loose))
         crate = self.nearby_crate()
         if crate is not None:
             options.append((self.crate_distance(crate), "crate", crate))
@@ -915,48 +898,17 @@ class GameState:
             self.stage = new_stage
             self.events.append(("stage_up", new_stage))
 
-    # ---- recursos soltos (game/pickups.py) ------------------------------------
-    def pickup_distance(self, p: Pickup) -> float:
-        """Distância (px) dos pés do player até o solto."""
-        return math.hypot(self.player.x - p.x, self.player.y - p.y)
-
-    def nearby_pickup(self) -> Pickup | None:
-        """Solto no alcance do E (o mais perto)."""
-        if self.pickups is None:
-            return None
-        near = [p for p in self.pickups.items if self.pickup_distance(p) <= C.PICKUP_REACH]
-        return min(near, key=self.pickup_distance, default=None)
-
-    def take_pickup(self, p: Pickup, warn: bool = True) -> int:
-        """Pega o que couber do solto (o resto fica no chão). Conta como minerado (objetivos)."""
-        got = p.amount - self.inventory.add(p.resource, p.amount)
-        if got:
-            p.amount -= got
-            self.mined_total[p.resource] += got
-            self.events.append(("pickup", p.tile, p.resource, got))
-            if p.amount <= 0:
-                self.pickups.remove(p)
-        if p.amount > 0 and warn:
-            self.events.append(("inv_full",))
-        return got
-
-    def _auto_pickup(self) -> None:
-        """Passando por cima: pega sozinho. Cheio: avisa uma vez por solto enquanto continua em cima."""
-        if self.pickups is None:
-            return
-        touching = self.pickups.touching(self.player.x, self.player.y)
-        for p in touching:
-            self.take_pickup(p, warn=id(p) not in self._pickup_warned)
-            if p.amount > 0:
-                self._pickup_warned.add(id(p))
-        self._pickup_warned &= {id(p) for p in touching}
-
-    def _update_pickups(self, dt: float) -> None:
-        """Reaparecimento dos soltos da superfície (fora da vista do player, longe da base)."""
+    # ---- rochas pequenas reaparecendo (game/rock_respawn.py) -----------------
+    def _update_rocks(self, dt: float) -> list[tuple[int, int]]:
+        """Rocha pequena nova na superfície (fora da vista do player, longe da base). Devolve os tiles novos."""
         surface = self.surface
-        if surface.pickups is not None:
-            where = (self.player.x, self.player.y) if self.layer == SURFACE else C.SPAWN_POS
-            surface.pickups.update(surface.world, self.rng, dt, where)
+        if surface.rocks is None:
+            return []
+        where = (self.player.x, self.player.y) if self.layer == SURFACE else C.SPAWN_POS
+        born = surface.rocks.update(surface.world, self.rng, dt, where, surface.machines)
+        for tile in born:
+            self.events.append(("rock_spawn", tile))
+        return born
 
     # ---- terminais ----------------------------------------------------------
     def nearby_terminal(self) -> int | None:

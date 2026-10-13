@@ -87,8 +87,7 @@ def snapshot(state: GameState) -> dict:
     return {
         "seed": state.seed, "layer": state.layer, "layers": sorted(state.layers),
         "tiles": {k: [row[:] for row in layer.world.tiles] for k, layer in state.layers.items()},
-        "pickups": [(p.resource, p.amount, p.x, p.y) for p in state.layers["surface"].pickups.items],
-        "pickup_timer": state.layers["surface"].pickups.timer,
+        "rock_timer": state.layers["surface"].rocks.timer,
         "player": (p.x, p.y, p.direction),
         "o2": state.o2, "fainted": state.fainted, "faint_time": state.faint_time,
         "was_in_base": state.was_in_base,
@@ -281,21 +280,33 @@ def test_probe_statuses(tmp_path):
     assert status == "ok" and state.ti > 10_000
 
 
-def test_broken_small_rocks_and_pickups_roundtrip(tmp_path):
+def test_broken_small_rocks_and_respawn_timer_roundtrip(tmp_path):
     state = save.new_state()
     state.rng = random.Random(4)
     world = state.world
     rock = next((x, y) for y in range(world.height) for x in range(world.width) if world.get(x, y) in C.SMALL_ROCKS)
     state._break_tile(rock, world.get(*rock))
-    taken = state.pickups.items[0]
-    state.take_pickup(taken)
-    state.pickups.timer = 7.5
+    state.surface.rocks.timer = 7.5
     path = tmp_path / "slot1.json"
     save.write_save(state, path)
     loaded = save.load_game(path)
-    assert loaded.world.get(*rock) == C.SAND                       # a rocha quebrada não volta
-    assert len(loaded.pickups.items) == C.PICKUP_START - 1
+    assert loaded.world.get(*rock) == C.SAND                       # quebrada continua quebrada (até reaparecer outra)
+    assert loaded.surface.rocks.timer == 7.5
     assert snapshot(loaded) == snapshot(state)
+
+
+def test_v6_save_with_old_pickups_field_still_loads(tmp_path):
+    """Save v6 de antes da troca (com os recursos soltos e sem "rocks"): carrega, ignora os soltos."""
+    data = save.state_to_dict(rich_state())
+    surface = data["layers"]["surface"]
+    del surface["rocks"]
+    surface["pickups"] = {"items": [["iron", 2, 3200.5, 3300.0], ["ice", 1, 100.0, 200.0]], "timer": 3.5}
+    path = tmp_path / "slot1.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert data["version"] == save.SAVE_VERSION == 6
+    status, loaded = save.probe(path)
+    assert status == "ok" and loaded.surface.rocks.timer == 0.0
+    assert not hasattr(loaded.surface, "pickups")
 
 
 def test_cave_layer_roundtrip(tmp_path):
@@ -312,7 +323,7 @@ def test_cave_layer_roundtrip(tmp_path):
     loaded = save.load_game(path)
     assert loaded.layer == "cave" and loaded.world.get(*tile) == C.FLOOR
     assert loaded.chests[0].name == "Fundo" and loaded.chests[0].storage.count("iron") == 9
-    assert loaded.layers["surface"].pickups is not None and loaded.layers["cave"].pickups is None
+    assert loaded.layers["surface"].rocks is not None and loaded.layers["cave"].rocks is None
     assert snapshot(loaded) == snapshot(state)
 
 

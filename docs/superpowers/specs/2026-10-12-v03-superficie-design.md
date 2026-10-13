@@ -9,7 +9,7 @@ Hoje o jogo é uma cratera cercada de rocha. No v0.3 o mundo ganha **duas camada
 
 ```
 SUPERFÍCIE (deserto aberto, claro)        ← exploração, lore, terraformação visível
-  · cápsula/base, recursos soltos, rochas, poucos veios
+  · cápsula/base, rochas pequenas de minério (reaparecem), poucos veios
   · destroços de naves e da colônia (saque, LOGs, projetos)
         │  cratera com rampa (E)
         ▼
@@ -25,7 +25,7 @@ A superfície é onde tu explora e vê o planeta mudar; a caverna é onde tu min
 - A **base fica na superfície**. O O₂ continua restrito à zona da base até existirem equipamentos (tanque agora; mochila e outros depois).
 - **Drones não descem** no v0.3. No v0.4 entra o **elevador de carga**, colocado na cratera, que deixa os drones atenderem a caverna.
 - **Energia continua global** (vale pras duas camadas).
-- Recursos na superfície: **soltos no chão + rochas pequenas** pra quebrar; **veios de drill raros** na superfície (obriga a explorar).
+- Recursos na superfície: **rochas pequenas** de minério pra quebrar, que **reaparecem**; **veios de drill raros** na superfície (obriga a explorar). *(Mudou no v0.3: os recursos soltos no chão saíram, o dono achou as rochas melhores; o reaparecimento passou pras rochas.)*
 - Destroços dão saque, LOGs e **projetos** (estilo chips de blueprint do Planet Crafter): algumas receitas só liberam achando o projeto.
 - Caverna: lanterna do capacete + **luminárias** que o jogador coloca + **brilho fraco nos minérios**.
 - Projeto extra pedido pelo dono: **scanner de navegação**, que libera minimapa com névoa de guerra.
@@ -46,8 +46,8 @@ Biomas de caverna, mochila, drill melhor, peças raras, elevador de carga (v0.4)
 - **Cratera** a 15–20 tiles da base. No Marco 1 ela é só visual (fechada); abre no Marco 2.
 
 **Recursos**
-- **Soltos no chão**: ferro, silício e gelo, em 1 a 3 unidades. Pega passando por cima ou com E/clique no alcance. **Reaparecem** devagar (alguns por minuto), só fora da vista do jogador e longe da base, com um teto de quantos ficam soltos no mapa.
-- **Rochas pequenas** (1 tile): quebra com a broca, dão 2 a 4 unidades e não voltam.
+- **Rochas pequenas** (1 tile) de ferro, silício e gelo: quebra com a broca e dão 2 a 4 unidades. **Reaparecem** devagar (alguns por minuto), só fora da vista do jogador, longe da base e em areia livre, com um teto de quantas ficam no mapa.
+- ~~**Soltos no chão**~~: saíram do jogo (o dono preferiu as rochas). O reaparecimento que era deles passou pras rochas pequenas.
 - **Veios de drill**: só **3 a 5 no mapa**, longe da base.
 
 **Terraformação**
@@ -139,7 +139,7 @@ Balanceamento com o simulador e playtest do dono.
 |---|---|
 | `layers.py` | camadas e troca entre elas |
 | `surface_gen.py` | gerador do deserto |
-| `pickups.py` | recursos soltos e reaparecimento |
+| `rock_respawn.py` | reaparecimento das rochas pequenas (era `pickups.py`, dos recursos soltos, que saíram) |
 | `wrecks.py` | destroços, saque e projetos |
 | `lighting.py` | escuridão e fontes de luz |
 | `explore.py` | tiles vistos e minimapa |
@@ -155,7 +155,7 @@ Balanceamento com o simulador e playtest do dono.
 - Limite: 16,7 ms por frame.
 
 **Arte** (Designer · tudo passa pelo dono, entregue em `_pending/`)
-- **Superfície**: chão de areia/cascalho nos 3 estágios, morros, cordilheira da borda, rocha pequena, recursos soltos e cratera (fechada e com rampa).
+- **Superfície**: chão de areia/cascalho nos 3 estágios, morros, cordilheira da borda, rocha pequena e cratera (fechada e com rampa). Os recursos soltos chegaram a ter arte, mas saíram do jogo.
 - **Destroços**: os 3 tipos, caixa de saque (cheia e vazia) e item de projeto.
 - **Caverna**: rampa de subida e luminária.
 - **Itens e interface**: tanque de O₂, ícone do scanner, moldura do minimapa e slot de equipamento.
@@ -166,7 +166,7 @@ Balanceamento com o simulador e playtest do dono.
 - **Ambiente da caverna**: grave, com gotejar e eco.
 - **Efeitos**:
   - descer e subir a rampa;
-  - pegar recurso solto;
+  - ~~pegar recurso solto~~ (os soltos saíram; o `pickup.wav` segue tocando ao ganhar recurso);
   - abrir caixa de saque;
   - projeto encontrado (som de conquista);
   - colocar luminária.

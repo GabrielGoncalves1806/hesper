@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 import pygame  # noqa: E402
 
 from game import config as C  # noqa: E402
+from game import rock_respawn  # noqa: E402
 from game import save  # noqa: E402
 from game import settings  # noqa: E402
 from game.app import NUMBER_KEYS, App  # noqa: E402
@@ -1565,7 +1566,7 @@ def check_save(bot) -> None:
 
 
 def check_surface(bot) -> None:
-    """v0.3 Marco 1 · superfície: base, deserto (morros, rochas, soltos), cratera, veio, mapa inteiro e perf."""
+    """v0.3 Marco 1 · superfície: base, deserto (morros, rochas), rocha reaparecendo, cratera, veio, mapa e perf."""
     s, app = bot.state, bot.app
     w = s.world
     assert s.layer == "surface" and (w.width, w.height) == (C.SURFACE_W, C.SURFACE_H)
@@ -1578,30 +1579,24 @@ def check_surface(bot) -> None:
     bot.frames(0.3)
     bot.shot("superficie_base.png")
 
-    # 2) um pedaço do deserto com morro, rochas pequenas e soltos (o lugar com mais coisa à vista)
+    # 2) um pedaço do deserto com morro e rochas pequenas (o lugar com mais coisa à vista)
     app.set_zoom(1.0, notify=False)
     def score(cx, cy):
         walls = sum(w.is_wall(x, y) for y in range(cy - 7, cy + 8) for x in range(cx - 13, cx + 14))
         rocks = sum(w.get(x, y) in C.SMALL_ROCKS for y in range(cy - 7, cy + 8) for x in range(cx - 13, cx + 14))
-        loose = sum(abs(p.tile[0] - cx) <= 13 and abs(p.tile[1] - cy) <= 7 for p in s.pickups.items)
-        return min(walls, 40) + 4 * rocks + 6 * loose if walls and rocks and loose else 0
+        return min(walls, 40) + 4 * rocks if walls and rocks else 0
     spots = [(x, y) for y in range(12, w.height - 12, 3) for x in range(16, w.width - 16, 3)
              if w.is_floor(x, y) and w.dist_from_center(x, y) > 14 and not w.is_solid(x, y - 1)]
     spot = max(spots, key=lambda t: score(*t))
     bot.teleport(spot)
     s.o2 = C.O2_MAX
-    loose = min(s.pickups.items, key=lambda p: math.hypot(p.x - s.player.x, p.y - s.player.y))
-    camx, camy = app.cam
-    bot.mouse_to((int(loose.x - camx), int(loose.y - 6 - camy)))
+    near_rock = min(((x, y) for y in range(w.height) for x in range(w.width) if w.get(x, y) in C.SMALL_ROCKS),
+                    key=lambda t: math.hypot(t[0] - spot[0], t[1] - spot[1]))
+    bot.mouse_to(bot.tile_on_screen(near_rock))
     bot.frames(0.3)
     print(f"  deserto em {spot}: dica = {app.hint()!r}")
     bot.shot("superficie_deserto.png")
 
-    # pegar um solto: passando por cima vai pro inventário (com o +N e o som de pickup)
-    before = s.inventory.count(loose.resource)
-    s.player.x, s.player.y = loose.x, loose.y + 2
-    bot.frames(0.1)
-    assert loose not in s.pickups.items and s.inventory.count(loose.resource) > before
     # rocha pequena: quebra com a broca e dá 2–4
     rock = min(((x, y) for y in range(w.height) for x in range(w.width) if w.get(x, y) in C.SMALL_ROCKS),
                key=lambda t: math.hypot(t[0] - spot[0], t[1] - spot[1]))
@@ -1646,24 +1641,47 @@ def check_surface(bot) -> None:
     # 5) mapa inteiro reduzido 8× (chão, paredes e objetos, sem luz nem clima)
     r = app.renderer
     chunk = 1024
-    full = pygame.Surface((w.width * C.TILE // 8, w.height * C.TILE // 8))
-    piece = pygame.Surface((chunk, chunk))
     s.player.x, s.player.y = C.SPAWN_POS
-    for cy in range(0, w.height * C.TILE, chunk):
-        for cx in range(0, w.width * C.TILE, chunk):
-            piece.fill((0, 0, 0))
-            r.view_w, r.view_h = chunk, chunk
-            r.stage_map.update(s.ti, [])
-            r.draw_floors(piece, s, (cx, cy), "dead", 0.0)
-            r.draw_veins(piece, s, (cx, cy))
-            r.draw_zone(piece, (cx, cy), 0.0)
-            r.draw_walls_and_objects(piece, s, (cx, cy), "dead", 0.0)
-            full.blit(pygame.transform.smoothscale(piece, (chunk // 8, chunk // 8)), (cx // 8, cy // 8))
-    for v in w.veins:                              # anéis nos veios e na cratera, pra achar no mapa
-        pygame.draw.circle(full, C.ORE_COLORS[v.resource][0], ((v.tx + 1) * 4, (v.ty + 1) * 4), 9, 2)
-    pygame.draw.circle(full, (255, 255, 255), ((tx + 1.5) * 4, (ty + 1.5) * 4), 10, 1)
-    pygame.image.save(full, str(OUT / "superficie_mapa.png"))
-    print("  screenshot: reports/dev/superficie_mapa.png  (mapa 192×192 reduzido 8×; anéis = veios, branco = cratera)")
+
+    def full_map(name, note):
+        full = pygame.Surface((w.width * C.TILE // 8, w.height * C.TILE // 8))
+        piece = pygame.Surface((chunk, chunk))
+        for cy in range(0, w.height * C.TILE, chunk):
+            for cx in range(0, w.width * C.TILE, chunk):
+                piece.fill((0, 0, 0))
+                r.view_w, r.view_h = chunk, chunk
+                r.stage_map.update(s.ti, [])
+                r.draw_floors(piece, s, (cx, cy), "dead", 0.0)
+                r.draw_veins(piece, s, (cx, cy))
+                r.draw_zone(piece, (cx, cy), 0.0)
+                r.draw_walls_and_objects(piece, s, (cx, cy), "dead", 0.0)
+                full.blit(pygame.transform.smoothscale(piece, (chunk // 8, chunk // 8)), (cx // 8, cy // 8))
+        for v in w.veins:                              # anéis nos veios e na cratera, pra achar no mapa
+            pygame.draw.circle(full, C.ORE_COLORS[v.resource][0], ((v.tx + 1) * 4, (v.ty + 1) * 4), 9, 2)
+        pygame.draw.circle(full, (255, 255, 255), ((tx + 1.5) * 4, (ty + 1.5) * 4), 10, 1)
+        pygame.image.save(full, str(OUT / name))
+        print(f"  screenshot: reports/dev/{name}  ({note})")
+
+    full_map("superficie_mapa.png", "mapa 192×192 reduzido 8×; anéis = veios, branco = cratera")
+
+    # 5b) rochas reaparecendo (regra real): enche até o teto com o player na base e olha a densidade no teto
+    start_rocks = rock_respawn.count(w)
+    saved_tiles = [row[:] for row in w.tiles]
+    s.pop_events()
+    born = s._update_rocks(C.ROCK_RESPAWN * (C.ROCK_MAX - start_rocks) + 1)
+    assert rock_respawn.count(w) == C.ROCK_MAX and len(born) == C.ROCK_MAX - start_rocks
+    assert all(rock_respawn.hidden_from(C.SPAWN_POS, *t) and w.dist_from_center(*t) >= C.ROCK_BASE_DIST for t in born)
+    print(f"  rochas: {start_rocks} no começo, teto {C.ROCK_MAX} (+{len(born)} reaparecidas)")
+    full_map("superficie_mapa_teto.png", f"o mesmo mapa com as rochas no teto ({C.ROCK_MAX})")
+    app.set_zoom(0.75, notify=False)
+    bot.teleport(spot)
+    s.o2 = C.O2_MAX
+    bot.frames(0.3)                                # os eventos rock_spawn repintam o minimapa sem quebrar
+    bot.shot("superficie_rochas_teto.png")
+    for y, row in enumerate(saved_tiles):          # volta o deserto como estava
+        w.tiles[y][:] = row
+    for t in born:
+        r.minimap.repaint(s, t, "surface")
 
     # 6) perf no deserto, zoom 0,75 (o mais afastado), andando
     app.set_zoom(0.75, notify=False)

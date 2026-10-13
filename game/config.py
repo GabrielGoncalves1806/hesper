@@ -108,22 +108,15 @@ SURFACE_CRATER_DIST = (15, 20)  # distância (tiles) do centro da cratera até a
 SURFACE_VEINS = (3, 5)          # veios de drill na superfície: poucos, longe, obrigam a explorar
 SURFACE_VEIN_MIN_DIST = 35      # nenhum tile de veio a menos disso da base
 SURFACE_VEIN_SPACING = 14       # distância mínima entre veios (tiles)
-SMALL_ROCK_CHANCE = 0.011       # chance de um tile de areia virar rocha pequena (~350 no mapa)
+SMALL_ROCK_CHANCE = 0.013       # chance de um tile de areia virar rocha pequena (~430 no mapa; era 0,011/~357 com os soltos)
 SMALL_ROCK_MIN_DIST = SURFACE_CLEAR_RADIUS   # a área da cápsula fica limpa
 SMALL_ROCK_WEIGHTS = {"iron": 0.45, "silicon": 0.3, "ice": 0.25}
 
-# Recursos soltos no chão da superfície (game/pickups.py · bíblia §9, Marco 1)
-PICKUP_AMOUNT = (1, 3)          # cada solto vale de 1 a 3 unidades
-PICKUP_START = 70               # quantos já tem no mapa num jogo novo
-PICKUP_MAX = 120                # teto de soltos no mapa (o reaparecimento para aqui)
-PICKUP_RESPAWN = 15.0           # segundos por solto novo (= 4 por minuto)
-PICKUP_BASE_DIST = 12           # reaparece só a 12+ tiles da base...
-PICKUP_HIDDEN = (21, 13)        # ...e fora da tela: meia-tela em tiles no zoom 0,75 (1280×720 = 20×11) + folga
-PICKUP_START_BASE_DIST = SURFACE_CLEAR_RADIUS   # os do começo podem nascer um pouco mais perto
-PICKUP_AUTO_RADIUS = 12         # px: passando por cima (pés do player) pega sozinho
-PICKUP_REACH = 56               # px: alcance do E e do clique
-PICKUP_HIT = 10                 # px: raio do solto pro mouse "acertar"
-PICKUP_WEIGHTS = {"iron": 0.45, "silicon": 0.3, "ice": 0.25}
+# Rochas pequenas reaparecendo (game/rock_respawn.py · bíblia §9, Marco 1). Entraram no lugar dos recursos soltos.
+ROCK_RESPAWN = 15.0             # segundos por rocha nova (= 4 por minuto, ~12 unidades/min)
+ROCK_MAX = 520                  # teto de rochas no mapa (o reaparecimento para aqui)
+ROCK_BASE_DIST = 12             # reaparece só a 12+ tiles da base...
+ROCK_HIDDEN = (21, 13)          # ...e fora da tela: meia-tela em tiles no zoom 0,75 (1280×720 = 20×11) + folga
 
 # ---------------------------------------------------------------------------
 # Base (cápsula) e player · a base fica no CENTRO da superfície

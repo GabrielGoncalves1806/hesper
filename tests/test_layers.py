@@ -33,7 +33,6 @@ def test_visual_tile_ignores_flat_solids():
 
 # ---------------------------------------------------------------- camadas no GameState
 from game.layers import CAVE, SURFACE  # noqa: E402
-from game.pickups import Pickup, Pickups  # noqa: E402
 from tests.helpers import give  # noqa: E402
 
 DT = 1 / 60
@@ -48,8 +47,7 @@ def test_game_starts_on_the_surface_with_layers():
     g = GameState(rng=random.Random(1))
     assert g.layer == SURFACE and set(g.layers) == {SURFACE}
     assert g.world is g.layers[SURFACE].world and g.world.width == C.SURFACE_W
-    assert g.in_base_zone() and g.pickups is g.layers[SURFACE].pickups
-    assert len(g.pickups.items) == C.PICKUP_START
+    assert g.in_base_zone() and g.layers[SURFACE].rocks is not None
 
 
 def test_cave_layer_has_its_own_world_and_machines_but_global_energy_and_ti():
@@ -57,7 +55,7 @@ def test_cave_layer_has_its_own_world_and_machines_but_global_energy_and_ti():
     g.machines.append(Machine("solar", 90, 90))
     g.enter_layer(CAVE)
     assert g.layer == CAVE and g.world.width == C.CAVE_W and g.machines == []
-    assert not g.in_base_zone() and g.pickups is None
+    assert not g.in_base_zone() and g.active.rocks is None
     g.machines.append(Machine("o2", 60, 60))
     assert g.power.production == C.POD_POWER + 4 and g.power.consumption == 1
     assert g.ti_rate == 3
@@ -111,60 +109,16 @@ def test_mined_hill_becomes_sand():
     assert g.world.get(px + 1, py) == C.SAND
 
 
-# ---------------------------------------------------------------- pegar soltos
-def with_pickup(resource="iron", amount=2, dx=3):
+# ---------------------------------------------------------------- rochas reaparecendo (jogo de verdade)
+def test_rocks_respawn_with_the_real_update():
+    from game.rock_respawn import count
     g = GameState(rng=random.Random(1))
-    g.pickups.items = []
-    p = Pickup(resource, amount, g.player.x + dx * C.TILE, g.player.y - 4)
-    g.pickups.items.append(p)
-    return g, p
-
-
-def test_walk_over_pickup_collects_it():
-    g, p = with_pickup(dx=2)
-    run(g, 1.0, Controls(move_x=1))
-    assert g.pickups.items == []
-    assert g.inventory.count("iron") == 2 and g.mined_total["iron"] == 2
-    assert any(e[0] == "pickup" and e[2] == "iron" and e[3] == 2 for e in g.pop_events())
-
-
-def test_full_inventory_keeps_pickup_and_warns_once():
-    g, p = with_pickup(dx=0)
-    for i in range(C.INVENTORY_SLOTS):
-        g.inventory.add("o2", C.STACK_MACHINE)
-    run(g, 0.5)
-    events = g.pop_events()
-    assert p in g.pickups.items and sum(e[0] == "inv_full" for e in events) == 1
-    g.inventory.remove("o2", C.STACK_MACHINE)            # abriu um slot: pega sozinho, ainda em cima
-    run(g, 0.1)
-    assert g.pickups.items == [] and g.inventory.count("iron") == 2
-
-
-def test_partial_pickup_leaves_the_rest():
-    g, p = with_pickup(amount=3, dx=0)
-    for i in range(C.INVENTORY_SLOTS - 1):
-        g.inventory.add("o2", C.STACK_MACHINE)
-    g.inventory.add("iron", C.STACK_RESOURCE - 1)
-    run(g, 0.1)
-    assert g.inventory.count("iron") == C.STACK_RESOURCE and p.amount == 2 and p in g.pickups.items
-
-
-def test_e_and_mouse_take_pickup_in_reach():
-    g, p = with_pickup(dx=1.5)
-    assert g.interactable_at(p.x, p.y - 3) == ("pickup", p)
-    assert g.interaction() == ("pickup", p)
-    assert g.take_pickup(p) == 2 and g.pickups.items == []
-    g2, far = with_pickup(dx=6)
-    assert g2.interactable_at(far.x, far.y) == ("pickup", far)
-    assert not g2.in_reach("pickup", far) and g2.interaction() is None
-
-
-def test_pickups_respawn_with_the_real_update():
-    g = GameState(rng=random.Random(1))
-    g.pickups.items = []
+    before = count(g.world)
     g.toggle_time_scale()                                  # F1 acelera
-    run(g, C.PICKUP_RESPAWN / C.DEBUG_TIME_SCALE * 3 + 0.05)
-    assert len(g.pickups.items) == 3
+    run(g, C.ROCK_RESPAWN / C.DEBUG_TIME_SCALE * 3 + 0.05)
+    events = [e for e in g.pop_events() if e[0] == "rock_spawn"]
+    assert count(g.world) == before + 3 and len(events) == 3
+    assert all(g.world.get(*e[1]) in C.SMALL_ROCKS for e in events)
 
 
 def test_cave_layer_is_made_by_the_old_generator():

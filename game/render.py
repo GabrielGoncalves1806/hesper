@@ -3,7 +3,7 @@
 Ordem de cada frame (de trás pra frente, como camadas de papel):
   1. tiles visíveis (chão ou areia do deserto, água, paredes com face, minério, terminais)
   2. zona de O₂ (círculo tracejado, só na superfície)
-  3. objetos ordenados pelo Y do pé (cratera, rochas pequenas, recursos soltos, cápsula, máquinas,
+  3. objetos ordenados pelo Y do pé (cratera, rochas pequenas, cápsula, máquinas,
      plantas, player):
      quem está mais embaixo na tela é desenhado por último e fica "na frente"
   4. efeitos de mineração, fantasma da máquina sendo colocada e drones voando (por cima de tudo)
@@ -519,13 +519,6 @@ class Renderer:
             x, y = tx * T - cam_x, ty * T - cam_y
             if -T < x < self.view_w and -T < y < self.view_h:
                 items.append(((ty + 1) * T, lambda c=crate, x=x, y=y: self.draw_crate(canvas, c, x, y)))
-        # recursos soltos (16×16, ponto de chão = (8, 14) do PNG)
-        if state.pickups is not None:
-            for pk in state.pickups.items:
-                px, py = pk.x - cam_x, pk.y - cam_y
-                if -16 < px < self.view_w + 16 and -16 < py < self.view_h + 16:
-                    items.append((pk.y, lambda pk=pk, px=px, py=py: self.draw_pickup(canvas, pk, px, py, t)))
-
         for m in state.machines:
             mx, my = m.anchor                                  # centro da base (drill: centro dos 2×2)
             if -64 < mx - cam_x < self.view_w + 64 and -80 < my - cam_y < self.view_h + 80:
@@ -604,18 +597,6 @@ class Renderer:
         """Rocha pequena em (tx·32, ty·32) + o cristalzinho do minério que ela dá (pra ler de longe)."""
         canvas.blit(self.surface("rock_small", art.rock_small)[0], (x, y))
         canvas.blit(self.surface(None, lambda: art.ore_fleck(resource), f"fleck#{resource}")[0], (x, y))
-
-    def pickup_surface(self, resource: str) -> pygame.Surface:
-        return self.surface(f"pickup_{resource}", lambda: art.pickup(resource))[0]
-
-    def draw_pickup(self, canvas, pk, x: float, y: float, t: float) -> None:
-        """Solto no chão: blit em (x − 8, y − 14), balançando 1 px de leve. Contorno se for o alvo do E."""
-        surf = self.pickup_surface(pk.resource)
-        bob = 1 if (t * 1.6 + (pk.x + pk.y) * 0.013) % 2 < 1 else 0
-        bx, by = round(x) - 8, round(y) - 14 - bob
-        canvas.blit(surf, (bx, by))
-        if self.highlight is pk:
-            canvas.blit(self.outline_of(("pickup", pk.resource), surf), (bx - 1, by - 1))
 
     HIGHLIGHT_RGBA = (255, 236, 176, 150)   # contorno do alvo do E: creme claro, meio transparente
 

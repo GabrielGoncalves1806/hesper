@@ -288,7 +288,7 @@ class World:
         Suavização (pra não sair água em xadrez ou ligada só pela quina): um tile de água crua só fica
         se tem um vizinho de lado que também é água, OU se é uma gota sozinha (nenhuma água nem nas
         diagonais). A checagem da gota olha o estágio 3, assim a água de um estágio está sempre dentro
-        da do estágio seguinte (pickups e plantas usam `is_water(..., 3)` como "lago futuro")."""
+        da do estágio seguinte (as rochas que reaparecem e as plantas usam `is_water(..., 3)` como "lago futuro")."""
         if not self._low_wet(tx, ty, stage):
             return False
         low = self._low_wet

@@ -4,7 +4,7 @@ Python puro (nada de pygame), testado em tests/test_save.py.
 
 Ideia central: **salvar só o que muda**. O mapa de cada camada sai sempre igual da seed (o deserto do
 surface_gen.py, a caverna do world.py), então o save não guarda as 192×192 casas: guarda a seed e só os
-tiles que ficaram diferentes do mapa gerado (paredes mineradas, rochas pequenas quebradas). Pra carregar,
+tiles que ficaram diferentes do mapa gerado (paredes mineradas, rochas pequenas quebradas ou reaparecidas). Pra carregar,
 gera o mapa da seed de novo e aplica as diferenças.
 
 Formato do arquivo (JSON, v6 · v0.3, com camadas):
@@ -17,7 +17,7 @@ Formato do arquivo (JSON, v6 · v0.3, com camadas):
         "surface": {
           "changed_tiles": [[x, y, tipo], ...],
           "machines": [...],        # máquinas da camada (baús, drills e estações com o conteúdo)
-          "pickups": {"items": [[recurso, qtd, x, y], ...], "timer": 3.5},  # soltos (só superfície)
+          "rocks": {"timer": 3.5},   # relógio do reaparecimento das rochas pequenas (só superfície)
           "crates": [[x, y, slots, aberta], ...],   # Marco 3: só as caixas de destroço que mudaram
           "explored": "eJzt..."     # Marco 3: tiles vistos (bitset, zlib, base64)
         }
@@ -60,13 +60,13 @@ from game import layers
 from game.equipment import Equipment
 from game.explore import Explored
 from game.inventory import Inventory
-from game.pickups import Pickups
+from game.rock_respawn import RockRespawn
 from game.surface_gen import pristine_tiles as surface_pristine
 from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 from game.wrecks import crate_loot
 
-SAVE_VERSION = 6   # v6 (v0.3): camadas (superfície/caverna), soltos, rochas quebradas · sem migração de antes
+SAVE_VERSION = 6   # v6 (v0.3): camadas (superfície/caverna), rochas quebradas e reaparecidas · sem migração de antes
 FIRST_VERSION = 6  # saves com versão menor que essa são de outra época do jogo: "save antigo"
 SAVE_PATH = C.ROOT_DIR / "saves" / "slot1.json"   # o smoke e os testes apontam pra outro lugar
 
@@ -130,8 +130,8 @@ def layers_to_dict(state: GameState) -> dict:
         data = {"changed_tiles": tiles_to_list(state, key),
                 "machines": [machine_to_dict(m) for m in layer.machines],
                 "explored": layer.explored.to_data()}
-        if layer.pickups is not None:
-            data["pickups"] = layer.pickups.to_data()
+        if layer.rocks is not None:
+            data["rocks"] = layer.rocks.to_data()
         if layer.crates:
             data["crates"] = crates_to_list(state, layer)
         out[key] = data
@@ -148,8 +148,8 @@ def layers_from_dict(state: GameState, data: dict) -> None:
         for x, y, kind in ldata["changed_tiles"]:
             layer.world.set(int(x), int(y), int(kind))
         layer.machines = [machine_from_dict(d) for d in ldata["machines"]]
-        if layer.pickups is not None and "pickups" in ldata:
-            layer.pickups = Pickups.from_data(ldata["pickups"])
+        if layer.rocks is not None and "rocks" in ldata:     # save v6 antigo: "rocks" falta e "pickups"
+            layer.rocks = RockRespawn.from_data(ldata["rocks"])  # (os soltos, que saíram do jogo) é ignorado
         for x, y, slots, opened in ldata.get("crates", []):      # Marco 3 (save do Marco 1/2 não tem)
             crate = layer.crates.get((int(x), int(y)))
             if crate is not None:
