@@ -12,7 +12,10 @@ Ordem por distância (rank 0 = o mais perto): nave (tanque de O₂ + LOGS[3]), s
 nave (luminária forte), sonda (LOGS[5]), [nave, sonda extras quando há 7 ou 8] e módulo (LOGS[6], o mais longe).
 O número que o jogador vê ("LOG 05") é a posição na cronologia (config.LOG_ORDER), não o índice.
 
-Python puro (sem pygame), testado em tests/test_wrecks.py.
+v0.4 Marco 3 · M3.2: atrás de cada gelo-portão vai um destroço RICO (`pocket_wrecks`, `rich=True`, depois dos de fora
+na lista `world.wrecks`), com a tabela C.WRECK_RICH_LOOT e, se faltar algum, um projeto que não caiu lá fora.
+
+Python puro (sem pygame), testado em tests/test_wrecks.py e tests/test_pockets.py.
 """
 
 import math
@@ -57,6 +60,7 @@ class Wreck:
     rank: int                    # 0 = o mais perto da base
     log: int | None = None       # índice em config.LOGS
     blueprint: str | None = None  # id em config.BLUEPRINTS
+    rich: bool = False           # v0.4 M3.2: destroço rico atrás de um gelo-portão (saque C.WRECK_RICH_LOOT)
 
     @property
     def spec(self) -> WreckSpec:
@@ -181,6 +185,23 @@ def place_wrecks(world, rng: random.Random) -> list[Wreck]:
     return placed
 
 
+def missing_blueprints(wrecks: list[Wreck]) -> list[str]:
+    """Projetos de C.BLUEPRINTS que nenhum desses destroços traz (na ordem do config)."""
+    have = {w.blueprint for w in wrecks}
+    return [bp for bp in C.BLUEPRINTS if bp not in have]
+
+
+def pocket_wrecks(pockets, outside: list[Wreck]) -> list[Wreck]:
+    """v0.4 Marco 3 · M3.2: um destroço rico (C.WRECK_RICH_KIND) no wreck_spot de cada bolsão de gelo-portão, com
+    rank depois dos de fora. Se algum projeto não caiu nos destroços de fora, cada rico traz um dos que faltam."""
+    missing = missing_blueprints(outside)
+    out = []
+    for i, p in enumerate(pockets):
+        bp = missing[i] if i < len(missing) else None
+        out.append(Wreck(C.WRECK_RICH_KIND, *p.wreck_spot, len(outside) + i, None, bp, rich=True))
+    return out
+
+
 def keep_free(wrecks: list[Wreck]) -> set[tuple[int, int]]:
     """Tiles em volta de cada destroço que ficam livres (sem rocha pequena): a caixa e o terminal têm acesso."""
     m = C.WRECK_MARGIN
@@ -220,7 +241,7 @@ def crate_loot(wreck: Wreck, seed: int) -> list[tuple[str, int]]:
     items = []
     if wreck.blueprint:
         items.append((f"bp_{wreck.blueprint}", 1))
-    for resource, (lo, hi) in wreck.spec.loot.items():
+    for resource, (lo, hi) in (C.WRECK_RICH_LOOT if wreck.rich else wreck.spec.loot).items():
         n = rng.randint(lo, hi)
         if n > 0:
             items.append((resource, n))

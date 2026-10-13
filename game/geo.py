@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable
 
 import numpy as np
@@ -72,6 +72,19 @@ def _load_specs() -> dict[str, FormationSpec]:
 FORMATION_SPECS = _load_specs()
 
 
+def _load_gate_footprints() -> tuple[tuple[tuple[int, int], ...], ...]:
+    """Pegada do gelo-portão em cada etapa 0..2 (ice_gate_0..2 do JSON), relativa ao canto da etapa 0: as três
+    usam o mesmo pé (`foot`), então o sprite não anda quando o gelo baixa (v0.4 Marco 3 · M3.2)."""
+    data = json.loads(C.REGIONS_PALETTES.read_text(encoding="utf-8"))["formations"]
+    full = data["ice_gate_0"]["tiles"]
+    x0, y0 = min(x for x, _ in full), min(y for _, y in full)
+    return tuple(tuple(sorted((x - x0, y - y0) for x, y in data[f"ice_gate_{s}"]["tiles"])) for s in range(3))
+
+
+GATE_FOOTPRINTS = _load_gate_footprints()
+GATE_OPEN = len(GATE_FOOTPRINTS)         # etapa 3: aberto (sem gelo, sem sprite, só a geada no chão)
+
+
 @dataclass
 class Formation:
     kind: str                            # "monolith" | "arch" | "basalt_spires" | "cone" | "salt_ridge" | "ice_gate"
@@ -80,6 +93,8 @@ class Formation:
     footprint: list[tuple[int, int]]     # tiles que bloqueiam, relativos a (tx, ty)
     anchor: tuple[int, int]              # px do sprite que cai no centro de baixo da pegada
     variant: int = 0                     # gelo-portão: a etapa (0 = inteiro; o Marco 3 derrete)
+    frame: tuple[int, int] | None = None   # caixa fixa (largura, altura): o gelo-portão guarda a da etapa 0, pra
+                                           # o base_px (onde a âncora cai) não andar quando a pegada encolhe
 
     @property
     def tiles(self) -> list[tuple[int, int]]:
@@ -89,6 +104,8 @@ class Formation:
     @property
     def size(self) -> tuple[int, int]:
         """(largura, altura) da caixa da pegada, em tiles (o arco tem 5×1, com o vão de 3 no meio)."""
+        if self.frame is not None:
+            return self.frame
         return (max(x for x, _ in self.footprint) + 1, max(y for _, y in self.footprint) + 1)
 
     @property
@@ -122,6 +139,14 @@ class Formation:
         """Formação pequena da v9 (pedra rachada, pilar de sal, tubo de lava, agulhas de gelo)."""
         spec = FORMATION_SPECS.get(self.kind)
         return spec is not None and spec.small
+
+
+def gate_at(gate: Formation, stage: int) -> Formation | None:
+    """O gelo-portão na etapa `stage` (0..2): uma CÓPIA com a pegada da etapa e a mesma caixa/âncora; None se aberto.
+    Não mexe no `gate` (o Geo é dividido entre os mundos da mesma seed)."""
+    if stage >= GATE_OPEN:
+        return None
+    return replace(gate, footprint=list(GATE_FOOTPRINTS[stage]), variant=stage, frame=gate.size)
 
 
 @dataclass

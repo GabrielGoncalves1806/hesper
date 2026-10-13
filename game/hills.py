@@ -562,6 +562,29 @@ class FormationSprites:
         return self._masks[key]
 
 
+class FrostRing:
+    """Geada no chão em volta do gelo-portão que derrete (frost_ring.png, rampa BASE da faixa gelada), por estágio.
+    Sem a arte: None (não desenha nada)."""
+
+    def __init__(self):
+        self._cache: dict[int, pygame.Surface | None] = {}
+
+    def surface(self, stage: int) -> pygame.Surface | None:
+        stage = max(1, min(len(STAGE_KEYS), stage))
+        if stage not in self._cache:
+            idx = load_indexed("frost_ring.png")
+            rmp = ramp("BASE", "frost", STAGE_KEYS[stage - 1])
+            self._cache[stage] = None if idx is None or rmp is None else rgba_surface(colorize(idx, rmp))
+        return self._cache[stage]
+
+
+def frost_ring_pos(gate, surf: pygame.Surface) -> tuple[int, int]:
+    """Canto da geada no mundo (px): centrada no pé do sprite do portão e 60 px acima dele, como na cena da Designer
+    (regions_mockups.populate: o anel sai do pé do portão, x - w/2, y - 60)."""
+    bx, by = gate.base_px
+    return round(bx - surf.get_width() / 2), round(by - 60)
+
+
 def foot_tile(formation) -> tuple[int, int]:
     """Um tile da linha de baixo da pegada (pro estágio da transição): o do meio."""
     w, h = formation.size

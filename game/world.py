@@ -86,6 +86,8 @@ class World:
         # reaparece respeitam (os afloramentos das formações são os únicos que ficam no halo)
         self.geo = None
         self.keep_clear: frozenset[tuple[int, int]] = frozenset()
+        # v0.4 Marco 3 · M3.2: contêineres lacrados (tile C.CONTAINER), um no container_spot de cada bolsão
+        self.containers: list[tuple[int, int]] = []
 
     # ---- geração ----------------------------------------------------------
     @classmethod
@@ -222,6 +224,21 @@ class World:
                     seen.add((nx, ny))
                     queue.append((nx, ny))
         return seen
+
+    def swap_footprint(self, old_tiles, new_tiles) -> list[tuple[int, int]]:
+        """Pegada de uma formação mudou (gelo-portão derretendo, v0.4 Marco 3): o que era C.FORMATION e saiu vira chão,
+        o que entrou vira C.FORMATION. Devolve os tiles que mudaram (pro mapa do scanner repintar)."""
+        new = set(new_tiles)
+        changed = []
+        for t in old_tiles:
+            if t not in new and self.get(*t) == C.FORMATION:
+                self.set(*t, self.floor_kind)
+                changed.append(t)
+        for t in new:
+            if self.get(*t) != C.FORMATION:
+                self.set(*t, C.FORMATION)
+                changed.append(t)
+        return changed
 
     def vein_at(self, tx: int, ty: int) -> Vein | None:
         return self._vein_tiles.get((tx, ty))

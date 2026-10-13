@@ -88,9 +88,10 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Hesper · report de som · v9.3</div>
+    <div class="eyebrow">Hesper · report de som · v10</div>
     <h1>Som do planeta</h1>
     <p class="lede">Os 40 arquivos do contrato de áudio da bíblia (§6), todos gerados por síntese procedural com seed fixa em <code>tools/audio/build_audio.py</code>. A estética é 8/16-bit refinada: osciladores limitados em banda, ruído filtrado, envelopes, varreduras de pitch e um reverb de cratera. Dá o play em cada um, os loops tocam em repetição pra tu ouvir a emenda.</p>
+    <div class="note" style="border-left-color:#8fd3f0"><b style="color:#8fd3f0">v10 · v0.4 Marco 3 · gelo e água (proposta):</b> 7 sons novos pra tu ouvir, todos em <a href="#gelo-agua">Gelo e água</a>, em <code>reports/audio/v10/</code> e <b>fora do jogo</b> até tu aprovar. Gelo: dois estalos de rachadura (<code>ice_crack</code> e <code>ice_crack_1</code>) pras etapas da tampa da cratera e um desabamento (<code>ice_collapse</code>) pra quando a cratera abre e o gelo-portão cede. Chuva: um loop de 10 s em três intensidades (<code>amb_rain_light</code>, <code>amb_rain</code>, <code>amb_rain_heavy</code>), com uma prévia dela por cima do <code>amb_mist</code> e do <code>amb_green</code>. De bônus, o chiado grave da fumarola (<code>vent_hiss</code>). A lição da tempestade foi aplicada: a chuva é véu com gotas abafadas, sem estalado de fundo, e o gelo é só ruído, sem tambor e sem latinha. Nenhum som oficial mudou (md5 dos 59 wavs idêntico).</div>
     <div class="note" style="border-left-color:#59d0e6"><b style="color:#59d0e6">v9.3 · variações:</b> tu pediu pra manter as 3 e ir trocando, então as três tempestades e as três rajadas da v9.1 viraram oficiais como variações. Tempestade: <code>amb_storm.wav</code> (capacete, era a A), <code>amb_storm_1.wav</code> (paredão, era a B) e <code>amb_storm_2.wav</code> (planeta por baixo, era a C). Rajada: <code>gust.wav</code> (uivo grave), <code>gust_1.wav</code> (sopro e areia) e <code>gust_2.wav</code> (uivo aberto). São idênticas byte a byte às que tu ouviu (md5). Os níveis já casam: as 3 tempestades estão em −27,0 dB integrado e as 3 rajadas em −21,0 dB, e um crossfade de 4 s entre duas tempestades fica dentro da oscilação natural do vento (±1,5 dB). O contrato agora tem 47 arquivos. Nenhum outro arquivo mudou.</div>
     <div class="note" style="border-left-color:#7fd67a"><b style="color:#7fd67a">v9.2 · Tempestade aprovada:</b> tu aprovou a v9.1 ("ficou muito bom agora os sons") sem escolher letra, então valeu a recomendação: <code>amb_storm.wav</code> = A (capacete), <code>gust.wav</code> = A (uivo grave) e <code>sky_clear.wav</code>, que toca ~5 s depois do <code>stage_up</code>. Os três agora são oficiais em <code>assets/audio/</code>, idênticos byte a byte ao que tu ouviu (md5). As B e C saíram do <code>_pending/</code>; o código delas fica no script só como histórico. O contrato agora tem 43 arquivos. Nenhum outro arquivo mudou.</div>
     <div class="note" style="border-left-color:#ff6a55"><b style="color:#ff6a55">v9.1 · o que mudou (tempestade refeita · aprovada na v9.2):</b> tu ouviu a v9 e reclamou de "uns estralados de fundo que ficam feios e tiram a essência". A causa eram os grãos de areia e as pedrinhas batendo no capacete: impulsos curtos e secos, centenas por minuto. Na v9.1 eles <b>saíram</b> das 3 tempestades, das 3 rajadas e do <code>sky_clear</code>. Agora o caráter vem só do vento: bandas largas que respiram mais devagar, rajadas internas lentas e suaves (5 a 10 s, no máximo uns +3 dB), o uivo distante que passeia (agora nas três tempestades, mais forte na B) e o vento tremendo de leve no capacete. A areia virou um véu contínuo: ruído de banda larga, sem ataque e sem grão, bem mais baixo. Medi os transientes antes e depois: os estalos caíram de 240–370 por minuto nas rajadas pra <b>zero</b> em todos os arquivos (tabela em <a href="#transientes">Transientes</a>). Mesmos nomes, mesmos volumes sugeridos. Ainda falta tu escolher A, B ou C de cada. Nenhum outro arquivo mudou (md5, os 52 WAVs idênticos).</div>
@@ -107,15 +108,136 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
       <div class="stat"><b>47</b><span>arquivos oficiais</span></div>
       <div class="stat"><b>44,1k · 16b · mono</b><span>formato</span></div>
       <div class="stat"><b class="ok" id="st-peak">≤ −1 dBFS</b><span>pico máximo</span></div>
-      <div class="stat"><b>0</b><span>pendentes</span></div>
+      <div class="stat"><b>7</b><span>propostas v10</span></div>
       <div class="stat"><b class="ok">13 / 13</b><span>loops sem estalo</span></div>
     </div>
     <nav class="toc">
-      <a href="#tempestade">Tempestade</a><a href="#refeitos">v8.1 · refeitos</a><a href="#caverna">Caverna e destroços</a><a href="#superficie">Superfície</a><a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
+      <a href="#gelo-agua">Gelo e água · v10</a><a href="#tempestade">Tempestade</a><a href="#refeitos">v8.1 · refeitos</a><a href="#caverna">Caverna e destroços</a><a href="#superficie">Superfície</a><a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
       <a href="#maquinas">Máquinas</a><a href="#drill">Drill</a><a href="#energia">Energia</a><a href="#drones">Drones</a><a href="#ambiente">Ambiente</a><a href="#recompensa">Recompensa</a>
       <a href="#direcao">Direção de ambientação</a><a href="#integracao">Integração</a><a href="#checagens">Checagens</a>
     </nav>
   </header>
+
+  <section class="pick" id="gelo-agua" style="border-color:#8fd3f0">
+    <div class="sec-head" style="border-color:#2c5a6a"><span class="num">v10 · proposta · esperando o teu ouvido</span><h2 style="color:#8fd3f0">Gelo e água · v0.4 Marco 3</h2>
+      <p>Sons novos do Marco 3: a tampa de gelo da cratera baixando, o gelo-portão abrindo, a chuva das pancadas da Névoa e do Verde e, de bônus, o chiado das fumarolas ativas do basalto. <b>Nada disso está no jogo nem em <code>assets/audio/</code>:</b> os 7 wavs ficam em <code>reports/audio/v10/</code> até tu aprovar. Nenhum arquivo oficial mudou (os 59 wavs de <code>assets/audio/</code> conferidos por md5, idênticos byte a byte).</p></div>
+
+    <div class="note" style="margin:0 0 18px;border-left-color:#8fd3f0;max-width:none"><b style="color:#8fd3f0">O que eu recomendo:</b> os dois estalos (<code>ice_crack</code> e <code>ice_crack_1</code>) sorteados nas etapas 1 a 3 da cratera, o <code>ice_collapse</code> na etapa 4 (a cratera abriu) e no gelo-portão abrindo, e a chuva com uma variação por pancada (fraca, média ou forte, sorteada pela seed), sempre com o volume = 0,55 × intensidade. Se achar que é variação demais, dá pra ficar só com <code>ice_crack</code> + <code>ice_collapse</code> + <code>amb_rain</code>. O <code>vent_hiss</code> é opcional.</div>
+
+    <h3 style="margin:4px 0 12px">Gelo · <code>ice_crack</code>, <code>ice_crack_1</code> e <code>ice_collapse</code></h3>
+    <div class="cards" id="v10-ice"></div>
+    <h3 style="margin:28px 0 12px">Chuva · <code>amb_rain</code> (média) + fraca e forte</h3>
+    <div class="cards" id="v10-rain"></div>
+    <h3 style="margin:28px 0 12px">Fumarola · <code>vent_hiss</code> (opcional)</h3>
+    <div class="cards" id="v10-vent"></div>
+
+    <h3 style="margin:28px 0 12px">Prévias no volume do jogo</h3>
+    <div class="cards">
+      <article class="card" style="grid-column:1/-1">
+        <div class="card-top"><span class="fname">Chuva por cima do ambiente</span><span class="tags"><span class="tag">amb 0,7</span><span class="tag">amb_rain 0,55 × intensidade</span><span class="tag">fade 2 s</span></span></div>
+        <div class="btns" id="v10-rainmix">
+          <button class="btn" data-k="mist">▶ Névoa (amb_mist)</button>
+          <button class="btn" data-k="green">▶ Verde (amb_green)</button>
+          <button class="btn" data-k="v-light">chuva fraca</button>
+          <button class="btn" data-k="v-mid">chuva média</button>
+          <button class="btn" data-k="v-heavy">chuva forte</button>
+          <button class="btn" data-k="on">☂ pancada começa (2 s)</button>
+          <button class="btn" data-k="off">☀ pancada para (2 s)</button>
+          <button class="btn" data-k="auto">pancada de 30 s (sobe, segura, desce)</button>
+          <button class="btn" data-k="stop">■ parar</button>
+        </div>
+        <label class="what" style="display:flex;gap:10px;align-items:center">intensidade <input type="range" id="v10-int" min="0" max="1" step="0.05" value="1" style="flex:1"> <span id="v10-intv">1,00</span></label>
+        <p class="what" id="v10-rainstatus">Parado.</p>
+        <p class="what">Escolhe o estágio, depois a variação, e aperta "pancada começa": a chuva sobe de 0 até 0,55 × intensidade em 2 s, como o jogo vai fazer. "Pancada de 30 s" sobe em 2 s, segura uns 26 s e desce em 2 s. O ambiente fica sempre a 0,7. O slider mexe na intensidade ao vivo (é o 0..1 que o <code>rain.py</code> vai entregar).</p>
+      </article>
+      <article class="card">
+        <div class="card-top"><span class="fname">Cratera derretendo</span><span class="tags"><span class="tag">amb_dead 0,7</span><span class="tag">ice_crack 0,7</span><span class="tag">ice_collapse 0,8</span></span></div>
+        <div class="btns" id="v10-icemix">
+          <button class="btn" data-k="crater">▶ as 4 etapas (comprimidas, 7 s entre elas)</button>
+          <button class="btn" data-k="gate">▶ gelo-portão abriu</button>
+          <button class="btn" data-k="stop">■ parar</button>
+        </div>
+        <p class="what" id="v10-icestatus">Parado.</p>
+        <p class="what">No jogo as etapas ficam minutos uma da outra; aqui vêm a cada 7 s pra tu comparar: estalo, estalo, estalo e desabamento, com o <code>amb_dead</code> por baixo.</p>
+      </article>
+      <article class="card">
+        <div class="card-top"><span class="fname">Chegando perto de uma fumarola</span><span class="tags"><span class="tag">amb_dead 0,7</span><span class="tag">vent_hiss 0,6 pela distância</span></span></div>
+        <div class="btns" id="v10-ventmix">
+          <button class="btn" data-k="walk">▶ andar até ela e voltar (16 s)</button>
+          <button class="btn" data-k="near">▶ parado do lado</button>
+          <button class="btn" data-k="stop">■ parar</button>
+        </div>
+        <p class="what" id="v10-ventstatus">Parado.</p>
+        <p class="what">Volume = 0,6 × (cheio até 2 tiles, some em 7). "Andar" simula sair de 9 tiles, chegar colado e voltar.</p>
+      </article>
+    </div>
+
+    <div class="tbl" style="margin-top:16px">
+      <table>
+        <thead><tr><th>Análise (não ouvido)</th><th>Gelo</th><th>Chuva (fraca · média · forte)</th><th>Fumarola</th><th>Referência aprovada</th></tr></thead>
+        <tbody>
+          <tr><td>Duração</td><td>1,74 · 1,75 · <b>2,37 s</b> (teto pedido: 2,5 s)</td><td>loop de 10,0 s nas três</td><td>loop de 7,0 s</td><td>ambientes 28–36 s · <code>gust</code> 5,2 s</td></tr>
+          <tr><td>Pico</td><td>−11,0 · −10,5 · −9,7 dBFS</td><td>−20,1 · −17,0 · −15,7 dBFS</td><td>−21,0 dBFS</td><td>teto −1 dBFS</td></tr>
+          <tr><td>Loudness aprox.</td><td>−24 · −24 · −22 dB (janela de 400 ms)</td><td>−32 · −29 · −27 dB (loop todo)</td><td>−33 dB</td><td><code>amb_mist</code> −27 · <code>gust</code> −21 · <code>desert_wind</code> −36</td></tr>
+          <tr><td>Energia por banda (&lt;150 · 150–600 · 0,6–2,5k · 2,5–8k · &gt;8k dB do total)</td><td>estalo −8,0 · −5,4 · −5,2 · −6,8 · −14,6<br>desabamento −6,9 · −3,0 · −7,0 · −10,9 · −20,4</td><td>média −30,7 · −8,8 · −1,7 · −7,3 · −31,4<br>(fraca e forte quase iguais, acima de 8 kHz em −35 e −29)</td><td>−8,4 · −3,9 · −3,5 · −23,3 · −54,3</td><td><code>mine_break</code> −8,7 · −5,5 · −5,4 · −6,9 · −10,6</td></tr>
+          <tr><td>Centroide</td><td>1,8 · 2,1 · 0,9 kHz</td><td>1,60 · 1,67 · 1,70 kHz</td><td>632 Hz</td><td><code>amb_mist</code> 162 Hz · <code>gust</code> 768 Hz</td></tr>
+          <tr><td>Emenda do loop</td><td>—</td><td class="pass">fraca 267 lsb (percentil 88,7), agudos p59 · média 267 lsb (p72,6), agudos p12 · forte 81 lsb (p20,5), agudos p41</td><td class="pass">82 lsb (p72,1), agudos p81</td><td>limite: percentil 99 nos dois testes</td></tr>
+          <tr><td>Pico estreito fixo (teste de "latinha"; FFT de 2048, pico contra a mediana de 1/3 de oitava)</td><td class="pass">5,1 · 4,4 · 3,8 dB</td><td class="pass">1,1 dB (média)</td><td class="pass">1,2 dB</td><td><code>mine_break</code> 4,3 · <code>crate_open</code> 7,2 · <code>sky_clear</code> 3,6 dB</td></tr>
+          <tr><td>Estalos por minuto nos loops (critério da v9.1) · curtose dos agudos</td><td>— (o gelo é estalo de propósito: é o evento)</td><td class="pass">0 · 0 · 0 · curtose 2,87 a 2,91</td><td class="pass">0 · 2,89</td><td><code>amb_storm</code> 0 · 2,91</td></tr>
+          <tr><td>Gotas aparecendo (flutuação rápida do envelope 0,5–3 kHz, janelas de 5 ms, p99)</td><td>—</td><td>véu sozinho 2,7 dB → com as gotas 3,7 dB (p99,9: 3,1 → 5,0 dB)</td><td>—</td><td>as gotas passam uns 4–5 dB do véu: batucada leve, não "tic"</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin:24px 0 12px">Mixagem: chuva (0,55) por cima do ambiente (0,7)</h3>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Mistura</th><th>Chuva menos ambiente, por banda (&lt;150 · 150–600 · 0,6–2,5k · 2,5–8k · &gt;8k dB)</th><th>Loudness: ambiente → com chuva</th><th>Pico da mistura</th></tr></thead>
+        <tbody>
+          <tr><td><code>amb_mist</code> + fraca</td><td>−40,1 · −14,8 · +5,9 · +46,7 · +30,5</td><td>−30,1 → −29,3 dB (+0,8)</td><td>−15,9 dBFS</td></tr>
+          <tr><td><code>amb_mist</code> + média</td><td>−34,6 · −11,5 · +8,7 · +50,5 · +36,7</td><td>−30,1 → −28,7 dB (+1,4)</td><td>−15,3 dBFS</td></tr>
+          <tr><td><code>amb_mist</code> + forte</td><td>−29,6 · −9,0 · +10,4 · +52,8 · +41,3</td><td>−30,1 → −28,0 dB (+2,1)</td><td>−14,9 dBFS</td></tr>
+          <tr><td><code>amb_green</code> + média</td><td>−30,3 · −13,7 · +6,5 · +21,7 · +35,2</td><td>−30,1 → −28,7 dB (+1,4)</td><td>−15,6 dBFS</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="what" style="margin-top:10px">Leitura: onde mora o pad (abaixo de 600 Hz) a chuva fica de 9 a 40 dB por baixo, então o drone e os acordes da Névoa e do Verde passam inteiros. A chuva ocupa justamente o buraco que os ambientes deixam (0,6 a 8 kHz, onde o <code>amb_mist</code> quase não tem nada). Por isso, mesmo somando pouco no volume total (+0,8 a +2,1 dB), ela deve aparecer bem. Os "+46 dB" de 2,5 a 8 kHz parecem muito, mas é só porque o <code>amb_mist</code> é quase silêncio ali. Em termos absolutos, a chuva fica com o agudo contido (centroide de 1,6 kHz e quase nada acima de 8 kHz, −29 a −35 dB do total).</p>
+    <p class="what" style="margin-top:10px">Gelo por cima do <code>amb_dead</code> a 0,7 (loudness momentâneo, média de 4 trechos): <code>ice_crack</code> a 0,7 sobe <b>+2,6 dB</b> e o <code>ice_collapse</code> a 0,8 sobe <b>+4,8 dB</b>, o mesmo que a <code>gust</code> a 0,7 (+4,6) e o <code>mine_break</code> a 0,45 (+4,8). O estalo chama a atenção pelo ataque, não pelo volume.</p>
+
+    <div class="grid2">
+      <div class="box">
+        <h3>Gelo: as decisões</h3>
+        <ul>
+          <li><b>Só ruído</b>: a rachadura é uma cascata de 5 a 10 microestalos de banda larga (filtro de 1ª ordem, sem Q) em intervalos irregulares, como uma rachadura correndo. O peso vem de ruído grave, nada de seno (sem "tambor") e nada de modo fixo (sem "latinha").</li>
+          <li><b>De longe</b>: passa-baixa em 5,5–6 kHz e reverb grande de cratera (2,2–2,6 s), cortado em cosseno pra caber no teto de 2,5 s.</li>
+          <li><code>ice_crack</code> é o estalo seco puro. O <code>ice_crack_1</code> leva bem baixinho o "piu" do gelo grosso (o som de lago congelado rachando: uma varredura rápida de 2,6 kHz pra ~400 Hz que não para em nota nenhuma) e mais estalinhos de acomodação. Dá o mistério do gelo sem virar efeito de laser. Se não gostar, fica só o primeiro.</li>
+          <li><code>ice_collapse</code>: rachadura maior e mais grave, a placa cede (ronco de ruído crescendo), um "whump" de ruído quando bate no fundo, blocos (2 ou 3 batidas graves) e lascas caindo cada vez mais raros, e um chiado de gelo escorregando.</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>Chuva e fumarola: as decisões</h3>
+        <ul>
+          <li><b>Lição da tempestade aplicada:</b> nada de grão seco. O corpo da chuva é um véu de ruído de 300 Hz a 2,6 kHz (as gotas longe, tão densas que viram textura), respirando devagar e com "cortinas" de chuva mais forte que passam. As gotas próximas são "tup" abafados (ataque de 2–4 ms, passa-baixa ~1,4–2,6 kHz), 5, 12 ou 24 por segundo, e umas gotas grossas raras. Sem plink tonal: as gotas com nota são do <code>amb_mist</code>.</li>
+          <li><b>Sem chiado fino:</b> topo em 3,6 / 4,2 / 4,6 kHz (fraca, média e forte) e só uma pitada de "ar" de 2,5–5,5 kHz.</li>
+          <li><b>Loop de 10 s</b>, periódico de construção (ruído circular, gotas que dão a volta, reverb circular). É mais curto que os ambientes, então uma gota grossa marcante pode se repetir a cada 10 s. Na análise não tem nenhuma que se destaque (p99,9 do envelope em 5 dB), mas fica o aviso pro teu ouvido.</li>
+          <li><code>vent_hiss</code>: chiado de 150 Hz a 1 kHz (grave, centroide 630 Hz) com a pressão respirando irregular, uns surtos de 1–2 s um pouco mais claros e um ronco de ruído bem grave por baixo. Sem tom e sem estalo.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="tbl" style="margin-top:16px">
+      <table>
+        <thead><tr><th>Integração (se aprovar)</th><th>Arquivos</th><th>Volume sugerido (<code>VOLUME</code>)</th><th>Como tocar</th></tr></thead>
+        <tbody>
+          <tr><td>Cratera etapas 1–3</td><td><code>ice_crack</code> <code>ice_crack_1</code></td><td><code>"ice_crack": 0.7</code></td><td>uma vez por etapa, junto com o aviso "O gelo da cratera está cedendo". Sorteia entre os dois sem repetir o último. Sem atenuação por distância: é um aviso global. Pitch ±4% se tiver variação pronta (<code>PITCH_VARIANTS</code>).</td></tr>
+          <tr><td>Cratera etapa 4 e gelo-portão</td><td><code>ice_collapse</code></td><td><code>"ice_collapse": 0.8</code></td><td>uma vez quando a cratera abre e uma vez quando o gelo-portão abre (<code>gate_thaw</code> 3). Se o jogador estiver na caverna, pode tocar a 0,5 (abafado de longe) ou não tocar.</td></tr>
+          <tr><td>Chuva</td><td><code>amb_rain</code> (+ <code>_light</code> e <code>_heavy</code>)</td><td><code>"amb_rain": 0.55</code> × intensidade</td><td>canal próprio, <code>loops=-1</code>, iniciado em volume 0 e acompanhando a intensidade do <code>rain.py</code> a cada frame (a subida e a descida de 2 s já vêm da intensidade, não precisa <code>fade_ms</code>). Com as variações: sorteia uma por pancada pela seed (mais curta no Verde = fraca ou média). Para (<code>stop</code>) quando a intensidade chega a 0. Na caverna: volume 0. Não mexe no <code>AMBIENT_VOLUME</code> nem no <code>desert_wind</code>.</td></tr>
+          <tr><td>Fumarola (opcional)</td><td><code>vent_hiss</code></td><td><code>"vent_hiss": 0.6</code> × distância</td><td>um canal só, pela fumarola <b>ativa</b> mais próxima: <code>fade_by_distance(d, 2, 7)</code>, igual ao zumbido das máquinas. Dormente não toca. Só na superfície.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
 
   <section class="pick" id="tempestade" style="border-color:#f0a05a">
     <div class="sec-head" style="border-color:#6a4424"><span class="num">v9.3 · aprovado · 3 variações</span><h2 style="color:#f0a05a">Tempestade · v0.4 Marco 1</h2>
@@ -1070,6 +1192,138 @@ CANDS.forEach(([key, file, title, src, desc]) => {
 document.addEventListener("play", e => {
   document.querySelectorAll("audio").forEach(a => { if (a !== e.target) a.pause(); });
 }, true);
+</script>
+<script>
+// ---- v10: gelo e água (proposta, arquivos em reports/audio/v10/) ----
+(() => {
+  const M = window.AUDIO_META || {}, V = "v10/", A = "../../assets/audio/";
+  const fd = s => s == null ? "—" : (s < 10 ? s.toFixed(2) : s.toFixed(1)).replace(".", ",") + " s";
+  const fb = d => d == null ? "—" : d.toFixed(1).replace(".", ",").replace("-", "−") + " dBFS";
+  const ITEMS = {
+    "v10-ice": [
+      ["ice_crack", "Cratera · etapas 1 a 3 (estalo A)", "Estalo seco de gelo rachando, de longe: uma cascata de microestalos de ruído, a placa cedendo grave por baixo e o eco grande da cratera. Só ruído."],
+      ["ice_crack_1", "Cratera · etapas 1 a 3 (estalo B)", "O mesmo estalo com o \"piu\" do gelo grosso bem baixo (a varredura rápida de lago congelado rachando) e mais estalinhos de acomodação no fim."],
+      ["ice_collapse", "Cratera abriu (etapa 4) · gelo-portão abriu", "Desabamento: rachadura grande e grave, a placa cede, bate no fundo (\"whump\" de ruído), blocos e lascas caindo e um chiado de gelo escorregando. 2,4 s."],
+    ],
+    "v10-rain": [
+      ["amb_rain_light", "Pancada fraca (garoa) · Verde", "Véu mais fino e mais escuro, gotas esparsas (5 por segundo) e quase sem cortinas."],
+      ["amb_rain", "Pancada média · Névoa (a principal)", "Véu de chuva respirando, cortinas lentas, gotas \"tup\" abafadas perto (12 por segundo) e umas gotas grossas raras."],
+      ["amb_rain_heavy", "Pancada forte · aguaceiro", "Mais gotas (24 por segundo), cortinas mais fortes e o tamborilar grave da chuva no chão."],
+    ],
+    "v10-vent": [
+      ["vent_hiss", "Perto de uma fumarola ativa do basalto", "Chiado grave de vapor (150 Hz a 1 kHz), com a pressão respirando irregular, surtos curtos e a terra roncando por baixo."],
+    ],
+  };
+  const checks = document.getElementById("checks");
+  Object.entries(ITEMS).forEach(([root, list]) => {
+    const el = document.getElementById(root);
+    list.forEach(([name, when, what]) => {
+      const m = M["prop:" + name] || {}, loop = !!m.loop;
+      const card = document.createElement("article");
+      card.className = "card";
+      card.innerHTML = `<div class="card-top"><span class="fname">${name}.wav</span><span class="tags">
+          <span class="tag" style="color:#8fd3f0;border-color:#2c5a6a">proposta</span>${loop ? '<span class="tag loop">loop</span>' : '<span class="tag">sfx</span>'}
+          <span class="tag">${fd(m.duration)}</span><span class="tag">pico ${fb(m.peak_db)}</span></span></div>
+        <canvas class="wave" aria-hidden="true"></canvas>
+        <audio controls preload="metadata" ${loop ? "loop" : ""} src="${V}${name}.wav"></audio>
+        <div class="when">${when}</div><p class="what">${what}</p>`;
+      el.appendChild(card);
+      const cv = card.querySelector("canvas");
+      requestAnimationFrame(() => drawWave(cv, m.wave, "#8fd3f0"));
+      window.addEventListener("resize", () => drawWave(cv, m.wave, "#8fd3f0"));
+      if (checks){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td><code>v10/${name}.wav</code> (proposta)</td><td>${fd(m.duration)}</td><td class="pass">${fb(m.peak_db)}</td><td>${m.loudness_db == null ? "—" : String(m.loudness_db).replace(".", ",").replace("-", "−") + " dB"}</td><td>${loop && m.seam_lsb != null ? `<span class="pass">OK · salto ${m.seam_lsb} lsb (percentil ${String(m.seam_pct).replace(".", ",")})</span>` : "—"}</td>`;
+        checks.appendChild(tr);
+      }
+    });
+  });
+
+  const live = new Set(), timers = new Set();
+  let raf = 0;
+  const later = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); fn(); }, ms); timers.add(id); };
+  function one(src, vol){ const a = new Audio(src); a.volume = Math.max(0, Math.min(1, vol)); a.play().catch(() => {}); live.add(a); a.onended = () => live.delete(a); return a; }
+  function loopA(src, vol){ const a = new Audio(src); a.loop = true; a.volume = vol; a.play().catch(() => {}); live.add(a); return a; }
+  function stopAll(){ live.forEach(a => a.pause()); live.clear(); timers.forEach(clearTimeout); timers.clear(); cancelAnimationFrame(raf); raf = 0; }
+  function quiet(){ document.querySelectorAll("audio").forEach(a => a.pause()); }
+  const fmt = v => v.toFixed(2).replace(".", ",");
+
+  // chuva: ambiente 0,7 fixo; chuva = 0,55 × intensidade × rampa (0..1 em 2 s)
+  const RS = document.getElementById("v10-rainstatus"), slider = document.getElementById("v10-int"), sv = document.getElementById("v10-intv");
+  let amb = null, ambName = "amb_mist", rain = null, rainName = "amb_rain", ramp = 0, target = 0, last = 0;
+  function tick(now){
+    const dt = last ? (now - last) / 1000 : 0; last = now;
+    ramp += Math.sign(target - ramp) * Math.min(Math.abs(target - ramp), dt / 2);
+    if (rain) rain.volume = Math.max(0, Math.min(1, 0.55 * ramp * parseFloat(slider.value)));
+    RS.textContent = `Tocando: ${ambName} (0,7)${rain ? ` + ${rainName} (${fmt(rain.volume)} = 0,55 × ${fmt(parseFloat(slider.value))} × rampa ${fmt(ramp)})` : ""}`;
+    raf = requestAnimationFrame(tick);
+  }
+  function startAmb(name){
+    stopAll(); quiet(); ambName = name; amb = loopA(A + name + ".wav", 0.7);
+    rain = loopA(V + rainName + ".wav", 0); ramp = 0; target = 0; last = 0; raf = requestAnimationFrame(tick);
+  }
+  slider.oninput = () => { sv.textContent = fmt(parseFloat(slider.value)); };
+  document.querySelectorAll("#v10-rainmix [data-k]").forEach(b => b.onclick = () => {
+    const k = b.dataset.k;
+    if (k === "stop"){ stopAll(); amb = rain = null; RS.textContent = "Parado."; return; }
+    if (k === "mist" || k === "green"){ startAmb("amb_" + k); return; }
+    if (k.startsWith("v-")){
+      rainName = {"v-light": "amb_rain_light", "v-mid": "amb_rain", "v-heavy": "amb_rain_heavy"}[k];
+      if (rain){ const vol = rain.volume; rain.pause(); live.delete(rain); rain = loopA(V + rainName + ".wav", vol); }
+      else RS.textContent = `Variação: ${rainName}. Agora escolhe o estágio e aperta "pancada começa".`;
+      return;
+    }
+    if (!amb) startAmb(ambName);
+    if (k === "on") target = 1;
+    if (k === "off") target = 0;
+    if (k === "auto"){ target = 1; later(() => { target = 0; }, 28000); }
+  });
+
+  // gelo
+  const IS = document.getElementById("v10-icestatus");
+  document.querySelectorAll("#v10-icemix [data-k]").forEach(b => b.onclick = () => {
+    const k = b.dataset.k; stopAll(); quiet();
+    if (k === "stop"){ IS.textContent = "Parado."; return; }
+    loopA(A + "amb_dead.wav", 0.7);
+    if (k === "gate"){ later(() => { one(V + "ice_collapse.wav", 0.8); IS.textContent = "ice_collapse (0,8): um gelo-portão abriu ao norte."; }, 2000); IS.textContent = "amb_dead (0,7)…"; return; }
+    const seq = [["ice_crack", 0.7, "etapa 1"], ["ice_crack_1", 0.7, "etapa 2"], ["ice_crack", 0.7, "etapa 3"], ["ice_collapse", 0.8, "etapa 4: a cratera abriu"]];
+    IS.textContent = "amb_dead (0,7)…";
+    seq.forEach(([n, v, txt], i) => later(() => { one(V + n + ".wav", v); IS.textContent = `${txt} · ${n} (${fmt(v)})`; }, 2000 + i * 7000));
+    later(() => { IS.textContent = "Fim (o ambiente continua; ■ pra parar)."; }, 2000 + 4 * 7000 + 3000);
+  });
+
+  // fumarola
+  const VS = document.getElementById("v10-ventstatus");
+  const fade = d => Math.max(0, Math.min(1, 1 - (d - 2) / 5));
+  document.querySelectorAll("#v10-ventmix [data-k]").forEach(b => b.onclick = () => {
+    const k = b.dataset.k; stopAll(); quiet();
+    if (k === "stop"){ VS.textContent = "Parado."; return; }
+    loopA(A + "amb_dead.wav", 0.7);
+    const v = loopA(V + "vent_hiss.wav", k === "near" ? 0.6 : 0);
+    if (k === "near"){ VS.textContent = "amb_dead (0,7) + vent_hiss (0,6), colado na fumarola."; return; }
+    const t0 = performance.now();
+    const step = now => {
+      const t = (now - t0) / 1000;
+      const d = t < 6 ? 9 - 8 * t / 6 : t < 10 ? 1 : t < 16 ? 1 + 8 * (t - 10) / 6 : 9;
+      v.volume = 0.6 * fade(d);
+      VS.textContent = `distância ${d.toFixed(1).replace(".", ",")} tiles · vent_hiss ${fmt(v.volume)}`;
+      if (t < 16.5) raf = requestAnimationFrame(step); else VS.textContent = "Fim (o ambiente continua; ■ pra parar).";
+    };
+    raf = requestAnimationFrame(step);
+  });
+
+  document.addEventListener("play", e => {
+    if (e.target.tagName === "AUDIO" && e.target.isConnected){ stopAll(); amb = rain = null;
+      RS.textContent = IS.textContent = VS.textContent = "Parado."; }
+  }, true);
+  // as prévias das outras seções param as daqui
+  document.querySelectorAll(".btns:not([id^='v10-']) .btn").forEach(b => b.addEventListener("click", () => { stopAll(); amb = rain = null; }));
+  // e os botões de começar daqui param as prévias das outras seções (só os de começar:
+  // ligar/desligar a chuva no meio da prévia não pode derrubar a própria prévia)
+  document.querySelectorAll("[id^='v10-'] [data-k='mist'], [id^='v10-'] [data-k='green'], [id^='v10-'] [data-k='crater'], [id^='v10-'] [data-k='gate'], [id^='v10-'] [data-k='walk'], [id^='v10-'] [data-k='near']").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(".btns:not([id^='v10-']) [data-k='stop']").forEach(s => s.click());
+  }, true));
+})();
 </script>
 </body>
 </html>

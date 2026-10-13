@@ -21,6 +21,7 @@ TILE_COLORS = {
     C.SMALL_IRON: (106, 90, 80), C.SMALL_SILICON: (106, 90, 80), C.SMALL_ICE: (106, 90, 80),
     C.CRATER: (21, 16, 24), C.WRECK: (200, 192, 176), C.LOOT_CRATE: (242, 163, 58),
     C.FORMATION: (46, 38, 42),          # a pegada; o marcador "Formação" do mapa vai por cima
+    C.CONTAINER: (239, 229, 218),       # contêiner lacrado (v0.4 M3.2); o marcador "Contêiner" vai por cima
 }
 VEIN_COLORS = {"iron": (232, 160, 102), "silicon": (195, 209, 226), "ice": (166, 236, 255)}
 UNSEEN = (0, 0, 0)

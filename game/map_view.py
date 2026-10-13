@@ -30,12 +30,14 @@ KEY_PAN_SCREENS = 1.0         # WASD/setas: ~1 área do mapa por segundo
 # filtros, na ordem dos chips. "crater" vale pra cratera (superfície) e rampa (caverna). "Você" não é filtro.
 FILTERS = ("base", "crater", "wreck", "wreck_empty", "vein", "terminal", "machine", "chest")
 # "formation" (v0.4 Marco 2) é marcador fixo de paisagem: aparece sempre que foi visto, sem chip de filtro.
+# "container" (v0.4 Marco 3 · M3.2): o contêiner lacrado de um bolsão, também sem chip (aparece quando visto).
 # prioridade do hover quando o mouse encosta em dois: você › base › destroço › terminal › rampa › veio › máquina › baú
 # › formação
-PRIORITY = {"you": 0, "base": 1, "wreck": 2, "wreck_empty": 2, "terminal": 3, "crater": 4, "vein": 5,
+PRIORITY = {"you": 0, "base": 1, "wreck": 2, "wreck_empty": 2, "container": 2, "terminal": 3, "crater": 4, "vein": 5,
             "machine": 6, "chest": 7, "formation": 8}
 # ordem do desenho (de baixo pra cima), igual ao mockup; a formação fica por baixo de tudo
-DRAW_ORDER = ("formation", "chest", "machine", "vein", "wreck", "wreck_empty", "terminal", "crater", "base", "you")
+DRAW_ORDER = ("formation", "chest", "machine", "vein", "container", "wreck", "wreck_empty", "terminal", "crater", "base",
+              "you")
 CARDINALS = ("a leste", "a sudeste", "ao sul", "a sudoeste", "a oeste", "a noroeste", "ao norte", "a nordeste")
 # agrupamento (cluster) de máquinas e baús: dois marcadores da mesma categoria a menos de N tiles (na maior
 # distância entre os eixos) viram um só. O pictograma tem 7×6 px da UI e o zoom z é z px por tile: no 1× e no 2×
@@ -122,6 +124,14 @@ def _with_distance(state: str, pos, origin, suffix: str) -> str:
     return f"{state} · {dist}" if state else dist
 
 
+def _gate_state(layer, i: int | None) -> str:
+    """Tooltip do gelo-portão pela etapa do gelo (v0.4 M3.2): fechado, derretendo ou aberto."""
+    stage = layer.gate_ice[i] if i is not None and i < len(layer.gate_ice) else 0
+    if stage >= 3:
+        return "aberto · passagem livre"
+    return "derretendo · gelo" if stage > 0 else "fecha a passagem · gelo"
+
+
 def map_entries(state, key: str) -> list[Entry]:
     """Todos os marcadores da camada `key` que o jogador já viu (sem filtro), com o tooltip pronto.
     Regra: só entra o que tem algum tile no `explored` da camada; as exceções são "você" e a base (é onde ele
@@ -160,10 +170,14 @@ def map_entries(state, key: str) -> list[Entry]:
             entries.append(Entry(cat, cat, *wreck.center, f"Destroço · {wreck.name}",
                                  "caixa vazia" if empty else "caixa cheia"))
     geo = getattr(world, "geo", None)
+    gates = {id(p.gate): i for i, p in enumerate(geo.pockets)} if geo is not None else {}
     for f in (geo.formations if geo is not None else ()):    # v0.4 Marco 2: marcos de paisagem (sem filtro)
         if seen_any(f.tiles) and not f.small:              # as pequenas da v9 são miúdas: sem marcador
-            what = "fecha a passagem · gelo" if f.kind == "ice_gate" else REGION_LABELS[f.region]
+            what = REGION_LABELS[f.region] if f.kind != "ice_gate" else _gate_state(layer, gates.get(id(f)))
             entries.append(Entry("formation", "formation", *f.center, f.name, what))
+    for tx, ty in getattr(world, "containers", ()):          # v0.4 M3.2: contêiner lacrado (sem filtro)
+        if explored.seen(tx, ty):
+            entries.append(Entry("container", "container", tx + 0.5, ty + 0.5, "Contêiner", "lacrado"))
     for i, (tx, ty) in enumerate(world.terminals):
         if explored.seen(tx, ty) or explored.seen(tx, ty + 1):
             read = "lido" if i in state.logs_read else "não lido"

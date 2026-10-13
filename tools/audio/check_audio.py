@@ -40,6 +40,12 @@ CONTRACT = {
 }
 # entregues em _pending/ até o dono aprovar
 PENDING: dict = {}
+# v10 (v0.4 Marco 3): propostas que ficam em reports/audio/v10/ até o dono aprovar
+PROP_DIR = ROOT / "reports" / "audio" / "v10"
+PROPOSALS = {
+    "ice_crack": False, "ice_crack_1": False, "ice_collapse": False,
+    "amb_rain": True, "amb_rain_light": True, "amb_rain_heavy": True, "vent_hiss": True,
+}
 BANDS = [(20, 150), (150, 600), (600, 2500), (2500, 8000), (8000, 22050)]
 
 
@@ -54,9 +60,10 @@ def main() -> int:
     fails = []
     print(f"{'arquivo':<18}{'fmt':>14}{'dur':>7}{'pico':>8}{'rms':>8}{'centr':>7}  "
           f"{'bandas dB (<150|150-600|0.6-2.5k|2.5-8k|>8k)':<46}{'emenda'}")
-    todos = list(CONTRACT.items()) + [("_pending/" + k, v) for k, v in PENDING.items()]
+    todos = (list(CONTRACT.items()) + [("_pending/" + k, v) for k, v in PENDING.items()]
+             + [("v10:" + k, v) for k, v in PROPOSALS.items()])
     for name, loop in todos:
-        path = AUDIO / f"{name}.wav"
+        path = PROP_DIR / f"{name[4:]}.wav" if name.startswith("v10:") else AUDIO / f"{name}.wav"
         if not path.exists():
             fails.append(f"{name}: não existe")
             print(f"{name:<18} FALTANDO")
@@ -116,7 +123,8 @@ def main() -> int:
         for m in fails:
             print("  -", m)
         return 1
-    print(f"tudo ok: {len(todos)} arquivos ({len(CONTRACT)} oficiais + {len(PENDING)} pendentes)")
+    print(f"tudo ok: {len(todos)} arquivos ({len(CONTRACT)} oficiais + {len(PENDING)} pendentes "
+          f"+ {len(PROPOSALS)} propostas v10)")
     return 0
 
 

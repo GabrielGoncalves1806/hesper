@@ -1756,6 +1756,195 @@ SOUNDS.update({
 })
 
 
+# ---------------------------------------------------------------------------
+# v10 (v0.4 · Marco 3 · gelo e água): PROPOSTA. Os wavs saem em reports/audio/v10/
+# (não em assets/audio/) até o dono aprovar; ao aprovar, promove pro SOUNDS com a
+# seed do nome daqui (rng_for(nome)), pra sair idêntico byte a byte.
+#
+# Regras que valem pros três:
+#  - gelo é ruído: rachadura = cascata de grãos curtos de banda larga (filtro de
+#    1ª ordem) em tempo irregular; peso = ruído grave, nunca seno ("tambor") nem
+#    modo fixo ("latinha"). O único elemento com altura é o "piu" dispersivo do gelo
+#    (varredura rápida de 2,6 kHz pra ~400 Hz, que não para em nota nenhuma);
+#  - de longe: tudo passa por passa-baixa (~5-6 kHz) e reverb grande de cratera;
+#  - chuva sem "estalado": o corpo é um véu de ruído (gotas tão densas que viram
+#    textura) e as gotas que aparecem são "tup" abafados (ataque de 2-4 ms, passa-
+#    baixa ~3 kHz), nunca "tic". Sem plink tonal (o amb_mist já tem as gotas dele).
+#    Pouco grave (abaixo de ~250 Hz fica o pad do amb_mist/amb_green).
+# ---------------------------------------------------------------------------
+
+PROP_DIR = REPORT_DIR / "v10"
+
+
+def tail_cut(x: np.ndarray, max_dur: float, fade: float) -> np.ndarray:
+    """Limita a duração com fade-out em cosseno (pro rabo do reverb não passar do teto)."""
+    n = min(len(x), ns(max_dur))
+    x = x[:n].copy()
+    f = min(ns(fade), n)
+    x[-f:] *= 0.5 + 0.5 * np.cos(np.pi * np.linspace(0, 1, f))
+    return x
+
+
+def crack_cascade(rng, tr: Track, at: float, count: int, span: float, lo=(500, 1400),
+                  hi=(4500, 8000), amp: float = 1.0) -> None:
+    """Rachadura correndo: `count` microestalos de ruído largo em intervalos irregulares
+    (exponenciais) dentro de `span` s, o primeiro mais forte, o resto oscilando."""
+    t = at
+    for i in range(count):
+        a = amp * (1.0 if i == 0 else rng.uniform(0.25, 0.8) * np.exp(-(t - at) / (span * 1.2)))
+        tr.add(noise_burst(rng, rng.uniform(*lo), rng.uniform(*hi), rng.uniform(0.0004, 0.0012),
+                           rng.uniform(0.003, 0.011), 0.05, order=1), t, a)
+        t += rng.exponential(span / count)
+
+
+def ice_pew(rng, f0: float = 2600.0, f1: float = 420.0, dur: float = 0.32) -> np.ndarray:
+    """O "piu" do gelo grosso rachando (dispersão na placa): varredura exponencial
+    rápida, decaindo junto. Nunca fica parado numa frequência."""
+    n = ns(dur)
+    t = tvec(n)
+    f = f1 + (f0 - f1) * np.exp(-t / (dur / 4.0))
+    x = np.sin(phase_of(f, n, rng.uniform(0, 6.28)))
+    return x * perc(n, 0.002, dur / 4.5)
+
+
+def sfx_ice_crack(rng, *, pew: float = 0.0, settle: int = 3):
+    """Estalo seco de gelo rachando, de longe (~1,8 s). Cascata de microestalos de ruído
+    largo, um "corpo" de placa (ruído 80-700 Hz, não seno), uns estalinhos de acomodação
+    depois e reverb grande de cratera."""
+    tr = Track()
+    crack_cascade(rng, tr, 0.0, int(rng.integers(5, 9)), 0.16)
+    tr.add(noise_burst(rng, 80, 700, 0.003, 0.11, 0.6, order=1), 0.004, 0.55)    # placa cedendo
+    tr.add(noise_burst(rng, 40, 220, 0.012, 0.22, 0.9, order=2), 0.01, 0.7)      # peso, só ruído
+    if pew:
+        tr.add(ice_pew(rng), 0.012, pew)
+    for _ in range(settle):                                                      # gelo se acomodando
+        crack_cascade(rng, tr, rng.uniform(0.25, 0.95), int(rng.integers(1, 4)), 0.05,
+                      lo=(900, 1800), hi=(3500, 6000), amp=rng.uniform(0.15, 0.3))
+    x = filt(soft_sat(tr.render(1.0), 2.0), None, 6000, 1)                       # de longe
+    x = reverb(x, rng, decay=2.2, mix=0.5, lp=4200)
+    return tail_cut(x, 1.9, 0.6)
+
+
+def sfx_ice_crack_0(rng):
+    """Estalo A · seco: só ruído, sem o "piu"."""
+    return sfx_ice_crack(rng)
+
+
+def sfx_ice_crack_1(rng):
+    """Estalo B · com o "piu" do gelo grosso bem baixo por baixo do estalo."""
+    return sfx_ice_crack(rng, pew=0.18, settle=4)
+
+
+def sfx_ice_collapse(rng):
+    """Desabamento (~2,4 s): rachadura grande e mais grave, a placa cede (ronco de ruído
+    grave crescendo e um "whump" de ruído quando bate no fundo), blocos e lascas caindo
+    em tempo de Poisson cada vez mais raros, um chiado de gelo escorregando e reverb
+    grande. Nenhum seno, nenhum filtro estreito."""
+    tr = Track()
+    crack_cascade(rng, tr, 0.0, 10, 0.22, lo=(300, 900), hi=(3500, 6500))
+    tr.add(ice_pew(rng, 1900, 300, 0.4), 0.02, 0.12)
+    n = ns(1.9)                                                                  # placa cedendo
+    t = tvec(n)
+    env = np.clip(t / 0.18, 0, 1) ** 1.5 * np.exp(-t / 0.7) * (0.75 + 0.25 * slow_noise(n, rng, 6.0, False))
+    tr.add(norm_rms(filt(rng.standard_normal(n), 30, 260, 2)) * env, 0.05, 0.22)
+    tr.add(noise_burst(rng, 35, 320, 0.01, 0.16, 0.8, order=1), 0.42, 0.9)        # "whump" no fundo
+    m = ns(1.3)                                                                  # gelo escorregando
+    slide = filt(rng.standard_normal(m), 700, 3800, 1) * bump(m, 0.3) * (0.6 + 0.4 * slow_noise(m, rng, 8.0, False))
+    tr.add(slide, 0.15, 0.05)
+    t0 = 0.3
+    while True:                                                                  # blocos e lascas
+        t0 += rng.exponential(1 / (26 * np.exp(-(t0 - 0.3) / 0.55) + 2.5))
+        if t0 > 1.9:
+            break
+        fade = np.exp(-(t0 - 0.3) / 0.8)
+        if rng.random() < 0.45:                                                  # bloco: grave, 2-3 batidas
+            for k in range(int(rng.integers(2, 4))):
+                hi = rng.uniform(900, 2200)
+                tr.add(noise_burst(rng, hi / 6, hi, 0.0015, rng.uniform(0.012, 0.03), 0.12, order=1),
+                       t0 + k * rng.uniform(0.012, 0.035), fade * rng.uniform(0.35, 0.7))
+        else:                                                                    # lasca: curta e mais aguda
+            hi = rng.uniform(3000, 6500)
+            tr.add(noise_burst(rng, hi / 4, hi, 0.0006, rng.uniform(0.002, 0.006), 0.03, order=1),
+                   t0, fade * rng.uniform(0.15, 0.35))
+    x = filt(soft_sat(tr.render(2.0), 1.8), None, 5500, 1)
+    x = reverb(x, rng, decay=2.6, mix=0.55, lp=3800)
+    return tail_cut(x, 2.45, 0.7)
+
+
+def rain_loop(rng, *, L: float = 10.0, drops: float = 12.0, plops: int = 8, wash=1.0,
+              air: float = 0.08, low: float = 0.12, sheets: float = 0.25, top: float = 4200.0,
+              near_gain: float = 0.35):
+    """Chuva em loop periódico de L s. Véu de ruído (o grosso das gotas, longe) respirando
+    devagar, "cortinas" lentas de chuva mais forte, gotas próximas como "tup" abafado
+    (Poisson, `drops` por s, uns 4-5 dB acima do véu no envelope de 5 ms), uns "plops" maiores raros e reverb curto de céu aberto."""
+    n = ns(L)
+    breath = 0.8 + 0.2 * slow_noise(n, rng, 0.25)
+    sh = filt(gusts(n, rng, 3, (2.5, 4.5), rise=0.4), None, 0.6, 1, circular=True)
+    sh = np.clip(sh, 0, None) / (sh.max() + 1e-12)
+    level = breath * (1 + sheets * sh)
+    body = norm_rms(filt(filt(rng.standard_normal(n), 300, None, 2, circular=True), None, 2600, 2, circular=True))
+    hiss = norm_rms(filt(rng.standard_normal(n), 2500, 5500, 2, circular=True))
+    patter = norm_rms(filt(rng.standard_normal(n), 140, 480, 2, circular=True)) * (0.7 + 0.3 * slow_noise(n, rng, 1.5))
+    x = (wash * body + air * hiss * (0.6 + 0.4 * sh) + low * patter) * level
+    near = np.zeros(n)
+    k = rng.poisson(drops * L)
+    for _ in range(k):                                                           # gotas perto: "tup"
+        hi = rng.uniform(1400, 2600)
+        d = noise_burst(rng, hi / 3.2, hi, rng.uniform(0.002, 0.004), rng.uniform(0.006, 0.016), 0.06, order=1)
+        add_circ(near, norm_rms(d) * rng.lognormal(0, 0.35), int(rng.integers(0, n)))
+    for _ in range(plops):                                                       # gotas grandes
+        d = noise_burst(rng, 220, rng.uniform(1100, 1700), 0.003, rng.uniform(0.018, 0.03), 0.12, order=1)
+        add_circ(near, norm_rms(d) * rng.uniform(1.0, 1.6), int(rng.integers(0, n)))
+    x = x + near_gain * near * level
+    x = filt(x, 120, top, 2, circular=True)
+    return reverb(x, rng, decay=1.1, mix=0.22, lp=3500, circular=True)
+
+
+def amb_rain(rng):
+    """Médio: a pancada típica da Névoa."""
+    return rain_loop(rng)
+
+
+def amb_rain_light(rng):
+    """Fraca: garoa. Gotas raras, véu mais fino e mais escuro, sem cortinas fortes."""
+    return rain_loop(rng, drops=5.0, plops=3, air=0.05, low=0.05, sheets=0.12, top=3600,
+                     near_gain=0.45)
+
+
+def amb_rain_heavy(rng):
+    """Forte: aguaceiro. Mais gotas, cortinas mais fortes e o "tamborilar" grave do chão."""
+    return rain_loop(rng, drops=24.0, plops=14, air=0.11, low=0.24, sheets=0.4, top=4600)
+
+
+def loop_vent_hiss(rng):
+    """Fumarola: chiado baixo e grave em loop de 7 s. Banda principal 150-1000 Hz que
+    respira irregular (pressão subindo e soltando), um sopro mais claro só nos surtos e
+    um ronco de ruído bem grave por baixo (a terra). Sem tom, sem impulso."""
+    L = 7.0
+    n = ns(L)
+    press = 0.65 + 0.35 * slow_noise(n, rng, 0.9)
+    surge = filt(gusts(n, rng, 3, (0.9, 1.8), rise=0.3), None, 1.5, 1, circular=True)
+    surge = np.clip(surge, 0, None) / (surge.max() + 1e-12)
+    main = norm_rms(filt(filt(rng.standard_normal(n), 150, None, 2, circular=True), None, 1000, 2, circular=True))
+    bright = norm_rms(filt(rng.standard_normal(n), 900, 2800, 1, circular=True))
+    rumble = norm_rms(filt(rng.standard_normal(n), 25, 120, 2, circular=True)) * (0.6 + 0.4 * slow_noise(n, rng, 3.0))
+    x = main * press * (1 + 0.35 * surge) + 0.15 * bright * surge + 0.5 * rumble
+    x = filt(x, 22, 2400, 2, circular=True)
+    return reverb(x, rng, decay=0.9, mix=0.15, lp=2500, circular=True)
+
+
+# nome: (função, loop?, alvo de loudness dB). Saem em reports/audio/v10/.
+PROPOSALS: dict = {
+    "ice_crack": (sfx_ice_crack_0, False, -24.0),
+    "ice_crack_1": (sfx_ice_crack_1, False, -24.0),
+    "ice_collapse": (sfx_ice_collapse, False, -22.0),
+    "amb_rain": (amb_rain, True, -29.0),
+    "amb_rain_light": (amb_rain_light, True, -32.0),
+    "amb_rain_heavy": (amb_rain_heavy, True, -27.0),
+    "vent_hiss": (loop_vent_hiss, True, -33.0),
+}
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
@@ -1828,6 +2017,23 @@ def main() -> None:
             "wave": waveform_peaks(xi),
         }
         print(f"{'rejected_v8/' + name + '.wav':<20}{len(xi) / SR:>8.2f}{peak_db:>11.2f}")
+    if PROPOSALS:
+        PROP_DIR.mkdir(parents=True, exist_ok=True)
+    for name, (fn, loop, target) in PROPOSALS.items():
+        xi = write_wav(PROP_DIR / f"{name}.wav", finalize(fn(rng_for(name)), loop, target))
+        xf = xi.astype(float) / 32768
+        peak_db = 20 * np.log10(np.max(np.abs(xf)) + 1e-12)
+        meta["prop:" + name] = {
+            "file": f"v10/{name}.wav", "loop": loop, "duration": round(len(xi) / SR, 3),
+            "peak_db": round(float(peak_db), 2), "loudness_db": round(float(loudness(xf, loop)), 1),
+            "wave": waveform_peaks(xi),
+        }
+        if loop:
+            adj = np.abs(np.diff(xi.astype(int)))
+            jump = abs(int(xi[0]) - int(xi[-1]))
+            meta["prop:" + name]["seam_lsb"] = jump
+            meta["prop:" + name]["seam_pct"] = round(float(100 * np.mean(adj < jump)), 1)
+        print(f"{'v10/' + name + '.wav':<20}{len(xi) / SR:>8.2f}{peak_db:>11.2f}{loudness(xf, loop):>9.1f}")
     (REPORT_DIR / "audio_meta.js").write_text(
         "// gerado por tools/audio/build_audio.py, não editar\nwindow.AUDIO_META = "
         + json.dumps(meta, ensure_ascii=False) + ";\n",

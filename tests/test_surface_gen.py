@@ -231,7 +231,7 @@ def test_wrecks_and_veins_reachable_on_foot_and_gates_block_only_their_pocket(se
     fica alcançável quando o gelo-portão some (Marco 3), e o anel de rocha não minera (não dá pra contornar)."""
     w = generate_surface(seed)
     reach = w.reachable_from(C.BASE_TILE)
-    for wreck in w.wrecks:
+    for wreck in (x for x in w.wrecks if not x.rich):      # o destroço rico (M3.2) fica atrás do portão
         x, y = wreck.crate
         assert any(n in reach for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1))), wreck.kind
     for v in w.veins:
@@ -250,7 +250,7 @@ def test_wrecks_and_veins_reachable_on_foot_and_gates_block_only_their_pocket(se
             opened.set(*t, C.SAND)
     reach2 = opened.reachable_from(C.BASE_TILE)
     for p in pockets:
-        assert set(p.interior) <= reach2
+        assert {t for t in p.interior if not opened.is_solid(*t)} <= reach2   # menos o destroço rico e o contêiner
 
 
 @pytest.mark.parametrize("seed", SEEDS)

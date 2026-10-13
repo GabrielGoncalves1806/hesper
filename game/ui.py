@@ -1280,16 +1280,23 @@ class UI:
         self.surf.blit(layer, (self.w // 2 - w // 2, self.hotbar_y - 58 if y is None else y))
 
     def draw_toast(self, text: str, alpha: float) -> None:
-        """Aviso neutro e rápido no topo do centro ("Zoom 1,5×", "Tela cheia")."""
+        """Aviso neutro e rápido no topo do centro ("Zoom 1,5×", "Tela cheia"). Texto que não cabe na tela (a dica
+        de lore do contêiner lacrado, v0.4 M3.2) quebra em duas linhas no último " · "."""
         text = text.upper()            # Silkscreen: na Pixelify de 11 px o "Z" parece um "2"
-        w = self.font.size(text)[0] + 16
-        layer = pygame.Surface((w, 15), pygame.SRCALPHA)
-        self.card(0, 0, w, 15, B_WINDOW, B_LINE, shadow=False, target=layer)
+        lines = [text]
+        if self.font.size(text)[0] + 16 > self.w - 16 and " · " in text:
+            head, _, tail = text.rpartition(" · ")
+            lines = [head, tail]
+        w = max(self.font.size(line)[0] for line in lines) + 16
+        h = 15 + 11 * (len(lines) - 1)
+        layer = pygame.Surface((w, h), pygame.SRCALPHA)
+        self.card(0, 0, w, h, B_WINDOW, B_LINE, shadow=False, target=layer)
         layer.fill(pygame.Color(C.C_ACCENT), (2, 1, w - 4, 1))
-        self.text(text, w / 2, 1, B_TEXT, target=layer, align="center", shadow=False)
+        for i, line in enumerate(lines):
+            self.text(line, w / 2, 1 + 11 * i, B_TEXT, target=layer, align="center", shadow=False)
         layer.set_alpha(int(255 * alpha))
         self.surf.blit(layer, (self.w // 2 - w // 2, 40))   # logo abaixo do banner de estágio
-        self.hud_rects.append(pygame.Rect(self.w // 2 - w // 2, 40, w, 15))
+        self.hud_rects.append(pygame.Rect(self.w // 2 - w // 2, 40, w, h))
 
     def _grid(self, inv: Inventory, indexes: list[int], x: int, y: int, item_icon, mouse, selected=None) -> None:
         """Desenha os slots `indexes` de `inv` em linhas de 8, a partir de (x, y), e guarda os retângulos."""

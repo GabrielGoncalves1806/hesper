@@ -11,6 +11,11 @@ from game.surface_gen import generate_surface
 SEEDS = [7, 1, 2, 3, 42, 99, 1234]
 
 
+def outside(world):
+    """Os destroços de fora (sem os ricos dos bolsões dos gelos-portão, v0.4 M3.2, que ficam atrás do portão)."""
+    return [w for w in world.wrecks if not w.rich]
+
+
 def base_dist(world, w):
     cx, cy = w.center
     bx, by = world.center
@@ -20,7 +25,7 @@ def base_dist(world, w):
 @pytest.mark.parametrize("seed", SEEDS)
 def test_count_and_growing_distance(seed):
     world = generate_surface(seed)
-    ws = world.wrecks
+    ws = outside(world)
     lo, hi = C.WRECK_COUNT
     assert lo <= len(ws) <= hi
     dists = [base_dist(world, w) for w in ws]
@@ -37,7 +42,7 @@ def test_count_and_growing_distance(seed):
 def test_tiles_and_free_access(seed):
     world = generate_surface(seed)
     reach = world.reachable_from((world.center[0], world.center[1] + 1))
-    for w in world.wrecks:
+    for w in outside(world):
         assert all(world.get(*t) == C.WRECK for t in w.tiles)
         assert world.get(*w.crate) == C.LOOT_CRATE
         assert not any(world.vein_at(*t) for t in w.tiles + [w.crate])
@@ -54,7 +59,7 @@ def test_tiles_and_free_access(seed):
 @pytest.mark.parametrize("seed", SEEDS)
 def test_kinds_logs_and_blueprints(seed):
     world = generate_surface(seed)
-    ws = world.wrecks
+    ws = outside(world)
     assert ws[0].kind == "cargo" and ws[0].blueprint == "o2_tank" and ws[0].log == 3
     scanner = [w for w in ws if w.blueprint == "scanner"]
     assert len(scanner) == 1 and scanner[0].kind == "module" and scanner[0].log == 4

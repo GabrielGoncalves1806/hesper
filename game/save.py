@@ -117,12 +117,21 @@ def new_state(seed: int = C.WORLD_SEED) -> GameState:
 # ---------------------------------------------------------------------------
 # Cada sistema: to_dict (estado -> dados) e from_dict (dados -> estado)
 # ---------------------------------------------------------------------------
+def derived_tiles(layer) -> set[tuple[int, int]]:
+    """Tiles que saem dos índices (v0.4 Marco 3) e não entram no `changed_tiles`: a pegada dos gelos-portão (o
+    _apply_thaw do load refaz). Nada mais mexe neles: o gelo não minera e o chão aberto não vira outra coisa."""
+    geo = layer.geo
+    return {t for p in geo.pockets for t in p.gate.tiles} if geo is not None else set()
+
+
 def tiles_to_list(state: GameState, key: str) -> list:
-    """Só os tiles da camada diferentes do mapa gerado pela seed, como [x, y, tipo]."""
-    world, original = state.layers[key].world, pristine_tiles(state.seed, key)
+    """Só os tiles da camada diferentes do mapa gerado pela seed, como [x, y, tipo] (sem os derivados)."""
+    layer = state.layers[key]
+    world, original = layer.world, pristine_tiles(state.seed, key)
+    skip = derived_tiles(layer)
     return [[x, y, world.tiles[y][x]]
             for y in range(world.height) for x in range(world.width)
-            if world.tiles[y][x] != original[y][x]]
+            if world.tiles[y][x] != original[y][x] and (x, y) not in skip]
 
 
 def crates_to_list(state: GameState, layer) -> list:
@@ -377,6 +386,8 @@ def state_from_dict(data: dict) -> GameState:
     if layer not in state.layers:
         raise ValueError(f"camada ativa sem dados: {layer!r}")
     state.layer = layer
+    state._apply_thaw()           # v0.4 M3: o que o calor muda no mapa sai dos índices (não vai no save)
+    state.events.clear()          # ...e o load não solta aviso nem som
     return state
 
 

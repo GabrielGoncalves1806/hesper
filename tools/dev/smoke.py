@@ -3207,6 +3207,84 @@ def check_old_save_title(bot) -> None:
     clear_saves()
     bot.state = app.state
 
+def check_gates(bot) -> None:
+    """v0.4 Marco 3 · M3.2: o 1º gelo-portão derretendo com o calor (etapas 0, 2 e aberto, setando indices["heat"]),
+    o aviso, a passagem a pé pelo portão aberto e o interior do bolsão com o destroço rico e o contêiner lacrado."""
+    s, app = bot.state, bot.app
+    geo = s.surface.geo
+    before = dict(s.indices)
+    stage_before, storm_before = s.stage, s.storm
+    zoom_before = app.zoom
+    p = geo.pockets[0]
+    gate = p.gate
+    bx, by = gate.base_px
+    assert s.surface.gate_ice[0] == 0, "jogo novo: portão inteiro"
+
+    def heat(value):                                   # Árido (Ti 6.500) com o calor pedido
+        s.stage, s.storm = C.ARID_STAGE, 0.0
+        s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti) - value, heat=float(value), water=0.0)
+        s.o2 = C.O2_MAX
+        bot.frames(DT)
+
+    app.set_zoom(1.0, notify=False)
+    bot.mouse_to((900, 500))
+    heat(0)
+    bot.teleport((gate.tx + 1, gate.ty + 4))           # no avental, olhando o portão
+    ground_settle(bot)
+    focus = (bx, by - 40)
+    shot_zoom(bot, "m32_portao_0.png", focus, w=320, h=240, k=2)
+    heat(C.THAW_GATE_HEAT[0][1])
+    bot.frames(0.1)
+    assert s.surface.gate_ice[0] == 2, s.surface.gate_ice
+    shot_zoom(bot, "m32_portao_2.png", focus, w=320, h=240, k=2)
+    heat(C.THAW_GATE_HEAT[0][2])
+    bot.frames(0.2)
+    assert s.surface.gate_ice[0] == 3 and app.toast == C.THAW_GATE_NOTICE, (s.surface.gate_ice, app.toast)
+    assert not any(s.world.get(*t) == C.FORMATION for t in gate.tiles)
+    bot.shot("m32_portao_aviso.png")
+    shot_zoom(bot, "m32_portao_aberto.png", focus, w=320, h=240, k=2)
+    reach = s.world.reachable_from(C.BASE_TILE)
+    assert all(t in reach for t in p.interior if not s.world.is_solid(*t)), "interior devia estar alcançável"
+    # anda pelo portão aberto até o bolsão (W segurado)
+    bot.teleport((gate.tx + 1, gate.ty + 3))
+    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_w, mod=0, unicode="", scancode=0))
+    for _ in range(120):
+        s.o2 = C.O2_MAX
+        bot.frames(DT)
+        if s.player.y < gate.ty * C.TILE - 8:
+            break
+    pygame.event.post(pygame.event.Event(pygame.KEYUP, key=pygame.K_w, mod=0, unicode="", scancode=0))
+    bot.frames(DT)
+    assert s.player.y < gate.ty * C.TILE - 8, f"não entrou no bolsão (y {s.player.y:.0f}, portão {gate.ty * C.TILE})"
+    print(f"  portão 0 aberto com calor {C.THAW_GATE_HEAT[0][2]}: entrou no bolsão a pé (y {s.player.y:.0f})")
+    # interior: o destroço rico e o contêiner lacrado; o E no contêiner só mostra a dica de lore
+    rich = next(w for w in s.world.wrecks if w.rich and (w.tx, w.ty) == p.wreck_spot)
+    box = p.container_spot
+    bot.teleport((box[0], box[1] + 1))
+    app.toast_time = 0.0
+    bot.mouse_to(bot.tile_on_screen(box))
+    ground_settle(bot)
+    assert app.e_target() == ("container", box), app.e_target()
+    assert app.hint() == "[E] Contêiner lacrado", app.hint()
+    xs = [t[0] for t in p.interior]
+    ys = [t[1] for t in p.interior]
+    center = ((min(xs) + max(xs) + 1) / 2 * C.TILE, (min(ys) + max(ys) + 1) / 2 * C.TILE)
+    shot_zoom(bot, "m32_bolsao_interior.png", center, w=400, h=300, k=2)
+    bot.key(pygame.K_e)
+    bot.frames(0.2)
+    assert app.mode == "play" and app.toast == C.CONTAINER_LORE, app.toast
+    bot.shot("m32_conteiner_dica.png")
+    crate = s.crates[rich.crate]
+    print(f"  destroço rico {rich.kind} em {p.wreck_spot}: {crate.storage.counts()} · contêiner em {box}")
+    app.toast_time = 0.0
+    s.indices.update(before)
+    s.stage, s.storm = stage_before, storm_before
+    app.set_zoom(zoom_before, notify=False)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     bot = Bot()
@@ -3225,6 +3303,7 @@ def main() -> None:
     check_formations(bot)
     check_v9_elements(bot)
     check_crater(bot)
+    check_gates(bot)
     check_cave(bot)
     check_wrecks(bot)
     check_storm(bot)

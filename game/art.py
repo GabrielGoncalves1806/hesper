@@ -881,6 +881,33 @@ def loot_crate(empty: bool = False) -> pygame.Surface:
     return s
 
 
+SEALED_CONTAINER_SIZE = (32, 40)
+
+
+def sealed_container() -> pygame.Surface:
+    """Contêiner lacrado (v0.4 Marco 3 · M3.2), PLACEHOLDER até o sprite da Designer: caixa industrial 32×40 em branco
+    quente, faixa laranja, contorno #1b1630 e o lacre da colônia no meio. Ancorado no centro de baixo do tile."""
+    out = "#1b1630"
+    s = pygame.Surface(SEALED_CONTAINER_SIZE, pygame.SRCALPHA)
+    _ellipse(s, (0, 0, 0, 90), 16, 37, 15, 3)
+    _r(s, out, 1, 6, 30, 33)                                 # corpo
+    _bands(s, 2, 7, 31, [("#fff6ea", 3), ("#efe5da", 18), ("#d9cbbb", 4), ("#b9ab9c", 3)])
+    _r(s, out, 1, 6, 30, 2)                                  # tampo
+    _r(s, "#fffaf2", 2, 8, 27, 1)
+    for x in (7, 15, 23):                                    # nervuras
+        _r(s, "#cdbfae", x, 10, 1, 27)
+    _r(s, out, 1, 18, 30, 8)                                 # faixa laranja
+    _r(s, "#e2733a", 2, 19, 28, 6)
+    _r(s, "#f59a5e", 2, 19, 28, 1)
+    _r(s, "#a8481f", 2, 24, 28, 1)
+    _r(s, out, 12, 16, 8, 12)                                # lacre da colônia
+    _r(s, "#3a3f4a", 13, 17, 6, 10)
+    _r(s, "#ffd84a", 15, 20, 2, 4)
+    _r(s, out, 1, 35, 30, 4)                                 # base escura
+    _r(s, "#6b6258", 2, 36, 28, 2)
+    return s
+
+
 def blueprint_icon() -> pygame.Surface:
     """Ícone 16×16 de projeto: chip azul de blueprint com linhas de desenho técnico."""
     s = pygame.Surface((16, 16), pygame.SRCALPHA)
