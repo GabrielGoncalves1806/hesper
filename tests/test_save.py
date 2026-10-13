@@ -33,6 +33,7 @@ def rich_state() -> GameState:
     # progresso: Ti alto (Névoa), objetivos avançados, terminal lido
     state.debug_add_ti(12_345)
     state.indices["heat"] += 0.375
+    state._apply_thaw()            # v0.4 M3: no jogo o calor já teria derretido a cratera (o load reaplica)
     state.storm = 0.375                       # tempestade no meio da passagem: tem que voltar igual
     state.smoothed_rate = 51.5
     state.play_time = 1234.5

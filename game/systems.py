@@ -960,6 +960,8 @@ class GameState:
     def _apply_thaw(self) -> None:
         """Despachante do derretimento: tudo o que o índice muda no mapa sobe aqui (nunca desce) e solta os eventos.
         Chamado no fim do _update_machines e depois do load (game/save.py, que descarta os eventos do load)."""
+        self._thaw_crater()
+        self._thaw_fumaroles()
         self._thaw_gates()
         self._thaw_lake()
 
@@ -999,6 +1001,29 @@ class GameState:
         surface.water_level = target
         for k in crossed:
             self.events.append(("lake_rise", k))
+
+    def _thaw_crater(self) -> None:
+        """M3.1: a tampa de gelo baixa com o calor (o F4 e um save com etapa maior ficam: nunca fecha de novo).
+        Um ("crater_thaw", etapa) por etapa que desceu."""
+        if SURFACE not in self.layers:
+            return
+        layer = self.surface
+        target = thaw.crater_stage(self.indices["heat"])
+        while layer.crater_ice < target:
+            layer.crater_ice += 1
+            self.events.append(("crater_thaw", layer.crater_ice))
+
+    def _thaw_fumaroles(self) -> None:
+        """M3.1: cada fumarola do basalto acorda no limiar dela (thaw.fumarole_active) e solta ("fumarole_wake", i).
+        Quem decide se o aviso aparece (só com ela na tela) é o App."""
+        if SURFACE not in self.layers:
+            return
+        awake = self.surface.vents_awake
+        heat = self.indices["heat"]
+        for i, on in enumerate(awake):
+            if not on and thaw.fumarole_active(heat, i):
+                awake[i] = True
+                self.events.append(("fumarole_wake", i))
 
     def _check_stage(self) -> None:
         new_stage = stage_for_ti(self.ti)

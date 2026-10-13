@@ -38,8 +38,8 @@ def visited_cave(state: GameState) -> bool:
 
 
 def crater_open(state: GameState) -> bool:
-    """O gelo da cratera já derreteu? (v0.4: nasce tampada; no Marco 2 só o F4 de debug abre, o Marco 3 liga o
-    derretimento pelo calor). Quem já desceu, já abriu."""
+    """O gelo da cratera já derreteu? (v0.4: nasce tampada e derrete com o calor, Marco 3; o F4 de debug abre na
+    hora). Quem já desceu, já abriu."""
     return not state.crater_frozen or visited_cave(state)
 
 
@@ -64,8 +64,13 @@ OBJECTIVES = [
     Objective("Fabrique um Gerador de O₂", lambda s: crafted(s, "o2") >= 1),
     Objective("Coloque o gerador perto da base", lambda s: placed_near_base(s, "o2")),
     Objective("Fabrique um baú", lambda s: crafted(s, "chest") >= 1),
+    # v0.4 Marco 3 (ordem decidida pelo dono): o calor só sai do aquecedor, que libera no Ti 500. Então o trio
+    # Derretedor -> Ti 500 -> Aquecedor vem antes da cratera.
+    Objective("Minere gelo e fabrique um Derretedor", lambda s: crafted(s, "melter") >= 1),
+    Objective("Chegue a Ti 500", lambda s: s.ti >= 500),
+    Objective("Fabrique um Aquecedor", lambda s: crafted(s, "heater") >= 1),
     # v0.3 Marco 2: a caverna é onde se minera de verdade (escura: lanterna + luminárias)
-    # v0.4 Marco 2: a cratera nasce coberta de gelo (o Marco 3 liga o derretimento no 1º marco de calor)
+    # v0.4 Marco 3: a cratera nasce coberta de gelo e derrete com o calor (game/thaw.py, marcos THAW_CRATER_HEAT)
     Objective("Derreta o gelo da cratera", crater_open),
     Objective("Desça na caverna pela cratera [E]", visited_cave),
     Objective("Coloque uma luminária", lambda s: s.lamps_placed >= 1),
@@ -73,9 +78,6 @@ OBJECTIVES = [
     Objective("Ache um destroço", lambda s: len(s.wrecks_visited) >= 1),
     Objective("Ache o projeto do tanque de O₂", lambda s: "o2_tank" in s.blueprints),
     Objective("Fabrique e equipe o tanque de O₂", lambda s: "o2_tank" in s.equipped_ever),
-    Objective("Minere gelo e fabrique um Derretedor", lambda s: crafted(s, "melter") >= 1),
-    Objective("Chegue a Ti 500", lambda s: s.ti >= 500),
-    Objective("Fabrique um Aquecedor", lambda s: crafted(s, "heater") >= 1),
     # energia (bíblia §8): o aquecedor é o ponto em que os 5 kW da cápsula começam a apertar
     Objective("Fabrique um painel solar", lambda s: crafted(s, "solar") >= 1),
     # v0.3: os terminais ficam na caverna (a 19, 31 e 45 tiles da rampa)

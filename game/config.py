@@ -703,4 +703,25 @@ HILL_PREFETCH = 1               # blocos de folga em volta da tela, assados no m
 # A tampa de gelo (layer.crater_ice) vai de 0 (tampada) a CRATER_ICE_STAGES (vazia, rampa exposta); fechada,
 # bloqueia a descida. No M2 fica sempre tampada: o derretimento pelo calor é do Marco 3.
 CRATER_ICE_STAGES = 4
+
+# v0.4 Marco 3 · M3.1: a cratera derrete com o calor e as fumarolas do basalto acordam (game/thaw.py · bíblia §12).
+# Números de partida: o balanceamento é no Marco 4 (balance_sim registra em quanto tempo o casual abre a cratera).
+THAW_CRATER_HEAT = (40, 90, 150, 220)   # pK: o calor em que a tampa baixa pra etapa 1, 2, 3 e 4 (~1 min de 1 aquecedor)
+# Fumarolas (v9.1 da Designer, regions_palettes.json: formations.vent_*, smoke, vent_density). Cada uma acorda num
+# limiar próprio entre THAW_FUMAROLE_HEAT[0] e [1] (o `wake` do JSON: entre a etapa 1 e a 4 da tampa da cratera).
+THAW_FUMAROLE_HEAT = (THAW_CRATER_HEAT[0], THAW_CRATER_HEAT[-1])
+THAW_FUMAROLE_HALO = 2           # tiles de folga em volta da pegada, todos no basalto e fora de bacia
+THAW_FUMAROLE_SPACING = 8        # tiles entre duas fumarolas (centro a centro)
+THAW_FUMAROLE_FORM_GAP = 6       # tiles até a formação mais perto (centro a centro)
+THAW_FUMAROLE_CLUSTER = 0.6      # fração sorteada em volta do cone de escória (campo de fumarolas)...
+THAW_FUMAROLE_NEAR_CONE = (10, 30)   # ...nesse anel (tiles do centro do cone); o resto é livre no basalto
+THAW_FUMAROLE_SEED = 9151        # o sorteio delas tem rng próprio (seed + isso): não mexe no das outras formações
+# Vento da fumaça (px/s) por estágio, vezes a direção do state.weather (e o `wind` 0,45 do bloco smoke do JSON).
+# Na rajada da tempestade sopra até 2×. Números das prévias da Designer (regions_v91.WIND).
+THAW_FUMAROLE_WIND = {"storm": 34.0, "arid": 9.0, "mist": 5.0, "green": 7.0}
+THAW_FUMAROLE_WIND_Y = 0.25      # o vento pro norte/sul conta só 1/4 na tela (senão o vento pro sul segura a subida)
+THAW_FUMAROLE_WAKE_S = 1.0       # s da fumaça subindo de 1/3 da taxa até a taxa cheia quando ela acorda
+THAW_FUMAROLE_MAX_PUFFS = 220    # teto de puffs vivos na tela (com culling, sobra muito)
+THAW_CRATER_NOTICE_S = 3.5        # s do aviso "O gelo da cratera está cedendo" / "A cratera abriu"
+VOLUME["ice_crack"] = 0.8        # gelo estalando (sem ice_crack.wav, silêncio)
 DEBUG_MELT_CRATER = True        # F4 derrete a tampa na hora (atalho de debug, no mesmo esquema do F1–F3)

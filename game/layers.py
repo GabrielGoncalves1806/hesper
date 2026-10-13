@@ -41,6 +41,9 @@ class Layer:
     # v0.4 Marco 3 · M3.2: etapa do gelo de cada portão (índice = geo.pockets[i]): 0 inteiro .. 3 aberto. DERIVADA do
     # índice de calor (game/thaw.py · gate_stage) pelo GameState._apply_thaw: NÃO vai no save, o load reconstrói.
     gate_ice: list = field(default_factory=list)
+    # v0.4 Marco 3 · M3.1: fumarola i (geo.vents[i]) acordada pelo calor. Derivado dos índices (thaw.fumarole_active),
+    # NÃO vai no save: o load reaplica. Fica na camada porque a geo é dividida entre estados da mesma seed.
+    vents_awake: list = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.explored is None:
@@ -48,6 +51,8 @@ class Layer:
         geo = self.world.geo
         if geo is not None and not self.gate_ice:
             self.gate_ice = [0] * len(geo.pockets)
+        if self.world.geo is not None and not self.vents_awake:
+            self.vents_awake = [False] * len(self.world.geo.vents)
 
     @property
     def geo(self):

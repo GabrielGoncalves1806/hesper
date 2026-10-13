@@ -70,6 +70,9 @@ SKY_CLEAR_DELAY = 5.0   # s depois do stage_up do Árido
 END_SCREEN_DELAY = 4.5
 FOOTSTEP_INTERVAL = 0.3
 CRATER_ICE_HINT = "Gelo · derrete com o calor"   # v0.4 M2: no lugar do "[E] Descer" com a cratera tampada
+CRATER_THAW_TEXT = "O gelo da cratera está cedendo"   # v0.4 M3.1: aviso nas etapas 1–3 do degelo
+CRATER_OPEN_TEXT = "A cratera abriu · desça [E]"      # ...e na etapa 4
+FUMAROLE_WAKE_TEXT = "Uma fumarola acordou com o calor"   # fumarola acordando na tela
 
 
 def fmt_kw(kw: float) -> str:
@@ -162,6 +165,8 @@ class App:
         self.dragging_slider: int | None = None
         self.zoom = self.settings["zoom"]
         self.toast: str | None = None   # aviso neutro rápido ("Zoom 1,5×")
+        self.thaw_notice: str | None = None   # v0.4 M3.1: "O gelo da cratera está cedendo" (pílula no estilo RAJADA)
+        self.thaw_notice_time = 0.0
         self.toast_time = 0.0
         self.audio.set_mix(**settings.mix(self.settings))
         self.audio.start_ambient(self.ambient_want())
@@ -237,6 +242,21 @@ class App:
 
     def zoom_step(self, step: int) -> None:
         self.set_zoom(viewport.step_zoom(self.zoom, step))
+
+    def show_thaw_notice(self, text: str) -> None:
+        """Aviso do degelo (v0.4 M3.1). "A cratera abriu" não é trocado por uma fumarola acordando logo depois."""
+        if self.thaw_notice == CRATER_OPEN_TEXT and self.thaw_notice_time > 0 and text == FUMAROLE_WAKE_TEXT:
+            return
+        self.thaw_notice, self.thaw_notice_time = text, C.THAW_CRATER_NOTICE_S
+
+    def vent_on_screen(self, index: int) -> bool:
+        """A fumarola `index` (geo.vents) aparece na tela agora? (na superfície, pelo sprite com a câmera atual)"""
+        state = self.state
+        geo = getattr(state.active, "geo", None)
+        if geo is None or not 0 <= index < len(geo.vents):
+            return False
+        f = geo.vents[index]
+        return any(v[0] is f for v in self.renderer.visible_formations(state, self.cam))
 
     def show_toast(self, text: str, seconds: float = C.ZOOM_TOAST_TIME) -> None:
         self.toast, self.toast_time = text, seconds
@@ -1258,6 +1278,7 @@ class App:
             self.placing = None
         self.notice_time = max(0.0, self.notice_time - dt)
         self.toast_time = max(0.0, self.toast_time - dt)
+        self.thaw_notice_time = max(0.0, self.thaw_notice_time - dt)
         self.blueprint_notice_time = max(0.0, self.blueprint_notice_time - dt)
         self.blueprint_duck = max(0.0, self.blueprint_duck - dt)
         self.banner_time += dt
@@ -1341,6 +1362,13 @@ class App:
                 self.audio.play("ice_crack")      # sem ice_crack.wav (Som), silêncio
         elif kind == "gust":                  # rajada começou (tempestade): volume pelo storm, sem gust.wav fica mudo
             self.audio.play("gust", gain=sound.gust_gain(event[1]))
+        elif kind == "crater_thaw":           # v0.4 M3.1: a tampa baixou uma etapa (sem ice_crack.wav, silêncio)
+            opened = event[1] >= C.CRATER_ICE_STAGES
+            self.show_thaw_notice(CRATER_OPEN_TEXT if opened else CRATER_THAW_TEXT)
+            self.audio.play("ice_crack")
+        elif kind == "fumarole_wake":         # só um aviso visual, e só com a fumarola na tela (sem som por ora)
+            if self.vent_on_screen(event[1]):
+                self.show_thaw_notice(FUMAROLE_WAKE_TEXT)
         elif kind == "equip":
             self.audio.play("equip")
         elif kind == "unequip":
@@ -1644,6 +1672,8 @@ class App:
         if not critical:   # com O₂ crítico o aviso grande ocupa essa área (e o foco é voltar pra base)
             ui.draw_objectives(self.objectives.lines(state))
         ui.draw_gust_warning(state, self.t)
+        if self.thaw_notice_time > 0 and self.thaw_notice:
+            ui.draw_thaw_notice(self.thaw_notice, min(1.0, self.thaw_notice_time / 0.4))
         if state.has_scanner and self.mode != "map":           # scanner equipado: minimapa
             ui.draw_minimap(state, self.renderer.minimap.texture(state), self.t, self.renderer.item_icon)
         if self.saved_notice > 0:
@@ -1802,6 +1832,7 @@ class App:
         self.open_crate = self.after_terminal = None
         self.renderer.minimap.reset()
         self.blueprint_notice, self.blueprint_notice_time, self.blueprint_duck = None, 0.0, 0.0
+        self.thaw_notice, self.thaw_notice_time = None, 0.0
         self.banner_stage, self.banner_time, self.end_timer = state.stage, 0.0, None
         self.drills_near.clear()
         self.drill_full_last.clear()

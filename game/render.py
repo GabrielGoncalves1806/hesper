@@ -34,6 +34,7 @@ from game import energy
 from game import ground
 from game import hills
 from game import layers
+from game import smoke
 from game.assets import Sprites
 from game.ground import decor_layers, decor_tile_free
 from game.lighting import LightSource, Lighting, helmet_lamp, lamp as lamp_light, ore_glints
@@ -186,6 +187,10 @@ class Renderer:
         self.formation_sprites = hills.FormationSprites()   # formações fixas (v0.4 M2 · C3)
         self.crater_sprites = hills.CraterSprites()          # cratera de impacto e a tampa de gelo (C4)
         self.frost_ring = hills.FrostRing()                   # geada do gelo-portão derretendo (v0.4 M3.2)
+        # v0.4 M3.1: fumaça das fumarolas acordadas (game/smoke.py), partícula; relógio próprio pelo `t` do draw
+        self.vent_smoke = smoke.VentSmoke(seed=C.WORLD_SEED)
+        self._smoke_t: float | None = None
+        self._vents_seen: list | None = None           # vents_awake do quadro anterior (pra pegar quem acordou)
 
     # ---- utilitários ----------------------------------------------------------
     @staticmethod
@@ -298,6 +303,8 @@ class Renderer:
                 self.draw_ghost(canvas, cam, *ghost, t)
         self.draw_flying_drones(canvas, state, cam, t)
         self.draw_particles(canvas, cam)
+        if not cave:
+            self.draw_vent_smoke(canvas, state, cam, t)
         if cave:
             self.draw_cave_darkness(canvas, state, cam, t)
             # rachaduras e fantasma por cima do escuro: o jogador precisa ver onde está mexendo
@@ -322,6 +329,8 @@ class Renderer:
         self.surface_map = StageMap(seed)
         self.storm_particles = dust.DustParticles(seed=seed)
         self.rain_drops = RainDrops(seed=seed)
+        self.vent_smoke = smoke.VentSmoke(seed=seed)
+        self._vents_seen = None
 
     def draw_storm(self, canvas, state: GameState, cam, t: float) -> None:
         """Tempestade de poeira (game/dust.py): poeira com a visão recortada + grãos e faixas de vento.
@@ -340,6 +349,55 @@ class Renderer:
         """Chuva (v0.4 M3.3, game/rain.py): véu frio + traços no ângulo do vento, por cima do clima do estágio e
         por baixo dos indicadores e da HUD. Só na superfície; sem chuva, nada (custo zero)."""
         self.rain_drops.draw(canvas, rain_level(state), state.weather.wind, t)
+
+    # ---- fumarolas (v0.4 M3.1) ------------------------------------------------------------------------------
+    @staticmethod
+    def formation_variant(state: GameState, f) -> int | None:
+        """Sprite de cada formação pelo estado (None = o `variant` da própria formação). Fumarola: 1 = acordada."""
+        if not f.kind.startswith("vent_"):
+            return None
+        geo = state.active.geo
+        awake = state.active.vents_awake
+        for i, v in enumerate(geo.vents):
+            if v is f:
+                return 1 if i < len(awake) and awake[i] else 0
+        return 0
+
+    def vent_sources(self, state: GameState) -> list[smoke.Source]:
+        """As fumarolas acordadas da camada, com as bocas (mouths do JSON, px do sprite) em px do mundo."""
+        geo = getattr(state.active, "geo", None)
+        if geo is None:
+            return []
+        out = []
+        forms = hills.palettes().get("formations", {})
+        for i, (f, on) in enumerate(zip(geo.vents, state.active.vents_awake)):
+            if not on:
+                continue
+            surf, x, y = self.formation_sprites.placement(f, self.stage_map.stage_at(*hills.foot_tile(f)), 1)
+            mouths = forms.get(f.kind, {}).get("mouths") or [(surf.get_width() // 2, 4)]
+            out.append(smoke.Source(i, f.kind.removeprefix("vent_"), [(x + mx, y + my) for mx, my in mouths]))
+        return out
+
+    def draw_vent_smoke(self, canvas, state: GameState, cam, t: float) -> None:
+        """Fumaça das fumarolas acordadas: depois dos objetos, antes da luz/clima e da HUD. Só na superfície."""
+        dt = 0.0 if self._smoke_t is None else max(0.0, min(C.MAX_DT, t - self._smoke_t))
+        self._smoke_t = t
+        awake = list(getattr(state.active, "vents_awake", []))
+        seen = self._vents_seen
+        if seen is not None and len(seen) == len(awake):
+            for i, (was, now) in enumerate(zip(seen, awake)):
+                if now and not was:
+                    self.vent_smoke.wake(i)
+        self._vents_seen = awake
+        if not any(awake) and not self.vent_smoke.puffs:
+            return
+        storm = dust.storm_of(state)
+        wind, gust, _ = dust.weather_of(state)
+        speed = C.THAW_FUMAROLE_WIND.get(stage_key(state.stage), 0.0) * (1 + gust * storm)
+        view = pygame.Rect(cam[0], cam[1], self.view_w, self.view_h)
+        push = (wind[0] * speed, wind[1] * speed * C.THAW_FUMAROLE_WIND_Y)
+        self.vent_smoke.update(dt, self.vent_sources(state), push, view)
+        self.vent_smoke.draw(canvas, cam, stage_key(state.stage))
 
     def draw_cave_darkness(self, canvas, state: GameState, cam, t: float) -> None:
         """Escuridão da caverna (game/lighting.py) e, por cima, o brilho dos minérios no escuro."""
@@ -504,7 +562,8 @@ class Renderer:
         out = []
         cam_x, cam_y = cam
         for f in layers.current_formations(state.active):      # o gelo-portão na etapa do gelo (aberto: some)
-            surf, x, y = self.formation_sprites.placement(f, self.stage_map.stage_at(*hills.foot_tile(f)))
+            surf, x, y = self.formation_sprites.placement(f, self.stage_map.stage_at(*hills.foot_tile(f)),
+                                                          self.formation_variant(state, f))
             w, h = surf.get_size()
             if x + w > cam_x - margin and x < cam_x + self.view_w + margin \
                     and y + h > cam_y - margin and y < cam_y + self.view_h + margin:

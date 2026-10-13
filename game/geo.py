@@ -170,6 +170,7 @@ class Geo:
     formations: list[Formation]
     region_px: Callable = None           # region_px(px, py) -> região num pixel do mundo (borda orgânica)
     pockets: list[Pocket] = field(default_factory=list)   # bolsões dos gelos-portão (as formações "ice_gate")
+    vents: list[Formation] = field(default_factory=list)  # M3.1: fumarolas do basalto ("vent_*", também em formations)
 
     def region_at(self, tx: int, ty: int) -> int:
         """Região do tile (fora do mapa: a do tile mais perto)."""
@@ -452,4 +453,82 @@ def _small_formations(geo: Geo, base: tuple[int, int]) -> list[Formation]:
                 continue
             placed.append(f)
             got += 1
+    return placed
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Fumarolas do basalto (v0.4 Marco 3 · M3.1; arte v9.1 da Designer, regra no regions_palettes.json → vent_density)
+# ---------------------------------------------------------------------------------------------------------------
+def _vent_counts() -> dict[str, tuple[int, int]]:
+    """{"vent_cone": (2, 3), ...}: quantas de cada por mundo (vent_density.count do JSON)."""
+    data = json.loads(C.REGIONS_PALETTES.read_text(encoding="utf-8")).get("vent_density", {})
+    return {f"vent_{k}": (int(lo), int(hi)) for k, (lo, hi) in data.get("count", {}).items()
+            if f"vent_{k}" in FORMATION_SPECS}
+
+
+def add_vents(geo: Geo, base: tuple[int, int], free: np.ndarray | None = None) -> list[Formation]:
+    """Sorteia as fumarolas (rng próprio: seed + THAW_FUMAROLE_SEED) e soma no fim de `geo.formations` (e em
+    `geo.vents`). Quem chama é o gerador da superfície (game/surface_gen.py), DEPOIS dos morros: `free` (H, W) bool
+    = tile livre (areia); a pegada + a folga da fumarola caem inteiras no livre. Assim os morros saem iguais aos
+    de antes das fumarolas (o sorteio deles não muda) e a fumarola nunca encosta num morro."""
+    rng = np.random.default_rng([geo.seed & 0xFFFFFFFF, C.THAW_FUMAROLE_SEED])
+    geo.vents = _vents(geo, rng, base, free)
+    geo.formations = geo.formations + geo.vents
+    return geo.vents
+
+
+def _vents(geo: Geo, rng: np.random.Generator, base: tuple[int, int],
+           free: np.ndarray | None = None) -> list[Formation]:
+    """Fumarolas (formação pequena, dormente até o calor acordar): a pegada + THAW_FUMAROLE_HALO tiles de folga
+    inteiras no basalto, fora de bacia e no `free`, a FORMATION_MIN_BASE_DIST+ tiles da base,
+    THAW_FUMAROLE_SPACING+ uma da outra e THAW_FUMAROLE_FORM_GAP+ das outras formações. THAW_FUMAROLE_CLUSTER
+    delas tentam primeiro o anel THAW_FUMAROLE_NEAR_CONE em volta do cone de escória (campo de fumarolas); o resto
+    é livre no basalto. Bolsão e avental dos gelos-portão ficam na faixa gelada, então já estão fora."""
+    h, w = geo.region.shape
+    bx, by = base
+    halo = C.THAW_FUMAROLE_HALO
+    cones = [f.center for f in geo.formations if f.kind == "cone"]
+    cands = np.argwhere(geo.region == BASALT)
+    if len(cands) == 0:
+        return []
+    near_lo, near_hi = C.THAW_FUMAROLE_NEAR_CONE
+    if cones:
+        cx0, cy0 = cones[0]
+        dist = np.hypot(cands[:, 1] + 0.5 - cx0, cands[:, 0] + 0.5 - cy0)
+        ring = cands[(dist >= near_lo) & (dist <= near_hi)]
+    else:
+        ring = cands[:0]
+    wants = [kind for kind, (lo, hi) in _vent_counts().items() for _ in range(int(rng.integers(lo, hi + 1)))]
+    wants = [wants[i] for i in rng.permutation(len(wants))]
+    others = list(geo.formations)
+    placed: list[Formation] = []
+    for n, kind in enumerate(wants):
+        spec = FORMATION_SPECS[kind]
+        fw = max(x for x, _ in spec.footprint) + 1
+        fh = max(y for _, y in spec.footprint) + 1
+        pools = [ring, cands] if n < round(len(wants) * C.THAW_FUMAROLE_CLUSTER) else [cands]
+        done = False
+        for pool in pools:
+            if done or len(pool) == 0:
+                continue
+            for i in rng.permutation(len(pool))[:3000]:
+                ty, tx = (int(v) for v in pool[i])
+                if tx - halo < 6 or ty - halo < 6 or tx + fw + halo > w - 6 or ty + fh + halo > h - 6:
+                    continue
+                f = Formation(kind, tx, ty, list(spec.footprint), spec.anchor)
+                cx, cy = f.center
+                if math.hypot(cx - bx, cy - by) < C.FORMATION_MIN_BASE_DIST:
+                    continue
+                if any(math.hypot(cx - o.center[0], cy - o.center[1]) < C.THAW_FUMAROLE_FORM_GAP for o in others):
+                    continue
+                if any(math.hypot(cx - o.center[0], cy - o.center[1]) < C.THAW_FUMAROLE_SPACING for o in placed):
+                    continue
+                area = (slice(ty - halo, ty + fh + halo), slice(tx - halo, tx + fw + halo))
+                if (geo.region[area] != BASALT).any() or (geo.basin[area] >= 0).any():
+                    continue
+                if free is not None and not free[area].all():
+                    continue
+                placed.append(f)
+                done = True
+                break
     return placed

@@ -172,6 +172,8 @@ def map_entries(state, key: str) -> list[Entry]:
     geo = getattr(world, "geo", None)
     gates = {id(p.gate): i for i, p in enumerate(geo.pockets)} if geo is not None else {}
     for f in (geo.formations if geo is not None else ()):    # v0.4 Marco 2: marcos de paisagem (sem filtro)
+        if f.kind.startswith("vent_"):      # v0.4 M3.1: fumarola é formação pequena (sem marcador no mapa)
+            continue
         if seen_any(f.tiles) and not f.small:              # as pequenas da v9 são miúdas: sem marcador
             what = REGION_LABELS[f.region] if f.kind != "ice_gate" else _gate_state(layer, gates.get(id(f)))
             entries.append(Entry("formation", "formation", *f.center, f.name, what))
