@@ -2,6 +2,8 @@
 
 Ordem de cada frame (de trás pra frente, como camadas de papel):
   1. tiles visíveis (chão ou areia do deserto, água, paredes com face, minério, terminais)
+     Na superfície com geo (v0.4 M2) o chão é assado em blocos de 512 px (game/ground.py) e só a água e a
+     sombra das paredes vão por tile.
   2. zona de O₂ (círculo tracejado, só na superfície)
   3. objetos ordenados pelo Y do pé (cratera, rochas pequenas, cápsula, máquinas,
      plantas, player):
@@ -28,6 +30,7 @@ from game import config as C
 from game import drones
 from game import dust
 from game import energy
+from game import ground
 from game import layers
 from game.assets import Sprites
 from game.lighting import LightSource, Lighting, helmet_lamp, lamp as lamp_light, ore_glints
@@ -41,6 +44,7 @@ T = C.TILE
 WALL_LIFT = C.WALL_LIFT   # o topo da parede é desenhado 24 px acima do tile (altura, estilo Core Keeper)
 LANDED_SHADOW_DROP = 6   # px abaixo do centro do drone: a sombra encostada nele (ainda no chão)
 FACE_Y = 8       # a face (32×24) começa 8 px abaixo do topo do tile e vai até a borda de baixo
+DECOR_FOOT = 26  # px: o pé da decoração solta (lasca, cristal, gelo) dentro do tile, como no mockup da Designer
 
 
 def snap(v: float) -> int:
@@ -159,6 +163,7 @@ class Renderer:
         self._drone_t: float | None = None
         self._item_icons: dict[str, pygame.Surface] = {}
         self.minimap = Minimap()                 # textura do mapa (1 px por tile), incremental (game/minimap.py)
+        self.ground = ground.Ground(getattr(sprites, "enabled", True))  # chão assado da superfície com geo (v0.4 M2, game/ground.py)
 
     # ---- utilitários ----------------------------------------------------------
     @staticmethod
@@ -307,10 +312,25 @@ class Renderer:
         cam_x, cam_y = cam
         return cam_x // T, (cam_x + self.view_w) // T, cam_y // T, (cam_y + self.view_h) // T
 
+    def surface_geo(self, state: GameState):
+        """O geo da camada (v0.4 M2: regiões e bacias) quando dá pra usar o chão assado; senão None (caverna,
+        mundo sem geo ou sem a arte das regiões): aí o chão é o de hoje, por tile."""
+        geo = getattr(state.active, "geo", None)
+        return geo if geo is not None and self.ground.enabled else None
+
     def draw_floors(self, canvas, state: GameState, cam, stage: str, t: float) -> None:
         """Passada 1: todo o chão e a água visíveis (as paredes vêm depois, por cima)."""
         world = state.world
         tx0, tx1, ty0, ty1 = self.visible_tiles(cam)
+        geo = self.surface_geo(state)
+        if geo is not None:   # chão assado em blocos de 512 px (game/ground.py); por tile só água e sombra
+            self.ground.draw(canvas, geo, cam, (self.view_w, self.view_h), self.stage_map)
+            self._wet_memo.clear()
+            for ty in range(ty0, ty1 + 1):
+                for tx in range(tx0, tx1 + 1):
+                    if not world.is_wall(tx, ty):
+                        self._floor_overlays(canvas, world, tx, ty, tx * T - cam[0], ty * T - cam[1], t)
+            return
         backstop = C.PALETTES[stage]["face_dark"]
         self._wet_memo.clear()   # cada vizinho é consultado por até 9 tiles: guarda só neste frame
         for ty in range(ty0, ty1 + 1):
@@ -428,6 +448,15 @@ class Renderer:
         if self._wet(world, tx, ty):
             self._draw_water(canvas, world, tx, ty, sx, sy, stage, t)
         # sombra que a parede projeta no chão
+        if world.is_wall(tx, ty - 1):
+            canvas.blit(self.shadow_top, (sx, sy))
+        if world.is_wall(tx - 1, ty):
+            canvas.blit(self.shadow_left, (sx, sy))
+
+    def _floor_overlays(self, canvas, world, tx, ty, sx, sy, t) -> None:
+        """Por cima do chão assado: a água de hoje (o Marco 3 troca pelas bacias) e a sombra das paredes."""
+        if self._wet(world, tx, ty):
+            self._draw_water(canvas, world, tx, ty, sx, sy, art_key(self.stage_map.stage_at(tx, ty)), t)
         if world.is_wall(tx, ty - 1):
             canvas.blit(self.shadow_top, (sx, sy))
         if world.is_wall(tx - 1, ty):
@@ -585,6 +614,19 @@ class Renderer:
                     if kind and self.stage_map.stage_at(tx, ty) >= C.GREEN_STAGE and not state.machine_at((tx, ty)):
                         px, py = tx * T + T // 2, (ty + 1) * T
                         surf = self.surface(f"plant_{kind}", lambda k=kind: art.plant(k))[0]
+                        items.append((py, lambda s=surf, px=px, py=py: canvas.blit(
+                            s, (px - cam_x - s.get_width() // 2, py - cam_y - s.get_height()))))
+
+        geo = self.surface_geo(state)
+        if geo is not None:                      # decoração solta com altura (v0.4 M2): não colide, ordena pelo pé
+            for ty in range(max(0, ty0 - 1), min(world.height, ty0 + self.view_h // T + 2)):
+                for tx, name, v in self.ground.decor_row(ty):
+                    if not (tx0 - 1 <= tx <= tx0 + self.view_w // T + 1) or not world.is_floor(tx, ty) \
+                            or world.vein_at(tx, ty) or world.wreck_at(tx, ty) or state.machine_at((tx, ty)):
+                        continue
+                    surf = self.ground.decor_surface(name, v, stage_key(self.stage_map.stage_at(tx, ty)))
+                    if surf is not None:
+                        px, py = tx * T + T // 2, ty * T + DECOR_FOOT
                         items.append((py, lambda s=surf, px=px, py=py: canvas.blit(
                             s, (px - cam_x - s.get_width() // 2, py - cam_y - s.get_height()))))
 

@@ -1942,6 +1942,164 @@ def check_surface(bot) -> None:
     bot.frames(0.2)
 
 
+def region_spot(geo, world, want, other=None, half=(14, 8)):
+    """Tile de chão (pros pés do player) no meio da região `want` (ou na divisa com `other`): a janela de
+    ~1 tela em volta dele é o mais `want` possível (na divisa: o mais meio a meio), desempate pela base."""
+    import numpy as np
+    hx, hy = half
+
+    def frac(reg):
+        m = np.pad((geo.region == reg).astype(np.int32), ((hy + 1, hy), (hx + 1, hx)))
+        cs = m.cumsum(0).cumsum(1)
+        win = cs[2 * hy + 1:, 2 * hx + 1:] - cs[:-2 * hy - 1, 2 * hx + 1:] - cs[2 * hy + 1:, :-2 * hx - 1] \
+            + cs[:-2 * hy - 1, :-2 * hx - 1]
+        return win / ((2 * hy + 1) * (2 * hx + 1))
+    score = frac(want) if other is None else np.minimum(frac(want), frac(other))
+    best, best_key = None, None
+    for ty in range(hy + 2, world.height - hy - 2):
+        for tx in range(hx + 2, world.width - hx - 2):
+            if not world.is_floor(tx, ty) or world.is_solid(tx, ty - 1):
+                continue
+            key = (round(float(score[ty, tx]), 2), -world.dist_from_center(tx, ty))
+            if best_key is None or key > best_key:
+                best, best_key = (tx, ty), key
+    return best
+
+
+def ground_settle(bot, seconds: float = 0.2) -> None:
+    """Deixa o chão assado pronto antes do print (assa tudo que está na tela na hora, sem o orçamento)."""
+    g = bot.app.renderer.ground
+    g.sync = True
+    bot.frames(DT)
+    g.sync = False
+    bot.frames(seconds)
+
+
+def walk_perf(bot, spot, fast: bool = False) -> list[float]:
+    s = bot.state
+    bot.teleport(spot)
+    bot.frames(0.1)                                  # fora da medida: o quadro frio do teleporte
+    s.fast = fast
+    start = len(bot.frame_times)
+    for key in (pygame.K_d, pygame.K_s, pygame.K_a, pygame.K_w):
+        s.o2 = C.O2_MAX
+        bot.key(key, hold=0.75)
+    s.fast = False
+    return bot.frame_times[start:]
+
+
+def check_ground(bot) -> None:
+    """v0.4 Marco 2 · trilha B · chão assado (game/ground.py, com o layer.geo): as 4 regiões no Árido, as
+    divisas, o leito seco com as marcas d'água, os 4 estágios, a mancha da transição, o mapa inteiro e o
+    desempenho contra o chão por tile de antes (o mesmo passeio sem o geo)."""
+    s, app = bot.state, bot.app
+    r = app.renderer
+    w = s.world
+    before = dict(s.indices)
+    stage_before, storm_before = s.stage, s.storm
+    zoom_before = app.zoom
+    app.set_zoom(0.75, notify=False)
+    # 0) desempenho de hoje (sem geo), pra comparar: o mesmo passeio
+    spot0 = (C.BASE_TILE[0] + 12, C.BASE_TILE[1] + 6)
+    carve(s, [spot0])
+    geo = s.active.geo
+    w.geo = None                                     # o chão por tile de antes, só pra comparar (layer.geo = world.geo)
+    base_ft = walk_perf(bot, spot0)
+    w.geo = geo
+    assert geo is not None and r.surface_geo(s) is geo, "sem geo ou sem a arte das regiões (assets/sprites/regions/)"
+    s.stage, s.storm = C.ARID_STAGE, 0.0              # Árido: sem poeira na frente do chão
+    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    app.set_zoom(1.0, notify=False)
+    names = {"planalto": 0, "salar": 1, "basalto": 2, "gelada": 3}
+    for name, reg in names.items():
+        spot = region_spot(geo, w, reg)
+        bot.teleport(spot)
+        s.o2 = C.O2_MAX
+        bot.mouse_to((900, 500))
+        ground_settle(bot)
+        print(f"  chão {name}: {spot}")
+        bot.shot(f"chao_{name}.png")
+    for name, other in (("salar", 1), ("basalto", 2), ("gelada", 3)):
+        spot = region_spot(geo, w, 0, other)
+        bot.teleport(spot)
+        s.o2 = C.O2_MAX
+        ground_settle(bot)
+        print(f"  divisa planalto -> {name}: {spot}")
+        bot.shot(f"chao_divisa_{name}.png")
+    # leito seco com as marcas d'água (a depressão pequena mais perto da base)
+    import numpy as np
+    ys, xs = np.nonzero((geo.basin == 0) & (geo.region == 0))
+    k = int(np.argmin(np.hypot(xs - C.BASE_TILE[0], ys - C.BASE_TILE[1])))
+    bed = (int(xs[k]), int(ys[k]))
+    carve(s, [bed, (bed[0], bed[1] - 1)])
+    bot.teleport(bed)
+    s.o2 = C.O2_MAX
+    ground_settle(bot)
+    bot.shot("chao_leito.png")
+    # decoração solta: tem que ter algo na tela do basalto e do salar
+    for reg in (1, 2):
+        spot = region_spot(geo, w, reg)
+        n = sum(1 for ty in range(spot[1] - 8, spot[1] + 9) for tx, _, _ in r.ground.decor_row(ty)
+                if abs(tx - spot[0]) <= 15)
+        assert n > 0, f"sem decoração solta perto de {spot}"
+    # 4 estágios na base (cor da rampa; a poeira e o clima por cima, como no jogo)
+    for stage in (1, 2, 3, 4):
+        s.stage = stage
+        s.storm = 1.0 if stage == C.STORM_STAGE else 0.0
+        s.indices.update(o2=float(C.STAGES[stage - 1].ti), heat=0.0, water=0.0)
+        bot.teleport((C.BASE_TILE[0] + 3, C.BASE_TILE[1] + 4))
+        s.o2 = C.O2_MAX
+        ground_settle(bot)
+        bot.shot(f"chao_estagio{stage}.png")
+    # a mancha da transição Árido -> Névoa passando pela base (blocos misturados)
+    s.stage, s.storm = C.ARID_STAGE, 0.0
+    app.set_zoom(0.75, notify=False)
+    s.indices.update(o2=ti_in_window(C.ARID_STAGE, 0.6), heat=0.0, water=0.0)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 2))
+    ground_settle(bot)
+    assert any(c[0][0] == "m" for c in r.ground._color.values()), "nenhum bloco misturado na transição"
+    bot.shot("chao_transicao.png")
+    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    # 5) mapa inteiro reduzido 8× (só o chão), pra comparar com o mapa_regioes.png da Designer
+    full = pygame.Surface((w.width * C.TILE // 8, w.height * C.TILE // 8), 0, 32)
+    piece = pygame.Surface((1024, 1024), 0, 32)
+    r.ground.sync = True
+    for cy in range(0, w.height * C.TILE, 1024):
+        for cx in range(0, w.width * C.TILE, 1024):
+            r.view_w, r.view_h = 1024, 1024
+            r.stage_map.update(s.ti, [])
+            r.draw_floors(piece, s, (cx, cy), "dead", 0.0)
+            full.blit(pygame.transform.smoothscale(piece, (128, 128)), (cx // 8, cy // 8))
+    r.ground.sync = False
+    pygame.image.save(full, str(OUT / "chao_mapa.png"))
+    print("  screenshot: reports/dev/chao_mapa.png  (chão 192×192 reduzido 8×)")
+    # 6) desempenho: assar 1 bloco, o passeio de antes (zoom 0,75) e o pior quadro andando rápido (F3)
+    app.set_zoom(0.75, notify=False)
+    r.ground.reset()                                 # cache fria: mede o assado de verdade
+    bot.teleport(spot0)
+    cold = len(bot.frame_times)
+    bot.frames(DT)                                   # 1º quadro frio: assa a tela inteira na hora
+    cold_ms = 1000 * bot.frame_times[cold]
+    geo_ft = walk_perf(bot, spot0)
+    fast_ft = walk_perf(bot, region_spot(geo, w, 2), fast=True)
+    bake = r.ground.bake_ms
+    avg = lambda ft: 1000 * sum(ft) / len(ft)   # noqa: E731
+    print(f"  assar 1 bloco 512×512: média {sum(bake) / len(bake):.0f} ms em faixas de {C.GROUND_BAKE_ROWS} linhas "
+          f"(orçamento {C.GROUND_BAKE_MS:g} ms/quadro) · {len(bake)} blocos")
+    print(f"  perf chão, zoom 0,75×: hoje {avg(base_ft):.1f} ms · assado {avg(geo_ft):.1f} ms "
+          f"({avg(geo_ft) - avg(base_ft):+.1f} ms) · pior {max(geo_ft) * 1000:.1f} ms")
+    print(f"  1º quadro com a cache fria (assa a tela inteira): {cold_ms:.0f} ms")
+    print(f"  perf andando rápido (F3) no basalto: média {avg(fast_ft):.1f} ms · pior {max(fast_ft) * 1000:.1f} ms")
+    assert avg(geo_ft) < 1000 / 60, "chão assado passou do orçamento de 16,7 ms"
+    # volta tudo como estava
+    s.indices.update(before)
+    s.stage, s.storm = stage_before, storm_before
+    app.set_zoom(zoom_before, notify=False)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+
+
 def set_weather(state, gust: float, angle: float = 20.0) -> None:
     """Clima de verdade (game/weather.py) preso numa direção e numa rajada: gust 1 = no pico e sem fim,
     gust 0 = calmo (o smoke já desliga as rajadas sorteadas)."""
@@ -2583,6 +2741,7 @@ def main() -> None:
     assert s.stage == C.STORM_STAGE and s.storm == 1.0, "jogo novo começa na tempestade"
     bot.shot("stage1.png")
     check_surface(bot)
+    check_ground(bot)
     check_cave(bot)
     check_wrecks(bot)
     check_storm(bot)
