@@ -1942,6 +1942,114 @@ def check_surface(bot) -> None:
     bot.frames(0.2)
 
 
+def set_weather(state, gust: float, angle: float = 20.0) -> None:
+    """Clima de verdade (game/weather.py) preso numa direção e numa rajada: gust 1 = no pico e sem fim,
+    gust 0 = calmo (o smoke já desliga as rajadas sorteadas)."""
+    w = state.weather
+    w.dominant = w.angle = w.target = angle
+    w.retarget_in = 1e9
+    w._update_wind_vector()
+    w.gust, w.gust_left = (1.0, 1e9) if gust > 0 else (0.0, 0.0)
+    w._recompute(storm=1.0)
+
+
+def check_storm(bot) -> None:
+    """Visual da tempestade (v0.4 Marco 1, trilha C): nuvens de poeira, visão, faixas e chiado do scanner.
+    Liga a tempestade direto no estado (state.storm = 1.0) e força a rajada no state.weather."""
+    from game import dust
+    from game.systems import Machine
+    print("1b) tempestade (visual)")
+    app, s = bot.app, bot.state
+    old_storm = s.storm
+    old_machines = list(s.machines)
+    zoom_before = app.zoom
+    spot = (C.BASE_TILE[0] + 12, C.BASE_TILE[1] + 4)
+
+    def walk_perf(zoom: float) -> float:
+        app.set_zoom(zoom, notify=False)
+        bot.teleport(spot)
+        bot.frames(0.1)
+        start = len(bot.frame_times)
+        for key in (pygame.K_d, pygame.K_s, pygame.K_a, pygame.K_w) * 2:
+            s.o2 = s.o2_max
+            bot.key(key, hold=0.4)
+        ft = bot.frame_times[start:]
+        return sum(ft) / len(ft)
+
+    # perf: o mesmo passeio sem tempestade e na tempestade com rajada cheia (o pior caso)
+    # (alternado, 2 rodadas de cada; vale a melhor média de cada lado: o relógio da máquina oscila)
+    base, storm = {}, {}
+    for _ in range(2):
+        for z in (1.0, 0.75):
+            s.storm = 0.0
+            set_weather(s, 0.0)
+            base[z] = min(base.get(z, 1.0), walk_perf(z))
+            s.storm = 1.0
+            set_weather(s, 1.0, 35.0)
+            storm[z] = min(storm.get(z, 1.0), walk_perf(z))
+    for z in (1.0, 0.75):
+        print(f"  perf tempestade+rajada, zoom {z:g}×: média {storm[z] * 1000:.1f} ms "
+              f"(sem tempestade {base[z] * 1000:.1f} ms, +{(storm[z] - base[z]) * 1000:.1f} ms; orçamento 16,7 ms)")
+        assert storm[z] < 1 / 60, f"tempestade no zoom {z:g} passou do orçamento de 16,7 ms"
+    print(f"  partículas na rajada cheia: {app.renderer.storm_particles.count(1.0, 1.0)} (teto {dust.MAX_PARTICLES})")
+
+    app.set_zoom(1.0, notify=False)
+    # tempestade normal: visão de 7 tiles, longe da base
+    set_weather(s, 0.0)
+    bot.teleport(spot)
+    s.o2 = s.o2_max
+    bot.frames(0.6)
+    assert app.renderer.storm_dust._last is not None
+    bot.shot("tempestade_visual.png")
+    # andando: dois quadros seguidos (as nuvens, as faixas e os grãos andam entre eles)
+    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_d, mod=0, unicode="", scancode=0))
+    bot.frames(0.3)
+    bot.shot("tempestade_andando_1.png")
+    bot.frames(DT)
+    bot.shot("tempestade_andando_2.png")
+    pygame.event.post(pygame.event.Event(pygame.KEYUP, key=pygame.K_d, mod=0, unicode="", scancode=0))
+    bot.frames(DT)
+    # rajada: visão de 4 tiles, mais poeira e faixas, minimapa chiando
+    set_weather(s, 1.0, 35.0)
+    bot.teleport(spot)
+    bot.frames(0.6)
+    bot.shot("tempestade_visual_rajada.png")
+    had_scanner = s.has_scanner
+    if not had_scanner:
+        s.equipment.equip("scanner")              # só pro print (volta no fim)
+        bot.frames(0.2)
+    assert dust.static_amount(s) == 1.0
+    bot.shot("tempestade_minimapa.png")
+    bot.key(pygame.K_m)
+    assert app.mode == "map"
+    bot.frames(0.2)
+    bot.shot("tempestade_mapa.png")
+    bot.key(pygame.K_m)
+    assert app.mode == "play"
+    if not had_scanner:
+        s.equipment.unequip("scanner")
+    # perto da base: a cápsula e as máquinas abrem a vista (o player fica a ~6 tiles)
+    bx, by = C.BASE_TILE
+    s.machines = old_machines + [Machine("o2", bx - 4, by + 3), Machine("heater", bx + 3, by + 3),
+                                 Machine("solar", bx - 1, by + 6), Machine("lamp", bx + 7, by - 1)]
+    set_weather(s, 0.0)
+    bot.teleport((bx + 6, by + 4))
+    bot.frames(0.4)
+    bot.shot("tempestade_base.png")
+    # caverna: a tempestade não entra
+    s.machines = old_machines
+    s.enter_layer("cave")
+    assert dust.storm_of(s) == 0.0 and dust.static_amount(s) == 0.0
+    s.enter_layer("surface")
+
+    s.storm = old_storm
+    set_weather(s, 0.0)
+    app.set_zoom(zoom_before, notify=False)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = s.o2_max
+    bot.frames(0.2)
+
+
 def cave_spot(world, lo=14, hi=30):
     """Chão da caverna com mais minério em volta (raio de ~8 tiles), entre `lo` e `hi` tiles da rampa."""
     def score(x, y):
@@ -2476,6 +2584,7 @@ def main() -> None:
     check_surface(bot)
     check_cave(bot)
     check_wrecks(bot)
+    check_storm(bot)
     check_veins(bot)
 
     print("2) mineração")

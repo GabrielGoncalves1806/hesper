@@ -11,6 +11,8 @@ Ordem de cada frame (de trás pra frente, como camadas de papel):
      Na CAVERNA (Marco 2) é outro sistema: escuridão total do game/lighting.py (lanterna, luminárias,
      luz fraca das máquinas, rampa e terminais) + brilho dos minérios; sem clima. O chão e as paredes da
      caverna usam sempre a arte do estágio névoa, sem água nem plantas (a caverna não terraforma).
+     5b. TEMPESTADE (v0.4): nuvens de poeira andando com o vento, visão mais limpa (sem borda de círculo)
+     em volta do player e das máquinas, faixas e grãos de vento (game/dust.py). Só com storm_level > 0.
   6. indicadores: barrinha das drills, raio de "sem energia", alcance da estação de drones
 A UI (HUD, menus) vem depois, no ui.py.
 """
@@ -24,6 +26,7 @@ from game import art
 from game import autotile
 from game import config as C
 from game import drones
+from game import dust
 from game import energy
 from game import layers
 from game.assets import Sprites
@@ -122,6 +125,8 @@ class Renderer:
         self.cave_map.stage = CAVE_STAGE
         self.stage_map = self.surface_map        # o da camada que está sendo desenhada (troca no draw)
         self.lighting = Lighting(cell=4, banding=True)   # escuridão da caverna (degraus: decisão do dono)
+        self.storm_dust = dust.DustLayer()              # poeira da tempestade (v0.4): nuvens + visão
+        self.storm_particles = dust.DustParticles(seed=C.WORLD_SEED)   # determinístico no smoke
         self._fade_cache: dict[str, tuple[int, pygame.Surface]] = {}   # clima esmaecido (ver _faded)
         # Relógio das animações das máquinas: o App soma dt × fator da energia (game/energy.py).
         # No déficit ele anda mais devagar, então a drill gira e as máquinas animam mais devagar.
@@ -273,9 +278,23 @@ class Renderer:
         else:
             self.draw_lighting(canvas, state, cam, stage, t)
             self.draw_atmosphere(canvas, stage, t)
+            self.draw_storm(canvas, state, cam, t)
         # 6. indicadores por cima da luz (no escuro da caverna eles têm que aparecer): barrinha das
         #    drills e raio de "sem energia". Ficam no mundo, então crescem com o zoom.
         self.draw_machine_status(canvas, state, cam, t)
+
+    def draw_storm(self, canvas, state: GameState, cam, t: float) -> None:
+        """Tempestade de poeira (game/dust.py): poeira com a visão recortada + grãos e faixas de vento.
+        Por cima do mundo e do clima, por baixo dos indicadores e da HUD. Sem tempestade: nada (custo zero)."""
+        storm = dust.storm_of(state)
+        if storm <= 0:
+            return
+        wind, gust, view_tiles = dust.weather_of(state)
+        self.storm_dust.tick(t, wind, storm, gust)
+        self.storm_particles.tick(t, wind, storm, gust)
+        lights = dust.vision_lights(state, cam, view_tiles * T)
+        (px, py, view_px), extra = lights[0], lights[1:]
+        self.storm_dust.apply(canvas, cam, storm, gust, view_px, extra, (px, py), self.storm_particles, wind)
 
     def draw_cave_darkness(self, canvas, state: GameState, cam, t: float) -> None:
         """Escuridão da caverna (game/lighting.py) e, por cima, o brilho dos minérios no escuro."""
