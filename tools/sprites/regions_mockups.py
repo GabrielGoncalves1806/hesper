@@ -700,6 +700,11 @@ def export_pending():
     v9_files, v9_forms, v9_density = V9.export_assets(PEND)
     files.update({k: (v["size"], v["region"], v["ramp"]) for k, v in v9_files.items()})
     forms.update(v9_forms)
+    # v9.1 (aprovado pelo dono): fumarolas dormente/ativa, rampa VENT, partícula de fumaça e densidade
+    import regions_v91 as V91
+    v91_files, v91_forms, vent_ramp, smoke, vent_density = V91.export_assets(PEND)
+    files.update({k: (v["size"], v["region"], v["ramp"]) for k, v in v91_files.items()})
+    forms.update(v91_forms)
     ramps = {}
     for tname, table in (("BASE", R.BASE), ("HILL", R.HILL), ("SAND", {"plateau": R.SAND}),
                          ("ICE", {"frost": R.ICE})):
@@ -708,12 +713,15 @@ def export_pending():
             ramps[tname][reg] = {st: [R.hexc(c) for c in R.ramp(reg, st, table)[:8]] for st in R.STAGES}
     ramps["METAL"] = [R.hexc(c) for c in METAL]
     ramps["MOSS"] = list(V9.E.MOSS)              # v9: overlay de musgo do Verde+ (fixa, não muda com estágio)
+    ramps["VENT"] = vent_ramp                     # v9.1: ramps.VENT.basalt[estágio] = 4 cores (índices 10..13)
     data = dict(note="Sprites indexados: 0..7 = rampa, 8 = contorno #1b1630, 9 = sombra (preto, alfa %d), "
                      "255 = transparente. Cor final = ramps[tabela][região][estágio][índice]. crater_impact_*: 10..17 = ramps.ICE.frost, "
                      "18..20 = ramps.METAL. decor_*_moss_*: 0..3 = ramps.MOSS (só no Verde). Formações com small=true "
-                     "são as pequenas da v9." % R.SHADOW_A,
+                     "são as pequenas da v9; vent_* (v9.1) têm sprites dormant/active, paleta HILL.basalt + 10..13 = "
+                     "ramps.VENT.basalt e mouths (px de onde sai a fumaça do bloco smoke)." % R.SHADOW_A,
                 levels=R.LEVELS, warp_px=SC.WARP, decal_cell=R.DECAL_CELL, decal_p=R.DECAL_P,
-                decal_mix=R.DECAL_MIX, v9_density=v9_density, formations=forms, ramps=ramps,
+                decal_mix=R.DECAL_MIX, v9_density=v9_density, vent_density=vent_density, smoke=smoke,
+                formations=forms, ramps=ramps,
                 files={k: dict(size=v[0], region=v[1], ramp=v[2]) for k, v in sorted(files.items())})
     (PEND / "regions_palettes.json").write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n")
     return files

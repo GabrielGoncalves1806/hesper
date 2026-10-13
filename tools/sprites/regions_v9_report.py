@@ -292,7 +292,7 @@ def inject(html: str) -> str:
     html = html.replace("/* v9css */" + CSS_V9 + "/* /v9css */", "/* v9css */" + css + "/* /v9css */", 1)
     ver = "v9.1" if has91 else "v9.0"
     html = re.sub(r"<title>.*?</title>", f"<title>Hesper · Geografia nova · {ver}</title>", html, count=1)
-    eb = ("v9.1 · v0.4 regiões · PROPOSTA: fumarolas ativas · v9 aprovada (a v8.3 continua abaixo)" if has91 else
+    eb = ("v9.1 · v0.4 regiões · fumarolas ativas e v9, aprovadas (a v8.3 continua abaixo)" if has91 else
           "v9.0 · v0.4 regiões · mais elementos por região + basalto, aprovado (a v8.3 continua abaixo)")
     html = re.sub(r'<div class="eyebrow">.*?</div>', f'<div class="eyebrow">Hesper · Designer · {eb}</div>', html, count=1)
     top_note = (note91.read_text() + "\n" if has91 else "") + note.read_text()

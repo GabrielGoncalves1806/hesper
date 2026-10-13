@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""v9.1 · PROPOSTA (pendente do dono): fumarolas ativas que acordam com o calor (Marco 3).
+"""v9.1 · APROVADO pelo dono: fumarolas ativas que acordam com o calor (Marco 3).
 
     python3 tools/sprites/regions_v91.py
 
-NÃO escreve em assets/. Saídas em reports/design/regioes/v91/ (pendentes indexados, prévias, fumaça, cena e GIF)
-e a seção v9.1 injetada no reports/design/regioes/index.html, acima da v9 (regions_v9_report.inject).
+Os sprites e os dados entram em assets/sprites/regions/ pelo regions_mockups.py (export_pending chama
+export_assets() daqui). Este script gera as prévias, a fumaça, as cenas, o GIF e a seção v9.1 do report
+(reports/design/regioes/v91/, injetada no index acima da v9); v91/pendentes/ fica de registro.
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ PEND = OUT / "pendentes"
 T = 32
 KINDS = ("cone", "pair", "chimney")
 KIND_PT = {"cone": "Cone baixo", "pair": "Par de cones", "chimney": "Chaminé"}
+COUNT = {"cone": [2, 3], "pair": [1, 2], "chimney": [1, 2]}      # por mundo, no basalto
 WIND = {"storm": (34.0, 5.0), "arid": (9.0, 1.0), "mist": (5.0, 0.5), "green": (7.0, 1.0)}
 FPS = 8
 LOOP = 4.0
@@ -54,28 +56,44 @@ def vent(kind, active):
     return _C[key]
 
 
-def export():
-    PEND.mkdir(parents=True, exist_ok=True)
-    for old in PEND.glob("*.png"):
-        old.unlink()
+def export(dest=None):
+    dest = dest or PEND
+    dest.mkdir(parents=True, exist_ok=True)
+    if dest == PEND:
+        for old in PEND.glob("*.png"):
+            old.unlink()
     forms, files = {}, {}
     for kind in KINDS:
         for st, act in (("dormant", False), ("active", True)):
             idx, info = vent(kind, act)
             name = f"form_vent_{kind}_{st}.png"
-            M.save_indexed(idx, VT.vent_ramp("arid"), PEND / name)
+            M.save_indexed(idx, VT.vent_ramp("arid"), dest / name)
             files[name] = dict(size=f"{idx.shape[1]}×{idx.shape[0]}", region="basalt", ramp="HILL+VENT")
         forms[f"vent_{kind}"] = dict(foot=info["foot"], tiles=info["tiles"], size=info["size"], name=info["name"],
                                      sprites={"dormant": f"form_vent_{kind}_dormant.png",
                                               "active": f"form_vent_{kind}_active.png"},
-                                     mouths=info["mouths"], region="basalt", ramp="HILL+VENT")
+                                     sprite=f"form_vent_{kind}_dormant.png",
+                                     mouths=info["mouths"], region="basalt", ramp="HILL+VENT",
+                                     count=COUNT[kind], small=True)
     vent_ramps = {st: [R.hexc(c) for c in VT.vent_ramp(st)[10:14]] for st in R.STAGES}
-    data = dict(note="PROPOSTA v9.1 (pendente). 0..9 = HILL do basalto (como as formações), 10..13 = ramps.VENT[estágio]: "
+    data = dict(note="v9.1 (aprovado pelo dono). 0..9 = HILL do basalto (como as formações), 10..13 = ramps.VENT[estágio]: "
                      "10 enxofre escuro, 11 enxofre claro (seguem o estágio), 12 brasa, 13 brasa clara (fixas). "
                      "mouths = px do sprite de onde sai a fumaça (partícula, não sprite).",
                 formations=forms, ramps={"VENT": vent_ramps}, smoke=VT.SMOKE, density=DENSITY, files=files)
-    (PEND / "regions_v91.json").write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n")
+    if dest == PEND:
+        (PEND / "regions_v91.json").write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n")
     return files, forms
+
+
+def export_assets(dest):
+    """Chamado pelo regions_mockups.export_pending: os 6 PNGs em `dest` + o que entra no regions_palettes.json."""
+    files, forms = export(dest)
+    vent = {"basalt": {st: [R.hexc(c) for c in VT.vent_ramp(st)[10:14]] for st in R.STAGES}}
+    density = dict(DENSITY, count=COUNT, note="v9.1 (aprovado): fumarolas do basalto. Sprite _dormant abaixo do "
+                   "limiar de calor, _active acima. Paleta 0..9 = ramps.HILL.basalt, 10..13 = ramps.VENT.basalt "
+                   "(10, 11 enxofre, seguem o estágio; 12, 13 brasa, fixas). A fumaça é partícula (bloco smoke), "
+                   "saindo das mouths (px do sprite).")
+    return files, forms, vent, VT.SMOKE, density
 
 
 def bg_color(stage="arid"):

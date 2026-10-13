@@ -1,4 +1,4 @@
-"""Seção v9.1 do report das regiões (fumarolas ativas, PROPOSTA). Chamado pelo tools/sprites/regions_v91.py.
+"""Seção v9.1 do report das regiões (fumarolas ativas, aprovado na v9.1). Chamado pelo tools/sprites/regions_v91.py.
 
 Escreve reports/design/regioes/v91/section.html e v91/note.html; o regions_v9_report.inject() põe os dois no index,
 acima da v9.
@@ -72,13 +72,14 @@ boca{'s' if len(info['mouths']) > 1 else ''} (fumaça): {', '.join(str(tuple(m))
     import regions_v91 as V
     D = V.DENSITY
     sec = f"""<!-- v91:begin -->
-<section class="v91" id="v91"><h2>v9.1 · Fumarolas ativas que acordam com o calor (PROPOSTA)</h2>
+<section class="v91" id="v91"><h2>v9.1 · Fumarolas ativas que acordam com o calor (aprovado)</h2>
 <p class="lede">Ideia do dono: conforme o índice de calor sobe no Marco 3 (o mesmo que derrete a cratera), as
 fumarolas do basalto acordam e soltam fumaça. Do esboço (<code>reports/design/refs/fumarolas_esboco_dono.png</code>)
 aproveitei só as 3 formas: cone baixo e largo com boca, par de cones e chaminé alta e fina com veios escorrendo, todas
 com a boca aberta no topo. O desenho é original, feito no mesmo motor de volume do cone de escória e do basalto
-colunar, com a rampa <code>HILL</code> do basalto. Nada disso está em <code>assets/</code>: os PNGs indexados ficam em
-<code>reports/design/regioes/v91/pendentes/</code>, com o <code>regions_v91.json</code>. O decalque <code>fumarole</code> da v9
+colunar, com a rampa <code>HILL</code> do basalto. <b>Aprovado pelo dono e promovido</b>: os 6 PNGs estão em
+<code>assets/sprites/regions/</code> e os dados no <code>regions_palettes.json</code> (<code>formations.vent_*</code>,
+<code>ramps.VENT</code>, <code>smoke</code> e <code>vent_density</code>); <code>v91/pendentes/</code> fica de registro. O decalque <code>fumarole</code> da v9
 continua sendo o respiro apagado de chão.</p>
 
 <h3 style="margin-top:22px">As 3 fumarolas · dormente × ativa</h3>
@@ -145,16 +146,16 @@ pegada, ordem pelo pé, não minera, sombra no sprite). O sprite troca de <code>
 pelo estado; a paleta é <code>HILL</code> do basalto (0..9) + <code>VENT</code> do estágio (10..13), no estágio do tile do pé.</li>
 <li><b>Mapa</b>: entram como “Formação” (pictograma de pico) só se o dono quiser; por padrão não marcam.</li></ul></div>
 
-<h3 style="margin-top:26px">Se o dono aprovar · contrato (bíblia §6)</h3>
+<h3 style="margin-top:26px">Contrato · aprovado, já na bíblia §6</h3>
 <div class="box"><ul>
 <li>Linha nova: <code>form_vent_{{cone,pair,chimney}}_{{dormant,active}}.png</code> · 60×48, 72×64 e 40×78 · fumarolas do
 basalto, bloqueiam 1, 2×1 e 1 tile · paleta 0..9 <code>HILL</code> do basalto + 10..13 <code>VENT</code> · <code>mouths</code> no JSON.</li>
-<li>Rampa nova <code>VENT</code> no <code>regions_palettes.json</code> (por estágio, 4 cores) e o bloco <code>smoke</code> com os
-números da partícula.</li></ul></div>
+<li>Rampa nova <code>VENT</code> no <code>regions_palettes.json</code> (<code>ramps.VENT.basalt[estágio]</code>, 4 cores), o bloco
+<code>smoke</code> com os números da partícula e o <code>vent_density</code> (quantas, onde e quando acordam).</li></ul></div>
 </section>
 <!-- v91:end -->"""
     note = """<!-- v91note:begin -->
-<div class="v2"><b>v9.1 · o que mudou (PROPOSTA, pendente)</b><ul>
+<div class="v2"><b>v9.1 · o que mudou (aprovado e promovido)</b><ul>
 <li><b>Fumarolas ativas</b> no basalto: cone baixo, par de cones e chaminé, cada uma dormente × ativa (brasa leve e
 crosta de enxofre), a rampa nova <code>VENT</code>, a fumaça como partícula (com os números), a cena dormente × ativa
 com GIF e a regra de onde nascem e de quando acordam com o calor. <a href="#v91">Seção v9.1</a>.</li>

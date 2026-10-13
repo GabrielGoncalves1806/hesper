@@ -1,5 +1,5 @@
 {
- "note": "PROPOSTA v9.1 (pendente). 0..9 = HILL do basalto (como as formações), 10..13 = ramps.VENT[estágio]: 10 enxofre escuro, 11 enxofre claro (seguem o estágio), 12 brasa, 13 brasa clara (fixas). mouths = px do sprite de onde sai a fumaça (partícula, não sprite).",
+ "note": "v9.1 (aprovado pelo dono). 0..9 = HILL do basalto (como as formações), 10..13 = ramps.VENT[estágio]: 10 enxofre escuro, 11 enxofre claro (seguem o estágio), 12 brasa, 13 brasa clara (fixas). mouths = px do sprite de onde sai a fumaça (partícula, não sprite).",
  "formations": {
   "vent_cone": {
    "foot": [
@@ -21,6 +21,7 @@
     "dormant": "form_vent_cone_dormant.png",
     "active": "form_vent_cone_active.png"
    },
+   "sprite": "form_vent_cone_dormant.png",
    "mouths": [
     [
      30,
@@ -28,7 +29,12 @@
     ]
    ],
    "region": "basalt",
-   "ramp": "HILL+VENT"
+   "ramp": "HILL+VENT",
+   "count": [
+    2,
+    3
+   ],
+   "small": true
   },
   "vent_pair": {
    "foot": [
@@ -54,6 +60,7 @@
     "dormant": "form_vent_pair_dormant.png",
     "active": "form_vent_pair_active.png"
    },
+   "sprite": "form_vent_pair_dormant.png",
    "mouths": [
     [
      26,
@@ -65,7 +72,12 @@
     ]
    ],
    "region": "basalt",
-   "ramp": "HILL+VENT"
+   "ramp": "HILL+VENT",
+   "count": [
+    1,
+    2
+   ],
+   "small": true
   },
   "vent_chimney": {
    "foot": [
@@ -87,6 +99,7 @@
     "dormant": "form_vent_chimney_dormant.png",
     "active": "form_vent_chimney_active.png"
    },
+   "sprite": "form_vent_chimney_dormant.png",
    "mouths": [
     [
      20,
@@ -94,7 +107,12 @@
     ]
    ],
    "region": "basalt",
-   "ramp": "HILL+VENT"
+   "ramp": "HILL+VENT",
+   "count": [
+    1,
+    2
+   ],
+   "small": true
   }
  },
  "ramps": {

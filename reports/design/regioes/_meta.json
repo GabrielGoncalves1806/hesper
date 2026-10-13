@@ -684,6 +684,36 @@
    "84×72",
    "frost",
    "ICE"
+  ],
+  "form_vent_cone_dormant.png": [
+   "60×48",
+   "basalt",
+   "HILL+VENT"
+  ],
+  "form_vent_cone_active.png": [
+   "60×48",
+   "basalt",
+   "HILL+VENT"
+  ],
+  "form_vent_pair_dormant.png": [
+   "72×64",
+   "basalt",
+   "HILL+VENT"
+  ],
+  "form_vent_pair_active.png": [
+   "72×64",
+   "basalt",
+   "HILL+VENT"
+  ],
+  "form_vent_chimney_dormant.png": [
+   "40×78",
+   "basalt",
+   "HILL+VENT"
+  ],
+  "form_vent_chimney_active.png": [
+   "40×78",
+   "basalt",
+   "HILL+VENT"
   ]
  },
  "feet": [
