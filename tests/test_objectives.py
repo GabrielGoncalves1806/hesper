@@ -249,10 +249,6 @@ def test_terminal_objective_needs_reading_one(game):
     assert current_text(game) == "Chegue ao estágio Névoa"
 
 
-def test_loose_pickups_and_small_rocks_count_as_mined(game):
-    from game.pickups import Pickup
-    p = Pickup("iron", 3, game.player.x, game.player.y - 4)
-    game.pickups.items = [p]
-    game.take_pickup(p)
+def test_small_rocks_count_as_mined(game):
     got = mine_one(game, C.SMALL_IRON)
-    assert game.mined_total["iron"] == 3 + got and 2 <= got <= 4
+    assert game.mined_total["iron"] == got and 2 <= got <= 4

@@ -1,7 +1,7 @@
 """Camadas do mundo (v0.3, bíblia §9): SUPERFÍCIE (deserto, onde fica a base) e CAVERNA.
 
 Cada camada tem o próprio mapa (`world`), as máquinas colocadas nela (baús e drills incluídos)
-e os recursos soltos no chão (só a superfície tem). O resto do jogo é global e fica no GameState:
+e o relógio do reaparecimento das rochas pequenas (só a superfície tem). O resto do jogo é global e fica no GameState:
 inventário, energia (soma as máquinas das duas camadas), Ti, objetivos e drones (que no v0.3 só
 atendem a superfície).
 
@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from game import config as C
 
 from game.explore import Explored
-from game.pickups import Pickups
+from game.rock_respawn import RockRespawn
 from game.surface_gen import generate_surface
 from game.world import World
 from game.wrecks import make_crates
@@ -30,7 +30,7 @@ class Layer:
     key: str
     world: World
     machines: list = field(default_factory=list)
-    pickups: Pickups | None = None        # recursos soltos (só na superfície)
+    rocks: RockRespawn | None = None      # reaparecimento das rochas pequenas (só na superfície)
     crates: dict = field(default_factory=dict)   # caixas de saque dos destroços: tile -> Crate (Marco 3)
     explored: Explored | None = None      # o que o jogador já viu nesta camada (Marco 3, game/explore.py)
 
@@ -46,7 +46,7 @@ class Layer:
 
 def make_surface(seed: int) -> Layer:
     world = generate_surface(seed)
-    return Layer(SURFACE, world, pickups=Pickups.generate(world, seed), crates=make_crates(world, seed))
+    return Layer(SURFACE, world, rocks=RockRespawn(), crates=make_crates(world, seed))
 
 
 def make_cave(seed: int) -> Layer:

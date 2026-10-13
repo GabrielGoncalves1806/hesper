@@ -6,7 +6,7 @@ Duas partes:
       desenhado como objeto) e a caixa vira `LOOT_CRATE`. Cada `Wreck` sabe onde fica a caixa, o terminal
       (só o módulo tem), qual LOG ele guarda e qual projeto vem na caixa.
     - ESTADO (muda jogando): `make_crates(world, seed)` cria uma `Crate` por destroço, com o saque sorteado
-      pela seed (fixo, não reabastece). Quem guarda é a camada (`Layer.crates`), igual aos soltos.
+      pela seed (fixo, não reabastece). Quem guarda é a camada (`Layer.crates`).
 
 Ordem por distância (rank 0 = o mais perto): nave (tanque de O₂ + LOGS[3]), sonda, módulo (scanner + LOGS[4]),
 nave (luminária forte), sonda (LOGS[5]), [nave, sonda extras quando há 7 ou 8] e módulo (LOGS[6], o mais longe).

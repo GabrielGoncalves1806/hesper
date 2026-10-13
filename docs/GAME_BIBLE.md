@@ -328,7 +328,7 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 Design completo e aprovado: `docs/superpowers/specs/2026-10-12-v03-superficie-design.md`. Resumo das decisões:
 
 - **Duas camadas**, em mapas separados:
-  - **Superfície**: deserto aberto de 192×192, com a cápsula no centro, recursos soltos que reaparecem, rochas pequenas, morros, cordilheira na borda, **3 a 5 veios só** e destroços.
+  - **Superfície**: deserto aberto de 192×192, com a cápsula no centro, rochas pequenas de minério que reaparecem, morros, cordilheira na borda, **3 a 5 veios só** e destroços.
   - **Caverna**: 128×128, escura, com minério abundante e veios comuns. Gerada pelo `world.py` de hoje.
   - Troca de camada por uma **rampa na cratera**, com E e fade.
 - **A base fica na superfície.** A terraformação aparece no deserto; a caverna não muda com o Ti.
@@ -355,14 +355,15 @@ Design completo e aprovado: `docs/superpowers/specs/2026-10-12-v03-superficie-de
 - **Morros**: 24 a 32 por mapa, de 3 a 8 tiles, com 2 tiles de folga entre eles; 12% dos tiles de morro têm minério. Morro minerado vira areia. *(Marco 4)* Forma orgânica: elipse principal + 1 ou 2 lóbulos com borda tremida, suavizada por autômato celular, sem ponta de 1 tile, sem dente de 1 tile e sem tile encostando só pela quina; os morros têm gerador aleatório próprio (mexer na forma deles não move cratera, veios e destroços).
 - **Cratera**: 3×3, centro a 15–20 tiles da base, com areia limpa em volta. É obstáculo plano (bloqueia, não minera); a dica diz "Cratera · fechada por enquanto". O canto fica em `world.crater` pra virar a rampa no Marco 2 (alvo do E no tile do meio de baixo).
 - **Veios**: 3 a 5, um de cada minério garantido, todos a ≥ 35 tiles da base e ≥ 14 entre si, em areia aberta.
-- **Rochas pequenas**: ~1,1% da areia (~350 no mapa), fora da área da base; 0,7 s pra quebrar, dão 2 a 4 (45% ferro, 30% silício, 25% gelo). Um cristalzinho na cor do minério em cima da pedra diz o que ela dá.
-- **Recursos soltos**: 70 no começo, teto de 120, reaparecem 1 a cada 15 s (4/min) fora da meia-tela do zoom 0,75 e a ≥ 12 tiles da base, nunca onde vai virar lago. Pega passando por cima (12 px dos pés), ou E/clique até 56 px. Inventário cheio: fica no chão e avisa uma vez. Soltos e rochas contam como "minerado" nos objetivos.
+- **Rochas pequenas**: ~1,3% da areia (~430 no mapa), fora da área da base; 0,7 s pra quebrar, dão 2 a 4 (45% ferro, 30% silício, 25% gelo). Um cristalzinho na cor do minério em cima da pedra diz o que ela dá. Contam como "minerado" nos objetivos.
+- **Rochas reaparecem** (`game/rock_respawn.py`): 1 a cada 15 s (4/min), até o teto de **520** rochas no mapa. Só fora da meia-tela do zoom 0,75, a ≥ 12 tiles da base e em areia livre: fora de veio, de lago futuro, da cratera/rampa (com folga), de destroço (com a folga dele) e de máquina (com 1 tile de folga), e com os 8 vizinhos sem nada sólido (rocha nova nunca fecha passagem). Mesmos pesos da geração. Continua reaparecendo com o player na caverna. A rocha nova entra no save como tile mudado; o relógio vai em `layers.surface.rocks`.
+- **Recursos soltos saíram** (o dono achou as rochas melhores). Os ~70 soltos viraram +~70 rochas no começo (357 -> ~430). Save v6 com o campo antigo `pickups` carrega e ignora o campo (sem subir a versão).
 - **Objetivo "Leia um terminal"**: só aparece quando existe uma camada com terminal (no Marco 1 os terminais estão na caverna, que ainda não abre).
 - **Vento do deserto** (`desert_wind.wav`): volume 0,45 por cima do ambiente, canal próprio, sobe em 2,5 s e desce em 1,5 s; some na caverna e no desmaio.
 - **Save v6** por camada. Save v1–v5: a tela de título mostra "Save de uma versão antiga · comece um novo jogo" com Continuar apagado; ao começar um jogo novo, o arquivo antigo é guardado como `saves/slot1.v5.json` (não é apagado).
 - **Água**: poça em chão baixo (noise), sem colisão, a partir da Névoa. Desenhada com autotile A2 (cantos redondos, margem, brilho). A geração é suavizada: água ligada só pela quina some; gota de 1 tile só fica se nem nas diagonais tem água (olhando o estágio 3, então a água da Névoa está sempre dentro da do Verde).
 - **Transição de estágio**: a frente da mancha vai até ~152 tiles (o canto do deserto fica a ~136 da base).
-- **Duração** (simulador, só superfície): 28–42 min nos números atuais, contra 23–30 min no v0.2. Quase todo o tempo a mais é andando; a caverna (Marco 2) é que traz minério em volume.
+- **Duração** (simulador, só superfície): 28–42 min nos números atuais, contra 23–30 min no v0.2. Quase todo o tempo a mais é andando; a caverna (Marco 2) é que traz minério em volume. *(Rochas reaparecendo no lugar dos soltos, média de 5 seeds na proposta: guloso 39,4 -> 38,2 min, variado 39,7 -> 36,4, casual 52,2 -> 48,3; caverna e destroços só mudam no ruído.)*
 
 ### Assets do Marco 1 · Superfície (contrato)
 Entregues em `_pending/` até o dono aprovar. Os morros usam a arte de parede que já existe (`wall_*`, `wall_face_*`), e a cordilheira da borda também (o jogo escurece ela).
@@ -371,7 +372,7 @@ Entregues em `_pending/` até o dono aprovar. Os morros usam a arte de parede qu
 |---|---|---|
 | `sand_{stage}_{0..3}.png` | 32×32 | chão da superfície, 4 variações. `dead` = areia avermelhada (o planeta morto); `mist` = terra marrom úmida; `green` = grama de verdade (a terraformação transforma o deserto) |
 | `rock_small.png` | 32×32 | rocha pequena no chão (1 tile, quebrável), contorno `#1b1630`, funciona nos 3 chãos |
-| `pickup_iron.png` `pickup_silicon.png` `pickup_ice.png` | 16×16 | recurso solto no chão, legível de longe, com sombrinha no chão |
+| ~~`pickup_iron.png` `pickup_silicon.png` `pickup_ice.png`~~ | 16×16 | recurso solto no chão. **Fora do jogo** (os soltos saíram); os arquivos ficaram nos assets |
 | `crater.png` | 96×96 | cratera 3×3 fechada (Marco 1), escura no centro, borda de rocha |
 | `crater_ramp.png` | 96×96 | a mesma cratera com a rampa de descida aberta (usada no Marco 2) |
 
@@ -379,7 +380,7 @@ Entregues em `_pending/` até o dono aprovar. Os morros usam a arte de parede qu
 |---|---|---|
 | `desert_wind.wav` | loop 20–40 s, baixíssimo | camada de vento seco por cima do `amb_{stage}` na superfície. Some na caverna |
 
-Recursos soltos usam o `pickup.wav` já aprovado; rochas usam `mine_hit`/`mine_break`.
+Rochas usam `mine_hit`/`mine_break` e, ao dar o minério, o `pickup.wav` já aprovado.
 
 ### Assets do Marco 2 · Caverna (contrato)
 **Sprites aprovados (Designer v5.0) e promovidos pra `assets/sprites/`.** A caverna usa a arte de chão e parede do estágio **névoa** já aprovada (`floor_mist_*`, `wall_mist_*`, `wall_face_mist`), sempre, sem mudar com o Ti (rocha fria). Sem água na caverna.

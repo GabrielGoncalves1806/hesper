@@ -135,18 +135,6 @@ def ore_fleck(resource: str) -> pygame.Surface:
     return s
 
 
-def pickup(resource: str) -> pygame.Surface:
-    """Recurso solto no chão (16×16), fallback do pickup_<recurso>.png. Ponto de chão = (8, 14)."""
-    color, shadow = (Color(c) for c in C.ORE_COLORS[resource])
-    s = pygame.Surface((16, 16), pygame.SRCALPHA)
-    pygame.draw.ellipse(s, (0, 0, 0, 92), (2, 12, 12, 4))                   # sombrinha
-    for x, y, size in ((3, 8, 4), (8, 9, 3), (6, 5, 3)):
-        _r(s, Color("#1b1630"), x - 1, y - 1, size + 2, size + 3)
-    for x, y, size in ((3, 8, 4), (8, 9, 3), (6, 5, 3)):
-        _crystal(s, x, y, color, shadow, size)
-    return s
-
-
 def crater(open_ramp: bool = False) -> pygame.Surface:
     """Cratera 3×3 (96×96), fallback do crater.png / crater_ramp.png: borda de rocha, fundo escuro.
     `open_ramp` (Marco 2): a rampa de descida aberta embaixo, no meio."""

@@ -403,8 +403,6 @@ class App:
                 target = self.e_target()          # o do mouse (no alcance) ou o mais perto
                 if target and target[0] == "ramp":
                     state.start_ramp()                    # cratera/rampa: desce ou sobe (fade)
-                elif target and target[0] == "pickup":
-                    state.take_pickup(target[1])          # recurso solto: vai pro inventário
                 elif target and target[0] == "terminal":
                     state.read_terminal(target[1])
                     self.terminal_index = target[1]
@@ -1066,10 +1064,6 @@ class App:
                 if rect.collidepoint(ux, uy):
                     self.fab.select(kind)
         elif self.mode == "play":
-            loose = None if self.placing else self.state.interactable_at(*self.mouse_world())
-            if loose is not None and loose[0] == "pickup" and self.state.in_reach(*loose):
-                self.state.take_pickup(loose[1])          # clique num solto no alcance: pega (não minera)
-                return
             if self.placing:
                 tile = self.place_target()
                 if tile is not None and self.state.place(self.placing, tile, self.rotation, self.hotbar_selected):
@@ -1180,6 +1174,8 @@ class App:
             self.renderer.spawn_chips(tile, color, 12)
             self.audio.play("mine_break")
             self.renderer.minimap.repaint(self.state, tile)      # o mapa do scanner acompanha a mineração
+        elif kind == "rock_spawn":                                # rocha nova na superfície (fora da vista)
+            self.renderer.minimap.repaint(self.state, event[1], "surface")
         elif kind == "pickup":
             _, tile, resource, amount = event
             x, y = (tile[0] + 0.5) * C.TILE, tile[1] * C.TILE - 8
@@ -1411,15 +1407,12 @@ class App:
             return "Caixa vazia" if hover[1].empty else "Caixa de saque · chegue mais perto"
         if hover is not None and hover[0] == "wreck_log":
             return "Terminal · chegue mais perto"
-        if hover is not None and hover[0] == "pickup":          # solto debaixo do mouse, longe
-            p = hover[1]
-            return f"{p.amount} {C.RESOURCE_NAME[p.resource]} solto · chegue mais perto"
         tile = self.mouse_tile()
         if state.world.get(*tile) == C.CRATER:            # rampa debaixo do mouse, mas longe
             return ("Cratera · chegue mais perto pra descer" if state.active.has_base
                     else "Rampa · chegue mais perto pra subir")
         if state.in_base_zone():
-            return "[E] Fabricador" if self.t > 6 else "Rochas e recursos soltos no deserto têm minério"
+            return "[E] Fabricador" if self.t > 6 else "As rochas pequenas do deserto têm minério"
         if state.world.is_minable(*tile):
             if state.world.get(*tile) in C.SMALL_ROCKS:
                 name = C.RESOURCE_NAME[C.SMALL_ROCKS[state.world.get(*tile)]]
@@ -1441,7 +1434,7 @@ class App:
             return "ramp", target[1]
         if target[0] == "wreck_log":
             return "wreck_log", target[1]
-        return target[1]                          # máquina, recurso solto ou caixa de saque
+        return target[1]                          # máquina ou caixa de saque
 
     def e_label(self, target: tuple[str, object]) -> str:
         """Texto do canto pro alvo do E ("[E] Abrir baú", "[E] Ler terminal"...)."""
@@ -1450,8 +1443,6 @@ class App:
             return "[E] Ler terminal"
         if kind == "ramp":
             return "[E] Descer pela rampa" if self.state.active.has_base else "[E] Subir pela rampa"
-        if kind == "pickup":
-            return f"[E] Pegar {obj.amount} {C.RESOURCE_NAME[obj.resource]}"
         if kind == "crate":
             return "[E] Caixa vazia" if obj.empty else "[E] Abrir caixa de saque"
         if kind == "wreck_log":

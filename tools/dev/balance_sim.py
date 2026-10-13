@@ -9,14 +9,14 @@
 O que é real e o que é aproximado
 ---------------------------------
 v0.3 Marco 1: o mundo é a SUPERFÍCIE (deserto 192×192 do `surface_gen`, a camada ativa do GameState), ainda
-sem caverna. Minério = minério dos morros + rochas pequenas (`C.TILE_RESOURCE`) + recursos soltos no chão
-(`game/pickups.py`, com o reaparecimento real rodando junto da produção). O volume de minério da superfície
-é baixo de propósito (a mineração em volume vem com a caverna no Marco 2).
+sem caverna. Minério = minério dos morros + rochas pequenas (`C.TILE_RESOURCE`), que reaparecem pela regra real
+(`game/rock_respawn.py`, rodando junto da produção). O volume de minério da superfície é baixo de propósito
+(a mineração em volume vem com a caverna no Marco 2).
 
 v0.3 Marco 2: a estratégia "caverna" minera só na CAVERNA (`Strategy.cave`). A base continua na superfície; o
 mapa de mineração vira a caverna e a base é um índice virtual ligado à chegada da rampa por uma aresta de
 `ramp_k` tiles (caminho real na superfície da zona de O₂ até a cratera + o fade da rampa). O O₂ cai no trecho todo.
-As drills vão nos veios da caverna e ele busca à mão (drones só atendem a superfície: sem estação). Sem soltos.
+As drills vão nos veios da caverna e ele busca à mão (drones só atendem a superfície: sem estação).
 
 Real (vem do jogo): o mapa (`GameState(seed).world`, a superfície), o inventário, os drops (`GameState._break_tile`,
 com o `rng` do estado), `can_mine` (alcance), `craft`/`can_place`/`place`, a produção das máquinas
@@ -29,9 +29,9 @@ Aproximado (o simulador decide no lugar do jogador):
   minerar ela. Isso é o caminho ótimo de um jogador que conhece o mapa; o jogador "casual" anda 30% mais devagar
   que o planejado (desvio, mira, colisão), o que é o fator de realismo.
   Não usamos o `Player.move` frame a frame porque seria ~50× mais lento e o resultado é o mesmo em linha reta.
-- Recursos soltos: contam como "minério ao alcance" a até 1 tile (o E/clique alcança ~1,7 tile) e custam
-  `PICKUP_TIME` s pra pegar, pela regra real (`GameState.take_pickup`). O reaparecimento é o real
-  (`Pickups.update` com a posição do jogador simulado).
+- Rochas pequenas que reaparecem: regra real (`GameState._update_rocks`, com a posição do jogador simulado);
+  cada rocha nova entra nos contadores de "minério ao alcance". O campo de distância até a base não é refeito
+  quando uma rocha nasce (ela sempre tem os 8 vizinhos livres, então o desvio custa ~1 tile).
 - Máquinas colocadas não bloqueiam o caminho no grid (são caixas de 24×18 px num tile de 32: dá pra passar do lado).
 - Craftar e colocar custa um tempo fixo por máquina (`craft_overhead`), cobrindo menu + andar até o lugar.
 - Drills (depois da Névoa): o jogador fabrica até `Strategy.drills` drills e põe cada uma num veio livre alcançável
@@ -93,8 +93,6 @@ NEIGHBORS = [(1, 0, 1.0), (-1, 0, 1.0), (0, 1, 1.0), (0, -1, 1.0),
              (1, 1, SQRT2), (1, -1, SQRT2), (-1, 1, SQRT2), (-1, -1, SQRT2)]
 TILE_NAMES = {"ROCK": C.ROCK, "IRON": C.IRON, "SILICON": C.SILICON, "ICE": C.ICE}
 PANEL_BELOW = 0.9      # o jogador simulado fabrica um painel solar quando o fator da energia cai abaixo disso
-PICKUP_TIME = 0.3      # segundos pra pegar um recurso solto no alcance (mirar + E)
-PICKUP_R = 1           # alcance (tiles, Chebyshev) em que o jogador simulado pega um solto
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +168,7 @@ STRATEGIES = {
     "casual": Strategy("casual", pick="balanced", walk_factor=1.3, o2_margin=12.0, craft_overhead=6.0,
                        mine_overhead=0.3),
     # v0.3 Marco 2: o mesmo humano casual, mas que desce pela cratera e minera na caverna (minério em volume,
-    # sem soltos). As drills vão nos veios da caverna e ele busca à mão (os drones só atendem a superfície).
+    # sem as rochas da superfície). As drills vão nos veios da caverna e ele busca à mão (os drones só atendem a superfície).
     "caverna": Strategy("caverna", pick="balanced", walk_factor=1.3, o2_margin=12.0, craft_overhead=6.0,
                         mine_overhead=0.3, stations=0, cave=True),
     # v0.3 Marco 3: o casual da caverna que antes vai à nave de carga mais perto, pega o saque e o projeto do
@@ -283,7 +281,6 @@ class Sim:
         self.cur = self.home
         self.zone = [self._in_zone(i) for i in range(self.N)] + [self.cave]  # [BASE] = a base (virtual, só caverna)
         self._init_near_ore()
-        self._init_pickups()
         self._init_field()
         self.sites: list[int] | None = None
 
@@ -365,34 +362,6 @@ class Sim:
                 res = C.TILE_RESOURCE.get(self.world.tiles[y][x])
                 if res:
                     self._bump_near(res, x, y, +1, R)
-
-    # ---- recursos soltos ao alcance (contadores 3×3, refeitos quando a lista muda) ----
-    def _init_pickups(self):
-        self.pnear = {r: [0] * (self.N + 1) for r in C.RESOURCES}
-        self._pickup_sig = None
-        self._sync_pickups()
-
-    def _sync_pickups(self):
-        items = self.gs.surface.pickups.items if self.gs.surface.pickups and not self.cave else []
-        sig = tuple((p.tile, p.resource) for p in items)
-        if sig == self._pickup_sig:
-            return
-        self._pickup_sig = sig
-        for arr in self.pnear.values():
-            arr[:] = [0] * len(arr)
-        for p in items:
-            x, y = p.tile
-            arr = self.pnear[p.resource]
-            for yy in range(max(0, y - PICKUP_R), min(self.H, y + PICKUP_R + 1)):
-                for xx in range(max(0, x - PICKUP_R), min(self.W, x + PICKUP_R + 1)):
-                    arr[yy * self.W + xx] += 1
-
-    def _pickups_in_reach(self, i):
-        if self.cave or i == self.BASE:                         # soltos só na superfície
-            return []
-        x, y = self._xy(i)
-        return [p for p in (self.gs.surface.pickups.items if self.gs.surface.pickups else [])
-                if max(abs(p.tile[0] - x), abs(p.tile[1] - y)) <= PICKUP_R]
 
     def _bump_near(self, res, x, y, d, R=None):
         R = C.MINE_REACH if R is None else R
@@ -500,7 +469,9 @@ class Sim:
         if self.gs.power.deficit:
             self.res.deficit_time += dt
         self.gs._update_machines(dt)           # regra real: soma rate*dt×fator em cada índice e checa estágio
-        self.gs._update_pickups(dt)            # regra real: soltos reaparecem fora da vista e longe da base
+        for x, y in self.gs._update_rocks(dt):  # regra real: rocha nova fora da vista e longe da base
+            if not self.cave:                  # a estratégia "caverna" não minera na superfície
+                self._bump_near(C.SMALL_ROCKS[self.world.tiles[y][x]], x, y, +1)
         self.gs.play_time += dt
         self.t += dt
 
@@ -861,7 +832,7 @@ class Sim:
             d, u = heapq.heappop(heap)
             if d > g[u]:
                 continue
-            if u != start and any(self.near[r][u] or self.pnear[r][u] for r in wanted):
+            if u != start and any(self.near[r][u] for r in wanted):
                 ret = min(self.field[u], walk[u] + base_ret) * tw
                 if used[u] + max(C.MINE_TIME.values()) + ret <= o2:
                     path = [u]
@@ -886,15 +857,6 @@ class Sim:
     def mine_here(self, wanted):
         """Minera o que der ao alcance (primeiro o que falta), sem passar do O₂ pra voltar."""
         got = 0
-        self._sync_pickups()
-        for p in sorted(self._pickups_in_reach(self.cur), key=lambda p: p.resource not in wanted):
-            if self.gs.o2 / C.O2_DRAIN - PICKUP_TIME - self._ret_cost(self.cur) < self.s.o2_margin:
-                return got
-            self._advance(PICKUP_TIME, outside=not self.zone[self.cur], what="minerar")
-            before = self._units()
-            self.gs.take_pickup(p, warn=False)
-            got += self._units() - before
-        self._sync_pickups()
         ores = sorted(self._ores_in_reach(self.cur), key=lambda o: C.TILE_RESOURCE[o[1]] not in wanted)
         for i, kind in ores:
             if self.gs.o2 / C.O2_DRAIN - C.MINE_TIME[kind] - self._ret_cost(self.cur) < self.s.o2_margin:
