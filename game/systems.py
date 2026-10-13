@@ -935,15 +935,13 @@ class GameState:
             self.events.append(("stage_up", new_stage))
 
     def _update_storm(self, dt: float) -> None:
-        """A tempestade some linear em STORM_FADE_S segundos (de jogo) depois que o estágio passa dela."""
-        target = 1.0 if self.stage <= C.STORM_STAGE else 0.0
-        step = dt / C.STORM_FADE_S
-        if self.storm > target:
-            self.storm = max(target, self.storm - step)
-        elif self.storm < target:
-            self.storm = min(target, self.storm + step)
-        if abs(self.storm - target) < 1e-6:     # sem resto de float: quem lê pode testar storm == 0
-            self.storm = target
+        """A tempestade some linear em STORM_FADE_S segundos (de jogo) depois que o estágio passa dela.
+        Só desce: o jogo novo já nasce com storm 1.0 e o estágio nunca volta."""
+        if self.stage <= C.STORM_STAGE or self.storm <= 0.0:
+            return
+        self.storm = max(0.0, self.storm - dt / C.STORM_FADE_S)
+        if self.storm < 1e-6:                   # sem resto de float: quem lê pode testar storm == 0
+            self.storm = 0.0
 
     # ---- rochas pequenas reaparecendo (game/rock_respawn.py) -----------------
     def _update_rocks(self, dt: float) -> list[tuple[int, int]]:
