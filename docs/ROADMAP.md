@@ -35,14 +35,14 @@ Detalhes em `GAME_BIBLE.md` §8.
 - [x] Fabricador com abas, scroll e fabricar em lote
 - [x] Marco 4: balanceamento (painel solar 4 kW) + polimento + playtest do dono
 
-## v0.3 · Superfície · em andamento
+## v0.3 · Superfície ✓ (tag v0.3)
 Detalhes em `GAME_BIBLE.md` §9 e no design `docs/superpowers/specs/2026-10-12-v03-superficie-design.md`. Novo jogo obrigatório.
 
-- [x] Marco 1: superfície (deserto 192×192, cápsula no centro, recursos soltos, rochas, morros, veios raros, terraformação no deserto)
+- [x] Marco 1: superfície (deserto 192×192, cápsula no centro, rochas de minério que reaparecem, morros, veios raros, terraformação no deserto)
 - [x] Marco 2: caverna (rampa na cratera, mapa separado e escuro, lanterna, luminárias, brilho nos minérios)
 - [x] Marco 3: destroços, projetos, tanque de O₂ (slot de equipamento) e scanner com minimapa
-- [ ] Assets do v0.3 (sprites e sons) · aprovação do dono
-- [ ] Marco 4: polimento + playtest
+- [x] Assets do v0.3 (sprites v5.0/v5.1 e sons v8.1) · aprovados pelo dono
+- [x] Marco 4: polimento + playtest do dono (morros orgânicos, aba LOGs em ordem cronológica, fabricar em campo, F3, menos minério na caverna, player sem tremer na diagonal, O₂ com subscrito, tooltip e floaters sem cobrir o HUD)
 
 ## v0.4 · Fundo
 Biomas de caverna, mochila, drill melhor, peças raras dos destroços, elevador de carga (drones atendem a caverna).
