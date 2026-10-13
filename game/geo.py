@@ -49,6 +49,7 @@ class FormationSpec:
     footprint: tuple[tuple[int, int], ...]   # tiles que bloqueiam, relativos ao canto de cima-esquerda
     anchor: tuple[int, int]                  # px do sprite que cai no centro de baixo da pegada
     foot: tuple[int, int]                    # o tile do pé (o (0, 0) da Designer), relativo ao canto
+    small: bool = False                      # formação pequena da v9 (sem afloramento nem marcador no mapa)
 
 
 def _load_specs() -> dict[str, FormationSpec]:
@@ -64,7 +65,7 @@ def _load_specs() -> dict[str, FormationSpec]:
         x0, y0 = min(x for x, _ in tiles), min(y for _, y in tiles)
         specs[kind] = FormationSpec(kind, info["name"], REGION_OF[info["region"]],
                                     tuple(sorted((x - x0, y - y0) for x, y in tiles)),
-                                    tuple(info["foot"]), (-x0, -y0))
+                                    tuple(info["foot"]), (-x0, -y0), bool(info.get("small")))
     return specs
 
 
@@ -115,6 +116,12 @@ class Formation:
     @property
     def region(self) -> int:
         return FORMATION_SPECS[self.kind].region
+
+    @property
+    def small(self) -> bool:
+        """Formação pequena da v9 (pedra rachada, pilar de sal, tubo de lava, agulhas de gelo)."""
+        spec = FORMATION_SPECS.get(self.kind)
+        return spec is not None and spec.small
 
 
 @dataclass
@@ -275,6 +282,7 @@ def generate_geo(seed: int, w: int, h: int, base: tuple[int, int]) -> Geo:
     geo.pockets = _pockets(geo, rng)                     # antes das bacias: o bolsão é seco
     geo.basin = _basins(geo.height)
     geo.formations = _formations(geo, rng, base) + [p.gate for p in geo.pockets]
+    geo.formations += _small_formations(geo, base)       # v9: no fim, com gerador próprio (o resto não muda)
     geo.region_px = lambda px, py: _region_px(geo.region, seed, px, py)
     return geo
 
@@ -368,6 +376,54 @@ def _formations(geo: Geo, rng: np.random.Generator, base: tuple[int, int]) -> li
             if (area_r != spec.region).any():
                 continue
             if kind != "salt_ridge" and (geo.basin[ty - halo:ty + fh + halo, tx - halo:tx + fw + halo] >= 0).any():
+                continue
+            placed.append(f)
+            got += 1
+    return placed
+
+
+def _small_formations(geo: Geo, base: tuple[int, int]) -> list[Formation]:
+    """Formações pequenas da v9 (M3.0), pelas regras das grandes com números menores: a caixa da pegada + a folga
+    (SMALL_FORMATION_HALO) inteiras na região e fora de bacia (nenhuma no leito seco; o pilar de sal pode, como a
+    crosta de sal: o salar é quase todo bacia e ele vira ilhota no Verde), longe da base, da borda, dos
+    bolsões e de qualquer outra formação. O gerador é próprio, então as grandes e os bolsões não mudam."""
+    rng = np.random.default_rng([geo.seed & 0xFFFFFFFF, 2026, 30])
+    h, w = geo.region.shape
+    bx, by = base
+    halo = C.SMALL_FORMATION_HALO
+    blocked = set()
+    for p in geo.pockets:
+        blocked |= set(p.interior) | set(p.ring) | set(p.apron)
+    others = list(geo.formations)
+    placed: list[Formation] = []
+    for kind, (lo, hi) in C.GEO_SMALL_FORMATIONS.items():
+        spec = FORMATION_SPECS[kind]
+        fw = max(x for x, _ in spec.footprint) + 1
+        fh = max(y for _, y in spec.footprint) + 1
+        want = int(rng.integers(lo, hi + 1))
+        cands = np.argwhere(geo.region == spec.region)
+        if len(cands) == 0:
+            continue
+        got = 0
+        for i in rng.permutation(len(cands))[:4000]:
+            if got >= want:
+                break
+            ty, tx = (int(v) for v in cands[i])
+            if tx - halo < 6 or ty - halo < 6 or tx + fw + halo > w - 6 or ty + fh + halo > h - 6:
+                continue
+            f = Formation(kind, tx, ty, list(spec.footprint), spec.anchor)
+            cx, cy = f.center
+            if math.hypot(cx - bx, cy - by) < C.SMALL_FORMATION_MIN_BASE_DIST:
+                continue
+            if any(math.hypot(cx - o.center[0], cy - o.center[1]) < C.SMALL_FORMATION_SPACING
+                   for o in others + placed):
+                continue
+            ys, xs = slice(ty - halo, ty + fh + halo), slice(tx - halo, tx + fw + halo)
+            if (geo.region[ys, xs] != spec.region).any():
+                continue
+            if kind not in C.SMALL_FORMATION_BASIN_OK and (geo.basin[ys, xs] >= 0).any():
+                continue
+            if any((x, y) in blocked for x in range(xs.start, xs.stop) for y in range(ys.start, ys.stop)):
                 continue
             placed.append(f)
             got += 1

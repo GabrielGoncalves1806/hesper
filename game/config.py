@@ -609,6 +609,12 @@ FORMATION_MIN_BASE_DIST = 26        # tiles do centro da formação até a base 
 FORMATION_SPACING = 16              # tiles entre formações (centro a centro)
 FORMATION_HALO = 2                  # tiles livres em volta da pegada (os afloramentos ficam aqui; nada mais nasce)
 FORMATION_HILL_GAP = 4              # morro nenhum a menos disso da pegada
+# Formações pequenas (v9 · M3.0): miúdas, sem afloramento nem marcador no mapa. Por mundo, (mín, máx).
+GEO_SMALL_FORMATIONS = {"split_rock": (4, 6), "salt_pillar": (3, 4), "lava_tube": (2, 4), "ice_needles": (3, 5)}
+SMALL_FORMATION_MIN_BASE_DIST = 20  # tiles do centro dela até a base
+SMALL_FORMATION_SPACING = 10        # tiles até qualquer outra formação (pequena ou grande), centro a centro
+SMALL_FORMATION_HALO = 2            # tiles de folga em volta da pegada: na mesma região e fora de bacia
+SMALL_FORMATION_BASIN_OK = ("salt_pillar",)   # como a crosta de sal: o salar é quase todo bacia (vira ilhota no Verde)
 OUTCROPS = (3, 4)                   # afloramentos (rochas pequenas) por formação, a 1–2 tiles da pegada
 OUTCROP_ORE = {"plateau": {"iron": 0.5, "silicon": 0.5}, "salar": {"silicon": 1.0},
                "basalt": {"iron": 1.0}, "frost": {"ice": 1.0}}

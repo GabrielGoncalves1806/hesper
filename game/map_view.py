@@ -161,7 +161,7 @@ def map_entries(state, key: str) -> list[Entry]:
                                  "caixa vazia" if empty else "caixa cheia"))
     geo = getattr(world, "geo", None)
     for f in (geo.formations if geo is not None else ()):    # v0.4 Marco 2: marcos de paisagem (sem filtro)
-        if seen_any(f.tiles):
+        if seen_any(f.tiles) and not f.small:              # as pequenas da v9 são miúdas: sem marcador
             what = "fecha a passagem · gelo" if f.kind == "ice_gate" else REGION_LABELS[f.region]
             entries.append(Entry("formation", "formation", *f.center, f.name, what))
     for i, (tx, ty) in enumerate(world.terminals):

@@ -2321,7 +2321,8 @@ def check_formations(bot) -> None:
     bot.mouse_to((900, 500))
     first = {}
     for f in geo.formations:
-        first.setdefault(f.kind, f)
+        if not f.small:                                # as pequenas da v9 têm o check_v9_elements
+            first.setdefault(f.kind, f)
     assert set(first) == {"monolith", "arch", "basalt_spires", "salt_ridge", "cone", "ice_gate"}, set(first)
     # 1) as 6 no mundo (o player 3 tiles abaixo do pé) + um mosaico dos recortes
     crops = []
@@ -2391,6 +2392,116 @@ def check_formations(bot) -> None:
     geo.formations = forms
     print(f"  perf formações, zoom 0,75× no arco: sem {res[False]:.1f} ms · com {res[True]:.1f} ms "
           f"({res[True] - res[False]:+.1f} ms)")
+    assert res[True] < 1000 / 60
+    s.indices.update(before)
+    s.stage, s.storm = stage_before, storm_before
+    app.set_zoom(zoom_before, notify=False)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+
+
+def check_v9_elements(bot) -> None:
+    """v0.4 Marco 3 · M3.0 · elementos v9 das regiões: decalques do 3º sorteio, soltos novos (com o musgo do Verde)
+    e as formações pequenas. Um print por região (planalto com o leito seco, salar, basalto, faixa gelada) no Árido
+    e no Verde, e o custo no passeio (com e sem os elementos novos)."""
+    import numpy as np
+    from game import ground as GR
+    s, app = bot.state, bot.app
+    r = app.renderer
+    w, geo = s.world, s.active.geo
+    before = dict(s.indices)
+    stage_before, storm_before = s.stage, s.storm
+    zoom_before = app.zoom
+    small = [f for f in geo.formations if f.small]
+    assert {f.kind for f in small} == {"split_rock", "salt_pillar", "lava_tube", "ice_needles"}, small
+    bed = np.argwhere((geo.basin >= 0) & (geo.region == 0))           # (ty, tx) do leito seco
+
+    def bed_dist(f):
+        cx, cy = f.center
+        return float(np.min(np.hypot(bed[:, 1] - cx, bed[:, 0] - cy))) if len(bed) else 1e9
+
+    def floor_near(px, py):
+        best = None
+        for dy in range(-6, 7):
+            for dx in range(-6, 7):
+                tx, ty = int(px // C.TILE) + dx, int(py // C.TILE) + dy
+                if w.is_floor(tx, ty) and not w.is_solid(tx, ty - 1):
+                    d = dx * dx + dy * dy
+                    if best is None or d < best[0]:
+                        best = (d, (tx, ty))
+        return best[1]
+
+    views = {}
+    for kind, name in (("split_rock", "planalto"), ("salt_pillar", "salar"), ("lava_tube", "basalto"),
+                       ("ice_needles", "gelada")):
+        cands = [f for f in small if f.kind == kind]
+        if kind == "split_rock":
+            # planalto com o leito seco: a beira de uma depressão (15–30% de leito na tela), o mais perto possível de
+            # uma pedra rachada (as depressões ficam longe delas: a pedra pode ficar fora da tela)
+            hx, hy = 14, 8
+            m = np.pad(((geo.basin >= 0) & (geo.region == 0)).astype(np.int32), ((hy + 1, hy), (hx + 1, hx)))
+            cs = m.cumsum(0).cumsum(1)
+            frac = (cs[2 * hy + 1:, 2 * hx + 1:] - cs[:-2 * hy - 1, 2 * hx + 1:] - cs[2 * hy + 1:, :-2 * hx - 1]
+                    + cs[:-2 * hy - 1, :-2 * hx - 1]) / ((2 * hy + 1) * (2 * hx + 1))
+            best = None
+            for ty in range(hy + 2, w.height - hy - 2):
+                for tx in range(hx + 2, w.width - hx - 2):
+                    if not 0.15 <= frac[ty, tx] <= 0.3 or not w.is_floor(tx, ty) or w.is_solid(tx, ty - 1):
+                        continue
+                    near = min(cands, key=lambda c: math.hypot(c.center[0] - tx, c.center[1] - ty))
+                    key = math.hypot(near.center[0] - tx, near.center[1] - ty)
+                    if best is None or key < best[0]:
+                        best = (key, near, (tx, ty))
+            _, f, spot = best
+        else:
+            f = cands[0]
+            bx, by = f.base_px
+            spot = floor_near(bx + 2.5 * C.TILE, by + 2.5 * C.TILE)
+        views[name] = (f, spot)
+    app.set_zoom(1.0, notify=False)
+    bot.mouse_to((900, 500))
+    for stage, tag in ((C.ARID_STAGE, "arido"), (C.GREEN_STAGE, "verde")):
+        s.stage, s.storm = stage, 0.0
+        s.indices.update(o2=float(C.STAGES[stage - 1].ti), heat=0.0, water=0.0)
+        for name, (f, spot) in views.items():
+            bot.teleport(spot)
+            s.o2 = C.O2_MAX
+            ground_settle(bot)
+            if name != "planalto":
+                assert any(v[0] is f for v in r.visible_formations(s, app.cam)), (name, f)
+            cx, cy = app.cam
+            tx0, ty0 = cx // C.TILE, cy // C.TILE
+            on = [d for ty in range(ty0, ty0 + r.view_h // C.TILE + 2) for d in r.ground.decor_row_v9(ty)
+                  if tx0 <= d.tx <= tx0 + r.view_w // C.TILE and GR.decor_tile_free(w, d.tx, ty, s.machine_at)]
+            ctx = r.ground.ctx
+            blocks = {(bx, by) for bx in range(int(cx // GR.BP), int((cx + r.view_w) // GR.BP) + 1)
+                      for by in range(int(cy // GR.BP), int((cy + r.view_h) // GR.BP) + 1)}
+            dec = {(x, y, nm) for b in blocks for x, y, _, idx, nm in GR.v9_decals_for_block(geo, r.ground.art, *b,
+                                                                                            ctx.tcls, ctx.skip)
+                   if x + idx.shape[1] > cx and x < cx + r.view_w and y + idx.shape[0] > cy and y < cy + r.view_h}
+            mossy = sum(1 for d in on if d.name in r.ground.moss_on)
+            print(f"  v9 {name} ({tag}): {f.kind} em {(f.tx, f.ty)} · {len(on)} soltos v9 "
+                  f"({', '.join(sorted({d.name for d in on}))}; {mossy} com musgo no Verde) · "
+                  f"{len(dec)} decalques v9 ({', '.join(sorted({n for *_, n in dec}))})")
+            assert dec, f"sem decalque v9 na tela do {name}"
+            bot.shot(f"v9_{name}_{tag}.png")
+    # custo: passeio no basalto (zoom 0,75), com e sem os soltos v9 e as formações pequenas (alternado, a melhor)
+    s.stage, s.storm = C.ARID_STAGE, 0.0
+    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    app.set_zoom(0.75, notify=False)
+    spot = views["basalto"][1]
+    avg = lambda ft: 1000 * sum(ft) / len(ft)   # noqa: E731
+    res = {}
+    forms, items = geo.formations, r.ground._decor9
+    for _ in range(2):
+        for on in (False, True):
+            geo.formations = forms if on else [f for f in forms if not f.small]
+            r.ground._decor9 = items if on else {}
+            res[on] = min(res.get(on, 1e9), avg(walk_perf(bot, spot)))
+    geo.formations, r.ground._decor9 = forms, items
+    print(f"  perf v9 (soltos + formações pequenas), zoom 0,75× no basalto: sem {res[False]:.1f} ms · "
+          f"com {res[True]:.1f} ms ({res[True] - res[False]:+.1f} ms)")
     assert res[True] < 1000 / 60
     s.indices.update(before)
     s.stage, s.storm = stage_before, storm_before
@@ -3112,6 +3223,7 @@ def main() -> None:
     check_ground(bot)
     check_hills(bot)
     check_formations(bot)
+    check_v9_elements(bot)
     check_crater(bot)
     check_cave(bot)
     check_wrecks(bot)

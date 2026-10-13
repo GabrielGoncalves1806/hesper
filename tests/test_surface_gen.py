@@ -206,7 +206,7 @@ def test_every_formation_has_outcrops(seed):
     kinds = [f.kind for f in w.geo.formations]
     assert {"monolith", "arch", "salt_ridge", "basalt_spires", "cone"} <= set(kinds)
     for f in w.geo.formations:
-        if f.kind == "ice_gate":
+        if f.kind == "ice_gate" or f.small:                # as pequenas da v9 não têm afloramento
             continue
         rocks = [t for t in _near(f.tiles, 2) - set(f.box) if w.get(*t) in C.SMALL_ROCKS]
         assert C.OUTCROPS[0] <= len(rocks) <= C.OUTCROPS[1], (f.kind, rocks)
