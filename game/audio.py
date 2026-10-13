@@ -40,6 +40,8 @@ ALARM_ON_BELOW = 25.0    # % de O₂ que liga o alarme
 ALARM_OFF_AT = 27.0      # % que desliga (histerese: não fica ligando/desligando na borda)
 STAGE_JINGLE_TIME = 4.5  # duração do stage_up; o ambiente fica baixo durante ele
 CROSSFADE_MS = 7000
+AMB_ROTATE_S = 34.0         # ambiente com variações (amb_storm, amb_storm_1, _2): troca de variação a cada volta do loop
+AMB_ROTATE_MS = 6000        # crossfade entre variações do mesmo ambiente
 WIND_FADE_IN, WIND_FADE_OUT = 2.5, 1.5   # s: vento sobe devagar ao sair pra superfície, desce mais rápido
 
 
@@ -144,6 +146,7 @@ class Audio:
         self.alarm_on = False
         self.ambient_key: str | None = None
         self._amb_index = 0                      # qual dos canais 0/1 está tocando o ambiente
+        self._amb_age = 0.0                      # segundos tocando a variação atual do ambiente (pra trocar)
         self._amb_level = 1.0                    # 1 = normal; abaixa no jingle, no terminal e no desmaio
         self._amb_target = 1.0
         self._pending_ambient: list | None = None  # [segundos até o crossfade, chave do estágio novo]
@@ -221,6 +224,16 @@ class Audio:
         except pygame.error as err:
             print(f"[audio] não consegui ler {path.name}: {err}")
             return []
+        extra = []                    # variações gravadas: <nome>_1.wav, <nome>_2.wav... (ex.: gust, amb_storm)
+        i = 1
+        while (C.AUDIO_DIR / f"{name}_{i}.wav").exists():
+            try:
+                extra.append(pygame.mixer.Sound(str(C.AUDIO_DIR / f"{name}_{i}.wav")))
+            except pygame.error as err:
+                print(f"[audio] não consegui ler {name}_{i}.wav: {err}")
+            i += 1
+        if extra:
+            return [sound] + extra
         factors = PITCH_VARIANTS.get(name)
         _, size, channels = pygame.mixer.get_init()
         if not factors or size != -16:
@@ -319,7 +332,8 @@ class Audio:
         if sounds:
             channel = self.amb[self._amb_index]
             channel.set_volume(self.ambient_gain)
-            channel.play(sounds[0], loops=-1, fade_ms=2000)
+            channel.play(self._pick(f"amb_{stage_key}"), loops=-1, fade_ms=2000)
+            self._amb_age = 0.0
             self._fade_busy = 2.0
 
     def stage_up(self, stage_key: str) -> None:
@@ -364,7 +378,15 @@ class Audio:
         if sounds:
             new = self.amb[self._amb_index]
             new.set_volume(self.ambient_gain)
-            new.play(sounds[0], loops=-1, fade_ms=fade_ms)
+            new.play(self._pick(f"amb_{key}"), loops=-1, fade_ms=fade_ms)
+            self._amb_age = 0.0
+
+    def _rotate_ambient(self) -> None:
+        """Ambiente com variações: crossfade pra outra variação do mesmo ambiente, no outro canal A/B."""
+        self.amb[self._amb_index].fadeout(AMB_ROTATE_MS)
+        self._amb_index = 1 - self._amb_index
+        self._start_on_channel(self.ambient_key, AMB_ROTATE_MS)
+        self._fade_busy = AMB_ROTATE_MS / 1000
 
     def set_wind(self, on: bool) -> None:
         """Vento do deserto por cima do ambiente (desert_wind.wav). Sem o arquivo, silêncio."""
@@ -419,6 +441,11 @@ class Audio:
                 self._pending_ambient = None
                 self._crossfade(key)
 
+        self._amb_age += dt
+        if (self.ambient_key and self._amb_age >= AMB_ROTATE_S and self._fade_busy <= 0
+                and not self._pending_ambient and not self._pending_start
+                and len(self._get(f"amb_{self.ambient_key}")) > 1):
+            self._rotate_ambient()
         if self._fade_busy > 0:
             self._fade_busy -= dt
             return

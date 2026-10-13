@@ -35,6 +35,8 @@ CONTRACT = {
     "crate_open": False, "blueprint_found": False, "equip": False, "map_open": False,
     # v0.4 Marco 1 · Tempestade (v9.1, aprovados)
     "amb_storm": True, "gust": False, "sky_clear": False,
+    # v9.3: variações (o jogo troca entre elas)
+    "amb_storm_1": True, "amb_storm_2": True, "gust_1": False, "gust_2": False,
 }
 # entregues em _pending/ até o dono aprovar
 PENDING: dict = {}

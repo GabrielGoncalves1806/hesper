@@ -1742,11 +1742,17 @@ def sfx_sky_clear(rng):
 # v9.1 aprovado pelo dono (sem escolher letra, valeu a recomendação): amb_storm = A
 # (capacete), gust = A (uivo grave) e sky_clear. Promovidos pro SOUNDS com a seed do nome
 # da candidata, pra sair idêntico byte a byte ao que ele ouviu. As B e C ficam aqui só como
-# histórico (amb_storm_B/C, gust_B/C), sem gerar arquivo.
+# histórico (amb_storm_B/C, gust_B/C), sem gerar arquivo. (v9.3: viraram _1/_2, abaixo.)
 SOUNDS.update({
     "amb_storm": (lambda _rng: amb_storm_A(rng_for("amb_storm_A")), True, -27.0),
     "gust": (lambda _rng: gust_A(rng_for("gust_A")), False, -21.0),
     "sky_clear": (sfx_sky_clear, False, -21.0),
+    # v9.3: o dono quis as 3 como variações (o jogo troca entre elas). B e C viram _1 e _2,
+    # com a seed da candidata (idênticas à v9.1) e o mesmo alvo de loudness da A
+    "amb_storm_1": (lambda _rng: amb_storm_B(rng_for("amb_storm_B")), True, -27.0),
+    "amb_storm_2": (lambda _rng: amb_storm_C(rng_for("amb_storm_C")), True, -27.0),
+    "gust_1": (lambda _rng: gust_B(rng_for("gust_B")), False, -21.0),
+    "gust_2": (lambda _rng: gust_C(rng_for("gust_C")), False, -21.0),
 })
 
 

@@ -82,3 +82,24 @@ def test_ambient_for_layer():
     assert audio.ambient_for("cave", "mist", True) == "cave"
     assert audio.ambient_for("cave", "mist", False) == "mist"
     assert audio.ambient_for("surface", "green", True) == "green"
+
+
+def test_recorded_variants_are_loaded_in_order(tmp_path, monkeypatch):
+    """<nome>.wav + <nome>_1.wav + <nome>_2.wav viram 3 variações (o dono quer as 3 tempestades e rajadas)."""
+    import os
+    import wave
+    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+    import pygame
+    from game.audio import Audio
+    for name in ("gust", "gust_1", "gust_2"):
+        with wave.open(str(tmp_path / f"{name}.wav"), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(44100)
+            w.writeframes(b"\x00\x00" * 441)
+    monkeypatch.setattr(C, "AUDIO_DIR", tmp_path)
+    pygame.mixer.init(44100, -16, 2)
+    try:
+        assert len(Audio._load("gust")) == 3
+    finally:
+        pygame.mixer.quit()
