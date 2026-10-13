@@ -140,6 +140,12 @@ Arte **aprovada pelo dono** (v9, `reports/design/regioes/index.html#v9`), já pr
 - [ ] **4.** O player continua andando na água rasa (como hoje). Isso fica pra rever no playtest do Marco 4.
 - [ ] **5.** Smoke: print de uma máquina submersa e o fantasma vermelho de colocar na água. `pytest`, smoke e real_video. Escreva a §12 "Máquina submersa". **Pare aqui.**
 
+## M3.5 · Ajustes do playtest do dono (decisões de 2026-10-13)
+- [ ] **Gelo-portão em blocos** (substitui o encolher por etapas do M3.2): cada portão é um amontoado de **3 ou mais blocos de gelo** de tipos diferentes, sobrepostos. Cada bloco derrete no seu ritmo pelo calor e **vai diminuindo de tamanho junto com a hitbox** (sem troca de sprite: a Designer exporta cada bloco em vários tamanhos pelo motor de volume, e o jogo pega o mais perto). Se as hitboxes deixarem uma fresta, o player passa. Colisão por retângulo de cada bloco (como as máquinas), não mais pela pegada em tiles.
+- [ ] **Fumaça sutil**: não precisa ser forte, só precisa dar pra ver que a fumarola ficou ativa com o calor.
+- [ ] **Margem do lago orgânica**: a borda da água segue o `geo.height` com borda suave (no estilo dos morros orgânicos), sem a escadinha do autotile por tile.
+- [ ] **Padrão único de caixa no motor r3d** (decisão do dono): um modelo só, o **container padrão azul** na pegada do The Planet Crafter (sem visual industrial, que fica pra depois). Vale pra **toda caixa**: o baú fabricado (substitui o atual), a caixa de saque dos destroços, qualquer caixa de recurso espalhada e o contêiner lacrado (o mesmo modelo com trava ou selo). A Designer porta o `r3d.py` pro `tools/sprites/` (só essa parte sai do Marco 4).
+
 ## Assets do Marco 3 (Designer/Som, pra aprovar com o dono)
 | Quem | Asset | Entra em |
 |---|---|---|

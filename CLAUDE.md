@@ -19,7 +19,7 @@ A sessão principal é o **gerente/orquestrador**: conversa com o dono, distribu
 - Mudou alguma decisão de jogo? Atualize a bíblia primeiro.
 
 ## Comandos
-- Jogo: `uv run python -m game`
+- Jogo: `uv run python -m game` (ou o atalho `~/Applications/Hesper.app`, que o dono abre pelo Launchpad/Spotlight; recrie com `bash tools/dev/make_mac_app.sh`)
 - Testes: `uv run pytest`
 - Smoke com prints: `uv run python tools/dev/smoke.py`
 - Vídeo real (janela escondida, compara com o dummy; pega superfície que sai preta/transparente no macOS): `uv run python tools/dev/real_video_check.py`
