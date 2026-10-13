@@ -312,9 +312,10 @@ def test_fabricator_tabs_inside_the_panel(ui, size):
     ui.set_layout((0, 0, size[0] * 2, size[1] * 2), 2.0, size)
     ui.begin()
     ui.draw_fabricator(GameState(rng=random.Random(1)), FabMenu(), lambda kind: art.icon("iron"), 0.0)
-    rows = [r for r, _ in ui.fabricator_rows]
-    left, right = min(r.left for r in rows) - 8, max(r.right for r in rows) + 8   # bordas do painel
-    assert left >= 0 and right <= size[0]
+    panel = ui.fabricator_panel                          # a janela (lista + detalhe)
+    left, right = panel.left, panel.right
+    assert left >= 0 and right <= size[0] and panel.top >= 0 and panel.bottom <= size[1]
+    assert all(left < r.left and r.right < right for r, _ in ui.fabricator_rows), size
     assert all(left < r.left and r.right < right for r, _ in ui.fabricator_tabs), size
 
 

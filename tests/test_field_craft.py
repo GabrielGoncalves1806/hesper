@@ -175,7 +175,8 @@ def test_tabs_order_and_a_d_cycle(app):
     assert app.inv_tab == TAB_INVENTORY
     assert [i for _, i in app.ui.inv_tab_rects] == [TAB_INVENTORY, TAB_CRAFT, TAB_LOGS]
     rects = [r for r, _ in app.ui.inv_tab_rects]
-    assert all(a.right < b.left for a, b in zip(rects, rects[1:]))     # Inventário | Fabricar | LOGs
+    # Inventário | Fabricar | LOGs: controle segmentado (encostadas, sem sobrepor)
+    assert all(a.right <= b.left for a, b in zip(rects, rects[1:]))
     app.on_key(pygame.K_d)
     assert app.inv_tab == TAB_CRAFT
     app.on_key(pygame.K_d)
@@ -198,7 +199,17 @@ def test_click_craft_in_the_field_from_inventory_only(app):
     assert app.inv_tab == TAB_CRAFT
     app.draw()
     assert [k for _, k in app.ui.fabricator_rows] == list(C.FIELD_RECIPES)
-    assert [k for _, k in app.ui.fabricator_buttons] == ["lamp"]       # só a luminária dá com 1 Fe + 1 Si
+    # lista + detalhe: o FABRICAR é da receita escolhida e só aparece se dá. Escolhendo cada uma (clique na
+    # linha), só a luminária dá com 1 Fe + 1 Si
+    craftable = []
+    for kind in C.FIELD_RECIPES:
+        click(app, next(r for r, k in app.ui.fabricator_rows if k == kind))
+        assert app.field.current == kind
+        app.draw()
+        craftable += [k for _, k in app.ui.fabricator_buttons]
+    assert craftable == ["lamp"]
+    click(app, next(r for r, k in app.ui.fabricator_rows if k == "lamp"))
+    app.draw()
     click(app, next(r for r, k in app.ui.fabricator_buttons if k == "lamp"))
     app.update(1 / 60)
     assert s.inventory.count("lamp") == 1
@@ -216,6 +227,7 @@ def test_keyboard_craft_and_full_inventory_notice(app):
             s.inventory.add("ice", 50)
     app.on_key(pygame.K_TAB)
     app.switch_inv_tab(TAB_CRAFT)
+    app.field.select("drill")                 # o teste anterior escolheu a luminária com o clique na linha
     app.draw()
     assert app.field.current == "drill"
     app.on_key(pygame.K_RETURN)                           # a drill (12 Fe + 6 Si) libera os 2 slots: cabe

@@ -378,7 +378,7 @@ class App:
                 self.fab.switch_tab(-1 if key in (pygame.K_a, pygame.K_LEFT) else 1)   # Tab: próxima aba
                 self.audio.play("ui_click")
             elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE) and self.fab.current:
-                self.try_craft(self.fab.current, batch=self.shift_held())   # Shift: até 5
+                self.try_craft(self.fab.current, batch=self.craft_batch(self.fab))   # ×5 ou Shift: até 5
         elif self.mode == "terminal":
             if key in (pygame.K_e, pygame.K_ESCAPE, pygame.K_RETURN):
                 self.close_terminal()
@@ -520,17 +520,36 @@ class App:
             self.field.move(-1 if key in (pygame.K_w, pygame.K_UP) else 1)
             self.audio.play("ui_click")
         elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE) and self.field.current:
-            self.try_craft(self.field.current, batch=self.shift_held(), field=True)
+            self.try_craft(self.field.current, batch=self.craft_batch(self.field), field=True)
+
+    def craft_batch(self, menu: FabMenu) -> bool:
+        """Fabrica em lote (até C.CRAFT_BATCH)? Sim com o seletor em ×5 ou com o Shift segurado."""
+        return menu.batch > 1 or self.shift_held()
+
+    def on_craft_click(self, pos, menu: FabMenu, field: bool = False) -> bool:
+        """Clique na lista + detalhe (fabricador ou aba Fabricar): FABRICAR fabrica (×5 ou Shift: até 5), ×1/×5
+        trocam o lote e a linha escolhe a receita. True se usou o clique."""
+        ui = self.ui
+        kind = next((k for rect, k in ui.fabricator_buttons if rect.collidepoint(pos)), None)
+        if kind is not None:
+            self.try_craft(kind, batch=self.craft_batch(menu), field=field)
+            return True
+        amount = next((n for rect, n in ui.fabricator_batch if rect.collidepoint(pos)), None)
+        if amount is not None:
+            if menu.set_batch(amount):
+                self.audio.play("ui_click")
+            return True
+        kind = next((k for rect, k in ui.fabricator_rows if rect.collidepoint(pos)), None)
+        if kind is not None:
+            if kind != menu.current:
+                self.audio.play("ui_click")
+            menu.select(kind)
+            return True
+        return False
 
     def on_field_click(self, pos) -> None:
-        """Clique na aba Fabricar: o botão CRAFTAR fabrica (Shift: até 5), a linha só escolhe."""
-        kind = next((k for rect, k in self.ui.fabricator_buttons if rect.collidepoint(pos)), None)
-        if kind is not None:
-            self.try_craft(kind, batch=self.shift_held(), field=True)
-            return
-        kind = next((k for rect, k in self.ui.fabricator_rows if rect.collidepoint(pos)), None)
-        if kind is not None:
-            self.field.select(kind)
+        """Clique na aba Fabricar: igual ao fabricador (lista, ×1/×5 e FABRICAR), só com o inventário."""
+        self.on_craft_click(pos, self.field, field=True)
 
     def on_logs_key(self, key: int) -> None:
         """W/S escolhem a linha (pulando os não achados), Enter/Espaço leem de novo."""
@@ -597,6 +616,16 @@ class App:
             self.map_sound_t = self.t
         self.mode = "map"
         self.mouse_held = False
+        self.ui.map_rect = self.ui.map_close_rect = None   # até o 1º desenho, clique nenhum fecha
+
+    def on_map_click(self) -> None:
+        """Mapa aberto: o botão FECHAR e o clique fora da janela fecham; dentro dela não faz nada."""
+        ui = self.ui
+        pos = self.mouse_ui
+        on_close = ui.map_close_rect is not None and ui.map_close_rect.collidepoint(pos)
+        outside = ui.map_rect is not None and not ui.map_rect.collidepoint(pos)
+        if on_close or outside:
+            self.set_mode("play")
 
     def show_notice(self, text: str) -> None:
         self.notice, self.notice_time = text, C.NOTICE_TIME
@@ -836,7 +865,8 @@ class App:
             res = next((r for rect, r in ui.buffer_rects if rect.collidepoint(mouse_ui)), None)
             if res is not None:
                 return f"{item_name(res)} · {st.buffer.get(res, 0)} (sobras)"
-        hit = ui.logistics_at(mouse_ui)
+        # seção DRONES só existe no baú/drill (na estação a lista podia vir do painel aberto antes)
+        hit = ui.logistics_at(mouse_ui) if (self.open_chest or self.open_drill) is not None else None
         if hit is not None:
             kind, value = hit
             if kind == "batch":
@@ -1006,8 +1036,26 @@ class App:
             if rect.collidepoint(ux, uy):
                 self.pause_selected = i
 
+    def set_option(self, index: int, value) -> None:
+        """Clique num segmento das Opções: tela cheia Não|Sim, um nível de zoom ou um tamanho de interface."""
+        n = len(UI.VOLUME_ROWS)
+        self.pause_selected = index
+        if index == n:
+            if value != self.settings["fullscreen"]:
+                self.toggle_fullscreen()
+        elif index == n + 1:
+            self.set_zoom(value, notify=False)
+        elif index == n + 2 and value != self.settings["ui_size"]:
+            self.set_ui_size(value)
+        self.audio.play("ui_click")
+
     def on_pause_click(self) -> None:
         ux, uy = self.mouse_ui
+        if self.pause_screen == "volumes":
+            hit = self.ui.segment_at((ux, uy))
+            if hit is not None:
+                self.set_option(*hit)
+                return
         for i, bar in enumerate(self.ui.pause_sliders):
             if bar.inflate(4, 8).collidepoint(ux, uy):     # área de clique um pouco maior que a barra
                 self.dragging_slider = i
@@ -1032,6 +1080,10 @@ class App:
             if button == 1:
                 self.on_pause_click()
             return
+        if self.mode == "map":
+            if button == 1:
+                self.on_map_click()
+            return               # nenhum clique com o mapa aberto chega no jogo (minerar, colocar, desmontar)
         if self.state.fainted:
             return
         if self.mode in INVENTORY_MODES:
@@ -1050,19 +1102,13 @@ class App:
             return
         if self.mode == "fabricator":
             ux, uy = self.mouse_ui
-            for rect, kind in self.ui.fabricator_buttons:
-                if rect.collidepoint(ux, uy):
-                    self.try_craft(kind, batch=self.shift_held())
-                    return
             for rect, index in self.ui.fabricator_tabs:
                 if rect.collidepoint(ux, uy):
                     if index != self.fab.tab:
                         self.fab.set_tab(index)
                         self.audio.play("ui_click")
                     return
-            for rect, kind in self.ui.fabricator_rows:     # a lista pode estar rolada: acha pelo tipo
-                if rect.collidepoint(ux, uy):
-                    self.fab.select(kind)
+            self.on_craft_click((ux, uy), self.fab)        # a lista pode estar rolada: acha pelo tipo
         elif self.mode == "play":
             if self.placing:
                 tile = self.place_target()
@@ -1494,12 +1540,13 @@ class App:
             labels = ui.chest_label_rects
         if critical:
             ui.draw_o2_critical(state, self.t, cam)
-        ui.draw_hud(state, self.t, self.hint() if self.mode == "play" else None, icons)
-        ui.draw_hotbar(state.inventory, self.hotbar_selected, self.renderer.item_icon)
+        ui.draw_hud(state, self.t, self.hint() if self.mode == "play" else None, icons, self.renderer.item_icon)
+        ui.draw_hotbar(state.inventory, self.hotbar_selected, self.renderer.item_icon,
+                       show_name=self.mode == "play" and not state.fainted)
         if not critical:   # com O₂ crítico o aviso grande ocupa essa área (e o foco é voltar pra base)
             ui.draw_objectives(self.objectives.lines(state))
         if state.has_scanner and self.mode != "map":           # scanner equipado: minimapa
-            ui.draw_minimap(state, self.renderer.minimap.texture(state), self.t)
+            ui.draw_minimap(state, self.renderer.minimap.texture(state), self.t, self.renderer.item_icon)
         if self.saved_notice > 0:
             draw_saved_notice(ui, self.saved_notice)
         if self.toast_time > 0 and self.toast:
@@ -1517,11 +1564,11 @@ class App:
         ui.begin()
         if self.mode == "fabricator":
             preview = self.renderer.machine_preview
-            ui.draw_fabricator(state, self.fab, preview, self.t)
+            ui.draw_fabricator(state, self.fab, preview, self.t, self.renderer.item_icon, mouse_ui, self.shift_held())
         elif self.mode == "terminal":
             ui.draw_terminal(self.terminal_index, self.t)
         elif self.mode == "map":
-            ui.draw_map(state, self.renderer.minimap.texture(state), self.t)
+            ui.draw_map(state, self.renderer.minimap.texture(state), self.t, mouse_ui)
         elif self.mode == "end":
             ui.draw_end(state, self.t)
         elif self.mode == "pause":
@@ -1530,7 +1577,8 @@ class App:
         elif self.mode == "inventory" and self.inv_tab == TAB_LOGS:
             ui.draw_logs(state, self.log_selected, self.log_first, mouse_ui)
         elif self.mode == "inventory" and self.inv_tab == TAB_CRAFT:
-            ui.draw_field_craft(state, self.field, self.renderer.machine_preview, mouse_ui)
+            ui.draw_field_craft(state, self.field, self.renderer.machine_preview, mouse_ui, self.renderer.item_icon,
+                                self.shift_held())
         elif self.mode in INVENTORY_MODES:
             side = self.open_chest or self.open_drill or self.open_station or self.open_crate
             status = (self.station_status() if self.open_station is not None
@@ -1539,27 +1587,30 @@ class App:
             ui.draw_inventory(state.inventory, side, self.hotbar_selected, self.renderer.item_icon, mouse_ui,
                               self.t, self.name_edit, status, station_info,
                               equipment=state.equipment if self.mode == "inventory" else None,
-                              state=state if self.mode == "inventory" else None)
+                              state=state if self.mode == "inventory" else None, held=self.held)
         if self.notice_time > 0 and self.mode not in INVENTORY_MODES:   # por cima do fabricador também
             ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4))
         if state.fainted:
             ui.draw_faint(state)
         ui.draw_ramp_fade(state)
-        if self.mode not in INVENTORY_MODES:
-            ui.draw_cursor(*mouse_ui)
         ui.finish(window)
 
-        # camada 3 (só no inventário): pilha na mão ou tooltip, aviso e cursor, por cima dos ícones dos slots
+        # camada 3: pilha na mão ou tooltip, aviso e cursor, por cima dos ícones (slots, prévias, textura do
+        # mapa). Antes o cursor ia na camada 2 e sumia embaixo do mapa e dos ícones (desenhados depois dela).
+        ui.begin()
         if self.mode in INVENTORY_MODES:
-            ui.begin()
             # na estação a dica vai numa linha do painel (station_info), não flutuando por cima do texto
             label = None if self.name_edit is not None or self.open_station is not None \
                 else self.hovered_slot_label(mouse_ui)
             ui.draw_held_and_tooltip(self.held, label, mouse_ui, self.renderer.item_icon)
             if self.notice_time > 0:
                 ui.draw_notice(self.notice, min(1.0, self.notice_time / 0.4), ui.notice_y)
-            ui.draw_cursor(*mouse_ui)
-            ui.finish(window)
+        elif self.mode == "map":
+            label = ui.map_marker_at(mouse_ui)
+            if label:
+                ui.draw_map_tooltip(label, mouse_ui)
+        ui.draw_cursor(*mouse_ui)
+        ui.finish(window)
 
         # camada 4: "PROJETO: ..." por cima de tudo (até dos ícones dos painéis)
         if self.blueprint_notice_time > 0 and self.blueprint_notice:

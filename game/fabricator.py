@@ -3,7 +3,8 @@ tests/test_fabricator.py; quem desenha é o ui.draw_fabricator e quem lê as tec
 
 Controles: A/D, ←/→ ou Tab trocam de aba (E não: E fecha o menu) · W/S ou ↑/↓ escolhem dentro da aba
 (a lista rola junto) · a rodinha rola a lista sem mexer na seleção · clique na aba ou na receita.
-Cada aba lembra a sua seleção e a sua rolagem.
+Cada aba lembra a sua seleção e a sua rolagem. O lote (`batch`, ×1 ou ×5) vale pro menu todo: o seletor do
+painel de detalhe escolhe, e o Shift segurado fabrica até 5 em qualquer caso.
 
 A aba Fabricar do Tab (fabricar em campo) usa o mesmo FabMenu, com uma aba só: o kit de campo (field_menu).
 """
@@ -29,6 +30,7 @@ class FabMenu:
         self.tab = 0
         self.selected = [0] * len(tabs)          # seleção de cada aba
         self.first = [0] * len(tabs)             # primeira linha visível de cada aba
+        self.batch = 1                           # lote do botão FABRICAR: 1 ou C.CRAFT_BATCH (seletor ×1/×5)
 
     # ---- leitura
     @property
@@ -70,6 +72,13 @@ class FabMenu:
     def scroll(self, step: int) -> None:
         """Rodinha: rola a lista (sem passar das pontas). A seleção não muda."""
         self.first[self.tab] = max(0, min(self.max_first, self.first[self.tab] + step))
+
+    def set_batch(self, amount: int) -> bool:
+        """Seletor ×1/×5. Devolve True se mudou."""
+        amount = C.CRAFT_BATCH if amount > 1 else 1
+        changed = amount != self.batch
+        self.batch = amount
+        return changed
 
     def select(self, kind: str) -> None:
         """Seleciona uma receita (clique), trocando de aba se precisar."""
