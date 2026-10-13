@@ -216,59 +216,74 @@
    "BASE"
   ],
   "form_monolith.png": [
-   "72×136",
+   "80×140",
    "plateau",
    "SAND"
   ],
   "form_arch.png": [
-   "176×128",
+   "208×150",
    "plateau",
    "SAND"
   ],
   "form_basalt_spires.png": [
-   "120×136",
+   "156×136",
    "basalt",
    "HILL"
   ],
   "form_salt_ridge.png": [
-   "176×72",
+   "204×96",
    "salar",
    "BASE"
   ],
   "form_cone.png": [
-   "144×100",
+   "152×112",
    "basalt",
    "HILL"
   ],
   "ice_gate_0.png": [
-   "136×132",
+   "144×132",
    "frost",
    "ICE"
   ],
   "ice_gate_1.png": [
-   "136×132",
+   "144×132",
    "frost",
    "ICE"
   ],
   "ice_gate_2.png": [
-   "136×132",
+   "144×132",
    "frost",
    "ICE"
   ],
-  "crater_ice_0.png": [
-   "96×96",
-   "frost",
-   "ICE"
+  "crater_impact_0.png": [
+   "168×150",
+   "plateau",
+   "BASE+ICE+METAL"
   ],
-  "crater_ice_1.png": [
-   "96×96",
-   "frost",
-   "ICE"
+  "crater_impact_1.png": [
+   "168×150",
+   "plateau",
+   "BASE+ICE+METAL"
   ],
-  "crater_ice_2.png": [
-   "96×96",
-   "frost",
-   "ICE"
+  "crater_impact_2.png": [
+   "168×150",
+   "plateau",
+   "BASE+ICE+METAL"
+  ],
+  "crater_impact_3.png": [
+   "168×150",
+   "plateau",
+   "BASE+ICE+METAL"
+  ],
+  "crater_impact_4.png": [
+   "168×150",
+   "plateau",
+   "BASE+ICE+METAL"
+  ],
+  "crater_ejecta.png": [
+   "256×216",
+   "plateau",
+   "BASE"
   ],
   "frost_ring.png": [
    "176×72",
@@ -326,8 +341,8 @@
    "monolith",
    {
     "foot": [
-     36,
-     128
+     38,
+     124
     ],
     "tiles": [
      [
@@ -339,15 +354,15 @@
      1,
      1
     ],
-    "name": "Monolito"
+    "name": "Hoodoo (monolito)"
    }
   ],
   [
    "arch",
    {
     "foot": [
-     88,
-     120
+     112,
+     128
     ],
     "tiles": [
      [
@@ -370,8 +385,8 @@
    "basalt_spires",
    {
     "foot": [
-     62,
-     130
+     78,
+     116
     ],
     "tiles": [
      [
@@ -403,15 +418,15 @@
      3,
      2
     ],
-    "name": "Pináculos de basalto"
+    "name": "Basalto colunar"
    }
   ],
   [
    "salt_ridge",
    {
     "foot": [
-     88,
-     68
+     102,
+     70
     ],
     "tiles": [
      [
@@ -446,14 +461,10 @@
    "cone",
    {
     "foot": [
-     72,
-     92
+     76,
+     74
     ],
     "tiles": [
-     [
-      -2,
-      0
-     ],
      [
       -1,
       0
@@ -464,10 +475,6 @@
      ],
      [
       1,
-      0
-     ],
-     [
-      2,
       0
      ],
      [
@@ -484,18 +491,18 @@
      ]
     ],
     "size": [
-     5,
+     3,
      2
     ],
-    "name": "Cone de basalto"
+    "name": "Cone de escória"
    }
   ],
   [
    "ice_gate_0",
    {
     "foot": [
-     66,
-     118
+     70,
+     112
     ],
     "tiles": [
      [
@@ -542,8 +549,8 @@
    "ice_gate_1",
    {
     "foot": [
-     66,
-     118
+     70,
+     112
     ],
     "tiles": [
      [
@@ -582,8 +589,8 @@
    "ice_gate_2",
    {
     "foot": [
-     66,
-     118
+     70,
+     112
     ],
     "tiles": [
      [
@@ -601,12 +608,72 @@
     ],
     "name": "Gelo-portão"
    }
+  ],
+  [
+   "crater_impact",
+   {
+    "anchor": [
+     84,
+     70
+    ],
+    "tiles": [
+     [
+      -1,
+      -1
+     ],
+     [
+      -1,
+      0
+     ],
+     [
+      -1,
+      1
+     ],
+     [
+      0,
+      -1
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      0,
+      1
+     ],
+     [
+      1,
+      -1
+     ],
+     [
+      1,
+      0
+     ],
+     [
+      1,
+      1
+     ]
+    ],
+    "size": [
+     3,
+     3
+    ],
+    "name": "Cratera de impacto",
+    "foot": [
+     84,
+     116
+    ]
+   }
   ]
  ],
  "views": {
   "base": [
    101,
    95
+  ],
+  "crater": [
+   111,
+   100
   ],
   "plateau": [
    74,

@@ -71,6 +71,7 @@ ICE_TABLE = ("frost", {"frost": R.ICE})
 # vistas (centro em tiles) ------------------------------------------------------------------------------------
 VIEWS = {
     "base":      (101, 95),     # planalto com a base e a cratera (com gelo)
+    "crater":    (111, 100),    # a cratera no meio da tela (etapas do gelo)
     "plateau":   (74, 112),     # planalto: arco, monolito, depressão pequena (usada nos 4 estágios e na água)
     "salar":     (134, 107),    # beira do salar: crosta elevada, marcas d'água
     "basalt":    (29, 99),      # basalto: pináculos e cone
@@ -180,10 +181,40 @@ def form_img(kind, stage):
     return R.colorize(idx, R.ramp(reg, stage, table)), info
 
 
+_GATE: dict = {}
+_CRATER: dict = {}
+METAL = np.array([R.rgb("#b9bcc4"), R.rgb("#5b6070"), R.rgb("#e2733a")], np.uint8)
+CRATER_STAGES = 5
+
+
+def gate_idx(scale):
+    if scale not in _GATE:
+        _GATE[scale] = F.ice_block(scale)
+    return _GATE[scale]
+
+
 def gate_img(scale, stage):
-    idx, info = F.ice_block(scale)
+    idx, info = gate_idx(scale)
     reg, table = ICE_TABLE
     return R.colorize(idx, R.ramp(reg, stage, table)), info
+
+
+def crater_idx(k):
+    if k not in _CRATER:
+        _CRATER[k] = F.crater(k)
+    return _CRATER[k]
+
+
+def crater_ramp(stage):
+    """Paleta da cratera: 0..9 rampa do planalto no estágio, 10..17 gelo (ICE), 18..20 metal da rampa."""
+    terra = R.ramp("plateau", stage)
+    ice = R.ramp("frost", stage, {"frost": R.ICE})[:8]
+    return np.concatenate([terra, ice, METAL])
+
+
+def crater_img(k, stage):
+    idx, info = crater_idx(k)
+    return R.colorize(idx, crater_ramp(stage)), info
 
 
 _ROCKS: dict = {}
@@ -251,13 +282,15 @@ def populate(scene, world, stage, decor=True, crater_stage=0, gate_scale=None, p
         if vis(tx, ty, 2):
             reg = R.REG_NAMES[world["region"][ty, tx]]
             place(scene, rock_img(reg, res), tx * T + 16, ty * T + 31)
-    # cratera (3×3) com a tampa de gelo
+    # cratera de impacto (bacia nos 3×3) com a tampa de gelo na etapa `crater_stage` + a ejeção no chão
     cx, cy = R.CRATER_T
     if vis(cx, cy):
-        cr = load("crater").copy()
-        if crater_stage < 3:
-            cr.alpha_composite(R.colorize(F.crater_ice(crater_stage), R.ramp(*ICE_TABLE[:1], stage, ICE_TABLE[1])))
-        scene.objects.append((cy * T + 95, cr, cx * T, cy * T))
+        ccx, ccy = cx * T + 48, cy * T + 48                     # centro dos 3×3 = âncora do sprite
+        ej = R.colorize(F.ejecta(), R.ramp("plateau", stage))
+        scene.under_decals.append((ej, ccx - ej.width // 2, ccy - ej.height // 2))
+        cr, info = crater_img(crater_stage, stage)
+        ax, ay = info["anchor"]
+        scene.objects.append((cy * T + 95, cr, ccx - ax, ccy - ay))
     # decoração solta com altura (não colide): lascas no basalto, cristais no salar, pedaços de gelo na faixa
     if decor:
         small = {"basalt": (F.shards, R.HILL), "salar": (F.salt_crystals, R.BASE), "frost": (F.ice_chunks, None)}
@@ -597,7 +630,7 @@ def palette_strip():
 # =================================================================================================================
 # PENDENTES (PNG indexado, paleta do Árido) + JSON das rampas
 # =================================================================================================================
-def save_indexed(idx, ramp_rgb, path):
+def save_indexed(idx, ramp_rgb, path):  # noqa: D401
     """PNG modo P: índices 0..9 com a rampa, 255 transparente. Sombra (9) com alfa SHADOW_A no tRNS."""
     im = Image.frombytes("P", (idx.shape[1], idx.shape[0]), np.ascontiguousarray(idx).tobytes())
     pal = [0] * 768
@@ -634,14 +667,19 @@ def export_pending():
         files[f"form_{kind}.png"] = (f"{idx.shape[1]}×{idx.shape[0]}", reg, tname)
         forms[kind] = dict(info, sprite=f"form_{kind}.png", region=reg, ramp=tname)
     for k, sc in enumerate((1.0, 0.72, 0.45)):
-        idx, info = F.ice_block(sc)
+        idx, info = gate_idx(sc)
         save_indexed(idx, R.ramp("frost", "arid", {"frost": R.ICE}), PEND / f"ice_gate_{k}.png")
         files[f"ice_gate_{k}.png"] = (f"{idx.shape[1]}×{idx.shape[0]}", "frost", "ICE")
         forms[f"ice_gate_{k}"] = dict(info, sprite=f"ice_gate_{k}.png", region="frost", ramp="ICE")
-    for k in range(3):
-        idx = F.crater_ice(k)
-        save_indexed(idx, R.ramp("frost", "arid", {"frost": R.ICE}), PEND / f"crater_ice_{k}.png")
-        files[f"crater_ice_{k}.png"] = ("96×96", "frost", "ICE")
+    for k in range(CRATER_STAGES):
+        idx, info = crater_idx(k)
+        save_indexed(idx, crater_ramp("arid"), PEND / f"crater_impact_{k}.png")
+        files[f"crater_impact_{k}.png"] = (f"{idx.shape[1]}×{idx.shape[0]}", "plateau", "BASE+ICE+METAL")
+        forms[f"crater_impact_{k}"] = dict(info, sprite=f"crater_impact_{k}.png", region="plateau",
+                                           ramp="BASE+ICE+METAL")
+    ej = F.ejecta()
+    save_indexed(ej, R.ramp("plateau", "arid"), PEND / "crater_ejecta.png")
+    files["crater_ejecta.png"] = (f"{ej.shape[1]}×{ej.shape[0]}", "plateau", "BASE")
     save_indexed(F.frost_ring(), R.ramp("frost", "arid"), PEND / "frost_ring.png")
     files["frost_ring.png"] = ("176×72", "frost", "BASE")
     for name, fn, reg, tname in (("shards", F.shards, "basalt", "HILL"), ("salt_crystals", F.salt_crystals, "salar",
@@ -678,12 +716,9 @@ def preview_sprites():
         names.append(f"form_{kind}")
     for k, sc in enumerate((1.0, 0.72, 0.45)):
         gate_img(sc, "arid")[0].save(out / f"ice_gate_{k}.png")
-    cr = load("crater")
-    for k in range(3):
-        c = cr.copy()
-        c.alpha_composite(R.colorize(F.crater_ice(k), R.ramp("frost", "arid", {"frost": R.ICE})))
-        c.save(out / f"crater_ice_{k}.png")
-    cr.save(out / "crater_ice_3.png")
+    for k in range(CRATER_STAGES):
+        crater_img(k, "arid")[0].save(out / f"crater_impact_{k}.png")
+    R.colorize(F.ejecta(), R.ramp("plateau", "arid")).save(out / "crater_ejecta.png")
     for name, fn, reg, table in (("shards", F.shards, "basalt", R.HILL), ("salt_crystals", F.salt_crystals,
                                                                           "salar", R.BASE),
                                  ("ice_chunks", F.ice_chunks, "frost", {"frost": R.ICE})):
@@ -717,16 +752,21 @@ def footprint_sheet():
     for k, sc in enumerate((1.0, 0.72, 0.45)):
         im, info = gate_img(sc, "arid")
         items.append((f"ice_gate_{k}", im, info))
+    im, info = crater_img(4, "arid")
+    ax, ay = info["anchor"]
+    items.append(("crater_impact", im, dict(info, foot=(ax, ay + 46))))     # pé = meio da borda de baixo dos 3×3
     out = []
     for kind, img, info in items:
         fx, fy = info["foot"]
         cols = max(6, img.width // T + 3)
         rows = img.height // T + 2
         W_, H_ = cols * T, rows * T
+        rows = max(rows, -min(dy for _, dy in info["tiles"]) + 3)
+        H_ = rows * T
         bg = Image.new("RGBA", (W_, H_), tuple(int(c) for c in R.ramp(
             "frost" if kind.startswith("ice") else FORM_TABLE.get(kind, ("plateau",))[0], "arid")[3]) + (255,))
         d = ImageDraw.Draw(bg)
-        ftx, fty = cols // 2, rows - 1
+        ftx, fty = cols // 2, rows - 2
         for dx, dy in info["tiles"]:
             x, y = (ftx + dx) * T, (fty + dy) * T
             d.rectangle((x, y, x + T - 1, y + T - 1), fill=(255, 106, 85, 255))
@@ -784,11 +824,10 @@ def main():
     for k, sc in enumerate((1.0, 0.72, 0.45, 0.0)):
         im = scene(world, "frost", gate_scale=sc, with_hud=False, player=False)
         save(im.crop((336, 244, 656, 424)), f"gate_melt_{k}")
-    for k in range(4):
-        im = scene(world, "base", crater_stage=k, base=True, with_hud=False, player=False)
-        gx, gy = R.CRATER_T[0] * T - view_origin("base")[0] + 48, R.CRATER_T[1] * T - view_origin("base")[1] + 48
-        x0c = min(gx - 160, 960 - 320)
-        save(im.crop((x0c, gy - 96, x0c + 320, gy + 84)), f"crater_melt_{k}")
+    for k in range(CRATER_STAGES):
+        im = scene(world, "crater", crater_stage=k, with_hud=False, player=False)
+        save(im.crop((336, 196, 656, 376)), f"crater_melt_{k}")
+    save(scene(world, "crater", crater_stage=0, player=True, player_tile=(111, 104)), "arid_crater")
     # diagramas
     overview(world).save(OUT / "mapa_regioes.png")
     cross_section(world).save(OUT / "corte_relevo.png")

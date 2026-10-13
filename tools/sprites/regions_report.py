@@ -60,6 +60,8 @@ th{font:12px var(--f-label);color:var(--gold);background:var(--panel2)}td{color:
 .cyc.sq{aspect-ratio:auto;width:var(--w);height:var(--h);border:0}
 .cyc span{position:absolute;left:8px;bottom:8px;font:12px var(--f-label);background:#0f1119;padding:3px 7px;opacity:0;animation:show4 var(--d,8s) infinite}
 @keyframes show4{0%,24.9%{opacity:1}25%,100%{opacity:0}}
+.cyc.c5 img,.cyc.c5 span{animation-name:show5}
+@keyframes show5{0%,19.9%{opacity:1}20%,100%{opacity:0}}
 .d1{animation-delay:calc(var(--d,8s) * -0.75)!important}.d2{animation-delay:calc(var(--d,8s) * -0.5)!important}.d3{animation-delay:calc(var(--d,8s) * -0.25)!important}
 """
 
@@ -85,6 +87,14 @@ def cycle(frames, labels, d="8s"):
     return f'<div class="cyc" style="--d:{d}">{imgs}{spans}</div>'
 
 
+def cycle5(frames, labels, d="7.5s"):
+    imgs = "".join(f'<img style="animation-delay:calc(var(--d) * {-i / 5:.2f} * -1 - var(--d))" src="{f}" alt="">'
+                   for i, f in enumerate(frames))
+    spans = "".join(f'<span style="animation-delay:calc(var(--d) * {-i / 5:.2f} * -1 - var(--d))">{lab}</span>'
+                    for i, lab in enumerate(labels))
+    return f'<div class="cyc c5" style="--d:{d}">{imgs}{spans}</div>'
+
+
 def build():
     data = json.loads((PEND / "regions_palettes.json").read_text())
     forms = data["formations"]
@@ -95,7 +105,7 @@ def build():
         ("plateau", "#8a573a", "Planalto rachado", "em volta da base · o “normal” do planeta",
          "Terra e rocha seca ocre-ferrugem (sai do vermelho de hoje e puxa pro ocre da referência). "
          "Textura grande de 512 px com manchas suaves de baixo contraste, pedrisco e poucas fendas.",
-         ["<b>Monolito</b> (pilar de arenito, 1 tile de pé, 4 de altura)", "<b>Arco de pedra</b> (5 tiles, vão de 3 "
+         ["<b>Hoodoo</b> (fuste de arenito com pedra de topo, 1 tile de pé)", "<b>Arco natural</b> (5 tiles, vão de 3 "
           "por onde se passa)", "<b>Morros mineráveis</b> com borda orgânica (ferro e silício)",
           "<b>Depressões pequenas</b> com leito seco e marca d'água"],
          ["Manchas grandes escuras e claras (3 a 7 tiles)", "Rachaduras longas com galhos (4 a 7 tiles)",
@@ -111,8 +121,8 @@ def build():
         ("basalt", "#3a343e", "Basalto", "escuro, rochas pontudas · no futuro vira vulcão",
          "Rocha escura fria com fraturas retas e angulosas, escória e manchas de óxido apagadas "
          "(nada de laranja vivo: o vulcão é só gancho, por enquanto está extinto).",
-         ["<b>Pináculos de basalto</b> (colunas de topo quebrado, 3×2 tiles)",
-          "<b>Cone de basalto</b> (cratera escura no topo: o gancho do vulcão, 5+3 tiles)",
+         ["<b>Basalto colunar</b> (prismas hexagonais em degraus, 3×2 tiles)",
+          "<b>Cone de escória</b> (cratera no topo: o gancho do vulcão, 3×2 tiles)",
           "Morros escuros com mais ferro"],
          ["Escória (cascalho escuro)", "Manchas de óxido pintadas", "Rachaduras", "Lascas pontudas soltas (com altura, "
           "não colidem)"]),
@@ -144,50 +154,71 @@ def build():
 
     form_rows = ""
     form_info = [
-        ("monolith", "Monolito", "planalto", "1 tile (o pé)", "72×136 · 2×4 tiles de desenho",
-         "pilar fino e alto: marco visível de longe; bloqueia só o pé"),
-        ("arch", "Arco de pedra", "planalto", "2 tiles (as pernas, nas pontas)", "176×128 · 5×4 tiles",
-         "o player passa por baixo pelo vão de 3 tiles; a ordem por y resolve (sem camada de teto)"),
-        ("basalt_spires", "Pináculos de basalto", "basalto", "3×2 tiles", "120×136 · 4×4 tiles",
-         "aglomerado de colunas de topo quebrado, sem cara de cone"),
-        ("cone", "Cone de basalto", "basalto", "5 + 3 tiles (pé largo)", "144×100 · 4,5×3 tiles",
-         "o gancho do vulcão: cratera escura, óxido apagado"),
-        ("salt_ridge", "Crosta de sal elevada", "salar", "5×1 tiles", "176×72 · 5,5×2 tiles",
-         "baixa, não esconde ninguém; no Verde vira ilhota no lago"),
-        ("ice_gate_0", "Gelo-portão", "faixa gelada", "4×2 → 3×2 → 2×1 → nada", "136×132 · 4×4 tiles",
-         "encolhe em 3 etapas nos marcos de calor; sublima (no Árido não tem água líquida) e deixa geada"),
+        ("monolith", "Hoodoo (monolito)", "planalto", "fuste de arenito que afina e engorda, com a pedra de topo "
+         "mais dura (cinza, escura e inclinada) segurando tudo; camadas seguem a rocha"),
+        ("arch", "Arco natural", "planalto", "erosão tipo Delicate Arch: perna esquerda maciça, direita fina com "
+         "cintura, vão torto, buracos, ressaltos de estrato; só as pernas bloqueiam"),
+        ("basalt_spires", "Basalto colunar", "basalto", "prismas hexagonais em patamares (Calçada dos Gigantes), "
+         "topos claros em degrau, alguns quebrados em diagonal, colunas caídas em gomos, juntas transversais"),
+        ("cone", "Cone de escória", "basalto", "relevo baixo com cratera no topo e sulcos de erosão; o pé some no "
+         "chão (sem contorno embaixo); óxido apagado"),
+        ("salt_ridge", "Crosta de sal elevada", "salar", "placas de sal empurradas e quebradas, cada uma no seu "
+         "eixo, encavaladas; baixa, não esconde ninguém"),
+        ("ice_gate_0", "Gelo-portão", "faixa gelada", "bloco poliédrico de gelo glacial translúcido (a rocha presa "
+         "aparece por dentro); encolhe em 3 etapas e amolece as quinas"),
     ]
-    for key, name, reg, block, size, note in form_info:
-        sprite = f"sprites/form_{key}.png" if not key.startswith("ice") else "sprites/ice_gate_0.png"
+    for key, name, reg, note in form_info:
+        new = f"sprites/form_{key}.png" if not key.startswith("ice") else "sprites/ice_gate_0.png"
+        old = f"../before/regioes_v80_form_{key}.png" if not key.startswith("ice") else \
+            "../before/regioes_v80_ice_gate_0.png"
         foot = f"sprites/foot_{key}.png"
-        sw, sh = Image.open(OUT / sprite).size
-        form_rows += f"""<tr><td><b>{name}</b><br>{reg}</td>
-<td><div class="chk" style="padding:8px"><img src="{sprite}" width="{sw * 2}" height="{sh * 2}" alt=""></div></td>
-<td><img class="px" src="{foot}" alt="" style="max-width:340px;border:0"></td>
-<td><b>{size}</b><br>bloqueia: <b>{block}</b><br>{note}</td></tr>"""
+        nw, nh = Image.open(OUT / new).size
+        ow, oh = Image.open(OUT / old).size
+        fk = key if key in forms else key
+        info = forms[fk]
+        tiles = info["tiles"]
+        form_rows += f"""<tr><td><b>{name}</b><br>{reg}<br><span style="font-size:13px">{note}</span></td>
+<td><div class="chk" style="padding:8px"><figure><img src="{old}" width="{ow * 2}" height="{oh * 2}" alt="">
+<figcaption>v8.0</figcaption></figure></div></td>
+<td><div class="chk" style="padding:8px"><figure><img src="{new}" width="{nw * 2}" height="{nh * 2}" alt="">
+<figcaption>v8.1</figcaption></figure></div></td>
+<td><img class="px" src="{foot}" alt="" style="max-width:300px;border:0"><br><b>{nw}×{nh}</b> px · bloqueia
+<b>{len(tiles)} tile{'s' if len(tiles) > 1 else ''}</b></td></tr>"""
 
     pend_rows = "".join(f"<tr><td><code>{k}</code></td><td>{v['size']}</td><td>{v['ramp']}</td><td>{v['region']}</td></tr>"
                         for k, v in files.items())
 
     html = f"""<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Hesper · Geografia nova · v8.0</title>
+<title>Hesper · Geografia nova · v8.1</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Pixelify+Sans:wght@400;600&family=Silkscreen&display=swap" rel="stylesheet">
 <style>{CSS}</style></head><body><div class="wrap">
-<div class="eyebrow">Hesper · Designer · v8.0 · v0.4 Marco 2 (geografia nova) · proposta pro dono</div>
+<div class="eyebrow">Hesper · Designer · v8.1 · v0.4 Marco 2 (geografia nova) · formações e cratera refeitas</div>
 <h1>Regiões, relevo e água</h1>
 <p class="lede">Objetivo: tirar a cara de “mapa gerado com tileset” e deixar a superfície orgânica e explorável. O
 planeta é <b>árido e vazio, não areia</b>: rocha, terra seca, sal, basalto e geada. Tudo aqui sai de script
 (<code>tools/sprites/regions_mockups.py</code>), em pixels reais 960×540 com a HUD B2 por cima. Nada disso está
 no jogo ainda: é pra tu aprovar antes do código.</p>
 
-<div class="v2"><b>v8.0 · o que mudou</b><ul>
+<div class="v2"><b>v8.1 · o que mudou</b><ul>
+<li><b>Formações refeitas como rocha natural</b> (seção 4, com antes × depois): o arco virou arco de erosão
+assimétrico e esburacado; o monolito virou <b>hoodoo</b> com pedra de topo; os pináculos viraram <b>basalto
+colunar</b> hexagonal em degraus com colunas caídas; a crosta de sal, o cone e o gelo-portão também foram
+refeitos sem geometria de construção.</li>
+<li>Por baixo: cada formação agora é um <b>volume 3D renderizado em pixel art</b> (<code>regions_volume.py</code>),
+não polígono 2D.</li>
+<li><b>Cratera de impacto</b> nova: borda elevada irregular, blocos e manto de ejeção, bacia rebaixada, rampa
+entalhada descendo até o buraco no fundo. O gelo é uma tampa que baixa em <b>5 etapas</b> como lago secando, com
+marcas de geada nas paredes.</li>
+<li>Pegadas de colisão revistas: o cone agora bloqueia 3×2 (o pé baixo é andável); a cratera continua 3×3.
+O resto não mudou.</li>
+<li>Regiões, paletas, estágios por cor, decalques, morros e água: <b>aprovados</b>, sem mudança.</li></ul></div>
+<div class="v2" style="opacity:.75"><b>v8.0 · aprovado (menos as formações e a cratera)</b><ul>
 <li><b>3 regiões + faixa gelada</b> com paleta base própria, chão de textura grande (sem repetir tile) e borda
 entre regiões deformada (curva irregular, nunca linha de tile).</li>
 <li><b>4 estágios por variação de cor</b>: 1 rampa de 8 cores por região, e a Tempestade, a Névoa e o Verde saem de
 uma conta fixa em cima dela. São 5 conjuntos de chão (com o leito seco), e não 12 desenhados à mão.</li>
-<li><b>6 formações fixas</b> (monolito, arco, pináculos, cone, crosta de sal, gelo-portão em 3 etapas) + a
-tampa de gelo da cratera em 3 etapas, com a pegada de colisão de cada uma.</li>
+<li>6 formações fixas e a tampa da cratera (refeitas na v8.1).</li>
 <li><b>Decoração que quebra a grade</b>: manchas, rachaduras longas, placas, cascalho, sulcos de vento, entulho no
 pé dos morros, e coisas soltas com altura por região.</li>
 <li><b>Morros com borda orgânica</b> (grade dual: a escada vira curva, a colisão continua a do tile).</li>
@@ -204,8 +235,8 @@ mapa de região no gerador + chão por região</td></tr>
 na divisa.</td><td>pronto</td><td>médio (ver “Pro Dev”: fácil com numpy)</td></tr>
 <tr><td><b>3 · Estágios por cor</b></td><td>Sim: PNG indexado + rampa por estágio. Grama, umidade e água vêm por
 cima, como camadas.</td><td>pronto</td><td>baixo (troca de paleta no load)</td></tr>
-<tr><td><b>4 · Formações</b></td><td>Entram as 6; o gelo-portão em 3 etapas e a tampa da cratera em 3 etapas são o
-Marco 3.</td><td>pronto · polir 1 ou 2 depois de ver no jogo (~1 dia)</td><td>baixo: objeto com pegada de colisão
+<tr><td><b>4 · Formações</b></td><td>Entram as 6 (refeitas na v8.1); o gelo-portão em 3 etapas e a cratera em 5 são
+o Marco 3.</td><td>pronto · polir 1 ou 2 depois de ver no jogo (~1 dia)</td><td>baixo: objeto com pegada de colisão
 (igual ao destroço)</td></tr>
 <tr><td><b>5 · Decoração</b></td><td>Entra primeiro (o maior ganho pelo menor custo, como a spec já previa).</td><td>pronto
 (36 decalques + 9 soltos)</td><td>baixo</td></tr>
@@ -272,25 +303,51 @@ beira d'água, e as plantas de hoje.</li>
 </div>
 <h3 style="margin-top:22px">As rampas (região × estágio)</h3>{stage_tbl}</section>
 
-<section><h2>4 · Formações fixas (marcos, não mineráveis)</h2>
-<p class="lede">Sprite grande ancorado no centro da base (igual aos outros objetos), ordenado pelo pé. Bloqueia
-<b>só os tiles do pé</b> (em vermelho na grade); o resto do desenho é “altura” e o player passa por trás. Cada uma
-tem 4 afloramentos (rochas pequenas com minério da região) em volta, entre 2,5 e 5 tiles.</p>
-<table style="margin-top:12px"><tr><th>formação</th><th>sprite (2×)</th><th>pegada na grade (vermelho = bloqueia, ponto
-= âncora)</th><th>tamanho</th></tr>{form_rows}</table>
-<h3 style="margin-top:26px">Gelo: o portão derretendo e a cratera</h3>
+<section><h2>4 · Formações fixas (marcos, não mineráveis) · refeitas na v8.1</h2>
+<p class="lede">Na v8.0 elas eram desenhadas como polígonos e faixas 2D, e por isso viravam “construção” (ponte,
+torre, bambu). Agora cada uma é um <b>volume 3D</b> (densidade com ruído de erosão) renderizado na projeção do jogo
+(o pixel (x, y) vê o ponto mais alto com x = X e y = Y − Z), com luz em 5 faixas chapadas, sombra própria e
+projetada (alfa fixo), linha escura onde uma parte passa na frente da outra e contorno <code>#1b1630</code>.
+Continua sendo pixel art chapado, só que a FORMA é de rocha. Sprite ancorado no centro da base, ordenado pelo pé;
+bloqueia <b>só os tiles do pé</b> (vermelho na grade).</p>
+<table style="margin-top:12px"><tr><th>formação</th><th>antes (2×)</th><th>depois (2×)</th><th>pegada (vermelho = bloqueia,
+ponto = âncora)</th></tr>{form_rows}</table>
+
+<h3 style="margin-top:30px">Cratera de impacto (refeita)</h3>
+<div class="grid2">
+<div><div class="chk" style="padding:10px;justify-content:space-around">
+<figure><img src="../before/regioes_v80_crater_ice_0.png" width="192" height="192" alt=""><figcaption>antes · buraco
+com tampa</figcaption></figure>
+<figure><img src="sprites/crater_impact_0.png" width="336" height="300" alt=""><figcaption>depois · cratera de
+impacto com a tampa de gelo</figcaption></figure></div></div>
+<div class="box reco"><h3>Como ficou</h3><ul>
+<li><b>Borda elevada irregular</b> (crista 9 px acima do chão, contorno torto), com <b>blocos ejetados</b> na borda e
+fora dela, e um decalque de chão (<code>crater_ejecta.png</code>) com o manto de ejeção e pedrisco que rareia pra
+fora.</li>
+<li><b>Bacia rebaixada</b> (19 px abaixo do chão no fundo), parede de dentro mais escura, sombra própria do lado
+oposto à luz.</li>
+<li><b>Rampa integrada</b>: um entalhe na borda sul (de frente pra câmera) descendo em degraus de metal (a família
+da <code>crater_ramp</code> de hoje, com os postes laranja na entrada) até o <b>buraco</b> no fundo da bacia, a boca
+da caverna.</li>
+<li><b>O gelo é uma tampa que enche a bacia</b> e baixa como lago secando: o nível cai, ficam <b>marcas de geada</b>
+nas paredes nos níveis por onde passou, e no fim a cratera fica vazia com o buraco e a rampa expostos.</li></ul></div></div>
+<div class="grid2" style="margin-top:14px">
+<div>{cycle5(["crater_melt_0.png", "crater_melt_1.png", "crater_melt_2.png", "crater_melt_3.png", "crater_melt_4.png"],
+             ["0 · TAMPA CHEIA", "1 · BAIXOU", "2 · METADE", "3 · SÓ NO FUNDO", "4 · VAZIA, RAMPA EXPOSTA"])}
+<figcaption><b>as 5 etapas</b> (1,5 s cada) · <code>crater_impact_0..4.png</code></figcaption></div>
+<div>{fig("arid_crater.png", "<b>a cratera no jogo</b> (Árido, HUD B2), etapa 0")}</div></div>
+<div class="chk" style="margin-top:12px">
+{''.join(chk_img(f"sprites/crater_impact_{k}.png", f"crater_impact_{k}", 168, 150) for k in range(5))}</div>
+
+<h3 style="margin-top:26px">Gelo-portão derretendo</h3>
 <div class="grid2">
 <div>{cycle(["gate_melt_0.png", "gate_melt_1.png", "gate_melt_2.png", "gate_melt_3.png"],
-            ["INTEIRO", "ETAPA 1", "ETAPA 2", "ABERTO"], "6s")}<figcaption><b>gelo-portão</b> · encolhe em etapas
-e deixa uma <b>geada</b> no chão (sublima: no Árido não tem água líquida)</figcaption></div>
-<div>{cycle(["crater_melt_0.png", "crater_melt_1.png", "crater_melt_2.png", "crater_melt_3.png"],
-            ["TAMPA", "RACHOU", "RESTOS", "ABERTA"], "6s")}<figcaption><b>cratera</b> · overlay 96×96 por cima do
-<code>crater.png</code> de hoje (depois vem a rampa)</figcaption></div></div>
-<div class="chk" style="margin-top:14px">
-{chk_img("sprites/ice_gate_0.png", "ice_gate_0 · 4×2", 136, 132)}{chk_img("sprites/ice_gate_1.png", "ice_gate_1 · 3×2", 136, 132)}
-{chk_img("sprites/ice_gate_2.png", "ice_gate_2 · 2×1", 136, 132)}
-{chk_img("sprites/crater_ice_0.png", "crater_ice_0", 96, 96)}{chk_img("sprites/crater_ice_1.png", "crater_ice_1", 96, 96)}
-{chk_img("sprites/crater_ice_2.png", "crater_ice_2", 96, 96)}</div>
+            ["INTEIRO", "ETAPA 1", "ETAPA 2", "ABERTO"], "6s")}<figcaption><b>gelo-portão</b> · encolhe e deixa
+<b>geada</b> no chão (sublima: no Árido não tem água líquida)</figcaption></div>
+<div class="chk" style="align-items:flex-end">
+{chk_img("sprites/ice_gate_0.png", "ice_gate_0 · 4×2", 144, 132)}{chk_img("sprites/ice_gate_1.png", "ice_gate_1 · 3×2", 144, 132)}
+{chk_img("sprites/ice_gate_2.png", "ice_gate_2 · 2×1", 144, 132)}</div></div>
+
 <h3 style="margin-top:22px">Soltos com altura (não colidem, não mineram)</h3>
 <div class="chk">{chk_img("sprites/decor_shards.png", "lascas de basalto", 28, 24, 4)}
 {chk_img("sprites/decor_salt_crystals.png", "cristais de sal", 22, 16, 4)}
@@ -372,7 +429,7 @@ face na linha do topo de onde pende; formações, rochas, soltos, máquinas e pl
 <div class="grid2" style="margin-top:14px">
 <div class="box dev"><h3>O que é sprite e o que é procedural</h3><ul>
 <li><b>Sprite (PNG indexado)</b>: as 5 texturas de chão, topo e face do morro, 36 decalques, 5 formações, gelo-portão
-×3, tampa da cratera ×3, geada, 9 soltos. Total <b>{n_pend} PNG</b> em
+×3, cratera ×5 + ejeção, geada, 9 soltos. Total <b>{n_pend} PNG</b> em
 <code>assets/sprites/_pending/regions/</code>.</li>
 <li><b>Procedural</b>: mapa de região e de altura (noise), deslocamento da borda, silhueta dos morros (grade
 dual) e extrusão da face, curvas de nível, água, cobertura de grama/umidade, sorteio dos decalques.</li>
@@ -387,18 +444,20 @@ e as formações e pegadas em <code>tools/sprites/regions_formations.py</code>.<
 <li>Assar o chão em <b>pedaços de 16×16 tiles (512×512 px)</b>: textura + borda + marcas + decalques + água +
 cobertura, cacheados e refeitos só quando muda o estágio, o nível da água ou um tile minerado. No quadro é
 1 blit por pedaço visível (~6), mais barato que os ~550 blits por tile de hoje.</li>
-<li>O jeito mais simples de assar é <b>numpy + <code>pygame.surfarray</code></b>, que é literalmente o
-<code>regions_scene.py</code> portado. O custo é pôr o numpy como dependência (hoje só tem pygame-ce). Decisão do
-gerente/dono.</li>
-<li>Sem numpy dá também, mas com mais código: autotile de 16 peças pra grade dual dos morros, máscaras de borda
-pré-geradas por (vizinhança, tx % 8, ty % 8) e água em autotile A2 (o de hoje).</li>
+<li><b>numpy liberado</b>: assar com numpy + <code>pygame.surfarray</code>, que é literalmente o
+<code>regions_scene.py</code> portado.</li>
+<li>As formações e a cratera <b>não</b> rodam no jogo: são sprites prontos (o volume 3D é só a ferramenta da
+Designer).</li>
 <li>Não medi no jogo; os tempos acima são estimativa.</li></ul></div></div>
 
 <div class="box dev" style="margin-top:14px"><h3>Formações: âncora e colisão</h3>
 <table><tr><th>sprite</th><th>tamanho</th><th>âncora (px no sprite)</th><th>tiles que bloqueiam (dx, dy) relativos ao
 tile do pé</th></tr>
-{''.join(f"<tr><td><code>{v['sprite']}</code></td><td>{files[v['sprite']]['size']}</td><td>{tuple(v['foot'])}</td><td>{', '.join(str(tuple(t)) for t in v['tiles']) or 'nenhum'}</td></tr>" for k, v in forms.items())}
-</table><p style="color:var(--muted)">A âncora cai no meio da borda de baixo do tile do pé (y = tile·32 + 30).
+{''.join(f"<tr><td><code>{v['sprite']}</code></td><td>{files[v['sprite']]['size']}</td><td>{tuple(v.get('foot') or v['anchor'])}{' (centro dos 3×3)' if 'anchor' in v else ''}</td><td>{', '.join(str(tuple(t)) for t in v['tiles']) or 'nenhum'}</td></tr>" for k, v in forms.items())}
+</table><p style="color:var(--muted)">A âncora cai no meio da borda de baixo do tile do pé (y = tile·32 + 30). <b>Cratera</b>:
+a âncora é o <b>centro dos 3×3</b> (px (cx·32 + 48, cy·32 + 48)), desenhada pelo pé (borda de baixo dos 3×3), com o
+<code>crater_ejecta.png</code> (256×216) centrado no mesmo ponto na camada de decalques; paleta com 21 índices
+(0..9 planalto, 10..17 gelo, 18..20 metal da rampa); o E continua no tile do meio de baixo.
 Arco: só as pernas bloqueiam; o vão é andável e a ordem por y basta (quem está atrás fica por trás do arco). O
 gelo-portão troca de sprite e de pegada a cada etapa. Afloramentos: 4 rochas pequenas por formação (raio 2,5 a 5
 tiles), com o minério da região (planalto ferro/silício, basalto ferro, salar silício, gelada gelo); as rochas
@@ -419,9 +478,14 @@ livres da região.</li>
 <section><h2>Desvios do contrato</h2><div class="box"><ul>
 <li><b>Nenhum arquivo do contrato atual foi tocado.</b> Tudo novo está em <code>_pending/regions/</code>.</li>
 <li>Se aprovado, o contrato do §6 ganha: <code>ground_*</code>, <code>hill_top</code>/<code>hill_face</code>,
-<code>decal_*</code>, <code>form_*</code>, <code>ice_gate_*</code>, <code>crater_ice_*</code>, <code>frost_ring</code>,
+<code>decal_*</code>, <code>form_*</code>, <code>ice_gate_*</code>, <code>crater_impact_0..4</code> +
+<code>crater_ejecta</code>, <code>frost_ring</code>,
 <code>decor_*</code> (PNG indexado, o que é novo no projeto). Saem de uso na superfície: <code>sand_*</code> e os
-<code>wall_*</code>/<code>wall_face_*</code> dos morros (a caverna continua com os de hoje).</li></ul></div></section>
+<code>wall_*</code>/<code>wall_face_*</code> dos morros (a caverna continua com os de hoje).</li>
+<li><b>Desvio proposto (cratera)</b>: o contrato tem <code>crater.png</code> e <code>crater_ramp.png</code> em
+96×96. A cratera de impacto precisa de mais espaço pra borda e a ejeção: <code>crater_impact_0..4.png</code> em
+168×150, sempre bloqueando os mesmos 3×3. Se aprovado, ela substitui as duas, porque a rampa já vem no sprite e
+aparece quando o gelo some.</li></ul></div></section>
 </div></body></html>
 """
     (OUT / "index.html").write_text(html, encoding="utf-8")
