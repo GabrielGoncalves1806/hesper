@@ -1719,7 +1719,7 @@ class App:
             self.start_game(self.title.saved)
         elif action == "new":
             if self.title.old:
-                save.backup_old()                # o save antigo não é apagado: vira slot1.v5.json
+                save.backup_old()                # o save antigo não é apagado: vira slot1.v<N>.json
             self.start_game(save.new_state())
             self.save_game(notify=False)     # o save antigo (se existia) é substituído na hora
         elif action == "quit":

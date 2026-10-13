@@ -6,9 +6,12 @@ redesenha 192×192 por frame. Minimapa e mapa grande (game/ui.py) recortam/estic
 marcadores por cima.
 """
 
+import json
+
 import pygame
 
 from game import config as C
+from game.geo import REGION_NAMES
 from game.surfaces import opaque
 
 TILE_COLORS = {
@@ -17,16 +20,42 @@ TILE_COLORS = {
     C.IRON: (150, 92, 60), C.SILICON: (110, 118, 140), C.ICE: (70, 130, 160),
     C.SMALL_IRON: (106, 90, 80), C.SMALL_SILICON: (106, 90, 80), C.SMALL_ICE: (106, 90, 80),
     C.CRATER: (21, 16, 24), C.WRECK: (200, 192, 176), C.LOOT_CRATE: (242, 163, 58),
+    C.FORMATION: (46, 38, 42),          # a pegada; o marcador "Formação" do mapa vai por cima
 }
 VEIN_COLORS = {"iron": (232, 160, 102), "silicon": (195, 209, 226), "ice": (166, 236, 255)}
 UNSEEN = (0, 0, 0)
+
+
+def _region_colors() -> tuple[tuple, tuple]:
+    """v0.4 Marco 2: o chão da superfície no mapa pinta pela região, na cor média da rampa do Árido dela
+    (regions_palettes.json da Designer, tabela BASE). A rocha do morro pinta com a sombra (índice 1) da rampa do
+    morro da região (tabela HILL): no basalto, a rocha de antes sumia no chão escuro. Sem o arquivo: as cores de
+    antes."""
+    n = len(REGION_NAMES)
+    try:
+        ramps = json.loads(C.REGIONS_PALETTES.read_text(encoding="utf-8"))["ramps"]
+        ground, hill = [], []
+        for name in REGION_NAMES:
+            cols = [pygame.Color(h) for h in ramps["BASE"][name]["arid"]]
+            ground.append(tuple(round(sum(c[i] for c in cols) / len(cols)) for i in range(3)))
+            hill.append(tuple(pygame.Color(ramps["HILL"][name]["arid"][1]))[:3])
+    except (OSError, ValueError, KeyError, IndexError):
+        return (TILE_COLORS[C.SAND],) * n, (TILE_COLORS[C.ROCK],) * n
+    return tuple(ground), tuple(hill)
+
+
+REGION_COLORS, REGION_ROCK_COLORS = _region_colors()   # índice = região (geo.PLATEAU, SALAR, BASALT, FROST)
 
 
 def tile_color(world, x: int, y: int) -> tuple[int, int, int]:
     vein = world.vein_at(x, y)
     if vein is not None:
         return VEIN_COLORS[vein.resource]
-    return TILE_COLORS.get(world.get(x, y), (92, 84, 80))
+    kind = world.get(x, y)
+    geo = getattr(world, "geo", None)
+    if geo is not None and kind in (C.SAND, C.ROCK):
+        return (REGION_COLORS if kind == C.SAND else REGION_ROCK_COLORS)[geo.region[y, x]]
+    return TILE_COLORS.get(kind, (92, 84, 80))
 
 
 class Minimap:

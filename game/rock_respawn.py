@@ -37,8 +37,10 @@ def count(world) -> int:
 
 
 def blocked_tiles(world, machines=()) -> set[tuple[int, int]]:
-    """Tiles proibidos fora a regra da areia: em volta de destroços, veios, cratera e máquinas."""
-    out = keep_free(world.wrecks)
+    """Tiles proibidos fora a regra da areia: em volta de destroços, veios, cratera e máquinas, e (v0.4 Marco 2)
+    o halo das formações e os bolsões dos gelos-portão (`world.keep_clear`). Na pegada da formação (C.FORMATION)
+    nunca nasce: não é areia."""
+    out = keep_free(world.wrecks) | set(getattr(world, "keep_clear", ()))
     for v in world.veins:                          # o veio e a linha de baixo dele (onde o player para)
         out |= {(v.tx + dx, v.ty + dy) for dx in (0, 1) for dy in (0, 1, 2)}
     if world.crater is not None:                   # rampa + 1 de folga + a chegada (2 linhas abaixo)

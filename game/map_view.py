@@ -21,6 +21,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from game import config as C
+from game.geo import REGION_LABELS
 
 ZOOMS = (1, 2, 3, 4)
 ZOOM_DEFAULT = 2
@@ -28,11 +29,13 @@ DRAG_THRESHOLD = 3            # px da UI até o clique virar arrasto
 KEY_PAN_SCREENS = 1.0         # WASD/setas: ~1 área do mapa por segundo
 # filtros, na ordem dos chips. "crater" vale pra cratera (superfície) e rampa (caverna). "Você" não é filtro.
 FILTERS = ("base", "crater", "wreck", "wreck_empty", "vein", "terminal", "machine", "chest")
+# "formation" (v0.4 Marco 2) é marcador fixo de paisagem: aparece sempre que foi visto, sem chip de filtro.
 # prioridade do hover quando o mouse encosta em dois: você › base › destroço › terminal › rampa › veio › máquina › baú
+# › formação
 PRIORITY = {"you": 0, "base": 1, "wreck": 2, "wreck_empty": 2, "terminal": 3, "crater": 4, "vein": 5,
-            "machine": 6, "chest": 7}
-# ordem do desenho (de baixo pra cima), igual ao mockup
-DRAW_ORDER = ("chest", "machine", "vein", "wreck", "wreck_empty", "terminal", "crater", "base", "you")
+            "machine": 6, "chest": 7, "formation": 8}
+# ordem do desenho (de baixo pra cima), igual ao mockup; a formação fica por baixo de tudo
+DRAW_ORDER = ("formation", "chest", "machine", "vein", "wreck", "wreck_empty", "terminal", "crater", "base", "you")
 CARDINALS = ("a leste", "a sudeste", "ao sul", "a sudoeste", "a oeste", "a noroeste", "ao norte", "a nordeste")
 # agrupamento (cluster) de máquinas e baús: dois marcadores da mesma categoria a menos de N tiles (na maior
 # distância entre os eixos) viram um só. O pictograma tem 7×6 px da UI e o zoom z é z px por tile: no 1× e no 2×
@@ -72,7 +75,7 @@ def distance_label(origin: tuple[float, float], target: tuple[float, float], suf
 @dataclass
 class Entry:
     """Um marcador do mapa: categoria (filtro), pictograma, posição em tiles e o texto do tooltip."""
-    category: str                 # "you" ou um de FILTERS
+    category: str                 # "you", "formation" (sem filtro) ou um de FILTERS
     kind: str                     # pictograma (game/map_markers.py)
     x: float
     y: float
@@ -156,6 +159,11 @@ def map_entries(state, key: str) -> list[Entry]:
             cat = "wreck_empty" if empty else "wreck"
             entries.append(Entry(cat, cat, *wreck.center, f"Destroço · {wreck.name}",
                                  "caixa vazia" if empty else "caixa cheia"))
+    geo = getattr(world, "geo", None)
+    for f in (geo.formations if geo is not None else ()):    # v0.4 Marco 2: marcos de paisagem (sem filtro)
+        if seen_any(f.tiles):
+            what = "fecha a passagem · gelo" if f.kind == "ice_gate" else REGION_LABELS[f.region]
+            entries.append(Entry("formation", "formation", *f.center, f.name, what))
     for i, (tx, ty) in enumerate(world.terminals):
         if explored.seen(tx, ty) or explored.seen(tx, ty + 1):
             read = "lido" if i in state.logs_read else "não lido"

@@ -7,10 +7,10 @@ surface_gen.py, a caverna do world.py), então o save não guarda as 192×192 ca
 tiles que ficaram diferentes do mapa gerado (paredes mineradas, rochas pequenas quebradas ou reaparecidas). Pra carregar,
 gera o mapa da seed de novo e aplica as diferenças.
 
-Formato do arquivo (JSON, v6 · v0.3, com camadas):
+Formato do arquivo (JSON, v7 · v0.4 Marco 2, geografia nova; o v6 do v0.3 tinha o mesmo formato):
 
     {
-      "version": 6,
+      "version": 7,
       "seed": 7,
       "layer": "surface",          # camada em que o player está
       "layers": {                  # uma entrada por camada que já existe ("surface", e "cave" no Marco 2)
@@ -34,14 +34,16 @@ Drill: {"kind": "drill", ..., "resource": "iron", "timer": 3.2, "storage": [["ir
 Estação: {"kind": "drone_station", ..., "buffer": {"iron": 12}, "drones": [["ice", 8], [None, 0], None, None]}
 "drones" são os 4 slots: null = vazio; [minério, carga] = tem drone. Os drones nascem pousados nos pads.
 
-**Saves antigos (v1 a v5, do v0.1/v0.2) NÃO migram** (decisão do dono: o v0.3 exige novo jogo). O `probe`
-devolve "old" e a tela de título mostra "Save de uma versão antiga · comece um novo jogo"; o arquivo não é
-apagado: quando um jogo novo é salvo por cima, ele vira `slot1.v5.json` (`backup_old`).
+**Saves antigos NÃO migram**: v1 a v5 (v0.1/v0.2: o v0.3 exigiu novo jogo) e v6 (v0.3 e v0.4 Marco 1: o
+mundo da seed mudou inteiro no Marco 2, com relevo, regiões e formações, então os tiles mudados de um save v6 não
+batem com o mapa novo). O `probe` devolve "old" e a tela de título mostra "Save de uma versão antiga · comece um
+novo jogo"; o arquivo não é apagado: quando um jogo novo é salvo por cima, ele vira `slot1.v6.json` (`backup_old`).
+A geografia (`game/geo.py · Geo`) não vai no save: sai da seed de novo no load.
 
 Como um sistema novo entra no save:
     1. escreva `coisa_to_dict(state)` e `coisa_from_dict(state, data)` aqui embaixo;
     2. acrescente ("coisa", coisa_to_dict, coisa_from_dict) em SECTIONS (ou no dict da camada);
-    3. se um save v6 não tiver essa chave, crie uma migração v6 -> v7 (ver MIGRATIONS);
+    3. se um save v7 não tiver essa chave, crie uma migração v7 -> v8 (ver MIGRATIONS);
     4. acrescente o campo no teste de ida e volta (tests/test_save.py).
 
 Segurança contra crash: a escrita é atômica (grava num arquivo temporário e renomeia por cima).
@@ -66,11 +68,10 @@ from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 from game.wrecks import crate_loot
 
-SAVE_VERSION = 6   # v6 (v0.3): camadas (superfície/caverna), rochas quebradas e reaparecidas · sem migração de antes
-FIRST_VERSION = 6  # saves com versão menor que essa são de outra época do jogo: "save antigo"
-# Numeração dos estágios dentro do "progress" (o formato do arquivo continua v6 até o Marco 2 do v0.4):
-#   1 = v0.3: Morto, Névoa, Verde (o campo não existia)
-#   2 = v0.4: Tempestade, Árido, Névoa, Verde
+SAVE_VERSION = 7   # v7 (v0.4 Marco 2): geografia nova (relevo, regiões, formações) · novo jogo obrigatório
+FIRST_VERSION = 7  # saves com versão menor que essa são de outra época do jogo: "save antigo" (v1–v6)
+# Numeração dos estágios dentro do "progress": 2 = v0.4 (Tempestade, Árido, Névoa, Verde). O 1 (os 3 estágios do
+# v0.3) só existia no save v6, que não carrega mais.
 STAGE_SCHEME = 2
 SAVE_PATH = C.ROOT_DIR / "saves" / "slot1.json"   # o smoke e os testes apontam pra outro lugar
 
@@ -261,7 +262,7 @@ def progress_to_dict(state: GameState) -> dict:
     return {
         "indices": dict(state.indices),
         "stage": state.stage,
-        "stage_scheme": STAGE_SCHEME,                   # numeração dos estágios (ver migrate_stage_scheme)
+        "stage_scheme": STAGE_SCHEME,                   # numeração dos estágios (2 = v0.4)
         "storm": state.storm,                           # tempestade no meio da passagem pro Árido continua de onde parou
         "smoothed_rate": state.smoothed_rate,           # pra estimativa do HUD não zerar ao carregar
         "play_time": state.play_time,
@@ -366,10 +367,10 @@ class SaveError(Exception):
 
 
 class OldSaveError(SaveError):
-    """Save de uma versão antiga do jogo (antes do v0.3): não migra, pede novo jogo."""
+    """Save de uma versão antiga do jogo (v1–v6, antes do v0.4 Marco 2): não migra, pede novo jogo."""
 
     def __init__(self, version: int):
-        super().__init__(f"save da versão {version} (o v0.3 exige novo jogo)")
+        super().__init__(f"save da versão {version} (o v0.4 exige novo jogo)")
         self.version = version
 
 
@@ -386,17 +387,6 @@ def migrate(data: dict) -> dict:
         data = MIGRATIONS[version](data)
         version += 1
         data["version"] = version
-    return migrate_stage_scheme(data)
-
-
-def migrate_stage_scheme(data: dict) -> dict:
-    """Save com os 3 estágios do v0.3 (sem `progress.stage_scheme`): quem já jogou passou da tempestade, então
-    o estágio sobe 1 (Morto 1 -> Árido 2, Névoa 2 -> 3, Verde 3 -> 4) e carrega com `storm = 0`."""
-    progress = data.get("progress")
-    if isinstance(progress, dict) and progress.get("stage_scheme", 1) < STAGE_SCHEME:
-        progress["stage"] = min(len(C.STAGES), int(progress["stage"]) + 1)
-        progress["storm"] = 0.0
-        progress["stage_scheme"] = STAGE_SCHEME
     return data
 
 
@@ -429,7 +419,7 @@ def write_save(state: GameState, path: Path | str | None = None) -> bool:
 
 
 def probe(path: Path | str | None = None) -> tuple[str, GameState | None]:
-    """Olha o save: ("none", None) sem arquivo, ("old", None) de versão antiga (v1–v5), ("broken", None)
+    """Olha o save: ("none", None) sem arquivo, ("old", None) de versão antiga (v1–v6), ("broken", None)
     estragado ou de versão desconhecida, ("ok", estado) carregado. Nunca apaga nada."""
     path = _path(path)
     if not path.exists():
@@ -459,7 +449,7 @@ def has_save(path: Path | str | None = None) -> bool:
 
 
 def backup_old(path: Path | str | None = None) -> Path | None:
-    """Save antigo (v1–v5) vira slot1.v<N>.json, pra um jogo novo poder salvar sem apagar ele.
+    """Save antigo (v1–v6) vira slot1.v<N>.json, pra um jogo novo poder salvar sem apagar ele.
     Devolve o caminho novo (None se não tinha save antigo)."""
     path = _path(path)
     try:

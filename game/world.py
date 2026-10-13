@@ -5,7 +5,7 @@
 até o v0.2. A caverna não terraforma (`terraforms = False`: sem água nem plantas). A SUPERFÍCIE (deserto 192×192, onde fica a base) é montada pelo game/surface_gen.py
 em cima do mesmo `World`.
 
-Paredes altas (rocha, minério, borda, terminal) × sólidos baixos (rocha pequena, cratera): os dois
+Paredes altas (rocha, minério, borda, terminal) × sólidos baixos (rocha pequena, cratera, destroço, formação): os dois
 bloqueiam o player, mas só a parede alta tem topo elevado e face (ver render.py).
 
 Não usa pygame: é só dados + regras. Por isso dá pra testar sem abrir janela.
@@ -81,6 +81,11 @@ class World:
         self.sand_variants: list[bytes] | None = None             # variação do sand_{stage}_{v} por tile (superfície)
         self.wrecks: list = []                                    # destroços (game/wrecks.py), só na superfície
         self._wreck_index: dict | None = None                     # tile (área ou caixa) -> destroço (lazy)
+        # v0.4 Marco 2 (só na superfície): a geografia da seed (game/geo.py · Geo, só leitura) e os tiles onde nada
+        # nasce (halo das formações, bolsões e avental dos gelos-portão): veio, destroço, rocha pequena e a rocha que
+        # reaparece respeitam (os afloramentos das formações são os únicos que ficam no halo)
+        self.geo = None
+        self.keep_clear: frozenset[tuple[int, int]] = frozenset()
 
     # ---- geração ----------------------------------------------------------
     @classmethod

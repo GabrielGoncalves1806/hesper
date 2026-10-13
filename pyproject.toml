@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Hesper: jogo 2D de sobrevivência e terraformação (MVP v0.1)"
 requires-python = ">=3.13"
 dependencies = [
+    "numpy>=2.5.4",
     "pygame-ce>=2.5.8",
 ]
 

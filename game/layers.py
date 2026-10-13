@@ -39,6 +39,12 @@ class Layer:
             self.explored = Explored(self.world.width, self.world.height)
 
     @property
+    def geo(self):
+        """A geografia da superfície (game/geo.py · Geo: regiões, altura, bacias, formações); None na caverna.
+        Sai da seed junto com o mapa (não vai no save)."""
+        return self.world.geo
+
+    @property
     def has_base(self) -> bool:
         """A cápsula (e a zona de O₂) fica na superfície."""
         return self.key == SURFACE

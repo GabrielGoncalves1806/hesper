@@ -123,7 +123,8 @@ def extras_for(rank: int, n: int) -> tuple[int | None, str | None]:
 
 
 def _fits(world, wreck: Wreck, placed: list[Wreck]) -> bool:
-    """Área + caixa + folga são areia livre (sem morro, veio, cratera, borda), longe da base e dos outros."""
+    """Área + caixa + folga são areia livre (sem morro, veio, cratera, borda), longe da base e dos outros.
+    v0.4 Marco 2: e fora de bacia (a água sobe ali no Marco 3), do halo das formações e dos bolsões."""
     m = C.WRECK_MARGIN
     w, h = wreck.spec.size
     cx, cy = wreck.crate
@@ -131,9 +132,12 @@ def _fits(world, wreck: Wreck, placed: list[Wreck]) -> bool:
     x1, y1 = max(wreck.tx + w - 1, cx) + m, max(wreck.ty + h - 1, cy) + m
     if x0 < 4 or y0 < 4 or x1 >= world.width - 4 or y1 >= world.height - 4:
         return False
+    geo, keep = getattr(world, "geo", None), getattr(world, "keep_clear", ())
     for y in range(y0, y1 + 1):
         for x in range(x0, x1 + 1):
             if world.get(x, y) != C.SAND or world.vein_at(x, y) is not None:
+                return False
+            if (x, y) in keep or (geo is not None and geo.basin_at(x, y) >= 0):
                 return False
             if world.dist_from_center(x, y) < C.SURFACE_CLEAR_RADIUS + 2:
                 return False

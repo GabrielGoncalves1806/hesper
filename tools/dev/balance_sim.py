@@ -1026,7 +1026,11 @@ def main(argv=None):
     ap.add_argument("--no-drills", action="store_true", help="roda também cada cenário sem drills, pra comparar")
     ap.add_argument("--no-energy", action="store_true", help="roda também sem energia (consumo zero), pra comparar")
     ap.add_argument("--no-drones", action="store_true", help="roda também sem a estação de drones, pra comparar")
+    ap.add_argument("--geo", action="store_true", help="só o relatório da geografia (destroços, veios, minério perto)")
     args = ap.parse_args(argv)
+    if args.geo:
+        print(geo_report(args.seeds, args.markdown))
+        return
     if args.no_energy:
         print(table("Números atuais SEM energia (antes do Marco 2)", run_suite(without_energy(None), args.seeds),
                     args.markdown))
@@ -1044,6 +1048,77 @@ def main(argv=None):
         if args.ablate_t2:
             print(table("Proposta SEM nv.2 (as nv.2 valem a pena?)", run_suite(without_t2(ov), args.seeds),
                         args.markdown))
+
+
+# ---------------------------------------------------------------------------
+# Geografia (v0.4 Marco 2): a partida não quebrou? Distância a pé dos destroços e veios, minério perto da base
+# ---------------------------------------------------------------------------
+GEO_RADII = (15, 25, 40)          # raios (tiles) do "minério perto da base"
+
+
+def _walk_field(world, start) -> dict:
+    """Distância a pé (tiles, 4 vizinhos, sem cavar) de `start` até cada tile livre."""
+    from collections import deque
+    dist = {start: 0}
+    queue = deque([start])
+    while queue:
+        x, y = queue.popleft()
+        for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if n not in dist and world.in_bounds(*n) and not world.is_solid(*n):
+                dist[n] = dist[(x, y)] + 1
+                queue.append(n)
+    return dist
+
+
+def _reach(dist, tiles) -> float:
+    """Menor distância a pé até ficar do lado de algum dos `tiles` (ou em cima, se for chão)."""
+    best = INF
+    for x, y in tiles:
+        for n in ((x, y), (x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            best = min(best, dist.get(n, INF))
+    return best
+
+
+def geo_stats(seed: int) -> dict:
+    from game.surface_gen import generate_surface
+    world = generate_surface(seed)
+    dist = _walk_field(world, C.BASE_TILE)
+    bx, by = C.BASE_TILE
+    wrecks = [(round(math.hypot(w.center[0] - bx, w.center[1] - by)), _reach(dist, [w.crate])) for w in world.wrecks]
+    veins = [(v.resource, round(math.hypot(v.tx + 1 - bx, v.ty + 1 - by)), _reach(dist, v.tiles)) for v in world.veins]
+    ore = {}
+    for r in GEO_RADII:
+        small = wall = 0
+        for y in range(by - r, by + r + 1):
+            for x in range(bx - r, bx + r + 1):
+                if math.hypot(x - bx, y - by) > r:
+                    continue
+                k = world.get(x, y)
+                small += k in C.SMALL_ROCKS
+                wall += k in C.ORE_TILES
+        ore[r] = (small, wall)
+    geo = getattr(world, "geo", None)
+    regions = None
+    if geo is not None:
+        import numpy as np
+        regions = np.bincount(geo.region.ravel(), minlength=4) / geo.region.size
+    return dict(seed=seed, wrecks=wrecks, veins=veins, ore=ore, regions=regions,
+                formations=len(geo.formations) if geo is not None else 0)
+
+
+def geo_report(seeds, markdown=False) -> str:
+    lines = ["Geografia da superfície (distância reta / a pé, em tiles; minério = rochas pequenas + minério de morro)"]
+    for seed in seeds:
+        st = geo_stats(seed)
+        lines.append(f"seed {seed}:")
+        lines.append("  destroços: " + ", ".join(f"{d}/{w if w < INF else '∞'}" for d, w in st["wrecks"]))
+        lines.append("  veios:     " + ", ".join(f"{r} {d}/{w if w < INF else '∞'}" for r, d, w in st["veins"]))
+        lines.append("  minério:   " + ", ".join(f"r{r}: {s} rochas + {w} no morro" for r, (s, w) in st["ore"].items()))
+        if st["regions"] is not None:
+            names = ("planalto", "salar", "basalto", "gelada")
+            lines.append("  regiões:   " + ", ".join(f"{n} {p:.0%}" for n, p in zip(names, st["regions"]))
+                         + f" · {st['formations']} formações")
+    return "\n".join(lines)
 
 
 def without_drills(overrides):

@@ -13,7 +13,8 @@ INK = "#0b0d13"
 C_O2, C_ACCENT = "#59d0e6", "#e2733a"
 # cor de cada marcador (o veio sai na cor do minério)
 COLORS = {"you": "#ffd84a", "base": C_O2, "crater": "#ffffff", "ramp_up": "#7fd6a0", "wreck": "#f2a33a",
-          "wreck_empty": "#7a6c62", "terminal": "#7fd6a0", "machine": "#d9dde6", "chest": "#d8b27a"}
+          "wreck_empty": "#7a6c62", "terminal": "#7fd6a0", "machine": "#d9dde6", "chest": "#d8b27a",
+          "formation": "#cbb79a"}
 VEIN_COLORS = {"iron": "#e8a066", "silicon": "#c3d1e2", "ice": "#a6ecff"}
 RING = "#ffd84a"                 # anel em volta de "você" (alfa 130)
 
@@ -34,6 +35,8 @@ VEIN = [".ooooo.", "o##+##o", "o#+###o", "o#####o", "o#####o", "o-###-o", ".oooo
 TERMINAL = ["ooooooooo", "o#######o", "o#d#####o", "o##d####o", "o#d##dd#o", "o#######o", "ooooooooo"]
 MACHINE = ["ooooooo", "o-----o", "o#####o", "o#+###o", "o#####o", "ooooooo"]
 CHEST = ["ooooooooo", "o#######o", "o-------o", "o###d###o", "o#######o", "ooooooooo"]
+# formação (v0.4 Marco 2): um pico de pedra simples, marco de paisagem (sem filtro)
+FORMATION = ["...o...", "..o+o..", ".o#+-o.", ".o##-o.", "o###--o", "ooooooo"]
 ROTATION = {"up": 0, "left": 90, "down": 180, "right": 270}   # graus anti-horário (a seta desenhada aponta pra cima)
 
 _cache: dict[tuple, pygame.Surface] = {}
@@ -80,6 +83,8 @@ def _draw(kind: str, color, direction: str) -> pygame.Surface:
         return _pix(MACHINE, cm)
     if kind == "chest":
         return _pix(CHEST, cm)
+    if kind == "formation":
+        return _pix(FORMATION, cm)
     if kind == "ring":                                   # anel de 16 px em volta de "você"
         surf = pygame.Surface((16, 16), pygame.SRCALPHA)
         ring = pygame.Color(RING)
