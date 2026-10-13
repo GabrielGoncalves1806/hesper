@@ -2284,7 +2284,7 @@ class UI:
         key = ("map_bg", w, h)
         bg = self._icon_cache.get(key)
         if bg is None:
-            bg = pygame.Surface((w, h))
+            bg = pygame.Surface((w, h), 0, 24)          # sem alfa (ver _map_surface)
             bg.fill(self.MAP_INK)
             step = self.MAP_DOT_STEP
             for y in range(0, h, step):
@@ -2370,7 +2370,9 @@ class UI:
         ox, oy = view.origin()
         off = (round(ox * k), round(oy * k))
         vw, vh = area.w * 2, area.h * 2
-        surf = pygame.Surface((vw, vh))
+        # 24 bits, sem canal alfa: na janela de verdade do macOS o formato padrão é ARGB, e aí a textura saía
+        # com alfa 0 (mapa preto) e os marcadores viravam quadrados. No driver dummy do smoke isso não aparece.
+        surf = pygame.Surface((vw, vh), 0, 24)
         surf.fill(self.MAP_INK)
         step = self.MAP_DOT_STEP
         dot = pygame.Color(self.MAP_DOT)

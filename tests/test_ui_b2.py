@@ -405,3 +405,17 @@ def test_stage_banner_text_fits_in_the_top_gap(ui, size):
         rect = ui.hud_rects[-1]
         assert left < rect.left and rect.right < right, (size, stage, rect)
         assert max(ui.font.size(s.title)[0], ui.body.size(s.subtitle)[0]) <= rect.w - 4, (size, stage)
+
+
+def test_map_surface_is_opaque_even_when_the_texture_has_an_alpha_channel(ui):
+    """Regressão: na janela real do macOS o formato padrão é ARGB, e o mapa aberto saía preto (textura com
+    alfa 0) e com os marcadores virando quadrados. A superfície do mapa tem que ser opaca, sem canal alfa."""
+    from game.map_view import MapView
+    tex = pygame.Surface((192, 192), pygame.SRCALPHA)       # simula o formato com alfa da janela de verdade
+    tex.fill((138, 106, 78, 255))
+    view = MapView(1)
+    area = pygame.Rect(0, 0, 444, 196)
+    view.set_area(area.w, area.h)
+    surf, _k, _off = ui._map_surface(tex, view, area)
+    assert surf.get_masks()[3] == 0 and surf.get_flags() & pygame.SRCALPHA == 0
+    assert surf.get_at((surf.get_width() // 2, surf.get_height() // 2))[:3] == (138, 106, 78)
