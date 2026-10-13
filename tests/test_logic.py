@@ -135,6 +135,7 @@ def test_cannot_mine_out_of_reach_or_bedrock(game):
 
 # ---------------------------------------------------------------- O₂
 def test_o2_drains_outside_base(game):
+    game.storm = 0.0                               # céu limpo (a tempestade gasta mais: test_weather.py)
     teleport_outside_base(game)
     run(game, 10)
     assert game.o2 == pytest.approx(C.O2_MAX - 10, abs=0.1)

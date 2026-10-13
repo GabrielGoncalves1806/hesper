@@ -33,6 +33,10 @@ settings.SETTINGS_PATH = Path(tempfile.gettempdir()) / "hesper_smoke_settings.js
 # ...e o save também: o smoke nunca deixa um saves/slot1.json de verdade pra trás
 save.SAVE_PATH = Path(tempfile.gettempdir()) / "hesper_smoke_save" / "slot1.json"
 
+# Tempestade (v0.4): sem rajada sorteada no smoke. Uma rajada no meio de outra cena empurra o player e
+# quebra posições e dicas; quem quer rajada (check_storm_gust) liga ela na mão, no pico e sem fim.
+C.STORM_GUST_FIRST = C.STORM_GUST_EVERY = (1e9, 1e9)
+
 OUT = ROOT / "reports" / "dev"
 DT = 1 / 60
 
@@ -230,6 +234,49 @@ def check_walls_and_hover(bot) -> None:
     pygame.image.save(pygame.transform.scale_by(shot_hover, 3), str(OUT / "hover_maquina.png"))
     print("  screenshot: reports/dev/hover_maquina.png  (esquerda: fantasma sobre máquina · direita: fantasma ao lado)")
     s.inventory.remove("melter", 99)
+
+
+def check_storm_gust(bot) -> None:
+    """Tempestade (v0.4, trilha B): rajada empurrando o player parado pra leste, o mesmo andando contra, a
+    parede segurando, o menu aberto sem empurrão e o aviso RAJADA no HUD. Liga state.storm só na cena."""
+    s = bot.state
+    saved_storm = s.storm
+    s.storm = 1.0
+    w = s.weather
+    w.dominant = w.angle = w.target = 0.0          # vento pra leste
+    w.retarget_in = 1e9
+    w._update_wind_vector()
+    w.gust, w.gust_left = 1.0, 1e9                 # rajada no pico, sem acabar
+    cx, cy = 130, 112                              # campo aberto longe da base, com uma parede à direita
+    carve(s, [(x, y) for x in range(cx - 8, cx + 9) for y in range(cy - 4, cy + 4)])
+    carve(s, [(cx + 6, y) for y in range(cy - 4, cy + 4)], C.ROCK)
+    bot.teleport((cx - 4, cy))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+    x0 = s.player.x
+    bot.frames(1.0)                                # parado: desliza com o vento
+    slid = s.player.x - x0
+    assert slid > C.PLAYER_SPEED * C.STORM_PUSH * 0.8, f"a rajada devia empurrar o player parado ({slid:.1f} px)"
+    assert bot.app.ui.gust_rect is not None, "o aviso RAJADA devia aparecer no HUD"
+    bot.shot("tempestade_rajada.png")
+    x0 = s.player.x
+    bot.key(pygame.K_a, hold=0.5)                  # contra o vento: anda, mais devagar
+    against = x0 - s.player.x
+    assert 0 < against < C.PLAYER_SPEED * 0.6, f"contra o vento devia andar mais devagar ({against:.1f} px)"
+    bot.frames(9.0)                                # empurrado até a parede: encosta e para
+    wall_left = (cx + 6) * C.TILE
+    right = s.player.box[0] + s.player.box[2]
+    assert wall_left - 1 <= right <= wall_left + 0.01, f"a rajada devia encostar na parede sem atravessar ({right})"
+    bot.shot("tempestade_parede.png")
+    x0 = s.player.x
+    bot.key(pygame.K_TAB)                          # inventário aberto: sem empurrão
+    bot.frames(0.5)
+    assert bot.app.mode == "inventory" and s.player.x == x0, "com tela aberta o vento não empurra"
+    bot.key(pygame.K_TAB)
+    w.gust, w.gust_left = 0.0, 0.0                 # devolve o clima calmo pro resto do smoke
+    s.storm = saved_storm
+    bot.frames(0.2)
+    assert bot.app.ui.gust_rect is None
 
 
 def check_drill(bot) -> None:
@@ -2477,6 +2524,7 @@ def main() -> None:
     check_objectives_midway(bot)
     check_directions_and_order(bot)
     check_walls_and_hover(bot)
+    check_storm_gust(bot)
     check_drill(bot)
     check_pause(bot)
     check_zoom_and_fullscreen(bot)

@@ -20,6 +20,7 @@ from game.inventory import Inventory
 from game.energy import PowerAlert, PowerReport, power_report
 from game.layers import CAVE, SURFACE, Layer
 from game.player import Player, Rect, overlaps
+from game.weather import Weather
 from game.world import World
 from game.wrecks import Crate, Wreck
 
@@ -30,6 +31,7 @@ class Controls:
     move_x: float = 0.0
     move_y: float = 0.0
     mine_tile: tuple[int, int] | None = None   # tile mirado enquanto segura o clique
+    in_menu: bool = False                      # tela aberta (inventário, fabricador, mapa...): sem empurrão do vento
 
 
 @dataclass
@@ -274,6 +276,7 @@ class GameState:
         self.equipped_ever: set[str] = set()           # equipamento que já foi encaixado alguma vez (objetivos)
         self.wrecks_visited: set[int] = set()          # rank dos destroços que o player já chegou perto
         self.explore_timer = 0.0                       # o explorado atualiza a cada EXPLORE_INTERVAL
+        self.weather = Weather(seed)                   # tempestade (v0.4): vento, rajadas e raio de visão
         self.events: list[tuple] = []
 
     # ---- camadas --------------------------------------------------------------
@@ -418,6 +421,9 @@ class GameState:
         dt = min(dt, C.MAX_DT)
         self.play_time += dt
         sim_dt = dt * self.time_scale     # O₂ e máquinas andam mais rápido com F1
+        storm = storm_level(self)
+        if self.weather.update(dt, storm):
+            self.events.append(("gust", storm))
 
         if self.fainted:
             self.ramp = None                  # desmaiou no meio do fade: acorda na cápsula, sem viagem
@@ -427,6 +433,8 @@ class GameState:
             self._update_o2(sim_dt)
         else:
             self.player.move(controls.move_x, controls.move_y, dt, self.solids_near, self.player_speed)
+            if not controls.in_menu:          # rajada: o vento empurra (parado, desliza; contra, anda mais devagar)
+                self.player.drift(*self.weather.push(storm), dt, self.solids_near)
             self._update_mining(dt, controls.mine_tile)
             self._update_o2(sim_dt)
         self._update_machines(sim_dt)
@@ -482,10 +490,15 @@ class GameState:
                 self.events.append(("refill",))
             self.o2 = min(self.o2_max, self.o2 + C.O2_REFILL * dt)
         else:
-            self.o2 = max(0.0, self.o2 - C.O2_DRAIN * dt)
+            self.o2 = max(0.0, self.o2 - C.O2_DRAIN * self.o2_drain_mult * dt)
             if self.o2 <= 0:
                 self._faint()
         self.was_in_base = inside
+
+    @property
+    def o2_drain_mult(self) -> float:
+        """Fora da base, a tempestade gasta mais O₂: ×STORM_O2_MULT cheia, interpolando com a intensidade."""
+        return 1 + (C.STORM_O2_MULT - 1) * storm_level(self)
 
     def _faint(self) -> None:
         self.fainted = True

@@ -1222,7 +1222,7 @@ class App:
 
     def controls(self) -> Controls:
         if self.mode != "play" or self.state.ramp is not None:
-            return Controls()
+            return Controls(in_menu=self.mode != "play")   # tela aberta: o vento não empurra
         mx = sum(MOVE_KEYS[k][0] for k in self.keys_down if k in MOVE_KEYS)
         my = sum(MOVE_KEYS[k][1] for k in self.keys_down if k in MOVE_KEYS)
         mine = self.mouse_tile() if self.mouse_held and not self.placing else None
@@ -1324,6 +1324,8 @@ class App:
         elif kind == "loot":
             _, resource, amount, (ax, ay) = event
             self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", ax, ay - 40, C.ORE_COLORS[resource][0])
+        elif kind == "gust":                  # rajada começou (tempestade): volume pelo storm, sem gust.wav fica mudo
+            self.audio.play("gust", gain=sound.gust_gain(event[1]))
         elif kind == "equip":
             self.audio.play("equip")
         elif kind == "unequip":
@@ -1613,6 +1615,7 @@ class App:
                        show_name=self.mode == "play" and not state.fainted)
         if not critical:   # com O₂ crítico o aviso grande ocupa essa área (e o foco é voltar pra base)
             ui.draw_objectives(self.objectives.lines(state))
+        ui.draw_gust_warning(state, self.t)
         if state.has_scanner and self.mode != "map":           # scanner equipado: minimapa
             ui.draw_minimap(state, self.renderer.minimap.texture(state), self.t, self.renderer.item_icon)
         if self.saved_notice > 0:
