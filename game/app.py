@@ -67,6 +67,7 @@ BANNER_FADE_IN, BANNER_FADE_OUT = 0.4, 0.8
 SKY_CLEAR_DELAY = 5.0   # s depois do stage_up do Árido
 END_SCREEN_DELAY = 4.5
 FOOTSTEP_INTERVAL = 0.3
+CRATER_ICE_HINT = "Gelo · derrete com o calor"   # v0.4 M2: no lugar do "[E] Descer" com a cratera tampada
 
 
 def fmt_kw(kw: float) -> str:
@@ -376,6 +377,8 @@ class App:
             state.debug_add_ti()
         elif key == pygame.K_F3:
             state.toggle_fast()
+        elif key == pygame.K_F4 and C.DEBUG_MELT_CRATER:   # debug (v0.4 M2): derrete o gelo da cratera na hora
+            state.debug_melt_crater()
         if state.fainted:
             return
 
@@ -1528,6 +1531,8 @@ class App:
             return "Terminal · chegue mais perto"
         tile = self.mouse_tile()
         if state.world.get(*tile) == C.CRATER:            # rampa debaixo do mouse, mas longe
+            if state.ramp_blocked():
+                return CRATER_ICE_HINT
             return ("Cratera · chegue mais perto pra descer" if state.active.has_base
                     else "Rampa · chegue mais perto pra subir")
         if state.in_base_zone():
@@ -1561,6 +1566,8 @@ class App:
         if kind == "terminal":
             return "[E] Ler terminal"
         if kind == "ramp":
+            if self.state.ramp_blocked():                 # v0.4: a cratera nasce tampada de gelo
+                return CRATER_ICE_HINT
             return "[E] Descer pela rampa" if self.state.active.has_base else "[E] Subir pela rampa"
         if kind == "crate":
             return "[E] Caixa vazia" if obj.empty else "[E] Abrir caixa de saque"

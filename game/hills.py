@@ -566,3 +566,48 @@ def foot_tile(formation) -> tuple[int, int]:
     """Um tile da linha de baixo da pegada (pro estágio da transição): o do meio."""
     w, h = formation.size
     return formation.tx + w // 2, formation.ty + h - 1
+
+
+# ---------------------------------------------------------------------------
+# Cratera de impacto (v0.4 Marco 2 · C4): crater_impact_0..4 (a tampa de gelo baixando) + crater_ejecta
+# ---------------------------------------------------------------------------
+CRATER_ANCHOR = (84, 70)                       # centro dos 3×3 no sprite 168×150 (o JSON manda, este é o padrão)
+
+
+def crater_palette(stage: str) -> np.ndarray | None:
+    """21×3: 0..9 planalto (BASE, com contorno e sombra), 10..17 gelo (ICE), 18..20 metal da rampa (METAL)."""
+    terra = ramp("BASE", "plateau", stage)
+    ice = ramp("ICE", "frost", stage)
+    metal = palettes().get("ramps", {}).get("METAL")
+    if terra is None or ice is None or not metal:
+        return None
+    return np.concatenate([terra, ice[:8], np.array([_rgb(c) for c in metal], np.uint8)])
+
+
+def crater_anchor(level: int) -> tuple[int, int]:
+    info = palettes().get("formations", {}).get(f"crater_impact_{level}", {})
+    return tuple(info.get("anchor", CRATER_ANCHOR))
+
+
+class CraterSprites:
+    """A cratera de impacto na etapa do gelo (0 tampada .. 4 vazia) e o manto de ejeção, por estágio (1..4).
+    Sem a arte: None (o render volta pro crater_ramp de antes)."""
+
+    def __init__(self):
+        self._cache: dict[tuple, pygame.Surface | None] = {}
+
+    def _get(self, name: str, stage: int, palette) -> pygame.Surface | None:
+        stage = max(1, min(len(STAGE_KEYS), stage))
+        key = (name, stage)
+        if key not in self._cache:
+            idx = load_indexed(name)
+            rmp = palette(STAGE_KEYS[stage - 1])
+            self._cache[key] = None if idx is None or rmp is None else rgba_surface(colorize(idx, rmp))
+        return self._cache[key]
+
+    def crater(self, level: int, stage: int) -> pygame.Surface | None:
+        level = max(0, min(C.CRATER_ICE_STAGES, level))
+        return self._get(f"crater_impact_{level}.png", stage, crater_palette)
+
+    def ejecta(self, stage: int) -> pygame.Surface | None:
+        return self._get("crater_ejecta.png", stage, lambda st: ramp("BASE", "plateau", st))

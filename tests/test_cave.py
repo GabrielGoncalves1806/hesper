@@ -87,8 +87,11 @@ def run(g, seconds, controls=None):
         g.update(DT, controls or Controls())
 
 
-def at_ramp(g):
-    """Põe o player no ponto de chegada da rampa da camada atual (no alcance do E)."""
+def at_ramp(g, melt=True):
+    """Põe o player no ponto de chegada da rampa da camada atual (no alcance do E). Na superfície a cratera
+    nasce tampada de gelo (v0.4 M2): `melt` derrete ela antes (o atalho F4 de debug), pra dar pra descer."""
+    if melt:
+        g.debug_melt_crater()
     g.player.x, g.player.y = layers.ramp_arrival(g.world)
     return g.world.crater
 

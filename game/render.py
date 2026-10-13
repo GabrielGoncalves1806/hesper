@@ -177,6 +177,7 @@ class Renderer:
         self._hills: hills.HillBlocks | None = None
         self._hill_stage_tags: dict[tuple[int, int], tuple] = {}
         self.formation_sprites = hills.FormationSprites()   # formações fixas (v0.4 M2 · C3)
+        self.crater_sprites = hills.CraterSprites()          # cratera de impacto e a tampa de gelo (C4)
 
     # ---- utilitários ----------------------------------------------------------
     @staticmethod
@@ -275,6 +276,7 @@ class Renderer:
             stage = art_key(state.stage)
             self.stage_map.update(state.ti, [BASE_SOURCE, *state.transition_sources])
         self.draw_floors(canvas, state, cam, stage, t)
+        self.draw_crater_ejecta(canvas, state, cam)
         self.draw_veins(canvas, state, cam)
         if state.active.has_base:
             self.draw_zone(canvas, cam, t)
@@ -694,8 +696,14 @@ class Renderer:
         if world.crater is not None:
             ctx, cty = world.crater
             cx, cy = ctx * T - cam_x, cty * T - cam_y
-            if -96 < cx < self.view_w and -96 < cy < self.view_h:
+            impact = self.crater_impact(state)            # v0.4 M2: cratera de impacto com a tampa de gelo
+            if impact is not None:
+                surf, key, x, y = impact
+                cx, cy = x - cam_x, y - cam_y
+            else:
                 surf, key = self.crater_surface(state.active.has_base)
+            w, h = surf.get_size()
+            if -w < cx < self.view_w and -h < cy < self.view_h:
                 lit = self.highlight == ("ramp", (ctx, cty))
                 items.append(((cty + 3) * T, lambda cx=cx, cy=cy, surf=surf, key=key, lit=lit: self._draw_ramp(
                     canvas, surf, key, cx, cy, lit)))
@@ -765,6 +773,34 @@ class Renderer:
         p = state.player
         items.append((p.y, lambda: self._draw_player(canvas, state, snap(p.x) - cam_x, snap(p.y) - cam_y, t)))
         return items
+
+    def crater_impact(self, state: GameState) -> tuple[pygame.Surface, tuple, int, int] | None:
+        """(sprite, chave, x, y no mundo) da cratera de impacto da superfície na etapa do gelo (layer.crater_ice):
+        a âncora do sprite cai no centro dos 3×3. None na caverna ou sem a arte (aí vale o crater_ramp)."""
+        world = state.world
+        if not state.active.has_base or world.crater is None or not self.sprites.enabled:
+            return None
+        ctx, cty = world.crater
+        level = state.active.crater_ice
+        stage = self.stage_map.stage_at(ctx + 1, cty + 1)
+        surf = self.crater_sprites.crater(level, stage)
+        if surf is None:
+            return None
+        ax, ay = hills.crater_anchor(level)
+        return surf, ("impact", level, stage), ctx * T + 48 - ax, cty * T + 48 - ay
+
+    def draw_crater_ejecta(self, canvas, state: GameState, cam) -> None:
+        """Manto de ejeção em volta da cratera de impacto: decalque no chão (não colide), centrado nos 3×3."""
+        if self.crater_impact(state) is None:
+            return
+        ctx, cty = state.world.crater
+        surf = self.crater_sprites.ejecta(self.stage_map.stage_at(ctx + 1, cty + 1))
+        if surf is None:
+            return
+        x = ctx * T + 48 - surf.get_width() // 2 - cam[0]
+        y = cty * T + 48 - surf.get_height() // 2 - cam[1]
+        if -surf.get_width() < x < self.view_w and -surf.get_height() < y < self.view_h:
+            canvas.blit(surf, (x, y))
 
     def crater_surface(self, surface_layer: bool = True) -> tuple[pygame.Surface, str]:
         """A rampa da camada (96×96) e a chave dela: na superfície a cratera com a rampa de descida aberta

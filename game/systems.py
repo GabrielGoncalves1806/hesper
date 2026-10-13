@@ -254,6 +254,7 @@ class GameState:
         self.faint_time = 0.0          # segundos desde o desmaio
         self.time_scale = 1            # F1 muda pra 10
         self.fast = False              # F3: player DEBUG_SPEED× mais rápido e broca DEBUG_MINE× mais rápida
+        self.debug_crater = False      # F4: a cratera foi aberta pelo atalho de debug (aviso no topo da tela)
         self.play_time = 0.0
         self.logs_read: set[int] = set()
         self.logs_seen: set[int] = set()   # LOGs já abertos pela aba LOGs do inventário (os outros lidos = "NOVO")
@@ -328,9 +329,18 @@ class GameState:
         mx, my = layers.ramp_mouth(self.world)
         return math.hypot(self.player.x - mx, self.player.y - my)
 
+    @property
+    def crater_frozen(self) -> bool:
+        """A cratera da superfície ainda está tampada de gelo? (v0.4: nasce coberta, derrete no M3)"""
+        return SURFACE in self.layers and self.surface.crater_ice < C.CRATER_ICE_STAGES
+
+    def ramp_blocked(self) -> bool:
+        """Na superfície, com o gelo na cratera, não dá pra descer (subir da caverna sempre dá)."""
+        return self.active.has_base and self.crater_frozen
+
     def start_ramp(self) -> bool:
         """E na rampa (no alcance): começa o fade. A troca de camada acontece no meio dele."""
-        if self.ramp is not None or self.fainted or self.ramp_distance() > C.RAMP_REACH:
+        if self.ramp is not None or self.fainted or self.ramp_distance() > C.RAMP_REACH or self.ramp_blocked():
             return False
         self.ramp = RampTrip(layers.other_layer(self.layer))
         self.mining = None
@@ -1138,6 +1148,11 @@ class GameState:
         self.indices["heat"] += share
         self.indices["water"] += share
         self._check_stage()
+
+    def debug_melt_crater(self) -> None:
+        """F4 (debug): derrete a tampa de gelo da cratera na hora (no M2 é o único jeito de descer)."""
+        self.surface.crater_ice = C.CRATER_ICE_STAGES
+        self.debug_crater = True
 
     def toggle_time_scale(self) -> None:
         self.time_scale = C.DEBUG_TIME_SCALE if self.time_scale == 1 else 1

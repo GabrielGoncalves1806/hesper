@@ -24,7 +24,7 @@ from game import config as C  # noqa: E402
 from game import rock_respawn  # noqa: E402
 from game import save  # noqa: E402
 from game import settings  # noqa: E402
-from game.app import NUMBER_KEYS, App  # noqa: E402
+from game.app import CRATER_ICE_HINT, NUMBER_KEYS, App  # noqa: E402
 from game.ui import TAB_CRAFT, TAB_INVENTORY, TAB_LOGS, TI_PANEL_W  # noqa: E402
 
 # o smoke mexe nos volumes: grava num arquivo temporário, nunca no settings.json de verdade
@@ -1858,13 +1858,13 @@ def check_surface(bot) -> None:
     bot.frames(0.1)
     assert w.get(*rock) == C.SAND and 2 <= s.inventory.count(res) - before <= 4
 
-    # 3) cratera (rampa de descida no Marco 2): obstáculo, com a dica do E
+    # 3) cratera (rampa de descida no Marco 2; v0.4: nasce tampada de gelo): obstáculo, com a dica do gelo
     tx, ty = w.crater
     bot.teleport((tx + 1, ty + 4))
     s.o2 = C.O2_MAX
     bot.mouse_to(bot.tile_on_screen((tx + 1, ty + 1)))
     bot.frames(0.2)
-    assert app.hint() == "[E] Descer pela rampa", app.hint()
+    assert app.hint() == CRATER_ICE_HINT, app.hint()
     y0 = s.player.y
     bot.key(pygame.K_w, hold=0.8)                  # anda pra cima: a cratera segura
     assert s.player.y >= (ty + 3) * C.TILE + C.PLAYER_BOX_H - 0.01 and s.player.y < y0
@@ -2454,6 +2454,73 @@ def open_floor_near(world, spot, n, min_gap=3, radius=12):
     return out
 
 
+def check_crater(bot) -> None:
+    """v0.4 Marco 2 · trilha C · C4: a cratera de impacto nasce tampada de gelo (bloqueia a descida, dica do gelo),
+    as 5 etapas da tampa lado a lado (setando layer.crater_ice), o F4 de debug derretendo e o E descendo."""
+    from game import layers
+    s, app = bot.state, bot.app
+    assert s.layer == "surface" and s.surface.crater_ice == 0, "jogo novo: cratera tampada"
+    before = dict(s.indices)
+    stage_before, storm_before = s.stage, s.storm
+    zoom_before = app.zoom
+    s.stage, s.storm = C.ARID_STAGE, 0.0                  # Árido: sem poeira na frente dos prints
+    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    app.set_zoom(1.0, notify=False)
+    w = s.world
+    tx, ty = w.crater
+    center = (tx * C.TILE + 48, ty * C.TILE + 48)
+    # 1) tampada: no alcance, a dica é a do gelo e o E não desce
+    bot.teleport((tx + 1, ty + 3))
+    s.o2 = C.O2_MAX
+    bot.mouse_to(bot.tile_on_screen((tx + 1, ty + 1)))
+    ground_settle(bot)
+    assert app.hint() == CRATER_ICE_HINT, app.hint()
+    bot.shot("cratera_dica.png")
+    shot_zoom(bot, "cratera_tampada.png", (center[0], center[1] + 10), w=240, h=180)
+    bot.key(pygame.K_e)
+    bot.frames(0.3)
+    assert s.ramp is None and s.layer == "surface", "com o gelo, o E não pode descer"
+    bot.teleport((tx + 1, ty + 9))                        # longe: a dica do mouse em cima também é a do gelo
+    s.o2 = C.O2_MAX
+    bot.mouse_to(bot.tile_on_screen((tx + 1, ty + 1)))
+    bot.frames(0.1)
+    assert app.hint() == CRATER_ICE_HINT, app.hint()
+    # 2) as 5 etapas lado a lado (o M3 é que derrete; aqui o estado é setado na mão)
+    bot.teleport((tx + 1, ty + 4))
+    bot.mouse_to((900, 500))
+    strip = pygame.Surface((5 * 200, 170))
+    for k in range(C.CRATER_ICE_STAGES + 1):
+        s.surface.crater_ice = k
+        bot.frames(DT)
+        cx, cy = app.cam
+        strip.blit(app.frame.subsurface((center[0] - cx - 100, center[1] - cy - 85, 200, 170)).copy(), (k * 200, 0))
+    pygame.image.save(pygame.transform.scale_by(strip, 2), str(OUT / "cratera_etapas.png"))
+    print("  screenshot: reports/dev/cratera_etapas.png  (etapas 0 tampada .. 4 vazia, ampliado 2×)")
+    s.surface.crater_ice = 0
+    # 3) F4 (debug): derrete na hora; a dica volta a ser "[E] Descer" e o E desce
+    bot.key(pygame.K_F4)
+    assert s.surface.crater_ice == C.CRATER_ICE_STAGES and s.debug_crater
+    bot.teleport((tx + 1, ty + 3))
+    s.o2 = C.O2_MAX
+    bot.mouse_to(bot.tile_on_screen((tx + 1, ty + 1)))
+    bot.frames(0.2)
+    assert app.hint() == "[E] Descer pela rampa", app.hint()
+    bot.shot("cratera_aberta.png")
+    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_e, mod=0, unicode="", scancode=0))
+    bot.frames(0.3)
+    assert s.ramp is not None
+    bot.shot("cratera_descendo.png")
+    pygame.event.post(pygame.event.Event(pygame.KEYUP, key=pygame.K_e, mod=0, unicode="", scancode=0))
+    bot.frames(C.RAMP_DURATION)
+    assert s.layer == "cave"
+    s.enter_layer("surface", layers.ramp_arrival(w))     # volta: o check_cave refaz a descida inteira
+    s.debug_crater = False                               # tira o aviso de debug do topo (os outros prints)
+    s.indices.update(before)
+    s.stage, s.storm = stage_before, storm_before
+    app.set_zoom(zoom_before, notify=False)
+    bot.frames(0.2)
+
+
 def check_cave(bot) -> None:
     """v0.3 Marco 2 · caverna: E na cratera, fade, chegada, escuro com luminárias, mineração, mapa, perf, subir."""
     from game import layers
@@ -2965,6 +3032,7 @@ def main() -> None:
     check_ground(bot)
     check_hills(bot)
     check_formations(bot)
+    check_crater(bot)
     check_cave(bot)
     check_wrecks(bot)
     check_storm(bot)

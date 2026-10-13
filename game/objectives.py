@@ -37,6 +37,12 @@ def visited_cave(state: GameState) -> bool:
     return "cave" in state.layers
 
 
+def crater_open(state: GameState) -> bool:
+    """O gelo da cratera já derreteu? (v0.4: nasce tampada; no Marco 2 só o F4 de debug abre, o Marco 3 liga o
+    derretimento pelo calor). Quem já desceu, já abriu."""
+    return not state.crater_frozen or visited_cave(state)
+
+
 @dataclass(frozen=True)
 class Objective:
     text: str
@@ -59,6 +65,8 @@ OBJECTIVES = [
     Objective("Coloque o gerador perto da base", lambda s: placed_near_base(s, "o2")),
     Objective("Fabrique um baú", lambda s: crafted(s, "chest") >= 1),
     # v0.3 Marco 2: a caverna é onde se minera de verdade (escura: lanterna + luminárias)
+    # v0.4 Marco 2: a cratera nasce coberta de gelo (o Marco 3 liga o derretimento no 1º marco de calor)
+    Objective("Derreta o gelo da cratera", crater_open),
     Objective("Desça na caverna pela cratera [E]", visited_cave),
     Objective("Coloque uma luminária", lambda s: s.lamps_placed >= 1),
     # v0.3 Marco 3: os destroços do deserto (o mais perto, a ~30 tiles, tem o projeto do tanque de O₂)

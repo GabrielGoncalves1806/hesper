@@ -57,6 +57,7 @@ def test_normal_sequence_walks_every_objective(game):
     craft_free(game, "o2"); step()
     place_at(game, "o2", (93, 98)); step()
     craft_free(game, "chest"); step()
+    game.debug_melt_crater(); step()            # v0.4 M2: o gelo da cratera (no jogo, o calor do M3; aqui o F4)
     game.enter_layer("cave"); step()            # desceu pela rampa
     game.lamps_placed = 1; step()               # colocou uma luminária (lá embaixo ou em qualquer lugar)
     game.enter_layer("surface")
@@ -91,6 +92,7 @@ def test_normal_sequence_walks_every_objective(game):
         "Fabrique um Gerador de O₂",
         "Coloque o gerador perto da base",
         "Fabrique um baú",
+        "Derreta o gelo da cratera",
         "Desça na caverna pela cratera [E]",
         "Coloque uma luminária",
         "Ache um destroço",

@@ -763,8 +763,9 @@ class UI:
             self.draw_hint(hint)
 
         debug = ([f"DEBUG · TEMPO x{state.time_scale}"] if state.time_scale != 1 else []) \
-            + ([f"DEBUG · RAPIDO x{C.DEBUG_SPEED:g} · BROCA x{C.DEBUG_MINE:g}"] if state.fast else [])
-        for i, line in enumerate(debug):          # F1 e F3: uma linha cada, no topo (não alcança o painel do Ti)
+            + ([f"DEBUG · RAPIDO x{C.DEBUG_SPEED:g} · BROCA x{C.DEBUG_MINE:g}"] if state.fast else []) \
+            + (["DEBUG · CRATERA ABERTA (F4)"] if state.debug_crater else [])
+        for i, line in enumerate(debug):          # F1, F3 e F4: uma linha cada, no topo (não alcança o painel do Ti)
             self.text(line, self.w // 2, 8 + 10 * i, C.C_TI, align="center")
 
     def hint_width(self, hint: str) -> int:
@@ -2105,7 +2106,7 @@ class UI:
         ("+ / -", "Aproximar / afastar (ou Ctrl+rodinha)"),
         ("F11 · ALT+ENTER", "Tela cheia"),
         ("ESC > OPÇÕES", "Tamanho da interface (HUD e menus)"),
-        ("F1 · F2 · F3", "Debug: tempo x10 · +10.000 Ti · rápido"),
+        ("F1 · F2 · F3 · F4", "Debug: x10 · +10.000 Ti · rápido · gelo da cratera"),
     ]
 
     def _pause_frame(self, x, y, w, h, title, right: str | None = "PAUSA") -> None:

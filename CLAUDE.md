@@ -26,3 +26,4 @@ A sessão principal é o **gerente/orquestrador**: conversa com o dono, distribu
 - Balanceamento: `uv run python tools/dev/balance_sim.py`
 - Sprites: `python3 tools/sprites/build_sprites.py`
 - Áudio: `python3 tools/audio/build_audio.py`
+- Atalhos de debug no jogo (sempre ligados): F1 tempo ×10 · F2 +10.000 Ti · F3 player e broca rápidos · F4 derrete o gelo da cratera na hora (no v0.4 M2 é o único jeito de descer pra caverna; o M3 liga o derretimento pelo calor)

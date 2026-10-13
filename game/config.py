@@ -647,3 +647,9 @@ HILL_BLOCK = 8                  # morros assados em blocos de 8×8 tiles (256 px
 HILL_FACE = 24                  # px da face (a silhueta do topo extrudada pra baixo)
 HILL_CACHE_BLOCKS = 96          # teto de blocos assados guardados (LRU): ~3 telas no zoom 0,75
 HILL_PREFETCH = 1               # blocos de folga em volta da tela, assados no máximo 1 por frame
+
+# Cratera de impacto (v0.4 Marco 2 · trilha C · C4): crater_impact_0..4.png + crater_ejecta.png (game/hills.py).
+# A tampa de gelo (layer.crater_ice) vai de 0 (tampada) a CRATER_ICE_STAGES (vazia, rampa exposta); fechada,
+# bloqueia a descida. No M2 fica sempre tampada: o derretimento pelo calor é do Marco 3.
+CRATER_ICE_STAGES = 4
+DEBUG_MELT_CRATER = True        # F4 derrete a tampa na hora (atalho de debug, no mesmo esquema do F1–F3)
