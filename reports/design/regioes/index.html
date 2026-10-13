@@ -84,7 +84,7 @@ th{font:12px var(--f-label);color:var(--gold);background:var(--panel2)}td{color:
 .v92 .pill.ok{border-color:var(--ok);color:var(--ok)}.v92 .pill.no{color:var(--muted)}
 /* /v92css */
 </style></head><body><div class="wrap">
-<div class="eyebrow">Hesper · Designer · v9.2 · proposta: gelo-portão em blocos (a v9.1 e a v9 aprovadas continuam abaixo)</div>
+<div class="eyebrow">Hesper · Designer · v9.2 · aprovado e promovido: gelo-portão em blocos (a v9.1 e a v9 aprovadas continuam abaixo)</div>
 <h1>Regiões, relevo e água</h1>
 <p class="lede">Objetivo: tirar a cara de “mapa gerado com tileset” e deixar a superfície orgânica e explorável. O
 planeta é <b>árido e vazio, não areia</b>: rocha, terra seca, sal, basalto e geada. Tudo aqui sai de script
@@ -92,7 +92,7 @@ planeta é <b>árido e vazio, não areia</b>: rocha, terra seca, sal, basalto e 
 no jogo ainda: é pra tu aprovar antes do código.</p>
 
 <!-- v92note:begin -->
-<div class="v2"><b>v9.2 · o que mudou (proposta, espera o ok do dono)</b><ul>
+<div class="v2"><b>v9.2 · o que mudou (aprovado e promovido)</b><ul>
 <li><b>Gelo-portão em blocos</b>: 3 tipos de bloco (lasca, laje, pedra), 2 variações cada, exportados em 8 escalas
 geradas pelo volume (o mesmo bloco encolhendo), com a caixa de colisão de cada escala.</li>
 <li><b>3 arranjos</b> de 3 a 5 blocos fechando o corredor de 4 tiles, com quando cada bloco derrete e a busca de caminho
@@ -154,13 +154,13 @@ vira o grande lago.</li>
 <li>Sem ossada nenhuma, como pedido.</li></ul></div>
 
 <!-- v92:begin -->
-<section class="v92" id="v92"><h2>v9.2 · Gelo-portão em blocos que derretem (proposta)</h2>
+<section class="v92" id="v92"><h2>v9.2 · Gelo-portão em blocos que derretem (aprovado e promovido)</h2>
 <p class="lede">Pedido do dono no playtest do Marco 3 (M3.5): o gelo-portão deixa de ser um sprite que troca por
 etapa e vira um <b>amontoado de 3 a 5 blocos de gelo</b> de 3 tipos. Cada bloco derrete no seu ritmo e <b>vai
 encolhendo sem trocar de desenho</b>: o volume 3D é refeito em 8 escalas (100% → 23%) pelo mesmo motor das formações, e
 não redimensionado em pixel. Nas escalas menores as quinas amolecem e o brilho molhado aumenta, mas é sempre o mesmo
 bloco. A caixa de colisão encolhe junto e, quando abre uma fresta de 14 px (a caixa do player), ele passa.
-Os PNGs ficam em <code>v92/pendentes/</code> com o <code>regions_v92.json</code>: nada entra em <code>assets/</code> sem o ok do dono.</p>
+Aprovado pelo dono e promovido: os PNGs estão em <code>assets/sprites/regions/</code> e o JSON foi juntado ao <code>regions_palettes.json</code> (chaves <code>blocks</code> e <code>recipes</code>). A cópia em <code>v92/pendentes/</code> fica de registro.</p>
 
 <h3 style="margin-top:22px">Os 6 blocos nas 8 escalas</h3>
 <p style="color:var(--muted)">Lasca (coluna grossa de topo em bisel; a 2 é um par com um toco), Laje (larga e baixa; a 2 é
@@ -231,8 +231,8 @@ que vale pra medir a fresta é o diagrama de cima.</p>
 <div class="box dev" style="margin-top:24px"><h3>Pro Dev integrar</h3><ul>
 <li><b>Arquivos</b>: <code>ice_block_{shard,slab,boulder}_{0,1}.png</code> (6 tiras, 8 quadros cada, todos do mesmo
 tamanho dentro da tira) + o bloco <code>ice_blocks</code> e <code>ice_gate_recipes</code> que entram no
-<code>regions_palettes.json</code> na promoção (hoje em <code>v92/pendentes/regions_v92.json</code>, chaves
-<code>blocks</code> e <code>recipes</code>). Saem <code>ice_gate_{0,1,2}.png</code> e a pegada por etapa.</li>
+<code>regions_palettes.json</code> promovidos (chaves <code>blocks</code> e <code>recipes</code> no
+<code>regions_palettes.json</code>). Os <code>ice_gate_{0,1,2}.png</code> ficam em uso até o Dev trocar pelos blocos.</li>
 <li><b>Âncora</b>: <code>blocks[k].anchor</code> = px do quadro que cai no pé do bloco. O pé do bloco no mundo =
 <code>base_px</code> do portão (centro da borda de baixo da caixa 4×2 de hoje) + <code>(x, y)</code> da receita. O quadro
 k fica em <code>(k · frame.w, 0)</code> na tira. Mesma âncora nos 8 quadros: o bloco não anda quando encolhe.</li>

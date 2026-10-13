@@ -185,7 +185,7 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 | `icon_drill.png` | 16×16 | ícone (estoque de máquinas e fabricador) |
 | `plant_bush.png` `plant_tree.png` `plant_flower.png` | até 32×40 | estágio verde |
 
-### Sprites da superfície do v0.4 · regiões: `assets/sprites/regions/` (proposta da Designer, **aprovado pelo dono, v8.1**; pedra de topo do hoodoo v8.3; **elementos novos e basalto aprovados pelo dono, v9**; **fumarolas aprovadas pelo dono, v9.1**)
+### Sprites da superfície do v0.4 · regiões: `assets/sprites/regions/` (proposta da Designer, **aprovado pelo dono, v8.1**; **gelo em blocos aprovado pelo dono, v9.2**; pedra de topo do hoodoo v8.3; **elementos novos e basalto aprovados pelo dono, v9**; **fumarolas aprovadas pelo dono, v9.1**)
 Report: `reports/design/regioes/index.html`. Gerados por `tools/sprites/regions_mockups.py` (volumes em `regions_volume.py`, receita do chão em `regions_scene.py`; os elementos da v9 em `regions_v9_elements.py`, prévias e cenas da v9 em `regions_v9.py`).
 
 **PNG indexado (modo P)**, com a paleta do Árido embutida. Índices: 0..7 = rampa da região, 8 = contorno `#1b1630`, 9 = sombra (preto, alfa 80), 255 = transparente. Os outros estágios trocam a paleta pela rampa do estágio em `regions/regions_palettes.json` (`ramps[tabela][região][estágio]`, tabelas `BASE`, `HILL`, `SAND`, `ICE` e `METAL`; v9: `MOSS`, rampa fixa de 4 cores do musgo do Verde+, que não muda com o estágio; v9.1: `VENT`, `ramps.VENT.basalt[estágio]` com 4 cores pros índices 10..13 das fumarolas: 10 e 11 enxofre, que seguem o estágio, 12 e 13 brasa, iguais nos 4 estágios porque emitem luz). O JSON também traz âncoras, tiles que bloqueiam, níveis d'água, a mistura de decalques e, na chave `v9_density`, a densidade dos elementos da v9. **v9.1 (aprovado pelo dono)**: o bloco `smoke` traz os números da fumaça das fumarolas, que é **partícula, não sprite** (`rate` puffs/s por boca: cone 2,5, par 2,0 cada boca, chaminé 3,5; `life` 2,6–3,4 s; `rise` 16–22 px/s freando até ~35%; `radius` 1,5–2,5 px abrindo até 7–10 px; `wind` 0,45 do vento da superfície; `jitter` ±3 px; `color` 3 tons chapados; `alpha` em degraus 150/110/70 por terço da vida; `stage_tint` na Tempestade e na Névoa), desenhada depois dos objetos e antes da HUD. A chave `vent_density` traz quantas por mundo (`count`), onde nascem (`rule`) e quando acordam (`wake`: cada fumarola sorteia um limiar de calor entre o da etapa 1 e o da etapa 4 da tampa da cratera).
@@ -202,6 +202,7 @@ Report: `reports/design/regioes/index.html`. Gerados por `tools/sprites/regions_
 | `form_{split_rock,salt_pillar,lava_tube,ice_needles}.png` | até 124×72 | **v9 · formações pequenas** (`small: true` no JSON), mesmo esquema das formações (âncora no centro da base, ordem pelo pé, pegada vira `FORMATION`, não mineram, sem afloramento e sem marcador no mapa). Pedra rachada 72×64, 1 tile, `HILL` do planalto; pilar de sal 68×60, 1 tile, `BASE` do salar; tubo de lava colapsado 124×56, 3×1, `HILL` do basalto; agulhas de gelo 84×72, 3×1, `ICE`. Por mundo (`count`): 4–6, 3–4, 2–4 e 3–5 |
 | `form_vent_{cone,pair,chimney}_{dormant,active}.png` | 60×48, 72×64, 40×78 | **v9.1 · fumarolas do basalto, aprovado pelo dono** (`formations.vent_*` no JSON, `small: true`): cone baixo bloqueia 1 tile, par de cones 2×1, chaminé 1 tile; âncora no centro de baixo da pegada, ordem pelo pé, pegada vira `FORMATION`, não mineram. `_dormant` (boca escura e fria) abaixo do limiar de calor, `_active` (brasa leve na boca, crosta de enxofre) acima. Paleta 0..9 = `HILL` do basalto, 10..13 = `VENT`. `mouths` = px do sprite de onde sai a fumaça (bloco `smoke`). Por mundo: cone 2–3, par 1–2, chaminé 1–2, no basalto, fora de bacia, a 26+ tiles da base, 8+ uma da outra e 6+ das formações grandes, 60% num raio de 10–30 tiles do cone de escória |
 | `ice_gate_{0,1,2}.png` | 144×132 | gelo-portão em 3 etapas; bloqueia 4×2 → 3×2 → 2×1 → nada (aberto: sem sprite, fica o `frost_ring`) |
+| `ice_block_{shard,slab,boulder}_{0,1}.png` | tiras de 8 quadros: lasca 800×117 / 896×131, laje 776×71 / 872×68, pedra 760×84 / 696×90 (quadro = 100×117, 112×131, 97×71, 109×68, 95×84, 87×90) | **v9.2 · gelo em blocos, aprovado pelo dono, promovido**. Rampa `ICE` (`ramps.ICE.frost[estágio]`), 8 quadros = 8 escalas (do inteiro ao último caquinho), âncora e caixa de colisão por quadro no `regions_palettes.json` (chaves `blocks` e `recipes`: receitas A, B e C do portão, derretimento por fração `melt`). Aprovado pelo dono, v9.2; **substitui o `ice_gate_*` quando o Dev integrar** (até lá, o `ice_gate_*` continua em uso) |
 | `crater_impact_{0..4}.png` | 168×150 | **cratera de impacto, substitui `crater.png` e `crater_ramp.png` na superfície.** 0 = tampa de gelo cheia, 1..3 = o gelo baixando (marcas de geada nas paredes), 4 = vazia, com a rampa e o buraco expostos. Âncora (84, 70) = centro dos 3×3 (px `(cx·32 + 48, cy·32 + 48)`), desenhada pelo pé (borda de baixo dos 3×3). Continua bloqueando os mesmos 3×3; o E segue no tile do meio de baixo. Paleta: 0..9 planalto (`BASE`), 10..17 `ICE`, 18..20 `METAL` (degraus e postes da rampa) |
 | `crater_ejecta.png` | 256×216 | manto de ejeção e pedrisco em volta da cratera, centrado no mesmo ponto; camada de decalques (não colide) |
 
@@ -340,8 +341,9 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 ### Assets novos do v0.2 (contrato)
 | Sprite | Tamanho | Observação |
 |---|---|---|
-| `chest.png` | 32×40 | baú, ancorado no centro da base |
-| `chest_open.png` | 32×40 | baú aberto |
+| `chest.png` | 32×40 | baú, ancorado no centro da base · **r3d v1.1, aprovado pelo dono** |
+| `chest_open.png` | 32×40 | baú aberto · **r3d v1.1, aprovado pelo dono** |
+| `container_sealed.png` | 40×44 | **contêiner lacrado** (v0.4 M3, gancho das peças raras), 1 tile, mesma família do baú (caixa de aço com cintas e selo) · **r3d v1.1, aprovado pelo dono**. Substitui o placeholder `art.sealed_container` quando o Dev integrar |
 | `solar_panel.png` | 32×40 | painel solar |
 | `drone_station.png` | 64×72 | estação 2×2, com espaço pros drones pousados (documentar os pontos de pouso) |
 | `drone.png` | 64×16 | 4 quadros de 16×16 com as hélices girando. O jogo desenha a sombra |
@@ -459,7 +461,7 @@ Rochas usam `mine_hit`/`mine_break` e, ao dar o minério, o `pickup.wav` já apr
 | `wreck_cargo.png` | 128×112 | nave de carga caída, ocupa 4×3 tiles, meio enterrada na areia, ancorada no centro da base |
 | `wreck_module.png` | 96×88 | módulo da colônia, 3×2 tiles, com um terminal visível |
 | `wreck_probe.png` | 64×64 | sonda pequena, 2×2 tiles |
-| `loot_crate.png` `loot_crate_empty.png` | 32×32 | caixa de saque (fechada/cheia e aberta/vazia) |
+| `loot_crate.png` `loot_crate_empty.png` | 32×32 | caixa de saque (fechada/cheia e aberta/vazia) · **r3d v1.1, aprovado pelo dono** |
 | `icon_blueprint.png` | 16×16 | item de projeto |
 | `icon_o2_tank.png` | 16×16 | tanque de O₂ (equipamento) |
 | `icon_scanner.png` | 16×16 | scanner de navegação |
