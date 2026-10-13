@@ -13,7 +13,7 @@ e nenhum teste pegou. Aqui o jogo roda nos DOIS drivers, cada um num subprocesso
 - dummy: o mesmo do smoke.
 
 Os dois passam pelas mesmas telas (título, superfície, mapa aberto na superfície e na caverna,
-inventário, fabricador, baú, caverna escura e opções). Cada print é dividido numa grade de células e, em
+tempestade com rajada e o mapa chiando, inventário, fabricador, baú, caverna escura e opções). Cada print é dividido numa grade de células e, em
 cada célula, conta quanto é preto (depois de compor a janela sobre preto, que é o que o macOS mostra
 onde o alfa é 0) e quanto tem alfa < 255. Falha se, em alguma célula, o real tiver bem mais preto ou
 transparente que o dummy. Save e settings vão pra uma pasta temporária, nunca os de verdade.
@@ -34,8 +34,8 @@ CELL = 40                 # lado da célula da grade (px da janela 960×540): 24
 BLACK_MAX = 12            # canal <= isso conta como "preto"
 BLACK_SLACK = 0.25        # o real pode ter até +25% de preto numa célula sem falhar (partículas, cursor)
 CLEAR_SLACK = 0.01        # alfa < 255 em mais de 1% da célula já é bug (a janela é opaca)
-SCENES = ("titulo", "superficie", "mapa_superficie", "inventario", "fabricador", "bau", "opcoes",
-          "caverna_escura", "mapa_caverna")
+SCENES = ("titulo", "superficie", "mapa_superficie", "tempestade", "mapa_tempestade", "inventario", "fabricador",
+          "bau", "opcoes", "caverna_escura", "mapa_caverna")
 
 
 # ---------------------------------------------------------------------------- lado do jogo (subprocesso)
@@ -109,6 +109,21 @@ def run_worker(driver: str, out: Path) -> None:
     bot.frames(0.1)
     bot.capture("mapa_superficie")
     bot.key(pygame.K_m)
+
+    # tempestade com rajada (v0.4): camada de poeira SRCALPHA + faixas + minimapa e mapa chiando
+    old_storm = s.storm
+    s.storm = 1.0
+    smoke.set_weather(s, 1.0, 35.0)
+    bot.mouse_to(mouse)
+    bot.frames(0.5)
+    bot.capture("tempestade")
+    bot.key(pygame.K_m)
+    assert app.mode == "map"
+    bot.frames(0.1)
+    bot.capture("mapa_tempestade")
+    bot.key(pygame.K_m)
+    s.storm = old_storm
+    smoke.set_weather(s, 0.0)
 
     smoke.give(s, iron=40, silicon=12, ice=20, chest=1)
     bot.key(pygame.K_TAB)

@@ -18,12 +18,14 @@ da escala.
 """
 
 import math
+import random
 import re
 
 import pygame
 
 from game import art
 from game import config as C
+from game import dust
 from game import energy
 from game import map_markers
 from game import map_view
@@ -197,6 +199,53 @@ class PixelFont:
                             surf.fill(color, (ox + dx * s, top + dy * s, s, s))
                 x += DIGIT_ADVANCE if kind == "digit" else self.sub_advance
         return surf
+
+
+# ---- chiado do scanner na tempestade (v0.4 Marco 1, trilha C) -------------------------------------
+NOISE_TILE = 64            # ladrilho de ruído (px nativos), repetido com deslocamento sorteado
+NOISE_LEVELS = 8           # densidades em cache (amount quantizado)
+NOISE_FRAMES = 4           # quadros de ruído por densidade (alterna rápido: cara de TV fora do ar)
+NOISE_FPS = 24
+NOISE_DENSITY = 0.22       # fração de pixels com ruído no amount 1
+NOISE_LIGHT, NOISE_DARK = (226, 222, 210), (14, 16, 22)
+NOISE_LINE = (64, 60, 52)  # somado (BLEND_RGB_ADD) nas linhas de interferência
+_noise_tiles: dict[tuple[int, int], pygame.Surface] = {}
+
+
+def _noise_tile(level: int, frame: int) -> pygame.Surface:
+    tile = _noise_tiles.get((level, frame))
+    if tile is None:
+        rng = random.Random(level * 131 + frame * 17 + 5)
+        tile = pygame.Surface((NOISE_TILE, NOISE_TILE), pygame.SRCALPHA)
+        tile.fill((0, 0, 0, 0))
+        for _ in range(round(NOISE_TILE * NOISE_TILE * NOISE_DENSITY * level / NOISE_LEVELS)):
+            rgb = NOISE_LIGHT if rng.random() < 0.5 else NOISE_DARK
+            tile.set_at((rng.randrange(NOISE_TILE), rng.randrange(NOISE_TILE)), (*rgb, rng.randrange(150, 256)))
+        _noise_tiles[(level, frame)] = tile
+    return tile
+
+
+def static_noise(surf: pygame.Surface, amount: float, t: float) -> None:
+    """Chiado no minimapa/mapa (in-place): pixels claros e escuros sorteados mais 1 ou 2 linhas de
+    interferência, proporcional a `amount` (0..1, rajada × tempestade). Com amount 0 não toca em nada.
+    Ruído em ladrilhos pré-sorteados: custa uns blits, não um laço por pixel."""
+    if amount <= 0:
+        return
+    amount = min(1.0, amount)
+    level = max(1, math.ceil(amount * NOISE_LEVELS))
+    tick = int(t * NOISE_FPS)
+    tile = _noise_tile(level, tick % NOISE_FRAMES)
+    rng = random.Random(tick)
+    ox, oy = rng.randrange(NOISE_TILE), rng.randrange(NOISE_TILE)
+    w, h = surf.get_size()
+    for y in range(-oy, h, NOISE_TILE):
+        for x in range(-ox, w, NOISE_TILE):
+            surf.blit(tile, (x, y))
+    k = max(1, h // 64)                                   # espessura da linha: 1 px a cada 64 de altura
+    for i in range(1 + (amount > 0.5)):
+        y = int((t * (41 + 29 * i) * k + rng.random() * h) % h)
+        line = tuple(round(c * amount) for c in NOISE_LINE)
+        surf.fill(line, (0, y, w, k), special_flags=pygame.BLEND_RGB_ADD)
 
 
 def fmt(n: float) -> str:
@@ -2287,6 +2336,7 @@ class UI:
         for e in map_view.visible(map_view.map_entries(state, state.layer), ()):
             if e.category not in self.MINIMAP_SKIP:
                 map_markers.put(view, map_markers.marker(e.kind, e.color, e.direction), (e.x - ox) * k, (e.y - oy) * k)
+        static_noise(view, dust.static_amount(state), t)          # chiado da rajada (tempestade)
         px = self.w - 6 - (size + 8)
         py = self.energy_bottom + 4
         self.hud_panel(px, py, size + 8, size + 8)
@@ -2395,6 +2445,7 @@ class UI:
         if self.map_hover is not None:                                 # cantoneiras laranja no marcador
             e = self.map_hover
             self._map_brackets(surf, e.x * k - off[0], e.y * k - off[1])
+        static_noise(surf, dust.static_amount(state), t)           # chiado da rajada (tempestade)
         self.native.append((surf, (area.x * 2, area.y * 2)))
         self._map_overlay(view, area, mouse)
         self._map_chips(entries, view, area, key, mouse)
