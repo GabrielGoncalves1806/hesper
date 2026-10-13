@@ -643,7 +643,7 @@ FORMATION_SPACING = 16              # tiles entre formações (centro a centro)
 FORMATION_HALO = 2                  # tiles livres em volta da pegada (os afloramentos ficam aqui; nada mais nasce)
 FORMATION_HILL_GAP = 4              # morro nenhum a menos disso da pegada
 # Formações pequenas (v9 · M3.0): miúdas, sem afloramento nem marcador no mapa. Por mundo, (mín, máx).
-GEO_SMALL_FORMATIONS = {"split_rock": (4, 6), "salt_pillar": (0, 0), "lava_tube": (2, 4), "ice_needles": (3, 5)}
+GEO_SMALL_FORMATIONS = {"split_rock": (4, 6), "salt_pillar": (0, 0), "lava_tube": (0, 0), "ice_needles": (3, 5)}
 SMALL_FORMATION_MIN_BASE_DIST = 20  # tiles do centro dela até a base
 SMALL_FORMATION_SPACING = 10        # tiles até qualquer outra formação (pequena ou grande), centro a centro
 SMALL_FORMATION_HALO = 2            # tiles de folga em volta da pegada: na mesma região e fora de bacia

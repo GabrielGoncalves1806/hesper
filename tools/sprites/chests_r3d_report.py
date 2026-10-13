@@ -90,9 +90,9 @@ def scenes():
 
 def palette_strip():
     sw = 22
-    rows = [("BLUE (corpo)", C.BLUE), ("BLUE_D (painel)", C.BLUE_D),
-            ("acento", [C.ORANGE_L, C.ORANGE, C.ORANGE_D, C.OUTLINE]),
-            ("lacre", [C.GOLD_L, C.GOLD, C.GOLD_D, C.ALERT])]
+    rows = [("ROYAL (plástico)", C.ROYAL), ("ROYAL_IN (sulcos e lado de dentro)", C.ROYAL_IN),
+            ("SILVER (faixa, trinco, alça)", C.SILVER), ("brilho e contorno", ["#d4ecff", C.OUTLINE]),
+            ("selo do lacrado", [C.GOLD_L, C.GOLD, C.GOLD_D])]
     im = Image.new("RGBA", (sw * 5, sw * len(rows)), (0, 0, 0, 0))
     for j, (_, cols) in enumerate(rows):
         for i, c in enumerate(cols):
@@ -127,16 +127,19 @@ def build():
     for name, label, sz in PAIRS:
         k = 6 if sz != "16×16" else 8
         pairs.append(f"""<div class="pair"><h3>{label} · <code>{name}.png</code> · {sz}</h3><div class="ab">
-{fig(f"before/{name}.png", k, "antes (hoje no jogo)")}{fig(f"pendentes/{name}.png", k, "depois (r3d azul)")}</div></div>""")
+{fig(f"before/{name}.png", k, "hoje no jogo")}{fig(f"pendentes/{name}.png", k, "v1.1")}</div></div>""")
     pairs.append(f"""<div class="pair"><h3>Contêiner lacrado · <code>container_sealed.png</code> · 40×44 (proposta)</h3><div class="ab">
 {fig("before/container_sealed_placeholder.png", 6, "antes: o placeholder do código (art.sealed_container, 32×40)")}
-{fig("pendentes/container_sealed.png", 6, "depois (r3d azul, maior, trava + selo)")}</div></div>""")
+{fig("pendentes/container_sealed.png", 6, "v1.1 (maior, cintas de aço + selo)")}</div></div>""")
+    v10pairs = "".join(f"""<div class="pair"><h3><code>{n}.png</code></h3><div class="ab">
+{fig(f"v10/{n}.png", 5, "v1.0")}{fig(f"pendentes/{n}.png", 5, "v1.1")}</div></div>""" for n in
+                       ("chest", "chest_open", "icon_chest", "loot_crate", "loot_crate_empty", "container_sealed"))
     pal = "".join(f'<li><b>{n}</b>: {" ".join(f"<code>{c}</code>" for c in cols)}</li>' for n, cols in rows)
     fam = "".join(f'<img src="pendentes/{n}.png" width="{size(C.PEND / f"{n}.png")[0] * 5}" height="{size(C.PEND / f"{n}.png")[1] * 5}" alt="">'
                   for n in ("loot_crate", "chest", "container_sealed"))
     html = f"""<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Hesper · Baú r3d azul · v1.0</title>
+<title>Hesper · Baú r3d azul · v1.1</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;600&family=Pixelify+Sans:wght@600&family=Silkscreen&display=swap" rel="stylesheet">
 <style>
 :root{{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;--blue:#4a86d0;color-scheme:dark}}
@@ -165,9 +168,45 @@ img.px{{width:100%;height:auto;border:1px solid var(--line);display:block}}
 .a-led{{width:240px;height:264px;animation:ledA 1.2s steps(1) infinite;background-image:url(pendentes/container_sealed.png)}}
 @keyframes ledA{{0%{{filter:none}}50%{{filter:brightness(.92)}}}}
 </style></head><body><div class="wrap">
-<div class="eyebrow">Hesper · Designer · v1.0 · proposta: família de caixas no r3d, padrão azul</div>
+<div class="eyebrow">Hesper · Designer · v1.1 · proposta: família de caixas no r3d, o case azul da referência do dono</div>
 <h1>Baú, caixa de saque e contêiner lacrado · r3d azul</h1>
-<div class="v2"><b>v1.0 · o que mudou (proposta, espera o ok do dono)</b><ul>
+<div class="v2"><b>v1.1 · o que mudou (proposta, espera o ok do dono)</b><ul>
+<li><b>Refeito pela referência do dono</b> (<code>refs/bau_referencia_dono.png</code>): agora é um <b>case de
+transporte</b> de plástico rígido, comprido (mais largo que fundo), com <b>quinas e arestas arredondadas</b>, em
+<b>azul royal saturado</b> com <b>brilho especular claro</b> nas arestas de cima.</li>
+<li><b>Tampa com 4 gomos</b> paralelos de frente pra trás e os sulcos escuros entre eles (leem em 32 px; a caixa de saque
+e o ícone, menores, ficam com 3). <b>Faixa cinza-prata</b> contornando a caixa na emenda, um pouco abaixo do meio.
+<b>Trinco</b> de metal à direita, em cima da faixa, com o <b>recorte vertical</b> logo abaixo dividindo a frente do corpo
+em duas partes. <b>Alça</b> de metal na lateral esquerda.</li>
+<li>Saíram o LED, o friso laranja e a base de metal: o visual é limpo como na referência.</li>
+<li>Família: baú aberto = tampa levantada (em pé, girada na dobradiça de trás) com o conteúdo à mostra; caixa de saque
+= o mesmo case menor, cheia (fechada) × vazia (tampa levantada, miolo vazio); lacrado = o mesmo case maior, com duas
+cintas de aço por cima da emenda e o selo dourado da colônia.</li>
+<li>Motor: o <code>r3d.py</code> ganhou uma primitiva nova, <code>Scene.rbox</code> (caixa de quinas arredondadas: faces,
+arestas em quarto de cilindro e cantos em oitavo de esfera). O resto do motor não mudou e continua reproduzindo o
+experimento pixel a pixel.</li>
+</ul></div>
+
+<h2>Referência do dono × resultado</h2>
+<div class="ab" style="display:flex;gap:24px;align-items:flex-end;flex-wrap:wrap">
+<figure><img src="../refs/bau_referencia_dono.png" width="268" height="268" style="image-rendering:auto;background:#fff" alt=""><figcaption>referência do dono (render 3D)</figcaption></figure>
+<figure><div class="chk"><img src="pendentes/chest.png" width="256" height="320" alt=""></div><figcaption>v1.1 · <code>chest.png</code> ampliado 8×</figcaption></figure>
+<figure><div class="chk" style="padding:18px"><img src="pendentes/chest.png" width="32" height="40" alt=""> <img src="pendentes/chest_open.png" width="32" height="40" alt=""> <img src="pendentes/loot_crate.png" width="32" height="32" alt=""> <img src="pendentes/container_sealed.png" width="40" height="44" alt=""> <img src="pendentes/icon_chest.png" width="16" height="16" alt=""></div><figcaption>tamanho real (1×), como no jogo</figcaption></figure>
+</div>
+<p>O que veio da referência: a forma de case arredondado, a proporção comprida, os 4 gomos da tampa, a faixa prata
+na emenda, o trinco à direita com o recorte embaixo, a alça na lateral esquerda e o azul royal com brilho nas arestas.
+O que muda pro jogo: a câmera é a de frente do 3/4 (a referência é de quina), então a lateral esquerda não aparece e a
+alça vira um tiquinho de metal saindo da silhueta; a luz vem de cima-esquerda, como nas máquinas.</p>
+
+<h2>v1.0 × v1.1</h2>
+<div class="pairs">{v10pairs}</div>
+<div class="grid2" style="margin-top:14px">
+<figure><img class="px" src="v10/cena_base_arid.png" alt=""><figcaption><b>v1.0</b> · base no Árido</figcaption></figure>
+<figure><img class="px" src="cena_base_arid.png" alt=""><figcaption><b>v1.1</b> · base no Árido</figcaption></figure>
+</div>
+
+<details style="margin-top:30px"><summary style="color:var(--muted);cursor:pointer">v1.0 · o que tinha (histórico)</summary>
+<div class="v2"><b>v1.0 · o que mudou</b><ul>
 <li><b>Um modelo só</b> pra toda caixa do jogo, no motor r3d das máquinas experimentais: base de metal, corpo azul com
 o painel rebaixado na frente, um friso laranja de acento, tampa com a emenda escura e o trinco de aço com LED. É a
 forma do <code>chest()</code> do experimento, recolorida pro padrão azul, sem detalhe industrial a mais (sem rebite e
@@ -180,13 +219,13 @@ em dourado e o LED vermelho.</li>
 cheia (como hoje), vermelho no lacrado.</li>
 <li>O motor <code>r3d.py</code> foi portado pro <code>tools/sprites/</code>, autocontido; ele reproduz pixel a pixel o
 baú do experimento.</li>
-</ul></div>
+</ul></div></details>
 
 <h2>A família</h2>
 <div class="chk" style="display:flex;gap:30px;align-items:flex-end;padding:18px">{fam}</div>
 <p>Caixa de saque (32×32) · baú (32×40) · contêiner lacrado (40×44). Ampliado 5×.</p>
 
-<h2>Antes × depois</h2>
+<h2>Hoje no jogo × v1.1</h2>
 <div class="pairs">{''.join(pairs)}</div>
 
 <h2>Animações</h2>
@@ -210,14 +249,13 @@ desenha. O chão é o da v9 (planalto e faixa gelada).</p>
 <h2>Nota sobre a paleta azul</h2>
 <div class="grid2"><div class="chk"><img src="paleta_azul.png" width="{size(OUT / 'paleta_azul.png')[0] * 3}" height="{size(OUT / 'paleta_azul.png')[1] * 3}" alt=""></div>
 <ul>{pal}
-<li>O r3d acende o <b>tampo</b> com o tom 0, a <b>frente</b> com o 1 e a <b>lateral</b> com o 3. Por isso a rampa foi
-deslocada: o azul "de verdade" (<code>#4a86d0</code>) é a frente, o tampo fica azul claro (<code>#8ec4f4</code>) e não
-estoura pro branco.</li>
-<li>É um azul de contêiner, mais fundo e menos verde que o ciano do O₂ (<code>#59d0e6</code>) e o gelo, pra não
-confundir com a UI nem com o minério. Destaca bem no ocre do Árido e no verde do Verde; na faixa gelada lê como objeto
-feito pelo homem, no meio do gelo, pelo contorno e pela base de metal.</li>
-<li>Referência de estilo do The Planet Crafter: só a ideia do contêiner de armazenamento simples, de cor chapada, com
-tampa e um trinco. Nada foi copiado: a forma é a do <code>chest()</code> do nosso experimento.</li>
+<li>As cores saíram da referência (frente <code>#007de0</code>, lados <code>#0046b7</code>) e foram puxadas pro 3/4 do
+jogo: o r3d acende o <b>tampo</b> com o tom 0 (<code>#2f93f4</code>), a <b>frente</b> com o 1 (<code>#0a74de</code>,
+o azul royal) e a <b>lateral</b> com o 3. O brilho especular (<code>#d4ecff</code>) só pega as arestas de cima viradas
+pra luz.</li>
+<li>É um azul royal saturado, bem mais fundo e menos verde que o ciano do O₂ (<code>#59d0e6</code>) e o gelo: não
+confunde com a UI nem com o minério. Destaca no ocre do Árido, no verde do Verde e no gelo do bolsão.</li>
+<li>A faixa, o trinco e a alça usam um prata frio (<code>SILVER</code>), escurecido pra não virar uma linha branca em 1×.</li>
 </ul></div>
 
 <h2>Pro Dev integrar</h2>
@@ -230,6 +268,7 @@ canto do tile (<code>draw_crate</code>), a base da caixa na última linha do spr
 <li><b>Contêiner lacrado</b>: <code>container_sealed.png</code> <b>40×44</b> (o placeholder é 32×40). O render já mede o
 sprite (<code>tx·32 + 16 − w/2</code>, <code>(ty + 1)·32 − h</code>), então ele passa 4 px de cada lado do tile, como as
 máquinas de 40 px. Continua bloqueando 1 tile.</li>
+<li><b>v1.1</b>: mesmos arquivos e tamanhos da v1.0; só o desenho mudou.</li>
 <li><b>Sem sombra no sprite</b> (como as máquinas r3d do experimento): se quiser, o jogo põe a sombra de chão de sempre.</li>
 <li><b>Contorno do alvo do E</b>: o <code>outline_of</code> funciona igual (silhueta opaca).</li>
 <li>Regerar: <code>python3 tools/sprites/chests_r3d.py</code> (determinístico; os PNGs saem em

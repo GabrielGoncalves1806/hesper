@@ -2425,7 +2425,7 @@ def check_v9_elements(bot) -> None:
     stage_before, storm_before = s.stage, s.storm
     zoom_before = app.zoom
     small = [f for f in geo.formations if f.small and not f.kind.startswith("vent_")]   # fumarolas: check_thaw
-    assert {f.kind for f in small} == {"split_rock", "lava_tube", "ice_needles"}, small   # sem pilar de sal por enquanto
+    assert {f.kind for f in small} == {"split_rock", "ice_needles"}, small   # sem pilar de sal nem tubo de lava por enquanto (dono)
     bed = np.argwhere((geo.basin >= 0) & (geo.region == 0))           # (ty, tx) do leito seco
 
     def bed_dist(f):
@@ -2472,6 +2472,10 @@ def check_v9_elements(bot) -> None:
             bx, by = f.base_px
             spot = floor_near(bx + 2.5 * C.TILE, by + 2.5 * C.TILE)
         views[name] = (f, spot)
+    if "basalto" not in views:                         # sem tubo de lava (dono): o basalto mira numa fumarola
+        f = next(f for f in geo.formations if f.kind.startswith("vent_"))
+        bx, by = f.base_px
+        views["basalto"] = (f, floor_near(bx + 2.5 * C.TILE, by + 2.5 * C.TILE))
     app.set_zoom(1.0, notify=False)
     bot.mouse_to((900, 500))
     for stage, tag in ((C.ARID_STAGE, "arido"), (C.GREEN_STAGE, "verde")):

@@ -207,6 +207,66 @@ class Scene:
         self._emit(P, np.tile([0, 0, 1.0], (len(P), 1)), np.broadcast_to(np.asarray(idx, int), (len(P),)), [pal, *extra],
                    cull=False)
 
+    def rbox(self, center, half, r, pal, paint=None, extra=(), rot_x=0.0, pivot=None):
+        """Caixa de quinas e arestas ARREDONDADAS (raio r): 6 faces planas + 12 arestas (quarto de cilindro) + 8
+        cantos (oitavo de esfera). paint(local_xyz, normal_local) -> índice em [pal, *extra] (vetorizado).
+        rot_x gira em volta do eixo X passando por `pivot` (tampa abrindo). Acrescentado na v1.1 do baú."""
+        hx, hy, hz = half
+        r = min(r, hx, hy, hz)
+        h = np.array([hx - r, hy - r, hz - r])
+        Ps, Ns = [], []
+        for a in range(3):                                         # faces
+            o = [b for b in range(3) if b != a]
+            ua = np.arange(-h[o[0]], h[o[0]] + 1e-6, STEP)
+            va = np.arange(-h[o[1]], h[o[1]] + 1e-6, STEP)
+            U, Vv = np.meshgrid(ua, va)
+            for sg in (-1, 1):
+                L = np.zeros((U.size, 3))
+                L[:, a] = sg * (h[a] + r)
+                L[:, o[0]] = U.ravel()
+                L[:, o[1]] = Vv.ravel()
+                n = np.zeros((U.size, 3))
+                n[:, a] = sg
+                Ps.append(L)
+                Ns.append(n)
+        th = np.arange(0, math.pi / 2 + 1e-6, STEP / max(r, 0.5))
+        for c in range(3):                                         # arestas (paralelas ao eixo c)
+            a, b = [k for k in range(3) if k != c]
+            ts = np.arange(-h[c], h[c] + 1e-6, STEP)
+            TT, TH = np.meshgrid(ts, th)
+            TT, TH = TT.ravel(), TH.ravel()
+            for sa in (-1, 1):
+                for sb in (-1, 1):
+                    n = np.zeros((TT.size, 3))
+                    n[:, a] = sa * np.cos(TH)
+                    n[:, b] = sb * np.sin(TH)
+                    L = n * r
+                    L[:, a] += sa * h[a]
+                    L[:, b] += sb * h[b]
+                    L[:, c] = TT
+                    Ps.append(L)
+                    Ns.append(n)
+        ph = np.arange(0, math.pi / 2 + 1e-6, STEP / max(r, 0.5))
+        A, F = np.meshgrid(th, ph)
+        oct_n = np.stack([np.sin(F) * np.cos(A), np.sin(F) * np.sin(A), np.cos(F)], -1).reshape(-1, 3)
+        for sx in (-1, 1):                                         # cantos
+            for sy in (-1, 1):
+                for sz in (-1, 1):
+                    n = oct_n * np.array([sx, sy, sz])
+                    Ps.append(n * r + h * np.array([sx, sy, sz]))
+                    Ns.append(n)
+        L = np.vstack(Ps)
+        N = np.vstack(Ns)
+        idx = np.broadcast_to(np.asarray(paint(L, N), int), (len(L),)) if paint else np.zeros(len(L), int)
+        P = L + np.array(center, float)
+        if rot_x:
+            c, s_ = math.cos(rot_x), math.sin(rot_x)
+            R = np.array([[1, 0, 0], [0, c, -s_], [0, s_, c]])
+            pv = np.array(pivot if pivot is not None else center, float)
+            P = (P - pv) @ R.T + pv
+            N = N @ R.T
+        self._emit(P, N, idx, [pal, *extra])
+
     def dot(self, X, Y, Z, color, always=False):
         """Pixel solto num ponto 3D (LED, bolha, faísca). Só aparece se não estiver escondido."""
         self.decals.append((X, Y, Z, color, always))

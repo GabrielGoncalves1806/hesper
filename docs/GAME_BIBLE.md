@@ -614,6 +614,7 @@ Plano: `docs/superpowers/plans/2026-10-13-v04-marco3-gelo-agua.md`. O que o calo
 
 ### Decisões do dono no playtest do Marco 3
 - **Sem sal no lago**: sal dissolveria na água, então **por enquanto nenhuma formação de sal nasce** (`GEO_FORMATIONS["salt_ridge"] = (0, 0)`, `GEO_SMALL_FORMATIONS["salt_pillar"] = (0, 0)`, e nenhuma pequena em bacia). A arte (`form_salt_ridge`, `form_salt_pillar`) continua em `assets/` pra quando o salar ganhar outro papel.
+- **Sem tubo de lava colapsado** (dono: ficou feio): `GEO_SMALL_FORMATIONS["lava_tube"] = (0, 0)`; a arte fica guardada e o basalto ganha outra formação depois.
 - **Sem minério nem decoração no lago**: rocha pequena e afloramento não nascem em bacia, e a decoração solta (v8 e v9) some quando a água cobre o tile.
 
 ### Derretimento da cratera e fumarolas (M3.1 · `game/thaw.py`, `game/smoke.py`; números no bloco `THAW_CRATER_*` / `THAW_FUMAROLE_*`)

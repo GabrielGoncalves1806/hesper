@@ -68,77 +68,107 @@ def ore_pal(c):
     return Pal([c, c, d, d, "#3a3040"])
 
 
-def container(w, h, hw, hd, body, lid, opened=False, contents=(), led=OK, seal=False, skid=3, band=True):
-    """O modelo único. hw, hd = meia largura e meia profundidade do corpo; body = altura do corpo (acima da base);
-    lid = altura da tampa. opened: tampa tombada pra trás e o miolo à mostra (contents = [(x, y, cor)])."""
-    sc = scene(w, h, -hd - 2)
-    z0 = skid
-    z1 = z0 + body
-    sc.box((-hw - 1, hw + 1), (-hd - 2, hd + 1), (0, skid), P_METAL)            # base (skid) de metal
-    bz = (z0 + z1) / 2 - (body * 0.05)
+# ---- v1.1: o case da referência do dono (reports/design/refs/bau_referencia_dono.png) -------------------------------
+# azul royal saturado (cores tiradas da referência: frente #007de0, lados #0046b7, topo #003ba8), puxado pro 3/4 do
+# jogo: o tampo leva o tom 0, a frente o 1, a lateral o 3. Brilho especular claro nas arestas de cima.
+ROYAL = ["#2f93f4", "#0a74de", "#055ec8", "#0444a8", "#022c78"]
+ROYAL_IN = ["#0757c0", "#04479f", "#033a88", "#022f70", "#01214f"]     # fundo dos sulcos da tampa e lado de dentro
+SILVER = ["#d9dde6", "#a9b0be", "#8c93a3", "#636a7a", "#414553"]
+P_ROYAL = Pal(ROYAL)
+P_ROYAL_IN = Pal(ROYAL_IN)
+P_SILVER = Pal(SILVER)
+P_SPEC = Pal(["#d4ecff"] * 5, emit=True, emit_tone=0)
+_HV = np.array([-0.46, -0.31, 0.86]) / np.linalg.norm([-0.46, -0.31, 0.86]) + np.array([0, -math.cos(0.611), math.sin(0.611)])
+_HV = _HV / np.linalg.norm(_HV)
 
-    def front(L, face):
-        """Frente (face 2 = −Y): painel rebaixado mais escuro e a faixa laranja de acento."""
-        x, z = L[:, 0], L[:, 2]
-        f = face == 2
-        panel = f & (np.abs(x) < hw - 2.6) & (z > -body / 2 + 1.6) & (z < body / 2 - 1.8)
-        strip = f & (np.abs(z - (bz - (z0 + z1) / 2)) < 0.9) & band
-        return np.where(strip, 2, np.where(panel, 1, 0))
+
+def _spec(cut=0.93):
+    """Pintura do plástico: brilho especular (índice 1) onde a normal bate no meio-vetor luz/câmera."""
+    return lambda L, N: np.where(N @ _HV > cut, 1, 0)
+
+
+def case(w, h, hw, hd, body, lid, ridges=4, opened=False, contents=(), seal=False, r=2.2):
+    """O modelo único (v1.1). hw, hd = meia largura e meia profundidade; body = altura do corpo até a emenda;
+    lid = altura da tampa (sem os gomos). opened: tampa em pé, girada pra trás na dobradiça, miolo à mostra."""
+    sc = scene(w, h, -hd - 1.5)
+    zb = body
+    spec = _spec()
+    # corpo em duas partes: o recorte vertical fica embaixo do trinco, à direita do meio
+    xs = hw * 0.36
+    gap = 0.35
+    for x0, x1 in ((-hw, xs - gap), (xs + gap, hw)):
+        sc.rbox(((x0 + x1) / 2, 0, zb / 2), ((x1 - x0) / 2, hd, zb / 2), r, P_ROYAL, paint=spec, extra=(P_SPEC,))
+    # faixa cinza-prata contornando a caixa na emenda
+    sc.rbox((0, 0, zb), (hw + 0.45, hd + 0.45, 0.7 if hw >= 9 else 0.6), r + 0.45, P_SILVER)
+    # alça de metal na lateral esquerda (sai um tico pra fora da silhueta)
+    sc.rbox((-hw - 0.9, -hd * 0.25, zb * 0.55), (0.9, 2.0, 1.1), 0.6, P_SILVER)
+    lz0 = zb + 0.85
+    lid_parts = []
+
+    def lid_paint(L, N):                         # o tampo da tampa (o fundo dos sulcos) é mais escuro
+        return np.where(N[:, 2] > 0.85, 2, np.where(N @ _HV > 0.93, 1, 0))
+    lid_parts.append(((0, 0, lz0 + lid / 2), (hw, hd, lid / 2), r, P_ROYAL, lid_paint, (P_SPEC, P_ROYAL_IN)))
+    m, g = 1.1, 1.0 if hw < 9 else 1.3
+    wr = (2 * (hw - m) - (ridges - 1) * g) / ridges
+    hr = 1.6 if hw < 9 else (2.4 if hw < 14 else 2.8)
+    for i in range(ridges):
+        cx = -hw + m + wr / 2 + i * (wr + g)
+        lid_parts.append(((cx, 0, lz0 + lid + hr / 2 - 0.4), (wr / 2, hd - 1.0, hr / 2 + 0.4), min(1.4, wr / 2 - 0.1),
+                          P_ROYAL, spec, (P_SPEC,)))
     if not opened:
-        sc.box((-hw, hw), (-hd, hd), (z0, z1), P_BLUE, paint=front, extra=(P_BLUE_D, P_ORANGE))
-        # tampa: um tico maior que o corpo, com o friso escuro embaixo (a emenda)
-        sc.box((-hw - 0.5, hw + 0.5), (-hd - 0.5, hd + 0.5), (z1, z1 + lid), P_BLUE,
-               paint=lambda L, face: np.where(L[:, 2] < -lid / 2 + 1.0, 1, 0), extra=(P_DARK,))
-        # trinco: chapinha de aço atravessando a emenda + LED
-        tw = 2.0 if hw < 14 else 2.5
-        sc.box((-tw, tw), (-hd - 1.4, -hd - 0.4), (z1 - 4, z1 + 2), P_STEEL if not seal else P_METAL)
-        sc.dot(0, -hd - 1.6, z1 + 0.5, led, always=True)
-        if seal:                                                                 # lacrado: trava e selo
-            for sx in (-hw + 3.5, hw - 3.5):                                     # duas travas laterais
-                sc.box((sx - 1.2, sx + 1.2), (-hd - 1.2, -hd - 0.3), (z1 - 3, z1 + lid - 1), P_STEEL)
-            sc.box((-3, 3), (-hd - 1.0, -hd - 0.2), (z1 - 9, z1 - 4.5), P_GOLD)  # placa do selo da colônia
-            for dx, dz in ((-1, -6.2), (0, -7.2), (1, -6.2), (0, -5.6)):
-                sc.dot(dx, -hd - 1.3, z1 + dz, GOLD_D, always=True)
+        for c, half, rr, pal, pnt, ex in lid_parts:
+            sc.rbox(c, half, rr, pal, paint=pnt, extra=ex)
+        # trinco de metal à direita, em cima da faixa (e em cima do recorte)
+        tw = 1.3 if hw < 9 else 1.7
+        sc.rbox((xs, -hd - 0.55, zb + 0.6), (tw, 0.55, 1.9 if hw >= 9 else 1.4), 0.5, P_SILVER)
+        sc.dot(round(xs), -hd - 1.2, zb + 0.4, "#464a59", always=True)
+        if seal:                                       # lacrado: duas cintas de aço por cima da emenda + o selo
+            for sx in (-hw * 0.62, hw * 0.78):
+                sc.rbox((sx, -hd - 0.5, zb + 0.3), (1.0, 0.5, 3.6), 0.5, P_SILVER)
+            sc.rbox((-hw * 0.18, -hd - 0.5, zb - 3.4), (1.9, 0.5, 1.9), 1.5, P_GOLD)
+            sc.dot(round(-hw * 0.18), -hd - 1.2, zb - 3.4, GOLD_D, always=True)
         return sc.render()
-    # aberto: 4 paredes do corpo, o fundo escuro e a tampa tombada pra trás
-    t = 1.5
-    for (xr, yr) in (((-hw, hw), (-hd, -hd + t)), ((-hw, hw), (hd - t, hd)), ((-hw, -hw + t), (-hd + t, hd - t)),
-                     ((hw - t, hw), (-hd + t, hd - t))):
-        sc.box(xr, yr, (z0, z1), P_BLUE, paint=front, extra=(P_BLUE_D, P_ORANGE))
-    floor = z0 + body * 0.45
-    sc.box((-hw + t, hw - t), (-hd + t, hd - t), (z0, floor), P_DARK)
+    # aberta: o miolo escuro com o conteúdo e a tampa em pé, girada na dobradiça de trás
+    sc.box((-hw + 1.4, hw - 1.4), (-hd + 1.4, hd - 1.4), (zb, lz0 + 0.1), P_DARK)
     for (x, y, c) in contents:
-        sc.box((x - 1.8, x + 1.8), (y - 1.8, y + 1.8), (floor, floor + 3), ore_pal(c))
-    sc.obox((0, hd + 2.5, z1 + lid / 2 + 5.5), (hw + 0.5, lid / 2, 6.0 if hw < 14 else 7.0), P_BLUE,
-            paint=lambda L, face: np.where(face == 2, 1, 0), extra=(P_BLUE_D,), rot_x=-0.45)
-    sc.box((-2, 2), (-hd - 1.2, -hd), (z1 - 4, z1), P_STEEL)
+        sc.box((x - 1.6, x + 1.6), (y - 1.6, y + 1.6), (lz0 - 0.6, lz0 + 1.8), ore_pal(c))
+    pivot = (0, hd, lz0)
+
+    def inside(L, N):                                  # o lado de dentro da tampa (fica virado pra câmera)
+        return np.where(N[:, 2] < -0.85, 2, np.where(N @ _HV > 0.93, 1, 0))
+    for k, (c, half, rr, pal, pnt, ex) in enumerate(lid_parts):
+        sc.rbox(c, half, rr, pal, paint=inside if k == 0 else pnt, extra=ex if k else (P_SPEC, P_ROYAL_IN),
+                rot_x=-1.68, pivot=pivot)
     return sc.render()
 
 
 def chest(opened=False):
-    cont = ((-6, -2, ORES[0]), (-1, 2, ORES[1]), (4, -1, ORES[2]), (6, 3, ORES[0]), (-4, 3, ORES[2]))
-    return container(32, 40, 11, 8, 12, 5, opened=opened, contents=cont, led=OK)
+    cont = ((-6, -1, ORES[0]), (-1, 2, ORES[1]), (4, -1, ORES[2]), (8, 2, ORES[0]), (-8, 2, ORES[2]))
+    return case(32, 40, 13, 6.5, 10, 4, ridges=4, opened=opened, contents=cont)
 
 
 def loot_crate(empty=False):
-    """Caixa de saque: o mesmo modelo menor (cabe no tile 32×32, desenhada no canto do tile). Cheia: fechada com o
-    LED âmbar; vazia: tampa aberta e o miolo vazio."""
-    return container(32, 32, 9, 6, 9, 4, opened=empty, contents=(), led=AMBER)
+    """Caixa de saque: o mesmo case menor (cabe no tile 32×32, desenhada no canto do tile). Cheia: fechada;
+    vazia: tampa aberta e o miolo vazio."""
+    return case(32, 32, 10.5, 5, 7, 3, ridges=3, opened=empty, r=1.8)
 
 
 def container_sealed():
-    """O mesmo modelo maior e mais pesado, com duas travas, selo dourado e LED vermelho: não abre."""
-    return container(40, 44, 15, 9, 15, 6, led=ALERT, seal=True, skid=4)
+    """O mesmo case maior, com duas cintas de aço por cima da emenda e o selo dourado da colônia: não abre."""
+    return case(40, 44, 17, 8.5, 13, 5, ridges=4, seal=True, r=2.6)
 
 
 def icon_chest():
-    """Ícone 16×16 do item: o baú fechado, enxuto (sem a base, pra caber)."""
-    sc = scene(16, 16, -5)
-    sc.box((-6, 6), (-4, 4), (0, 6), P_BLUE,
-           paint=lambda L, face: np.where((face == 2) & (np.abs(L[:, 2]) < 0.8), 1, 0), extra=(P_ORANGE,))
-    sc.box((-6.4, 6.4), (-4.4, 4.4), (6, 9), P_BLUE,
-           paint=lambda L, face: np.where(L[:, 2] < -0.7, 1, 0), extra=(P_DARK,))
-    sc.box((-1, 1), (-5.2, -4.4), (4, 7), P_STEEL)
+    """Ícone 16×16 do item: o case fechado, com 3 gomos."""
+    sc = scene(16, 16, -4.5)
+    spec = _spec(0.9)
+    sc.rbox((0, 0, 2.5), (6.5, 3.2, 2.5), 1.2, P_ROYAL, paint=spec, extra=(P_SPEC,))
+    sc.rbox((0, 0, 5.0), (6.8, 3.5, 0.6), 1.2, P_SILVER)
+    sc.rbox((0, 0, 6.6), (6.5, 3.2, 1.1), 1.0, P_ROYAL, paint=lambda L, N: np.where(N[:, 2] > 0.85, 1, 0),
+            extra=(P_ROYAL_IN,))
+    for cx in (-4.2, 0, 4.2):
+        sc.rbox((cx, 0, 8.2), (1.6, 2.3, 0.8), 0.7, P_ROYAL, paint=spec, extra=(P_SPEC,))
+    sc.rbox((2.4, -3.7, 5.2), (0.8, 0.4, 1.0), 0.3, P_SILVER)
     return sc.render()
 
 
