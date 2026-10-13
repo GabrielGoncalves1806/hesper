@@ -35,6 +35,7 @@ from game import save
 from game import drones
 from game import energy
 from game import settings
+from game import worlds
 from game import viewport
 from game.assets import Sprites
 from game.audio import Audio
@@ -167,6 +168,8 @@ class App:
         self.autosave_timer = 0.0       # segundos jogando (modo "play") desde o último save
         self.saved_notice = 0.0         # quanto falta do aviso "Jogo salvo" no HUD
         self.title = TitleScreen(self.ui, self.renderer, self.audio.play)
+        self.slot: int | None = None    # espaço do mundo jogando agora (1–3, game/worlds.py)
+        self.text_input = False         # digitação do SDL ligada (sync_text_input)
         try:                            # digitação (TEXTINPUT) só liga enquanto edita o nome do baú
             pygame.key.stop_text_input()
         except pygame.error:
@@ -301,6 +304,8 @@ class App:
                 self.quit_game()
             elif event.type in (pygame.VIDEORESIZE, pygame.WINDOWSIZECHANGED):
                 self.window = pygame.display.get_surface()     # janela redimensionada: o present ajusta a tarja
+            elif self.mode == "title" and event.type == pygame.TEXTINPUT:
+                self.title.on_text(event.text)            # Novo mundo: nome e seed
             elif self.name_edit is not None and event.type == pygame.TEXTINPUT:
                 self.name_edit.insert(event.text)
             elif self.name_edit is not None and event.type == pygame.KEYDOWN:
@@ -875,10 +880,7 @@ class App:
         name = self.open_chest.name or C.CHEST_DEFAULT_NAME
         self.name_edit = TextField(name, C.CHEST_NAME_MAX)
         self.keys_down.clear()                           # nada de WASD "preso" enquanto digita
-        try:
-            pygame.key.start_text_input()
-        except pygame.error:
-            pass
+        self.sync_text_input()
         self.audio.play("ui_click")
 
     def finish_name_edit(self, confirm: bool) -> None:
@@ -887,10 +889,7 @@ class App:
         if confirm and self.open_chest is not None:
             self.state.rename_chest(self.open_chest, self.name_edit.text)
         self.name_edit = None
-        try:
-            pygame.key.stop_text_input()
-        except pygame.error:
-            pass
+        self.sync_text_input()
         self.audio.play("ui_click" if confirm else "ui_close")
 
     def on_name_key(self, key: int) -> None:
@@ -1704,10 +1703,18 @@ class App:
 
     # ---- save/load e tela de título (game/save.py, game/title.py) --------------
     def open_title(self) -> None:
-        """Vai pra tela de título. Lê o save do disco (se tiver um válido, aparece "Continuar")."""
-        status, saved = save.probe()
-        self.title.open(saved, old=status == "old")    # save do v0.2 ou antes: não carrega (v0.3 = jogo novo)
+        """Vai pra tela de título. Lê os mundos (game/worlds.py) e carrega o do "Continuar" (o último jogado)."""
+        world_list = worlds.list_worlds()             # 1ª vez: o saves/slot1.json v7 vira o mundo 1
+        slot = worlds.continue_slot(world_list)
+        saved = None
+        if slot is not None and world_list[slot - 1].playable:
+            saved = worlds.load(slot)[1]
+        old = saved is None and worlds.legacy_status() == "old"   # slot1.json v1–v6: avisa "save antigo"
+        if saved is None and slot is not None and world_list[slot - 1].status == "old":
+            old = True
+        self.title.open(saved, old=old, world_list=world_list, slot=slot if saved else None)
         self.mode = "title"
+        self.sync_text_input()
         self.placing = None
         self.mouse_held = False
         self.keys_down.clear()
@@ -1721,19 +1728,49 @@ class App:
         if self.audio.ambient_key != "dead":
             self.audio.start_ambient("dead")
 
-    def on_title_action(self, action: str | None) -> None:
+    def sync_text_input(self) -> None:
+        """Digitação do SDL ligada só enquanto tem campo de texto aberto (nome do baú ou Novo mundo)."""
+        want = self.name_edit is not None or (self.mode == "title" and self.title.wants_text)
+        if want == self.text_input:
+            return
+        self.text_input = want
+        try:
+            pygame.key.start_text_input() if want else pygame.key.stop_text_input()
+        except pygame.error:
+            pass
+        if want:
+            self.keys_down.clear()
+
+    def on_title_action(self, action) -> None:
         if action == "continue":
-            self.start_game(self.title.saved)
-        elif action == "new":
-            if self.title.old:
-                save.backup_old()                # o save antigo não é apagado: vira slot1.v<N>.json
-            self.start_game(save.new_state())
-            self.save_game(notify=False)     # o save antigo (se existia) é substituído na hora
+            self.start_game(self.title.saved, self.title.saved_slot)
         elif action == "quit":
             self.quit_game()
+        elif isinstance(action, tuple) and action[0] == "play":
+            status, state = worlds.load(action[1])
+            if state is None:                     # sumiu ou estragou entre a lista e o clique
+                self.title.set_worlds(worlds.list_worlds())
+                self.show_toast(f"Não deu pra abrir o mundo ({status})")
+                return
+            self.start_game(state, action[1])
+        elif isinstance(action, tuple) and action[0] == "create":
+            _, slot, name, seed = action
+            state = worlds.create(slot, name, seed)   # libera o espaço (antigo vira backup) e grava
+            self.start_game(state, slot)
+            self.show_toast(f"{state.world_name} · seed {state.seed}")
+        elif isinstance(action, tuple) and action[0] == "delete":
+            worlds.delete(action[1])
+            self.title.set_worlds(worlds.list_worlds())
+            if self.title.saved_slot == action[1]:
+                self.title.saved = self.title.saved_slot = None
+        self.sync_text_input()
 
-    def start_game(self, state: GameState) -> None:
-        """Começa a jogar com `state` (novo ou carregado): zera tudo que é do App e não do jogo."""
+    def start_game(self, state: GameState, slot: int | None = None) -> None:
+        """Começa a jogar com `state` (novo ou carregado) no espaço de mundo `slot` (None = mantém o atual):
+        zera tudo que é do App e não do jogo."""
+        if slot is not None:
+            self.slot = slot
+            worlds.mark_played(slot)              # o "Continuar" abre este
         self.state = state
         self.objectives = ObjectiveTracker(state)
         self.floaters = FloatingTexts()
@@ -1756,7 +1793,8 @@ class App:
 
     def save_game(self, notify: bool = True) -> bool:
         """Salva agora. `notify` mostra o "Jogo salvo" no HUD e toca o som de save."""
-        ok = save.write_save(self.state)
+        # sem espaço de mundo (testes, smoke com skip_title) grava no save.SAVE_PATH, igual a antes dos mundos
+        ok = save.write_save(self.state, worlds.path(self.slot) if self.slot else None)
         self.autosave_timer = 0.0
         if ok and notify:
             self.saved_notice = C.SAVED_NOTICE_TIME

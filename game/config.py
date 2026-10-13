@@ -65,7 +65,10 @@ DEBUG_MINE = 5.0                # ...e a broca quebra 5× mais rápido (paredes,
 # ---------------------------------------------------------------------------
 TILE = 32
 WALL_LIFT = 24                  # o topo da parede é desenhado 24 px acima do tile (dá altura, estilo Core Keeper)
+# Seed padrão: só do smoke, dos testes e do fundo da tela de título. O jogo de verdade usa a seed de cada
+# mundo (`state.seed`, escolhida ou sorteada no "Novo mundo", game/worlds.py).
 WORLD_SEED = 7
+WORLD_NAME_MAX = 20             # caracteres do nome do mundo
 
 # Duas camadas (v0.3, bíblia §9): a SUPERFÍCIE (deserto aberto, onde fica a base) e a CAVERNA (o gerador
 # antigo do world.py, que entra de verdade no Marco 2). Cada uma tem o próprio mapa (game/layers.py).

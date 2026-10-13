@@ -139,7 +139,7 @@ def test_save_only_stores_what_changed(tmp_path):
     state = rich_state()
     data = save.state_to_dict(state)
     assert data["version"] == save.SAVE_VERSION == 7
-    assert set(data) == {"version", "seed", "layer", "layers", "player", "inventory", "progress"}
+    assert set(data) == {"version", "seed", "layer", "layers", "player", "inventory", "progress", "world"}
     assert set(data["layers"]) == {"surface"} and data["layer"] == "surface"
     assert len(data["layers"]["surface"]["changed_tiles"]) == 6   # 5 minérios + 1 cavado na marra
     # mapa novo, sem mexer em nada: nenhum tile no save
@@ -420,17 +420,17 @@ def test_title_with_old_save_shows_disabled_continue():
     import pygame
     title, played = title_screen()
     title.open(None, old=True)
-    assert [a for a, _ in title.options()] == ["old", "new", "quit"]
-    assert title.selected == 1                                    # começa em "Novo jogo"
+    assert [a for a, _ in title.options()] == ["old", "worlds", "quit"]
+    assert title.selected == 1                                    # começa em "Mundos"
     assert title.activate(0) is None and title.selected == 1      # Continuar apagado: não faz nada
     title.on_key(pygame.K_UP)
     assert title.selected == 2                                    # pula a linha apagada (dá a volta)
     title.on_key(pygame.K_DOWN)
     assert title.selected == 1
-    assert title.activate(1) == "new"                             # sem confirmação: o antigo vira backup
+    assert title.activate(1) is None and title.screen == "worlds"  # Mundos: abre a lista
 
 
-def test_title_without_old_save_is_unchanged():
+def test_title_without_save_shows_worlds_and_quit():
     title, _ = title_screen()
     title.open(None)
-    assert [a for a, _ in title.options()] == ["new", "quit"] and title.selected == 0
+    assert [a for a, _ in title.options()] == ["worlds", "quit"] and title.selected == 0

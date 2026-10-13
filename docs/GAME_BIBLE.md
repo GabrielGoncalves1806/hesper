@@ -247,10 +247,10 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 
 ### Marco 1 · Fundação
 **Save/load**
-- Um slot em `saves/slot1.json` (no `.gitignore`), em JSON **versionado** (`"version": N`), com migração simples quando o formato mudar.
+- Um slot em `saves/slot1.json` (no `.gitignore`) *(v0.4: virou 3 mundos, ver "Mundos com nome e seed" na §11)*, em JSON **versionado** (`"version": N`), com migração simples quando o formato mudar.
 - **Salva só o que muda**: o mundo é gerado pela seed, então o save guarda os tiles minerados e não o mapa inteiro. Também guarda: player (posição, direção, O₂), inventário e baús, máquinas e drills (com o conteúdo), índices e Ti, objetivos, terminais lidos, fontes da transição, energia e tempo de jogo.
 - **Autosave** a cada 2 min e ao sair. No menu de pausa entra "Salvar e sair".
-- **Tela de título** mínima: nome do jogo, "Continuar" (só se existir save), "Novo jogo" (pede confirmação se já existir save) e "Sair".
+- **Tela de título** mínima: nome do jogo, "Continuar" (só se existir save), "Novo jogo" (pede confirmação se já existir save) e "Sair". *(v0.4: Continuar · Mundos · Sair, ver §11)*
 - Cada sistema novo do v0.2 tem que entrar no save, com teste de ida e volta (salvar → carregar → estado igual).
 
 **Inventário com slots**
@@ -583,3 +583,12 @@ Plano: `docs/superpowers/plans/2026-10-13-v04-marco2-geografia.md`. Referência 
 - **Tampa de gelo**: `layer.crater_ice` da superfície, de 0 (tampada) a 4 (`CRATER_ICE_STAGES`, vazia com a rampa exposta); cada etapa é um sprite. Enquanto não chega a 4 o E não desce (`GameState.ramp_blocked`) e a dica vira "Gelo · derrete com o calor" (perto e com o mouse em cima, longe). Subir da caverna nunca trava. Vai no save (`layers.surface.crater_ice`; save v7 sem o campo = tampada). No Marco 2 fica sempre tampada: o derretimento pelo calor é do Marco 3.
 - **Objetivo** "Derreta o gelo da cratera" entra logo antes de "Desça na caverna pela cratera [E]" (completa com a tampa vazia ou já tendo descido). No Marco 2 ele não completa sozinho, então os objetivos seguintes ficam esperando o M3 (ou o F4).
 - **F4 (debug)**: derrete a tampa na hora (etapa 4), no mesmo esquema do F1–F3 (`C.DEBUG_MELT_CRATER`), com o aviso "DEBUG · CRATERA ABERTA (F4)" no topo da tela e a linha nos Controles da pausa. O smoke e os testes que descem na caverna usam o F4 (ou setam o estado).
+
+### Mundos com nome e seed (pedido do dono · `game/worlds.py`, tela em `game/title.py`)
+- **3 espaços**: `saves/world1.json`, `world2.json`, `world3.json` (o formato do `game/save.py`) e o índice `saves/worlds.json` (`last` = último mundo jogado, `migrated_slot1`).
+- **Bloco `world` no save**: `{"name", "seed", "created", "played_s"}`, **sem subir a versão** (continua v7). A seed que gera o mapa é a `seed` da raiz; `world.seed` repete ela e `played_s` repete o `progress.play_time`. Save sem o bloco carrega como "Mundo 1".
+- **Migração**: na primeira vez, um `saves/slot1.json` **v7** vira o mundo 1 ("Mundo 1", seed 7) por **cópia**: o `slot1.json` fica intacto como backup e não volta a virar mundo se o mundo 1 for apagado. Um `slot1.json` v1–v6 não migra: o título mostra "Save de uma versão antiga · comece um novo mundo" com Continuar apagado e, quando um mundo é criado, ele vira `slot1.v<N>.json` (sem sobrescrever backup: se já existe, `-2`, `-3`...). Nenhum outro arquivo da pasta é tocado.
+- **Título**: **Continuar** (o último mundo jogado; se ele sumiu, o de save mais recente; à direita, nome e tempo de jogo) · **Mundos** · **Sair**.
+- **Mundos** (janela B2): os 3 espaços com número, nome, data do último save e "SEED N · ESTÁGIO · X MIN"; vazio = "+ Novo mundo". Enter/clique joga (vazio abre o Novo mundo). **Apagar**: o botão APAGAR (ou X/Delete) arma ("APAGAR DE VEZ? CLIQUE DE NOVO", botão vermelho) e o segundo clique/tecla (ou Enter) apaga; Esc, mexer a seleção ou clicar fora desarma. Save de versão antiga ou estragado num espaço: Enter abre o Novo mundo ali e apagar/criar guarda o arquivo como `worldN.v<N>.json` / `worldN.estragado.json`.
+- **Novo mundo**: campo **Nome** (vazio = "Mundo N", até 20 letras, o `TextField` do nome do baú) e **Seed** opcional (até 20). Vazia = a seed **sorteada** ao abrir (1 a 999.999.999), que aparece no próprio campo e fica salva. Só dígitos = o número (acima de 2³¹ dá a volta). Qualquer outro texto = **sha256** do texto (4 bytes, 31 bits): o mesmo texto dá sempre a mesma seed, em qualquer máquina (o `hash()` do Python não serve). "SEED DO MUNDO: N" mostra o resultado antes de criar. Teclado: Tab/setas trocam o campo (W/S são letras aqui), Enter cria, Esc volta. Ao entrar, um aviso "Nome · seed N".
+- **A seed vale pra tudo**: `state.seed` gera a superfície (`surface_gen` → `generate_geo`), a caverna, destroços e saque, o clima (`Weather`), a mancha da transição (`StageMap`) e os grãos da poeira (`DustParticles`); o Renderer troca os dois últimos quando a seed do estado muda (`Renderer.use_seed`). A `C.WORLD_SEED` (7) ficou só como padrão do smoke, dos testes e do fundo do título.
