@@ -91,10 +91,12 @@ SMALL_IRON, SMALL_SILICON, SMALL_ICE = 8, 9, 10   # rocha pequena no chão: 1 ti
 CRATER = 11                     # os 3×3 da cratera: obstáculo plano (no Marco 2 vira a rampa de descida)
 WRECK = 12                      # área de um destroço (Marco 3): obstáculo plano, o sprite é desenhado como objeto
 LOOT_CRATE = 13                 # caixa de saque de um destroço (1 tile, obstáculo plano; abre com E)
+FORMATION = 14                  # pegada de uma formação fixa (v0.4 Marco 2): sólida, não minera, não é parede
+                                # (quem desenha é o objeto da formação, game/geo.py · Formation)
 ORE_TILES = {IRON: "iron", SILICON: "silicon", ICE: "ice"}            # minério NA PAREDE (overlay no topo)
 SMALL_ROCKS = {SMALL_IRON: "iron", SMALL_SILICON: "silicon", SMALL_ICE: "ice"}
 WALL_TILES = {ROCK, IRON, SILICON, ICE, BEDROCK, TERMINAL}            # paredes ALTAS (topo elevado + face)
-FLAT_SOLIDS = set(SMALL_ROCKS) | {CRATER, WRECK, LOOT_CRATE}                           # sólidos baixos: bloqueiam, mas não têm altura
+FLAT_SOLIDS = set(SMALL_ROCKS) | {CRATER, WRECK, LOOT_CRATE, FORMATION}                         # sólidos baixos: bloqueiam, mas não têm altura
 SOLID_TILES = WALL_TILES | FLAT_SOLIDS
 FLOOR_TILES = {FLOOR, SAND}
 TILE_RESOURCE = {**ORE_TILES, **SMALL_ROCKS}                          # o que cada tile dá ao quebrar
@@ -104,9 +106,9 @@ TERMINAL_SPOTS = [(19, 35), (31, 160), (45, 280)]
 
 # Gerador do deserto (game/surface_gen.py · bíblia §9, Marco 1)
 SURFACE_BORDER = (2, 3)         # cordilheira da borda: 2 ou 3 tiles de espessura (intransponível, não minera)
-HILLS = (24, 32)                # quantos morros de rocha (a única parede da superfície, minerável)
+HILLS = (26, 34)                # quantos morros de rocha (minerável). v0.4 Marco 2: era 24–32; bacia e salar sem morro
 HILL_SIZE = (3, 8)              # largura do morro em tiles
-HILL_ORE_CHANCE = 0.12          # chance de um tile de morro ter minério (pouco: o volume fica na caverna)
+                                # (v0.4 Marco 2: a chance de minério do morro é por região, HILL_REGION_ORE_CHANCE)
 SURFACE_CLEAR_RADIUS = 8        # raio de areia limpa em volta da cápsula
 SURFACE_CRATER_DIST = (15, 20)  # distância (tiles) do centro da cratera até a base
 SURFACE_VEINS = (3, 5)          # veios de drill na superfície: poucos, longe, obrigam a explorar
@@ -578,3 +580,47 @@ STORM_WIND_SWAY = 40.0          # °: quanto o vento foge da direção dominante
 STORM_WIND_RETARGET = (6.0, 14.0)  # s entre um novo alvo de direção e o próximo
 STORM_GUST_WARN = 0.3           # gust acima disso: aviso "RAJADA" no HUD
 VOLUME["gust"] = 0.8            # som da rajada (sem gust.wav, fica em silêncio); vezes o storm
+
+# ---------------------------------------------------------------------------
+# v0.4 Marco 2 · Geografia nova (game/geo.py + game/surface_gen.py · bíblia §11). Mapa de referência aprovado:
+# reports/design/regioes/mapa_regioes.png (tools/sprites/regions_core.gen_world, portado e variando pela seed).
+# Posições em tiles, relativas à base (BASE_TILE), num deserto 192×192.
+# ---------------------------------------------------------------------------
+REGIONS_PALETTES = SPRITES_DIR / "regions" / "regions_palettes.json"   # rampas, níveis, formações (Designer)
+GEO_LEVELS = (0.19, 0.29, 0.385)    # altura (0..1) das marcas d'água L1 (Névoa), L2, L3 (Verde cheio)
+GEO_WARP = 14                       # px: deslocamento máximo da borda entre regiões (borda orgânica)
+GEO_PLATEAU_CORE = 16               # raio (tiles) em volta da base que é sempre planalto, sem bacia
+# Salar: a maior bacia, uma elipse a leste. Centro relativo à base e raios (sorteio da seed entre mín e máx)
+GEO_SALAR_OFFSET = ((55, 64), (6, 26))
+GEO_SALAR_RADII = ((29, 34), (22, 27))
+# Depressões pequenas do planalto: (deslocamento da base, raio); a seed mexe até GEO_BASIN_JITTER tiles
+GEO_BASINS = (((-18, 18), 6.0), ((28, -26), 6.0), ((4, 46), 8.5))
+GEO_BASIN_JITTER = 4
+GEO_BASALT_X = (40, 48)             # basalto: x < ~44 (com ruído), alargando pro sudoeste a partir de y ~120...
+GEO_BASALT_Y = (40, 48)             # ...e y > ~44
+GEO_FROST_Y = (22, 26)              # faixa gelada: y < ~24 (com ruído) na borda norte
+
+# Formações fixas (marcos). Pegada, âncora e região de cada uma vêm do regions_palettes.json da Designer.
+GEO_FORMATIONS = {"monolith": (2, 3), "arch": (1, 2), "salt_ridge": (2, 3), "basalt_spires": (2, 3), "cone": (1, 1)}
+FORMATION_MIN_BASE_DIST = 26        # tiles do centro da formação até a base (a cratera fica a 15–20)
+FORMATION_SPACING = 16              # tiles entre formações (centro a centro)
+FORMATION_HALO = 2                  # tiles livres em volta da pegada (os afloramentos ficam aqui; nada mais nasce)
+FORMATION_HILL_GAP = 4              # morro nenhum a menos disso da pegada
+OUTCROPS = (3, 4)                   # afloramentos (rochas pequenas) por formação, a 1–2 tiles da pegada
+OUTCROP_ORE = {"plateau": {"iron": 0.5, "silicon": 0.5}, "salar": {"silicon": 1.0},
+               "basalt": {"iron": 1.0}, "frost": {"ice": 1.0}}
+
+# Gelos-portão: 2 ou 3 bolsões na cordilheira do norte (anel de BEDROCK, não minera), cada um fechado por um
+# gelo-portão 4×2 no corredor de baixo. Atrás: o lugar do destroço melhor e do contêiner lacrado (Marco 3).
+ICE_GATES = (2, 3)
+POCKET_SIZE = (8, 7)                # interior (largura, altura) em tiles, começando na linha 3
+POCKET_WALL = 2                     # espessura do anel de rocha
+POCKET_SPACING = 26                 # tiles entre os centros de dois bolsões
+
+# Morros por região (o salar quase sem morro, o basalto com mais) e o minério de cada uma
+HILL_REGION_WEIGHT = {"plateau": 1.0, "salar": 0.05, "basalt": 2.2, "frost": 1.0}
+HILL_REGION_ORE = {"plateau": {"iron": 0.45, "silicon": 0.35, "ice": 0.2},
+                   "salar": {"silicon": 0.7, "iron": 0.15, "ice": 0.15},
+                   "basalt": {"iron": 0.7, "silicon": 0.2, "ice": 0.1},
+                   "frost": {"ice": 0.6, "iron": 0.2, "silicon": 0.2}}
+HILL_REGION_ORE_CHANCE = {"plateau": 0.12, "salar": 0.12, "basalt": 0.16, "frost": 0.16}

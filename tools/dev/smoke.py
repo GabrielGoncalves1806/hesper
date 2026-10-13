@@ -2552,18 +2552,19 @@ def check_water(bot, stage: int) -> None:
 
 
 def check_old_save_title(bot) -> None:
-    """Save do v0.2 (versão 5): a tela de título não carrega, avisa e só deixa começar um novo jogo."""
+    """Save do v0.3 / v0.4 Marco 1 (versão 6): o v0.4 Marco 2 (geografia nova) não carrega, avisa e só deixa
+    começar um novo jogo."""
     app = bot.app
     save.SAVE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    save.SAVE_PATH.write_text('{"version": 5, "seed": 7}', encoding="utf-8")
+    save.SAVE_PATH.write_text('{"version": 6, "seed": 7}', encoding="utf-8")
     app.open_title()
     assert app.title.old and [label for _, label in app.title.options()] == ["Continuar", "Novo jogo", "Sair"]
     assert app.title.options()[app.title.selected][0] == "new"
     bot.mouse_to((480, 300))
     bot.frames(0.5)
     bot.shot("titulo_save_antigo.png")
-    bot.key(pygame.K_RETURN)                       # Novo jogo: o antigo vira slot1.v5.json
-    backup = save.SAVE_PATH.with_name("slot1.v5.json")
+    bot.key(pygame.K_RETURN)                       # Novo jogo: o antigo vira slot1.v6.json
+    backup = save.SAVE_PATH.with_name("slot1.v6.json")
     assert app.mode == "play" and backup.exists() and save.probe()[0] == "ok"
     backup.unlink()
     bot.state = app.state

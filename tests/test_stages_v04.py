@@ -121,23 +121,20 @@ def test_save_keeps_storm_in_the_middle_of_the_fade(tmp_path):
 def v03_save(stage: int) -> dict:
     """Um save v6 como o v0.3 gravava: 3 estágios, sem `stage_scheme` nem `storm`."""
     data = save.state_to_dict(save.new_state())
+    data["version"] = 6
     data["progress"]["stage"] = stage
     del data["progress"]["stage_scheme"], data["progress"]["storm"]
     return data
 
 
-@pytest.mark.parametrize("old, new", [(1, 2), (2, 3), (3, 4)])
-def test_v6_save_moves_stage_up_and_loads_without_storm(old, new):
-    loaded = save.state_from_dict(save.migrate(v03_save(old)))
-    assert loaded.stage == new and loaded.storm == 0.0
-
-
-def test_v6_save_from_disk_goes_through_the_migration(tmp_path):
+def test_v6_save_asks_for_a_new_game(tmp_path):
+    """v0.4 Marco 2: o mundo da seed mudou (geografia nova), então o save v6 (v0.3 e Marco 1) não carrega mais:
+    vira "save antigo" (novo jogo obrigatório) e o arquivo fica, como os v1–v5."""
     import json
     path = tmp_path / "slot1.json"
     path.write_text(json.dumps(v03_save(2)), encoding="utf-8")
-    status, loaded = save.probe(path)
-    assert status == "ok" and loaded.stage == C.MIST_STAGE and loaded.storm == 0.0
+    assert save.probe(path) == ("old", None)
+    assert save.backup_old(path).name == "slot1.v6.json"
 
 
 def test_new_save_does_not_move_the_stage_again(tmp_path):
@@ -147,7 +144,7 @@ def test_new_save_does_not_move_the_stage_again(tmp_path):
     loaded = save.load_game(path)
     assert loaded.stage == C.STORM_STAGE and loaded.storm == 1.0
     assert save.state_to_dict(loaded)["progress"]["stage_scheme"] == save.STAGE_SCHEME
-    assert save.state_to_dict(loaded)["version"] == 6          # o formato só sobe no Marco 2
+    assert save.state_to_dict(loaded)["version"] == 7          # v7: geografia nova (v0.4 Marco 2)
 
 
 # ---------------------------------------------------------------- A4 · objetivo, banner e ambiente

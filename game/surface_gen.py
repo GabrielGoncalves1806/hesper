@@ -1,11 +1,15 @@
-"""Gerador do deserto: a SUPERFÍCIE do v0.3 (bíblia §9, Marco 1).
+"""Gerador da SUPERFÍCIE (bíblia §9 e §11 · v0.4 Marco 2, "Geografia nova").
 
 Monta um `World` de 192×192 com a mesma interface do mapa antigo, então todo o resto do jogo
 (colisão, mineração, render, transição de estágio, água e plantas) funciona igual. Ordem:
 
-    areia + "altura" (lowness, pras poças)  →  borda (cordilheira, 2–3 tiles)  →  morros
-    →  limpa a área da cápsula  →  cratera 3×3  →  veios (3 a 5, longe)  →  destroços (6 a 8, game/wrecks.py)
-    →  rochas pequenas
+    geografia (game/geo.py: relevo, regiões, bacias, formações, bolsões)  →  areia + lowness
+    →  borda (cordilheira, 2–3 tiles)  →  bolsões dos gelos-portão (anel de BEDROCK)  →  morros por região
+    →  limpa a área da cápsula  →  pegadas das formações (C.FORMATION)  →  cratera 3×3 no planalto
+    →  veios (3 a 5, longe)  →  destroços (6 a 8, game/wrecks.py)  →  afloramentos  →  rochas pequenas
+
+Nada nasce em bacia (a água do Marco 3 sobe ali), nem no halo das formações, nem no bolsão ou no avental de
+um gelo-portão (`world.keep_clear`). O que fica atrás de um portão só é alcançável passando por ele.
 
 Tudo sai da seed: mesma seed, mesmo deserto. A geração custa ~0,3 s, então o mapa virgem de cada
 seed fica num cache e `generate_surface` devolve uma CÓPIA (o jogador mexe na cópia).
@@ -18,6 +22,7 @@ import random
 
 from game import config as C
 from game import wrecks as wreck_gen
+from game.geo import REGION_NAMES, generate_geo
 from game.world import Vein, World, hash01, value_noise
 
 _cache: dict[int, World] = {}
@@ -84,6 +89,7 @@ def _copy(src: World) -> World:
     world.terminals = list(src.terminals)
     world.sand_variants = src.sand_variants     # só leitura
     world.wrecks = list(src.wrecks)             # destroços: geometria fixa (o conteúdo das caixas fica na camada)
+    world.geo, world.keep_clear = src.geo, src.keep_clear   # só leitura
     return world
 
 
@@ -94,19 +100,26 @@ def _build(seed: int) -> World:
     world.floor_kind = C.SAND
     rng = random.Random(seed * 7919 + 101)
     W, H = world.width, world.height
+    geo = world.geo = generate_geo(seed, W, H, world.center)
     for y in range(H):
         for x in range(W):
             world.tiles[y][x] = C.SAND
             world.lowness[y][x] = value_noise(x * 0.22 + 200, y * 0.22 + 50, seed + 21)
     _border(world)
+    _pockets(world)
+    world.keep_clear = frozenset(_keep_clear(geo))
     _hills(world, rng)
     for y in range(H):                           # a área da cápsula fica sempre limpa
         for x in range(W):
             if world.dist_from_center(x, y) < C.SURFACE_CLEAR_RADIUS:
                 world.tiles[y][x] = C.SAND
+    for f in geo.formations:                     # a pegada bloqueia; quem desenha é o objeto da formação
+        for t in f.tiles:
+            world.set(*t, C.FORMATION)
     _crater(world, rng)
     _veins(world, rng)
     wreck_gen.place_wrecks(world, rng)           # Marco 3: destroços (antes das rochas pequenas, com folga livre)
+    _outcrops(world)
     _small_rocks(world)
     world.sand_variants = [bytes(sand_variant(x, y) for x in range(W)) for y in range(H)]
     return world
@@ -124,36 +137,76 @@ def _border(world: World) -> None:
                 world.tiles[y][x] = C.BEDROCK
 
 
+def _pockets(world: World) -> None:
+    """Bolsões dos gelos-portão: o anel vira BEDROCK (cordilheira, não minera: o portão não dá pra contornar
+    cavando); o interior, o portão e o avental ficam de areia (o portão vira C.FORMATION junto das outras)."""
+    for pocket in world.geo.pockets:
+        for t in pocket.ring:
+            world.set(*t, C.BEDROCK)
+        for t in pocket.interior + pocket.apron + pocket.gate.tiles:
+            world.set(*t, C.SAND)
+
+
+def _ring(tiles, r: int) -> set[tuple[int, int]]:
+    """Os `tiles` e tudo a até `r` tiles deles (distância de Chebyshev)."""
+    return {(x + dx, y + dy) for x, y in tiles for dx in range(-r, r + 1) for dy in range(-r, r + 1)}
+
+
+def _keep_clear(geo) -> set[tuple[int, int]]:
+    """Onde nada nasce: a caixa da pegada + o halo de cada formação, e o bolsão inteiro de cada gelo-portão."""
+    out: set[tuple[int, int]] = set()
+    for f in geo.formations:
+        out |= _ring(f.box, C.FORMATION_HALO)
+    for p in geo.pockets:
+        out |= set(p.interior) | set(p.ring) | set(p.apron)
+    return out
+
+
 def _hills(world: World, rng: random.Random) -> None:
     """Morros: blobs de rocha de 3 a 8 tiles, com um pouco de minério. Não encostam um no outro.
 
     A forma sai de `_hill_shape` (lóbulos redondos + suavização), então o morro não fica com cara de
     bloco escalonado nem solta tile pendurado na diagonal. Os morros têm o próprio gerador aleatório
-    (`hrng`), assim mexer na forma deles não embaralha o resto do mapa daqui pra frente."""
+    (`hrng`), assim mexer na forma deles não embaralha o resto do mapa daqui pra frente.
+
+    Marco 2: a região do centro decide a chance de o morro ficar (HILL_REGION_WEIGHT: o salar quase sem morro,
+    o basalto com mais) e o minério de cada tile sai da região dele (HILL_REGION_ORE). Morro nenhum em bacia,
+    perto de formação (FORMATION_HILL_GAP) ou encostando num bolsão de gelo-portão."""
     lo, hi = C.HILLS
+    geo = world.geo
     hrng = random.Random(world.seed * 104729 + 7)
     target = rng.randint(lo, hi)
     placed, tries = 0, 0
     cx0, cy0 = world.center
+    top = max(C.HILL_REGION_WEIGHT.values())
     taken: set[tuple[int, int]] = set()
-    while placed < target and tries < 2000:
+    for f in geo.formations:
+        taken |= _ring(f.box, C.FORMATION_HILL_GAP - 2)    # + o halo de 2 do morro = a folga toda
+    for p in geo.pockets:
+        taken |= set(p.ring) | set(p.apron) | set(p.interior)
+    while placed < target and tries < 4000:
         tries += 1
         size = hrng.randint(*C.HILL_SIZE)
         x0 = hrng.randint(5, world.width - 6 - size)
         y0 = hrng.randint(5, world.height - 6 - size)
         if math.hypot(x0 + size / 2 - cx0, y0 + size / 2 - cy0) < C.SURFACE_CLEAR_RADIUS + size:
             continue
+        region = REGION_NAMES[geo.region_at(x0 + size // 2, y0 + size // 2)]
+        if hrng.random() >= C.HILL_REGION_WEIGHT[region] / top:
+            continue
         blob = [(x0 + dx, y0 + dy) for dx, dy in _hill_shape(size, hrng)]
-        if len(blob) < 3:
+        if len(blob) < 3 or any(geo.basin_at(x, y) >= 0 for x, y in blob):
             continue
         # folga de 2 tiles entre morros (senão viram um paredão maior que 8)
-        halo = {(x + dx, y + dy) for x, y in blob for dx in range(-2, 3) for dy in range(-2, 3)}
+        halo = _ring(blob, 2)
         if halo & taken:
             continue
         for x, y in blob:
             kind = C.ROCK
-            if hrng.random() < C.HILL_ORE_CHANCE:
-                kind = _weighted(hrng.random(), {C.IRON: 0.45, C.SILICON: 0.3, C.ICE: 0.25})
+            tile_region = REGION_NAMES[geo.region_at(x, y)]
+            if hrng.random() < C.HILL_REGION_ORE_CHANCE[tile_region]:
+                ores = C.HILL_REGION_ORE[tile_region]
+                kind = _weighted(hrng.random(), {C.IRON: ores["iron"], C.SILICON: ores["silicon"], C.ICE: ores["ice"]})
             world.tiles[y][x] = kind
         taken |= set(blob)
         placed += 1
@@ -246,13 +299,21 @@ def _crater(world: World, rng: random.Random) -> None:
     """Cratera 3×3 a 15–20 tiles da base, com uma folga de areia em volta.
 
     Ponto de extensão (Marco 2): `world.crater` guarda o canto de cima à esquerda; a rampa de descida
-    vai ser desenhada aqui (crater_ramp.png) e o E nesse ponto troca de camada."""
+    vai ser desenhada aqui (crater_ramp.png) e o E nesse ponto troca de camada.
+    v0.4 Marco 2: a cratera e a folga ficam inteiras no planalto, fora de bacia e de formação."""
     cx, cy = world.center
     lo, hi = C.SURFACE_CRATER_DIST
+    geo = world.geo
+
+    def fits(mx, my):                            # a folga de areia não corta morro (senão sobra um toco solto)
+        area = [(x, y) for y in range(my - 4, my + 5) for x in range(mx - 4, mx + 5)]
+        return all(geo.region_at(x, y) == 0 and geo.basin_at(x, y) < 0 and (x, y) not in world.keep_clear
+                   and world.get(x, y) == C.SAND for x, y in area)
+
     for _ in range(500):
         angle, dist = rng.uniform(0, math.tau), rng.uniform(lo + 0.5, hi - 0.5)
         mx, my = int(cx + dist * math.cos(angle)), int(cy + dist * math.sin(angle))
-        if lo <= world.dist_from_center(mx, my) <= hi:
+        if lo <= world.dist_from_center(mx, my) <= hi and fits(mx, my):
             break
     tx, ty = mx - 1, my - 1
     for y in range(ty - 2, ty + 5):              # areia limpa em volta (dá pra chegar de todo lado)
@@ -279,6 +340,8 @@ def _veins(world: World, rng: random.Random) -> None:
         area = [(tx + dx, ty + dy) for dx in range(-1, 3) for dy in range(-1, 4)]   # 2×2 + linha de baixo + folga
         if not all(world.get(*t) == C.SAND for t in area):
             return False
+        if any(t in world.keep_clear or world.geo.basin_at(*t) >= 0 for t in area):   # Marco 2: nem bacia nem marco
+            return False
         if any(world.dist_from_center(tx + dx, ty + dy) < C.SURFACE_VEIN_MIN_DIST for dx in (0, 1) for dy in (0, 1)):
             return False
         if crater and math.hypot(tx - crater[0], ty - crater[1]) < 8:
@@ -297,9 +360,35 @@ def _veins(world: World, rng: random.Random) -> None:
                 break
 
 
+def _outcrops(world: World) -> None:
+    """Afloramentos: 3 ou 4 rochas pequenas a 1–2 tiles da pegada de cada formação (o gelo-portão não tem), com o
+    minério da região (OUTCROP_ORE). Nunca no vão do arco, e espaçadas (nenhuma encosta na outra pelo lado)."""
+    for i, f in enumerate(world.geo.formations):
+        if f.kind == "ice_gate":
+            continue
+        rng = random.Random(world.seed * 6151 + i * 97 + 3)
+        box = set(f.box)
+        w, _ = f.size
+        cands = sorted(t for t in _ring(f.tiles, 2) - box
+                       if world.get(*t) == C.SAND and not (f.kind == "arch" and f.tx < t[0] < f.tx + w - 1))
+        rng.shuffle(cands)
+        ores = C.OUTCROP_ORE[REGION_NAMES[f.region]]
+        kinds = {C.SMALL_IRON: ores.get("iron", 0), C.SMALL_SILICON: ores.get("silicon", 0),
+                 C.SMALL_ICE: ores.get("ice", 0)}
+        want = rng.randint(*C.OUTCROPS)
+        got: list[tuple[int, int]] = []
+        for x, y in cands:
+            if len(got) >= want:
+                break
+            if any(abs(x - gx) + abs(y - gy) <= 1 for gx, gy in got):
+                continue
+            world.set(x, y, _weighted(rng.random(), kinds))
+            got.append((x, y))
+
+
 def _small_rocks(world: World) -> None:
     """Rochas pequenas espalhadas pela areia (por hash, sem formar padrão)."""
-    keep_free = set(world._vein_tiles) | wreck_gen.keep_free(world.wrecks)
+    keep_free = set(world._vein_tiles) | wreck_gen.keep_free(world.wrecks) | world.keep_clear
     for v in world.veins:                         # a linha de baixo do veio fica livre (o player para ali)
         keep_free |= {(v.tx + dx, v.ty + 2) for dx in (0, 1)}
     kinds = {C.SMALL_IRON: C.SMALL_ROCK_WEIGHTS["iron"], C.SMALL_SILICON: C.SMALL_ROCK_WEIGHTS["silicon"],

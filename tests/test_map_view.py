@@ -559,3 +559,41 @@ def test_group_marker_and_tooltip_through_the_app(app):
     for m in extra:
         s.surface.machines.remove(m)
     app.close_map()
+
+
+# ---- v0.4 Marco 2: formações e chão por região ------------------------------------------------------
+def test_formations_are_fixed_landmarks_without_filter():
+    """Formação vista vira marcador "Formação" (pictograma próprio, tooltip com o nome e a região). Não tem chip
+    de filtro e nenhum filtro esconde; só entra depois de vista, como o resto."""
+    from game import map_markers
+    g = GameState(rng=random.Random(1))
+    bits = g.surface.explored.bits
+    bits[:] = bytearray(len(bits))
+    assert not [e for e in MV.map_entries(g, "surface") if e.category == "formation"]
+    bits[:] = b"\x01" * len(bits)
+    entries = MV.map_entries(g, "surface")
+    forms = [e for e in entries if e.category == "formation"]
+    assert len(forms) == len(g.surface.geo.formations)
+    assert "formation" not in MV.categories(entries) and "formation" not in MV.FILTERS
+    assert len([e for e in MV.visible(entries, set(MV.FILTERS)) if e.category == "formation"]) == len(forms)
+    arch = next(e for e in forms if e.title == "Arco de pedra")
+    assert arch.state == "Planalto rachado" and "tiles" in arch.sub
+    assert map_markers.marker("formation").get_size() == (7, 6)
+    assert MV.visible(entries, ())[0].category == "formation"                 # desenhada por baixo de tudo
+
+
+def test_minimap_paints_the_ground_by_region():
+    from game import minimap
+    from game.geo import REGION_NAMES
+    g = GameState(rng=random.Random(1))
+    world, geo = g.surface.world, g.surface.geo
+    assert len(set(minimap.REGION_COLORS)) == len(REGION_NAMES)
+    seen = set()
+    for y in range(0, world.height, 3):
+        for x in range(0, world.width, 3):
+            if world.get(x, y) == C.SAND and world.vein_at(x, y) is None:
+                assert minimap.tile_color(world, x, y) == minimap.REGION_COLORS[geo.region[y, x]]
+                seen.add(int(geo.region[y, x]))
+    assert seen == {0, 1, 2, 3}
+    cave = layers.make_cave(1).world
+    assert minimap.tile_color(cave, *C.CAVE_CENTER) == minimap.TILE_COLORS[C.FLOOR]

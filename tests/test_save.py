@@ -138,12 +138,30 @@ def test_loaded_game_keeps_running(tmp_path):
 def test_save_only_stores_what_changed(tmp_path):
     state = rich_state()
     data = save.state_to_dict(state)
-    assert data["version"] == save.SAVE_VERSION == 6
+    assert data["version"] == save.SAVE_VERSION == 7
     assert set(data) == {"version", "seed", "layer", "layers", "player", "inventory", "progress"}
     assert set(data["layers"]) == {"surface"} and data["layer"] == "surface"
     assert len(data["layers"]["surface"]["changed_tiles"]) == 6   # 5 minérios + 1 cavado na marra
     # mapa novo, sem mexer em nada: nenhum tile no save
     assert save.state_to_dict(save.new_state())["layers"]["surface"]["changed_tiles"] == []
+
+
+def test_geo_is_not_saved_and_comes_back_from_the_seed(tmp_path):
+    """v7: a geografia (regiões, altura, bacias, formações) sai da seed; o save não guarda nada dela."""
+    import numpy as np
+    state = rich_state()
+    path = tmp_path / "slot1.json"
+    save.write_save(state, path)
+    text = path.read_text(encoding="utf-8")
+    assert "geo" not in json.loads(text)["layers"]["surface"] and "formation" not in text
+    loaded = save.load_game(path)
+    a, b = state.surface.geo, loaded.surface.geo
+    assert a is not None and loaded.layers["surface"].geo is b
+    assert np.array_equal(a.region, b.region) and np.array_equal(a.basin, b.basin)
+    assert [(f.kind, f.tx, f.ty) for f in a.formations] == [(f.kind, f.tx, f.ty) for f in b.formations]
+    assert all(loaded.world.get(*t) == C.FORMATION for f in b.formations for t in f.tiles)
+    state.enter_layer("cave")
+    assert state.active.geo is None                                # a caverna não tem geografia
 
 
 def test_fainted_state_roundtrip(tmp_path):
@@ -210,10 +228,10 @@ def test_migration_hook_runs(tmp_path, monkeypatch):
         d["progress"]["play_time"] = 99.0
         return d
 
-    monkeypatch.setattr(save, "SAVE_VERSION", 7)
-    monkeypatch.setattr(save, "MIGRATIONS", {6: old_to_new})
+    monkeypatch.setattr(save, "SAVE_VERSION", 8)
+    monkeypatch.setattr(save, "MIGRATIONS", {7: old_to_new})
     migrated = save.migrate(data)
-    assert migrated["version"] == 7 and migrated["progress"]["play_time"] == 99.0
+    assert migrated["version"] == 8 and migrated["progress"]["play_time"] == 99.0
 
 
 def test_atomic_write_keeps_old_save_on_crash(tmp_path, monkeypatch):
@@ -246,9 +264,9 @@ def test_write_creates_folder_and_overwrites(tmp_path):
 
 
 # ---------------------------------------------------------------- v0.3: saves antigos e camadas
-@pytest.mark.parametrize("version", [1, 2, 3, 4, 5])
+@pytest.mark.parametrize("version", [1, 2, 3, 4, 5, 6])
 def test_old_versions_are_reported_as_old_and_kept(tmp_path, version, capsys):
-    """v0.3 exige novo jogo: save v1–v5 não migra, é reconhecido como antigo e o arquivo fica."""
+    """v0.4 Marco 2 exige novo jogo: save v1–v6 não migra, é reconhecido como antigo e o arquivo fica."""
     path = tmp_path / "slot1.json"
     text = json.dumps({"version": version, "seed": 7, "world": {"changed_tiles": []}})
     path.write_text(text, encoding="utf-8")
@@ -264,7 +282,7 @@ def test_backup_old_never_overwrites_and_ignores_new_saves(tmp_path):
     path = tmp_path / "slot1.json"
     assert save.backup_old(path) is None                           # sem arquivo
     save.write_save(rich_state(), path)
-    assert save.backup_old(path) is None and path.exists()        # v6 não é "antigo"
+    assert save.backup_old(path) is None and path.exists()        # v7 não é "antigo"
     (tmp_path / "slot1.v5.json").write_text("antes", encoding="utf-8")
     path.write_text(json.dumps({"version": 5}), encoding="utf-8")
     assert save.backup_old(path).name == "slot1.v5-2.json"
@@ -296,15 +314,15 @@ def test_broken_small_rocks_and_respawn_timer_roundtrip(tmp_path):
     assert snapshot(loaded) == snapshot(state)
 
 
-def test_v6_save_with_old_pickups_field_still_loads(tmp_path):
-    """Save v6 de antes da troca (com os recursos soltos e sem "rocks"): carrega, ignora os soltos."""
+def test_save_with_old_pickups_field_still_loads(tmp_path):
+    """Save com os recursos soltos e sem "rocks" (o formato de antes da troca): carrega, ignora os soltos."""
     data = save.state_to_dict(rich_state())
     surface = data["layers"]["surface"]
     del surface["rocks"]
     surface["pickups"] = {"items": [["iron", 2, 3200.5, 3300.0], ["ice", 1, 100.0, 200.0]], "timer": 3.5}
     path = tmp_path / "slot1.json"
     path.write_text(json.dumps(data), encoding="utf-8")
-    assert data["version"] == save.SAVE_VERSION == 6
+    assert data["version"] == save.SAVE_VERSION == 7
     status, loaded = save.probe(path)
     assert status == "ok" and loaded.surface.rocks.timer == 0.0
     assert not hasattr(loaded.surface, "pickups")

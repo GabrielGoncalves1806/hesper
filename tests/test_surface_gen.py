@@ -1,10 +1,22 @@
 """Gerador do deserto (superfície, v0.3 Marco 1)."""
 
+import math
+
+import pytest
+
 from game import config as C
+from game.geo import BASALT, FROST, PLATEAU, REGION_NAMES, SALAR
+from game.rock_respawn import blocked_tiles, can_spawn
 from game.surface_gen import generate_surface
 
 W = generate_surface(C.WORLD_SEED)
 ALL = [(x, y) for y in range(C.SURFACE_H) for x in range(C.SURFACE_W)]
+HILL_TILES = (C.ROCK, C.IRON, C.SILICON, C.ICE)     # morro minerável (a BEDROCK é a cordilheira e os bolsões)
+
+
+def pocket_rock(w) -> set:
+    """Os anéis de rocha dos bolsões dos gelos-portão (BEDROCK ligada à cordilheira do norte)."""
+    return {t for p in w.geo.pockets for t in p.ring}
 
 
 def test_size_seed_and_copy():
@@ -23,7 +35,8 @@ def test_border_is_bedrock_2_to_3_thick():
         for x, y in ((i, 0), (i, 1), (0, i), (1, i), (i, 191), (i, 190), (191, i), (190, i)):
             assert W.get(x, y) == C.BEDROCK
     assert not W.is_minable(0, 50)
-    assert all(W.get(x, y) != C.BEDROCK for y in range(3, 189) for x in range(3, 189))
+    rings = pocket_rock(W)                                      # Marco 2: a cordilheira desce nos bolsões
+    assert all(W.get(x, y) != C.BEDROCK for y in range(3, 189) for x in range(3, 189) if (x, y) not in rings)
     thick3 = sum(W.get(2, y) == C.BEDROCK for y in range(3, 189))
     assert 0 < thick3 < 186                                     # a espessura varia (2 ou 3)
 
@@ -59,7 +72,7 @@ def test_three_to_five_veins_far_and_apart():
 
 def test_hills_small_rocks_and_reachability():
     rocks = [t for t in ALL if W.get(*t) in C.SMALL_ROCKS]
-    walls = [(x, y) for x, y in ALL if 3 <= x < 189 and 3 <= y < 189 and W.is_wall(x, y)]
+    walls = [(x, y) for x, y in ALL if 3 <= x < 189 and 3 <= y < 189 and W.get(x, y) in HILL_TILES]
     assert len(rocks) > 150 and len(walls) > 60
     assert {W.get(*t) for t in rocks} == set(C.SMALL_ROCKS)
     assert all(W.dist_from_center(*t) >= C.SMALL_ROCK_MIN_DIST for t in rocks)
@@ -74,7 +87,7 @@ def test_hills_small_rocks_and_reachability():
 def test_hills_are_small_blobs():
     """Cada morro (parede ligada, fora da borda) tem de 3 a 8 tiles de largura e de altura."""
     seen = set()
-    walls = {(x, y) for x, y in ALL if 3 <= x < 189 and 3 <= y < 189 and W.is_wall(x, y)}
+    walls = {(x, y) for x, y in ALL if 3 <= x < 189 and 3 <= y < 189 and W.get(x, y) in HILL_TILES}
     for start in walls:
         if start in seen:
             continue
@@ -111,7 +124,7 @@ def test_sand_variants_follow_the_designer_distribution():
 
 
 def _hill_walls(w):
-    return {(x, y) for y in range(3, 189) for x in range(3, 189) if w.is_wall(x, y)}
+    return {(x, y) for y in range(3, 189) for x in range(3, 189) if w.get(x, y) in HILL_TILES}
 
 
 def test_hills_have_no_loose_diagonals_or_spurs():
@@ -129,7 +142,8 @@ def test_hills_have_no_loose_diagonals_or_spurs():
 
 
 def test_hill_count_and_mass_stay_close():
-    """A forma nova não muda o tamanho do deserto: 24–32 morros e ~500–850 tiles de rocha."""
+    """A forma nova não muda o tamanho do deserto: 26–34 morros (v0.4 Marco 2: bacia e salar sem morro, então
+    o alvo subiu de 24–32 pra manter a massa) e ~500–850 tiles de rocha."""
     lo, hi = C.HILLS
     for seed in (1, 2, 3, C.WORLD_SEED):
         walls = _hill_walls(generate_surface(seed))
@@ -147,3 +161,123 @@ def test_hill_count_and_mass_stay_close():
                 stack += [(t[0] + 1, t[1]), (t[0] - 1, t[1]), (t[0], t[1] + 1), (t[0], t[1] - 1)]
         assert lo - 2 <= hills <= hi, (seed, hills)
         assert 500 <= len(walls) <= 850, (seed, len(walls))
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# v0.4 Marco 2 · geografia nova: formações, afloramentos, gelos-portão, regiões e alcance
+# ---------------------------------------------------------------------------------------------------------------
+SEEDS = (1, 7, 42)
+
+
+def _near(tiles, r):
+    return {(x + dx, y + dy) for x, y in tiles for dx in range(-r, r + 1) for dy in range(-r, r + 1)}
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+def test_formation_tiles_are_exactly_the_footprints(seed):
+    w = generate_surface(seed)
+    feet = {t for f in w.geo.formations for t in f.tiles}
+    assert feet and {t for t in ALL if w.get(*t) == C.FORMATION} == feet
+    for t in feet:
+        assert w.is_solid(*t) and not w.is_wall(*t) and not w.is_minable(*t)
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+def test_nothing_spawns_on_or_next_to_a_formation(seed):
+    """Veio, destroço, cratera e rocha pequena ficam fora da caixa + halo das formações (só os afloramentos)."""
+    w = generate_surface(seed)
+    for f in w.geo.formations:
+        halo = _near(f.box, C.FORMATION_HALO)
+        for v in w.veins:
+            assert not halo & set(v.tiles), (f.kind, v)
+        for wreck in w.wrecks:
+            assert not halo & set(wreck.tiles + [wreck.crate]), (f.kind, wreck.kind)
+        cx, cy = w.crater
+        assert not halo & {(cx + dx, cy + dy) for dx in range(3) for dy in range(3)}
+        assert all(w.get(*t) != C.FORMATION for t in set(f.box) - set(f.tiles))   # o vão do arco é chão
+    for t in w.keep_clear:
+        assert not can_spawn(w, *t, blocked_tiles(w)), t                          # nem a rocha que reaparece
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+def test_every_formation_has_outcrops(seed):
+    """3 ou 4 afloramentos (rochas pequenas com o minério da região) a 1–2 tiles da pegada; o gelo-portão não."""
+    w = generate_surface(seed)
+    kinds = [f.kind for f in w.geo.formations]
+    assert {"monolith", "arch", "salt_ridge", "basalt_spires", "cone"} <= set(kinds)
+    for f in w.geo.formations:
+        if f.kind == "ice_gate":
+            continue
+        rocks = [t for t in _near(f.tiles, 2) - set(f.box) if w.get(*t) in C.SMALL_ROCKS]
+        assert C.OUTCROPS[0] <= len(rocks) <= C.OUTCROPS[1], (f.kind, rocks)
+        ores = set(C.OUTCROP_ORE[REGION_NAMES[f.region]])
+        assert {C.SMALL_ROCKS[w.get(*t)] for t in rocks} <= ores
+        if f.kind == "arch":                                   # o vão do arco e o que fica na frente/atrás
+            gap = {(f.tx + dx, f.ty + dy) for dx in range(1, f.size[0] - 1) for dy in range(-2, 3)}
+            assert not any(w.get(*t) in C.SMALL_ROCKS for t in gap)
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+def test_formations_sit_in_their_region_away_from_base(seed):
+    w = generate_surface(seed)
+    for f in w.geo.formations:
+        assert all(w.geo.region_at(*t) == f.region for t in f.box), f.kind
+        assert math.hypot(f.center[0] - C.BASE_TILE[0], f.center[1] - C.BASE_TILE[1]) >= C.FORMATION_MIN_BASE_DIST
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+def test_wrecks_and_veins_reachable_on_foot_and_gates_block_only_their_pocket(seed):
+    """BFS no grid a partir da base, sem cavar: todo destroço (a caixa) e todo veio. O interior de cada bolsão só
+    fica alcançável quando o gelo-portão some (Marco 3), e o anel de rocha não minera (não dá pra contornar)."""
+    w = generate_surface(seed)
+    reach = w.reachable_from(C.BASE_TILE)
+    for wreck in w.wrecks:
+        x, y = wreck.crate
+        assert any(n in reach for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1))), wreck.kind
+    for v in w.veins:
+        assert all(t in reach for t in v.tiles), v
+    pockets = w.geo.pockets
+    assert C.ICE_GATES[0] <= len(pockets) <= C.ICE_GATES[1]
+    for p in pockets:
+        assert not reach & set(p.interior)
+        assert reach & set(p.apron)
+        assert all(w.get(*t) == C.BEDROCK and not w.is_minable(*t) for t in p.ring)
+        assert all(w.geo.region_at(*t) == FROST for t in p.interior + p.gate.tiles)
+        assert p.wreck_spot in p.interior and p.container_spot in p.interior
+    opened = generate_surface(seed)
+    for p in pockets:
+        for t in p.gate.tiles:
+            opened.set(*t, C.SAND)
+    reach2 = opened.reachable_from(C.BASE_TILE)
+    for p in pockets:
+        assert set(p.interior) <= reach2
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+def test_crater_in_the_plateau_and_dry(seed):
+    w = generate_surface(seed)
+    tx, ty = w.crater
+    for dx in range(-2, 5):
+        for dy in range(-2, 5):
+            assert w.geo.region_at(tx + dx, ty + dy) == PLATEAU and w.geo.basin_at(tx + dx, ty + dy) < 0
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+def test_hills_follow_the_regions(seed):
+    """O salar quase sem morro, o basalto com mais morro por tile que o planalto, e morro nenhum em bacia."""
+    w = generate_surface(seed)
+    walls = _hill_walls(w)
+    assert not any(w.geo.basin_at(*t) >= 0 for t in walls)
+    area = {r: (w.geo.region == r).sum() for r in (PLATEAU, SALAR, BASALT)}
+    per = {r: sum(w.geo.region_at(*t) == r for t in walls) / area[r] for r in area}
+    assert per[SALAR] < 0.25 * per[PLATEAU]
+    assert per[BASALT] > per[PLATEAU]
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+def test_veins_and_wrecks_stay_out_of_basins(seed):
+    w = generate_surface(seed)
+    for v in w.veins:
+        assert all(w.geo.basin_at(*t) < 0 for t in v.tiles)
+    for wreck in w.wrecks:
+        assert all(w.geo.basin_at(*t) < 0 for t in wreck.tiles + [wreck.crate])
