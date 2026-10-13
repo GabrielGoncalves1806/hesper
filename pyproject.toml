@@ -10,6 +10,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pedalboard>=0.9.26",
     "pytest>=9.1.1",
 ]
 

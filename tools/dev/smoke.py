@@ -2325,10 +2325,10 @@ def check_formations(bot) -> None:
     for f in geo.formations:
         if not f.small and not f.kind.startswith("vent_"):   # as pequenas têm o check_v9_elements, as fumarolas o check_thaw
             first.setdefault(f.kind, f)
-    assert set(first) == {"monolith", "arch", "basalt_spires", "salt_ridge", "cone", "ice_gate"}, set(first)
+    assert set(first) == {"monolith", "arch", "basalt_spires", "cone", "ice_gate"}, set(first)   # sem sal por enquanto
     # 1) as 6 no mundo (o player 3 tiles abaixo do pé) + um mosaico dos recortes
     crops = []
-    for kind in ("monolith", "arch", "basalt_spires", "salt_ridge", "cone", "ice_gate"):
+    for kind in ("monolith", "arch", "basalt_spires", "cone", "ice_gate"):
         f = first[kind]
         bx, by = f.base_px
         stand(bx + 2.5 * C.TILE, by + 3 * C.TILE)
@@ -2416,7 +2416,7 @@ def check_v9_elements(bot) -> None:
     stage_before, storm_before = s.stage, s.storm
     zoom_before = app.zoom
     small = [f for f in geo.formations if f.small and not f.kind.startswith("vent_")]   # fumarolas: check_thaw
-    assert {f.kind for f in small} == {"split_rock", "salt_pillar", "lava_tube", "ice_needles"}, small
+    assert {f.kind for f in small} == {"split_rock", "lava_tube", "ice_needles"}, small   # sem pilar de sal por enquanto
     bed = np.argwhere((geo.basin >= 0) & (geo.region == 0))           # (ty, tx) do leito seco
 
     def bed_dist(f):
@@ -2438,6 +2438,8 @@ def check_v9_elements(bot) -> None:
     for kind, name in (("split_rock", "planalto"), ("salt_pillar", "salar"), ("lava_tube", "basalto"),
                        ("ice_needles", "gelada")):
         cands = [f for f in small if f.kind == kind]
+        if not cands:                                  # o pilar de sal está desligado (dono: sal no lago dissolve)
+            continue
         if kind == "split_rock":
             # planalto com o leito seco: a beira de uma depressão (15–30% de leito na tela), o mais perto possível de
             # uma pedra rachada (as depressões ficam longe delas: a pedra pode ficar fora da tela)

@@ -608,6 +608,10 @@ Plano: `docs/superpowers/plans/2026-10-13-v04-marco2-geografia.md`. Referência 
 ## 12. v0.4 · Marco 3: Gelo e água
 Plano: `docs/superpowers/plans/2026-10-13-v04-marco3-gelo-agua.md`. O que o calor e a água mudam no mapa sai de **funções puras dos índices** (`game/thaw.py`), que já vão no save e nunca descem: o `GameState._apply_thaw()` sobe as etapas no fim do `_update_machines` (e no F2) e o load só reaplica, sem aviso nem som. Save continua v7. Cada etapa escreve a sua parte aqui.
 
+### Decisões do dono no playtest do Marco 3
+- **Sem sal no lago**: sal dissolveria na água, então **por enquanto nenhuma formação de sal nasce** (`GEO_FORMATIONS["salt_ridge"] = (0, 0)`, `GEO_SMALL_FORMATIONS["salt_pillar"] = (0, 0)`, e nenhuma pequena em bacia). A arte (`form_salt_ridge`, `form_salt_pillar`) continua em `assets/` pra quando o salar ganhar outro papel.
+- **Sem minério nem decoração no lago**: rocha pequena e afloramento não nascem em bacia, e a decoração solta (v8 e v9) some quando a água cobre o tile.
+
 ### Derretimento da cratera e fumarolas (M3.1 · `game/thaw.py`, `game/smoke.py`; números no bloco `THAW_CRATER_*` / `THAW_FUMAROLE_*`)
 - **Cratera**: `thaw.crater_stage(calor)` dá a etapa da tampa (0..4) pelos marcos **40, 90, 150 e 220 pK** de calor (`THAW_CRATER_HEAT`, ~1 min de um aquecedor de 4 pK/s). O `_thaw_crater` sobe `layer.crater_ice` até ela e solta um `("crater_thaw", etapa)` por etapa. **Nunca desce**: o F4 (debug) e um save com etapa maior que o calor continuam valendo. Na etapa 4 o `ramp_blocked` libera e o objetivo "Derreta o gelo da cratera" completa sozinho. O F2 (+3.333 de calor) também abre.
 - **Aviso**: no `crater_thaw`, uma pílula no estilo da "RAJADA", só que neutra (barra e cristal de gelo em azul-gelo, texto claro), logo abaixo da coluna do O₂/objetivo (e abaixo da RAJADA se ela estiver na tela), por 3,5 s: **"O gelo da cratera está cedendo"** nas etapas 1–3 e **"A cratera abriu · desça [E]"** na 4. Som `ice_crack` (0,8; sem o arquivo, silêncio).

@@ -520,10 +520,10 @@ def decor_items_v9(geo, decor_p: dict) -> dict[int, list[Decor9]]:
 
 
 def decor_tile_free(world, tx: int, ty: int, machine_at) -> bool:
-    """O solto (v8 ou v9) aparece nesse tile? Só em chão livre: some onde tem máquina, veio, destroço, rocha,
-    parede ou formação (os três últimos não são chão)."""
+    """O solto (v8 ou v9) aparece nesse tile? Só em chão livre e seco: some onde tem máquina, veio, destroço, rocha,
+    parede ou formação (os três últimos não são chão) e debaixo d'água (v0.4 M3.3: o lago cobre o leito)."""
     return world.is_floor(tx, ty) and not world.vein_at(tx, ty) and not world.wreck_at(tx, ty) \
-        and not machine_at((tx, ty))
+        and not machine_at((tx, ty)) and not world.is_water(tx, ty, C.GREEN_STAGE)
 
 
 def decor_layers(name: str, stage: int, moss_on) -> list[str]:

@@ -110,17 +110,10 @@ def test_water_starts_from_the_lowest_tiles(seed, level):
 
 
 @pytest.mark.parametrize("seed", SEEDS)
-def test_salt_ridge_stays_formation_and_becomes_an_islet(seed):
+def test_no_salt_formation_in_the_lake(seed):
+    """Dono: sal no lago dissolveria. Por enquanto nenhuma formação de sal (crosta nem pilar) nasce."""
     w = surface(seed)
-    w.water_level = C.GEO_LEVELS[2]
-    ridges = [f for f in w.geo.formations if f.kind == "salt_ridge"]
-    islets = 0
-    for f in ridges:
-        assert all(w.get(x, y) == C.FORMATION and not w.is_water(x, y, C.GREEN_STAGE) for x, y in f.tiles)
-        ring = {(x + dx, y + dy) for x, y in f.tiles for dx in (-1, 0, 1) for dy in (-1, 0, 1)} - set(f.tiles)
-        if any(w.is_water(x, y, C.GREEN_STAGE) for x, y in ring):
-            islets += 1
-    assert islets >= 1                                        # pelo menos uma vira ilhota no L3
+    assert not any(f.kind in ("salt_ridge", "salt_pillar") for f in w.geo.formations)
 
 
 @pytest.mark.parametrize("seed", SEEDS)

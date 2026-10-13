@@ -212,7 +212,7 @@ def test_every_formation_has_outcrops(seed):
     """3 ou 4 afloramentos (rochas pequenas com o minério da região) a 1–2 tiles da pegada; o gelo-portão não."""
     w = generate_surface(seed)
     kinds = [f.kind for f in w.geo.formations]
-    assert {"monolith", "arch", "salt_ridge", "basalt_spires", "cone"} <= set(kinds)
+    assert {"monolith", "arch", "basalt_spires", "cone"} <= set(kinds)   # sem sal por enquanto (dono)
     for f in w.geo.formations:
         if f.kind == "ice_gate" or f.small or f.kind.startswith("vent_"):   # portão, pequenas da v9 e fumarolas: sem afloramento
             continue
@@ -283,7 +283,8 @@ def test_hills_follow_the_regions(seed):
     assert not any(w.geo.basin_at(*t) >= 0 for t in walls)
     area = {r: (w.geo.region == r).sum() for r in (PLATEAU, SALAR, BASALT)}
     per = {r: sum(w.geo.region_at(*t) == r for t in walls) / area[r] for r in area}
-    assert per[SALAR] < 0.25 * per[PLATEAU]
+    # sem a crosta de sal (que reservava chão no salar) sobra um pouco mais de morro na beira seca do salar
+    assert per[SALAR] < 0.4 * per[PLATEAU]
     assert per[BASALT] > per[PLATEAU]
 
 
