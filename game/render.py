@@ -316,7 +316,7 @@ class Renderer:
                 self._draw_wall(canvas, state.world, tx, ty, tx * T - cam[0], ty * T - cam[1], tile_stage)
             else:
                 item[1]()
-        self._draw_player_silhouette(canvas, state, cam)
+        self._draw_player_silhouette(canvas, state, cam, t)
         # Broca da frente (lado e baixo) por cima de tudo: ela encosta no tile que está sendo minerado,
         # e esse tile pode ser uma parede desenhada depois do player (minerando pra baixo).
         if state.mining:
@@ -332,12 +332,12 @@ class Renderer:
         cols = {int((p.x - 10) // T), int((p.x + 9) // T)}
         return any(state.world.is_wall(tx, row_below) for tx in cols)
 
-    def _draw_player_silhouette(self, canvas, state: GameState, cam) -> None:
+    def _draw_player_silhouette(self, canvas, state: GameState, cam, t: float = 0.0) -> None:
         """Player escondido atrás de parede (ex.: túnel de 1 tile): redesenha ele translúcido por cima,
         tipo raio-x, pra nunca perder o personagem de vista. A ilusão de profundidade continua."""
         if not self.player_occluded(state):
             return
-        surf, flip = self._player_frame(state)
+        surf, flip = self._player_frame(state, t)
         ghost = (pygame.transform.flip(surf, True, False) if flip else surf.copy())
         ghost.set_alpha(95)
         p = state.player
@@ -847,20 +847,61 @@ class Renderer:
         if fallback and alpha is None and rotation % 2 == 0:
             art.machine_anim(canvas, kind, round(ax), round(ay), t)
 
-    def _player_frame(self, state: GameState) -> tuple[pygame.Surface, bool]:
-        """Quadro atual do player (parado ou andando) e se precisa espelhar (olhando pra esquerda)."""
+    PLAYER_WALK_FPS = 9     # caminhada: avança pelo walk_time (só corre enquanto anda)
+    PLAYER_IDLE_FPS = 4     # parado respirando: bem lento
+    PLAYER_MINE_FPS = 12    # minerando: tremor rápido segurando a broca
+
+    @staticmethod
+    def player_anim(state: GameState) -> str:
+        """Qual animação o player toca agora: 'mine' > 'walk' > 'idle' ('still' = desmaiado, sprite parado)."""
+        if state.fainted:
+            return "still"
+        if state.mining:
+            return "mine"
+        if state.player.moving:
+            return "walk"
+        return "idle"
+
+    @staticmethod
+    def anim_frame(time: float, fps: float, frames: int = 4) -> int:
+        """Índice do quadro de um loop de `frames` quadros tocando a `fps`."""
+        return int(time * fps) % frames
+
+    def _player_loop(self, name: str, view: str) -> pygame.Surface:
+        """Tira 128×32 do contrato; sem o PNG, repete o sprite parado (do contrato ou do art.py) 4 vezes.
+        Assim o jogo fica igual ao de antes enquanto a arte nova não chega."""
+        def still_sheet() -> pygame.Surface:
+            still = self.surface(f"player_{view}", lambda: art.player(view))[0]
+            sheet = pygame.Surface((128, 32), pygame.SRCALPHA)
+            for i in range(4):
+                sheet.blit(still, (i * 32, 0))
+            return sheet
+        return self.surface(name, still_sheet)[0]
+
+    def _player_frame(self, state: GameState, t: float = 0.0) -> tuple[pygame.Surface, bool]:
+        """Quadro atual do player e se precisa espelhar (olhando pra esquerda).
+        Prioridade: minerando > andando > parado. `t` = relógio do render (idle e mine)."""
         p = state.player
         # "left" usa o sprite de lado espelhado; "right" usa ele direto
         view = "side" if p.direction in ("left", "right") else p.direction
-        if p.moving and not state.fainted:
+        flip = p.direction == "left"
+        anim = self.player_anim(state)
+        if anim == "walk":
             sheet, _ = self.surface(f"player_walk_{view}", lambda: art.player_walk(view))
-            frame = int(p.walk_time * 9) % 4          # ~9 quadros por segundo
-            return sheet.subsurface((frame * 32, 0, 32, 32)), p.direction == "left"
-        return self.surface(f"player_{view}", lambda: art.player(view))[0], p.direction == "left"
+            frame = self.anim_frame(p.walk_time, self.PLAYER_WALK_FPS)
+        elif anim == "mine":
+            sheet = self._player_loop(f"player_mine_{view}", view)
+            frame = self.anim_frame(t, self.PLAYER_MINE_FPS)
+        elif anim == "idle":
+            sheet = self._player_loop(f"player_idle_{view}", view)
+            frame = self.anim_frame(t, self.PLAYER_IDLE_FPS)
+        else:
+            return self.surface(f"player_{view}", lambda: art.player(view))[0], flip
+        return sheet.subsurface((frame * 32, 0, 32, 32)), flip
 
     def _draw_player(self, canvas, state: GameState, x, y, t) -> None:
         canvas.blit(self.player_shadow, (round(x) - 8, round(y) - 5))   # elipse 16×5 nos pés (linha 30)
-        surf, flip = self._player_frame(state)
+        surf, flip = self._player_frame(state, t)
         drill = self.drill_sprite(state, t) if state.mining else None
         if drill and drill[2]:          # olhando pra cima: a broca fica atrás do corpo
             canvas.blit(drill[0], (round(x) + drill[1][0], round(y) + drill[1][1]))

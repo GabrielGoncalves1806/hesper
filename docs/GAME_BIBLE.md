@@ -156,6 +156,8 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 |---|---|---|
 | `player_{down,up,side}.png` | 32×32 | parado, olhando pra baixo / cima / direita (o jogo espelha `side` pra esquerda) |
 | `player_walk_{down,up,side}.png` | 128×32 | 4 quadros de 32×32 na horizontal |
+| `player_idle_{down,up,side}.png` | 128×32 | parado respirando (cachecol balança), 4 quadros a ~4 fps. Sem o PNG o jogo repete o `player_{view}` |
+| `player_mine_{down,up,side}.png` | 128×32 | minerando (braço pra frente, leve tremor), 4 quadros a ~12 fps. A broca segue separada (`DRILL_GRIP`). Prioridade: minerando > andando > parado |
 | `drill_side.png` | 96×16 | broca na mão, olhando pra direita (o jogo espelha). 4 quadros de 24×16 girando, só tocados enquanto minera |
 | `drill_down.png` `drill_up.png` | 64×24 | 4 quadros de 16×24 · ponto de pega relativo ao quadro do player documentado no report |
 | `floor_{stage}_{0..3}.png` | 32×32 | 4 variações · stage = `dead`, `mist`, `green` |
