@@ -53,7 +53,7 @@ Design em `docs/superpowers/specs/2026-10-13-v04-mundo-vivo-design.md`. Novo jog
 - [ ] Marco 4: polimento + playtest do dono
 
 ## v0.5 · Fundo
-Biomas de caverna, mochila, broca nv.2 (perfuratriz térmica), peças raras (o contêiner lacrado do v0.4), elevador de carga (drones atendem a caverna). Ganchos: basalto → vulcão, espécie nativa nas cavernas.
+Biomas de caverna, mochila, broca nv.2 (perfuratriz térmica, que também minera a rocha dura dos anéis dos bolsões), peças raras (o contêiner lacrado do v0.4), elevador de carga (drones atendem a caverna). Ganchos: basalto → vulcão, espécie nativa nas cavernas.
 
 ## v0.6 · Perigo e lore
 Inimigos, combate, primeiro boss, ruínas da Colônia Hesper.
