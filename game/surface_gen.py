@@ -92,6 +92,7 @@ def _copy(src: World) -> World:
     world.wrecks = list(src.wrecks)             # destroços: geometria fixa (o conteúdo das caixas fica na camada)
     world.geo, world.keep_clear = src.geo, src.keep_clear   # só leitura
     world.containers = list(src.containers)
+    world._geo_rows = src._geo_rows             # só leitura (altura/bacia/beira em listas, se já calculou)
     return world
 
 

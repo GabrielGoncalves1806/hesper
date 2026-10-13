@@ -22,6 +22,8 @@ from game.inventory import Inventory
 from game.energy import PowerAlert, PowerReport, power_report
 from game.layers import CAVE, SURFACE, Layer
 from game.player import Player, Rect, overlaps
+from game.rain import Rain
+from game.thaw import lake_level
 from game.weather import Weather
 from game.world import World
 from game.wrecks import Crate, Wreck
@@ -282,6 +284,7 @@ class GameState:
         self.wrecks_visited: set[int] = set()          # rank dos destroços que o player já chegou perto
         self.explore_timer = 0.0                       # o explorado atualiza a cada EXPLORE_INTERVAL
         self.weather = Weather(seed)                   # tempestade (v0.4): vento, rajadas e raio de visão
+        self.rain = Rain(seed)                         # chuva (v0.4 M3.3): pancadas na Névoa e no Verde
         self.events: list[tuple] = []
 
     # ---- camadas --------------------------------------------------------------
@@ -438,6 +441,8 @@ class GameState:
         storm = storm_level(self)
         if self.weather.update(dt, storm):
             self.events.append(("gust", storm))
+        if self.rain.update(dt, self.stage):           # pancada de chuva começou (só a partir da Névoa)
+            self.events.append(("rain", True))
 
         if self.fainted:
             self.ramp = None                  # desmaiou no meio do fade: acorda na cápsula, sem viagem
@@ -956,6 +961,7 @@ class GameState:
         """Despachante do derretimento: tudo o que o índice muda no mapa sobe aqui (nunca desce) e solta os eventos.
         Chamado no fim do _update_machines e depois do load (game/save.py, que descarta os eventos do load)."""
         self._thaw_gates()
+        self._thaw_lake()
 
     def _thaw_gates(self) -> None:
         """M3.2: cada gelo-portão sobe pra etapa do calor (thaw.gate_stage), troca a pegada C.FORMATION no mapa da
@@ -975,6 +981,24 @@ class GameState:
             surface.gate_ice[i] = new
             for stage in range(old + 1, new + 1):
                 self.events.append(("gate_thaw", i, stage))
+
+    def _thaw_lake(self) -> None:
+        """M3.3: a água das bacias sobe com o índice de água (thaw.lake_level), só a partir da Névoa. O nível anda
+        em degraus de C.LAKE_STEP (o render e o mapa refazem a água poucas vezes por minuto), mas cada marca
+        L1/L2/L3 é batida exata e solta ("lake_rise", k) uma vez."""
+        surface = self.surface
+        if surface.geo is None or self.stage < C.MIST_STAGE:
+            return
+        old = surface.water_level
+        target = lake_level(self.indices["water"])
+        if target <= old:
+            return
+        crossed = [k for k, level in enumerate(C.GEO_LEVELS) if old < level <= target]
+        if not crossed and target - old < C.LAKE_STEP:
+            return
+        surface.water_level = target
+        for k in crossed:
+            self.events.append(("lake_rise", k))
 
     def _check_stage(self) -> None:
         new_stage = stage_for_ti(self.ti)

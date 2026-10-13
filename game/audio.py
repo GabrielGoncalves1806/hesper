@@ -10,6 +10,8 @@ Canais reservados (o pygame não usa eles pra efeitos comuns):
     4 e 5 = loop das 2 drills trabalhando mais perto
     6 e 7 = loop dos 2 drones voando mais perto
     8     = zumbido do painel solar mais perto
+    9     = vento do deserto
+    10    = chuva (v0.4 M3.3, amb_rain.wav: volume = intensidade da chuva)
 """
 
 import random
@@ -103,6 +105,11 @@ def gust_gain(storm: float) -> float:
     return max(0.0, min(1.0, storm))
 
 
+def rain_volume(intensity: float) -> float:
+    """Loop da chuva (amb_rain): VOLUME['amb_rain'] × intensidade (0..1). Sem amb_rain.wav fica em silêncio."""
+    return VOLUME.get("amb_rain", 1.0) * max(0.0, min(1.0, intensity))
+
+
 def hum_volume(distance_tiles: float | None) -> float:
     """Zumbido pela máquina mais próxima: cheio até 2 tiles, some a partir de 8."""
     if distance_tiles is None:
@@ -162,7 +169,7 @@ class Audio:
             if not pygame.mixer.get_init():
                 pygame.mixer.init(44100, -16, 2, 512)
             pygame.mixer.set_num_channels(16)
-            pygame.mixer.set_reserved(10)
+            pygame.mixer.set_reserved(11)
             self.amb = [pygame.mixer.Channel(0), pygame.mixer.Channel(1)]
             self.alarm_channel = pygame.mixer.Channel(2)
             self.hum_channel = pygame.mixer.Channel(3)
@@ -175,6 +182,8 @@ class Audio:
             # vento do deserto (v0.3): canal próprio (não os A/B do crossfade, senão a troca de estágio
             # corta o vento). Toca em loop sempre; só o volume sobe/desce (não reinicia indo e voltando).
             self.wind_channel = pygame.mixer.Channel(9)
+            self.rain_channel = pygame.mixer.Channel(10)   # chuva (v0.4 M3.3): loop com o volume da intensidade
+            self._rain_on = [False]
             self.ok = True
         except pygame.error as err:
             print(f"[audio] sem áudio ({err}). Seguindo em silêncio.")
@@ -306,6 +315,11 @@ class Audio:
         """Um canal só, com o volume do painel solar mais perto."""
         if self.ok:
             self._set_loops("solar_hum", [self.solar_channel], self._solar_on, [volume])
+
+    def set_rain(self, volume: float) -> None:
+        """Loop da chuva (amb_rain.wav, pendente do Som) com o volume da intensidade. Sem o arquivo, silêncio."""
+        if self.ok:
+            self._set_loops("amb_rain", [self.rain_channel], self._rain_on, [volume])
 
     def _set_loops(self, name: str, channels, on: list[bool], volumes: list[float]) -> None:
         """Loop `name` em vários canais, um volume por canal. Volume 0 = some com fadeout(400)."""

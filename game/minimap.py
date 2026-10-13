@@ -25,6 +25,7 @@ TILE_COLORS = {
 }
 VEIN_COLORS = {"iron": (232, 160, 102), "silicon": (195, 209, 226), "ice": (166, 236, 255)}
 UNSEEN = (0, 0, 0)
+WATER_COLOR = (63, 118, 144)            # v0.4 M3.3: lago nas bacias (a água da Névoa, PALETTES["mist"]["water"])
 
 
 def _region_colors() -> tuple[tuple, tuple]:
@@ -54,6 +55,8 @@ def tile_color(world, x: int, y: int) -> tuple[int, int, int]:
         return VEIN_COLORS[vein.resource]
     kind = world.get(x, y)
     geo = getattr(world, "geo", None)
+    if geo is not None and world.is_water(x, y, C.GREEN_STAGE):   # lago (com geo, o estágio não importa)
+        return WATER_COLOR
     if geo is not None and kind in (C.SAND, C.ROCK):
         return (REGION_COLORS if kind == C.SAND else REGION_ROCK_COLORS)[geo.region[y, x]]
     return TILE_COLORS.get(kind, (92, 84, 80))
@@ -62,6 +65,7 @@ def tile_color(world, x: int, y: int) -> tuple[int, int, int]:
 class Minimap:
     def __init__(self):
         self._tex: dict[str, tuple[int, pygame.Surface]] = {}   # camada -> (id do mundo, textura)
+        self._water: dict[str, float] = {}                       # camada -> nível d'água com que foi pintada
 
     def reset(self) -> None:
         """Jogo novo/carregado: esquece as texturas (o App chama no start_game)."""
@@ -73,7 +77,7 @@ class Minimap:
         layer = state.layers[key]
         world, explored = layer.world, layer.explored
         cached = self._tex.get(key)
-        if cached is None or cached[0] != id(world):            # jogo novo/carregado: pinta do zero
+        if cached is None or cached[0] != id(world):            # jogo novo/carregado: pinta do zero (com a água)
             # opaca de propósito: ela vai pra janela (minimapa e mapa aberto) e, no formato padrão (ARGB no
             # macOS), o recorte dela nasce com SRCALPHA e o alfa vira 0 no caminho (o mapa saía preto)
             surf = opaque((world.width, world.height))
@@ -85,8 +89,16 @@ class Minimap:
                     surf.set_at((x, y), tile_color(world, x, y))
             explored.take_fresh()
             self._tex[key] = (id(world), surf)
+            self._water[key] = getattr(world, "water_level", -1.0)
             return surf
         surf = cached[1]
+        level = getattr(world, "water_level", -1.0)
+        if level != self._water.get(key) and world.geo is not None:   # o lago subiu: repinta só as bacias vistas
+            self._water[key] = level
+            ys, xs = (world.geo.basin >= 0).nonzero()
+            for x, y in zip(xs.tolist(), ys.tolist()):
+                if explored.seen(x, y):
+                    surf.set_at((x, y), tile_color(world, x, y))
         for x, y in explored.take_fresh():
             surf.set_at((x, y), tile_color(world, x, y))
         return surf

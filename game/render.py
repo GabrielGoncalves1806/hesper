@@ -38,6 +38,7 @@ from game.assets import Sprites
 from game.ground import decor_layers, decor_tile_free
 from game.lighting import LightSource, Lighting, helmet_lamp, lamp as lamp_light, ore_glints
 from game.minimap import Minimap
+from game.rain import RainDrops, rain_level
 from game.surfaces import opaque
 from game.systems import GameState, Mining
 from game.transition import BASE_SOURCE, StageMap
@@ -142,6 +143,7 @@ class Renderer:
         self.storm_dust = dust.DustLayer()              # poeira da tempestade (v0.4): nuvens + visão
         # grãos da tempestade: sorteados pela seed do mundo (trocou de mundo, troca junto: use_seed)
         self.storm_particles = dust.DustParticles(seed=C.WORLD_SEED)
+        self.rain_drops = RainDrops(seed=C.WORLD_SEED)  # traços da chuva (v0.4 M3.3, game/rain.py)
         self.seed = C.WORLD_SEED                 # seed do mundo que está sendo desenhado
         self._fade_cache: dict[str, tuple[int, pygame.Surface]] = {}   # clima esmaecido (ver _faded)
         # Relógio das animações das máquinas: o App soma dt × fator da energia (game/energy.py).
@@ -153,7 +155,9 @@ class Renderer:
         self.shadow_left = pygame.Surface((4, T), pygame.SRCALPHA)
         self.shadow_left.fill((0, 0, 0, 40))
         self.water_tiles = autotile.WaterTiles()   # tiles de água já montados (≤ 47 por estágio)
-        self._wet_memo: dict[tuple[int, int], bool] = {}   # água por tile, zerado a cada frame
+        # água por tile: com geo (lago nas bacias, M3.3) vale até o nível d'água mudar; sem geo, só um frame
+        self._wet_memo: dict[tuple[int, int], bool] = {}
+        self._wet_key = None                       # (id do mundo, water_level) do memo; None = zera a cada frame
         self.outline_h = pygame.Surface((T, 1), pygame.SRCALPHA)
         self.outline_h.fill((0, 0, 0, 90))
         self.outline_v = pygame.Surface((1, T), pygame.SRCALPHA)
@@ -304,6 +308,7 @@ class Renderer:
         else:
             self.draw_lighting(canvas, state, cam, stage, t)
             self.draw_atmosphere(canvas, stage, t)
+            self.draw_rain(canvas, state, t)
             self.draw_storm(canvas, state, cam, t)
         # 6. indicadores por cima da luz (no escuro da caverna eles têm que aparecer): barrinha das
         #    drills e raio de "sem energia". Ficam no mundo, então crescem com o zoom.
@@ -316,6 +321,7 @@ class Renderer:
         self.seed = seed
         self.surface_map = StageMap(seed)
         self.storm_particles = dust.DustParticles(seed=seed)
+        self.rain_drops = RainDrops(seed=seed)
 
     def draw_storm(self, canvas, state: GameState, cam, t: float) -> None:
         """Tempestade de poeira (game/dust.py): poeira com a visão recortada + grãos e faixas de vento.
@@ -329,6 +335,11 @@ class Renderer:
         lights = dust.vision_lights(state, cam, view_tiles * T)
         (px, py, view_px), extra = lights[0], lights[1:]
         self.storm_dust.apply(canvas, cam, storm, gust, view_px, extra, (px, py), self.storm_particles, wind)
+
+    def draw_rain(self, canvas, state: GameState, t: float) -> None:
+        """Chuva (v0.4 M3.3, game/rain.py): véu frio + traços no ângulo do vento, por cima do clima do estágio e
+        por baixo dos indicadores e da HUD. Só na superfície; sem chuva, nada (custo zero)."""
+        self.rain_drops.draw(canvas, rain_level(state), state.weather.wind, t)
 
     def draw_cave_darkness(self, canvas, state: GameState, cam, t: float) -> None:
         """Escuridão da caverna (game/lighting.py) e, por cima, o brilho dos minérios no escuro."""
@@ -354,7 +365,7 @@ class Renderer:
         geo = self.surface_geo(state)
         if geo is not None:   # chão assado em blocos de 512 px (game/ground.py); por tile só água e sombra
             self.ground.draw(canvas, geo, cam, (self.view_w, self.view_h), self.stage_map)
-            self._wet_memo.clear()
+            self.sync_water(world)
             shadows = not self.organic_hills(state)   # morro orgânico: a face curva já faz a borda (sem sombra quadrada)
             for ty in range(ty0, ty1 + 1):
                 for tx in range(tx0, tx1 + 1):
@@ -362,7 +373,7 @@ class Renderer:
                         self._floor_overlays(canvas, world, tx, ty, tx * T - cam[0], ty * T - cam[1], t, shadows)
             return
         backstop = C.PALETTES[stage]["face_dark"]
-        self._wet_memo.clear()   # cada vizinho é consultado por até 9 tiles: guarda só neste frame
+        self.sync_water(world)   # cada vizinho é consultado por até 9 tiles (sem geo: guarda só neste frame)
         # Morro orgânico (v0.4): a silhueta arredonda nos cantos e não cobre o tile inteiro, então embaixo da
         # parede vai chão (e sem a sombra retangular da parede: quem faz a borda agora é a face curva)
         organic = self.organic_hills(state)
@@ -597,7 +608,7 @@ class Renderer:
             canvas.blit(self.shadow_left, (sx, sy))
 
     def _floor_overlays(self, canvas, world, tx, ty, sx, sy, t, wall_shadows=True) -> None:
-        """Por cima do chão assado: a água de hoje (o Marco 3 troca pelas bacias) e a sombra das paredes."""
+        """Por cima do chão assado: a água (o lago nas bacias, M3.3) e a sombra das paredes."""
         if self._wet(world, tx, ty):
             self._draw_water(canvas, world, tx, ty, sx, sy, art_key(self.stage_map.stage_at(tx, ty)), t)
         if wall_shadows and world.is_wall(tx, ty - 1):
@@ -606,6 +617,15 @@ class Renderer:
             canvas.blit(self.shadow_left, (sx, sy))
 
     # ---- água (autotile A2, ver game/autotile.py) ------------------------------
+    def sync_water(self, world) -> None:
+        """Zera o memo da água quando ela pode ter mudado. Com geo (lago nas bacias, M3.3), a água só depende do
+        `water_level` (o estágio não entra, e nas bacias nada é minerado nem nasce): o memo vale entre frames e é
+        zerado quando o nível ou o mundo mudam (umas poucas vezes por minuto). Sem geo, zera todo frame."""
+        key = (id(world), world.water_level) if world.geo is not None else None
+        if key is None or key != self._wet_key:
+            self._wet_memo.clear()
+        self._wet_key = key
+
     def _wet(self, world, x: int, y: int) -> bool:
         """Água no tile, no estágio visual DELE (na transição, o vizinho pode estar em outro estágio)."""
         key = (x, y)

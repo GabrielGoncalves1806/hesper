@@ -16,6 +16,8 @@ import random
 from collections import deque
 from dataclasses import dataclass
 
+import numpy as np
+
 from game import config as C
 
 
@@ -45,6 +47,10 @@ def value_noise(x: float, y: float, seed: int) -> float:
 # ---------------------------------------------------------------------------
 # Mundo
 # ---------------------------------------------------------------------------
+# Tiles que o lago das bacias cobre (M3.3): o chão e a rocha pequena (que fica com o pé na água)
+LAKE_TILES = frozenset(C.FLOOR_TILES | set(C.SMALL_ROCKS))
+
+
 @dataclass(frozen=True)
 class Vein:
     """Veio de minério 2×2 no chão. (tx, ty) é o tile de cima à esquerda."""
@@ -88,6 +94,10 @@ class World:
         self.keep_clear: frozenset[tuple[int, int]] = frozenset()
         # v0.4 Marco 3 · M3.2: contêineres lacrados (tile C.CONTAINER), um no container_spot de cada bolsão
         self.containers: list[tuple[int, int]] = []
+        # v0.4 Marco 3 (M3.3, só com geo): até que altura (escala do geo.height) a água das bacias subiu. Derivado do
+        # índice de água (game/thaw.py · lake_level, GameState._apply_thaw), não vai no save. -1 = seco.
+        self.water_level = -1.0
+        self._geo_rows = None                                     # (altura, bacia, beira) em listas (ver _rows)
 
     # ---- geração ----------------------------------------------------------
     @classmethod
@@ -294,8 +304,24 @@ class World:
         cx, cy = self.center
         return math.hypot(tx + 0.5 - cx, ty + 0.5 - cy)
 
+    def _rows(self):
+        """Altura, bacia e "beira d'água" do geo em listas de listas (consulta por tile bem mais barata que o
+        numpy, e o render pergunta centenas de vezes por quadro). Calculado uma vez por geo."""
+        if self._geo_rows is None:
+            geo = self.geo
+            basin = geo.basin >= 0
+            r = C.LAKE_SHORE
+            pad = np.pad(basin, r)
+            h, w = basin.shape
+            shore = np.zeros_like(basin)
+            for dy in range(2 * r + 1):              # quadrado de lado 2r+1 em volta (dilatação do mapa das bacias)
+                for dx in range(2 * r + 1):
+                    shore |= pad[dy:dy + h, dx:dx + w]
+            self._geo_rows = (geo.height.tolist(), basin.tolist(), shore.tolist())
+        return self._geo_rows
+
     def _low_wet(self, tx: int, ty: int, stage: int) -> bool:
-        """Água "crua": chão baixo o bastante pro estágio (antes da suavização do is_water)."""
+        """Água "crua": chão baixo o bastante pro estágio (antes da suavização do is_water). Só sem geo."""
         if stage < C.MIST_STAGE or not self.terraforms or not (0 <= tx < self.width and 0 <= ty < self.height):
             return False
         if self.lowness[ty][tx] >= C.WATER_THRESHOLD[stage]:   # o teste mais barato primeiro
@@ -305,12 +331,26 @@ class World:
         return self.dist_from_center(tx, ty) >= 7
 
     def is_water(self, tx: int, ty: int, stage: int) -> bool:
-        """Poça cosmética (dá pra andar por cima). Só a partir da Névoa, em chão 'baixo', e cresce com o estágio.
+        """Água no tile (dá pra andar por cima).
 
-        Suavização (pra não sair água em xadrez ou ligada só pela quina): um tile de água crua só fica
-        se tem um vizinho de lado que também é água, OU se é uma gota sozinha (nenhuma água nem nas
-        diagonais). A checagem da gota olha o último estágio (Verde), assim a água de um estágio está sempre dentro
-        da do estágio seguinte (as rochas que reaparecem e as plantas usam `is_water(..., C.GREEN_STAGE)` como "lago futuro")."""
+        COM GEO (a superfície do v0.4, Marco 3): lago nas bacias. É água o tile de chão com `geo.height` abaixo do
+        `water_level` (que sobe com o índice de água). O `stage` é ignorado e não tem nada aleatório: a água enche
+        das partes mais fundas pra fora e nunca sai de uma bacia (o nível para em L3). A rocha pequena que estava
+        no leito fica com o pé na água (a água passa por baixo dela). Veio, formação (a crosta de sal vira ilhota) e
+        a base (sempre acima de L3) ficam secos.
+
+        SEM GEO (testes antigos; a caverna nunca terraforma): a poça de antes, pelo `lowness`, só a partir da Névoa
+        e crescendo com o estágio. Suavização (pra não sair água em xadrez ou ligada só pela quina): um tile de
+        água crua só fica se tem um vizinho de lado que também é água, OU se é uma gota sozinha (nenhuma água nem
+        nas diagonais). A checagem da gota olha o último estágio (Verde), assim a água de um estágio está sempre
+        dentro da do estágio seguinte."""
+        if self.geo is not None:
+            level = self.water_level
+            if level <= 0 or not self.terraforms or not (0 <= tx < self.width and 0 <= ty < self.height):
+                return False
+            if self._rows()[0][ty][tx] >= level:
+                return False
+            return self.tiles[ty][tx] in LAKE_TILES and (tx, ty) not in self._vein_tiles
         if not self._low_wet(tx, ty, stage):
             return False
         low = self._low_wet
@@ -320,14 +360,35 @@ class World:
         return not (low(tx - 1, ty - 1, top) or low(tx + 1, ty - 1, top)
                     or low(tx - 1, ty + 1, top) or low(tx + 1, ty + 1, top))
 
+    def future_water(self, tx: int, ty: int) -> bool:
+        """"Lago futuro": onde a água pode chegar um dia (rochas que reaparecem e plantas evitam). Com geo, é o chão
+        de bacia; sem geo, a água do último estágio (Verde)."""
+        if self.geo is None:
+            return self.is_water(tx, ty, C.GREEN_STAGE)
+        if not self.terraforms or not (0 <= tx < self.width and 0 <= ty < self.height):
+            return False
+        return self._rows()[1][ty][tx] and self.tiles[ty][tx] in C.FLOOR_TILES
+
+    def near_shore(self, tx: int, ty: int) -> bool:
+        """Com geo: o tile está a até C.LAKE_SHORE tiles (num quadrado) de uma bacia. Sem geo: False."""
+        if self.geo is None or not (0 <= tx < self.width and 0 <= ty < self.height):
+            return False
+        return self._rows()[2][ty][tx]
+
     def plant_at(self, tx: int, ty: int) -> str | None:
-        """Planta decorativa do estágio Verde (sem colisão). Retorna 'bush', 'tree', 'flower' ou None."""
+        """Planta decorativa do estágio Verde (sem colisão). Retorna 'bush', 'tree', 'flower' ou None.
+        Com geo (M3.3), as plantas se juntam na beira d'água: C.PLANT_CHANCE_SHORE até C.LAKE_SHORE tiles da bacia
+        e C.PLANT_CHANCE_FAR longe dela. Sem geo, C.PLANT_CHANCE em todo lugar."""
         if not self.terraforms or not self.is_floor(tx, ty) or self.dist_from_center(tx, ty) < 7 \
-                or self.is_water(tx, ty, C.GREEN_STAGE):
+                or self.future_water(tx, ty):
             return None
         if (tx, ty) in self._vein_tiles:      # nem planta em cima de veio
             return None
-        if hash01(tx, ty, self.seed + 99) >= C.PLANT_CHANCE:
+        if self.geo is None:
+            chance = C.PLANT_CHANCE
+        else:
+            chance = C.PLANT_CHANCE_SHORE if self.near_shore(tx, ty) else C.PLANT_CHANCE_FAR
+        if hash01(tx, ty, self.seed + 99) >= chance:
             return None
         k = hash01(tx, ty, self.seed + 98)
         return "bush" if k < 0.4 else "tree" if k < 0.68 else "flower"

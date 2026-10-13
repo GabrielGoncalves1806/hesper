@@ -269,6 +269,30 @@ RATE_SMOOTHING = 3.0   # segundos da média móvel da taxa de Ti usada na estima
 WATER_THRESHOLD = {1: 0.0, 2: 0.0, 3: 0.24, 4: 0.33}   # Tempestade e Árido não têm água nenhuma (§3)
 PLANT_CHANCE = 0.11   # estágio Verde: chance de um tile de chão ter planta
 
+# ---- v0.4 Marco 3 (M3.3): lagos nas bacias e chuva (números de partida; balanceamento no Marco 4) ----
+# Lago: o índice de água (ppm) em que a água chega em cada marca do geo (GEO_LEVELS L1, L2, L3). Abaixo do 1º,
+# seco; entre eles, a altura da água interpola; acima do último, fica em L3. Só a partir da Névoa (§3).
+LAKE_WATER = (3000, 15000, 40000)
+LAKE_STEP = 0.004            # a água só sobe de LAKE_STEP em LAKE_STEP de altura (o render e o mapa refazem pouco)
+LAKE_SHORE = 3               # tiles: plantas na beira d'água (ou da bacia) até essa distância
+PLANT_CHANCE_SHORE = 0.30    # Verde, com geo: chance de planta na beira d'água
+PLANT_CHANCE_FAR = 0.05      # Verde, com geo: chance de planta longe da água
+# Chuva (game/rain.py): pancadas determinísticas pela seed. Intervalo de começo a começo, duração e 1ª pancada
+# depois de entrar na Névoa. No Verde, mais curtas.
+RAIN_MIST_LEN = (30.0, 60.0)
+RAIN_MIST_EVERY = (60.0, 120.0)
+RAIN_GREEN_LEN = (15.0, 30.0)
+RAIN_GREEN_EVERY = (60.0, 120.0)
+RAIN_FIRST = (15.0, 40.0)
+RAIN_RAMP = 2.0              # s pra intensidade ir de 0 a 1 (e de 1 a 0)
+RAIN_MAX_DROPS = 300         # traços na tela com a chuva cheia
+RAIN_SPEED = 620.0           # px/s da queda
+RAIN_SLANT = 0.45            # quanto o vento entorta a queda (vx = vento.x × RAIN_SPEED × RAIN_SLANT)
+RAIN_LEN = (10, 18)          # px de cada traço
+RAIN_ALPHA = (70, 130)       # alfa dos traços
+RAIN_TINT = 34               # alfa máximo do véu cinza-azulado com a chuva cheia
+VOLUME["amb_rain"] = 1.0    # loop da chuva (amb_rain.wav, pendente do Som): volume = intensidade da chuva
+
 # ---------------------------------------------------------------------------
 # Lore (§2)
 # ---------------------------------------------------------------------------

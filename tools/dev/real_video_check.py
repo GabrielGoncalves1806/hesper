@@ -34,7 +34,7 @@ CELL = 40                 # lado da célula da grade (px da janela 960×540): 24
 BLACK_MAX = 12            # canal <= isso conta como "preto"
 BLACK_SLACK = 0.25        # o real pode ter até +25% de preto numa célula sem falhar (partículas, cursor)
 CLEAR_SLACK = 0.01        # alfa < 255 em mais de 1% da célula já é bug (a janela é opaca)
-SCENES = ("titulo", "superficie", "chao_regioes", "morros", "formacoes", "cratera", "mapa_superficie", "tempestade", "mapa_tempestade", "inventario", "fabricador",
+SCENES = ("titulo", "superficie", "chao_regioes", "morros", "formacoes", "cratera", "chuva_lago", "mapa_superficie", "tempestade", "mapa_tempestade", "inventario", "fabricador",
           "bau", "opcoes", "caverna_escura", "mapa_caverna")
 
 
@@ -134,6 +134,17 @@ def run_worker(driver: str, out: Path) -> None:
     bot.mouse_to(mouse)
     smoke.ground_settle(bot, 0.3)
     bot.capture("cratera")
+    # lago no salar (L2, autotile por cima do chão assado) com chuva cheia (v0.4 M3.3: traços SRCALPHA + véu)
+    s.stage = C.MIST_STAGE
+    s.surface.water_level = C.GEO_LEVELS[1]
+    s.rain.left, s.rain.intensity = 1e9, 1.0
+    bot.teleport(smoke.lake_spots(s.world)["salar"])
+    s.o2 = C.O2_MAX
+    bot.mouse_to(mouse)
+    smoke.ground_settle(bot, 0.3)
+    bot.capture("chuva_lago")
+    s.rain.left, s.rain.intensity = 0.0, 0.0
+    s.surface.water_level = -1.0
     s.stage, s.storm = stage0, storm0
     s.indices.update(ind0)
     s.player.x, s.player.y = pos0

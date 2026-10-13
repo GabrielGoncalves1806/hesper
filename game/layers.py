@@ -56,6 +56,16 @@ class Layer:
         return self.world.geo
 
     @property
+    def water_level(self) -> float:
+        """v0.4 Marco 3 (M3.3): até que altura do geo a água das bacias subiu (-1 = seco). Derivado do índice de
+        água no GameState._apply_thaw (não vai no save); mora no World, que é quem responde o is_water."""
+        return self.world.water_level
+
+    @water_level.setter
+    def water_level(self, value: float) -> None:
+        self.world.water_level = value
+
+    @property
     def has_base(self) -> bool:
         """A cápsula (e a zona de O₂) fica na superfície."""
         return self.key == SURFACE

@@ -153,9 +153,17 @@ def _diagonal_only(world, stage):
     return bad
 
 
+def _lowness_world() -> World:
+    """Mundo SEM geo com as poças antigas pelo `lowness` (o mapa da caverna com terraforms ligado). A superfície do
+    v0.4 tem geo e a água dela é o lago nas bacias (M3.3, tests/test_lakes.py): a suavização só vale aqui."""
+    world = World.generate(C.WORLD_SEED)
+    world.terraforms = True
+    return world
+
+
 @pytest.mark.parametrize("stage", [3, 4])
 def test_no_water_tile_touches_others_only_by_the_corner(stage):
-    world = generate_surface(C.WORLD_SEED)
+    world = _lowness_world()
     assert not _diagonal_only(world, stage)
     # e nenhuma água sozinha com vizinho na diagonal (xadrez)
     for y in range(world.height):
@@ -179,9 +187,13 @@ def test_smoothing_rules_on_a_handmade_field():
     assert wet == {(8, 2), (9, 2), (3, 9)}
 
 
-def test_mist_water_is_inside_green_water_on_the_surface():
+def test_lake_at_l1_is_inside_the_lake_at_l3_on_the_surface():
+    """M3.3: na superfície (com geo) a água é o lago nas bacias e só cresce com o nível (antes: a poça da Névoa
+    dentro da do Verde, pelo `lowness`)."""
     world = generate_surface(C.WORLD_SEED)
     tiles = [(x, y) for y in range(world.height) for x in range(world.width)]
-    mist = {t for t in tiles if world.is_water(*t, C.MIST_STAGE)}
-    green = {t for t in tiles if world.is_water(*t, C.GREEN_STAGE)}
-    assert mist and mist <= green
+    world.water_level = C.GEO_LEVELS[0]
+    low = {t for t in tiles if world.is_water(*t, C.MIST_STAGE)}
+    world.water_level = C.GEO_LEVELS[2]
+    high = {t for t in tiles if world.is_water(*t, C.MIST_STAGE)}
+    assert low and low < high

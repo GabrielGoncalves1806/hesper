@@ -50,6 +50,8 @@ def clear_saves() -> None:
 # Tempestade (v0.4): sem rajada sorteada no smoke. Uma rajada no meio de outra cena empurra o player e
 # quebra posições e dicas; quem quer rajada (check_storm_gust) liga ela na mão, no pico e sem fim.
 C.STORM_GUST_FIRST = C.STORM_GUST_EVERY = (1e9, 1e9)
+# Chuva (v0.4 M3.3): pelo mesmo motivo, sem pancada sorteada; o check_rain liga a chuva na mão.
+C.RAIN_FIRST = C.RAIN_MIST_EVERY = C.RAIN_GREEN_EVERY = (1e9, 1e9)
 
 OUT = ROOT / "reports" / "dev"
 DT = 1 / 60
@@ -3129,61 +3131,141 @@ def check_wrecks(bot) -> None:
     bot.frames(0.2)
 
 
-def water_ponds(world, stage: int) -> list[list[tuple[int, int]]]:
-    """Poças (componentes de água ligados pelos lados) da camada, no estágio dado."""
-    wet = {(x, y) for y in range(world.height) for x in range(world.width) if world.is_water(x, y, stage)}
-    ponds, seen = [], set()
-    for start in wet:
-        if start in seen:
-            continue
-        seen.add(start)
-        comp, stack = [], [start]
-        while stack:
-            x, y = stack.pop()
-            comp.append((x, y))
-            for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
-                if n in wet and n not in seen:
-                    seen.add(n)
-                    stack.append(n)
-        ponds.append(comp)
-    return ponds
+def lake_spots(world) -> dict[str, tuple[int, int]]:
+    """O tile mais fundo do salar e o de uma depressão do planalto (as bacias do geo)."""
+    import numpy as np
+
+    from game.geo import PLATEAU, SALAR
+    g = world.geo
+
+    def lowest(mask) -> tuple[int, int]:
+        y, x = np.unravel_index(np.argmin(np.where(mask, g.height, 9.0)), g.height.shape)
+        return int(x), int(y)
+    return {"salar": lowest((g.region == SALAR) & (g.basin >= 0)),
+            "planalto": lowest((g.region == PLATEAU) & (g.basin >= 0))}
 
 
-def check_water(bot, stage: int) -> None:
-    """Água com autotile (poça de cantos redondos, não quadrado): recorte de uma poça pequena na Névoa,
-    de um lago no Verde e a tela inteira em volta do lago, além da conta de quantos tiles compostos há."""
+def check_lakes(bot) -> None:
+    """M3.3: o lago nas bacias em L1, L2 e L3, no salar (esquerda) e numa depressão do planalto (direita). O nível
+    é forçado no World (no jogo ele sobe com o índice de água) e volta no fim."""
     s, app = bot.state, bot.app
-    w = s.world
-    key = C.STAGES[stage - 1].key
+    w = s.surface.world
+    level_before = w.water_level
+    assert level_before >= C.GEO_LEVELS[0], f"na Névoa com água {s.indices['water']:.0f} o lago devia estar no L1"
     back = (s.player.x, s.player.y)
     zoom_before = app.zoom
-    app.set_zoom(1.0, notify=False)
-    ponds = water_ponds(w, stage)
-    near = lambda comp: min(w.dist_from_center(*t) for t in comp)    # noqa: E731
-    assert ponds, f"nenhuma poça no estágio {stage}"
-    diag_only = [t for comp in ponds if len(comp) == 1 for t in comp
-                 if any(w.is_water(t[0] + dx, t[1] + dy, stage) for dx in (-1, 1) for dy in (-1, 1))]
-    assert not diag_only, f"água ligada só pela quina: {diag_only[:5]}"
-    if key == "mist":
-        comp = min((c for c in ponds if 3 <= len(c) <= 8), key=near)
-        name, crop = "agua_poca_mist.png", (200, 140)
-    else:
-        comp = min((c for c in ponds if len(c) >= 25), key=near)
-        name, crop = "agua_lago_green.png", (360, 240)
-    xs, ys = [t[0] for t in comp], [t[1] for t in comp]
-    mid = ((min(xs) + max(xs)) // 2, (min(ys) + max(ys)) // 2)
-    bot.teleport((mid[0], max(ys) + 2))
-    s.o2 = C.O2_MAX
-    bot.frames(0.2)
-    world_xy = ((min(xs) + max(xs) + 1) / 2 * C.TILE, (min(ys) + max(ys) + 1) / 2 * C.TILE)
-    shot_zoom(bot, name, world_xy, w=crop[0], h=crop[1], k=2)
-    print(f"  {len(ponds)} poças no estágio {key} · essa tem {len(comp)} tiles · "
-          f"{len(app.renderer.water_tiles)} tiles de água compostos em cache")
-    if key == "green":
-        bot.shot("agua_tela.png")
+    app.set_zoom(0.75, notify=False)
+    spots = lake_spots(w)
+    # no salar (que é enorme) o print fica na margem do L2 mais perto da base: dá pra ver a água avançando
+    import numpy as np
+
+    from game.geo import SALAR
+    g = w.geo
+    bx, by = C.BASE_TILE
+    ys, xs = np.mgrid[0:g.height.shape[0], 0:g.height.shape[1]]
+    score = np.where((g.region == SALAR) & (np.abs(g.height - C.GEO_LEVELS[1]) < 0.01),
+                     np.hypot(xs - bx, ys - by), 1e9)
+    y, x = np.unravel_index(np.argmin(score), score.shape)
+    spots["salar"] = (int(x), int(y))
+    for k in range(3):
+        w.water_level = C.GEO_LEVELS[k]
+        frames = []
+        for tx, ty in spots.values():
+            bot.teleport((tx, ty))
+            s.o2 = C.O2_MAX
+            ground_settle(bot, 0.15)
+            frames.append(app.frame.copy())
+        sheet = pygame.Surface((sum(f.get_width() for f in frames) + 8, frames[0].get_height()))
+        sheet.fill((20, 20, 24))
+        sheet.blit(frames[0], (0, 0))
+        sheet.blit(frames[1], (frames[0].get_width() + 8, 0))
+        wet = sum(w.is_water(x, y, C.MIST_STAGE) for y in range(w.height) for x in range(w.width))
+        pygame.image.save(sheet, str(OUT / f"m33_lago_L{k + 1}.png"))
+        print(f"  screenshot: reports/dev/m33_lago_L{k + 1}.png  (salar · depressão do planalto; nível "
+              f"{C.GEO_LEVELS[k]:g}, {wet} tiles de água)")
+    w.water_level = level_before
     s.player.x, s.player.y = back
     app.set_zoom(zoom_before, notify=False)
     s.o2 = C.O2_MAX
+    bot.frames(0.1)
+
+
+def check_rain(bot) -> None:
+    """M3.3: chuva na Névoa (pancada forçada no state.rain) e o custo dela no frame."""
+    from game.rain import RainDrops
+    s, app = bot.state, bot.app
+    rain = s.rain
+    back = (s.player.x, s.player.y)
+    zoom_before = app.zoom
+    tx, ty = lake_spots(s.surface.world)["planalto"]
+    spot = (tx, ty + 6)
+
+    def walk(zoom: float) -> float:
+        app.set_zoom(zoom, notify=False)
+        bot.teleport(spot)
+        bot.frames(0.1)
+        start = len(bot.frame_times)
+        for key in (pygame.K_d, pygame.K_s, pygame.K_a, pygame.K_w) * 2:
+            s.o2 = s.o2_max
+            bot.key(key, hold=0.4)
+        ft = bot.frame_times[start:]
+        return sum(ft) / len(ft)
+
+    def set_rain(on: bool) -> None:
+        rain.left = 1e9 if on else 0.0
+        rain.intensity = 1.0 if on else 0.0
+
+    # alternado, 2 rodadas de cada; vale a melhor média de cada lado (o relógio da máquina oscila)
+    dry, wet = {}, {}
+    for _ in range(2):
+        for z in (1.0, 0.75):
+            set_rain(False)
+            dry[z] = min(dry.get(z, 1.0), walk(z))
+            set_rain(True)
+            wet[z] = min(wet.get(z, 1.0), walk(z))
+    for z in (1.0, 0.75):
+        print(f"  perf chuva cheia, zoom {z:g}×: média {wet[z] * 1000:.1f} ms "
+              f"(sem chuva {dry[z] * 1000:.1f} ms, {(wet[z] - dry[z]) * 1000:+.1f} ms; orçamento 16,7 ms)")
+        assert wet[z] < 1 / 60, f"chuva no zoom {z:g} passou do orçamento de 16,7 ms"
+    print(f"  traços com a chuva cheia: {RainDrops.count(1.0)} (teto {C.RAIN_MAX_DROPS})")
+    app.set_zoom(1.0, notify=False)
+    bot.teleport(spot)
+    s.o2 = s.o2_max
+    bot.frames(0.6)
+    bot.shot("m33_chuva_nevoa.png")
+    set_rain(False)
+    app.set_zoom(zoom_before, notify=False)
+    s.player.x, s.player.y = back
+    s.o2 = C.O2_MAX
+    bot.frames(0.1)
+
+
+def check_shore_plants(bot) -> None:
+    """M3.3: no Verde as plantas se juntam na beira d'água (até 3 tiles da bacia) e rareiam longe dela."""
+    s, app = bot.state, bot.app
+    w = s.surface.world
+    assert w.water_level >= C.GEO_LEVELS[1], f"no Verde (água {s.indices['water']:.0f}) o lago devia passar do L2"
+    tx, ty = lake_spots(w)["planalto"]
+    shore = far = shore_p = far_p = 0
+    for y in range(w.height):
+        for x in range(w.width):
+            if not w.is_floor(x, y) or w.future_water(x, y) or w.dist_from_center(x, y) < 7:
+                continue
+            plant = w.plant_at(x, y) is not None
+            if w.near_shore(x, y):
+                shore, shore_p = shore + 1, shore_p + plant
+            else:
+                far, far_p = far + 1, far_p + plant
+    print(f"  plantas: beira d'água {shore_p}/{shore} ({shore_p / shore:.0%}) · longe {far_p}/{far} ({far_p / far:.0%})")
+    back = (s.player.x, s.player.y)
+    zoom_before = app.zoom
+    app.set_zoom(0.75, notify=False)
+    bot.teleport((tx, ty))                       # o meio da depressão: o lago inteiro e a beira em volta
+    s.o2 = C.O2_MAX
+    ground_settle(bot, 0.2)
+    bot.shot("m33_plantas_margem_verde.png")
+    s.player.x, s.player.y = back
+    app.set_zoom(zoom_before, notify=False)
     bot.frames(0.1)
 
 
@@ -3400,7 +3482,8 @@ def main() -> None:
     s.indices["o2"] += 12_914 - s.ti          # exemplo do dono: Ti 12.914 = ~3% da Névoa
     bot.key(pygame.K_d, hold=0.5)
     bot.shot("stage2.png")
-    check_water(bot, C.MIST_STAGE)
+    check_lakes(bot)
+    check_rain(bot)
     give(s, iron=40, silicon=30, ice=20)
     bot.key(pygame.K_e)
     bot.frames(0.2)
@@ -3425,7 +3508,7 @@ def main() -> None:
     bot.key(pygame.K_a, hold=1.0)
     bot.frames(1.0)
     bot.shot("stage3_explorando.png")
-    check_water(bot, C.GREEN_STAGE)
+    check_shore_plants(bot)
 
     print("7) tamanho da interface")
     check_ui_size(bot)
