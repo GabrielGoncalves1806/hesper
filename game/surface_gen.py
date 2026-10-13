@@ -20,9 +20,11 @@ Python puro (sem pygame), testado em tests/test_surface_gen.py.
 import math
 import random
 
+import numpy as np
+
 from game import config as C
 from game import wrecks as wreck_gen
-from game.geo import REGION_NAMES, generate_geo
+from game.geo import REGION_NAMES, add_vents, generate_geo
 from game.world import Vein, World, hash01, value_noise
 
 _cache: dict[int, World] = {}
@@ -113,6 +115,9 @@ def _build(seed: int) -> World:
         for x in range(W):
             if world.dist_from_center(x, y) < C.SURFACE_CLEAR_RADIUS:
                 world.tiles[y][x] = C.SAND
+    # v0.4 M3.1: fumarolas do basalto depois dos morros (no chão livre; os morros não mudam) e o keep_clear de novo
+    add_vents(geo, world.center, np.array(world.tiles, dtype=np.int16) == C.SAND)
+    world.keep_clear = frozenset(_keep_clear(geo))
     for f in geo.formations:                     # a pegada bloqueia; quem desenha é o objeto da formação
         for t in f.tiles:
             world.set(*t, C.FORMATION)
@@ -365,6 +370,8 @@ def _outcrops(world: World) -> None:
     minério da região (OUTCROP_ORE). Nunca no vão do arco, e espaçadas (nenhuma encosta na outra pelo lado)."""
     for i, f in enumerate(world.geo.formations):
         if f.kind == "ice_gate":
+            continue
+        if f.kind.startswith("vent_"):           # M3.1: fumarola é formação pequena (sem afloramento)
             continue
         rng = random.Random(world.seed * 6151 + i * 97 + 3)
         box = set(f.box)

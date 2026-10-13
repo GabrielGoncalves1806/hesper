@@ -947,6 +947,30 @@ class UI:
         self.tx("RAJADA", x + 18, y - 1, C.C_ACCENT)
         self.gust_rect = pygame.Rect(x, y, w, h)
 
+    THAW_ICE = "#9fd8ec"            # gelo (ícone e barrinha do aviso do degelo: neutro, sem o laranja da RAJADA)
+
+    def draw_thaw_notice(self, text: str, alpha: float) -> None:
+        """v0.4 M3.1: pílula no estilo da RAJADA, só que neutra (barra e cristal de gelo em azul-gelo, texto claro),
+        logo abaixo da coluna do O₂/objetivo (e abaixo da RAJADA, se ela estiver na tela). Some com `alpha`."""
+        if not text or alpha <= 0:
+            return
+        y = (self.gust_rect.bottom if self.gust_rect is not None else self.left_bottom) + 4
+        x, h = 6, self.GUST_H
+        w = self.body.size(text)[0] + 22
+        layer = pygame.Surface((w, h + 1), pygame.SRCALPHA)
+        self.card(0, 0, w, h, B_HUD, target=layer)
+        self.fill(self.THAW_ICE, (0, 1, 2, h - 2), layer)
+        cx, cy = 10, h // 2                                   # cristal de gelo: 3 traços cruzados
+        self.fill(self.THAW_ICE, (cx - 3, cy, 7, 1), layer)
+        self.fill(self.THAW_ICE, (cx, cy - 3, 1, 7), layer)
+        for d in (-2, -1, 1, 2):
+            self.fill(B_TEXT, (cx + d, cy + d, 1, 1), layer)
+            self.fill(B_TEXT, (cx + d, cy - d, 1, 1), layer)
+        self.tx(text, 18, 1, B_TEXT, self.body, target=layer)
+        layer.set_alpha(round(255 * min(1.0, alpha)))
+        self.surf.blit(layer, (x, y))
+        self.hud_rects.append(pygame.Rect(x, y, w, h))
+
     def draw_floaters(self, floaters: FloatingTexts, cam: tuple[int, int], zoom: float = 1.0,
                       labels: list[pygame.Rect] = ()) -> None:
         """Textos presos num ponto do mundo: a posição acompanha o zoom, o tamanho da letra não

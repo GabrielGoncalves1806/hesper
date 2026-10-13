@@ -377,6 +377,8 @@ def state_from_dict(data: dict) -> GameState:
     if layer not in state.layers:
         raise ValueError(f"camada ativa sem dados: {layer!r}")
     state.layer = layer
+    state._apply_thaw()          # v0.4 M3: o que o calor/água mudam no mapa sai dos índices (save v7, sem campo novo)
+    state.events.clear()         # ...e é só reaplicar: sem aviso nem som no load
     return state
 
 

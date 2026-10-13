@@ -57,16 +57,16 @@ def test_normal_sequence_walks_every_objective(game):
     craft_free(game, "o2"); step()
     place_at(game, "o2", (93, 98)); step()
     craft_free(game, "chest"); step()
-    game.debug_melt_crater(); step()            # v0.4 M2: o gelo da cratera (no jogo, o calor do M3; aqui o F4)
+    craft_free(game, "melter"); step()          # v0.4 M3: o trio do aquecedor vem antes da cratera (dono)
+    game.indices["o2"] = 500; step()
+    craft_free(game, "heater"); step()
+    game.indices["heat"] = C.THAW_CRATER_HEAT[-1]; game._apply_thaw(); step()   # o calor derrete a tampa
     game.enter_layer("cave"); step()            # desceu pela rampa
     game.lamps_placed = 1; step()               # colocou uma luminária (lá embaixo ou em qualquer lugar)
     game.enter_layer("surface")
     game.wrecks_visited.add(0); step()          # Marco 3: chegou perto de um destroço
     game.blueprints.add("o2_tank"); step()      # abriu a caixa da nave: projeto do tanque
     game.equipped_ever.add("o2_tank"); step()   # fabricou e equipou
-    craft_free(game, "melter"); step()
-    game.indices["o2"] = 500; step()
-    craft_free(game, "heater"); step()
     craft_free(game, "solar"); step()
     game.read_terminal(0); step()               # terminal da caverna
     game.indices["o2"] = C.STAGES[C.ARID_STAGE - 1].ti; game._check_stage(); step()   # -> Árido
@@ -92,15 +92,15 @@ def test_normal_sequence_walks_every_objective(game):
         "Fabrique um Gerador de O₂",
         "Coloque o gerador perto da base",
         "Fabrique um baú",
+        "Minere gelo e fabrique um Derretedor",
+        "Chegue a Ti 500",
+        "Fabrique um Aquecedor",
         "Derreta o gelo da cratera",
         "Desça na caverna pela cratera [E]",
         "Coloque uma luminária",
         "Ache um destroço",
         "Ache o projeto do tanque de O₂",
         "Fabrique e equipe o tanque de O₂",
-        "Minere gelo e fabrique um Derretedor",
-        "Chegue a Ti 500",
-        "Fabrique um Aquecedor",
         "Fabrique um painel solar",
         "Leia um terminal",
         "Limpe o céu (Árido)",

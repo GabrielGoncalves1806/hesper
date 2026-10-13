@@ -83,7 +83,16 @@ def _rgb(h: str) -> tuple[int, int, int]:
 
 
 def ramp(table: str, region: str, stage: str) -> np.ndarray | None:
-    """10×3 uint8: as 8 cores da rampa (tabela/região/estágio), o contorno (8) e a sombra (9, preto)."""
+    """10×3 uint8: as 8 cores da rampa (tabela/região/estágio), o contorno (8) e a sombra (9, preto).
+    Tabela composta "A+B" (v9.1, fumarolas: "HILL+VENT"): os 10 da A e, nos índices 10.., as cores da B."""
+    if "+" in table:
+        first, extra = table.split("+", 1)
+        base = ramp(first, region, stage)
+        try:
+            more = palettes()["ramps"][extra][region][stage]
+        except KeyError:
+            return None
+        return None if base is None else np.concatenate([base, np.array([_rgb(c) for c in more], np.uint8)])
     try:
         cols = palettes()["ramps"][table][region][stage]
     except KeyError:
@@ -491,7 +500,10 @@ def formation_key(kind: str, variant: int = 0) -> str:
 
 
 def formation_file(kind: str, variant: int = 0) -> str:
-    """form_<kind>.png; o gelo-portão é ice_gate_<etapa>.png."""
+    """form_<kind>.png; o gelo-portão é ice_gate_<etapa>.png; a fumarola (M3.1) é form_<kind>_dormant/_active.png
+    (variant 0 = dormente, 1 = acordada)."""
+    if kind.startswith("vent_"):
+        return f"form_{kind}_{'active' if variant else 'dormant'}.png"
     return f"ice_gate_{variant}.png" if kind == "ice_gate" else f"form_{kind}.png"
 
 
@@ -509,8 +521,10 @@ class FormationSprites:
         self._cache: dict[tuple, pygame.Surface] = {}
         self._masks: dict[int, pygame.mask.Mask] = {}
 
-    def surface(self, formation, stage: int) -> pygame.Surface:
-        variant = getattr(formation, "variant", 0)
+    def surface(self, formation, stage: int, variant: int | None = None) -> pygame.Surface:
+        """`variant` (opcional) passa por cima do `formation.variant`: a fumarola acordada (M3.1) vem do estado,
+        não da formação (a geo é dividida entre os estados da mesma seed)."""
+        variant = getattr(formation, "variant", 0) if variant is None else variant
         name = formation_file(formation.kind, variant)
         stage = max(1, min(len(STAGE_KEYS), stage))
         key = (name, stage)
@@ -547,9 +561,9 @@ class FormationSprites:
             return surf.get_width() // 2, surf.get_height()
         return ax, ay
 
-    def placement(self, formation, stage: int) -> tuple[pygame.Surface, int, int]:
+    def placement(self, formation, stage: int, variant: int | None = None) -> tuple[pygame.Surface, int, int]:
         """(sprite, x, y) do canto de cima-esquerda do sprite no mundo (px): a âncora cai no base_px."""
-        surf = self.surface(formation, stage)
+        surf = self.surface(formation, stage, variant)
         ax, ay = self.anchor(formation, surf)
         bx, by = formation.base_px
         return surf, round(bx - ax), round(by - ay)

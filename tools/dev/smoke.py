@@ -2322,7 +2322,8 @@ def check_formations(bot) -> None:
     first = {}
     for f in geo.formations:
         first.setdefault(f.kind, f)
-    assert set(first) == {"monolith", "arch", "basalt_spires", "salt_ridge", "cone", "ice_gate"}, set(first)
+    big = {k for k in first if not k.startswith("vent_")}           # M3.1: as fumarolas têm o check_thaw
+    assert big == {"monolith", "arch", "basalt_spires", "salt_ridge", "cone", "ice_gate"}, set(first)
     # 1) as 6 no mundo (o player 3 tiles abaixo do pé) + um mosaico dos recortes
     crops = []
     for kind in ("monolith", "arch", "basalt_spires", "salt_ridge", "cone", "ice_gate"):
@@ -2531,6 +2532,92 @@ def open_floor_near(world, spot, n, min_gap=3, radius=12):
         if len(out) == n:
             break
     return out
+
+
+def check_thaw(bot) -> None:
+    """v0.4 Marco 3 · M3.1: a cratera derrete com o calor (setando indices["heat"], sem o F4) e as fumarolas do
+    basalto acordam (sprite ativo + fumaça em partícula). Prints da cratera nas etapas 0, 2 e 4 e das fumarolas
+    dormentes e ativas; o desempenho com a fumaça. No fim volta tudo (o check_crater espera a cratera tampada)."""
+    from game import thaw
+    from game.app import CRATER_OPEN_TEXT, CRATER_THAW_TEXT
+    print("1a) M3.1 · degelo da cratera e fumarolas")
+    s, app = bot.state, bot.app
+    r = app.renderer
+    layer = s.surface
+    before = dict(s.indices)
+    stage_before, storm_before = s.stage, s.storm
+    zoom_before = app.zoom
+
+    def reset_thaw():
+        s.indices["heat"] = 0.0
+        layer.crater_ice = 0
+        layer.vents_awake[:] = [False] * len(layer.vents_awake)
+        app.thaw_notice_time = 0.0
+        r.vent_smoke.clear()
+
+    s.stage, s.storm = C.ARID_STAGE, 0.0                  # Árido: sem poeira na frente dos prints
+    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    reset_thaw()
+    app.set_zoom(1.0, notify=False)
+    bot.mouse_to((900, 500))
+    # 1) cratera: etapas 0, 2 e 4 só pelo calor
+    tx, ty = s.world.crater
+    bot.teleport((tx + 1, ty + 4))
+    for k in (0, 2, 4):
+        s.indices["heat"] = 0.0 if k == 0 else float(C.THAW_CRATER_HEAT[k - 1])
+        s.o2 = C.O2_MAX
+        ground_settle(bot, 0.3)
+        assert layer.crater_ice == k == thaw.crater_stage(s.indices["heat"]), (k, layer.crater_ice)
+        if k:
+            assert app.thaw_notice == (CRATER_OPEN_TEXT if k == C.CRATER_ICE_STAGES else CRATER_THAW_TEXT)
+        bot.shot(f"m31_cratera_{k}.png")
+    assert not s.ramp_blocked() and not s.debug_crater, "o calor abriu a cratera (sem o F4)"
+    # 2) fumarolas: a que tem mais vizinhas por perto, dormentes e depois acordadas (com a fumaça subindo)
+    reset_thaw()
+    vents = s.active.geo.vents
+    assert vents, "o basalto tem que ter fumarola"
+    group = lambda f: [o for o in vents if math.dist(f.center, o.center) < 11]   # noqa: E731
+    v = max(vents, key=lambda f: len(group(f)))
+    pts = [o.base_px for o in group(v)]
+    bx, by = sum(x for x, _ in pts) / len(pts), sum(y for _, y in pts) / len(pts)   # meio do grupo (px)
+    near = lambda f: len(group(f))   # noqa: E731
+    app.set_zoom(1.0, notify=False)
+    bot.teleport((int(bx // C.TILE), int(by // C.TILE) + 2))             # o grupo no meio da tela, o player embaixo
+    s.o2 = C.O2_MAX
+    ground_settle(bot, 0.3)
+    assert not any(layer.vents_awake) and not r.vent_smoke.puffs
+    bot.shot("m31_fumarolas_dormentes.png")
+    s.indices["heat"] = float(C.THAW_FUMAROLE_HEAT[1])    # todas acordam (e a cratera abre junto)
+    bot.frames(DT)
+    assert all(layer.vents_awake), layer.vents_awake
+    bot.frames(3.0)                                       # a fumaça sobe e enche (vida de 2,6–3,4 s)
+    s.o2 = C.O2_MAX
+    assert r.vent_smoke.puffs, "fumarola acordada na tela sem fumaça"
+    bot.shot("m31_fumarolas_ativas.png")
+    shot_zoom(bot, "m31_fumarolas_ativas_zoom.png", (bx, by - 30), w=320, h=180, k=3)
+    print(f"  {len(vents)} fumarolas, {near(v)} perto da do print ({v.kind}), {len(r.vent_smoke.puffs)} puffs na tela")
+    # 3) desempenho: passeio em volta das fumarolas (zoom 0,75), dormentes x acordadas
+    app.set_zoom(0.75, notify=False)
+    spot = (int(bx // C.TILE), int(by // C.TILE) + 3)
+    avg = lambda ft: 1000 * sum(ft) / len(ft)   # noqa: E731
+    res = {}
+    for _ in range(2):                                    # alternado, vale a melhor média (o relógio oscila)
+        for on in (False, True):
+            layer.vents_awake[:] = [on] * len(layer.vents_awake)
+            s.indices["heat"] = float(C.THAW_FUMAROLE_HEAT[1]) if on else 0.0
+            r.vent_smoke.clear()
+            bot.frames(1.0 if on else DT)                 # fumaça cheia antes de medir
+            res[on] = min(res.get(on, 1e9), avg(walk_perf(bot, spot)))
+    print(f"  perf fumarolas, zoom 0,75×: dormentes {res[False]:.1f} ms · acordadas {res[True]:.1f} ms "
+          f"({res[True] - res[False]:+.1f} ms)")
+    assert res[True] < 1000 / 60
+    reset_thaw()
+    s.indices.update(before)
+    s.stage, s.storm = stage_before, storm_before
+    app.set_zoom(zoom_before, notify=False)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
 
 
 def check_crater(bot) -> None:
@@ -3112,6 +3199,7 @@ def main() -> None:
     check_ground(bot)
     check_hills(bot)
     check_formations(bot)
+    check_thaw(bot)
     check_crater(bot)
     check_cave(bot)
     check_wrecks(bot)

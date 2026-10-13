@@ -37,10 +37,15 @@ class Layer:
     # com a rampa exposta. No M2 fica sempre tampada (o derretimento pelo calor é do M3); F4 abre na hora (debug).
     # Vai no save.
     crater_ice: int = 0
+    # v0.4 Marco 3 · M3.1: fumarola i (geo.vents[i]) acordada pelo calor. Derivado dos índices (thaw.fumarole_active),
+    # NÃO vai no save: o load reaplica. Fica na camada porque a geo é dividida entre estados da mesma seed.
+    vents_awake: list = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.explored is None:
             self.explored = Explored(self.world.width, self.world.height)
+        if self.world.geo is not None and not self.vents_awake:
+            self.vents_awake = [False] * len(self.world.geo.vents)
 
     @property
     def geo(self):

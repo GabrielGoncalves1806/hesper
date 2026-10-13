@@ -234,6 +234,7 @@ class Result:
     ramp_tiles: float = 0.0                          # estratégia caverna: "tiles" da base até a chegada na caverna
     tank_at: float | None = None                     # Marco 3: quando equipou o tanque de O₂
     loot_units: int = 0                              # Marco 3: recursos tirados da caixa do destroço
+    crater_at: float | None = None                   # v0.4 M3.1: quando o calor abriu a cratera (só informa)
 
 
 # ---------------------------------------------------------------------------
@@ -469,6 +470,11 @@ class Sim:
         if self.gs.power.deficit:
             self.res.deficit_time += dt
         self.gs._update_machines(dt)           # regra real: soma rate*dt×fator em cada índice e checa estágio
+        if self.res.crater_at is None and not self.gs.crater_frozen:   # v0.4 M3.1: o calor (thaw) abriu a cratera
+            heat_rate = sum(m.type.rate for m in self.gs.all_machines if m.type.index == "heat") * self.gs.power.factor
+            over = self.gs.indices["heat"] - C.THAW_CRATER_HEAT[-1]
+            self.res.crater_at = self.t + dt - (over / heat_rate if heat_rate > 0 else 0.0)
+        self.gs.events.clear()                 # os eventos (degelo etc.) são do App: aqui só iam acumular
         for x, y in self.gs._update_rocks(dt):  # regra real: rocha nova fora da vista e longe da base
             if not self.cave:                  # a estratégia "caverna" não minera na superfície
                 self._bump_near(C.SMALL_ROCKS[self.world.tiles[y][x]], x, y, +1)
@@ -992,14 +998,14 @@ def table(title, results, markdown=False):
     marks = ["Ti 500"] + [s.name.capitalize() for s in C.STAGES[1:]]
     kinds = list(C.MACHINES)
     head = ["estratégia", "seed", *marks, "total", "espera total", "maior espera", "desm.", "drill un.",
-            "drone un.", "déficit", "tanque", "saque", "máquinas (" + "/".join(kinds) + ")"]
+            "drone un.", "déficit", "tanque", "saque", "cratera", "máquinas (" + "/".join(kinds) + ")"]
     rows = []
     for r in results:
         rows.append([r.strategy, str(r.seed), *[fmt(r.milestones.get(m)) for m in marks],
                      fmt(r.total) + ("" if r.finished else " (não acabou)"),
                      fmt(r.idle_total), fmt(r.idle_longest), str(r.faints), str(r.drill_units),
                      str(r.drone_units), fmt(r.deficit_time), fmt(r.tank_at), str(r.loot_units),
-                     "/".join(str(r.machines[k]) for k in kinds)])
+                     fmt(r.crater_at), "/".join(str(r.machines[k]) for k in kinds)])
     out = [f"\n{'### ' if markdown else '== '}{title}\n"]
     if markdown:
         out.append("| " + " | ".join(head) + " |")
