@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Hesper · Geografia nova · v9.1</title>
+<title>Hesper · Geografia nova · v9.2</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Pixelify+Sans:wght@400;600&family=Silkscreen&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#15100e;--panel:#1e1714;--panel2:#241b17;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;--alert:#ff6a55;
@@ -72,14 +72,33 @@ th{font:12px var(--f-label);color:var(--gold);background:var(--panel2)}td{color:
 .v91 > h2::before{background:var(--rust)}
 .smk{image-rendering:pixelated;background-repeat:no-repeat;border:1px solid var(--line)}
 /* /v9css */
+/* v92css */
+.v92{border:1px solid var(--cyan);padding:22px 22px 30px;margin-top:40px;background:rgba(89,208,230,.04)}
+.v92 > h2::before{background:var(--cyan)}
+.v92 .chk{background-color:#2a2f38;background-image:linear-gradient(45deg,#333944 25%,transparent 25%,transparent 75%,#333944 75%),linear-gradient(45deg,#333944 25%,transparent 25%,transparent 75%,#333944 75%);background-size:16px 16px;background-position:0 0,8px 8px;padding:8px;display:inline-block}
+.v92 img{image-rendering:pixelated}
+.v92 .scroll{overflow-x:auto;padding-bottom:6px}
+.v92 table{border-collapse:collapse;width:100%}.v92 td,.v92 th{border-top:1px solid var(--line);padding:8px;vertical-align:top;text-align:left}
+.v92 th{font:12px var(--f-label);color:var(--muted)}
+.v92 .pill{display:inline-block;font:11px var(--f-label);padding:1px 6px;border:1px solid var(--line);margin:1px}
+.v92 .pill.ok{border-color:var(--ok);color:var(--ok)}.v92 .pill.no{color:var(--muted)}
+/* /v92css */
 </style></head><body><div class="wrap">
-<div class="eyebrow">Hesper · Designer · v9.1 · v0.4 regiões · fumarolas ativas e v9, aprovadas (a v8.3 continua abaixo)</div>
+<div class="eyebrow">Hesper · Designer · v9.2 · proposta: gelo-portão em blocos (a v9.1 e a v9 aprovadas continuam abaixo)</div>
 <h1>Regiões, relevo e água</h1>
 <p class="lede">Objetivo: tirar a cara de “mapa gerado com tileset” e deixar a superfície orgânica e explorável. O
 planeta é <b>árido e vazio, não areia</b>: rocha, terra seca, sal, basalto e geada. Tudo aqui sai de script
 (<code>tools/sprites/regions_mockups.py</code>), em pixels reais 960×540 com a HUD B2 por cima. Nada disso está
 no jogo ainda: é pra tu aprovar antes do código.</p>
 
+<!-- v92note:begin -->
+<div class="v2"><b>v9.2 · o que mudou (proposta, espera o ok do dono)</b><ul>
+<li><b>Gelo-portão em blocos</b>: 3 tipos de bloco (lasca, laje, pedra), 2 variações cada, exportados em 8 escalas
+geradas pelo volume (o mesmo bloco encolhendo), com a caixa de colisão de cada escala.</li>
+<li><b>3 arranjos</b> de 3 a 5 blocos fechando o corredor de 4 tiles, com quando cada bloco derrete e a busca de caminho
+mostrando quando abre a fresta (≈ 60% do degelo). Cenas no Árido e no Verde. <a href="#v92">Seção v9.2</a>.</li>
+</ul></div>
+<!-- v92note:end -->
 <!-- v91note:begin -->
 <div class="v2"><b>v9.1 · o que mudou (aprovado e promovido)</b><ul>
 <li><b>Fumarolas ativas</b> no basalto: cone baixo, par de cones e chaminé, cada uma dormente × ativa (brasa leve e
@@ -133,6 +152,112 @@ pé dos morros, e coisas soltas com altura por região.</li>
 <li><b>Relevo e água</b>: bacias com leito seco e marca d'água (L1, L2, L3) que enchem na Névoa e no Verde; o salar
 vira o grande lago.</li>
 <li>Sem ossada nenhuma, como pedido.</li></ul></div>
+
+<!-- v92:begin -->
+<section class="v92" id="v92"><h2>v9.2 · Gelo-portão em blocos que derretem (proposta)</h2>
+<p class="lede">Pedido do dono no playtest do Marco 3 (M3.5): o gelo-portão deixa de ser um sprite que troca por
+etapa e vira um <b>amontoado de 3 a 5 blocos de gelo</b> de 3 tipos. Cada bloco derrete no seu ritmo e <b>vai
+encolhendo sem trocar de desenho</b>: o volume 3D é refeito em 8 escalas (100% → 23%) pelo mesmo motor das formações, e
+não redimensionado em pixel. Nas escalas menores as quinas amolecem e o brilho molhado aumenta, mas é sempre o mesmo
+bloco. A caixa de colisão encolhe junto e, quando abre uma fresta de 14 px (a caixa do player), ele passa.
+Os PNGs ficam em <code>v92/pendentes/</code> com o <code>regions_v92.json</code>: nada entra em <code>assets/</code> sem o ok do dono.</p>
+
+<h3 style="margin-top:22px">Os 6 blocos nas 8 escalas</h3>
+<p style="color:var(--muted)">Lasca (coluna grossa de topo em bisel; a 2 é um par com um toco), Laje (larga e baixa; a 2 é
+rachada em duas) e Pedra (poliédrica arredondada; a 2 é um cubo tombado de quinas gastas, que conversa com o gelo em
+cubos dos minérios). Rampa <code>ICE</code>, PNG indexado igual às formações (1..6 gelo, 8 contorno, 9 sombra).
+Ampliado 2×.</p>
+<table><tr><th style="width:260px">bloco</th><th>tira (8 escalas) e caixas</th></tr>
+<tr><td><b>Lasca 1</b><br><code>ice_block_shard_0.png</code><br>tira 800×117 · 8 quadros de
+100×117<br>âncora (23, 112) (centro da base)<br><small>colisão [x, y, w, h] por escala:<br>100%: [-17, -25, 31, 26] · 89%: [-15, -22, 27, 22] · 78%: [-12, -18, 22, 17] · 67%: [-9, -14, 16, 12] · 56%: [-5, -10, 9, 7] · 45%: [-2, -7, 4, 3] · 34%: None · 23%: None</small></td>
+<td><div class="scroll"><div class="chk"><figure class=""><img src="v92/cat/ice_block_shard_0.png" width="1600" height="234" alt=""></figure></div>
+<div class="chk" style="margin-top:6px"><figure class=""><img src="v92/cat/boxes_shard_0.png" width="1600" height="234" alt=""><figcaption>caixa de colisão (laranja) e âncora (ponto ciano) em cada escala</figcaption></figure></div></div></td></tr><tr><td><b>Lasca 2</b><br><code>ice_block_shard_1.png</code><br>tira 896×131 · 8 quadros de
+112×131<br>âncora (28, 122) (centro da base)<br><small>colisão [x, y, w, h] por escala:<br>100%: [-23, -26, 45, 31] · 89%: [-20, -23, 39, 27] · 78%: [-17, -18, 32, 21] · 67%: [-14, -14, 25, 16] · 56%: [-11, -10, 17, 12] · 45%: [-9, -6, 8, 7] · 34%: [-6, -4, 5, 5] · 23%: [-4, -3, 3, 4]</small></td>
+<td><div class="scroll"><div class="chk"><figure class=""><img src="v92/cat/ice_block_shard_1.png" width="1792" height="262" alt=""></figure></div>
+<div class="chk" style="margin-top:6px"><figure class=""><img src="v92/cat/boxes_shard_1.png" width="1792" height="262" alt=""><figcaption>caixa de colisão (laranja) e âncora (ponto ciano) em cada escala</figcaption></figure></div></div></td></tr><tr><td><b>Laje 1</b><br><code>ice_block_slab_0.png</code><br>tira 776×71 · 8 quadros de
+97×71<br>âncora (39, 64) (centro da base)<br><small>colisão [x, y, w, h] por escala:<br>100%: [-34, -34, 68, 37] · 89%: [-29, -30, 58, 32] · 78%: [-24, -25, 49, 26] · 67%: [-19, -21, 39, 21] · 56%: [-14, -16, 29, 15] · 45%: [-10, -12, 21, 11] · 34%: [-6, -8, 13, 6] · 23%: [-3, -5, 7, 3]</small></td>
+<td><div class="scroll"><div class="chk"><figure class=""><img src="v92/cat/ice_block_slab_0.png" width="1552" height="142" alt=""></figure></div>
+<div class="chk" style="margin-top:6px"><figure class=""><img src="v92/cat/boxes_slab_0.png" width="1552" height="142" alt=""><figcaption>caixa de colisão (laranja) e âncora (ponto ciano) em cada escala</figcaption></figure></div></div></td></tr><tr><td><b>Laje 2</b><br><code>ice_block_slab_1.png</code><br>tira 872×68 · 8 quadros de
+109×68<br>âncora (41, 66) (centro da base)<br><small>colisão [x, y, w, h] por escala:<br>100%: [-35, -29, 76, 27] · 89%: [-31, -26, 66, 24] · 78%: [-26, -22, 57, 20] · 67%: [-22, -19, 48, 17] · 56%: [-17, -15, 38, 13] · 45%: [-13, -11, 29, 9] · 34%: [-9, -8, 21, 6] · 23%: [-5, -5, 13, 4]</small></td>
+<td><div class="scroll"><div class="chk"><figure class=""><img src="v92/cat/ice_block_slab_1.png" width="1744" height="136" alt=""></figure></div>
+<div class="chk" style="margin-top:6px"><figure class=""><img src="v92/cat/boxes_slab_1.png" width="1744" height="136" alt=""><figcaption>caixa de colisão (laranja) e âncora (ponto ciano) em cada escala</figcaption></figure></div></div></td></tr><tr><td><b>Pedra 1</b><br><code>ice_block_boulder_0.png</code><br>tira 760×84 · 8 quadros de
+95×84<br>âncora (36, 75) (centro da base)<br><small>colisão [x, y, w, h] por escala:<br>100%: [-20, -31, 41, 27] · 89%: [-17, -28, 35, 25] · 78%: [-15, -24, 31, 21] · 67%: [-12, -21, 26, 18] · 56%: [-10, -17, 21, 15] · 45%: [-8, -14, 17, 12] · 34%: [-6, -10, 13, 9] · 23%: [-4, -7, 9, 6]</small></td>
+<td><div class="scroll"><div class="chk"><figure class=""><img src="v92/cat/ice_block_boulder_0.png" width="1520" height="168" alt=""></figure></div>
+<div class="chk" style="margin-top:6px"><figure class=""><img src="v92/cat/boxes_boulder_0.png" width="1520" height="168" alt=""><figcaption>caixa de colisão (laranja) e âncora (ponto ciano) em cada escala</figcaption></figure></div></div></td></tr><tr><td><b>Pedra 2</b><br><code>ice_block_boulder_1.png</code><br>tira 696×90 · 8 quadros de
+87×90<br>âncora (29, 78) (centro da base)<br><small>colisão [x, y, w, h] por escala:<br>100%: [-18, -38, 36, 35] · 89%: [-16, -34, 32, 31] · 78%: [-14, -30, 28, 27] · 67%: [-11, -25, 22, 23] · 56%: [-9, -20, 18, 18] · 45%: [-7, -16, 14, 15] · 34%: [-5, -11, 10, 10] · 23%: [-3, -7, 7, 7]</small></td>
+<td><div class="scroll"><div class="chk"><figure class=""><img src="v92/cat/ice_block_boulder_1.png" width="1392" height="180" alt=""></figure></div>
+<div class="chk" style="margin-top:6px"><figure class=""><img src="v92/cat/boxes_boulder_1.png" width="1392" height="180" alt=""><figcaption>caixa de colisão (laranja) e âncora (ponto ciano) em cada escala</figcaption></figure></div></div></td></tr></table>
+<div class="scroll" style="margin-top:8px"><figure class=""><img src="v92/cat/stages_shard.png" width="3620" height="262" alt=""><figcaption><b>Lasca</b> nos 4 estágios (Tempestade, Árido, Névoa, Verde): inteiro e no quadro 4, v1 e v2</figcaption></figure></div>
+<div class="scroll" style="margin-top:8px"><figure class=""><img src="v92/cat/stages_slab.png" width="3524" height="142" alt=""><figcaption><b>Laje</b> nos 4 estágios (Tempestade, Árido, Névoa, Verde): inteiro e no quadro 4, v1 e v2</figcaption></figure></div>
+<div class="scroll" style="margin-top:8px"><figure class=""><img src="v92/cat/stages_boulder.png" width="3076" height="180" alt=""><figcaption><b>Pedra</b> nos 4 estágios (Tempestade, Árido, Névoa, Verde): inteiro e no quadro 4, v1 e v2</figcaption></figure></div>
+
+<h3 style="margin-top:28px">O amontoado derretendo · 3 arranjos pra seed variar</h3>
+<p style="color:var(--muted)">O corredor de 4 tiles (128 px) entre as duas paredes de BEDROCK, com a faixa de 2 tiles
+da pegada de hoje. <b>Laranja</b>: a caixa de colisão de cada bloco no quadro da hora. <b>Verde</b>: o caminho que a
+busca acha pra caixa do player (14×8), do avental até o bolsão, e a caixa do player no ponto mais apertado. A tira
+mostra p = 0 · 0,15 · 0,3 · 0,45 · 0,6 · 0,7 · 0,8 · 0,9 · 1. A geada (<code>frost_ring</code>) entra no chão quando
+começa a derreter, como hoje. Ampliado 2×.</p>
+<h3 style="margin-top:22px">Arranjo A · Muralha (5 blocos) · fresta abre em p ≈ 0.60</h3>
+<p style="color:var(--muted);margin:4px 0 8px"><code>slab_1</code> em (-30, -30) · derrete de 0.46 a 1.00<br><code>shard_1</code> em (22, -34) · derrete de 0.26 a 0.80<br><code>boulder_0</code> em (50, -26) · derrete de 0.41 a 0.92<br><code>boulder_1</code> em (-44, -2) · derrete de 0.16 a 0.70<br><code>shard_0</code> em (4, -4) · derrete de 0.36 a 0.88</p>
+<div class="scroll"><figure class=""><img src="v92/melt_A.png" width="4240" height="400" alt=""></figure></div>
+<div style="margin:6px 0"><span class="pill no">p 0.00 · fechado</span> <span class="pill no">p 0.15 · fechado</span> <span class="pill no">p 0.30 · fechado</span> <span class="pill no">p 0.45 · fechado</span> <span class="pill ok">p 0.60 · passa</span> <span class="pill ok">p 0.70 · passa</span> <span class="pill ok">p 0.80 · passa</span> <span class="pill ok">p 0.90 · passa</span> <span class="pill ok">p 1.00 · passa</span></div>
+<div class="grid2" style="max-width:960px"><figure class=""><img src="v92/melt_A_boxes.gif" width="464" height="400" alt=""><figcaption>GIF com as caixas e o caminho do player (verde) quando passa</figcaption></figure>
+<figure class=""><img src="v92/melt_A_clean.gif" width="464" height="400" alt=""><figcaption>GIF limpo (como fica no jogo)</figcaption></figure></div><h3 style="margin-top:22px">Arranjo B · Lasca no meio (4 blocos) · fresta abre em p ≈ 0.57</h3>
+<p style="color:var(--muted);margin:4px 0 8px"><code>boulder_1</code> em (-46, -28) · derrete de 0.44 a 0.90<br><code>shard_1</code> em (-6, -34) · derrete de 0.54 a 1.00<br><code>slab_0</code> em (34, -28) · derrete de 0.29 a 0.85<br><code>slab_1</code> em (-22, -2) · derrete de 0.24 a 0.72</p>
+<div class="scroll"><figure class=""><img src="v92/melt_B.png" width="4240" height="400" alt=""></figure></div>
+<div style="margin:6px 0"><span class="pill no">p 0.00 · fechado</span> <span class="pill no">p 0.15 · fechado</span> <span class="pill no">p 0.30 · fechado</span> <span class="pill no">p 0.45 · fechado</span> <span class="pill ok">p 0.60 · passa</span> <span class="pill ok">p 0.70 · passa</span> <span class="pill ok">p 0.80 · passa</span> <span class="pill ok">p 0.90 · passa</span> <span class="pill ok">p 1.00 · passa</span></div>
+<div class="grid2" style="max-width:960px"><figure class=""><img src="v92/melt_B_boxes.gif" width="464" height="400" alt=""><figcaption>GIF com as caixas e o caminho do player (verde) quando passa</figcaption></figure>
+<figure class=""><img src="v92/melt_B_clean.gif" width="464" height="400" alt=""><figcaption>GIF limpo (como fica no jogo)</figcaption></figure></div><h3 style="margin-top:22px">Arranjo C · Duas lajes (3 blocos) · fresta abre em p ≈ 0.58</h3>
+<p style="color:var(--muted);margin:4px 0 8px"><code>slab_0</code> em (-30, -28) · derrete de 0.40 a 0.95<br><code>slab_1</code> em (28, -32) · derrete de 0.30 a 0.85<br><code>boulder_0</code> em (-2, -4) · derrete de 0.50 a 1.00</p>
+<div class="scroll"><figure class=""><img src="v92/melt_C.png" width="4240" height="400" alt=""></figure></div>
+<div style="margin:6px 0"><span class="pill no">p 0.00 · fechado</span> <span class="pill no">p 0.15 · fechado</span> <span class="pill no">p 0.30 · fechado</span> <span class="pill no">p 0.45 · fechado</span> <span class="pill ok">p 0.60 · passa</span> <span class="pill ok">p 0.70 · passa</span> <span class="pill ok">p 0.80 · passa</span> <span class="pill ok">p 0.90 · passa</span> <span class="pill ok">p 1.00 · passa</span></div>
+<div class="grid2" style="max-width:960px"><figure class=""><img src="v92/melt_C_boxes.gif" width="464" height="400" alt=""><figcaption>GIF com as caixas e o caminho do player (verde) quando passa</figcaption></figure>
+<figure class=""><img src="v92/melt_C_clean.gif" width="464" height="400" alt=""><figcaption>GIF limpo (como fica no jogo)</figcaption></figure></div>
+
+<h3 style="margin-top:28px">Na cena (arranjo A)</h3>
+<div class="grid2">
+<figure class=""><img src="v92/crop_arid_inteiro.png" width="640" height="360" alt=""><figcaption><b>Árido</b> · inteiro</figcaption></figure>
+<figure class=""><img src="v92/crop_arid_derretendo.png" width="640" height="360" alt=""><figcaption><b>Árido</b> · p = 0,62, a fresta acabou de abrir</figcaption></figure>
+<figure class=""><img src="v92/crop_green_inteiro.png" width="640" height="360" alt=""><figcaption><b>Verde</b> · inteiro</figcaption></figure>
+<figure class=""><img src="v92/crop_green_derretendo.png" width="640" height="360" alt=""><figcaption><b>Verde</b> · p = 0,62</figcaption></figure>
+</div>
+<div class="grid2" style="margin-top:10px">
+<figure><img class="px" src="v92/scene_arid_inteiro.png" alt=""><figcaption><b>Árido</b> · cena 960×540 inteira</figcaption></figure>
+<figure><img class="px" src="v92/scene_green_derretendo.png" alt=""><figcaption><b>Verde</b> · cena 960×540 inteira, derretendo</figcaption></figure>
+</div>
+<p style="color:var(--muted)">A cena usa o corredor do mapa de exemplo das regiões (não é um corredor de 4 tiles exato): o
+que vale pra medir a fresta é o diagrama de cima.</p>
+
+<div class="box dev" style="margin-top:24px"><h3>Pro Dev integrar</h3><ul>
+<li><b>Arquivos</b>: <code>ice_block_{shard,slab,boulder}_{0,1}.png</code> (6 tiras, 8 quadros cada, todos do mesmo
+tamanho dentro da tira) + o bloco <code>ice_blocks</code> e <code>ice_gate_recipes</code> que entram no
+<code>regions_palettes.json</code> na promoção (hoje em <code>v92/pendentes/regions_v92.json</code>, chaves
+<code>blocks</code> e <code>recipes</code>). Saem <code>ice_gate_{0,1,2}.png</code> e a pegada por etapa.</li>
+<li><b>Âncora</b>: <code>blocks[k].anchor</code> = px do quadro que cai no pé do bloco. O pé do bloco no mundo =
+<code>base_px</code> do portão (centro da borda de baixo da caixa 4×2 de hoje) + <code>(x, y)</code> da receita. O quadro
+k fica em <code>(k · frame.w, 0)</code> na tira. Mesma âncora nos 8 quadros: o bloco não anda quando encolhe.</li>
+<li><b>Derretimento</b>: o progresso do portão é <code>p ∈ [0, 1]</code> (ex.: linear no calor entre o 1º e o último
+marco do <code>THAW_GATE_HEAT[i]</code>). Cada bloco: <code>p &lt; começa</code> → quadro 0; entre <code>começa</code> e
+<code>termina</code> → quadro <code>int((p − começa)/(termina − começa) · 8)</code>; <code>p ≥ termina</code> → some.
+Só sobe (como o resto do degelo), então pode ser derivado do calor no load.</li>
+<li><b>Colisão</b>: <code>blocks[k].collision[quadro]</code> = <code>[x, y, w, h]</code> em px relativos ao pé do bloco
+(y negativo = pra trás), a base do volume com 1 px de folga. Igual ao <code>Machine.rect</code>: retângulo no chão. A
+pegada em tiles <code>FORMATION</code> sai; o player bate nos retângulos. Medido aqui: fresta de 14 px abre em
+p ≈ 0.60 (A), 0.57 (B) e 0.58 (C).</li>
+<li><b>Ordem de desenho</b>: cada bloco é um objeto do <code>build_draw_list</code> com o y do pé dele (não um objeto
+só pro portão), então o player passa na frente de um e atrás do outro. A sombra (índice 9) vem no sprite.</li>
+<li><b>Cor</b>: <code>ramps.ICE.frost[estágio]</code>, a mesma do gelo-portão de hoje (0..7, 8 contorno, 9 sombra).</li>
+<li><b>Escolha do arranjo</b>: pela seed do portão (A, B ou C). Os blocos encostam nas paredes do corredor
+(x de −64 a +64); se o corredor do <code>geo</code> não for exatamente 4 tiles, dá pra espelhar a receita (x → −x) sem
+espelhar o sprite.</li>
+<li><b>Geada e poça</b>: o <code>frost_ring</code> continua no chão quando p &gt; 0. <b>Poça de degelo: não proponho</b>
+na Tempestade nem no Árido (sem água líquida: o gelo sublima, por isso a geada). Na Névoa e no Verde dá pra entrar uma
+mancha úmida no chão, mas os portões costumam abrir antes disso; fica de fora até o dono pedir.</li>
+<li><b>Eventos</b>: o aviso "Um gelo-portão abriu" pode sair quando a fresta abre (o primeiro p em que a busca acha
+caminho) e não no p = 1. O <code>ice_crack</code> do Som casa com um bloco sumindo.</li>
+</ul></div>
+</section>
+<!-- v92:end -->
 
 <!-- v91:begin -->
 <section class="v91" id="v91"><h2>v9.1 · Fumarolas ativas que acordam com o calor (aprovado)</h2>

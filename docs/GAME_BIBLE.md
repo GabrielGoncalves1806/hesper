@@ -229,8 +229,12 @@ WAV, 44,1 kHz, 16-bit, mono. Loops precisam emendar sem estalo.
 | `drill_collect.wav` | sfx | coletou o conteúdo de uma drill |
 | `drill_full.wav` | sfx | discreto, quando o jogador chega perto de uma drill cheia |
 | `amb_dead.wav` `amb_mist.wav` `amb_green.wav` | loop 20–40 s | ambiente de cada estágio (`amb_dead` no Árido, e na Tempestade quando não tem `amb_storm`) |
-| `ice_crack.wav` | sfx (pendente do Som) | v0.4 M3.1: a tampa de gelo da cratera baixou uma etapa (0,8 no `VOLUME`). Sem o arquivo, silêncio |
-| `amb_rain.wav` | loop | **v0.4 M3.3 (pendente do Som)**: chuva na superfície, no canal 10, com o volume = intensidade da pancada (`VOLUME["amb_rain"]` × 0..1). Sem o arquivo, silêncio |
+| `ice_crack.wav` `ice_crack_1.wav` | sfx ~1,9 s | **aprovado pelo dono, v11** (gravação). v0.4 M3.1: a tampa de gelo da cratera baixou uma etapa (etapas 1–3, `crater_thaw`). Sorteia entre os dois sem repetir o último. Volume sugerido **0,7**, sem atenuação por distância (aviso global); pitch ±4% opcional |
+| `ice_collapse.wav` | sfx ~2,4 s | **aprovado pelo dono, v11** (gravação). A cratera abriu (`crater_thaw` etapa 4) e um gelo-portão abriu (`gate_thaw` etapa 3). Volume sugerido **0,8**; na caverna, 0,5 ou nada |
+| `amb_rain.wav` `amb_rain_light.wav` `amb_rain_heavy.wav` | loop 24 s | **aprovado pelo dono, v11** (gravação). v0.4 M3.3: chuva na superfície, no canal 10, com o volume = **0,55** × intensidade da pancada (`rain.rain_level`, 0..1, já com a subida e a descida de 2 s). Uma variação por pancada (média = a principal; fraca ou média no Verde; a forte quando quiser aguaceiro), sorteada pela seed. Para quando a intensidade chega a 0. Na caverna, 0. Sem variar o pitch |
+| `vent_hiss.wav` | loop 20 s | **aprovado pelo dono, v11** (gravação). Perto de uma fumarola **acordada** (`layer.vents_awake`): um canal só, pela mais próxima, volume **0,6** × `fade_by_distance(d, 2, 7)` em tiles. Dormente não toca. Só na superfície. Sem variar o pitch |
+
+Os 7 sons da v11 vêm de gravações livres (CC0, domínio público do NPS e um IR de reverb em **CC BY 4.0**): o crédito obrigatório pra tela de créditos está em `assets/audio/CREDITS.md`. O build deles precisa do pedalboard: `uv run python tools/audio/build_audio.py`.
 
 ## 7. Organização da equipe
 

@@ -37,15 +37,21 @@ CONTRACT = {
     "amb_storm": True, "gust": False, "sky_clear": False,
     # v9.3: variações (o jogo troca entre elas)
     "amb_storm_1": True, "amb_storm_2": True, "gust_1": False, "gust_2": False,
+    # v0.4 Marco 3 · gelo e água (v11, gravações, aprovados pelo dono)
+    "ice_crack": False, "ice_crack_1": False, "ice_collapse": False,
+    "amb_rain": True, "amb_rain_light": True, "amb_rain_heavy": True, "vent_hiss": True,
 }
 # entregues em _pending/ até o dono aprovar
 PENDING: dict = {}
-# v10 (v0.4 Marco 3): propostas que ficam em reports/audio/v10/ até o dono aprovar
+# v10 (v0.4 Marco 3): a versão sintetizada, que perdeu pra v11; fica em reports/audio/v10/ só pra comparar
 PROP_DIR = ROOT / "reports" / "audio" / "v10"
 PROPOSALS = {
     "ice_crack": False, "ice_crack_1": False, "ice_collapse": False,
     "amb_rain": True, "amb_rain_light": True, "amb_rain_heavy": True, "vent_hiss": True,
 }
+# v11: aprovada e promovida pro CONTRACT (assets/audio/); não tem mais proposta separada
+PROP_DIR_V11 = ROOT / "reports" / "audio" / "v11"
+PROPOSALS_V11: dict = {}
 BANDS = [(20, 150), (150, 600), (600, 2500), (2500, 8000), (8000, 22050)]
 
 
@@ -61,9 +67,15 @@ def main() -> int:
     print(f"{'arquivo':<18}{'fmt':>14}{'dur':>7}{'pico':>8}{'rms':>8}{'centr':>7}  "
           f"{'bandas dB (<150|150-600|0.6-2.5k|2.5-8k|>8k)':<46}{'emenda'}")
     todos = (list(CONTRACT.items()) + [("_pending/" + k, v) for k, v in PENDING.items()]
-             + [("v10:" + k, v) for k, v in PROPOSALS.items()])
+             + [("v10:" + k, v) for k, v in PROPOSALS.items()]
+             + [("v11:" + k, v) for k, v in PROPOSALS_V11.items()])
     for name, loop in todos:
-        path = PROP_DIR / f"{name[4:]}.wav" if name.startswith("v10:") else AUDIO / f"{name}.wav"
+        if name.startswith("v10:"):
+            path = PROP_DIR / f"{name[4:]}.wav"
+        elif name.startswith("v11:"):
+            path = PROP_DIR_V11 / f"{name[4:]}.wav"
+        else:
+            path = AUDIO / f"{name}.wav"
         if not path.exists():
             fails.append(f"{name}: não existe")
             print(f"{name:<18} FALTANDO")
@@ -124,7 +136,7 @@ def main() -> int:
             print("  -", m)
         return 1
     print(f"tudo ok: {len(todos)} arquivos ({len(CONTRACT)} oficiais + {len(PENDING)} pendentes "
-          f"+ {len(PROPOSALS)} propostas v10)")
+          f"+ {len(PROPOSALS)} propostas v10 + {len(PROPOSALS_V11)} propostas v11)")
     return 0
 
 

@@ -1,0 +1,9 @@
+Fonte: "75 CC0 breaking / falling / hit sfx", de rubberduck (OpenGameArt)
+Página: https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx
+Arquivo: https://opengameart.org/sites/default/files/sfx_breaking_and_falling.zip
+  sha256: e6ee04d91c5f4d30cfda1260d2c9d1faf96fda36319287215fbd07bcb1a80451
+Licença: CC0 1.0, conferida na página em 2026-10-13
+Baixado sem login. Extraído com unzip em Audio/. O build usa só bfh1_breaking_02/03,
+bfh1_rock_breaking_01 e bfh1_rock_falling_03/04/06/07/08. Os de vidro (glass_*) ficaram
+de fora de propósito: têm ressonância estreita forte (15-24 dB), o "latinha" que o dono
+já reprovou. Só lido como áudio.

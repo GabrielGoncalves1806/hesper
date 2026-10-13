@@ -1,11 +1,14 @@
 """Gera todos os sons do Hesper por síntese procedural.
 
-Uso:  python3 tools/audio/build_audio.py
+Uso:  uv run python tools/audio/build_audio.py   (ou python3 ...: pula a v11)
 
 Saída: assets/audio/*.wav (44,1 kHz, 16-bit, mono) e reports/audio/audio_meta.js
 (duração, pico, loudness e forma de onda de cada arquivo, usado pelo report).
 
-Só depende de numpy. Tudo é determinístico: cada som tem a própria seed derivada
+Os sons oficiais só dependem de numpy. A proposta v11 (gravações tratadas) lê os
+arquivos de tools/audio/vendor/ com ffmpeg e usa o pedalboard; rode tudo com
+`uv run python tools/audio/build_audio.py` (sem o pedalboard a v11 é pulada e o resto
+sai igual, byte a byte). Tudo é determinístico: cada som tem a própria seed derivada
 de BASE_SEED + nome, então mexer em um som não muda os outros.
 
 Loops (o2_low, machine_hum, amb_*) são construídos de forma periódica: todo ruído
@@ -1945,12 +1948,341 @@ PROPOSALS: dict = {
 }
 
 
+# ---------------------------------------------------------------------------
+# v11 (v0.4 · Marco 3 · gelo e água, refeito HÍBRIDO): PROPOSTA. O dono achou que a
+# síntese pura soava "imitação" nos sons de natureza; a v11 parte de GRAVAÇÕES livres
+# (em tools/audio/vendor/, só lidas, nunca executadas) tratadas aqui. Saem em
+# reports/audio/v11/, mesmos nomes e papéis da v10, até o dono escolher.
+#
+# Fontes (detalhes, URLs e licenças em assets/audio/CREDITS.md e nos SOURCE.txt):
+#  - chuva: "AMB Rain Loop 2" (Kresiek The Furry, OpenGameArt, CC0), GoPro em áudio
+#    bruto, 12 min; vendor guarda só os 4 recortes usados, sem perda;
+#  - gelo: "Ice breaking/shattering" (IgnasD, OGA, CC0) e "75 CC0 breaking / falling /
+#    hit sfx" (rubberduck, OGA, CC0);
+#  - fumarola: "Fumarole (large)", Norris Geyser Basin (NPS/Jennifer Jerrett, Yellowstone
+#    Sound Library, domínio público, obra do governo dos EUA);
+#  - reverb da cratera: resposta ao impulso medida na capela de São Nicolau da catedral
+#    de Aachen (Zerwas e Kayku, Zenodo, CC BY 4.0), canal W, fonte na galeria e o
+#    microfone no ponto mais distante (S3 → R12, 14,4 m). Não achei IR medido em CC0
+#    que baixe sem login; este é o único item que pede crédito.
+#
+# Regras que continuam valendo: nada de vidro nem de ressonância estreita (os sons de
+# vidro dos packs ficaram de fora por isso), o peso grave do gelo é ruído sintético
+# (nunca seno) e a chuva fica acima de ~250 Hz pra não brigar com os pads.
+# Precisa do pedalboard (uv add --dev pedalboard): rode com
+#   uv run python tools/audio/build_audio.py
+# Sem ele (ou sem ffmpeg/vendor), a v11 é pulada com aviso e o resto sai igual.
+# ---------------------------------------------------------------------------
+
+V11_DIR = REPORT_DIR / "v11"
+VENDOR_ROOT = Path(__file__).resolve().parent / "vendor"
+V11_RAIN = VENDOR_ROOT / "oga_rain_gopro"
+V11_ICE = VENDOR_ROOT / "oga_ice_shatters" / "IceShatters"
+V11_BREAK = VENDOR_ROOT / "oga_breaking_falling" / "Audio"
+V11_VENT = VENDOR_ROOT / "nps_yellowstone" / "yell-NorrisPorcelainBasinFumerole.mp3"
+V11_IR = VENDOR_ROOT / "aachen_chapel_ir" / "Nikolauskapelle_Source3_BRIR" / "S3-Do_R12.wav"
+_DECODED: dict = {}
+
+
+def decode(path: Path) -> np.ndarray:
+    """Decodifica qualquer áudio do vendor pra float 44,1 kHz via ffmpeg (só leitura).
+    Devolve (n, canais). Guarda em cache: vários sons usam o mesmo arquivo."""
+    import subprocess
+    key = str(path)
+    if key not in _DECODED:
+        probe = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries",
+                                "stream=channels", "-of", "csv=p=0", str(path)],
+                               capture_output=True, text=True, check=True).stdout
+        ch = int(probe.split()[0])
+        raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(path), "-ar", str(SR), "-f", "f32le", "-"],
+                             capture_output=True, check=True).stdout
+        _DECODED[key] = np.frombuffer(raw, "<f4").astype(float).reshape(-1, ch)
+    return _DECODED[key]
+
+
+def mono(path: Path) -> np.ndarray:
+    x = decode(path)
+    return x.mean(axis=1)
+
+
+def repitch(x: np.ndarray, semis: float) -> np.ndarray:
+    """Muda a altura reamostrando (como fita mais lenta): -4 st = 26% mais longo e mais grave.
+    Reamostragem por FFT (limitada em banda, sem serrilhado)."""
+    if semis == 0:
+        return x.copy()
+    n = len(x)
+    m = int(round(n * 2 ** (-semis / 12)))
+    X = np.fft.rfft(x)
+    Y = np.zeros(m // 2 + 1, dtype=complex)
+    k = min(len(X), len(Y))
+    Y[:k] = X[:k]
+    return np.fft.irfft(Y, m) * (m / n)
+
+
+def fades(x: np.ndarray, fi: float = 0.002, fo: float = 0.03) -> np.ndarray:
+    x = x.copy()
+    a, b = min(ns(fi), len(x) // 2), min(ns(fo), len(x) // 2)
+    if a:
+        x[:a] *= np.linspace(0, 1, a)
+    if b:
+        x[-b:] *= np.linspace(1, 0, b) ** 2
+    return x
+
+
+def pb(x: np.ndarray, *plugins) -> np.ndarray:
+    """Passa um sinal mono por uma cadeia do pedalboard (determinístico)."""
+    from pedalboard import Pedalboard
+    y = Pedalboard(list(plugins))(x.astype(np.float32), SR)
+    return np.asarray(y, dtype=float).reshape(-1)
+
+
+_CRATER_IR: list = []
+
+
+def crater_ir() -> np.ndarray:
+    """IR da capela (canal W) virado "cratera": começa na primeira chegada (o direto já
+    vem atrasado e encoberto pela galeria), passa-alta de 120 Hz e passa-baixa de 4,5 kHz
+    (pedra longe e ar frio), e a cauda de ~4,2 s encurtada pra ~2,3 s com um envelope
+    exponencial e fade final. Normalizado pela energia."""
+    if not _CRATER_IR:
+        w = decode(V11_IR)[:, 0]
+        on = int(np.nonzero(np.abs(w) > np.abs(w).max() * 0.05)[0][0])
+        ir = w[on: on + ns(2.6)].copy()
+        t = tvec(len(ir))
+        ir *= np.exp(-t * (6.9 / 2.3 - 6.9 / 4.2))          # RT ~4,2 s -> ~2,3 s
+        f = ns(0.4)
+        ir[-f:] *= 0.5 + 0.5 * np.cos(np.pi * np.linspace(0, 1, f))
+        ir = filt(ir, 120, 4500, 2)
+        _CRATER_IR.append(ir / np.sqrt(np.sum(ir ** 2)))
+    return _CRATER_IR[0]
+
+
+def crater_reverb(x: np.ndarray, wet: float, predelay: float = 0.03) -> np.ndarray:
+    """Convolução (pedalboard.Convolution) com o IR medido. Seco + `wet` × molhado, com o
+    molhado no mesmo RMS do seco antes do ganho (pra `wet` ser comparável entre sons)."""
+    from pedalboard import Convolution
+    ir = np.concatenate([np.zeros(ns(predelay)), crater_ir()]).astype(np.float32)
+    pad = np.concatenate([x, np.zeros(len(ir))])
+    y = np.asarray(Convolution(ir, mix=1.0, sample_rate=SR)(pad.astype(np.float32), SR), dtype=float).reshape(-1)
+    y = y * (np.sqrt(np.mean(x ** 2)) / (np.sqrt(np.mean(y ** 2)) + 1e-12))
+    return pad + wet * y
+
+
+def ice_rec(name: str) -> np.ndarray:
+    return mono(V11_ICE / f"{name}.ogg")
+
+
+def break_rec(name: str) -> np.ndarray:
+    return mono(V11_BREAK / f"bfh1_{name}.ogg")
+
+
+def grain(rng, src: np.ndarray, dur=(0.03, 0.09)) -> np.ndarray:
+    """Pedacinho de uma gravação (janela de Hann): um microestalo de gelo de verdade."""
+    n = ns(rng.uniform(*dur))
+    hot = np.nonzero(np.abs(src) > np.abs(src).max() * 0.08)[0]   # só onde tem som
+    a = int(rng.choice(hot[hot < len(src) - n])) if np.any(hot < len(src) - n) else 0
+    return src[a:a + n] * np.hanning(n)
+
+
+def ice_master(x: np.ndarray, lp: float, wet: float, max_dur: float, fade: float) -> np.ndarray:
+    """Cadeia comum do gelo: compressão leve (os originais vêm estourados no ataque),
+    passa-baixa de distância, reverb de cratera e corte da cauda."""
+    from pedalboard import Compressor, LowpassFilter
+    x = x / (np.max(np.abs(x)) + 1e-12)
+    x = pb(x, Compressor(threshold_db=-14, ratio=3.0, attack_ms=0.5, release_ms=90))
+    x = pb(x, LowpassFilter(lp), LowpassFilter(lp * 1.3))
+    x = filt(x, 35, None, 2)
+    x = crater_reverb(x, wet)
+    return tail_cut(x, max_dur, fade)
+
+
+def sfx_ice_crack_v11(rng, *, crack: str, crack_st: float, body: str, body_st: float,
+                      second: str | None = None, second_at: float = 0.0, settle: int = 4):
+    """Estalo de gelo gravado (~1,9 s). Camadas: a quebra de gelo do IgnasD (gelo de
+    verdade) uns 3-5 semitons abaixo (vira placa maior), o corpo de uma quebra seca do
+    rubberduck por baixo, o peso grave sintético de ruído (o mesmo da v10, nunca seno),
+    uns microestalos tirados das próprias gravações de gelo se acomodando depois, e a
+    convolução com o IR da capela pra soar de longe dentro da cratera."""
+    tr = Track()
+    tr.add(fades(repitch(ice_rec(crack), crack_st)), 0.0, 1.0)
+    tr.add(fades(repitch(break_rec(body), body_st)), 0.004, 0.45)
+    if second:
+        tr.add(fades(repitch(ice_rec(second), crack_st - 1.5)), second_at, 0.55)
+    tr.add(noise_burst(rng, 40, 220, 0.012, 0.22, 0.9, order=2), 0.01, 0.55)    # peso: só ruído
+    pool = [ice_rec(n) for n in ("LedasLuzta", "LedasLuzta2", "LedasLuzta4")]
+    for _ in range(settle):                                                      # acomodando
+        g = repitch(grain(rng, pool[int(rng.integers(0, len(pool)))]), rng.uniform(-6, -2))
+        tr.add(g, rng.uniform(0.3, 1.0), rng.uniform(0.08, 0.2))
+    return ice_master(tr.render(1.0), lp=5200, wet=0.55, max_dur=1.95, fade=0.6)
+
+
+def sfx_ice_crack_v11_0(rng):
+    """Estalo A: uma quebra curta e seca (LedasLuzta4 a -4 st) sobre a quebra seca 02."""
+    return sfx_ice_crack_v11(rng, crack="LedasLuzta4", crack_st=-4, body="breaking_02", body_st=-2)
+
+
+def sfx_ice_crack_v11_1(rng):
+    """Estalo B: a rachadura mais comprida do pack (LedasLuzta33, 1,3 s de cascata) a
+    -3 st, com um segundo estalo menor 0,22 s depois, como a rachadura correndo."""
+    return sfx_ice_crack_v11(rng, crack="LedasLuzta33", crack_st=-3, body="breaking_03", body_st=-3,
+                             second="LedasLuzta2", second_at=0.22, settle=5)
+
+
+def sfx_ice_collapse_v11(rng):
+    """Desabamento (~2,4 s): a quebra grande de gelo (LedasLuzta5 a -5 st) com a quebra
+    de pedra 01 por baixo, a placa cedendo (ronco grave de ruído, sintético, como na
+    v10), o "whump" de ruído quando bate no fundo e os pedaços caindo: grãos e quebras
+    curtas de gelo gravado e quedas de pedra gravadas, 2 a 7 semitons abaixo, cada vez
+    mais raros. Tudo com o reverb da cratera um pouco mais molhado."""
+    tr = Track()
+    tr.add(fades(repitch(ice_rec("LedasLuzta5"), -5)), 0.0, 1.0)
+    tr.add(fades(repitch(break_rec("rock_breaking_01"), -3)), 0.01, 0.5)
+    tr.add(fades(repitch(ice_rec("LedasLuzta33"), -6)), 0.09, 0.45)
+    n = ns(1.9)                                                                  # placa cedendo
+    t = tvec(n)
+    env = np.clip(t / 0.18, 0, 1) ** 1.5 * np.exp(-t / 0.7) * (0.75 + 0.25 * slow_noise(n, rng, 6.0, False))
+    tr.add(norm_rms(filt(rng.standard_normal(n), 30, 260, 2)) * env, 0.05, 0.12)
+    tr.add(noise_burst(rng, 35, 320, 0.01, 0.16, 0.8, order=1), 0.42, 0.55)      # "whump" no fundo
+    ice_pool = [ice_rec(n_) for n_ in ("LedasLuzta", "LedasLuzta2", "LedasLuzta4")]
+    rock_pool = [break_rec(n_) for n_ in ("rock_falling_03", "rock_falling_04", "rock_falling_06",
+                                          "rock_falling_07", "rock_falling_08")]
+    t0 = 0.3
+    while True:                                                                  # pedaços caindo
+        t0 += rng.exponential(1 / (16 * np.exp(-(t0 - 0.3) / 0.55) + 2.0))
+        if t0 > 1.9:
+            break
+        fade = np.exp(-(t0 - 0.3) / 0.8)
+        if rng.random() < 0.5:                                                   # bloco: queda gravada
+            r = rock_pool[int(rng.integers(0, len(rock_pool)))]
+            tr.add(fades(repitch(r[: ns(0.25)], rng.uniform(-7, -3)), 0.001, 0.06), t0, fade * rng.uniform(0.2, 0.4))
+        else:                                                                    # lasca de gelo gravada
+            g = repitch(grain(rng, ice_pool[int(rng.integers(0, len(ice_pool)))], (0.04, 0.12)), rng.uniform(-5, -1))
+            tr.add(g, t0, fade * rng.uniform(0.15, 0.35))
+    return ice_master(tr.render(2.0), lp=4800, wet=0.62, max_dur=2.45, fade=0.7)
+
+
+def rec_loop(x: np.ndarray, L: float, X: float, pre=(0.3, 0.9)) -> np.ndarray:
+    """Loop de L s a partir de uma gravação (já tratada) com crossfade de potência
+    constante de X s: o fim do trecho entra por baixo do começo. A amostra depois da
+    última é a continuação natural dela, então emenda sem estalo. O ponto de emenda é
+    escolhido (determinístico) dentro de `pre` s: o lugar com menos agudo em volta, pra
+    não cair em cima de uma gota mais forte."""
+    n, m = ns(L), ns(X)
+    hp = filt(x, 3000, None, 2)
+    w = ns(0.004)
+    best, a = None, ns(pre[0])
+    for c in range(ns(pre[0]), ns(pre[1]), ns(0.002)):
+        s = c + n                                    # amostra que vira a primeira do loop
+        e = np.sum(hp[s - w:s + w] ** 2) + 4 * w * (x[s] - x[s - 1]) ** 2
+        if best is None or e < best:
+            best, a = e, c
+    assert len(x) >= a + n + m, "trecho curto demais pro loop"
+    out = x[a:a + n].copy()
+    th = np.linspace(0, np.pi / 2, m, endpoint=False)
+    out[:m] = x[a:a + m] * np.sin(th) + x[a + n:a + n + m] * np.cos(th)
+    return out
+
+
+def soften_drops(x: np.ndarray, ceil_db: float = 5.0) -> np.ndarray:
+    """De-click leve: na banda acima de 2 kHz, segura cada gota mais forte a no máximo
+    `ceil_db` acima do véu em volta (mediana de 1 s), com ganho suavizado em 3 ms. É a
+    lição da tempestade: o véu fica, o "tic" isolado que se repetiria a cada volta do
+    loop some. O resto do espectro não é tocado."""
+    from numpy.lib.stride_tricks import sliding_window_view
+    hi = filt(x, 2000, None, 4)
+    lo = x - hi
+    w = ns(0.005)
+    env = np.sqrt(np.convolve(hi ** 2, np.ones(w) / w, "same")) + 1e-9
+    e = env[::w]
+    k = 100                                              # 100 × 5 ms = ±0,5 s
+    med = np.median(sliding_window_view(np.pad(e, (k, k), mode="edge"), 2 * k + 1), axis=1)[: len(e)]
+    g = np.minimum(1.0, med * 10 ** (ceil_db / 20) / e)
+    g = np.interp(np.arange(len(x)), np.arange(len(g)) * w, g)
+    s = ns(0.003)
+    g = np.convolve(g, np.ones(s) / s, "same")
+    return lo + hi * g
+
+
+def rain_rec(seg: str) -> np.ndarray:
+    return soften_drops(mono(V11_RAIN / f"amb_rain2_{seg}.flac"))
+
+
+def amb_rain_v11_mid(rng):
+    """Média: o trecho 404-432 s da gravação, passa-alta de 250 Hz (o grave é dos pads e
+    do ronco do microfone), um passa-baixa suave de 6 kHz e loop de 24 s."""
+    x = filt(rain_rec("404s-432s"), 250, 6000, 2)
+    return rec_loop(x, 24.0, 3.0)
+
+
+def amb_rain_v11_light(rng):
+    """Fraca: o trecho mais calmo (520-548 s), mais escuro (passa-baixa de 3,2 kHz), como
+    a chuva mais longe e mais fina. Loop de 24 s."""
+    x = filt(rain_rec("520s-548s"), 280, 3200, 2)
+    return rec_loop(x, 24.0, 3.0)
+
+
+def amb_rain_v11_heavy(rng):
+    """Forte: dois trechos diferentes somados (282-310 s e 318-346 s, sem relação entre
+    si): o dobro de gotas por segundo, como um aguaceiro, com o topo um pouco mais
+    aberto (passa-baixa de 7 kHz). Loop de 24 s."""
+    x = rain_rec("282s-310s") + 0.85 * rain_rec("318s-346s")
+    x = filt(x, 220, 7000, 2)
+    return rec_loop(x, 24.0, 3.0)
+
+
+def loop_vent_hiss_v11(rng):
+    """Fumarola: o vapor da fumarola grande de Norris (NPS), do 4,5 s em diante (antes
+    disso é o fade de entrada do arquivo), passa-alta de 60 Hz e passa-baixa de 3 kHz
+    (é chiado grave, como na v10), loop de 20 s."""
+    x = mono(V11_VENT)
+    x = x[ns(4.0):]
+    x = filt(x, 60, 3000, 2)
+    return rec_loop(x, 20.0, 3.0)
+
+
+# v11 APROVADA pelo dono ("por hora tá bom, deixa assim"): os 7 viraram oficiais e saem
+# em assets/audio/ com a seed do nome (rng_for(nome)) e os mesmos alvos, idênticos byte
+# a byte ao que ele ouviu em reports/audio/v11/. Precisam do pedalboard e do vendor: se
+# faltar, o main() pula só esses 7 (o arquivo que já está lá fica) e avisa.
+# Nota pra próxima rodada (dono): o gelo lembra um pouco "bater no esqueleto do
+# Minecraft", meio osso/clack. Não mexer agora; revisitar quando refatorar os sons.
+RECORDED: dict = {
+    "ice_crack": (sfx_ice_crack_v11_0, False, -24.0),
+    "ice_crack_1": (sfx_ice_crack_v11_1, False, -24.0),
+    "ice_collapse": (sfx_ice_collapse_v11, False, -22.0),
+    "amb_rain": (amb_rain_v11_mid, True, -29.0),
+    "amb_rain_light": (amb_rain_v11_light, True, -32.0),
+    "amb_rain_heavy": (amb_rain_v11_heavy, True, -27.0),
+    "vent_hiss": (loop_vent_hiss_v11, True, -33.0),
+}
+SOUNDS.update(RECORDED)
+PROPOSALS_V11: dict = {}   # promovidas; reports/audio/v11/ deixou de ser gerado
+
+
+def v11_ready() -> str | None:
+    """None se dá pra gerar a v11; senão, o motivo."""
+    import importlib.util
+    import shutil
+    if importlib.util.find_spec("pedalboard") is None:
+        return "pedalboard não instalado (rode com: uv run python tools/audio/build_audio.py)"
+    if not (shutil.which("ffmpeg") and shutil.which("ffprobe")):
+        return "ffmpeg/ffprobe ausente"
+    for p in (V11_RAIN, V11_ICE, V11_BREAK, V11_VENT, V11_IR):
+        if not p.exists():
+            return f"faltando {p.relative_to(ROOT)}"
+    return None
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     meta = {}
     print(f"{'arquivo':<20}{'dur(s)':>8}{'pico dBFS':>11}{'loud dB':>9}")
+    rec_skip = v11_ready()
     for name, (fn, loop, target) in SOUNDS.items():
+        if name in RECORDED and rec_skip:
+            print(f"{name}: pulado ({rec_skip}); o wav que já está em assets/audio fica")
+            continue
         x = finalize(fn(rng_for(name)), loop, target)
         xi = write_wav(OUT_DIR / f"{name}.wav", x)
         xf = xi.astype(float) / 32768
@@ -2034,6 +2366,26 @@ def main() -> None:
             meta["prop:" + name]["seam_lsb"] = jump
             meta["prop:" + name]["seam_pct"] = round(float(100 * np.mean(adj < jump)), 1)
         print(f"{'v10/' + name + '.wav':<20}{len(xi) / SR:>8.2f}{peak_db:>11.2f}{loudness(xf, loop):>9.1f}")
+    why = v11_ready() if PROPOSALS_V11 else "promovida pro SOUNDS"
+    if why:
+        print(f"v11 (proposta): {why}")
+    else:
+        V11_DIR.mkdir(parents=True, exist_ok=True)
+        for name, (fn, loop, target) in PROPOSALS_V11.items():
+            xi = write_wav(V11_DIR / f"{name}.wav", finalize(fn(rng_for(name)), loop, target))
+            xf = xi.astype(float) / 32768
+            peak_db = 20 * np.log10(np.max(np.abs(xf)) + 1e-12)
+            meta["v11:" + name] = {
+                "file": f"v11/{name}.wav", "loop": loop, "duration": round(len(xi) / SR, 3),
+                "peak_db": round(float(peak_db), 2), "loudness_db": round(float(loudness(xf, loop)), 1),
+                "wave": waveform_peaks(xi),
+            }
+            if loop:
+                adj = np.abs(np.diff(xi.astype(int)))
+                jump = abs(int(xi[0]) - int(xi[-1]))
+                meta["v11:" + name]["seam_lsb"] = jump
+                meta["v11:" + name]["seam_pct"] = round(float(100 * np.mean(adj < jump)), 1)
+            print(f"{'v11/' + name + '.wav':<20}{len(xi) / SR:>8.2f}{peak_db:>11.2f}{loudness(xf, loop):>9.1f}")
     (REPORT_DIR / "audio_meta.js").write_text(
         "// gerado por tools/audio/build_audio.py, não editar\nwindow.AUDIO_META = "
         + json.dumps(meta, ensure_ascii=False) + ";\n",

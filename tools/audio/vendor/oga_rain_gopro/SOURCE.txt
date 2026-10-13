@@ -1,0 +1,16 @@
+Fonte: "AMB Rain Loop 2", de Kresiek The Furry (OpenGameArt)
+Página: https://opengameart.org/content/amb-rain-loop-2
+Arquivo original: https://opengameart.org/sites/default/files/amb_rain2.flac
+  (FLAC, 48 kHz, estéreo, 16-bit, 733 s; "Recorded on a GoPro Hero 12 Black using raw audio settings.")
+  sha256 do original: c33d833842c88e9559882b35f6f149c3a96bbf236eb34491e36ea4cae8879985
+Licença: CC0 1.0 (domínio público), conferida na página em 2026-10-13
+  http://creativecommons.org/publicdomain/zero/1.0/
+Baixado sem login. O original tem 75 MB; aqui ficam só os 4 recortes que o build usa,
+SEM PERDA (as amostras são idênticas às do original, conferido com cmp):
+  for a in 282 318 404 520; do b=$((a+28)); ffmpeg -i amb_rain2.flac \
+    -af "atrim=start_sample=$((a*48000)):end_sample=$((b*48000)),asetpts=PTS-STARTPTS" \
+    -c:a flac -compression_level 8 amb_rain2_${a}s-${b}s.flac; done
+Por que esses trechos: são os mais estáveis da gravação, longe dos três momentos com
+ronco grave passando (35-55 s, 165-190 s e 355-395 s). Análise sem ouvir: sem tom
+estreito, sem voz, ~2 transientes por minuto (chuva difusa, não gota em superfície dura).
+Arquivo de dados não confiável: só é lido como áudio (ffmpeg), nada é executado.

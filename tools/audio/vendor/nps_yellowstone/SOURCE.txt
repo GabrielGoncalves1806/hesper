@@ -1,0 +1,13 @@
+Fonte: Yellowstone National Park Sound Library (U.S. National Park Service)
+Página: https://www.nps.gov/yell/learn/photosmultimedia/sounds-fumaroles.htm
+Arquivo: https://www.nps.gov/nps-audiovideo/legacy/mp3/imr/avElement/yell-NorrisPorcelainBasinFumerole.mp3
+  "Fumarole (large): The roar of steam from this unnamed fumarole speaks to the tremendous
+   heat below the Norris Geyser Basin." Credit / Author: NPS/Jennifer Jerrett, 01/31/2014.
+  sha256: 23b3c8206423abe6c5a5007e85acca3a9cf3c1b619bd733e64f2fc039e5db7b5
+Licença: DOMÍNIO PÚBLICO (obra de servidor do governo dos EUA, 17 U.S.C. §105).
+  Aviso oficial do NPS (https://www.nps.gov/aboutus/disclaimer.htm, conferido em 2026-10-13):
+  "material created by the National Park Service and presented on this website, unless
+  otherwise indicated, is generally considered in the public domain". O NPS pede, numa
+  publicação comercial, um aviso do tipo "No claim to original U.S. Government works", e
+  agradece a citação da fonte. Não é CC0, mas tem o mesmo efeito prático.
+Baixado sem login. Só lido como áudio.

@@ -1,0 +1,15 @@
+Copyright (c) 2026 Martin Zerwas and Selin Kayku
+
+This dataset (room impulse responses, derived room-acoustic parameters, and
+decay-analysis results for the St. Nicholas Chapel, Aachen Cathedral) is licensed
+under the Creative Commons Attribution 4.0 International License (CC BY 4.0).
+
+You are free to share and adapt the material for any purpose, even commercially,
+provided that you give appropriate credit, provide a link to the license, and
+indicate if changes were made.
+
+Full license text: https://creativecommons.org/licenses/by/4.0/legalcode
+Human-readable summary: https://creativecommons.org/licenses/by/4.0/
+
+When using these data, please cite the associated article (M. Zerwas and S. Kayku,
+Acta Acustica, forthcoming) and this dataset (DOI 10.5281/zenodo.20428705).

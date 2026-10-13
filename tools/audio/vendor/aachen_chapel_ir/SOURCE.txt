@@ -1,0 +1,18 @@
+Fonte: "Room acoustic measurement and decay analysis data of the St. Nicholas Chapel,
+  Aachen Cathedral", de Martin Zerwas e Selin Kayku (Zenodo)
+Página: https://zenodo.org/records/23312556   (DOI citado no LICENSE.txt: 10.5281/zenodo.20428705)
+Arquivo: https://zenodo.org/api/records/23312556/files/impulse_responses.zip/content
+  (271 MB, sha256 7fd376f3ad746476086b6e1d8bd46004304d0ca31dc13b3a1a5fab9b007cc588)
+  Daqui só foi extraído (unzip) Nikolauskapelle_Source3_BRIR/S3-Do_R12.wav
+  (B-format FuMa, 4 canais W X Y Z, 48 kHz, float 32, 6 s;
+   sha256 6017d68c2f453bcf4e820dfde672b7ba626fbc7acf17f8134656f6cce72e1cdc).
+  O LICENSE.txt e o README.md são os do dataset, sem mudança.
+Licença: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Uso comercial
+  liberado COM CRÉDITO: autores, link da licença e aviso de que houve mudança.
+Por que este: não achei resposta ao impulso medida em CC0 que baixe sem login (OpenAIR
+  fora do ar, EchoThief e o levantamento do MIT sem licença declarada, os datasets do
+  Zenodo são CC BY ou mais restritos). Fonte na galeria (o direto chega encoberto) e o
+  microfone no ponto mais distante (14,4 m): o IR mais "de longe" do conjunto.
+Mudanças feitas no build: canal W só, começa na primeira chegada, cauda encurtada de
+  ~4,2 s pra ~2,3 s (envelope exponencial + fade), passa-alta 120 Hz e passa-baixa 4,5 kHz.
+Baixado sem login. Só lido como áudio.

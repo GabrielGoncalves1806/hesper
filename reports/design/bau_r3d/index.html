@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Baú r3d azul · v1.0</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;600&family=Pixelify+Sans:wght@600&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;--blue:#4a86d0;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 "IBM Plex Sans",system-ui,sans-serif;padding:0 16px}
+.wrap{max-width:1300px;margin:0 auto;padding:44px 0 80px}
+.eyebrow{font:12px "Silkscreen",monospace;letter-spacing:.08em;color:var(--blue);text-transform:uppercase}
+h1{font:600 44px/1.1 "Pixelify Sans",monospace;margin:8px 0 12px}h2{font:600 24px "Pixelify Sans",monospace;margin:44px 0 12px}
+h2::before{content:"";display:inline-block;width:10px;height:10px;background:var(--blue);margin-right:10px;vertical-align:middle}
+h3{font:600 16px "Pixelify Sans",monospace;margin:0 0 8px}code{font-family:"IBM Plex Mono",monospace;color:var(--gold);font-size:.92em}
+p,li{color:var(--muted)}li b,p b{color:var(--fg)}
+.v2{background:#241b17;border:1px solid var(--line);border-left:3px solid var(--blue);padding:12px 18px;max-width:1000px}
+.v2>b{font:13px "Silkscreen",monospace;color:var(--blue)}
+.chk{display:inline-block;padding:10px;background-color:#2a2f38;background-image:linear-gradient(45deg,#333944 25%,transparent 25%,transparent 75%,#333944 75%),linear-gradient(45deg,#333944 25%,transparent 25%,transparent 75%,#333944 75%);background-size:16px 16px;background-position:0 0,8px 8px}
+img{image-rendering:pixelated}figure{margin:0}figcaption{font:12px "Silkscreen",monospace;color:var(--muted);margin-top:6px}
+.pairs{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:18px}
+.pair{background:var(--panel);border:1px solid var(--line);padding:14px}.ab{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}@media(max-width:1000px){.grid2{grid-template-columns:1fr}}
+img.px{width:100%;height:auto;border:1px solid var(--line);display:block}
+.box{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--cyan);padding:16px 20px}
+.anim{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end}
+.sp{background-repeat:no-repeat;background-size:100% 100%;image-rendering:pixelated}
+.a-chest{width:192px;height:240px;animation:chestA 2.4s steps(1) infinite}
+@keyframes chestA{0%{background-image:url(pendentes/chest.png)}50%{background-image:url(pendentes/chest_open.png)}}
+.a-crate{width:192px;height:192px;animation:crateA 2.4s steps(1) infinite}
+@keyframes crateA{0%{background-image:url(pendentes/loot_crate.png)}50%{background-image:url(pendentes/loot_crate_empty.png)}}
+.a-led{width:240px;height:264px;animation:ledA 1.2s steps(1) infinite;background-image:url(pendentes/container_sealed.png)}
+@keyframes ledA{0%{filter:none}50%{filter:brightness(.92)}}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Designer · v1.0 · proposta: família de caixas no r3d, padrão azul</div>
+<h1>Baú, caixa de saque e contêiner lacrado · r3d azul</h1>
+<div class="v2"><b>v1.0 · o que mudou (proposta, espera o ok do dono)</b><ul>
+<li><b>Um modelo só</b> pra toda caixa do jogo, no motor r3d das máquinas experimentais: base de metal, corpo azul com
+o painel rebaixado na frente, um friso laranja de acento, tampa com a emenda escura e o trinco de aço com LED. É a
+forma do <code>chest()</code> do experimento, recolorida pro padrão azul, sem detalhe industrial a mais (sem rebite e
+sem faixa de advertência), como o dono pediu.</li>
+<li><b>Baú</b> (<code>chest</code>, <code>chest_open</code>, <code>icon_chest</code>) substitui o armário de hoje.
+<b>Caixa de saque</b> (<code>loot_crate</code>, <code>loot_crate_empty</code>) é o mesmo modelo menor. <b>Contêiner
+lacrado</b> (<code>container_sealed</code>, novo) é o mesmo modelo maior, com duas travas, a placa do selo da colônia
+em dourado e o LED vermelho.</li>
+<li>Cheia × vazia/aberta muda <b>só a tampa e o conteúdo</b>, nunca a cor. LED: verde no baú, âmbar na caixa de saque
+cheia (como hoje), vermelho no lacrado.</li>
+<li>O motor <code>r3d.py</code> foi portado pro <code>tools/sprites/</code>, autocontido; ele reproduz pixel a pixel o
+baú do experimento.</li>
+</ul></div>
+
+<h2>A família</h2>
+<div class="chk" style="display:flex;gap:30px;align-items:flex-end;padding:18px"><img src="pendentes/loot_crate.png" width="160" height="160" alt=""><img src="pendentes/chest.png" width="160" height="200" alt=""><img src="pendentes/container_sealed.png" width="200" height="220" alt=""></div>
+<p>Caixa de saque (32×32) · baú (32×40) · contêiner lacrado (40×44). Ampliado 5×.</p>
+
+<h2>Antes × depois</h2>
+<div class="pairs"><div class="pair"><h3>Baú fechado · <code>chest.png</code> · 32×40</h3><div class="ab">
+<figure><div class="chk"><img src="before/chest.png" width="192" height="240" alt=""></div><figcaption>antes (hoje no jogo)</figcaption></figure><figure><div class="chk"><img src="pendentes/chest.png" width="192" height="240" alt=""></div><figcaption>depois (r3d azul)</figcaption></figure></div></div><div class="pair"><h3>Baú aberto · <code>chest_open.png</code> · 32×40</h3><div class="ab">
+<figure><div class="chk"><img src="before/chest_open.png" width="192" height="240" alt=""></div><figcaption>antes (hoje no jogo)</figcaption></figure><figure><div class="chk"><img src="pendentes/chest_open.png" width="192" height="240" alt=""></div><figcaption>depois (r3d azul)</figcaption></figure></div></div><div class="pair"><h3>Ícone do baú · <code>icon_chest.png</code> · 16×16</h3><div class="ab">
+<figure><div class="chk"><img src="before/icon_chest.png" width="128" height="128" alt=""></div><figcaption>antes (hoje no jogo)</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_chest.png" width="128" height="128" alt=""></div><figcaption>depois (r3d azul)</figcaption></figure></div></div><div class="pair"><h3>Caixa de saque cheia · <code>loot_crate.png</code> · 32×32</h3><div class="ab">
+<figure><div class="chk"><img src="before/loot_crate.png" width="192" height="192" alt=""></div><figcaption>antes (hoje no jogo)</figcaption></figure><figure><div class="chk"><img src="pendentes/loot_crate.png" width="192" height="192" alt=""></div><figcaption>depois (r3d azul)</figcaption></figure></div></div><div class="pair"><h3>Caixa de saque vazia · <code>loot_crate_empty.png</code> · 32×32</h3><div class="ab">
+<figure><div class="chk"><img src="before/loot_crate_empty.png" width="192" height="192" alt=""></div><figcaption>antes (hoje no jogo)</figcaption></figure><figure><div class="chk"><img src="pendentes/loot_crate_empty.png" width="192" height="192" alt=""></div><figcaption>depois (r3d azul)</figcaption></figure></div></div><div class="pair"><h3>Contêiner lacrado · <code>container_sealed.png</code> · 40×44 (proposta)</h3><div class="ab">
+<figure><div class="chk"><img src="before/container_sealed_placeholder.png" width="192" height="240" alt=""></div><figcaption>antes: o placeholder do código (art.sealed_container, 32×40)</figcaption></figure>
+<figure><div class="chk"><img src="pendentes/container_sealed.png" width="240" height="264" alt=""></div><figcaption>depois (r3d azul, maior, trava + selo)</figcaption></figure></div></div></div>
+
+<h2>Animações</h2>
+<div class="anim">
+<figure><div class="chk"><div class="sp a-chest"></div></div><figcaption>baú: fecha / abre (E)</figcaption></figure>
+<figure><div class="chk"><div class="sp a-crate"></div></div><figcaption>caixa de saque: cheia / vazia</figcaption></figure>
+<figure><div class="chk"><img src="pendentes/container_sealed.png" width="240" height="264" alt=""></div><figcaption>contêiner lacrado: não abre</figcaption></figure>
+</div>
+
+<h2>Na base, com as máquinas e o Explorador</h2>
+<div class="grid2">
+<figure><img class="px" src="cena_base_arid_antes.png" alt=""><figcaption><b>antes</b> · Árido, o baú de hoje (armário)</figcaption></figure>
+<figure><img class="px" src="cena_base_arid.png" alt=""><figcaption><b>depois</b> · Árido, 4 baús (o 2º aberto)</figcaption></figure>
+<figure><img class="px" src="cena_base_green.png" alt=""><figcaption><b>depois</b> · Verde</figcaption></figure>
+<figure><img class="px" src="cena_bolsao_arid.png" alt=""><figcaption><b>bolsão</b> · Árido: contêiner lacrado, caixa de saque cheia (esq.) e vazia (dir.), o gelo-portão da v9.2 derretendo embaixo</figcaption></figure>
+<figure><img class="px" src="cena_bolsao_green.png" alt=""><figcaption><b>bolsão</b> · Verde</figcaption></figure>
+</div>
+<p>Recortes 480×270 (metade da tela do jogo) ampliados 2×, montados só com os sprites e ordenados pelo pé, como o jogo
+desenha. O chão é o da v9 (planalto e faixa gelada).</p>
+
+<h2>Nota sobre a paleta azul</h2>
+<div class="grid2"><div class="chk"><img src="paleta_azul.png" width="330" height="264" alt=""></div>
+<ul><li><b>BLUE (corpo)</b>: <code>#8ec4f4</code> <code>#4a86d0</code> <code>#3a6cb4</code> <code>#2b5190</code> <code>#1c3263</code></li><li><b>BLUE_D (painel)</b>: <code>#5f98da</code> <code>#346aae</code> <code>#2b5899</code> <code>#21427a</code> <code>#152a52</code></li><li><b>acento</b>: <code>#f4a06a</code> <code>#e2733a</code> <code>#a9482a</code> <code>#1b1630</code></li><li><b>lacre</b>: <code>#fff0b8</code> <code>#f2c46d</code> <code>#b8823c</code> <code>#ff6a55</code></li>
+<li>O r3d acende o <b>tampo</b> com o tom 0, a <b>frente</b> com o 1 e a <b>lateral</b> com o 3. Por isso a rampa foi
+deslocada: o azul "de verdade" (<code>#4a86d0</code>) é a frente, o tampo fica azul claro (<code>#8ec4f4</code>) e não
+estoura pro branco.</li>
+<li>É um azul de contêiner, mais fundo e menos verde que o ciano do O₂ (<code>#59d0e6</code>) e o gelo, pra não
+confundir com a UI nem com o minério. Destaca bem no ocre do Árido e no verde do Verde; na faixa gelada lê como objeto
+feito pelo homem, no meio do gelo, pelo contorno e pela base de metal.</li>
+<li>Referência de estilo do The Planet Crafter: só a ideia do contêiner de armazenamento simples, de cor chapada, com
+tampa e um trinco. Nada foi copiado: a forma é a do <code>chest()</code> do nosso experimento.</li>
+</ul></div>
+
+<h2>Pro Dev integrar</h2>
+<div class="box"><ul>
+<li><b>Baú</b>: <code>chest.png</code> e <code>chest_open.png</code> continuam <b>32×40</b>, ancorados no centro da base
+(o <code>_blit_anchored</code> de hoje, pé na borda de baixo do tile). Nada muda no código além de trocar o PNG.
+<code>icon_chest.png</code> continua 16×16.</li>
+<li><b>Caixa de saque</b>: <code>loot_crate.png</code> / <code>loot_crate_empty.png</code> continuam <b>32×32</b>, blit no
+canto do tile (<code>draw_crate</code>), a base da caixa na última linha do sprite.</li>
+<li><b>Contêiner lacrado</b>: <code>container_sealed.png</code> <b>40×44</b> (o placeholder é 32×40). O render já mede o
+sprite (<code>tx·32 + 16 − w/2</code>, <code>(ty + 1)·32 − h</code>), então ele passa 4 px de cada lado do tile, como as
+máquinas de 40 px. Continua bloqueando 1 tile.</li>
+<li><b>Sem sombra no sprite</b> (como as máquinas r3d do experimento): se quiser, o jogo põe a sombra de chão de sempre.</li>
+<li><b>Contorno do alvo do E</b>: o <code>outline_of</code> funciona igual (silhueta opaca).</li>
+<li>Regerar: <code>python3 tools/sprites/chests_r3d.py</code> (determinístico; os PNGs saem em
+<code>reports/design/bau_r3d/pendentes/</code>). Na promoção, copia pro <code>assets/sprites/</code>.</li>
+</ul></div>
+</div></body></html>

@@ -1,0 +1,6 @@
+Fonte: "Ice breaking/shattering", de IgnasD (OpenGameArt)
+Página: https://opengameart.org/content/ice-breakingshattering
+Arquivo: https://opengameart.org/sites/default/files/IceShatters_0.zip
+  sha256: b84ea396fac1af183dd2cb205a01edaa94b493ffb36965eafe59912e41cf9eb7
+Licença: CC0 1.0, conferida na página em 2026-10-13
+Baixado sem login. Extraído com unzip em IceShatters/ (5 .ogg, mono, 44,1 kHz). Só lido como áudio.
