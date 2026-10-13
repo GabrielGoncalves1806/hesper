@@ -33,6 +33,7 @@ from game import dust
 from game import energy
 from game import ground
 from game import hills
+from game import lake
 from game import layers
 from game import smoke
 from game.assets import Sprites
@@ -159,6 +160,9 @@ class Renderer:
         # água por tile: com geo (lago nas bacias, M3.3) vale até o nível d'água mudar; sem geo, só um frame
         self._wet_memo: dict[tuple[int, int], bool] = {}
         self._wet_key = None                       # (id do mundo, water_level) do memo; None = zera a cada frame
+        self.lake = lake.LakeBlocks()              # v0.4 M3.5: lago com margem orgânica, assado em blocos
+        self.organic_lake = True                   # False = a água por tile de antes (autotile; o smoke compara)
+        self._lake_stage_tags: dict[tuple[int, int], tuple] = {}
         self.outline_h = pygame.Surface((T, 1), pygame.SRCALPHA)
         self.outline_h.fill((0, 0, 0, 90))
         self.outline_v = pygame.Surface((1, T), pygame.SRCALPHA)
@@ -396,7 +400,9 @@ class Renderer:
         speed = C.THAW_FUMAROLE_WIND.get(stage_key(state.stage), 0.0) * (1 + gust * storm)
         view = pygame.Rect(cam[0], cam[1], self.view_w, self.view_h)
         push = (wind[0] * speed, wind[1] * speed * C.THAW_FUMAROLE_WIND_Y)
-        self.vent_smoke.update(dt, self.vent_sources(state), push, view)
+        sources = self.vent_sources(state)
+        self.vent_smoke.update(dt, sources, push, view)
+        self.vent_smoke.draw_glow(canvas, cam, sources, t)
         self.vent_smoke.draw(canvas, cam, stage_key(state.stage))
 
     def draw_cave_darkness(self, canvas, state: GameState, cam, t: float) -> None:
@@ -425,10 +431,15 @@ class Renderer:
             self.ground.draw(canvas, geo, cam, (self.view_w, self.view_h), self.stage_map)
             self.sync_water(world)
             shadows = not self.organic_hills(state)   # morro orgânico: a face curva já faz a borda (sem sombra quadrada)
+            per_tile = self.draw_lake(canvas, world, cam, t)
+            if per_tile is not None and not per_tile and not shadows:
+                return                                # sem água por tile e sem sombra: nada mais por tile
             for ty in range(ty0, ty1 + 1):
                 for tx in range(tx0, tx1 + 1):
                     if not world.is_wall(tx, ty):
-                        self._floor_overlays(canvas, world, tx, ty, tx * T - cam[0], ty * T - cam[1], t, shadows)
+                        water = per_tile is None or (tx // lake.BT, ty // lake.BT) in per_tile
+                        self._floor_overlays(canvas, world, tx, ty, tx * T - cam[0], ty * T - cam[1], t, shadows,
+                                             water)
             return
         backstop = C.PALETTES[stage]["face_dark"]
         self.sync_water(world)   # cada vizinho é consultado por até 9 tiles (sem geo: guarda só neste frame)
@@ -666,14 +677,48 @@ class Renderer:
         if wall_shadows and world.is_wall(tx - 1, ty):
             canvas.blit(self.shadow_left, (sx, sy))
 
-    def _floor_overlays(self, canvas, world, tx, ty, sx, sy, t, wall_shadows=True) -> None:
-        """Por cima do chão assado: a água (o lago nas bacias, M3.3) e a sombra das paredes."""
-        if self._wet(world, tx, ty):
+    def _floor_overlays(self, canvas, world, tx, ty, sx, sy, t, wall_shadows=True, water=True) -> None:
+        """Por cima do chão assado: a água por tile (só onde o lago orgânico ainda não foi assado) e a sombra das
+        paredes."""
+        if water and self._wet(world, tx, ty):
             self._draw_water(canvas, world, tx, ty, sx, sy, art_key(self.stage_map.stage_at(tx, ty)), t)
         if wall_shadows and world.is_wall(tx, ty - 1):
             canvas.blit(self.shadow_top, (sx, sy))
         if wall_shadows and world.is_wall(tx - 1, ty):
             canvas.blit(self.shadow_left, (sx, sy))
+
+    # ---- lago orgânico (v0.4 M3.5, game/lake.py) -------------------------------
+    def draw_lake(self, canvas, world, cam, t: float) -> set | None:
+        """A água das bacias com a margem seguindo o geo.height contínuo (blocos assados). Devolve os blocos que
+        ainda não têm assado (lá a água vai por tile, no autotile de antes) ou None se o lago orgânico não vale
+        (sem água: o conjunto vazio)."""
+        if world.geo is None or not world.terraforms or not self.organic_lake:
+            return None
+        if world.water_level <= 0:
+            return set()
+        self.lake.sync = self.ground.sync
+        entries, missing = self.lake.prepare(world, cam, (self.view_w, self.view_h))
+        self.lake.draw(canvas, entries, cam, self._lake_stage, lambda st: (self.water_atlas(st)[0], self.water_tiles),
+                       t)
+        return missing
+
+    def _lake_stage(self, bx: int, by: int) -> tuple:
+        """(etiqueta, estágios) do bloco do lago: a arte do estágio do mapa inteiro, ou por tile na transição."""
+        m = self.stage_map
+        if m.step == 0:
+            return ("all", m.stage), art_key(m.stage)
+        key = (m.stage, m.step, m._sources)
+        memo = self._lake_stage_tags.get((bx, by))
+        if memo is not None and memo[0] == key:
+            return memo[1], memo[2]
+        n = lake.BT
+        grid = np.array([[art_key(m.stage_at(bx * n + i, by * n + j)) for i in range(n)] for j in range(n)])
+        if (grid == grid.flat[0]).all():
+            tag, stages = ("all", str(grid.flat[0])), str(grid.flat[0])
+        else:
+            tag, stages = ("tiles", "|".join(grid.ravel().tolist())), grid
+        self._lake_stage_tags[(bx, by)] = (key, tag, stages)
+        return tag, stages
 
     # ---- água (autotile A2, ver game/autotile.py) ------------------------------
     def sync_water(self, world) -> None:

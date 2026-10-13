@@ -278,6 +278,10 @@ PLANT_CHANCE = 0.11   # estágio Verde: chance de um tile de chão ter planta
 LAKE_WATER = (3000, 15000, 40000)
 LAKE_STEP = 0.004            # a água só sobe de LAKE_STEP em LAKE_STEP de altura (o render e o mapa refazem pouco)
 LAKE_SHORE = 3               # tiles: plantas na beira d'água (ou da bacia) até essa distância
+# M3.5: margem orgânica (game/lake.py). Só desenho: a água continua por tile no jogo (is_water).
+LAKE_BLOCK_TILES = 8         # a água é assada em blocos de 8×8 tiles (256×256 px)
+LAKE_BAKE_MS = 2.0           # orçamento por quadro pra assar (no mínimo 1 bloco); o nível sobe poucas vezes por minuto
+LAKE_CACHE_BLOCKS = 64       # LRU dos blocos assados
 PLANT_CHANCE_SHORE = 0.30    # Verde, com geo: chance de planta na beira d'água
 PLANT_CHANCE_FAR = 0.05      # Verde, com geo: chance de planta longe da água
 # Chuva (game/rain.py): pancadas determinísticas pela seed. Intervalo de começo a começo, duração e 1ª pancada
@@ -725,6 +729,16 @@ THAW_FUMAROLE_WIND = {"storm": 34.0, "arid": 9.0, "mist": 5.0, "green": 7.0}
 THAW_FUMAROLE_WIND_Y = 0.25      # o vento pro norte/sul conta só 1/4 na tela (senão o vento pro sul segura a subida)
 THAW_FUMAROLE_WAKE_S = 1.0       # s da fumaça subindo de 1/3 da taxa até a taxa cheia quando ela acorda
 THAW_FUMAROLE_MAX_PUFFS = 220    # teto de puffs vivos na tela (com culling, sobra muito)
+# M3.5 (pedido do dono: no basalto escuro a fumaça sumia): por cima do bloco `smoke` do JSON da Designer, sem mexer
+# no asset. Puff nasce mais claro e mais opaco, vive um pouco mais, e a boca ganha um brilho quente bem leve.
+SMOKE_OVERRIDE = {
+    "color": ["#f6f3ee", "#d9d3cb", "#aaa49d"],   # antes #e9e4dc / #c4bdb4 / #958e88
+    "alpha": [185, 135, 85],                      # antes 150 / 110 / 70 (por terço da vida)
+    "life": [3.2, 4.2],                           # s; antes 2,6–3,4
+}
+THAW_FUMAROLE_GLOW = (255, 132, 56)   # brilho quente na boca da fumarola acordada (somado na tela)
+THAW_FUMAROLE_GLOW_R = 7              # px de raio do brilho
+THAW_FUMAROLE_GLOW_MAX = 56           # intensidade no centro (0..255, somada), pulsando devagar entre 60% e 100%
 THAW_CRATER_NOTICE_S = 3.5        # s do aviso "O gelo da cratera está cedendo" / "A cratera abriu"
 VOLUME["ice_crack"] = 0.8        # gelo estalando (sem ice_crack.wav, silêncio)
 DEBUG_MELT_CRATER = True        # F4 derrete a tampa na hora (atalho de debug, no mesmo esquema do F1–F3)

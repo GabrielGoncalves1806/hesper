@@ -232,3 +232,24 @@ def test_smoke_rises_spreads_bends_with_wind_and_culls():
     for _ in range(60):
         none.update(1 / 60, [], (0.0, 0.0), view)
     assert not none.puffs
+
+
+def test_smoke_override_and_mouth_glow():
+    """M3.5: o C.SMOKE_OVERRIDE vale por cima do JSON (fumaça mais clara e que vive mais) e a boca acordada ganha um
+    brilho quente leve que só clareia (somado), acendendo junto com a taxa quando a fumarola acorda."""
+    from game import smoke as S
+    for key, value in C.SMOKE_OVERRIDE.items():
+        assert S.SMOKE[key] == value
+    pygame.init()
+    v = S.VentSmoke(seed=1)
+    src = [S.Source(0, "cone", [(50.0, 50.0)])]
+    canvas = pygame.Surface((100, 100), 0, 32)
+    canvas.fill((40, 30, 34))
+    v.draw_glow(canvas, (0, 0), src, 0.0)
+    r, g, b, _ = canvas.get_at((50, 50))
+    assert r > 40 and g >= 30 and r - 40 > b - 34          # mais quente que o basalto em volta
+    assert canvas.get_at((0, 0))[:3] == (40, 30, 34)       # longe da boca não mexe
+    v.wake(0)                                              # acabou de acordar: ainda apagado
+    canvas.fill((40, 30, 34))
+    v.draw_glow(canvas, (0, 0), src, 0.0)
+    assert canvas.get_at((50, 50))[:3] == (40, 30, 34)
