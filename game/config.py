@@ -624,3 +624,17 @@ HILL_REGION_ORE = {"plateau": {"iron": 0.45, "silicon": 0.35, "ice": 0.2},
                    "basalt": {"iron": 0.7, "silicon": 0.2, "ice": 0.1},
                    "frost": {"ice": 0.6, "iron": 0.2, "silicon": 0.2}}
 HILL_REGION_ORE_CHANCE = {"plateau": 0.12, "salar": 0.12, "basalt": 0.16, "frost": 0.16}
+
+# ---------------------------------------------------------------------------
+# Chão assado da superfície (v0.4 Marco 2 · trilha B · bíblia §11): game/ground.py. Só vale com layer.geo.
+# A arte (texturas 512×512, decalques, rampas por estágio) mora em assets/sprites/regions/.
+# ---------------------------------------------------------------------------
+REGIONS_DIR = SPRITES_DIR / "regions"
+GROUND_BLOCK_TILES = 16          # o chão é assado em blocos de 16×16 tiles (512×512 px, o tamanho da textura)
+GROUND_CACHE_BLOCKS = 40         # LRU: blocos guardados (cada um ~1,4 MB: índice + metade do mapa de tiles + RGB)
+GROUND_BAKE_MS = 3.0             # orçamento por quadro pra assar (faixas de 32 linhas; no mínimo 1 por quadro)
+GROUND_BAKE_ROWS = 32            # linhas por faixa do assado (cada faixa custa ~2,5 ms)
+GROUND_PREFETCH_PX = 320         # assa antes os blocos até essa distância da tela (pra chegar pronto)
+GROUND_DECAL_MARGIN = 128        # px: um decalque pode invadir o bloco vizinho até aqui (o maior tem 224×96)
+GROUND_BASE_CLEAR = 6            # tiles: sem decalque nem decoração solta em volta da base
+GROUND_DECOR_P = 0.035           # chance de decoração solta (lasca, cristal, gelo) por tile de basalto/salar/gelo

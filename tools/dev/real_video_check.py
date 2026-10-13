@@ -34,7 +34,7 @@ CELL = 40                 # lado da célula da grade (px da janela 960×540): 24
 BLACK_MAX = 12            # canal <= isso conta como "preto"
 BLACK_SLACK = 0.25        # o real pode ter até +25% de preto numa célula sem falhar (partículas, cursor)
 CLEAR_SLACK = 0.01        # alfa < 255 em mais de 1% da célula já é bug (a janela é opaca)
-SCENES = ("titulo", "superficie", "mapa_superficie", "tempestade", "mapa_tempestade", "inventario", "fabricador",
+SCENES = ("titulo", "superficie", "chao_regioes", "mapa_superficie", "tempestade", "mapa_tempestade", "inventario", "fabricador",
           "bau", "opcoes", "caverna_escura", "mapa_caverna")
 
 
@@ -103,6 +103,20 @@ def run_worker(driver: str, out: Path) -> None:
     bot.mouse_to(mouse)
     bot.frames(1.0)
     bot.capture("superficie")
+
+    # chão assado (v0.4 M2, game/ground.py): a divisa planalto/salar no Árido, sem poeira na frente
+    stage0, storm0, ind0, pos0 = s.stage, s.storm, dict(s.indices), (s.player.x, s.player.y)
+    s.stage, s.storm = C.ARID_STAGE, 0.0
+    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    bot.teleport(smoke.region_spot(s.active.geo, s.world, 0, 1))
+    s.o2 = C.O2_MAX
+    bot.mouse_to(mouse)
+    smoke.ground_settle(bot, 0.3)
+    bot.capture("chao_regioes")
+    s.stage, s.storm = stage0, storm0
+    s.indices.update(ind0)
+    s.player.x, s.player.y = pos0
+    bot.frames(0.3)
 
     bot.key(pygame.K_m)
     assert app.mode == "map" and app.map_view.layer == "surface"
