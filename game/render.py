@@ -849,7 +849,7 @@ class Renderer:
 
     PLAYER_WALK_FPS = 9     # caminhada: avança pelo walk_time (só corre enquanto anda)
     PLAYER_IDLE_FPS = 4     # parado respirando: bem lento
-    PLAYER_MINE_FPS = 12    # minerando: tremor rápido segurando a broca
+    PLAYER_MINE_FPS = 14    # minerando: = DRILL_FPS, mesmo índice de quadro da broca (o tranco de 1 px casa)
 
     @staticmethod
     def player_anim(state: GameState) -> str:

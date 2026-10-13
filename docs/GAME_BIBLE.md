@@ -37,7 +37,7 @@ Referência obrigatória: `reports/mockups/mockups.html` (abre no navegador).
 
 - **Tile 32×32 px**, visão top-down 3/4. Quando o tile de baixo é chão, a parede mostra uma faixa de topo de 8 px e uma **face frontal alta de 24 px**. A parede tem que parecer parede, não degrau.
 - **Resolução interna 960×540** (30×17 tiles visíveis), escalada inteira pra janela. Pixel art sem suavização.
-- Personagem: astronauta **chibi 32×32**, com capacete grande (~metade da altura), visor escuro azul-marinho com reflexo, traje branco com detalhes vermelhos e mochila. Tem 3 direções (baixo, cima, lado).
+- Personagem: o **Explorador**, chibi **32×32** (v6.0, aprovado pelo dono), com capacete em domo (~metade da altura), **visor dourado** refletivo em faixa com reflexo duro, lanterna na lateral e antena; traje branco, ombreiras e joelheiras de metal cinza, acento laranja `#e2733a` (o das máquinas), cachecol cor de ferrugem, botas escuras com poeira e mochila com 2 tanques. Contorno `#1b1630`. Tem 3 direções (baixo, cima, lado) e as animações andando, parado (idle) e minerando. Gerado por `tools/sprites/explorer.py`.
 - Luz: cosmética no MVP (brilho das máquinas e do capacete). Escuridão de verdade só no v0.3.
 
 ### Paletas por estágio (hex)
@@ -156,8 +156,8 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 |---|---|---|
 | `player_{down,up,side}.png` | 32×32 | parado, olhando pra baixo / cima / direita (o jogo espelha `side` pra esquerda) |
 | `player_walk_{down,up,side}.png` | 128×32 | 4 quadros de 32×32 na horizontal |
-| `player_idle_{down,up,side}.png` | 128×32 | parado respirando (cachecol balança), 4 quadros a ~4 fps. Sem o PNG o jogo repete o `player_{view}` |
-| `player_mine_{down,up,side}.png` | 128×32 | minerando (braço pra frente, leve tremor), 4 quadros a ~12 fps. A broca segue separada (`DRILL_GRIP`). Prioridade: minerando > andando > parado |
+| `player_idle_{down,up,side}.png` | 128×32 | parado: 4 quadros de 32×32 (respiração, cachecol, lanterna piscando), ~4 fps |
+| `player_mine_{down,up,side}.png` | 128×32 | minerando: 4 quadros de 32×32 com a pose segurando a broca, 14 fps no mesmo índice de quadro da broca. Prioridade: minerando > andando > parado. Sem o PNG o jogo repete o `player_{view}` |
 | `drill_side.png` | 96×16 | broca na mão, olhando pra direita (o jogo espelha). 4 quadros de 24×16 girando, só tocados enquanto minera |
 | `drill_down.png` `drill_up.png` | 64×24 | 4 quadros de 16×24 · ponto de pega relativo ao quadro do player documentado no report |
 | `floor_{stage}_{0..3}.png` | 32×32 | 4 variações · stage = `dead`, `mist`, `green` |

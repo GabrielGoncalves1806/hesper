@@ -20,6 +20,9 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+import explorer as ex          # v6.0: personagem novo (Explorador, visor dourado), aprovado pelo dono
+import hand_drill as hd        # v6.0: broca de mão, 3 candidatas (A, B, C) em _pending/
+
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "assets" / "sprites"
 PENDING = OUT / "_pending"  # assets novos aguardando aprovação do dono
@@ -972,7 +975,7 @@ def make_drill_preview(spr: dict[str, Image.Image]) -> Image.Image:
         d = spr[f"drill_{view}.png"].crop((0, 0, w, spr[f"drill_{view}.png"].height))
         if order == "antes":
             cell.alpha_composite(d, (ox + dx, oy + dy))
-        cell.alpha_composite(spr[f"player_{view}.png"], (ox, oy))
+        cell.alpha_composite(spr[f"player_mine_{view}.png"].crop((0, 0, 32, 32)), (ox, oy))   # v6.0: pose de minerar
         if order == "depois":
             cell.alpha_composite(d, (ox + dx, oy + dy))
         cells.append(cell)
@@ -3692,10 +3695,33 @@ WRECK_INFO = {
 }
 
 
+def from_px(pc) -> Canvas:
+    """Converte o canvas do explorer.py/hand_drill.py pro Canvas deste script (mesmos pixels)."""
+    cv = Canvas(pc.w, pc.h)
+    cv.a = pc.a.copy()
+    return cv
+
+
+def build_explorer() -> dict[str, Canvas]:
+    """v6.0 (aprovado): Explorador com visor dourado. Parado, caminhada, idle e mine (tools/sprites/explorer.py)."""
+    out: dict[str, Canvas] = {}
+    for view in ("down", "up", "side"):
+        out[f"player_{view}.png"] = from_px(ex.make_player(view))
+        out[f"player_walk_{view}.png"] = from_px(ex.make_walk(view))
+        out[f"player_idle_{view}.png"] = from_px(ex.make_idle(view))
+        out[f"player_mine_{view}.png"] = from_px(ex.make_mine(view))
+    return out
+
+
 def build_pending() -> dict[str, Canvas]:
     """Assets novos aguardando aprovação do dono: vão pra assets/sprites/_pending/.
-    Depois de aprovados, saem daqui e entram em build_v02()/build_v03()/build_v05()/build_sprites() (pasta oficial)."""
-    return {}
+    Depois de aprovados, saem daqui e entram em build_v02()/build_v03()/build_v05()/build_sprites() (pasta oficial).
+    v6.0: 3 candidatas da broca de mão (mesmo tamanho de quadro e mesmo DRILL_GRIP da atual)."""
+    out: dict[str, Canvas] = {}
+    for cand in "ABC":
+        for view in ("side", "down", "up"):
+            out[f"drill_{view}_{cand}.png"] = from_px(hd.make_drill(cand, view))
+    return out
 
 
 def build_candidates() -> dict[str, Canvas]:
@@ -3775,9 +3801,8 @@ def build_v02() -> dict[str, Canvas]:
 def build_sprites() -> dict[str, Canvas]:
     out: dict[str, Canvas] = {}
     for view in ("down", "up", "side"):
-        out[f"player_{view}.png"] = make_player(view)
-        out[f"player_walk_{view}.png"] = make_walk(view)
         out[f"drill_{view}.png"] = make_drill(view)
+    out.update(build_explorer())        # v6.0: o astronauta chibi antigo (make_player/make_walk) fica de histórico
     for st in STAGES:
         for v in range(4):
             out[f"floor_{st}_{v}.png"] = make_floor(st, v)
@@ -4491,8 +4516,10 @@ def make_pickup_check(spr: dict[str, Image.Image]) -> Image.Image:
 # ---------------------------------------------------------------- report HTML
 
 GROUPS = [
-    ("Astronauta · parado (baixo, cima, lado)", "char", ["player_down.png", "player_up.png", "player_side.png"]),
-    ("Astronauta · caminhada (4 quadros, animada ao lado)", "char", ["player_walk_down.png", "player_walk_up.png", "player_walk_side.png"]),
+    ("Explorador · parado (baixo, cima, lado)", "char", ["player_down.png", "player_up.png", "player_side.png"]),
+    ("Explorador · caminhada (4 quadros, animada ao lado)", "char", ["player_walk_down.png", "player_walk_up.png", "player_walk_side.png"]),
+    ("Explorador · idle (4 quadros, animada a ~4 fps ao lado)", "char", ["player_idle_down.png", "player_idle_up.png", "player_idle_side.png"]),
+    ("Explorador · minerando (4 quadros, animada a 14 fps ao lado)", "char", ["player_mine_down.png", "player_mine_up.png", "player_mine_side.png"]),
     ("Chão", "tile", [f"floor_{s}_{v}.png" for s in STAGES for v in range(4)]),
     ("Face alta da parede (nova, 32×24)", "face", [f"wall_face_{s}.png" for s in STAGES]),
     ("Parede (topo)", "tile", [f"wall_{s}_{v}.png" for s in STAGES for v in range(3)]),
@@ -4884,6 +4911,122 @@ def build_v51_report(spr: dict[str, Image.Image]) -> str:
 </section>"""
 
 
+# ---------------------------------------------------------------- v6.0: Explorador (aprovado) + broca de mão (3 candidatas)
+DRILL_SRC = {"atual": lambda v: OUT / f"drill_{v}.png",
+             "experimento": lambda v: REP / "before" / f"drill_{v}_experimento.png"}
+
+
+def make_drill_hand_previews(spr: dict[str, Image.Image]) -> None:
+    """Folhas 4×(44×44) da broca NA MÃO (player_mine quadro f + broca quadro f no DRILL_GRIP), uma por candidata e vista."""
+    for view in ("side", "down", "up"):
+        pm = spr[f"player_mine_{view}.png"]
+        for key in ("atual", "experimento", "A", "B", "C"):
+            sheet = (spr[f"_pending/drill_{view}_{key}.png"] if len(key) == 1
+                     else Image.open(DRILL_SRC[key](view)).convert("RGBA"))
+            hd.compose(pm, sheet, view).save(REP / f"drill_hand_{key}_{view}.png")
+
+
+def drill_tip_world(cand: str, direction: str) -> tuple[int, int]:
+    """Ponta da broca (quadro 0) relativa aos pés do player (p.x, p.y), no formato do render.drill_tip()."""
+    view = "side" if direction in ("left", "right") else direction
+    tx, ty = hd.TIP[f"{cand}_{view}"]
+    (gx, gy), _ = hd.GRIP[view]
+    if direction == "left":
+        return (-16 - 4 + (23 - tx), -32 + gy + ty)
+    return (-16 + gx + tx, -32 + gy + ty)
+
+
+def build_v60_report(spr: dict[str, Image.Image]) -> str:
+    A = "../../assets/sprites/"
+    Z = 6
+
+    def anim(src, fw, fh, z, fps=14, cls="anim"):
+        dur = 4 / fps
+        return (f'<div class="{cls}" style="width:{fw * z}px;height:{fh * z}px;--end:-{fw * 4 * z}px;animation-duration:{dur:.3f}s;'
+                f'background-image:url({src});background-size:{fw * 4 * z}px {fh * z}px"></div>')
+
+    def still(src, w, h, z):
+        return f'<img src="{src}" width="{w * z}" height="{h * z}" alt="" style="image-rendering:pixelated;display:block">'
+
+    labels = {"atual": "Atual do jogo (v2.1)", "experimento": "Experimento (reprovada)",
+              "A": "A · furadeira de bolso", "B": "B · caneta-broca", "C": "C · broca de punho"}
+    blurbs = {
+        "atual": "a broca que está no jogo hoje, na mão do explorador novo",
+        "experimento": "a que o dono achou feia e grande demais",
+        "A": "pistola em L minúscula: carcaça cinza-metal (a mesma tinta das ombreiras), faixa laranja, LED ciano, pega escura com a luva fechada nela e broca cônica de 6 px. A mais \"furadeira\" das três.",
+        "B": "ferramenta reta e fina, segurada por cima como uma lanterna: tampa laranja, cabo de metal com anel, nariz branco com LED e broca fina. A silhueta mais leve.",
+        "C": "módulo branco preso na própria luva, com cinta laranja: a broca sai direto da mão. A mais compacta das três.",
+    }
+    def bbox(key, view):                                        # área desenhada (com contorno) no quadro 0
+        sheet = (spr[f"_pending/drill_{view}_{key}.png"] if len(key) == 1
+                 else Image.open(DRILL_SRC[key](view)).convert("RGBA"))
+        a = np.array(sheet)[:, : sheet.width // 4, 3]
+        ys, xs = np.nonzero(a)
+        return f"{xs.max() - xs.min() + 1}×{ys.max() - ys.min() + 1}"
+
+    rows = []
+    for key in ("A", "B", "C", "atual", "experimento"):
+        blurbs[key] += (f" <b style=\"color:var(--fg)\">Área desenhada:</b> lado {bbox(key, 'side')}, baixo {bbox(key, 'down')}, "
+                        f"cima {bbox(key, 'up')} px.")
+        cells = []
+        for view in ("side", "down", "up"):
+            cells.append(f'<div class="dh"><span>{view}</span><div class="chkbg" style="padding:6px">'
+                         f'{anim(f"drill_hand_{key}_{view}.png", 44, 44, Z)}</div>'
+                         f'<div class="real">{still(f"drill_hand_{key}_{view}.png", 176, 44, 1)}</div></div>')
+        if len(key) == 1:
+            sheets = "".join(
+                f'<div class="dh"><span>drill_{v}_{key}.png</span><div class="chkbg" style="padding:6px">'
+                f'{still(f"{A}_pending/drill_{v}_{key}.png", *spr[f"_pending/drill_{v}_{key}.png"].size, 4)}</div></div>'
+                for v in ("side", "down", "up"))
+        else:
+            sheets = ""
+        op = "" if len(key) == 1 else ' style="opacity:.8"'
+        rows.append(f'<div class="box dhrow"{op}><h3>{labels[key]}</h3><p class="lede" style="margin:0 0 12px">{blurbs[key]}</p>'
+                    f'<div class="dhgrid">{"".join(cells)}</div>'
+                    f'{f"<div class=dhgrid style=margin-top:14px>{sheets}</div>" if sheets else ""}</div>')
+
+    # antes × depois do personagem
+    cmp = []
+    for v in ("down", "side", "up"):
+        cmp.append(f'<figure><div class="pair"><div>antes (v2)<img src="before/player_{v}_v51.png" width="{32 * Z}" height="{32 * Z}" alt=""></div>'
+                   f'<div>depois (v6.0)<img src="{A}player_{v}.png" width="{32 * Z}" height="{32 * Z}" alt=""></div></div>'
+                   f'<figcaption>player_{v}.png · {Z}×</figcaption></figure>')
+    anims = []
+    for kind, fps, title in (("walk", 8, "caminhada · 8 fps"), ("idle", 4, "idle · 4 fps"), ("mine", 14, "minerando · 14 fps")):
+        cells = "".join(f'<div class="dh"><span>{v}</span><div class="chkbg" style="padding:6px">'
+                        f'{anim(f"{A}player_{kind}_{v}.png", 32, 32, Z, fps)}</div></div>' for v in ("down", "side", "up"))
+        anims.append(f'<div class="box dhrow"><h3>{title}</h3><div class="dhgrid">{cells}</div></div>')
+
+    tips = "".join(
+        f"<tr><td><b>{c}</b> · {hd.NAMES[c]}</td>"
+        + "".join(f"<td><code>(p.x {'+' if t[0] >= 0 else '−'} {abs(t[0])}, p.y − {abs(t[1])})</code></td>"
+                  for t in (drill_tip_world(c, d) for d in ("right", "left", "down", "up")))
+        + "</tr>" for c in "ABC")
+    return f"""<section><h2>v6.0 · Broca de mão · 3 candidatas na mão do explorador</h2>
+<p class="lede" style="margin-bottom:16px">Cada uma animada na pose <code>player_mine</code> com o mesmo encaixe do <code>DRILL_GRIP</code> do jogo (lado <code>(12, 13)</code> na frente, baixo <code>(13, 16)</code> na frente, cima <code>(20, 4)</code> atrás do player), a 14 fps, ampliada {Z}×. Embaixo de cada célula, a mesma folha em tamanho real (1×). <b style="color:var(--fg)">Todas mantêm o tamanho do quadro</b> (lado 24×16, baixo/cima 16×24), então escolher qualquer uma é só trocar o PNG, sem mexer no <code>DRILL_GRIP</code>.</p>
+{"".join(rows)}
+</section>
+
+<section><h2>v6.0 · Explorador · antes × depois</h2><div class="cmp">{"".join(cmp)}</div></section>
+<section><h2>v6.0 · Explorador · animações</h2>{"".join(anims)}</section>
+
+<section><h2>v6.0 · Pro Dev integrar</h2>
+<div class="box dev"><table class="tb"><thead><tr><th>Sprite</th><th>Tamanho</th><th>Uso</th></tr></thead><tbody>
+<tr><td><code>player_{{down,up,side}}.png</code></td><td>32×32</td><td>Mesmo contrato e mesma âncora de antes: pés na linha 30, blit em <code>(x − 16, y − 32)</code>, <code>side</code> olha pra direita e o jogo espelha. Drop-in, sem código.</td></tr>
+<tr><td><code>player_walk_{{down,up,side}}.png</code></td><td>128×32</td><td>4 quadros, como antes (8–10 fps). Drop-in.</td></tr>
+<tr><td><code>player_idle_{{down,up,side}}.png</code> <b>novo</b></td><td>128×32</td><td>Parado: respiração (o corpo desce 1 px nos quadros 2–3), cachecol mexendo, lanterna do capacete piscando no quadro 2. Tocar em loop a <b>~4 fps</b> quando o player está parado e não minera. Se o Dev não quiser animar, o <code>player_{{view}}</code> continua igual ao quadro 0.</td></tr>
+<tr><td><code>player_mine_{{down,up,side}}.png</code> <b>novo</b></td><td>128×32</td><td>Enquanto <code>state.mining</code>: braço na pega da broca, com tranco de recuo (lado: x −1 nos quadros 1 e 3, y +1 no 3; baixo/cima: y +1 nos quadros 1 e 3). Tocar a <b>14 fps com o MESMO índice de quadro da broca</b> (<code>int(t · 14) % 4</code>, igual ao <code>DRILL_FPS</code>): as 3 candidatas têm o mesmo tranco embutido, então ficam coladas na mão.</td></tr>
+<tr><td><code>_pending/drill_{{side,down,up}}_{{A,B,C}}.png</code></td><td>96×16 · 64×24</td><td>Candidatas da broca. Mesmo formato da atual (4 quadros de 24×16 / 16×24) e <b>mesmo <code>DRILL_GRIP</code></b>: <code>right (12, 13)</code>, <code>left (−4, 13)</code> espelhada, <code>down (13, 16)</code>, <code>up (20, 4)</code> atrás do player. A escolhida vira <code>drill_{{view}}.png</code> sem sufixo.</td></tr>
+</tbody></table>
+<p class="lede" style="margin-bottom:10px">Única coisa que muda no código: a ponta da broca ficou mais perto do corpo, então as faíscas do <code>render.drill_tip()</code> precisam vir pra cá (quadro 0, relativo aos pés):</p>
+<table class="tb"><thead><tr><th>Candidata</th><th>right</th><th>left</th><th>down</th><th>up</th></tr></thead><tbody>{tips}
+<tr><td>atual (hoje no código)</td><td><code>(p.x + 20, p.y − 11)</code></td><td><code>(p.x − 20, p.y − 11)</code></td><td><code>(p.x + 5, p.y + 8)</code></td><td><code>(p.x + 12, p.y − 28)</code></td></tr></tbody></table>
+<ul><li>A luva da pose de minerar fica embaixo da broca; por isso cada candidata já traz o <b>punho fechado</b> (tinta da luva <code>#3f3a4c</code> + contorno) desenhado na pega. Se o jogo mostrar a broca com outra pose, o punho continua no lugar certo do braço esticado.</li>
+<li>Ordem de desenho igual à de hoje: lado e baixo por cima de tudo (depois das paredes), cima antes do player.</li>
+<li><b>Desvios do contrato:</b> nenhum de tamanho. A bíblia §6 ganhou as linhas do <code>player_idle_*</code> e do <code>player_mine_*</code> (pedidas pelo gerente).</li></ul></div>
+</section>"""
+
+
 def build_report(spr: dict[str, Image.Image]):
     def lum(h):
         r, g, b = (int(h[i:i + 2], 16) for i in (1, 3, 5))
@@ -4925,9 +5068,10 @@ def build_report(spr: dict[str, Image.Image]):
             im = spr[n]
             s = scale[kind]
             extra = ""
-            if n.startswith(("player_walk", "drill_", "machine_drill", "drone.png")):
+            if n.startswith(("player_walk", "player_idle", "player_mine", "drill_", "machine_drill", "drone.png")):
                 fw, fh = im.width // 4, im.height
-                cls = "anim fast" if n.startswith(("drill_", "drone")) else "anim"
+                cls = ("anim fast" if n.startswith(("drill_", "drone", "player_mine")) else
+                       "anim slow" if n.startswith("player_idle") else "anim")
                 extra = (f'<div class="{cls}" style="width:{fw * s}px;height:{fh * s}px;--end:-{im.width * s}px;'
                          f'background-image:url(../../assets/sprites/{n});background-size:{im.width * s}px {fh * s}px"></div>')
             cards.append(
@@ -4976,8 +5120,8 @@ def build_report(spr: dict[str, Image.Image]):
          "A face de 32×24 agora é feita de blocos de rocha irregulares e achatados, em três ou quatro estratos horizontais quebrados, com fissuras diagonais. Cada bloco tem luz no topo e uma junta escura embaixo, e o tom escurece em faixas até o pé, usando as mesmas cores do topo da rocha do estágio. Não existe junta vertical regular, que era o que fazia parecer tábua de cerca. No verde, o musgo na borda e os cipós continuam. Com o topo elevado (y−24), o maciço fica com 56 px de altura visível."),
         ("Minério",
          "Cada minério tem uma silhueta própria, além da cor: ferro em pepitas gordas, silício em lascas grossas, gelo em cubos. Dá pra distinguir até em tela pequena ou pra quem tem daltonismo. O contorno #1b1630 é o mesmo do astronauta, da broca e da drill, então o minério conversa com eles. Numa parede com face, o overlay de 32×32 cai por cima da faixa de topo e da face, então os cristais aparecem brotando do paredão."),
-        ("Astronauta chibi (v2)",
-         "Personagem original no estilo das referências, sem copiar nenhuma. O capacete ocupa metade da altura, com visor azul-marinho, meia-lua roxa na base e reflexo claro em curva. Traje branco sombreado em cinza-azulado, luvas, cinto e faixa no joelho vermelhos, painel no peito e mochila (atrás dos ombros de frente, grande de costas e de lado). Contorno #1b1630 em todas as peças, então ele lê bem a 1×. A caminhada segue contato, passagem (corpo sobe 1 px), contato invertido e passagem, com braço balançando. Rodar a 8–10 fps."),
+        ("Explorador (v6.0)",
+         "Rig de peças desenhadas à mão, cada uma numa camada com contorno #1b1630 próprio (a da frente separa a de trás). Capacete em domo com visor dourado refletivo em faixa (reflexo duro na diagonal, sem 'olhão'), lanterna presa na lateral e antena com ponta vermelha. Traje branco quente em 4 faixas, ombreiras e joelheiras de metal cinza-lilás, cinto com bolsa, painel no peito com LED ciano, botas escuras com poeira vermelha, mochila com 2 tanques e um cachecol cor de ferrugem que balança. Acento laranja #e2733a, o mesmo das máquinas. Caminhada a 8–10 fps, idle a ~4 fps, minerando a 14 fps."),
         ("Máquinas nv.2",
          "Mesma família das nv.1 (mesmas cores e faixas de cilindro), só que mais largas e altas, com anéis e frisos dourados (#f2c46d) e peças duplicadas: dois bocais no O₂, duas chaminés e cinco fendas no aquecedor, funil maior com dois visores no derretedor."),
         ("Sombras",
@@ -4998,7 +5142,7 @@ def build_report(spr: dict[str, Image.Image]):
     ]
     integ_html = "".join(f"<li>{s}</li>" for s in integ)
 
-    surf_html = build_v51_report(spr) + build_v50_report(spr) + build_v41_report(spr) + build_surface_report(spr, scale)
+    surf_html = build_v60_report(spr) + build_v51_report(spr) + build_v50_report(spr) + build_v41_report(spr) + build_surface_report(spr, scale)
 
     page = f"""<!doctype html>
 <html lang="pt-BR">
@@ -5061,6 +5205,11 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 .v2 li{{margin-bottom:6px}}
 .v2 li b{{color:var(--fg)}}
 .anim.fast{{animation-duration:.3s}}
+.anim.slow{{animation-duration:1s}}
+.dhrow{{margin-top:14px}}
+.dhgrid{{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}}
+.dh{{display:flex;flex-direction:column;gap:6px;font:11px var(--f-label);color:var(--muted)}}
+.dh .real{{background:#2a211d;padding:4px;width:max-content}}
 .cmp{{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}}
 .cmp figure{{margin:0;background:var(--panel);border:1px solid var(--line);padding:10px}}
 .cmp .pair{{display:flex;gap:12px;align-items:flex-end}}
@@ -5085,11 +5234,17 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v5.1 (luminária forte, aprovado)</div>
+  <div class="eyebrow">Hesper · Designer · v6.0 (explorador aprovado · broca de mão: 3 candidatas)</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
-  <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span><span class="chip">pod largo guardado em _future/ (fora do contrato)</span><span class="chip">variante B de histórico em before/</span></div>
-  <div class="v2"><b>v5.1 · aprovado</b><ul>
+  <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span><span class="chip">pod largo guardado em _future/ (fora do contrato)</span><span class="chip">variante B de histórico em before/</span><span class="chip">broca de mão: candidatas A · B · C em _pending/</span></div>
+  <div class="v2"><b>v6.0 · o que mudou</b><ul>
+    <li><b>Personagem novo: o Explorador, com visor dourado</b> (aprovado pelo dono direto com o gerente). Saiu da sessão experimental e agora é gerado aqui, por <code>tools/sprites/explorer.py</code>, chamado pelo <code>build_sprites.py</code>, sem depender de nada fora do repo. Os PNGs saem idênticos aos do experimento (pixel a pixel).</li>
+    <li>Trocados no contrato, mesmos tamanhos e âncora: <code>player_{{down,up,side}}</code> (32×32) e <code>player_walk_*</code> (128×32). <b>Novos</b>: <code>player_idle_*</code> e <code>player_mine_*</code> (128×32, 4 quadros cada). O astronauta chibi antigo ficou em <code>reports/design/before/</code>.</li>
+    <li><b>Broca de mão: 3 candidatas (A, B, C) em <code>assets/sprites/_pending/</code></b>, bem menores que a do experimento (reprovada: "feia e muito grande") e que a atual. Mesmo tamanho de quadro e mesmo <code>DRILL_GRIP</code>: qualquer uma entra sem mexer no encaixe. Veja cada uma animada na mão do explorador logo abaixo, com a atual e a do experimento do lado.</li>
+    <li>O resto do lote experimental (chão, parede, máquinas, cápsula etc.) <b>não</b> entrou. Todos os outros sprites oficiais continuam com os mesmos pixels. As prévias de cena mudaram só porque o player é o novo.</li>
+  </ul></div>
+  <div class="v2" style="opacity:.75"><b>v5.1 · aprovado</b><ul>
     <li><b>O dono aprovou a v5.1 com a variante A</b> (a recomendada), e os 2 sprites foram promovidos de <code>_pending/</code> pra pasta oficial <code>assets/sprites/</code> com os mesmos bytes da entrega pendente (md5 conferido): <code>lamp_t2</code> (16×32) e <code>icon_lamp_t2</code> (16×16). O jogo agora carrega eles no lugar do fallback <code>art.lamp_strong</code>, sem mudar código.</li>
     <li>O contrato oficial passou a ter 101 arquivos (99 + 2). Os outros 99 oficiais e o <code>_future/pod_wide</code> não mudaram (md5 conferido), e a pasta <code>_pending/</code> foi removida, com as candidatas junto.</li>
     <li>A variante B (cabeça dupla em T) não foi pro jogo: ficou de histórico em <code>reports/design/before/lamp_t2_B_v51.png</code>, com a comparação A × B no escuro (<code>before/lamp_t2_AB_dark_v51.png</code>). O desenho dela continua no script (<code>make_lamp_t2("B")</code>).</li>
@@ -5316,6 +5471,7 @@ def main():
         render_lamp_cmp(spr, "lamp.png", "lamp_t2.png", dark=False).save(REP / "lamp_t2_lit.png")
         make_icons_slot_v51(spr).save(REP / "slot_preview_v51.png")
     make_drill_preview(spr).save(REP / "drill_preview.png")
+    make_drill_hand_previews(spr)                                  # v6.0: broca na mão (atual, experimento, A, B, C)
     make_slot_preview(spr, "icon_drone.png", "icon_chest.png").save(REP / "slot_preview.png")
     build_report(spr)
     print(f"{len(canv)} sprites oficiais em {OUT.relative_to(ROOT)}, {len(pend)} pendentes + {len(cand)} candidatas, "
