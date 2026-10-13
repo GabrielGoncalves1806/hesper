@@ -38,7 +38,7 @@ import ui_mockups as U  # noqa: E402
 
 ROOT = HERE.parents[1]
 SPR = ROOT / "assets" / "sprites"
-PEND = SPR / "regions"            # aprovado pelo dono (v8.1/v8.2): sai direto na pasta definitiva
+PEND = SPR / "regions"            # aprovado pelo dono (v8.1, hoodoo v8.3): sai direto na pasta definitiva
 OUT = ROOT / "reports" / "design" / "regioes"
 T = 32
 
@@ -176,13 +176,9 @@ def form_idx(kind):
 
 
 def form_ramp(kind, stage):
-    """Rampa do sprite da formação no estágio. O hoodoo leva +5 cores (10..14) da rocha dura da pedra de topo."""
+    """Rampa do sprite da formação no estágio."""
     reg, table = FORM_TABLE[kind]
-    rmp = R.ramp(reg, stage, table)
-    if kind == "monolith":
-        cap = np.array([R.stage_color(R.rgb(c), reg, stage) for c in R.CAPROCK], np.uint8)
-        rmp = np.concatenate([rmp, cap])
-    return rmp
+    return R.ramp(reg, stage, table)
 
 
 def form_img(kind, stage):
@@ -673,8 +669,6 @@ def export_pending():
         reg, table = FORM_TABLE[kind]
         save_indexed(idx, form_ramp(kind, "arid"), PEND / f"form_{kind}.png")
         tname = "SAND" if table is not R.HILL and table is not R.BASE else ("HILL" if table is R.HILL else "BASE")
-        if kind == "monolith":
-            tname = "SAND+CAPROCK"
         files[f"form_{kind}.png"] = (f"{idx.shape[1]}×{idx.shape[0]}", reg, tname)
         forms[kind] = dict(info, sprite=f"form_{kind}.png", region=reg, ramp=tname)
     for k, sc in enumerate((1.0, 0.72, 0.45)):
@@ -707,12 +701,9 @@ def export_pending():
         ramps[tname] = {}
         for reg in table:
             ramps[tname][reg] = {st: [R.hexc(c) for c in R.ramp(reg, st, table)[:8]] for st in R.STAGES}
-    ramps["CAPROCK"] = {"plateau": {st: [R.hexc(R.stage_color(R.rgb(c), "plateau", st)) for c in R.CAPROCK]
-                                    for st in R.STAGES}}
     ramps["METAL"] = [R.hexc(c) for c in METAL]
     data = dict(note="Sprites indexados: 0..7 = rampa, 8 = contorno #1b1630, 9 = sombra (preto, alfa %d), "
-                     "255 = transparente. Cor final = ramps[tabela][região][estágio][índice]. form_monolith: "
-                     "10..14 = ramps.CAPROCK (pedra de topo). crater_impact_*: 10..17 = ramps.ICE.frost, "
+                     "255 = transparente. Cor final = ramps[tabela][região][estágio][índice]. crater_impact_*: 10..17 = ramps.ICE.frost, "
                      "18..20 = ramps.METAL." % R.SHADOW_A,
                 levels=R.LEVELS, warp_px=SC.WARP, decal_cell=R.DECAL_CELL, decal_p=R.DECAL_P,
                 decal_mix=R.DECAL_MIX, formations=forms, ramps=ramps,

@@ -154,9 +154,9 @@ def build():
 
     form_rows = ""
     form_info = [
-        ("monolith", "Hoodoo (monolito)", "planalto", "fuste de arenito que afina e engorda; <b>v8.2</b>: a pedra de "
-         "topo virou uma laje de rocha dura com volume (contorno em facetas, topo claro, face escura, uma fratura em "
-         "degrau e uma trinca, aba sombreando o fuste), cor própria e sem salpicado"),
+        ("monolith", "Hoodoo (monolito)", "planalto", "fuste de arenito que afina e engorda; <b>v8.3</b>: a pedra de "
+         "topo da v8.1 (mesma forma), na família marrom do fuste, só que limpa: sem salpicado, em faixas chapadas de "
+         "luz (topo mais claro, lateral mais escura), com a aba sombreando o fuste"),
         ("arch", "Arco natural", "planalto", "erosão tipo Delicate Arch: perna esquerda maciça, direita fina com "
          "cintura, vão torto, buracos, ressaltos de estrato; só as pernas bloqueiam"),
         ("basalt_spires", "Basalto colunar", "basalto", "prismas hexagonais em patamares (Calçada dos Gigantes), "
@@ -173,8 +173,8 @@ def build():
         old = f"../before/regioes_v80_form_{key}.png" if not key.startswith("ice") else \
             "../before/regioes_v80_ice_gate_0.png"
         oldtag, newtag = "v8.0", "v8.1"
-        if key == "monolith":                      # v8.2: só a pedra de topo do hoodoo mudou
-            old, oldtag, newtag = "../before/regioes_v81_form_monolith.png", "v8.1", "v8.2"
+        if key == "monolith":                      # v8.3: a pedra de topo da v8.1, limpa (o dono preferiu a v8.1)
+            old, oldtag, newtag = "../before/regioes_v81_form_monolith.png", "v8.1", "v8.3"
         foot = f"sprites/foot_{key}.png"
         nw, nh = Image.open(OUT / new).size
         ow, oh = Image.open(OUT / old).size
@@ -194,26 +194,27 @@ def build():
 
     html = f"""<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Hesper · Geografia nova · v8.2</title>
+<title>Hesper · Geografia nova · v8.3</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Pixelify+Sans:wght@400;600&family=Silkscreen&display=swap" rel="stylesheet">
 <style>{CSS}</style></head><body><div class="wrap">
-<div class="eyebrow">Hesper · Designer · v8.2 · v0.4 Marco 2 (geografia nova) · aprovado · pedra de topo do hoodoo</div>
+<div class="eyebrow">Hesper · Designer · v8.3 · v0.4 Marco 2 (geografia nova) · aprovado · pedra de topo do hoodoo</div>
 <h1>Regiões, relevo e água</h1>
 <p class="lede">Objetivo: tirar a cara de “mapa gerado com tileset” e deixar a superfície orgânica e explorável. O
 planeta é <b>árido e vazio, não areia</b>: rocha, terra seca, sal, basalto e geada. Tudo aqui sai de script
 (<code>tools/sprites/regions_mockups.py</code>), em pixels reais 960×540 com a HUD B2 por cima. Nada disso está
 no jogo ainda: é pra tu aprovar antes do código.</p>
 
-<div class="v2"><b>v8.2 · o que mudou</b><ul>
-<li><b>Pedra de topo do hoodoo</b> refeita: antes era um disco chapado com salpicado de ruído. Agora é uma laje de
-rocha dura com volume de verdade: contorno poligonal irregular (as facetas dão a textura), topo iluminado e face
-lateral escura nas mesmas 5 faixas de luz, uma fratura que vira degrau e uma trinca da borda, e a aba um pouco mais
-larga que o fuste, projetando sombra nele. Tem uma rampa própria de 5 tons (cinza-acastanhada), sem salpicado.
-Antes × depois na seção 4.</li>
-<li><b>Promovidos</b> pra <code>assets/sprites/regions/</code>: <code>form_*</code>, <code>ice_gate_0..2</code>,
-<code>crater_impact_0..4</code>, <code>crater_ejecta</code> e o <code>regions_palettes.json</code> (com as rampas
-<code>CAPROCK</code> e <code>METAL</code>). O <code>_pending/regions/</code> ficou vazio.</li>
-<li>O contrato novo (cratera de impacto na superfície) foi proposto na bíblia, §6.</li></ul></div>
+<div class="v2"><b>v8.3 · o que mudou</b><ul>
+<li><b>Pedra de topo do hoodoo</b> de volta à forma e à paleta da v8.1 (o dono preferiu ela à laje cinza da v8.2).
+Mudou só o que incomodava: <b>saiu o salpicado</b> de pixels cinza e claros. Agora a superfície é limpa, em
+faixas chapadas de luz, na mesma família marrom do fuste (um tom mais escura, de rocha mais dura): topo mais claro,
+lateral mais escura, e a aba sombreando o fuste. Sem trinca atravessando. Antes (v8.1) × depois (v8.3) na
+seção 4.</li>
+<li>A rampa <code>CAPROCK</code> saiu: o <code>form_monolith.png</code> usa só a rampa <code>SAND</code>, como os
+outros marcos do planalto. Promovido direto pra <code>assets/sprites/regions/</code>.</li></ul></div>
+<div class="v2" style="opacity:.75"><b>v8.2 · substituída pela v8.3</b><ul>
+<li>Pedra de topo como laje cinza facetada: o dono achou que parecia uma rocha caída em cima. Promoção dos
+aprovados pra <code>assets/sprites/regions/</code> e contrato proposto na bíblia (§6).</li></ul></div>
 <div class="v2" style="opacity:.75"><b>v8.1 · aprovado</b><ul>
 <li><b>Formações refeitas como rocha natural</b> (seção 4, com antes × depois): o arco virou arco de erosão
 assimétrico e esburacado; o monolito virou <b>hoodoo</b> com pedra de topo; os pináculos viraram <b>basalto

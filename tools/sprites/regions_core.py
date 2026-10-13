@@ -67,9 +67,6 @@ HILL = {
 }
 # arenito dos marcos do planalto (monolito, arco): mais quente e claro que o morro, pra ler como "marco"
 SAND = ["#2a1714", "#4a2a22", "#6b3d2e", "#8a5238", "#a86c48", "#c98f62", "#857469", "#56322a"]
-# rocha dura da pedra de topo do hoodoo (índices 10..14 do sprite do hoodoo): cinza-acastanhada, mais fria que o
-# arenito do fuste. 5 tons = as mesmas 5 faixas de luz
-CAPROCK = ["#2a2327", "#3e3437", "#554a4a", "#6d6260", "#8b7f78"]
 # gelo (gelos-portão e gelo da cratera)
 ICE = ["#1f3d5c", "#2d5e86", "#3f86b0", "#62b2d6", "#8fd6ee", "#c4f0fb", "#eefcff", "#55636e"]
 

@@ -1,5 +1,5 @@
 {
- "note": "Sprites indexados: 0..7 = rampa, 8 = contorno #1b1630, 9 = sombra (preto, alfa 80), 255 = transparente. Cor final = ramps[tabela][região][estágio][índice]. form_monolith: 10..14 = ramps.CAPROCK (pedra de topo). crater_impact_*: 10..17 = ramps.ICE.frost, 18..20 = ramps.METAL.",
+ "note": "Sprites indexados: 0..7 = rampa, 8 = contorno #1b1630, 9 = sombra (preto, alfa 80), 255 = transparente. Cor final = ramps[tabela][região][estágio][índice]. crater_impact_*: 10..17 = ramps.ICE.frost, 18..20 = ramps.METAL.",
  "levels": [
   0.19,
   0.29,
@@ -129,7 +129,7 @@
    "name": "Hoodoo (monolito)",
    "sprite": "form_monolith.png",
    "region": "plateau",
-   "ramp": "SAND+CAPROCK"
+   "ramp": "SAND"
   },
   "arch": {
    "foot": [
@@ -1115,38 +1115,6 @@
     ]
    }
   },
-  "CAPROCK": {
-   "plateau": {
-    "storm": [
-     "#5a483d",
-     "#665346",
-     "#756052",
-     "#846f60",
-     "#96816e"
-    ],
-    "arid": [
-     "#2a2327",
-     "#3e3437",
-     "#554a4a",
-     "#6d6260",
-     "#8b7f78"
-    ],
-    "mist": [
-     "#28272b",
-     "#363437",
-     "#464445",
-     "#585556",
-     "#6c6968"
-    ],
-    "green": [
-     "#313326",
-     "#3d3e30",
-     "#4c4c3d",
-     "#5b5a4b",
-     "#6e6d5a"
-    ]
-   }
-  },
   "METAL": [
    "#b9bcc4",
    "#5b6070",
@@ -1427,7 +1395,7 @@
   "form_monolith.png": {
    "size": "80×140",
    "region": "plateau",
-   "ramp": "SAND+CAPROCK"
+   "ramp": "SAND"
   },
   "form_salt_ridge.png": {
    "size": "204×96",
