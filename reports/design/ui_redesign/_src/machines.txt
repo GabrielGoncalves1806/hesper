@@ -1,0 +1,15 @@
+o2|Gerador de O₂|+ oxigênio|0|{'iron': 10, 'silicon': 4}
+melter|Derretedor de gelo|+ água|0|{'iron': 6, 'ice': 10}
+heater|Aquecedor|+ calor|500|{'iron': 12, 'silicon': 8}
+o2_t2|Gerador de O₂ nv.2|+ oxigênio|10000|{'iron': 30, 'silicon': 20, 'ice': 10}
+melter_t2|Derretedor nv.2|+ água|10000|{'iron': 25, 'ice': 30}
+heater_t2|Aquecedor nv.2|+ calor|10000|{'iron': 35, 'silicon': 25}
+drill|Drill automática|+ minério|10000|{'iron': 12, 'silicon': 6}
+solar|Painel solar|+ energia|0|{'iron': 8, 'silicon': 6}
+chest|Baú|guarda 24 pilhas|0|{'iron': 6}
+drone_station|Estação de drones|drones trazem minério|10000|{'iron': 12, 'silicon': 8, 'ice': 3}
+drone|Drone|vai na estação|10000|{'iron': 6, 'silicon': 4}
+lamp|Luminária|luz na caverna|0|{'iron': 1, 'silicon': 1}
+lamp_t2|Luminária forte|luz maior|0|{'iron': 2, 'silicon': 2, 'ice': 1}
+o2_tank|Tanque de O₂|O₂ dura 220 s|0|{'iron': 10, 'silicon': 6, 'ice': 4}
+scanner|Scanner de navegação|mapa [M]|0|{'iron': 4, 'silicon': 4}

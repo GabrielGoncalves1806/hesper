@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Redesign da UI · 3 direções</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Pixelify+Sans:wght@400;600&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--panel2:#241b17;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;--alert:#ff6a55;
+  --f-label:"Silkscreen",ui-monospace,monospace;--f-display:"Pixelify Sans",ui-monospace,monospace;--f-body:"IBM Plex Sans",system-ui,sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,monospace;color-scheme:dark}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 var(--f-body);padding-inline:16px}
+.wrap{max-width:1500px;margin:0 auto;padding-block:48px 80px}
+.eyebrow{font:12px var(--f-label);letter-spacing:.08em;color:var(--rust);text-transform:uppercase}
+h1{font:600 clamp(34px,6vw,54px)/1.05 var(--f-display);margin:10px 0 14px}
+.lede{color:var(--muted);max-width:80ch;margin:0}
+h2{font:600 24px/1.2 var(--f-display);margin:0 0 16px}
+h2::before{content:"";display:inline-block;width:10px;height:10px;background:var(--rust);margin-right:10px;vertical-align:middle}
+h3{font:600 18px var(--f-display);margin:0 0 8px}
+section{margin-top:56px}
+code{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}
+img.px{image-rendering:pixelated;display:block;width:100%;height:auto;border:1px solid var(--line)}
+.v2{margin-top:22px;max-width:980px;background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--gold);padding:14px 18px}
+.v2 > b{font:13px var(--f-label);color:var(--gold)}
+.v2 ul{margin:8px 0 0;padding-left:18px;color:var(--muted)}
+.v2 li{margin-bottom:6px}.v2 li b{color:var(--fg)}
+.dirs{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media (max-width:1100px){.dirs{grid-template-columns:1fr}}
+.dir{background:var(--panel);border:1px solid var(--line);padding:16px 18px;border-top:3px solid var(--c)}
+.dir h3 span{font:12px var(--f-label);color:var(--c);display:block;letter-spacing:.06em}
+.dir p{color:var(--muted);margin:6px 0}
+.dir ul{margin:6px 0;padding-left:18px;color:var(--muted)}
+.dir li b{color:var(--fg)}
+.sw{display:flex;gap:4px;margin:8px 0}.sw i{width:22px;height:22px;border:1px solid rgba(255,255,255,.15)}
+.cost{display:inline-block;font:11px var(--f-label);padding:2px 8px;border:1px solid var(--line);margin-top:6px}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media (max-width:1100px){.row3{grid-template-columns:1fr}}
+.row3 figure,.pair figure{margin:0}
+figcaption{font:12px var(--f-label);color:var(--muted);margin-top:6px;letter-spacing:.04em}
+figcaption b{color:var(--fg)}
+.screen{margin-top:26px}
+.screen > h3{font:600 17px var(--f-display);margin-bottom:10px}
+.screen > h3 small{font:13px var(--f-body);color:var(--muted);margin-left:8px;font-weight:400}
+.full{display:grid;gap:18px}
+.full figure{margin:0;max-width:960px}
+.pair{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.ba{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media (max-width:1100px){.ba{grid-template-columns:1fr 1fr}}
+.strip figure{margin:0 0 18px;max-width:960px}
+.chk{display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;padding:12px;
+  background-color:#2a211d;background-image:conic-gradient(#3a2e28 25%,transparent 0 50%,#3a2e28 0 75%,transparent 0);background-size:16px 16px;border:1px solid var(--line)}
+.chk figure{margin:0}
+.chk img{image-rendering:pixelated;display:block}
+.chk figcaption{font:11px var(--f-mono);color:var(--fg);text-shadow:0 1px 0 #000}
+.box{background:var(--panel);border:1px solid var(--line);padding:18px 20px}
+.box ul{margin:0;padding-left:18px;color:var(--muted)}.box li{margin-bottom:8px}.box li b{color:var(--fg)}
+.dev{border-left:3px solid var(--cyan)}
+.reco{border-left:3px solid var(--ok)}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{font:12px var(--f-label);color:var(--gold);background:var(--panel2)}
+td{color:var(--muted)}td b{color:var(--fg)}
+/* antes × depois piscando: troca a cada 1,6 s */
+.flip{position:relative;max-width:960px}
+.flip img{position:absolute;inset:0}.flip img:first-child{position:relative}
+.flip img.after{animation:flip 3.2s steps(1) infinite}
+@keyframes flip{0%{opacity:0}50%{opacity:1}}
+.flip .tag{position:absolute;left:8px;top:8px;font:12px var(--f-label);padding:2px 8px;background:#000c;color:var(--gold);z-index:2}
+.flip .tag::after{content:"ANTES";animation:tag 3.2s steps(1) infinite}
+@keyframes tag{0%{content:"ANTES"}50%{content:"DEPOIS · B"}}
+</style>
+</head>
+<body><div class="wrap">
+
+<header>
+  <div class="eyebrow">Hesper · Designer · UI redesign v1.4 · mapa panorâmico escolhido · ícone da base: A (módulo de frente) · B2 aprovada</div>
+  <h1>Telas e HUD: 3 direções</h1>
+  <p class="lede">Pedido do dono: redesenhar as telas e o HUD, gerar 3 opções e pôr os ícones dos materiais nos custos das receitas. Tudo abaixo é pixel de verdade: montado em px da UI (480×270, o tamanho <b>Grande</b>, que é o mais apertado dos 3) e esticado 2× pra 960×540, com as fontes do jogo (Silkscreen e Pixelify, com os dígitos e o O₂ desenhados à mão igual ao <code>game/ui.py</code>), os ícones e as prévias que o próprio renderer gera, por cima do mundo de verdade capturado do jogo sem HUD.</p>
+  <div class="v2"><b>v1.0 · o que tem aqui</b><ul>
+    <li><b>3 direções bem diferentes:</b> A · Colônia (terminal industrial), B · Limpa (moderna e plana) e C · Visor (diegética, projetada no visor dourado do capacete).</li>
+    <li><b>6 telas por direção:</b> HUD em jogo, inventário, fabricador, aba Fabricar (em campo), baú e opções da pausa.</li>
+    <li><b>Custos com ícone em todas:</b> ícone do material + "tem/precisa", com o estado de <span style="color:var(--ok)">tem</span> / <span style="color:var(--alert)">falta</span> / trancado lido de longe (o Aquecedor está selecionado de propósito: tem ferro e falta silício).</li>
+    <li><b>Tira de componentes</b> de cada direção, <b>antes × depois</b> de todas as telas e a minha recomendação com o custo pro Dev.</li>
+    <li>Nenhum arquivo do jogo mudou. As molduras novas estão em <code>assets/sprites/_pending/ui/</code>.</li>
+  </ul></div>
+</header>
+
+<section><h2>Mapa aberto (B2)</h2>
+<div class="v2" style="margin-top:0;margin-bottom:18px"><b>v1.4 · o que mudou</b><ul>
+<li><b>Ícone da base: o dono escolheu a A</b> (módulo de frente, igual ao pod do jogo). Mapa, minimapa do HUD B2 e a tira de marcadores foram refeitos com ela. Filtros e zoom no <code>settings.json</code> confirmados.</li>
+<li><b>Escolhida: a variação panorâmica</b> (zoom, + / − / centralizar e filtros clicáveis embaixo). A proposta com a coluna de legenda fica registrada mais embaixo, como alternativa não escolhida.</li>
+<li><b>Marcador da base redesenhado:</b> o módulo de pouso de hoje (o <code>pod.png</code>) em pictograma: corpo creme, telhado escuro, antena com a luz vermelha, janelinhas ciano, faixa laranja, porta e base escura. 3 opções (A de frente, B nas pernas, C cápsula); <b>escolhida: A</b>. Funciona no mapa (2×) e no minimapa (1×).</li>
+</ul></div>
+<div class="screen"><h3>Ícone da base · 3 opções <small>no chão de verdade, no tamanho do mapa (2×), do minimapa (1×) e ampliado 4×</small></h3>
+<figure style="margin:0;max-width:960px"><img class="px" src="map_marcadores.png" alt=""><figcaption><b>A · MÓDULO DE FRENTE (ESCOLHIDA)</b> · embaixo, todos os marcadores do mapa</figcaption></figure></div>
+<div class="screen"><h3>Mapa panorâmico · ESCOLHIDO <small>oficial: superfície e caverna</small></h3>
+<div class="pair">
+<figure><a href="map_var_superficie.png"><img class="px" src="map_var_superficie.png" alt=""></a><figcaption><b>SUPERFÍCIE</b> · zoom 2×, mouse num destroço, filtro "Máquinas" desligado</figcaption></figure>
+<figure><a href="map_var_caverna.png"><img class="px" src="map_var_caverna.png" alt=""></a><figcaption><b>CAVERNA</b> · só os filtros que existem na camada</figcaption></figure>
+</div></div>
+<div class="screen"><h3>Antes × depois</h3>
+<div class="pair">
+<figure><img class="px" src="before/mapa_superficie.png" alt=""><figcaption><b>ANTES</b> · superfície</figcaption></figure>
+<figure><img class="px" src="map_var_superficie.png" alt=""><figcaption><b>DEPOIS</b> · superfície</figcaption></figure>
+<figure><img class="px" src="before/mapa_caverna.png" alt=""><figcaption><b>ANTES</b> · caverna</figcaption></figure>
+<figure><img class="px" src="map_var_caverna.png" alt=""><figcaption><b>DEPOIS</b> · caverna</figcaption></figure>
+</div></div>
+<div class="box dev" style="margin-top:18px"><h3>Pro Dev: câmera do mapa</h3><ul>
+<li><b>Janela:</b> B2 de 464×236 px da UI; área do mapa de 444×196 px da UI; cabeçalho com Superfície | Caverna, EXPLORADO % e FECHAR [M] (botão fantasma com hover); fileira de filtros embaixo.</li>
+<li><b>Zoom:</b> só níveis inteiros, pra pixel ficar pixel: <b>1× · 2× · 3× · 4×</b> = 1/2/3/4 px da UI por tile (2/4/6/8 px nativos). Padrão <b>2×</b>. No 1× a superfície inteira (192) cabe na altura. A caverna (128) usa os mesmos níveis. O selo "ZOOM 2×" no canto mostra o nível.</li>
+<li><b>Rodinha:</b> com o mapa aberto, a rodinha mexe no zoom do <b>mapa</b> (não no do mundo nem na hotbar), sem precisar de Ctrl, ancorada no ponto debaixo do mouse: o tile sob o cursor fica parado. As teclas + / − (e = e o numérico) fazem o mesmo, ancoradas no centro.</li>
+<li><b>Arrastar:</b> botão esquerdo segurado arrasta o mapa (pan 1:1 com o mouse). Só vira arrasto depois de 3 px de movimento, senão é clique (clique em marcador não faz nada além do tooltip por enquanto). WASD/setas também andam, ~1 tela por segundo.</li>
+<li><b>Centralizar:</b> o botão com a setinha (abaixo do + / −) e a tecla <b>C</b> centram em você, no zoom atual. Ao abrir o mapa (M), ele sempre abre <b>centrado em você</b> e no último zoom usado.</li>
+<li><b>Limites:</b> a câmera fica presa nas bordas da camada: a borda do mapa pode encostar na borda da área de desenho, nunca passar. Se no zoom atual a camada for menor que a área (ex.: caverna em 1×), aquele eixo fica centralizado e travado. Pode-se olhar o não explorado (pontilhado), só não sair do mapa.</li>
+<li><b>Trocar de camada:</b> clique no seletor ou Q/E. Mantém o zoom e centra em você se você estiver nela; senão, na rampa daquela camada. "Você" só aparece na camada em que o player está. Caverna escondida até a primeira descida.</li>
+<li><b>Filtros:</b> chips clicáveis com o mesmo pictograma do marcador; ligado = fundo <code>hover</code> + borda <code>line2</code>; desligado = escuro com ícone e texto apagados. Categorias: <b>Base, Cratera (superfície) / Rampa (caverna), Destroço, Vazio (destroço sem caixa), Veios, Terminal, Máquinas, Baús</b>. Só aparecem os chips das categorias que existem na camada aberta. <b>"Você" não é filtro</b> (sempre visível). Marcador escondido não recebe hover/tooltip.</li>
+<li><b>Persistência (aprovada):</b> os filtros e o último zoom são <b>preferência do jogador</b>, não do mundo: vão no <code>settings.json</code> (ex.: <code>"map_hidden": ["machine"]</code>, <code>"map_zoom": 2</code>), valem pra qualquer save e <b>não entram no save do jogo</b>. A posição da câmera não é salva (sempre abre em você). Os filtros valem igual nas duas camadas.</li>
+<li><b>Tooltip:</b> cartão B2 abaixo do cursor, preso dentro da área do mapa; prioridade de hover quando encosta em dois: você › base › destroço › terminal › rampa/cratera › veio › máquina › baú. Distância em tiles + direção em 8 pontos.</li>
+<li><b>Marcadores:</b> pictogramas fixos da função <code>marker()</code> do <code>tools/sprites/ui_mockups.py</code> (a base é <code>BASE_OPTS["base_a"]</code>, 13×11), esticados 2× no mapa e 1× no minimapa, <b>sem mudar de tamanho com o zoom</b> (só a posição muda).</li>
+<li><b>Custo:</b> médio. A câmera (zoom ancorado, arrasto, limites, centralizar), os filtros com persistência no settings e os pictogramas. A textura por camada já existe (<code>minimap.texture(state, key)</code>); recortar a janela visível e esticar por inteiro é barato.</li>
+</ul></div>
+<div class="screen"><h3>Alternativa não escolhida · mapa inteiro + coluna da legenda</h3>
+<div class="pair">
+<figure><img class="px" src="map_superficie.png" alt=""><figcaption>superfície</figcaption></figure>
+<figure><img class="px" src="map_caverna.png" alt=""><figcaption>caverna</figcaption></figure>
+</div></div>
+</section>
+
+<section><h2>Versão final (B + mixes)</h2>
+<div class="v2" style="margin-top:0;margin-bottom:18px"><b>v1.1 · o que mudou</b><ul>
+<li><b>Base B</b> (escolhida pelo dono). Fabricador, aba Fabricar e opções ficam iguais à B.</li>
+<li><b>Painel do Ti:</b> organização da A (título "ÍNDICE TI", +12/s, número grande numa faixa escura, índices com valor e unidade alinhados à direita, barra segmentada do próximo estágio com %, "faltam X · ~Y min") desenhada como cartão da B, sem chapa nem faixa de perigo.</li>
+<li><b>Traje no inventário:</b> o Explorador no meio com linhas até o Tanque e o Scanner (ideia da C), num cartão da B, sem colchete de holograma nem visor. Mochila, hotbar e o painel "USADO EM" continuam da B.</li>
+<li><b>Drones no baú:</b> sem chavinha. O ícone do material é o próprio botão: aceso (fundo tingido + borda laranja no Envia / ciano no Recebe) ou apagado (escuro). O "envia ferro" foi pro título da seção.</li>
+</ul></div>
+<div class="screen"><h3>Antes (B) × depois (B2) · só o que mudou <small>2× pra ver o pixel</small></h3>
+<div class="pair" style="align-items:start">
+<figure><img class="px" src="b2_cmp_ti_antes.png" alt=""><figcaption><b>ANTES · B</b> · painel do Ti</figcaption></figure>
+<figure><img class="px" src="b2_cmp_ti_depois.png" alt=""><figcaption><b>DEPOIS · B2</b> · organização da A no estilo da B</figcaption></figure>
+<figure><img class="px" src="b2_cmp_traje_antes.png" alt=""><figcaption><b>ANTES · B</b> · traje em linha</figcaption></figure>
+<figure><img class="px" src="b2_cmp_traje_depois.png" alt=""><figcaption><b>DEPOIS · B2</b> · Explorador com linhas até os módulos</figcaption></figure>
+<figure><img class="px" src="b2_cmp_drones_antes.png" alt=""><figcaption><b>ANTES · B</b> · toggles com chavinha</figcaption></figure>
+<figure><img class="px" src="b2_cmp_drones_depois.png" alt=""><figcaption><b>DEPOIS · B2</b> · o ícone é o botão; "envia ferro" no título</figcaption></figure>
+</div></div>
+<div class="screen"><h3>Telas completas B2</h3>
+<div class="pair">
+<figure><a href="b2_hud.png"><img class="px" src="b2_hud.png" alt=""></a><figcaption><b>HUD</b></figcaption></figure>
+<figure><a href="b2_inventario.png"><img class="px" src="b2_inventario.png" alt=""></a><figcaption><b>INVENTÁRIO</b></figcaption></figure>
+<figure><a href="b2_fabricador.png"><img class="px" src="b2_fabricador.png" alt=""></a><figcaption><b>FABRICADOR</b> · igual à B</figcaption></figure>
+<figure><a href="b2_fabricar.png"><img class="px" src="b2_fabricar.png" alt=""></a><figcaption><b>ABA FABRICAR</b> · igual à B</figcaption></figure>
+<figure><a href="b2_bau.png"><img class="px" src="b2_bau.png" alt=""></a><figcaption><b>BAÚ</b></figcaption></figure>
+<figure><a href="b2_opcoes.png"><img class="px" src="b2_opcoes.png" alt=""></a><figcaption><b>OPÇÕES</b> · igual à B</figcaption></figure>
+</div>
+<figure style="margin:18px 0 0;max-width:960px"><img class="px" src="b2_componentes.png" alt=""><figcaption><b>COMPONENTES B2</b> · painel do Ti, traje, botão de drone (aceso/apagado no Envia e no Recebe), botões, chip de custo, slots</figcaption></figure>
+</div>
+<div class="box dev" style="margin-top:18px"><h3>Custo pro Dev da B2 (atualizado)</h3><ul>
+<li><b>Tudo da B continua:</b> <code>round_rect</code>, paleta, fabricador em lista + detalhe com <code>batch</code> ×1/×5, abas com ícone, chip de custo com <code>item_icon</code>, "usado em", opções segmentadas, botões do baú do lado de onde sai. Baixo a médio, só código.</li>
+<li><b>Painel do Ti (+ pequeno):</b> reescrever o <code>draw_ti_panel</code> com a mesma ordem de hoje (fica até mais perto do atual que a B pura): cartão 150×88; título "ÍNDICE TI" + taxa à direita; faixa escura <code>#0b0d13</code> com o Ti em Silkscreen 16 dourado à direita; 3 linhas de índice (ponto 3×3, rótulo, valor + unidade em <code>dim</code> alinhados à direita, passo 9); linha; estágio com barra de 16 segmentos 4×4 (1 px de vão) + %; "faltam X · ~Y" embaixo. Energia e minimapa descem pelo <code>ti_panel_bottom</code> como já acontece.</li>
+<li><b>Traje (+ pequeno):</b> no <code>_equipment_row</code>, um cartão de 174×~70 px da UI: Explorador = frame 0 do <code>player_idle_down</code> 2× na <code>native</code>, slot do tanque à esquerda e do scanner à direita (mesmos <code>equip_rects</code>), linhas de 1 px <code>#3a4259</code> com dobra e um ponto ciano 3×3 onde encostam no corpo; rótulo + estado embaixo de cada slot. Sem sprite novo.</li>
+<li><b>Drones (+ mínimo):</b> o <code>_toggle</code> perde a chavinha: botão 22×22 com o <code>item_icon</code> 16 centralizado; ativo = fundo tingido (alfa fixo) + borda e filete de baixo na cor da linha (<code>C_ACCENT</code> envia, <code>C_O2</code> recebe); inativo = <code>#0d0f16</code> + ícone escurecido. "· envia ferro" vai pro lado do rótulo DRONES (some o texto da direita). Mesmo hit-test (<code>logistics_buttons</code>).</li>
+<li><b>Sprites:</b> nenhum obrigatório. Opcional: <code>ui_b_slot.png</code> no lugar do <code>ui_slot.png</code> (mesmo 20×20).</li>
+</ul></div>
+</section>
+
+<section><h2>As 3 direções</h2>
+<div class="dirs">
+  <div class="dir" style="--c:#e2733a">
+    <h3><span>A · COLÔNIA</span>Terminal industrial</h3>
+    <div class="sw"><i style="background:#463e42"></i><i style="background:#272023"></i><i style="background:#16110f"></i><i style="background:#e2733a"></i><i style="background:#f2c46d"></i><i style="background:#59d0e6"></i></div>
+    <p>A UI como equipamento da própria colônia, da mesma família das máquinas: chapa cinza aparafusada, faixa de perigo laranja nos títulos, tela embutida com número âmbar, botão físico com "lábio", slot como soquete, barra de LED segmentada e tecla desenhada como keycap.</p>
+    <ul><li><b>Bom:</b> combina com as máquinas (corpo cinza + faixa laranja) e com a pixel art "suja" do mundo; dá peso tátil.</li>
+    <li><b>Risco:</b> moldura grossa come espaço em 480×270; é a mais "carregada".</li></ul>
+    <span class="cost">CUSTO DEV: MÉDIO · 6 SPRITES 9-SLICE</span>
+  </div>
+  <div class="dir" style="--c:#8b93a8">
+    <h3><span>B · LIMPA</span>Moderna e plana</h3>
+    <div class="sw"><i style="background:#0f1119"></i><i style="background:#141722"></i><i style="background:#232838"></i><i style="background:#2b3145"></i><i style="background:#e2733a"></i><i style="background:#7fd67a"></i></div>
+    <p>Cartões escuros frios com canto de 1 px, sem moldura pesada; a cor é informação (laranja = ação/seleção, verde = tem, vermelho = falta). O fabricador vira <b>lista + painel de detalhe</b> (prévia 2×, custo linha a linha com barrinha, lote ×1/×5 e o botão dizendo o que falta). Abas com ícone, inventário com "usado em".</p>
+    <ul><li><b>Bom:</b> a mais legível e a que mais melhora o uso; quase tudo é código.</li>
+    <li><b>Risco:</b> menos personalidade; o frio do cartão contrasta com o mundo quente (de propósito, pra destacar).</li></ul>
+    <span class="cost">CUSTO DEV: BAIXO A MÉDIO · SÓ CÓDIGO (+1 SLOT OPCIONAL)</span>
+  </div>
+  <div class="dir" style="--c:#f2c46d">
+    <h3><span>C · VISOR</span>Diegética, no capacete</h3>
+    <div class="sw"><i style="background:#07151d"></i><i style="background:#24414d"></i><i style="background:#f2c46d"></i><i style="background:#b8893e"></i><i style="background:#59d0e6"></i><i style="background:#05090c"></i></div>
+    <p>O que o Explorador vê projetado no visor dourado: borda do capacete escurecendo os cantos, HUD sem caixa (traço dourado/ciano e texto com contorno), O₂ num arco segmentado, minimapa redondo de radar, slots só com colchetes. Menus são hologramas de canto chanfrado com linha de varredura; o fabricador vira grade de cartões com abas verticais e o inventário mostra o traje com linhas até os módulos.</p>
+    <ul><li><b>Bom:</b> a mais original; amarra com o visor dourado do personagem novo.</li>
+    <li><b>Risco:</b> HUD sem fundo perde leitura em chão claro (o contorno segura); grade de cartões pede navegação nova (W/S/A/D em 2D).</li></ul>
+    <span class="cost">CUSTO DEV: MÉDIO A ALTO · MÁSCARA DO VISOR + NAVEGAÇÃO</span>
+  </div>
+</div>
+</section>
+
+<section><h2>Telas lado a lado (A · B · C)</h2>
+<p class="lede">Clique numa imagem pra abrir no tamanho real (960×540). Todas na interface <b>Grande</b>; em Média e Pequena sobra espaço, os painéis seguem ancorados nos cantos/centro como hoje.</p>
+
+<div class="screen"><h3>HUD em jogo <small>O₂, Ti e índices, energia, objetivo, hotbar, minimapa, equipamento, recursos e a dica do E</small></h3>
+<div class="row3">
+<figure><a href="a_hud.png"><img class="px" src="a_hud.png" alt="A HUD"></a><figcaption><b>A</b> · TRAJE vira a ponta do "cinto" da hotbar; Ti num visor embutido; LEDs</figcaption></figure>
+<figure><a href="b_hud.png"><img class="px" src="b_hud.png" alt="B HUD"></a><figcaption><b>B</b> · pílulas; Ti com barra empilhada O₂/calor/água; nome do item em cima da hotbar</figcaption></figure>
+<figure><a href="c_hud.png"><img class="px" src="c_hud.png" alt="C HUD"></a><figcaption><b>C</b> · arco do O₂ com o tanque, radar redondo com o scanner, sem caixas</figcaption></figure>
+</div></div>
+
+<div class="screen"><h3>Fabricador (base) <small>o pedido principal: ícone + quantidade e "tem / falta"</small></h3>
+<div class="row3">
+<figure><a href="a_fabricador.png"><img class="px" src="a_fabricador.png" alt="A fabricador"></a><figcaption><b>A</b> · linha por receita; custo em soquete com ícone, "tem/precisa" e LED; botão diz o que falta</figcaption></figure>
+<figure><a href="b_fabricador.png"><img class="px" src="b_fabricador.png" alt="B fabricador"></a><figcaption><b>B</b> · lista + detalhe; cada material numa linha com barra; botão "FALTAM 2 SILÍCIO"; lote ×1/×5</figcaption></figure>
+<figure><a href="c_fabricador.png"><img class="px" src="c_fabricador.png" alt="C fabricador"></a><figcaption><b>C</b> · grade de cartões com custo em ícone (o que falta sublinhado em vermelho) + faixa de detalhe</figcaption></figure>
+</div></div>
+
+<div class="screen"><h3>Aba Fabricar do inventário (em campo) <small>só conta o inventário</small></h3>
+<div class="row3">
+<figure><a href="a_fabricar.png"><img class="px" src="a_fabricar.png" alt="A fabricar"></a><figcaption><b>A</b></figcaption></figure>
+<figure><a href="b_fabricar.png"><img class="px" src="b_fabricar.png" alt="B fabricar"></a><figcaption><b>B</b> · mesmo componente do fabricador, dentro das abas</figcaption></figure>
+<figure><a href="c_fabricar.png"><img class="px" src="c_fabricar.png" alt="C fabricar"></a><figcaption><b>C</b></figcaption></figure>
+</div></div>
+
+<div class="screen"><h3>Inventário (aba Inventário)</h3>
+<div class="row3">
+<figure><a href="a_inventario.png"><img class="px" src="a_inventario.png" alt="A inventário"></a><figcaption><b>A</b> · abas de pasta em chapa; traje com status "equipado"</figcaption></figure>
+<figure><a href="b_inventario.png"><img class="px" src="b_inventario.png" alt="B inventário"></a><figcaption><b>B</b> · painel do item com "usado em" (sai das receitas)</figcaption></figure>
+<figure><a href="c_inventario.png"><img class="px" src="c_inventario.png" alt="C inventário"></a><figcaption><b>C</b> · o Explorador com linhas até tanque e scanner</figcaption></figure>
+</div></div>
+
+<div class="screen"><h3>Baú (transferência) <small>cada botão fica do lado de onde as coisas saem</small></h3>
+<div class="row3">
+<figure><a href="a_bau.png"><img class="px" src="a_bau.png" alt="A baú"></a><figcaption><b>A</b> · "GUARDAR RECURSOS >>" no inventário, "<< PEGAR TUDO" no baú; drones como interruptores com LED</figcaption></figure>
+<figure><a href="b_bau.png"><img class="px" src="b_bau.png" alt="B baú"></a><figcaption><b>B</b> · coluna de ações no meio com seta; toggles de drone com chavinha</figcaption></figure>
+<figure><a href="c_bau.png"><img class="px" src="c_bau.png" alt="C baú"></a><figcaption><b>C</b> · "feixe" de transferência entre os hologramas</figcaption></figure>
+</div></div>
+
+<div class="screen"><h3>Pausa · Opções</h3>
+<div class="row3">
+<figure><a href="a_opcoes.png"><img class="px" src="a_opcoes.png" alt="A opções"></a><figcaption><b>A</b> · faders físicos, chave NÃO/SIM, seletor P/M/G</figcaption></figure>
+<figure><a href="b_opcoes.png"><img class="px" src="b_opcoes.png" alt="B opções"></a><figcaption><b>B</b> · controles segmentados: dá pra ver e clicar todas as opções de uma vez</figcaption></figure>
+<figure><a href="c_opcoes.png"><img class="px" src="c_opcoes.png" alt="C opções"></a><figcaption><b>C</b> · barras de traços, valor com "< >" na linha escolhida</figcaption></figure>
+</div></div>
+</section>
+
+<section><h2>Antes × depois</h2>
+<div class="flip"><img class="px" src="before/fabricador.png" alt="antes"><img class="px after" src="b_fabricador.png" alt="depois"><span class="tag"></span></div>
+<p class="lede" style="margin-top:8px">Fabricador alternando antes ↔ B a cada 1,6 s. Embaixo, todas as telas: atual e as 3 direções.</p>
+<div class="screen"><h3>Fabricador</h3><div class="ba">
+<figure><img class="px" src="before/fabricador.png" alt=""><figcaption><b>ANTES</b> · custo só em texto "60/10 FERRO"</figcaption></figure>
+<figure><img class="px" src="a_fabricador.png" alt=""><figcaption><b>A</b></figcaption></figure>
+<figure><img class="px" src="b_fabricador.png" alt=""><figcaption><b>B</b></figcaption></figure>
+<figure><img class="px" src="c_fabricador.png" alt=""><figcaption><b>C</b></figcaption></figure></div></div>
+<div class="screen"><h3>HUD</h3><div class="ba">
+<figure><img class="px" src="before/hud.png" alt=""><figcaption><b>ANTES</b></figcaption></figure>
+<figure><img class="px" src="a_hud.png" alt=""><figcaption><b>A</b></figcaption></figure>
+<figure><img class="px" src="b_hud.png" alt=""><figcaption><b>B</b></figcaption></figure>
+<figure><img class="px" src="c_hud.png" alt=""><figcaption><b>C</b></figcaption></figure></div></div>
+<div class="screen"><h3>Aba Fabricar</h3><div class="ba">
+<figure><img class="px" src="before/fabricar.png" alt=""><figcaption><b>ANTES</b></figcaption></figure>
+<figure><img class="px" src="a_fabricar.png" alt=""><figcaption><b>A</b></figcaption></figure>
+<figure><img class="px" src="b_fabricar.png" alt=""><figcaption><b>B</b></figcaption></figure>
+<figure><img class="px" src="c_fabricar.png" alt=""><figcaption><b>C</b></figcaption></figure></div></div>
+<div class="screen"><h3>Inventário</h3><div class="ba">
+<figure><img class="px" src="before/inventario.png" alt=""><figcaption><b>ANTES</b></figcaption></figure>
+<figure><img class="px" src="a_inventario.png" alt=""><figcaption><b>A</b></figcaption></figure>
+<figure><img class="px" src="b_inventario.png" alt=""><figcaption><b>B</b></figcaption></figure>
+<figure><img class="px" src="c_inventario.png" alt=""><figcaption><b>C</b></figcaption></figure></div></div>
+<div class="screen"><h3>Baú</h3><div class="ba">
+<figure><img class="px" src="before/bau.png" alt=""><figcaption><b>ANTES</b></figcaption></figure>
+<figure><img class="px" src="a_bau.png" alt=""><figcaption><b>A</b></figcaption></figure>
+<figure><img class="px" src="b_bau.png" alt=""><figcaption><b>B</b></figcaption></figure>
+<figure><img class="px" src="c_bau.png" alt=""><figcaption><b>C</b></figcaption></figure></div></div>
+<div class="screen"><h3>Opções</h3><div class="ba">
+<figure><img class="px" src="before/opcoes.png" alt=""><figcaption><b>ANTES</b></figcaption></figure>
+<figure><img class="px" src="a_opcoes.png" alt=""><figcaption><b>A</b></figcaption></figure>
+<figure><img class="px" src="b_opcoes.png" alt=""><figcaption><b>B</b></figcaption></figure>
+<figure><img class="px" src="c_opcoes.png" alt=""><figcaption><b>C</b></figcaption></figure></div></div>
+</section>
+
+<section><h2>Componentes de cada direção</h2>
+<div class="strip">
+<figure><img class="px" src="a_componentes.png" alt="A componentes"><figcaption><b>A · COLÔNIA</b> · botão (ok / falta / desligado), aba, slot (vazio, item, mouse, selecionado), keycap, LEDs, custo (tem · falta · trancado), tooltip e a moldura 9-slice</figcaption></figure>
+<figure><img class="px" src="b_componentes.png" alt="B componentes"><figcaption><b>B · LIMPA</b> · botão (primário, fantasma, falta, desligado), abas segmentadas e com ícone, slot, tecla, barras, chip de custo, tooltip</figcaption></figure>
+<figure><img class="px" src="c_componentes.png" alt="C componentes"><figcaption><b>C · VISOR</b> · botão, abas verticais, slot de colchete, tecla, arco do O₂, barra de traços e fita, cartão de receita (falta / trancado), tooltip, painel holograma</figcaption></figure>
+</div>
+</section>
+
+<section><h2>Molduras novas (em _pending/ui, px da UI, 8×)</h2>
+<div class="chk">
+<figure><img src="../../../assets/sprites/_pending/ui/ui_a_panel.png" width="192" height="192" alt=""><figcaption>ui_a_panel · 24×24 · 9-slice borda 7</figcaption></figure>
+<figure><img src="../../../assets/sprites/_pending/ui/ui_a_plate.png" width="96" height="96" alt=""><figcaption>ui_a_plate · 12×12 · borda 4</figcaption></figure>
+<figure><img src="../../../assets/sprites/_pending/ui/ui_a_button.png" width="96" height="96" alt=""><figcaption>ui_a_button · 12×12 · borda 4</figcaption></figure>
+<figure><img src="../../../assets/sprites/_pending/ui/ui_a_button_off.png" width="96" height="96" alt=""><figcaption>ui_a_button_off</figcaption></figure>
+<figure><img src="../../../assets/sprites/_pending/ui/ui_a_slot.png" width="160" height="160" alt=""><figcaption>ui_a_slot · 20×20</figcaption></figure>
+<figure><img src="../../../assets/sprites/_pending/ui/ui_a_hazard.png" width="64" height="64" alt=""><figcaption>ui_a_hazard · 8×8 repetível</figcaption></figure>
+<figure><img src="../../../assets/sprites/_pending/ui/ui_b_slot.png" width="160" height="160" alt=""><figcaption>ui_b_slot · 20×20</figcaption></figure>
+<figure><img src="../../../assets/sprites/_pending/ui/ui_c_corner.png" width="64" height="64" alt=""><figcaption>ui_c_corner · 8×8</figcaption></figure>
+<figure><img src="../../../assets/sprites/_pending/ui/ui_c_visor.png" width="480" height="270" alt=""><figcaption>ui_c_visor · 480×270 (1×) · referência: no jogo é gerada pelo tamanho da UI</figcaption></figure>
+</div>
+</section>
+
+<section><h2>Recomendação</h2>
+<div class="box reco">
+<h3>Vai de B (Limpa), e se quiser tempero, puxa 2 peças da C pro HUD</h3>
+<ul>
+<li><b>Por que B:</b> é a que mais resolve o problema de verdade. O fabricador em lista + detalhe mostra cada material numa linha com ícone, "tem/precisa", barrinha e o botão já dizendo "FALTAM 2 SILÍCIO". Dá pra ler o estado sem caçar número. O mesmo componente serve na aba Fabricar, no baú e nas opções.</li>
+<li><b>Cabe nos 3 tamanhos sem drama:</b> abas com ícone (só a ativa mostra o nome) resolvem o aperto das 6 abas em 480 px, que hoje obriga a janela a alargar.</li>
+<li><b>Barata:</b> é quase só código no <code>ui.py</code> (cores, canto de 1 px, chip, painel de detalhe). Não depende de moldura nova.</li>
+<li><b>Tempero opcional da C:</b> o <b>arco do O₂</b> e o <b>radar redondo</b> funcionam sozinhos por cima da B e dão a cara de "capacete" sem o custo da máscara do visor nem da grade de cartões.</li>
+<li><b>Por que não A:</b> é bonita e combina com as máquinas, mas a moldura grossa rouba uns 14 px de cada janela em 480×270, e o visual fica pesado com tudo aberto. Se o dono preferir o clima "oficina", dá pra usar o esqueleto da B com a pele da A (as duas têm os mesmos blocos).</li>
+</ul>
+</div>
+</section>
+
+<section><h2>Pro Dev implementar (o que muda no ui.py)</h2>
+<div class="notes">
+<div class="box dev"><h3>Comum às 3</h3><ul>
+<li><b>Custo com ícone:</b> no <code>_recipe_list</code>, trocar o texto <code>"60/10 FERRO"</code> pelo chip: <code>item_icon(res)</code> (32×32, camada <code>native</code>) + <code>"tem/precisa"</code> no <code>body</code>. Tem = <code>C_OK</code>, falta = <code>C_ALERT</code> (só o "tem" fica vermelho), trancado = cinza com o ícone escurecido (overlay de alfa fixo). Não precisa de ícone novo.</li>
+<li><b>Botão que explica:</b> sem material o botão diz o que falta ("FALTA SILÍCIO" / "FALTAM 2 SILÍCIO"); <code>state.missing_resource</code> já dá isso.</li>
+<li><b>Baú:</b> "Guardar recursos" vai pro painel do inventário e "Pegar tudo" pro do baú (o botão fica do lado de onde sai). Mesmos <code>panel_buttons</code>.</li>
+<li><b>Ajuda com tecla:</b> as linhas "[A/D] ABA · ..." viram pares (tecla, texto): a tecla em caixinha + texto na Pixelify. Um helper <code>help_line(pairs)</code>.</li>
+<li><b>Escala:</b> tudo foi desenhado no 480×270 (Grande). Ícones/prévias na <code>native</code> como hoje; molduras no <code>self.surf</code>.</li>
+<li><b>Mundo dos HUDs:</b> o fundo dos mockups saiu de <code>tools/sprites/ui_capture.py</code> (renderer sem HUD) e os mockups de <code>tools/sprites/ui_mockups.py</code>, que tem todas as coordenadas.</li>
+</ul></div>
+
+<div class="box dev"><h3>B · Limpa (recomendada)</h3><ul>
+<li><b>Primitivas:</b> <code>round_rect(x,y,w,h,cor,borda)</code> (corta 1 px em cada canto); paleta nova (<code>bg (15,17,25,236)</code>, <code>card #141722</code>, <code>hover #232838</code>, <code>line #2b3145</code>, <code>muted #8b93a8</code>, <code>dim #4f566b</code>). <code>panel()</code>/<code>hud_panel()</code>/<code>_window()</code> passam a usar isso. Texto dentro de cartão sem sombra.</li>
+<li><b>Fabricador:</b> <code>_recipe_list</code> vira lista (linha de 22: ícone 16 + nome + ✓ / "falta" / cadeado) + <code>_recipe_detail</code> (prévia 2× numa caixa 64×64, nome, desc, chip de kW, uma linha por material com barra de 1 px, lote ×1/×5 e o botão). O <code>FabMenu</code> ganha <code>batch</code> (×1/×5) pro clique; Shift+Enter continua. Linhas visíveis: 6 (lista) com o detalhe fixo.</li>
+<li><b>Abas com ícone:</b> 22 px de largura cada, a ativa abre com o nome. Hit-test igual (<code>fabricator_tabs</code>).</li>
+<li><b>Inventário:</b> abas como controle segmentado; painel do item com "usado em" (busca reversa em <code>C.MACHINES[*].cost</code>).</li>
+<li><b>HUD:</b> O₂ numa pílula de 1 linha (barra 4 px + segundos + ícone do tanque); Ti com barra empilhada O₂/calor/água (a proporção dos 3 índices) e valores sem unidade (unidade no tooltip); energia em pílula; minimapa com rótulo por dentro; número da tecla em cima do slot; nome do item selecionado acima da hotbar.</li>
+<li><b>Opções:</b> Tela cheia, Zoom e Interface viram controle segmentado (clique direto no valor: hit-test por segmento). A/D continuam.</li>
+<li><b>Sprite opcional:</b> <code>ui_b_slot.png</code> (20×20) substitui o <code>ui_slot.png</code> atual, mesmo contrato de tamanho.</li>
+</ul></div>
+
+<div class="box dev"><h3>A · Colônia</h3><ul>
+<li><b>9-slice:</b> helper <code>nine(sprite, rect, borda)</code> repetindo (não esticando) bordas e miolo. Sprites: <code>ui_a_panel</code> (janela, borda 7), <code>ui_a_plate</code> (HUD, borda 4), <code>ui_a_button</code>/<code>_off</code> (borda 4), <code>ui_a_slot</code> (20×20), <code>ui_a_hazard</code> (8×8 repetível nos títulos).</li>
+<li><b>LEDs:</b> barra segmentada (O₂ 14 segmentos, estágio 16, energia 10) no lugar das barras lisas.</li>
+<li><b>Custo:</b> soquete 17 px de altura com ícone 16 + "tem/precisa" + LED 3×3. Linha da receita passa de ~41 pra 38 px (5 visíveis).</li>
+<li><b>HUD:</b> o TRAJE vira plaquinha presa na ponta da hotbar; a dica do E sobe pro meio, acima da hotbar.</li>
+<li>Abas sem ícone (as 6 cabem em 452 px).</li>
+</ul></div>
+
+<div class="box dev"><h3>C · Visor</h3><ul>
+<li><b>Borda do capacete:</b> não dá pra ser um PNG fixo (a UI tem 3 tamanhos lógicos). Gerar na hora pelo tamanho da UI com a conta do <code>c_sprites()</code> (superelipse n=6, 3 níveis de alfa + filete dourado) e guardar em cache por tamanho. O PNG em _pending é só referência.</li>
+<li><b>Texto com contorno:</b> 8 blits do texto escuro em volta (cachear junto no <code>_render</code>).</li>
+<li><b>Arco do O₂ e radar:</b> máscaras pré-calculadas uma vez (anel segmentado; círculo sobre a textura do minimapa).</li>
+<li><b>Painel chanfrado + varredura:</b> <code>chamfer()</code> e uma linha de alfa fixo a cada 3 px.</li>
+<li><b>Fabricador em grade:</b> 3×2 cartões + abas verticais. Precisa mexer na navegação (<code>app.py</code>: W/S/A/D em 2D, aba com Q/E ou Tab) e no scroll por linha de cartões. É o item mais caro.</li>
+<li><b>Inventário:</b> desenho do Explorador (frame 0 do <code>player_idle_down</code>, 2×) com linhas até os slots do traje.</li>
+</ul></div>
+</div>
+</section>
+
+<section><h2>Notas</h2>
+<div class="box"><ul>
+<li><b>Contrato (§6):</b> nada mudou. Se uma direção for aprovada, proponho entrar no contrato: B → <code>ui_slot.png</code> com o desenho do <code>ui_b_slot</code> (mesmo 20×20); A → os 6 <code>ui_a_*</code>; C → <code>ui_c_corner</code> (a borda do visor é gerada no código).</li>
+<li><b>Estado mostrado:</b> Ti 4.812 (Morto, 48% até a Névoa), tanque equipado (158 de 220 s), scanner equipado, 92 ferro / 6 silício / 43 gelo. O Aquecedor (12 Fe + 8 Si) fica selecionado pra mostrar "tem" e "falta" juntos.</li>
+<li><b>Determinístico:</b> rodar <code>python3 tools/sprites/ui_mockups.py</code> duas vezes dá o mesmo md5 em todos os PNGs. Os insumos (<code>_src/</code>) saem de <code>uv run python tools/sprites/ui_capture.py</code>.</li>
+</ul></div>
+</section>
+
+</div></body></html>
