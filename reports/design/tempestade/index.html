@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Tempestade de poeira · v7.0</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Pixelify+Sans:wght@400;600&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--panel2:#241b17;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;--alert:#ff6a55;
+  --f-label:"Silkscreen",ui-monospace,monospace;--f-display:"Pixelify Sans",ui-monospace,monospace;--f-body:"IBM Plex Sans",system-ui,sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,monospace;color-scheme:dark}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 var(--f-body);padding-inline:16px}
+.wrap{max-width:1500px;margin:0 auto;padding-block:48px 80px}
+.eyebrow{font:12px var(--f-label);letter-spacing:.08em;color:var(--rust);text-transform:uppercase}
+h1{font:600 clamp(34px,6vw,54px)/1.05 var(--f-display);margin:10px 0 14px}
+.lede{color:var(--muted);max-width:86ch;margin:0}
+h2{font:600 24px/1.2 var(--f-display);margin:0 0 16px}
+h2::before{content:"";display:inline-block;width:10px;height:10px;background:var(--rust);margin-right:10px;vertical-align:middle}
+h3{font:600 18px var(--f-display);margin:0 0 8px}
+section{margin-top:56px}
+code{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}
+pre{background:var(--panel2);border:1px solid var(--line);padding:12px 14px;overflow:auto;font:13px/1.5 var(--f-mono);color:var(--fg)}
+img.px{image-rendering:pixelated;display:block;width:100%;height:auto;border:1px solid var(--line)}
+.v2{margin-top:22px;max-width:1000px;background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--gold);padding:14px 18px}
+.v2 > b{font:13px var(--f-label);color:var(--gold)}
+.v2 ul{margin:8px 0 0;padding-left:18px;color:var(--muted)}.v2 li{margin-bottom:6px}.v2 li b{color:var(--fg)}
+.dirs{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media (max-width:1100px){.dirs{grid-template-columns:1fr}}
+.dir{background:var(--panel);border:1px solid var(--line);padding:16px 18px;border-top:4px solid var(--c)}
+.dir h3 span{font:12px var(--f-label);color:var(--gold);display:block;letter-spacing:.06em}
+.dir p{color:var(--muted);margin:10px 0 0}
+.sws{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin:6px 0}
+.sws > b{font:11px var(--f-label);color:var(--muted);width:52px}
+.sw{display:inline-flex;align-items:center;gap:6px}.sw i{width:22px;height:22px;border:1px solid rgba(255,255,255,.18)}
+.sw small{color:var(--muted);font-size:12px}
+.pair{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media (max-width:1100px){.pair{grid-template-columns:1fr}}
+.pair figure,.one figure{margin:0}
+.one{max-width:960px}
+.screen{margin-top:26px}.screen > h3 small{font:13px var(--f-body);color:var(--muted);margin-left:8px;font-weight:400}
+figcaption{font:12px var(--f-label);color:var(--muted);margin-top:6px;letter-spacing:.04em}figcaption b{color:var(--fg)}
+.chk{display:flex;gap:22px;align-items:flex-end;flex-wrap:wrap;padding:14px;
+  background-color:#2a211d;background-image:conic-gradient(#3a2e28 25%,transparent 0 50%,#3a2e28 0 75%,transparent 0);background-size:16px 16px;border:1px solid var(--line)}
+.chk figure{margin:0}.chk img{image-rendering:pixelated;display:block}
+.chk figcaption{font:11px var(--f-mono);color:var(--fg);text-shadow:0 1px 0 #000}
+.box{background:var(--panel);border:1px solid var(--line);padding:18px 20px}
+.box ul{margin:0;padding-left:18px;color:var(--muted)}.box li{margin-bottom:8px}.box li b{color:var(--fg)}
+.dev{border-left:3px solid var(--cyan)}.reco{border-left:3px solid var(--ok)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{font:12px var(--f-label);color:var(--gold);background:var(--panel2)}td{color:var(--muted)}td b{color:var(--fg)}
+/* animação: base parada + 2 camadas (faixas e grãos) que emendam nas bordas, andando pro leste e 8° pra baixo.
+   A camada tem 5×2 ladrilhos; anda 4 ladrilhos em x e 1 em y por ciclo (atan(540/3840) = 8°), em degraus de 1 px */
+.live{position:relative;aspect-ratio:16/9;overflow:hidden;border:1px solid var(--line)}
+.live img.base{position:absolute;inset:0;border:0}
+.live .lay{position:absolute;left:0;top:0;width:500%;height:200%;background-size:20% 50%;background-repeat:repeat;
+  image-rendering:pixelated;animation-name:wind;animation-iteration-count:infinite;animation-timing-function:steps(1920)}
+@keyframes wind{from{transform:translate(-80%,-50%)}to{transform:translate(0,0)}}
+.glyph{display:grid;grid-template-columns:repeat(8,14px);gap:1px;background:#0f1119;padding:8px;width:max-content}
+.glyph i{width:14px;height:14px;background:#1b1f2c}.glyph i.on{background:#e2733a}
+</style>
+</head>
+<body><div class="wrap">
+
+<header>
+  <div class="eyebrow">Hesper · Designer · v7.0 · v0.4 Marco 1 · estágio 1 Tempestade · pendente de aprovação</div>
+  <h1>Tempestade de poeira</h1>
+  <p class="lede">O jogo agora começa numa tempestade: a visão fecha em ~7 tiles (4 na rajada), as máquinas abrem a vista em volta da
+  base e, no Árido, a poeira afina em 20 s e o céu limpa. O chão continua sendo o <code>dead</code> de hoje. Tudo abaixo é pixel de
+  verdade: o <b>jogo rodando</b> (mundo + HUD B2, capturados com o <code>storm_capture.py</code>) com a camada de poeira montada do jeito que eu proponho pro Dev C.</p>
+  <div class="v2"><b>v7.0 · o que mudou</b><ul>
+    <li><b>3 propostas de cor</b> da poeira (fundo, nuvem, grãos e faixa): A · Ferrugem (recomendada), B · Ocre e C · Crepúsculo.</li>
+    <li><b>Mockups 960×540</b> de cada uma: tempestade, rajada, perto da base e a transição pro Árido, mais o <b>Árido limpo</b> uma vez só pra comparar.</li>
+    <li><b>Textura de nuvem</b> (256×256, emenda, blocos de 4 px), <b>faixas de vento</b> (folha opcional e a receita em código) e o <b>ícone de vento</b> 8×8 do aviso RAJADA.</li>
+    <li><b>Valores exatos pro Dev</b> (cor, tamanho, alfa, velocidade, quantidade) e a receita da camada em pygame puro, medida em ~2,5 ms por quadro.</li>
+    <li>Nenhum arquivo do jogo mudou. Tudo novo está em <code>assets/sprites/_pending/storm/</code>.</li>
+  </ul></div>
+</header>
+
+<section><h2>Minha recomendação</h2>
+<div class="box reco"><ul>
+  <li><b>A · Ferrugem.</b> A poeira tem a cara do chão levantado: mais clara e menos saturada que o <code>dead</code>. O círculo de visão aparece como uma <b>clareira</b> (chão escuro e nítido dentro da névoa clara), e não como um holofote. O Explorador (visor dourado, acento laranja) e as máquinas ficam no limpo, então ficam 100% legíveis; a HUD B2 fica por cima, sem perder nada.</li>
+  <li>Se o dono quiser <b>mais drama</b>, a B · Ocre é a de mais contraste e deixa a saída pro Árido bem marcante. A C é bonita mas escura demais: vira "noite".</li>
+  <li>Opacidade máxima <b>0,90</b> (o plano chutava 0,92): com 0,90 ainda dá pra adivinhar o vulto de um morro ou da cratera longe, o que ajuda a não se perder.</li>
+  <li>Visão em <b>degraus</b> (miolo limpo + 3 anéis), igual à luz da caverna, mas com o miolo maior: com raio 7 ficam ~3,9 tiles totalmente limpos e a névoa fecha até o 7º.</li>
+</ul></div>
+</section>
+
+<section><h2>As 3 propostas de cor</h2>
+<div class="dirs">
+<div class="dir" style="--c:#a8694a"><h3><span>A · RECOMENDADA</span>Ferrugem</h3>
+<div class="sws"><b>Fundo</b><span class="sw"><i style="background:#a8694a"></i><code>#a8694a</code><small>fundo da camada</small></span></div>
+<div class="sws"><b>Nuvem</b><span class="sw"><i style="background:#9c6045"></i><code>#9c6045</code><small>escuro</small></span><span class="sw"><i style="background:#a8694a"></i><code>#a8694a</code><small>médio = fundo</small></span><span class="sw"><i style="background:#b47553"></i><code>#b47553</code><small>claro</small></span></div>
+<div class="sws"><b>Grãos</b><span class="sw"><i style="background:#cf9a70"></i><code>#cf9a70</code><small>claro 60%</small></span><span class="sw"><i style="background:#efcba0"></i><code>#efcba0</code><small>brilho 15%</small></span><span class="sw"><i style="background:#6e3f2b"></i><code>#6e3f2b</code><small>escuro 25%</small></span></div>
+<div class="sws"><b>Faixa</b><span class="sw"><i style="background:#dcab80"></i><code>#dcab80</code><small>faixa de vento</small></span></div>
+<p>Ferrugem: a poeira é o próprio chão levantado. Névoa mais clara e menos saturada que o chão dead, então o círculo de visão (chão escuro) se destaca sem brigar com o vermelho do planeta. Na saída pro Árido a cor quase não muda: só abre. Grãos claros e faixas bem visíveis.</p></div>
+<div class="dir" style="--c:#ad875f"><h3><span>B · ALTERNATIVA</span>Ocre</h3>
+<div class="sws"><b>Fundo</b><span class="sw"><i style="background:#ad875f"></i><code>#ad875f</code><small>fundo da camada</small></span></div>
+<div class="sws"><b>Nuvem</b><span class="sw"><i style="background:#a17d57"></i><code>#a17d57</code><small>escuro</small></span><span class="sw"><i style="background:#ad875f"></i><code>#ad875f</code><small>médio = fundo</small></span><span class="sw"><i style="background:#b9936a"></i><code>#b9936a</code><small>claro</small></span></div>
+<div class="sws"><b>Grãos</b><span class="sw"><i style="background:#d8b585"></i><code>#d8b585</code><small>claro 60%</small></span><span class="sw"><i style="background:#f3e0b6"></i><code>#f3e0b6</code><small>brilho 15%</small></span><span class="sw"><i style="background:#74553a"></i><code>#74553a</code><small>escuro 25%</small></span></div>
+<div class="sws"><b>Faixa</b><span class="sw"><i style="background:#e4c797"></i><code>#e4c797</code><small>faixa de vento</small></span></div>
+<p>Ocre: cara clássica de tempestade de areia. É a de maior contraste (névoa amarela × chão vermelho), a borda da visão fica óbvia e a saída pro Árido vira um momento bem marcante (o mundo "fica vermelho"). Contra: o planeta parece amarelo nos primeiros minutos, e o dourado do Ti/visor some um pouco no anel de fora.</p></div>
+<div class="dir" style="--c:#6e443c"><h3><span>C · NÃO RECOMENDO</span>Crepúsculo</h3>
+<div class="sws"><b>Fundo</b><span class="sw"><i style="background:#6e443c"></i><code>#6e443c</code><small>fundo da camada</small></span></div>
+<div class="sws"><b>Nuvem</b><span class="sw"><i style="background:#643d37"></i><code>#643d37</code><small>escuro</small></span><span class="sw"><i style="background:#6e443c"></i><code>#6e443c</code><small>médio = fundo</small></span><span class="sw"><i style="background:#7a4d44"></i><code>#7a4d44</code><small>claro</small></span></div>
+<div class="sws"><b>Grãos</b><span class="sw"><i style="background:#a87260"></i><code>#a87260</code><small>claro 60%</small></span><span class="sw"><i style="background:#d8a585"></i><code>#d8a585</code><small>brilho 15%</small></span><span class="sw"><i style="background:#43262a"></i><code>#43262a</code><small>escuro 25%</small></span></div>
+<div class="sws"><b>Faixa</b><span class="sw"><i style="background:#bc8670"></i><code>#bc8670</code><small>faixa de vento</small></span></div>
+<p>Crepúsculo: sépia escura e opressiva, mais clima de perigo. Contra: o contraste com o chão é baixo (a visão parece "um holofote" e não uma clareira), os grãos quase somem e fica com cara de noite, que é outra coisa.</p></div></div>
+</section>
+
+<section><h2>Mockups 960×540</h2>
+<p class="lede">O jogo real, no zoom 1× e com a HUD B2 no tamanho Média (o padrão). O painel do Ti e o objetivo já mostram o Marco 1
+("ÁRIDO", "Sobreviva e monte a base"), e o aviso RAJADA é o mockup do que a trilha B vai desenhar. O chiado do minimapa é ilustrativo (quem faz é a C3 do Dev C).</p>
+<div class="screen"><h3>Árido limpo <small>estágio 2: o chão dead de hoje, sem poeira (mesmo lugar da tempestade)</small></h3>
+<div class="one"><figure><img class="px" src="arido.png" alt=""><figcaption><b>ÁRIDO</b> · céu limpo</figcaption></figure></div></div>
+<div class="screen"><h3>A · Ferrugem <small>(recomendada)</small></h3><div class="pair"><figure><img class="px" src="a_tempestade.png" alt=""><figcaption><b>tempestade · visão 7 tiles</b></figcaption></figure><figure><img class="px" src="a_rajada.png" alt=""><figcaption><b>rajada · visão 4 tiles, aviso, minimapa chiando</b></figcaption></figure><figure><img class="px" src="a_base.png" alt=""><figcaption><b>perto da base · as máquinas abrem a vista</b></figcaption></figure><figure><img class="px" src="a_transicao.png" alt=""><figcaption><b>saindo pro Árido · storm 0,5 (10 s dos 20)</b></figcaption></figure></div></div><div class="screen"><h3>B · Ocre</h3><div class="pair"><figure><img class="px" src="b_tempestade.png" alt=""><figcaption><b>tempestade · visão 7 tiles</b></figcaption></figure><figure><img class="px" src="b_rajada.png" alt=""><figcaption><b>rajada · visão 4 tiles, aviso, minimapa chiando</b></figcaption></figure><figure><img class="px" src="b_base.png" alt=""><figcaption><b>perto da base · as máquinas abrem a vista</b></figcaption></figure><figure><img class="px" src="b_transicao.png" alt=""><figcaption><b>saindo pro Árido · storm 0,5 (10 s dos 20)</b></figcaption></figure></div></div><div class="screen"><h3>C · Crepúsculo</h3><div class="pair"><figure><img class="px" src="c_tempestade.png" alt=""><figcaption><b>tempestade · visão 7 tiles</b></figcaption></figure><figure><img class="px" src="c_rajada.png" alt=""><figcaption><b>rajada · visão 4 tiles, aviso, minimapa chiando</b></figcaption></figure><figure><img class="px" src="c_base.png" alt=""><figcaption><b>perto da base · as máquinas abrem a vista</b></figcaption></figure><figure><img class="px" src="c_transicao.png" alt=""><figcaption><b>saindo pro Árido · storm 0,5 (10 s dos 20)</b></figcaption></figure></div></div>
+</section>
+
+<section><h2>Em movimento</h2>
+<p class="lede">Animação em CSS por cima da cena parada: as faixas e os grãos andando com o vento (leste, 8° pra baixo) na velocidade proposta. Na rajada fica tudo mais rápido, mais denso e mais comprido.</p>
+<div class="pair"><figure><div class="live">
+<img class="px base" src="anim/a_tempestade_base.png" alt="">
+<div class="lay" style="background-image:url(anim/a_faixas_normal.png);animation-duration:10.1s"></div>
+<div class="lay" style="background-image:url(anim/a_graos_normal.png);animation-duration:14.8s"></div>
+</div><figcaption><b>A · tempestade</b> · grãos e faixas andando (sem a HUD; a nuvem também anda no jogo, aqui fica parada)</figcaption></figure><figure><div class="live">
+<img class="px base" src="anim/a_rajada_base.png" alt="">
+<div class="lay" style="background-image:url(anim/a_faixas_rajada.png);animation-duration:5.6s"></div>
+<div class="lay" style="background-image:url(anim/a_graos_rajada.png);animation-duration:8.7s"></div>
+</div><figcaption><b>A · rajada</b> · grãos e faixas andando (sem a HUD; a nuvem também anda no jogo, aqui fica parada)</figcaption></figure></div><div class="pair"><figure><div class="live">
+<img class="px base" src="anim/b_tempestade_base.png" alt="">
+<div class="lay" style="background-image:url(anim/b_faixas_normal.png);animation-duration:10.1s"></div>
+<div class="lay" style="background-image:url(anim/b_graos_normal.png);animation-duration:14.8s"></div>
+</div><figcaption><b>B · tempestade</b> · grãos e faixas andando (sem a HUD; a nuvem também anda no jogo, aqui fica parada)</figcaption></figure><figure><div class="live">
+<img class="px base" src="anim/b_rajada_base.png" alt="">
+<div class="lay" style="background-image:url(anim/b_faixas_rajada.png);animation-duration:5.6s"></div>
+<div class="lay" style="background-image:url(anim/b_graos_rajada.png);animation-duration:8.7s"></div>
+</div><figcaption><b>B · rajada</b> · grãos e faixas andando (sem a HUD; a nuvem também anda no jogo, aqui fica parada)</figcaption></figure></div><div class="pair"><figure><div class="live">
+<img class="px base" src="anim/c_tempestade_base.png" alt="">
+<div class="lay" style="background-image:url(anim/c_faixas_normal.png);animation-duration:10.1s"></div>
+<div class="lay" style="background-image:url(anim/c_graos_normal.png);animation-duration:14.8s"></div>
+</div><figcaption><b>C · tempestade</b> · grãos e faixas andando (sem a HUD; a nuvem também anda no jogo, aqui fica parada)</figcaption></figure><figure><div class="live">
+<img class="px base" src="anim/c_rajada_base.png" alt="">
+<div class="lay" style="background-image:url(anim/c_faixas_rajada.png);animation-duration:5.6s"></div>
+<div class="lay" style="background-image:url(anim/c_graos_rajada.png);animation-duration:8.7s"></div>
+</div><figcaption><b>C · rajada</b> · grãos e faixas andando (sem a HUD; a nuvem também anda no jogo, aqui fica parada)</figcaption></figure></div>
+</section>
+
+<section><h2>Texturas e ícone</h2>
+<div class="screen"><h3>Nuvem de poeira <small><code>dust_cloud_{a,b,c}.png</code> · 256×256 · emenda nos 4 lados · 3 tons · blocos de 4 px (a célula do Lighting) · opaca</small></h3>
+<div class="chk"><figure><img src="../../../assets/sprites/_pending/storm/dust_cloud_a.png" width="512" height="512" alt=""><figcaption>A · 2× (ladrilho único)</figcaption></figure><figure><img src="../../../assets/sprites/_pending/storm/dust_cloud_b.png" width="512" height="512" alt=""><figcaption>B · 2× (ladrilho único)</figcaption></figure><figure><img src="../../../assets/sprites/_pending/storm/dust_cloud_c.png" width="512" height="512" alt=""><figcaption>C · 2× (ladrilho único)</figcaption></figure></div>
+<p class="lede" style="margin-top:8px">Opcional: sem a textura, o Dev pinta a camada com a cor de fundo chapada e o resultado fica parecido, só menos "vivo". A nuvem dá a sensação de rajadas de pó passando.</p></div>
+<div class="screen"><h3>Faixas de vento <small><code>dust_streaks_{a,b,c}.png</code> · 128×8 · 4 faixas de 1 px · cabeça clara à direita · opcional</small></h3>
+<div class="chk"><figure><img src="../../../assets/sprites/_pending/storm/dust_streaks_a.png" width="768" height="48" alt=""><figcaption>A · 6×</figcaption></figure><figure><img src="../../../assets/sprites/_pending/storm/dust_streaks_b.png" width="768" height="48" alt=""><figcaption>B · 6×</figcaption></figure><figure><img src="../../../assets/sprites/_pending/storm/dust_streaks_c.png" width="768" height="48" alt=""><figcaption>C · 6×</figcaption></figure></div>
+<p class="lede" style="margin-top:8px">Servem se o vento for quase horizontal. Como o vento varia de direção, eu recomendo <b>desenhar as faixas em código</b> (linha de 1 px na direção do vento, receita abaixo): fica pixel certinho em qualquer ângulo e não precisa girar sprite.</p></div>
+<div class="screen"><h3>Ícone de vento do aviso RAJADA <small><code>hud_wind.png</code> · 8×8 px da UI (16×16 na tela) · uma cor · mesmo esquema do raio da energia</small></h3>
+<div class="chk"><figure><img src="../../../assets/sprites/_pending/storm/hud_wind.png" width="128" height="128" alt=""><figcaption>16×</figcaption></figure>
+<figure><div class="glyph"><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class="on"></i><i class="on"></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class="on"></i><i class=""></i><i class=""></i><i class="on"></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class="on"></i><i class=""></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class="on"></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class="on"></i><i class="on"></i><i class=""></i></div><figcaption>a grade (pra desenhar igual ao draw_bolt)</figcaption></figure></div>
+<div class="one" style="margin-top:12px"><figure><img class="px" src="hud_rajada_crop.png" alt="" style="max-width:840px"><figcaption><b>No HUD</b> · pílula RAJADA à direita do O₂, tamanho real 2×</figcaption></figure></div></div>
+</section>
+
+<section><h2>Pro Dev integrar</h2>
+<div class="box dev">
+<h3>Valores (proposta A · Ferrugem)</h3>
+<table>
+<tr><th>O quê</th><th>Valor</th></tr>
+<tr><td><b>Cor do fundo</b> (sem textura)</td><td><code>#a8694a</code> (troca o chute <code>#8a5a3c</code> do plano)</td></tr>
+<tr><td><b>Textura da nuvem</b></td><td><code>dust_cloud_a.png</code> ladrilhada <b>presa no mundo</b> (offset = câmera) + deriva do vento de <b>40 px/s</b> (×2,5 na rajada), em px inteiro</td></tr>
+<tr><td><b>Opacidade</b></td><td><code>storm × min(1, 0.9 + 0.06 × gust)</code>, aplicada com <code>set_alpha</code> na camada inteira</td></tr>
+<tr><td><b>Visão</b></td><td>player <b>7</b> tiles (rajada <b>4</b>), centro em <code>(p.x, p.y − 18)</code> + <b>10 px</b> pra onde ele olha. Cápsula <b>3.5</b> tiles em <code>(POD_ANCHOR.x, POD_ANCHOR.y − 24)</code>. Cada máquina <b>2.5</b> tiles em <code>(tx·32+16, ty·32+8)</code>; o baú não abre (não tem luz). Várias fontes juntas: vale a mais limpa (MIN), não soma.</td></tr>
+<tr><td><b>Anéis da visão</b> (poeira em cada distância relativa)</td><td>até 55% do raio: <b>0%</b> · até 70% do raio: <b>30%</b> · até 85% do raio: <b>60%</b> · até 100% do raio: <b>85%</b> · fora: <b>100%</b>. Células de <b>4 px</b> com a grade presa no mundo (igual ao Lighting)</td></tr>
+<tr><td><b>Grãos</b></td><td><b>200</b> (rajada <b>250</b>, teto do plano) × storm · pixels <b>opacos</b> · 1×1 (70%) ou 2×1 (30%), na rajada metade ganha +1 px de comprimento · cores <code>#cf9a70</code>, <code>#efcba0</code>, <code>#6e3f2b</code> (claro 60%, brilho 15%, escuro 25%) · velocidade 260 px/s × (0,6 a 1,4) × (1 + 0,7·gust) na direção do vento, com balanço vertical de ±3 px (<code>sin(2t + i)</code>)</td></tr>
+<tr><td><b>Faixas</b></td><td><b>14</b> (rajada <b>30</b>) × storm · linha de <b>1 px</b> na direção do vento (<code>pygame.draw.line</code>) · comprimento 40 a 120 px × (1 + 0,6·gust) · metade quebrada em 2 pedaços (corte em 20–45% do comprimento, vão de 8%) · cor <code>#dcab80</code> · desenhadas opacas numa camada com colorkey e coladas com <b>um alfa fixo: 140</b> (rajada <b>180</b>) · velocidade 380 px/s × (0,8 a 1,2) × (1 + 0,8·gust)</td></tr>
+<tr><td><b>Vento</b></td><td>dominante pro <b>leste, 8° pra baixo</b> (sem weather), com variação lenta de ±15° vinda do <code>weather.wind</code></td></tr>
+<tr><td><b>Transição pro Árido</b></td><td>basta o <code>storm</code> descer: a opacidade, os grãos e as faixas caem juntos (ver "storm 0,5" nos mockups). Opcional: o raio de visão cresce de 7 até 14 tiles enquanto <code>storm</code> cai, pra clareira "abrir" junto</td></tr>
+<tr><td><b>Aviso RAJADA</b> (trilha B)</td><td>pílula <code>hud_panel(142, 6, 8+8+4+largura("RAJADA")+6, 17)</code> (logo à direita do O₂) · barrinha de 1 px <code>C_ACCENT</code> em <code>(x, y+2, 1, 13)</code> · ícone 8×8 em <code>(x+6, y+5)</code> na cor <code>C_ACCENT #e2733a</code> · texto "RAJADA" em <code>(x+18, y+1)</code>, <code>self.font</code>, <code>C_ACCENT</code>. Pode piscar nos primeiros 0,6 s</td></tr>
+<tr><td><b>Chiado do minimapa</b> (C3, ilustrativo)</td><td>no mockup: 10%×amount dos pixels em blocos 2×2, metade <code>(225,225,225)</code> e metade <code>(18,18,18)</code>, mais 2 linhas de 2 px <code>(200,200,200)</code></td></tr>
+</table>
+<h3 style="margin-top:18px">Ordem de desenho (superfície)</h3>
+<p style="color:var(--muted);margin:0 0 8px">chão → veios → paredes e objetos → partículas de hoje → <code>draw_lighting</code>/<code>draw_atmosphere</code> do <code>dead</code> (fica como está, por baixo) → <b>camada de poeira</b> → <b>faixas</b> → <b>grãos</b> → status das máquinas (por cima, como no escuro da caverna) → HUD. Na caverna não desenha nada. Com <code>storm == 0</code>, custo zero.</p>
+<h3 style="margin-top:18px">Ícone de vento (mesmo esquema do <code>draw_bolt</code>)</h3>
+<pre>WIND = [
+    "....##..",
+    "...#..#.",
+    "......#.",
+    "######..",
+    "........",
+    "#######.",
+    ".......#",
+    ".....##.",
+]</pre>
+<h3 style="margin-top:18px">A receita da camada (pygame puro, sem numpy)</h3>
+<p style="color:var(--muted);margin:0 0 8px">É a <code>DustMock</code> do <code>tools/sprites/storm_capture.py</code>, que gerou todos os mockups. Medida: <b>~1,5 ms</b> a camada e <b>~2,5 ms</b> com grãos e faixas (960×540, sem janela). Dá pra ganhar reaproveitando as surfaces entre quadros.</p>
+<pre>
+# 1. máscara pequena: 1 px = 1 célula de 4 px, grade presa no mundo; começa toda opaca
+ox, oy = -int(cam_x % 4), -int(cam_y % 4)
+mask = Surface((sw, sh), SRCALPHA); mask.fill((255, 255, 255, 255))
+# 2. cada fonte de visão carimba um "buraco" (branco, alfa = poeira do anel; em cache por raio)
+for x, y, radius in fontes:
+    r = round(radius / 4); gx, gy = int((x - cam_x - ox) // 4), int((y - cam_y - oy) // 4)
+    mask.blit(hole(r), (gx - r, gy - r), special_flags=BLEND_RGBA_MIN)
+# 3. estica 4× sem suavizar
+big = transform.scale(mask, (sw * 4, sh * 4))
+# 4. nuvem ladrilhada (presa no mundo + deriva) e a máscara por cima
+dust = Surface(big.get_size(), SRCALPHA)
+for ...: dust.blit(cloud, (tx, ty))
+dust.blit(big, (0, 0), special_flags=BLEND_RGBA_MULT)
+dust.set_alpha(round(255 * storm * min(1, 0.90 + 0.06 * gust)))
+canvas.blit(dust, (ox, oy))
+# 5. faixas (camada com colorkey + set_alpha fixo) e grãos (fill opaco), depois a HUD</pre>
+<h3 style="margin-top:18px">Arquivos</h3>
+<table>
+<tr><th>Arquivo</th><th>Tamanho</th><th>Uso</th></tr>
+<tr><td><code>_pending/storm/dust_cloud_{a,b,c}.png</code></td><td>256×256</td><td>nuvem da camada (a escolhida vira <code>dust_cloud.png</code>), opaca, emenda</td></tr>
+<tr><td><code>_pending/storm/dust_streaks_{a,b,c}.png</code></td><td>128×8</td><td>opcional: faixas prontas (1 px de altura, linhas y = 1, 3, 5, 7; comprimentos 42, 33, 63, 28)</td></tr>
+<tr><td><code>_pending/storm/hud_wind.png</code></td><td>8×8</td><td>ícone do aviso RAJADA (px da UI), alfa 0/255</td></tr>
+<tr><td><code>_pending/storm/storm_palettes.json</code></td><td>·</td><td>as 3 paletas em hex e a grade do ícone</td></tr>
+</table>
+<p style="color:var(--muted)">Nada disso está no contrato do §6 ainda: depois que o dono escolher, proponho entrar <code>dust_cloud.png</code> (256×256) e <code>hud_wind.png</code> (8×8) no contrato, ou só o ícone se o Dev preferir a cor chapada.</p>
+</div>
+</section>
+
+<section><h2>Como regerar</h2>
+<pre>python3 tools/sprites/storm_art.py            # paletas, nuvem, faixas e ícone
+uv run python tools/sprites/storm_capture.py  # mockups (jogo de verdade, sem janela)
+python3 tools/sprites/storm_report.py         # este report</pre>
+<p style="color:var(--muted)">Tudo determinístico: rodar de novo dá os mesmos PNGs (md5 conferido).</p>
+</section>
+
+</div></body></html>
