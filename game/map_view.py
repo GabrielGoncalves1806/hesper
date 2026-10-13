@@ -8,13 +8,17 @@ Especificação: reports/design/ui_redesign/index.html, "Mapa aberto (B2)" (Pro 
   de desenho e nunca passa. Se no zoom atual a camada é menor que a área, aquele eixo fica centrado e travado.
 - Ao abrir, centra no player; trocar de camada mantém o zoom e centra no player (ou na rampa daquela camada,
   se o player estiver na outra). A caverna só existe (e só aparece) depois da primeira descida.
+- Máquinas e baús perto uns dos outros viram um marcador só (cluster), conforme o zoom (CLUSTER_TILES): na base
+  eles se encostavam e viravam uma régua de retângulos. O tooltip do grupo diz quantos e de que tipo.
+- Só entra no mapa o que está no `explored` da camada (o que o jogador já viu); as exceções são "você" e a base.
 - Filtros (FILTERS) e o último zoom são preferência do jogador: vão no settings.json (map_hidden, map_zoom),
   não no save. A posição da câmera não é salva.
 O desenho fica no game/ui.py (draw_map) e os pictogramas no game/map_markers.py.
 """
 
 import math
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, field
 
 from game import config as C
 
@@ -30,6 +34,18 @@ PRIORITY = {"you": 0, "base": 1, "wreck": 2, "wreck_empty": 2, "terminal": 3, "c
 # ordem do desenho (de baixo pra cima), igual ao mockup
 DRAW_ORDER = ("chest", "machine", "vein", "wreck", "wreck_empty", "terminal", "crater", "base", "you")
 CARDINALS = ("a leste", "a sudeste", "ao sul", "a sudoeste", "a oeste", "a noroeste", "ao norte", "a nordeste")
+# agrupamento (cluster) de máquinas e baús: dois marcadores da mesma categoria a menos de N tiles (na maior
+# distância entre os eixos) viram um só. O pictograma tem 7×6 px da UI e o zoom z é z px por tile: no 1× e no 2×
+# agrupa mais; no 3× junta só o que encosta (2 tiles = 6 px); no 4× só o que fica a 1 tile (2 tiles já separa).
+CLUSTER_TILES = {1: 10, 2: 5, 3: 3, 4: 2}
+CLUSTERED = ("machine", "chest")
+CLUSTER_TYPES_SHOWN = 3       # tooltip do grupo: até 3 tipos por nome, o resto vira "+N"
+# nome curto no tooltip do grupo: (singular, plural)
+SHORT_NAMES = {"o2": ("gerador de O₂", "geradores de O₂"), "o2_t2": ("gerador de O₂ nv.2", "geradores de O₂ nv.2"),
+               "melter": ("derretedor", "derretedores"), "melter_t2": ("derretedor nv.2", "derretedores nv.2"),
+               "heater": ("aquecedor", "aquecedores"), "heater_t2": ("aquecedor nv.2", "aquecedores nv.2"),
+               "drill": ("drill", "drills"), "solar": ("painel solar", "painéis solares"),
+               "drone_station": ("estação de drones", "estações de drones")}
 FACING = {"up": "olhando ao norte", "down": "olhando ao sul", "left": "olhando a oeste", "right": "olhando a leste"}
 
 
@@ -65,6 +81,14 @@ class Entry:
     color: str | None = None      # veio: a cor do minério
     direction: str = "down"       # você: pra onde olha
     sub: str = ""                 # estado + distância (preenchido por map_entries)
+    key: str = ""                 # máquina/baú: o tipo (C.MACHINES), pra contar no grupo
+    stacks: tuple[int, int] = (0, 0)   # baú: (pilhas usadas, total)
+    detail: str = ""              # grupo: "3 geradores de O₂, 2 aquecedores" (linha do meio do tooltip)
+    members: list = field(default_factory=list)   # grupo: os marcadores que ele junta (vazio = sozinho)
+
+    @property
+    def count(self) -> int:
+        return len(self.members) or 1
 
     @property
     def priority(self) -> int:
@@ -80,29 +104,53 @@ def ramp_center(world) -> tuple[float, float] | None:
     return None if world.crater is None else (world.crater[0] + 1.5, world.crater[1] + 1.5)
 
 
+def origin_of(state, key: str) -> tuple[tuple[float, float] | None, str]:
+    """De onde se conta a distância no tooltip: o player na camada dele; na outra, a rampa ("... da rampa")."""
+    if key == state.layer:
+        return player_tile(state), ""
+    ramp = ramp_center(state.layers[key].world)
+    return (ramp, " da rampa") if ramp is not None else (None, "")
+
+
+def _with_distance(state: str, pos, origin, suffix: str) -> str:
+    if origin is None:
+        return state
+    dist = distance_label(origin, pos, suffix)
+    return f"{state} · {dist}" if state else dist
+
+
 def map_entries(state, key: str) -> list[Entry]:
     """Todos os marcadores da camada `key` que o jogador já viu (sem filtro), com o tooltip pronto.
+    Regra: só entra o que tem algum tile no `explored` da camada; as exceções são "você" e a base (é onde ele
+    pousou). Na caverna os terminais e a boca da rampa têm luz própria: se estiveram na tela, contam como
+    vistos mesmo longe do player (game/explore.py) e aparecem em ilhas soltas de explorado no mapa.
     A distância é contada do player; na outra camada, da rampa dela ("... da rampa")."""
     layer = state.layers[key]
     world, explored = layer.world, layer.explored
+
+    def seen_any(tiles) -> bool:
+        return any(explored.seen(*t) for t in tiles)
+
     entries: list[Entry] = []
     if layer.has_base:
         entries.append(Entry("base", "base", C.POD_TILES[0][0] + 1, C.POD_TILES[0][1] + 0.5, "Base",
                              "módulo de pouso"))
     ramp = ramp_center(world)
     if ramp is not None:
-        if layer.has_base:
-            entries.append(Entry("crater", "crater", *ramp, "Cratera", "desce pra caverna"))
-        else:
-            entries.append(Entry("crater", "ramp_up", *ramp, "Rampa", "sobe pra superfície"))
+        rx, ry = world.crater
+        if seen_any((rx + i, ry + j) for i in range(3) for j in range(3)):
+            if layer.has_base:
+                entries.append(Entry("crater", "crater", *ramp, "Cratera", "desce pra caverna"))
+            else:
+                entries.append(Entry("crater", "ramp_up", *ramp, "Rampa", "sobe pra superfície"))
     for v in world.veins:
-        if any(explored.seen(*t) for t in v.tiles):
+        if seen_any(v.tiles):
             drilled = any(m.is_drill and m.tx <= v.tx < m.tx + m.size and m.ty <= v.ty < m.ty + m.size
                           for m in layer.machines)
             entries.append(Entry("vein", "vein", v.tx + 1, v.ty + 1, f"Veio de {C.RESOURCE_NAME[v.resource]}",
                                  "com drill" if drilled else "livre", color=_vein_color(v.resource)))
     for wreck in world.wrecks:
-        if any(explored.seen(*t) for t in wreck.tiles):
+        if seen_any(wreck.tiles):
             crate = layer.crates.get(wreck.crate)
             empty = crate is not None and crate.empty
             cat = "wreck_empty" if empty else "wreck"
@@ -116,26 +164,92 @@ def map_entries(state, key: str) -> list[Entry]:
     for m in layer.machines:
         if m.is_lamp:                       # luminária é luz, não ponto de interesse: fica fora do mapa
             continue
+        if not seen_any((m.tx + i, m.ty + j) for i in range(m.size) for j in range(m.size)):
+            continue
         x, y = m.tx + m.size / 2, m.ty + m.size / 2
         if m.is_chest:
-            used = sum(1 for st in m.storage.slots if st)
+            used, total = sum(1 for st in m.storage.slots if st), len(m.storage.slots)
             entries.append(Entry("chest", "chest", x, y, m.name or C.MACHINES["chest"].name,
-                                 f"{used}/{len(m.storage.slots)} pilhas" if used else "vazio"))
+                                 f"{used}/{total} pilhas" if used else "vazio", key="chest", stacks=(used, total)))
         else:
-            entries.append(Entry("machine", "machine", x, y, m.type.name, _machine_state(m)))
-    origin, suffix = None, ""
+            entries.append(Entry("machine", "machine", x, y, m.type.name, _machine_state(m), key=m.kind))
+    origin, suffix = origin_of(state, key)
     if key == state.layer:
-        origin = player_tile(state)
         entries.append(Entry("you", "you", *origin, "Você", FACING[state.player.direction],
                              direction=state.player.direction))
-    elif ramp is not None:
-        origin, suffix = ramp, " da rampa"
     for e in entries:
-        if e.category == "you" or origin is None:
-            e.sub = e.state
-        else:
-            e.sub = f"{e.state} · {distance_label(origin, (e.x, e.y), suffix)}"
+        e.sub = e.state if e.category == "you" else _with_distance(e.state, (e.x, e.y), origin, suffix)
     return entries
+
+
+# ---- agrupamento de máquinas e baús -------------------------------------------------------------
+def cluster(entries: list[Entry], zoom: int, origin=None, suffix: str = "") -> list[Entry]:
+    """Junta as máquinas (e, à parte, os baús) a menos de CLUSTER_TILES[zoom] tiles umas das outras num
+    marcador só, no centro do grupo, com o tooltip "Máquinas · 6" / "3 geradores de O₂, 2 aquecedores" /
+    distância. Cada categoria agrupa só com ela mesma (o filtro continua valendo por categoria). Ligação
+    simples: uma fila de máquinas coladas vira um grupo só. Chame depois de `visible` (o escondido não
+    entra no grupo); devolve na ordem do desenho."""
+    reach = CLUSTER_TILES.get(zoom, CLUSTER_TILES[ZOOMS[-1]])
+    out = [e for e in entries if e.category not in CLUSTERED]
+    for cat in CLUSTERED:
+        items = [e for e in entries if e.category == cat]
+        for group in _groups(items, reach):
+            out.append(group[0] if len(group) == 1 else _group_entry(cat, group, origin, suffix))
+    return sorted(out, key=_draw_key)
+
+
+def _groups(items: list[Entry], reach: float) -> list[list[Entry]]:
+    """Componentes conexos de "a menos de `reach` tiles" (maior distância entre os eixos: o pictograma é um
+    retângulo), na ordem em que os itens chegaram."""
+    parent = list(range(len(items)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for i, a in enumerate(items):
+        for j in range(i + 1, len(items)):
+            b = items[j]
+            if max(abs(a.x - b.x), abs(a.y - b.y)) < reach:
+                parent[find(j)] = find(i)
+    groups: dict[int, list[Entry]] = {}
+    for i, e in enumerate(items):
+        groups.setdefault(find(i), []).append(e)
+    return list(groups.values())
+
+
+def _group_entry(category: str, group: list[Entry], origin, suffix: str) -> Entry:
+    n = len(group)
+    x = sum(e.x for e in group) / n
+    y = sum(e.y for e in group) / n
+    if category == "machine":
+        title, detail = f"Máquinas · {n}", type_summary(e.key for e in group)
+    else:
+        used = sum(e.stacks[0] for e in group)
+        total = sum(e.stacks[1] for e in group)
+        title, detail = f"Baús · {n}", f"{used}/{total} pilhas" if used else "todos vazios"
+    e = Entry(category, category, x, y, title, "", detail=detail, members=list(group))
+    e.sub = _with_distance("", (x, y), origin, suffix) or "aqui"
+    return e
+
+
+def type_summary(keys) -> str:
+    """ "3 geradores de O₂, 2 aquecedores, 1 drill" (mais comuns primeiro; passou de 3 tipos: "+N")."""
+    counts = Counter(keys)
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], _short_name(kv[0], 1)))
+    parts = [f"{c} {_short_name(k, c)}" for k, c in ranked[:CLUSTER_TYPES_SHOWN]]
+    rest = sum(c for _, c in ranked[CLUSTER_TYPES_SHOWN:])
+    return ", ".join(parts) + (f" +{rest}" if rest else "")
+
+
+def _short_name(key: str, n: int) -> str:
+    names = SHORT_NAMES.get(key)
+    if names is None:
+        mt = C.MACHINES.get(key)
+        return (mt.name if mt else key).lower()
+    return names[0] if n == 1 else names[1]
 
 
 def _vein_color(resource: str) -> str:
@@ -161,7 +275,11 @@ def categories(entries: list[Entry]) -> list[str]:
 def visible(entries: list[Entry], hidden) -> list[Entry]:
     """Sem os escondidos pelos filtros ("você" sempre aparece), na ordem do desenho."""
     shown = [e for e in entries if e.category == "you" or e.category not in hidden]
-    return sorted(shown, key=lambda e: DRAW_ORDER.index(e.kind if e.kind != "ramp_up" else "crater"))
+    return sorted(shown, key=_draw_key)
+
+
+def _draw_key(e: Entry) -> int:
+    return DRAW_ORDER.index(e.kind if e.kind != "ramp_up" else "crater")
 
 
 class MapView:

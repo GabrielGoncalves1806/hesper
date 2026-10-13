@@ -2071,6 +2071,21 @@ def check_map_panorama(bot) -> None:
     bot.shot("mapa_pan_filtro.png")
     bot.click(ui_to_window(app, chip))
     assert "machine" not in view.hidden
+    # régua de máquinas coladas na base: no 2× vira um marcador só com o número; tooltip com contagem e tipos
+    group = next((r, e) for r, e in app.ui.map_markers if e.category == "machine" and e.count > 1)
+    bot.mouse_to(ui_to_window(app, group[0]))
+    bot.frames(0.05)
+    hover = app.ui.map_hover
+    assert hover is not None and hover.title.startswith("Máquinas · ") and hover.detail, hover
+    print(f"  grupo: {hover.title} · {hover.detail} · {hover.sub}")
+    bot.shot("mapa_pan_grupo.png")
+    view.set_zoom(4)
+    view.center_on(group[1].x, group[1].y)
+    bot.frames(0.05)
+    assert sum(1 for _, e in app.ui.map_markers if e.category == "machine") >= 6   # 2 tiles no 4×: separa
+    bot.mouse_to((4, 4))
+    bot.shot("mapa_pan_grupo_4x.png")
+    view.set_zoom(2)
     # rodinha pra trás (1×): a superfície inteira cabe na altura
     pygame.event.post(pygame.event.Event(pygame.MOUSEWHEEL, x=0, y=-1, flipped=False))
     bot.frames(0.05)
@@ -2229,6 +2244,10 @@ def check_wrecks(bot) -> None:
     bot.shot("minimapa.png")
     # baú e máquina perto da base: marcadores novos do mapa (Máquinas e Baús)
     extra = [Machine("chest", C.BASE_TILE[0] + 4, C.BASE_TILE[1] + 2), Machine("o2", C.BASE_TILE[0] - 4, C.BASE_TILE[1] + 2)]
+    # régua de máquinas e baús coladas (vira um marcador por categoria no 2×, separa no 4×)
+    extra += [Machine(k, C.BASE_TILE[0] - 16 + 2 * i, C.BASE_TILE[1] + 5)
+              for i, k in enumerate(["o2", "o2", "o2", "heater", "heater", "solar"])]
+    extra += [Machine("chest", C.BASE_TILE[0] + 4 + i, C.BASE_TILE[1] + 5) for i in range(3)]
     s.surface.machines.extend(extra)
     check_map_panorama(bot)
     bot.key(pygame.K_m)

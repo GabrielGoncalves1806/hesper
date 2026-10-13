@@ -2338,7 +2338,8 @@ class UI:
         # área: textura recortada na janela visível e esticada por inteiro (2·zoom px nativos por tile)
         self.round_rect(area.inflate(4, 4), B_WELL, B_LINE)
         entries = map_view.map_entries(state, key)
-        shown = map_view.visible(entries, view.hidden)
+        # máquinas/baús colados viram um marcador só (depende do zoom); o filtro vem antes, os chips usam `entries`
+        shown = map_view.cluster(map_view.visible(entries, view.hidden), view.zoom, *map_view.origin_of(state, key))
         surf, k, off = self._map_surface(tex, view, area)
         self._map_overlay_buttons(area)
         hits = []
@@ -2348,6 +2349,8 @@ class UI:
             if e.category == "you":
                 map_markers.put(surf, map_markers.marker("ring", scale=2), nx, ny)
             map_markers.put(surf, img, nx, ny)
+            if e.count > 1:
+                self._map_count_badge(surf, e.count, nx + img.get_width() // 2, ny - img.get_height() // 2)
             rect = pygame.Rect(0, 0, max(8, img.get_width() // 2 + 2), max(8, img.get_height() // 2 + 2))
             rect.center = (round(area.x + nx / 2), round(area.y + ny / 2))
             if area.collidepoint(rect.center):
@@ -2388,6 +2391,21 @@ class UI:
             part = pygame.transform.scale_by(styled.subsurface((x0, y0, x1 - x0, y1 - y0)), k)
             surf.blit(part, (x0 * k - off[0], y0 * k - off[1]))
         return surf, k, off
+
+    def _map_count_badge(self, surf: pygame.Surface, n: int, x: float, y: float) -> None:
+        """Quantos marcadores o grupo junta: pílula escura com o número, no canto de cima à direita do
+        pictograma ((x, y) em px nativos)."""
+        key = ("map_badge", n)
+        badge = self._icon_cache.get(key)
+        if badge is None:
+            label = str(n) if n < 100 else "99+"
+            w = self.font.size(label)[0] + 4
+            small = pygame.Surface((w, 8), pygame.SRCALPHA)
+            self.round_rect((0, 0, w, 8), (11, 13, 20, 255), C.C_ACCENT, target=small)
+            self.tx(label, 2, -3, B_TEXT, target=small)
+            badge = pygame.transform.scale_by(small, 2)
+            self._icon_cache[key] = badge
+        surf.blit(badge, (round(x) - 4, round(y) - badge.get_height() + 4))
 
     @staticmethod
     def _map_brackets(surf: pygame.Surface, x: float, y: float) -> None:
@@ -2526,8 +2544,9 @@ class UI:
 
     def map_tooltip_rect(self, entry, mouse) -> pygame.Rect:
         """Cartão do tooltip: abaixo do cursor, preso dentro da área do mapa (sem espaço embaixo: em cima)."""
-        w = max(self.body.size(entry.title)[0], self.body.size(entry.sub)[0]) + 28
-        h = self.MAP_TOOLTIP_H
+        lines = (entry.title, entry.detail, entry.sub) if entry.detail else (entry.title, entry.sub)
+        w = max(self.body.size(t)[0] for t in lines) + 28
+        h = self.MAP_TOOLTIP_H + (12 if entry.detail else 0)      # grupo: uma linha a mais (os tipos)
         area = self.map_area or pygame.Rect(0, 0, self.w, self.h)
         mx, my = int(mouse[0]), int(mouse[1])
         x = max(area.x + 2, min(mx - 10, area.right - 2 - w))
@@ -2537,7 +2556,8 @@ class UI:
         return pygame.Rect(x, max(area.y + 2, y), w, h)
 
     def draw_map_tooltip(self, entry, mouse) -> None:
-        """Tooltip do marcador (cartão B2: pictograma, nome e "estado · distância direção"). Vai numa camada
+        """Tooltip do marcador (cartão B2: pictograma, nome e "estado · distância direção"; o grupo de máquinas
+        ou baús tem a linha dos tipos no meio). Vai numa camada
         depois da textura (senão o mapa cobre ele)."""
         rect = self.map_tooltip_rect(entry, mouse)
         self.round_rect(rect, (11, 13, 20, 255), B_LINE2)
@@ -2545,7 +2565,9 @@ class UI:
         self.native.append((icon, ((rect.x + 10) * 2 - icon.get_width() // 2,
                                    (rect.y + 14) * 2 - icon.get_height() // 2)))
         self.tx(entry.title, rect.x + 21, rect.y, B_TEXT, self.body)
-        self.tx(entry.sub, rect.x + 21, rect.y + 12, B_MUTED, self.body)
+        if entry.detail:                                  # grupo: "3 geradores de O₂, 2 aquecedores, 1 drill"
+            self.tx(entry.detail, rect.x + 21, rect.y + 12, B_TEXT, self.body)
+        self.tx(entry.sub, rect.x + 21, rect.y + (24 if entry.detail else 12), B_MUTED, self.body)
 
     # ---- cursor ---------------------------------------------------------------
     def draw_cursor(self, x: float, y: float) -> None:

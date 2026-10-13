@@ -430,3 +430,132 @@ def test_map_layout_fits_every_interface_size(app, ui_size, window):
     app.close_map()
     app.window = pygame.display.set_mode((960, 540))
     app.set_ui_size("grande")
+
+
+# ---- agrupamento de máquinas e baús (réguas na base) ---------------------------------------------
+def _m(kind, x, y, cat="machine"):
+    return MV.Entry(cat, cat, x, y, kind, "", key=kind, stacks=(2, 24) if cat == "chest" else (0, 0))
+
+
+def test_cluster_groups_close_machines_by_distance():
+    """Máquinas a menos de CLUSTER_TILES[zoom] tiles viram um marcador só, no centro do grupo; longe, não."""
+    row = [_m("o2", 100 + i, 100) for i in range(4)]                  # régua colada (1 tile entre elas)
+    far = _m("heater", 140, 100)
+    out = MV.cluster(row + [far], 2)
+    groups = [e for e in out if e.count > 1]
+    assert len(out) == 2 and len(groups) == 1
+    g = groups[0]
+    assert g.count == 4 and (g.x, g.y) == pytest.approx((101.5, 100))
+    assert far in out                                                  # sozinha continua o marcador dela
+    # cadeia: A perto de B, B perto de C (A longe de C) = um grupo só
+    chain = [_m("o2", 100, 100), _m("o2", 104, 100), _m("o2", 108, 100)]
+    assert [e.count for e in MV.cluster(chain, 2)] == [3]
+    assert sorted(e.count for e in MV.cluster(chain, 4)) == [1, 1, 1]
+
+
+@pytest.mark.parametrize("gap, expected", [(1, {1: 1, 2: 1, 3: 1, 4: 1}),     # encostadas: grupo em todo zoom
+                                           (2, {1: 1, 2: 1, 3: 1, 4: 2}),     # 4×: 2 tiles = 8 px, separa
+                                           (4, {1: 1, 2: 1, 3: 2, 4: 2}),
+                                           (8, {1: 1, 2: 2, 3: 2, 4: 2}),
+                                           (12, {1: 2, 2: 2, 3: 2, 4: 2})])
+def test_cluster_depends_on_zoom(gap, expected):
+    """No 1× e no 2× agrupa mais; no 4× separa o que não encosta."""
+    pair = [_m("o2", 50, 50), _m("drill", 50 + gap, 50)]
+    for zoom in MV.ZOOMS:
+        assert len(MV.cluster(pair, zoom)) == expected[zoom], (gap, zoom)
+
+
+def test_cluster_keeps_categories_apart_and_respects_filters():
+    """Máquina agrupa com máquina e baú com baú (cada filtro some com o seu grupo); o resto não agrupa."""
+    stuff = [_m("o2", 10, 10), _m("o2", 11, 10), _m("chest", 10, 11, "chest"), _m("chest", 11, 11, "chest"),
+             MV.Entry("vein", "vein", 10, 12, "Veio", "livre"), MV.Entry("vein", "vein", 11, 12, "Veio", "livre")]
+    out = MV.cluster(stuff, 2)
+    assert sorted((e.category, e.count) for e in out) == [("chest", 2), ("machine", 2), ("vein", 1), ("vein", 1)]
+    hidden = MV.cluster(MV.visible(stuff, {"machine"}), 2)
+    assert not any(e.category == "machine" for e in hidden) and any(e.category == "chest" for e in hidden)
+    assert [e.kind for e in out] == sorted((e.kind for e in out), key=MV.DRAW_ORDER.index)   # ordem do desenho
+    # o grupo tem a prioridade da categoria dele (tooltip: você › ... › máquina › baú)
+    assert next(e for e in out if e.category == "machine").priority == MV.PRIORITY["machine"]
+
+
+def test_group_tooltip_has_count_types_and_distance():
+    from game.inventory import Stack
+    g = GameState(rng=random.Random(1))
+    g.surface.explored.bits[:] = b"\x01" * len(g.surface.explored.bits)
+    for i, kind in enumerate(["o2", "heater", "o2", "drill", "o2", "heater"]):
+        g.surface.machines.append(Machine(kind, 120 + 2 * i, 60))
+    g.surface.machines += [Machine("chest", 120, 64), Machine("chest", 121, 64)]
+    g.surface.machines[-1].storage.slots[0] = Stack("iron", 5)
+    origin, suffix = MV.origin_of(g, "surface")
+    out = MV.cluster(MV.visible(MV.map_entries(g, "surface"), ()), 2, origin, suffix)
+    machines = next(e for e in out if e.category == "machine" and e.count > 1)
+    assert machines.title == "Máquinas · 6"
+    assert machines.detail == "3 geradores de O₂, 2 aquecedores, 1 drill"
+    assert machines.sub == MV.distance_label(origin, (machines.x, machines.y))
+    chests = next(e for e in out if e.category == "chest")
+    assert chests.title == "Baús · 2" and chests.detail == "1/48 pilhas"
+    # na outra camada a distância do grupo também é "da rampa"
+    g.enter_layer("cave")
+    origin, suffix = MV.origin_of(g, "surface")
+    out = MV.cluster(MV.visible(MV.map_entries(g, "surface"), ()), 2, origin, suffix)
+    assert next(e for e in out if e.count > 1 and e.category == "machine").sub.endswith(" da rampa")
+
+
+def test_type_summary_plural_and_overflow():
+    assert MV.type_summary(["drill"]) == "1 drill"
+    assert MV.type_summary(["solar", "solar"]) == "2 painéis solares"
+    assert MV.type_summary(["o2", "heater", "melter", "solar", "solar"]) == \
+        "2 painéis solares, 1 aquecedor, 1 derretedor +1"
+
+
+# ---- spoiler: só o que já foi visto -----------------------------------------------------------------
+def test_map_only_shows_what_was_explored():
+    """Nada de spoiler: veio, destroço, terminal, cratera/rampa e máquina só entram com algum tile no
+    `explored` da camada. Exceções: "você" e a base."""
+    g = GameState(rng=random.Random(1))
+    g.surface.explored.bits[:] = bytearray(len(g.surface.explored.bits))
+    g.surface.machines.append(Machine("o2", 150, 150))
+    assert {e.category for e in MV.map_entries(g, "surface")} == {"base", "you"}
+    g.surface.explored.bits[:] = b"\x01" * len(g.surface.explored.bits)
+    assert {"crater", "wreck", "vein", "machine"} <= {e.category for e in MV.map_entries(g, "surface")}
+    # caverna: só a luz revela. Sem nada visto, só "você"; a luz do terminal na tela revela o terminal
+    g.enter_layer("cave")
+    cave = g.layers["cave"]
+    cave.explored.bits[:] = bytearray(len(cave.explored.bits))
+    assert {e.category for e in MV.map_entries(g, "cave")} == {"you"}
+    tx, ty = cave.world.terminals[0]
+    cave.explored.reveal_circle(tx + 0.5, ty + 1, C.EXPLORE_TERMINAL)
+    terms = [e for e in MV.map_entries(g, "cave") if e.category == "terminal"]
+    assert len(terms) == 1 and (terms[0].x, terms[0].y) == (tx + 0.5, ty + 0.5)
+
+
+def test_group_marker_and_tooltip_through_the_app(app):
+    """No app: a régua de máquinas da base vira um marcador com o número, e o tooltip do grupo tem 3 linhas
+    e cabe na área. No 4× (2 tiles entre elas) se separam."""
+    s = open_map(app)
+    ui, view = app.ui, app.map_view
+    view.hidden.clear()
+    s.surface.explored.bits[:] = b"\x01" * len(s.surface.explored.bits)
+    bx, by = C.BASE_TILE
+    extra = [Machine(k, bx + 6 + 2 * i, by + 6) for i, k in enumerate(["o2", "o2", "heater", "solar"])]
+    s.surface.machines += extra
+    view.set_zoom(2)
+    view.center_on(bx + 9, by + 6)
+    app.draw()
+    groups = [(r, e) for r, e in ui.map_markers if e.category == "machine" and e.count > 1]
+    assert len(groups) == 1 and groups[0][1].count == 4
+    rect = groups[0][0]
+    app.mouse_window = to_window(app, rect.center)
+    app.draw()
+    assert ui.map_hover is not None and ui.map_hover.title == "Máquinas · 4"
+    assert ui.map_hover.detail == "2 geradores de O₂, 1 aquecedor, 1 painel solar"
+    tip = ui.map_tooltip_rect(ui.map_hover, rect.center)
+    assert tip.h == ui.MAP_TOOLTIP_H + 12 and ui.map_area.contains(tip)
+    view.set_zoom(4)
+    view.center_on(bx + 9, by + 6)
+    app.draw()
+    assert sum(1 for _, e in ui.map_markers if e.category == "machine") == 4
+    view.set_zoom(2)
+    for m in extra:
+        s.surface.machines.remove(m)
+    app.close_map()
