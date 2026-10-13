@@ -17,7 +17,6 @@ from game import explore
 from game import layers
 from game import thaw
 from game.equipment import Equipment, is_equipment
-from game.geo import gate_at
 from game.inventory import Inventory
 from game.energy import PowerAlert, PowerReport, power_report
 from game.layers import CAVE, SURFACE, Layer
@@ -437,6 +436,7 @@ class GameState:
                 if self.world.is_solid(tx, ty):
                     solids.append((tx * C.TILE, ty * C.TILE, C.TILE, C.TILE))
         solids += [m.rect for m in self.machines]
+        solids += self.active.gate_solids                 # v0.4 M3.5: os blocos de gelo dos portões (retângulos)
         if self.active.has_base:
             solids.append(POD_RECT)
         return solids
@@ -650,6 +650,9 @@ class GameState:
                 return False
             if self.world.is_water(*t, self.stage):     # v0.4 M3.4: não constrói na água (com geo, o estágio não entra)
                 return False
+        ice = self.active.gate_solids                   # v0.4 M3.5: nem em cima de um bloco de gelo do portão
+        if any(overlaps((x * C.TILE, y * C.TILE, C.TILE, C.TILE), r) for x, y in machine.tiles for r in ice):
+            return False
         px, py = self.player.tile
         if (px, py) in machine.tiles:
             return False
@@ -977,23 +980,28 @@ class GameState:
         self._thaw_submerged()               # depois do lago: quem ficou debaixo d'água para
 
     def _thaw_gates(self) -> None:
-        """M3.2: cada gelo-portão sobe pra etapa do calor (thaw.gate_stage), troca a pegada C.FORMATION no mapa da
-        superfície (aberto: os tiles viram chão) e solta um ("gate_thaw", i, etapa) por etapa que subiu."""
+        """M3.5: o progresso p de cada gelo-portão sobe com o calor (thaw.gate_progress, nunca desce), os blocos de
+        gelo encolhem junto com a colisão (Layer.refresh_gates) e sai um ("gate_thaw", i, etapa) quando o gelo
+        começa a derreter (1) e quando a fresta abre pra caixa do player (3 = thaw.GATE_OPEN: aviso e som)."""
         surface = self.layers.get(SURFACE)
         geo = surface.geo if surface is not None else None
         if geo is None:
             return
         heat = self.indices["heat"]
-        for i, pocket in enumerate(geo.pockets):
-            old = surface.gate_ice[i]
-            new = max(old, thaw.gate_stage(heat, i))
-            if new == old:
-                continue
-            was, now = gate_at(pocket.gate, old), gate_at(pocket.gate, new)
-            surface.world.swap_footprint(was.tiles, now.tiles if now is not None else [])
-            surface.gate_ice[i] = new
-            for stage in range(old + 1, new + 1):
-                self.events.append(("gate_thaw", i, stage))
+        old_stage = list(surface.gate_ice)
+        changed = False
+        for i in range(len(geo.pockets)):
+            p = max(surface.gate_melt[i], thaw.gate_progress(heat, i))
+            if p != surface.gate_melt[i]:
+                surface.gate_melt[i] = p
+                changed = True
+        if not changed:
+            return
+        surface.refresh_gates()
+        for i, (was, now) in enumerate(zip(old_stage, surface.gate_ice)):
+            for stage in (thaw.GATE_MELTING, thaw.GATE_OPEN):
+                if was < stage <= now:
+                    self.events.append(("gate_thaw", i, stage))
 
     def _thaw_lake(self) -> None:
         """M3.3: a água das bacias sobe com o índice de água (thaw.lake_level), só a partir da Névoa. O nível anda

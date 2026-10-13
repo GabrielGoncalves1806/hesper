@@ -1356,10 +1356,10 @@ class App:
         elif kind == "loot":
             _, resource, amount, (ax, ay) = event
             self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", ax, ay - 40, C.ORE_COLORS[resource][0])
-        elif kind == "gate_thaw":             # v0.4 M3.2: um gelo-portão baixou uma etapa (3 = aberto)
+        elif kind == "gate_thaw":             # v0.4 M3.5: um gelo-portão começou a derreter (1) ou abriu a fresta (3)
             _, i, stage = event
             pockets = self.state.surface.geo.pockets if self.state.surface.geo is not None else []
-            if i < len(pockets):                  # o mapa do scanner acompanha a pegada
+            if i < len(pockets) and stage >= 3:   # o mapa do scanner tira a caixa fechada do portão
                 for tile in pockets[i].gate.tiles:
                     self.renderer.minimap.repaint(self.state, tile, "surface")
             if stage >= 3:

@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 import pygame  # noqa: E402
 
 from game import config as C  # noqa: E402
+from game import ice_blocks  # noqa: E402
 from game import rock_respawn  # noqa: E402
 from game import save  # noqa: E402
 from game import settings  # noqa: E402
@@ -2342,7 +2343,10 @@ def check_formations(bot) -> None:
         bx, by = f.base_px
         stand(bx + 2.5 * C.TILE, by + 3 * C.TILE)
         ground_settle(bot)
-        assert any(v[0] is f for v in r.visible_formations(s, app.cam)), kind
+        if kind == "ice_gate":                     # M3.5: o portão vai em blocos (um objeto por bloco)
+            assert any(v[0].kind == "ice_block" for v in r.visible_formations(s, app.cam)), kind
+        else:
+            assert any(v[0] is f for v in r.visible_formations(s, app.cam)), kind
         bot.shot(f"formacao_{kind}.png")
         cx, cy = app.cam
         x = max(0, min(C.SCREEN_W - 320, int(bx - cx - 160)))
@@ -3490,9 +3494,64 @@ def check_old_save_title(bot) -> None:
     clear_saves()
     bot.state = app.state
 
+def shot_boxes(bot, sealed: tuple[int, int]) -> None:
+    """v0.4 M3.5: as caixas r3d v1.1 no jogo, lado a lado (recortes 4×): baú fechado e aberto perto da base, uma
+    caixa de saque de um destroço de fora e o contêiner lacrado no bolsão (40×44, pé no centro de baixo do tile),
+    recortes 64×72 ampliados 4×."""
+    from game.systems import Machine
+    s, app = bot.state, bot.app
+    crops = []
+    app.toast_time = 0.0
+    bot.mouse_to((C.SCREEN_W - 4, C.SCREEN_H // 2))   # o cursor longe dos recortes
+
+    def grab(world_xy, w=64, h=72) -> None:
+        cx, cy = app.cam
+        z = app.zoom
+        x = max(0, min(C.SCREEN_W - w, int((world_xy[0] - cx) * z - w / 2)))
+        y = max(0, min(C.SCREEN_H - h, int((world_xy[1] - cy) * z - h / 2)))
+        crops.append(pygame.transform.scale_by(app.frame.subsurface((x, y, w, h)).copy(), 4))
+
+    bx, by = C.BASE_TILE
+    def free(t) -> bool:
+        return s.world.is_floor(*t) and not s.machine_at(t) and t not in C.POD_TILES and s.world.vein_at(*t) is None
+
+    spots = [(x, y) for y in range(by + 2, by + 8) for x in range(bx - 6, bx + 6)
+             if all(free((x + d, y)) for d in range(3))]
+    tx, ty = spots[0]
+    closed, opened = Machine("chest", tx, ty), Machine("chest", tx + 2, ty)   # 1 tile entre os dois
+    s.machines.extend([closed, opened])
+    app.renderer.open_chest = opened
+    bot.teleport((tx, ty + 3))
+    ground_settle(bot)
+    grab((closed.anchor[0], closed.anchor[1] - 22))
+    grab((opened.anchor[0], opened.anchor[1] - 22))
+    app.renderer.open_chest = None
+    for m in (closed, opened):
+        s.machines.remove(m)
+    wreck = next(w for w in s.world.wrecks if not w.rich)
+    cx, cy = wreck.crate
+    bot.teleport((cx, cy + 3))
+    ground_settle(bot)
+    grab(((cx + 0.5) * C.TILE, (cy + 1) * C.TILE - 22))
+    sx, sy = sealed
+    bot.teleport((sx - 2, sy + 2))
+    app.toast_time = 0.0
+    ground_settle(bot)
+    grab(((sx + 0.5) * C.TILE, (sy + 1) * C.TILE - 22))
+    sheet = pygame.Surface((sum(c.get_width() for c in crops) + 8 * (len(crops) - 1), crops[0].get_height()))
+    sheet.fill((21, 16, 14))
+    x = 0
+    for c in crops:
+        sheet.blit(c, (x, 0))
+        x += c.get_width() + 8
+    pygame.image.save(sheet, str(OUT / "m35_caixas.png"))
+    print("  screenshot: reports/dev/m35_caixas.png  (baú fechado · baú aberto · caixa de saque · contêiner lacrado)")
+
+
 def check_gates(bot) -> None:
-    """v0.4 Marco 3 · M3.2: o 1º gelo-portão derretendo com o calor (etapas 0, 2 e aberto, setando indices["heat"]),
-    o aviso, a passagem a pé pelo portão aberto e o interior do bolsão com o destroço rico e o contêiner lacrado."""
+    """v0.4 Marco 3 · M3.2/M3.5: o 1º gelo-portão em blocos derretendo com o calor (p = 0, 0,5, a fresta e sem gelo,
+    setando indices["heat"]), o aviso na fresta, a passagem a pé e o interior do bolsão com o destroço rico e o
+    contêiner lacrado."""
     s, app = bot.state, bot.app
     geo = s.surface.geo
     before = dict(s.indices)
@@ -3511,21 +3570,39 @@ def check_gates(bot) -> None:
 
     app.set_zoom(1.0, notify=False)
     bot.mouse_to((900, 500))
+    recipe = s.surface.gate_recipes[0]
+    opens = ice_blocks.opens_at(recipe)
+    lo, hi = C.THAW_GATE_HEAT[0][0], C.THAW_GATE_HEAT[0][-1]
     heat(0)
-    bot.teleport((gate.tx + 1, gate.ty + 4))           # no avental, olhando o portão
+    bot.teleport((gate.tx + 4, gate.ty + 4))           # no avental, de lado, olhando o portão
     ground_settle(bot)
     focus = (bx, by - 40)
-    shot_zoom(bot, "m32_portao_0.png", focus, w=320, h=240, k=2)
-    heat(C.THAW_GATE_HEAT[0][1])
+    n_blocks = len([b for b in s.surface.gate_blocks if b.gate == 0])
+    shot_zoom(bot, "m35_gelo_blocos_0.png", focus, w=320, h=240, k=2)
+    heat(lo + (hi - lo) * 0.5)
     bot.frames(0.1)
-    assert s.surface.gate_ice[0] == 2, s.surface.gate_ice
-    shot_zoom(bot, "m32_portao_2.png", focus, w=320, h=240, k=2)
-    heat(C.THAW_GATE_HEAT[0][2])
+    assert s.surface.gate_ice[0] == 1 and app.toast != C.THAW_GATE_NOTICE, (s.surface.gate_ice, app.toast)
+    shot_zoom(bot, "m35_gelo_blocos_50.png", focus, w=320, h=240, k=2)
+    heat(lo + (hi - lo) * opens + 0.01)               # + 0,01 pK: o float da conta de volta não fica abaixo
     bot.frames(0.2)
     assert s.surface.gate_ice[0] == 3 and app.toast == C.THAW_GATE_NOTICE, (s.surface.gate_ice, app.toast)
-    assert not any(s.world.get(*t) == C.FORMATION for t in gate.tiles)
-    bot.shot("m32_portao_aviso.png")
-    shot_zoom(bot, "m32_portao_aberto.png", focus, w=320, h=240, k=2)
+    assert s.surface.gate_melt[0] < 1 and s.surface.gate_blocks
+    # o player na fresta: o ponto do caminho da busca no meio do corredor (y = −32 do pé do portão)
+    path = ice_blocks.path_through([(x - bx, y - by, w, h) for x, y, w, h in s.surface.gate_solids])
+    assert path, "a fresta devia ter um caminho"
+    mid = min(path, key=lambda q: abs(q[1] + 32))
+    s.player.x, s.player.y = bx + mid[0], by + mid[1]
+    bot.frames(0.1)
+    bot.shot("m35_gelo_blocos_aviso.png")
+    shot_zoom(bot, "m35_gelo_blocos_fresta.png", focus, w=320, h=240, k=2)
+    print(f"  receita {recipe}: {n_blocks} blocos; fresta abre em p = {opens:.4f} "
+          f"(calor {lo + (hi - lo) * opens:.0f}); player na fresta em x {mid[0]:+d} do pé")
+    heat(hi)
+    bot.frames(0.2)
+    assert s.surface.gate_melt[0] == 1.0 and not [b for b in s.surface.gate_blocks if b.gate == 0]
+    bot.teleport((gate.tx + 4, gate.ty + 4))
+    bot.frames(0.1)
+    shot_zoom(bot, "m35_gelo_blocos_aberto.png", focus, w=320, h=240, k=2)
     reach = s.world.reachable_from(C.BASE_TILE)
     assert all(t in reach for t in p.interior if not s.world.is_solid(*t)), "interior devia estar alcançável"
     # anda pelo portão aberto até o bolsão (W segurado)
@@ -3539,7 +3616,7 @@ def check_gates(bot) -> None:
     pygame.event.post(pygame.event.Event(pygame.KEYUP, key=pygame.K_w, mod=0, unicode="", scancode=0))
     bot.frames(DT)
     assert s.player.y < gate.ty * C.TILE - 8, f"não entrou no bolsão (y {s.player.y:.0f}, portão {gate.ty * C.TILE})"
-    print(f"  portão 0 aberto com calor {C.THAW_GATE_HEAT[0][2]}: entrou no bolsão a pé (y {s.player.y:.0f})")
+    print(f"  portão 0 sem gelo com calor {hi}: entrou no bolsão a pé (y {s.player.y:.0f})")
     # interior: o destroço rico e o contêiner lacrado; o E no contêiner só mostra a dica de lore
     rich = next(w for w in s.world.wrecks if w.rich and (w.tx, w.ty) == p.wreck_spot)
     box = p.container_spot
@@ -3559,6 +3636,7 @@ def check_gates(bot) -> None:
     bot.shot("m32_conteiner_dica.png")
     crate = s.crates[rich.crate]
     print(f"  destroço rico {rich.kind} em {p.wreck_spot}: {crate.storage.counts()} · contêiner em {box}")
+    shot_boxes(bot, box)
     app.toast_time = 0.0
     s.indices.update(before)
     s.stage, s.storm = stage_before, storm_before

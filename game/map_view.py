@@ -125,11 +125,13 @@ def _with_distance(state: str, pos, origin, suffix: str) -> str:
 
 
 def _gate_state(layer, i: int | None) -> str:
-    """Tooltip do gelo-portão pela etapa do gelo (v0.4 M3.2): fechado, derretendo ou aberto."""
-    stage = layer.gate_ice[i] if i is not None and i < len(layer.gate_ice) else 0
+    """Tooltip do gelo-portão pelo degelo (v0.4 M3.5): fechado, "derretendo · N%" ou aberto (a fresta já passa)."""
+    ok = i is not None and i < len(layer.gate_ice)
+    stage = layer.gate_ice[i] if ok else 0
+    melt = layer.gate_melt[i] if ok and i < len(layer.gate_melt) else 0.0
     if stage >= 3:
         return "aberto · passagem livre"
-    return "derretendo · gelo" if stage > 0 else "fecha a passagem · gelo"
+    return f"derretendo · {int(melt * 100)}%" if stage > 0 else "fecha a passagem · gelo"
 
 
 def map_entries(state, key: str) -> list[Entry]:

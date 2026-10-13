@@ -118,8 +118,9 @@ def new_state(seed: int = C.WORLD_SEED) -> GameState:
 # Cada sistema: to_dict (estado -> dados) e from_dict (dados -> estado)
 # ---------------------------------------------------------------------------
 def derived_tiles(layer) -> set[tuple[int, int]]:
-    """Tiles que saem dos índices (v0.4 Marco 3) e não entram no `changed_tiles`: a pegada dos gelos-portão (o
-    _apply_thaw do load refaz). Nada mais mexe neles: o gelo não minera e o chão aberto não vira outra coisa."""
+    """Tiles que saem dos índices (v0.4 Marco 3) e não entram no `changed_tiles`: a caixa dos gelos-portão. Desde o
+    M3.5 eles ficam areia (o gelo bate por retângulo, refeito pelo _apply_thaw do load), então isto é só garantia:
+    nada mexe neles (não minera e não vira outra coisa)."""
     geo = layer.geo
     return {t for p in geo.pockets for t in p.gate.tiles} if geo is not None else set()
 

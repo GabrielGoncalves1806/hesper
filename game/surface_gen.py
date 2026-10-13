@@ -94,6 +94,7 @@ def _copy(src: World) -> World:
     world.wrecks = list(src.wrecks)             # destroços: geometria fixa (o conteúdo das caixas fica na camada)
     world.geo, world.keep_clear = src.geo, src.keep_clear   # só leitura
     world.containers = list(src.containers)
+    world.closed_gate_tiles = src.closed_gate_tiles
     world._geo_rows = src._geo_rows             # só leitura (altura/bacia/beira em listas, se já calculou)
     return world
 
@@ -122,6 +123,9 @@ def _build(seed: int) -> World:
     add_vents(geo, world.center, np.array(world.tiles, dtype=np.int16) == C.SAND)
     world.keep_clear = frozenset(_keep_clear(geo))
     for f in geo.formations:                     # a pegada bloqueia; quem desenha é o objeto da formação
+        if f.kind == "ice_gate":                 # M3.5: o gelo-portão bate por retângulo (blocos), o chão fica areia
+            world.closed_gate_tiles = world.closed_gate_tiles | set(f.tiles)
+            continue
         for t in f.tiles:
             world.set(*t, C.FORMATION)
     _crater(world, rng)
@@ -148,7 +152,8 @@ def _border(world: World) -> None:
 
 def _pockets(world: World) -> None:
     """Bolsões dos gelos-portão: o anel vira BEDROCK (cordilheira, não minera: o portão não dá pra contornar
-    cavando); o interior, o portão e o avental ficam de areia (o portão vira C.FORMATION junto das outras)."""
+    cavando); o interior, o portão e o avental ficam de areia (M3.5: o portão continua areia; quem bloqueia são os
+    retângulos dos blocos de gelo, game/ice_blocks.py)."""
     for pocket in world.geo.pockets:
         for t in pocket.ring:
             world.set(*t, C.BEDROCK)

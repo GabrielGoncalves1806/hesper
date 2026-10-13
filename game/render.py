@@ -191,6 +191,7 @@ class Renderer:
         self.formation_sprites = hills.FormationSprites()   # formações fixas (v0.4 M2 · C3)
         self.crater_sprites = hills.CraterSprites()          # cratera de impacto e a tampa de gelo (C4)
         self.frost_ring = hills.FrostRing()                   # geada do gelo-portão derretendo (v0.4 M3.2)
+        self.ice_block_sprites = hills.IceBlockSprites()      # blocos do gelo-portão (v0.4 M3.5)
         # v0.4 M3.1: fumaça das fumarolas acordadas (game/smoke.py), partícula; relógio próprio pelo `t` do draw
         self.vent_smoke = smoke.VentSmoke(seed=C.WORLD_SEED)
         self._smoke_t: float | None = None
@@ -567,18 +568,30 @@ class Renderer:
         return out
 
     def visible_formations(self, state: GameState, cam, margin: int = 0) -> list[tuple]:
-        """[(formação, sprite, x, y)] das formações da camada que aparecem na tela (x, y = canto do sprite no mundo)."""
-        if getattr(state.active, "geo", None) is None:
+        """[(formação, sprite, x, y)] das formações da camada que aparecem na tela (x, y = canto do sprite no mundo).
+        v0.4 M3.5: cada bloco de gelo dos portões entra aqui como uma formação própria (ice_blocks.IceBlock, com o
+        `base_px` no pé dele): ordena pelo pé no desenho e acende o raio-x igual às formações."""
+        geo = getattr(state.active, "geo", None)
+        if geo is None:
             return []
         out = []
         cam_x, cam_y = cam
-        for f in layers.current_formations(state.active):      # o gelo-portão na etapa do gelo (aberto: some)
+
+        def visible(surf, x, y) -> bool:
+            w, h = surf.get_size()
+            return x + w > cam_x - margin and x < cam_x + self.view_w + margin \
+                and y + h > cam_y - margin and y < cam_y + self.view_h + margin
+
+        for f in layers.current_formations(state.active):      # todas menos o gelo-portão (vai em blocos)
             surf, x, y = self.formation_sprites.placement(f, self.stage_map.stage_at(*hills.foot_tile(f)),
                                                           self.formation_variant(state, f))
-            w, h = surf.get_size()
-            if x + w > cam_x - margin and x < cam_x + self.view_w + margin \
-                    and y + h > cam_y - margin and y < cam_y + self.view_h + margin:
+            if visible(surf, x, y):
                 out.append((f, surf, x, y))
+        for b in state.active.gate_blocks:
+            stage = self.stage_map.stage_at(*hills.foot_tile(geo.pockets[b.gate].gate))
+            surf, x, y = self.ice_block_sprites.placement(b, stage)
+            if visible(surf, x, y):
+                out.append((b, surf, x, y))
         return out
 
     def player_occluded(self, state: GameState) -> bool:
@@ -845,7 +858,8 @@ class Renderer:
                 items.append(((cty + 3) * T, lambda cx=cx, cy=cy, surf=surf, key=key, lit=lit: self._draw_ramp(
                     canvas, surf, key, cx, cy, lit)))
         # formações fixas (v0.4 Marco 2): sprite grande com a âncora no base_px (centro de baixo da pegada),
-        # ordenado pelo pé igual às máquinas. A pegada é C.FORMATION; a sombra já vem no sprite.
+        # ordenado pelo pé igual às máquinas. A pegada é C.FORMATION; a sombra já vem no sprite. Os blocos de gelo
+        # dos portões (M3.5) vêm junto, um objeto por bloco com o pé dele.
         for f, surf, x, y in self.visible_formations(state, cam):
             items.append((f.base_px[1], lambda s=surf, x=x - cam_x, y=y - cam_y: canvas.blit(s, (x, y))))
         # destroços (Marco 3): o sprite inteiro é um objeto com o pé na borda de baixo da área; caixas à parte
@@ -964,8 +978,8 @@ class Renderer:
             canvas.blit(surf, (x, y))
 
     def gate_frost(self, state: GameState, cam) -> list[tuple[pygame.Surface, int, int]]:
-        """[(geada, x, y no mundo)] dos gelos-portão derretendo ou abertos (etapa ≥ 1) que aparecem na tela (v0.4 M3.2).
-        Fica no pé do portão (mesmo base_px do sprite), na camada de decalques: o portão aberto é só ela."""
+        """[(geada, x, y no mundo)] dos gelos-portão derretendo ou abertos (p > 0) que aparecem na tela (v0.4 M3.2).
+        Fica no pé do portão (o base_px da caixa 4×2), na camada de decalques: o portão sem gelo é só ela."""
         layer = state.active
         geo = getattr(layer, "geo", None)
         if geo is None or not self.sprites.enabled:
@@ -973,7 +987,7 @@ class Renderer:
         out = []
         cam_x, cam_y = cam
         for i, p in enumerate(geo.pockets):
-            if i >= len(layer.gate_ice) or layer.gate_ice[i] < 1:
+            if i >= len(layer.gate_melt) or layer.gate_melt[i] <= 0:
                 continue
             surf = self.frost_ring.surface(self.stage_map.stage_at(*hills.foot_tile(p.gate)))
             if surf is None:
@@ -989,7 +1003,8 @@ class Renderer:
             canvas.blit(surf, (x - cam[0], y - cam[1]))
 
     def container_surface(self) -> pygame.Surface:
-        """Contêiner lacrado: container_sealed.png (quando a Designer entregar e o dono aprovar) ou o placeholder."""
+        """Contêiner lacrado: container_sealed.png (r3d v1.1, 40×44, aprovado; o pé cai no centro de baixo do tile, como
+        as máquinas de 40 px) ou, sem a arte, o placeholder por código."""
         return self.surface("container_sealed", art.sealed_container)[0]
 
     def draw_container(self, canvas, tile, x: int, y: int) -> None:

@@ -14,9 +14,8 @@ baixo e o player sempre chega logo abaixo dela. A caverna é criada na primeira 
 from dataclasses import dataclass, field
 
 from game import config as C
-
+from game import ice_blocks, thaw
 from game.explore import Explored
-from game.geo import gate_at
 from game.rock_respawn import RockRespawn
 from game.surface_gen import generate_surface
 from game.world import World
@@ -38,9 +37,15 @@ class Layer:
     # com a rampa exposta. No M2 fica sempre tampada (o derretimento pelo calor é do M3); F4 abre na hora (debug).
     # Vai no save.
     crater_ice: int = 0
-    # v0.4 Marco 3 · M3.2: etapa do gelo de cada portão (índice = geo.pockets[i]): 0 inteiro .. 3 aberto. DERIVADA do
-    # índice de calor (game/thaw.py · gate_stage) pelo GameState._apply_thaw: NÃO vai no save, o load reconstrói.
+    # v0.4 Marco 3 · gelos-portão (índice = geo.pockets[i]), tudo DERIVADO do índice de calor pelo
+    # GameState._apply_thaw (NÃO vai no save, o load reconstrói). M3.5: `gate_melt` = progresso p (0..1,
+    # thaw.gate_progress), `gate_ice` = a etapa derivada (0 inteiro, 1 derretendo, 3 fresta aberta: thaw.gate_stage),
+    # `gate_recipes` = a receita de cada um (A, B ou C, pela seed) e `gate_blocks` = os blocos que ainda existem no p
+    # atual (game/ice_blocks.py · IceBlock: quadro, pé e retângulo de colisão), refeitos pelo `refresh_gates`.
     gate_ice: list = field(default_factory=list)
+    gate_melt: list = field(default_factory=list)
+    gate_recipes: list = field(default_factory=list)
+    gate_blocks: list = field(default_factory=list)
     # v0.4 Marco 3 · M3.1: fumarola i (geo.vents[i]) acordada pelo calor. Derivado dos índices (thaw.fumarole_active),
     # NÃO vai no save: o load reaplica. Fica na camada porque a geo é dividida entre estados da mesma seed.
     vents_awake: list = field(default_factory=list)
@@ -51,8 +56,31 @@ class Layer:
         geo = self.world.geo
         if geo is not None and not self.gate_ice:
             self.gate_ice = [0] * len(geo.pockets)
+            self.gate_melt = [0.0] * len(geo.pockets)
+            self.gate_recipes = [ice_blocks.recipe_for(geo.seed, i) for i in range(len(geo.pockets))]
+            self.refresh_gates()
         if self.world.geo is not None and not self.vents_awake:
             self.vents_awake = [False] * len(self.world.geo.vents)
+
+    def refresh_gates(self) -> None:
+        """Refaz a etapa, os blocos (colisão e desenho) e os tiles fechados de cada gelo-portão pelo `gate_melt`."""
+        geo = self.world.geo
+        if geo is None:
+            return
+        blocks, closed = [], set()
+        for i, pocket in enumerate(geo.pockets):
+            p, recipe = self.gate_melt[i], self.gate_recipes[i]
+            self.gate_ice[i] = thaw.gate_stage(p, ice_blocks.opens_at(recipe))
+            blocks += ice_blocks.blocks_at(pocket.gate.base_px, recipe, p, i)
+            if self.gate_ice[i] < thaw.GATE_OPEN:
+                closed.update(pocket.gate.tiles)
+        self.gate_blocks = blocks
+        self.world.closed_gate_tiles = frozenset(closed)
+
+    @property
+    def gate_solids(self) -> list:
+        """Os retângulos de colisão (px do mundo) dos blocos de gelo que ainda existem (o movimento do player bate)."""
+        return [b.rect for b in self.gate_blocks if b.rect is not None]
 
     @property
     def geo(self):
@@ -77,20 +105,12 @@ class Layer:
 
 
 def current_formations(layer: Layer) -> list:
-    """As formações como estão agora: o gelo-portão na etapa de `layer.gate_ice` (cópia com a pegada e o sprite
-    da etapa) e sem o portão aberto. É o que o render desenha (o geo guarda só a etapa 0)."""
+    """As formações que se desenham como sprite inteiro: todas menos o gelo-portão, que desde o M3.5 é um
+    amontoado de blocos (`layer.gate_blocks`, cada um um objeto próprio no desenho)."""
     geo = layer.geo
     if geo is None:
         return []
-    stage = {id(p.gate): (layer.gate_ice[i] if i < len(layer.gate_ice) else 0) for i, p in enumerate(geo.pockets)}
-    out = []
-    for f in geo.formations:
-        if stage.get(id(f), 0) > 0:                  # inteiro (etapa 0): a própria formação do geo
-            f = gate_at(f, stage[id(f)])
-            if f is None:
-                continue
-        out.append(f)
-    return out
+    return [f for f in geo.formations if f.kind != "ice_gate"]
 
 
 def make_surface(seed: int) -> Layer:

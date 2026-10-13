@@ -54,6 +54,8 @@ def tile_color(world, x: int, y: int) -> tuple[int, int, int]:
     if vein is not None:
         return VEIN_COLORS[vein.resource]
     kind = world.get(x, y)
+    if (x, y) in getattr(world, "closed_gate_tiles", ()):          # v0.4 M3.5: gelo-portão fechado (a caixa 4×2)
+        return TILE_COLORS[C.FORMATION]
     geo = getattr(world, "geo", None)
     if geo is not None and world.is_water(x, y, C.GREEN_STAGE):   # lago (com geo, o estágio não importa)
         return WATER_COLOR

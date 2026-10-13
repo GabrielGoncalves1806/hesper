@@ -576,6 +576,49 @@ class FormationSprites:
         return self._masks[key]
 
 
+class IceBlockSprites:
+    """Blocos de gelo do gelo-portão (v0.4 M3.5, arte v9.2): tira `ice_block_<tipo>_<n>.png` de 8 quadros (do 100% ao
+    23%), o quadro k em (k · frame.w, 0), recolorida pela rampa ICE da faixa gelada no estágio. Sem a arte, um bloco
+    de gelo chapado do tamanho da escala (nada quebra sem asset)."""
+
+    def __init__(self):
+        self._cache: dict[tuple, pygame.Surface] = {}
+
+    def surface(self, block, stage: int) -> pygame.Surface:
+        stage = max(1, min(len(STAGE_KEYS), stage))
+        key = (block.key, block.frame, stage)
+        if key not in self._cache:
+            fw, fh = block.frame_size
+            idx = load_indexed(block.sprite)
+            rmp = ramp("ICE", "frost", STAGE_KEYS[stage - 1])
+            if idx is not None and rmp is not None and idx.shape[1] >= fw * (block.frame + 1):
+                surf = rgba_surface(colorize(idx[:, block.frame * fw:(block.frame + 1) * fw], rmp))
+            else:
+                surf = self._fallback(block)
+            self._cache[key] = surf
+        return self._cache[key]
+
+    @staticmethod
+    def _fallback(block) -> pygame.Surface:
+        fw, fh = block.frame_size
+        ax, ay = block.anchor
+        k = 1.0 - 0.11 * block.frame
+        w, h = max(4, int(fw * 0.6 * k)), max(4, int(fh * 0.5 * k))
+        surf = pygame.Surface((fw, fh), pygame.SRCALPHA)
+        r = pygame.Rect(0, 0, w, h)
+        r.midbottom = (ax, ay)
+        surf.fill((170, 214, 236), r)
+        pygame.draw.rect(surf, OUTLINE, r, 1)
+        return surf
+
+    def placement(self, block, stage: int) -> tuple[pygame.Surface, int, int]:
+        """(sprite, x, y) do canto do quadro no mundo: a âncora do bloco cai no pé dele."""
+        surf = self.surface(block, stage)
+        ax, ay = block.anchor
+        fx, fy = block.foot
+        return surf, round(fx - ax), round(fy - ay)
+
+
 class FrostRing:
     """Geada no chão em volta do gelo-portão que derrete (frost_ring.png, rampa BASE da faixa gelada), por estágio.
     Sem a arte: None (não desenha nada)."""
