@@ -22,6 +22,10 @@ MORROS (grade dual). A colisão continua a de hoje, por tile. Só o DESENHO muda
     A cor sai de uma rampa por região e estágio (regions_palettes.json → ramps.HILL): na transição de estágio o
     bloco só é recolorido (a geometria fica).
 
+FORMAÇÕES (C3): sprites indexados (form_<kind>.png, ice_gate_<n>.png) recoloridos pela rampa da região no
+estágio (regions_palettes.json → formations[kind].ramp/region) e desenhados como objetos ordenados pelo pé, a
+`anchor` do sprite caindo no `Formation.base_px` (centro de baixo da pegada). A pegada é C.FORMATION (geo.py).
+
 Sem pygame só a parte pura (`bake_block`, `hill_field`): testada em tests/test_hills.py.
 """
 
@@ -476,3 +480,89 @@ class HillBlocks:
             piece[..., 3] = np.where(m[ya:yb, xa:xb], piece[..., 3], 0)
             out[int(r)] = (rgba_surface(piece), blk["x0"] + int(xa), blk["y0"] + int(ya))
         return out
+
+
+# ---------------------------------------------------------------------------
+# Formações fixas (v0.4 Marco 2 · C3): sprites indexados recoloridos pela rampa da região no estágio
+# ---------------------------------------------------------------------------
+def formation_key(kind: str, variant: int = 0) -> str:
+    """Chave no regions_palettes.json: o gelo-portão tem uma por etapa (ice_gate_0..2)."""
+    return f"ice_gate_{variant}" if kind == "ice_gate" else kind
+
+
+def formation_file(kind: str, variant: int = 0) -> str:
+    """form_<kind>.png; o gelo-portão é ice_gate_<etapa>.png."""
+    return f"ice_gate_{variant}.png" if kind == "ice_gate" else f"form_{kind}.png"
+
+
+def formation_ramp(kind: str, variant: int = 0) -> tuple[str, str]:
+    """(tabela, região) da rampa do sprite, pelo regions_palettes.json (hoodoo e arco: SAND do planalto)."""
+    info = palettes().get("formations", {}).get(formation_key(kind, variant), {})
+    return info.get("ramp", "HILL"), info.get("region", "plateau")
+
+
+class FormationSprites:
+    """Superfície de cada formação por estágio (1..4), recolorida pela rampa (PNG indexado). Se o PNG não for
+    indexado, usa as cores dele; se faltar, um bloco de pedra do tamanho da pegada (nada quebra sem asset)."""
+
+    def __init__(self):
+        self._cache: dict[tuple, pygame.Surface] = {}
+        self._masks: dict[int, pygame.mask.Mask] = {}
+
+    def surface(self, formation, stage: int) -> pygame.Surface:
+        variant = getattr(formation, "variant", 0)
+        name = formation_file(formation.kind, variant)
+        stage = max(1, min(len(STAGE_KEYS), stage))
+        key = (name, stage)
+        if key not in self._cache:
+            surf = None
+            idx = load_indexed(name)
+            rmp = ramp(*formation_ramp(formation.kind, variant), STAGE_KEYS[stage - 1])
+            if idx is not None and rmp is not None:
+                surf = rgba_surface(colorize(idx, rmp))
+            else:
+                path = region_file(name)
+                if path is not None:
+                    try:
+                        surf = pygame.image.load(str(path))
+                        surf = surf.convert_alpha() if pygame.display.get_surface() else surf
+                    except pygame.error:
+                        surf = None
+            self._cache[key] = surf if surf is not None else self._fallback(formation)
+        return self._cache[key]
+
+    @staticmethod
+    def _fallback(formation) -> pygame.Surface:
+        w, h = formation.size
+        surf = pygame.Surface((w * T, h * T + 2 * T), pygame.SRCALPHA)
+        surf.fill((74, 52, 46), (2, 0, w * T - 4, h * T + 2 * T - 2))
+        surf.fill((110, 80, 66), (2, 0, w * T - 4, 6))
+        pygame.draw.rect(surf, OUTLINE, surf.get_rect(), 1)
+        return surf
+
+    def anchor(self, formation, surf: pygame.Surface) -> tuple[int, int]:
+        """Pixel do sprite que cai no `base_px` (o `anchor` da formação; sem ele, o meio da borda de baixo)."""
+        ax, ay = getattr(formation, "anchor", None) or (surf.get_width() // 2, surf.get_height())
+        if not (0 <= ax <= surf.get_width() and 0 <= ay <= surf.get_height()):
+            return surf.get_width() // 2, surf.get_height()
+        return ax, ay
+
+    def placement(self, formation, stage: int) -> tuple[pygame.Surface, int, int]:
+        """(sprite, x, y) do canto de cima-esquerda do sprite no mundo (px): a âncora cai no base_px."""
+        surf = self.surface(formation, stage)
+        ax, ay = self.anchor(formation, surf)
+        bx, by = formation.base_px
+        return surf, round(bx - ax), round(by - ay)
+
+    def mask(self, surf: pygame.Surface) -> pygame.mask.Mask:
+        """Silhueta sólida (sem a sombra de alfa 80): pra saber se a formação cobre o player."""
+        key = id(surf)
+        if key not in self._masks:
+            self._masks[key] = pygame.mask.from_surface(surf, 127)
+        return self._masks[key]
+
+
+def foot_tile(formation) -> tuple[int, int]:
+    """Um tile da linha de baixo da pegada (pro estágio da transição): o do meio."""
+    w, h = formation.size
+    return formation.tx + w // 2, formation.ty + h - 1

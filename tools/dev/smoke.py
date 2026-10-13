@@ -2218,6 +2218,109 @@ def check_hills(bot) -> None:
     bot.frames(0.2)
 
 
+def check_formations(bot) -> None:
+    """v0.4 Marco 2 · trilha C · formações (C3): as 6 no mundo, o player atrás e na frente do arco, passando pelo
+    vão, o hoodoo e o basalto em 2 estágios, o raio-x atrás do arco e o desempenho."""
+    from game import geo as G
+    s, app = bot.state, bot.app
+    r = app.renderer
+    geo = s.active.geo
+    before = dict(s.indices)
+    stage_before, storm_before = s.stage, s.storm
+    zoom_before = app.zoom
+
+    def set_stage(stage):
+        s.stage, s.storm = stage, 0.0
+        s.indices.update(o2=float(C.STAGES[stage - 1].ti), heat=0.0, water=0.0)
+
+    def stand(px, py):
+        s.player.x, s.player.y = px, py
+        s.o2 = C.O2_MAX
+
+    set_stage(C.ARID_STAGE)
+    app.set_zoom(1.0, notify=False)
+    bot.mouse_to((900, 500))
+    first = {}
+    for f in geo.formations:
+        first.setdefault(f.kind, f)
+    assert set(first) == {"monolith", "arch", "basalt_spires", "salt_ridge", "cone", "ice_gate"}, set(first)
+    # 1) as 6 no mundo (o player 3 tiles abaixo do pé) + um mosaico dos recortes
+    crops = []
+    for kind in ("monolith", "arch", "basalt_spires", "salt_ridge", "cone", "ice_gate"):
+        f = first[kind]
+        bx, by = f.base_px
+        stand(bx + 2.5 * C.TILE, by + 3 * C.TILE)
+        ground_settle(bot)
+        assert any(v[0] is f for v in r.visible_formations(s, app.cam)), kind
+        bot.shot(f"formacao_{kind}.png")
+        cx, cy = app.cam
+        x = max(0, min(C.SCREEN_W - 320, int(bx - cx - 160)))
+        y = max(0, min(C.SCREEN_H - 240, int(by - cy - 190)))
+        crops.append(app.frame.subsurface((x, y, 320, 240)).copy())
+        print(f"  {kind}: pé {f.base_px} ({G.REGION_NAMES[f.region]})")
+    mosaic = pygame.Surface((960, 480))
+    for i, crop in enumerate(crops):
+        mosaic.blit(crop, ((i % 3) * 320, (i // 3) * 240))
+    pygame.image.save(mosaic, str(OUT / "formacoes_6.png"))
+    print("  screenshot: reports/dev/formacoes_6.png  (as 6 formações no Árido)")
+    # 2) arco: player atrás (acima do pé), na frente e passando pelo vão de baixo pra cima
+    arch = first["arch"]
+    bx, by = arch.base_px
+    gap_x = bx                                         # o tile do meio do vão (a perna fica 2 tiles pro lado)
+    stand(gap_x, by - 1.5 * C.TILE)                    # atrás: pé uma linha acima da pegada
+    bot.frames(0.1)
+    assert r.formation_occludes(s), "atrás do arco o player devia estar coberto (raio-x)"
+    shot_zoom(bot, "arco_atras.png", (bx, by - 50), w=260, h=170)
+    stand(gap_x + 2 * C.TILE, by + 0.6 * C.TILE)       # na frente da perna da direita
+    bot.frames(0.1)
+    assert not r.formation_occludes(s)
+    shot_zoom(bot, "arco_frente.png", (bx, by - 50), w=260, h=170)
+    stand(gap_x, by + 1.2 * C.TILE)                    # embaixo do vão, andando pra cima: passa por baixo
+    bot.frames(0.1)
+    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_w, mod=0, unicode="", scancode=0))
+    crossed = False
+    for _ in range(90):
+        bot.frames(DT)
+        if not crossed and by - C.TILE < s.player.y < by - 4:
+            shot_zoom(bot, "arco_vao.png", (bx, by - 50), w=260, h=170)
+            crossed = True
+        if s.player.y < by - 2 * C.TILE:
+            break
+    pygame.event.post(pygame.event.Event(pygame.KEYUP, key=pygame.K_w, mod=0, unicode="", scancode=0))
+    bot.frames(DT)
+    assert crossed and s.player.y < by - 2 * C.TILE, f"não passou pelo vão do arco (y {s.player.y:.0f}, pé {by})"
+    # 3) hoodoo e basalto em 2 estágios (Árido e Névoa)
+    for kind, label in (("monolith", "hoodoo"), ("basalt_spires", "basalto")):
+        f = first[kind]
+        bx, by = f.base_px
+        for stage, tag in ((C.ARID_STAGE, "arido"), (C.MIST_STAGE, "nevoa")):
+            set_stage(stage)
+            stand(bx + 2.5 * C.TILE, by + 2 * C.TILE)
+            ground_settle(bot)
+            shot_zoom(bot, f"formacao_{label}_{tag}.png", (bx, by - 60), w=240, h=170)
+    set_stage(C.ARID_STAGE)
+    # 4) desempenho: passeio em volta do arco (zoom 0,75), com e sem as formações
+    app.set_zoom(0.75, notify=False)
+    spot = (int(arch.base_px[0] // C.TILE), int(arch.base_px[1] // C.TILE) + 3)
+    avg = lambda ft: 1000 * sum(ft) / len(ft)   # noqa: E731
+    res = {}
+    forms = geo.formations
+    for _ in range(2):
+        for on in (False, True):
+            geo.formations = forms if on else []
+            res[on] = min(res.get(on, 1e9), avg(walk_perf(bot, spot)))
+    geo.formations = forms
+    print(f"  perf formações, zoom 0,75× no arco: sem {res[False]:.1f} ms · com {res[True]:.1f} ms "
+          f"({res[True] - res[False]:+.1f} ms)")
+    assert res[True] < 1000 / 60
+    s.indices.update(before)
+    s.stage, s.storm = stage_before, storm_before
+    app.set_zoom(zoom_before, notify=False)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+
+
 def set_weather(state, gust: float, angle: float = 20.0) -> None:
     """Clima de verdade (game/weather.py) preso numa direção e numa rajada: gust 1 = no pico e sem fim,
     gust 0 = calmo (o smoke já desliga as rajadas sorteadas)."""
@@ -2861,6 +2964,7 @@ def main() -> None:
     check_surface(bot)
     check_ground(bot)
     check_hills(bot)
+    check_formations(bot)
     check_cave(bot)
     check_wrecks(bot)
     check_storm(bot)

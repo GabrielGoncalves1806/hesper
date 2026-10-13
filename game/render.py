@@ -176,6 +176,7 @@ class Renderer:
         # v0.4 Marco 2 (trilha C, game/hills.py): morros orgânicos assados em blocos
         self._hills: hills.HillBlocks | None = None
         self._hill_stage_tags: dict[tuple[int, int], tuple] = {}
+        self.formation_sprites = hills.FormationSprites()   # formações fixas (v0.4 M2 · C3)
 
     # ---- utilitários ----------------------------------------------------------
     @staticmethod
@@ -469,12 +470,41 @@ class Renderer:
                     budget -= 1
         return out
 
+    def visible_formations(self, state: GameState, cam, margin: int = 0) -> list[tuple]:
+        """[(formação, sprite, x, y)] das formações da camada que aparecem na tela (x, y = canto do sprite no mundo)."""
+        geo = getattr(state.active, "geo", None)
+        if geo is None:
+            return []
+        out = []
+        cam_x, cam_y = cam
+        for f in geo.formations:
+            surf, x, y = self.formation_sprites.placement(f, self.stage_map.stage_at(*hills.foot_tile(f)))
+            w, h = surf.get_size()
+            if x + w > cam_x - margin and x < cam_x + self.view_w + margin \
+                    and y + h > cam_y - margin and y < cam_y + self.view_h + margin:
+                out.append((f, surf, x, y))
+        return out
+
     def player_occluded(self, state: GameState) -> bool:
-        """O topo elevado de alguma parede da linha de baixo está cobrindo o player?"""
+        """O topo elevado de alguma parede da linha de baixo (ou uma formação na frente) está cobrindo o player?"""
         p = state.player
         row_below = int((p.y - 1) // T) + 1
         cols = {int((p.x - 10) // T), int((p.x + 9) // T)}
-        return any(state.world.is_wall(tx, row_below) for tx in cols)
+        return any(state.world.is_wall(tx, row_below) for tx in cols) or self.formation_occludes(state)
+
+    def formation_occludes(self, state: GameState) -> bool:
+        """Uma formação desenhada depois do player (pé dela mais embaixo) cobre o corpo dele? Pela silhueta do
+        sprite (sem a sombra), pra o raio-x não acender só por estar perto."""
+        p = state.player
+        px, py = snap(p.x), snap(p.y)
+        body = pygame.Rect(px - 8, py - 28, 16, 26)
+        for f, surf, x, y in self.visible_formations(state, (px - 200, py - 200)):
+            if f.base_px[1] <= p.y or not body.colliderect((x, y, *surf.get_size())):
+                continue
+            box = pygame.mask.Mask(body.size, fill=True)
+            if self.formation_sprites.mask(surf).overlap(box, (body.x - x, body.y - y)):
+                return True
+        return False
 
     def _draw_player_silhouette(self, canvas, state: GameState, cam, t: float = 0.0) -> None:
         """Player escondido atrás de parede (ex.: túnel de 1 tile): redesenha ele translúcido por cima,
@@ -669,6 +699,10 @@ class Renderer:
                 lit = self.highlight == ("ramp", (ctx, cty))
                 items.append(((cty + 3) * T, lambda cx=cx, cy=cy, surf=surf, key=key, lit=lit: self._draw_ramp(
                     canvas, surf, key, cx, cy, lit)))
+        # formações fixas (v0.4 Marco 2): sprite grande com a âncora no base_px (centro de baixo da pegada),
+        # ordenado pelo pé igual às máquinas. A pegada é C.FORMATION; a sombra já vem no sprite.
+        for f, surf, x, y in self.visible_formations(state, cam):
+            items.append((f.base_px[1], lambda s=surf, x=x - cam_x, y=y - cam_y: canvas.blit(s, (x, y))))
         # destroços (Marco 3): o sprite inteiro é um objeto com o pé na borda de baixo da área; caixas à parte
         for wreck in world.wrecks:
             bx, by = wreck.blit_pos

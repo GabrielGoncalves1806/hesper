@@ -169,3 +169,69 @@ def test_surface_frame_draws_hill_strips():
     r.draw(canvas, g, cam, 0.0)
     strips = r.hill_strips(g, cam)
     assert any(wall[1] in rows for rows in strips.values())
+
+
+# ---- formações (C3) -------------------------------------------------------------------------------------
+from game import geo as G  # noqa: E402
+
+
+def surface_game():
+    pygame.init()
+    pygame.display.set_mode((64, 64))
+    return GameState(rng=random.Random(1))
+
+
+def test_every_formation_has_an_indexed_sprite_recolored_by_stage():
+    pygame.init()
+    fs = H.FormationSprites()
+    for kind in ("monolith", "arch", "basalt_spires", "salt_ridge", "cone", "ice_gate"):
+        assert H.load_indexed(H.formation_file(kind)) is not None, kind
+        f = G.Formation(kind, 10, 10, list(G.FORMATION_SPECS[kind].footprint), G.FORMATION_SPECS[kind].anchor)
+        arid, mist = fs.surface(f, 2), fs.surface(f, 3)
+        assert arid.get_size() == mist.get_size()
+        assert pygame.image.tobytes(arid, "RGBA") != pygame.image.tobytes(mist, "RGBA"), kind
+
+
+def test_anchor_lands_on_base_px():
+    pygame.init()
+    fs = H.FormationSprites()
+    spec = G.FORMATION_SPECS["arch"]
+    f = G.Formation("arch", 20, 30, list(spec.footprint), spec.anchor)
+    surf, x, y = fs.placement(f, 2)
+    assert (x + spec.anchor[0], y + spec.anchor[1]) == (round(f.base_px[0]), round(f.base_px[1]))
+
+
+def test_formations_are_drawn_as_objects_by_their_foot():
+    g = surface_game()
+    r = Renderer(Sprites())
+    f = g.active.geo.formations[0]
+    bx, by = f.base_px
+    g.player.x, g.player.y = bx, by - 3 * T           # acima do pé: atrás
+    cam = r.camera(g)
+    vis = r.visible_formations(g, cam)
+    assert any(v[0] is f for v in vis)
+    canvas = pygame.Surface((C.SCREEN_W, C.SCREEN_H))
+    items = r.collect_objects(canvas, g, cam, 0.0)
+    ys = sorted(ay for ay, _ in items)
+    assert by in ys and g.player.y in ys and g.player.y < by   # o player vem antes (fica atrás)
+
+
+def test_arch_gap_is_walkable_and_legs_block():
+    g = surface_game()
+    arch = next(f for f in g.active.geo.formations if f.kind == "arch")
+    w = g.world
+    legs = set(arch.tiles)
+    gap = [t for t in arch.box if t not in legs]
+    assert len(gap) == 3 and all(not w.is_solid(*t) for t in gap)
+    assert all(w.get(*t) == C.FORMATION for t in legs)
+
+
+def test_player_behind_a_formation_gets_the_xray():
+    g = surface_game()
+    r = Renderer(Sprites())
+    f = next(f for f in g.active.geo.formations if f.kind == "monolith")
+    bx, by = f.base_px
+    g.player.x, g.player.y = bx, by - T - 4            # logo atrás do pé, coberto pelo pilar
+    assert r.player_occluded(g)
+    g.player.x, g.player.y = bx, by + T                # na frente: nada cobre
+    assert not r.formation_occludes(g)

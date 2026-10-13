@@ -34,7 +34,7 @@ CELL = 40                 # lado da célula da grade (px da janela 960×540): 24
 BLACK_MAX = 12            # canal <= isso conta como "preto"
 BLACK_SLACK = 0.25        # o real pode ter até +25% de preto numa célula sem falhar (partículas, cursor)
 CLEAR_SLACK = 0.01        # alfa < 255 em mais de 1% da célula já é bug (a janela é opaca)
-SCENES = ("titulo", "superficie", "chao_regioes", "morros", "mapa_superficie", "tempestade", "mapa_tempestade", "inventario", "fabricador",
+SCENES = ("titulo", "superficie", "chao_regioes", "morros", "formacoes", "mapa_superficie", "tempestade", "mapa_tempestade", "inventario", "fabricador",
           "bau", "opcoes", "caverna_escura", "mapa_caverna")
 
 
@@ -119,6 +119,13 @@ def run_worker(driver: str, out: Path) -> None:
     bot.mouse_to(mouse)
     smoke.ground_settle(bot, 0.3)
     bot.capture("morros")
+    # formações (v0.4 M2 · C3): sprite indexado recolorido (SRCALPHA, com a sombra de alfa 80), no arco
+    arch = next(f for f in s.active.geo.formations if f.kind == "arch")
+    s.player.x, s.player.y = arch.base_px[0] + 2.5 * C.TILE, arch.base_px[1] + 3 * C.TILE
+    s.o2 = C.O2_MAX
+    bot.mouse_to(mouse)
+    smoke.ground_settle(bot, 0.3)
+    bot.capture("formacoes")
     s.stage, s.storm = stage0, storm0
     s.indices.update(ind0)
     s.player.x, s.player.y = pos0
