@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Geografia nova · v8.0</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Pixelify+Sans:wght@400;600&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--panel2:#241b17;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;--alert:#ff6a55;
+  --f-label:"Silkscreen",ui-monospace,monospace;--f-display:"Pixelify Sans",ui-monospace,monospace;--f-body:"IBM Plex Sans",system-ui,sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,monospace;color-scheme:dark}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 var(--f-body);padding-inline:16px}
+.wrap{max-width:1500px;margin:0 auto;padding-block:48px 80px}
+.eyebrow{font:12px var(--f-label);letter-spacing:.08em;color:var(--rust);text-transform:uppercase}
+h1{font:600 clamp(34px,6vw,54px)/1.05 var(--f-display);margin:10px 0 14px}
+.lede{color:var(--muted);max-width:90ch;margin:0}
+h2{font:600 24px/1.2 var(--f-display);margin:0 0 16px}
+h2::before{content:"";display:inline-block;width:10px;height:10px;background:var(--rust);margin-right:10px;vertical-align:middle}
+h3{font:600 18px var(--f-display);margin:0 0 8px}
+section{margin-top:60px}
+code{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}
+img.px{image-rendering:pixelated;display:block;width:100%;height:auto;border:1px solid var(--line)}
+.v2{margin-top:22px;max-width:1040px;background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--gold);padding:14px 18px}
+.v2 > b{font:13px var(--f-label);color:var(--gold)}
+.v2 ul{margin:8px 0 0;padding-left:18px;color:var(--muted)}.v2 li{margin-bottom:6px}.v2 li b{color:var(--fg)}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:1100px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
+figure{margin:0}
+figcaption{font:12px var(--f-label);color:var(--muted);margin-top:6px;letter-spacing:.04em}figcaption b{color:var(--fg)}
+.one{max-width:960px}
+.box{background:var(--panel);border:1px solid var(--line);padding:18px 20px}
+.box ul{margin:0;padding-left:18px;color:var(--muted)}.box li{margin-bottom:8px}.box li b{color:var(--fg)}
+.box p{color:var(--muted);margin:6px 0}
+.dev{border-left:3px solid var(--cyan)}.reco{border-left:3px solid var(--ok)}
+.reg{background:var(--panel);border:1px solid var(--line);padding:16px 18px;border-top:4px solid var(--c)}
+.reg p,.reg li{color:var(--muted)}.reg ul{padding-left:18px;margin:6px 0}.reg li b{color:var(--fg)}
+.sws{display:flex;gap:3px;margin:8px 0}.sws i{width:24px;height:24px;border:1px solid rgba(255,255,255,.12)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{font:12px var(--f-label);color:var(--gold);background:var(--panel2)}td{color:var(--muted)}td b{color:var(--fg)}
+.chk{display:flex;gap:22px;align-items:flex-end;flex-wrap:wrap;padding:14px;
+  background-color:#2a211d;background-image:conic-gradient(#3a2e28 25%,transparent 0 50%,#3a2e28 0 75%,transparent 0);background-size:16px 16px;border:1px solid var(--line)}
+.chk figure{margin:0}.chk img{image-rendering:pixelated;display:block}
+.chk figcaption{font:11px var(--f-mono);color:var(--fg);text-shadow:0 1px 0 #000}
+.tag{display:inline-block;font:11px var(--f-label);padding:2px 6px;border:1px solid var(--line);color:var(--gold);margin-right:6px}
+/* ciclo de quadros (antes de tudo, no lugar): cada img aparece 1/N do tempo */
+.cyc{position:relative;aspect-ratio:16/9;border:1px solid var(--line);overflow:hidden}
+.cyc img{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:0;animation:show4 var(--d,8s) infinite}
+.cyc.sq{aspect-ratio:auto;width:var(--w);height:var(--h);border:0}
+.cyc span{position:absolute;left:8px;bottom:8px;font:12px var(--f-label);background:#0f1119;padding:3px 7px;opacity:0;animation:show4 var(--d,8s) infinite}
+@keyframes show4{0%,24.9%{opacity:1}25%,100%{opacity:0}}
+.d1{animation-delay:calc(var(--d,8s) * -0.75)!important}.d2{animation-delay:calc(var(--d,8s) * -0.5)!important}.d3{animation-delay:calc(var(--d,8s) * -0.25)!important}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Designer · v8.0 · v0.4 Marco 2 (geografia nova) · proposta pro dono</div>
+<h1>Regiões, relevo e água</h1>
+<p class="lede">Objetivo: tirar a cara de “mapa gerado com tileset” e deixar a superfície orgânica e explorável. O
+planeta é <b>árido e vazio, não areia</b>: rocha, terra seca, sal, basalto e geada. Tudo aqui sai de script
+(<code>tools/sprites/regions_mockups.py</code>), em pixels reais 960×540 com a HUD B2 por cima. Nada disso está
+no jogo ainda: é pra tu aprovar antes do código.</p>
+
+<div class="v2"><b>v8.0 · o que mudou</b><ul>
+<li><b>3 regiões + faixa gelada</b> com paleta base própria, chão de textura grande (sem repetir tile) e borda
+entre regiões deformada (curva irregular, nunca linha de tile).</li>
+<li><b>4 estágios por variação de cor</b>: 1 rampa de 8 cores por região, e a Tempestade, a Névoa e o Verde saem de
+uma conta fixa em cima dela. São 5 conjuntos de chão (com o leito seco), e não 12 desenhados à mão.</li>
+<li><b>6 formações fixas</b> (monolito, arco, pináculos, cone, crosta de sal, gelo-portão em 3 etapas) + a
+tampa de gelo da cratera em 3 etapas, com a pegada de colisão de cada uma.</li>
+<li><b>Decoração que quebra a grade</b>: manchas, rachaduras longas, placas, cascalho, sulcos de vento, entulho no
+pé dos morros, e coisas soltas com altura por região.</li>
+<li><b>Morros com borda orgânica</b> (grade dual: a escada vira curva, a colisão continua a do tile).</li>
+<li><b>Relevo e água</b>: bacias com leito seco e marca d'água (L1, L2, L3) que enchem na Névoa e no Verde; o salar
+vira o grande lago.</li>
+<li>Sem ossada nenhuma, como pedido.</li></ul></div>
+
+<section><h2>Resumo · recomendação e custo</h2>
+<table><tr><th>item</th><th>recomendação</th><th>arte (Designer)</th><th>Dev</th></tr>
+<tr><td><b>1 · Regiões</b></td><td>As 3 + faixa gelada como estão; planalto no centro, salar a leste, basalto a
+oeste/sudoeste, gelo no norte (mapa abaixo).</td><td>pronto · ajuste fino de cor depois do playtest (~0,5 dia)</td><td>médio:
+mapa de região no gerador + chão por região</td></tr>
+<tr><td><b>2 · Bordas orgânicas</b></td><td>Deslocamento de domínio de ±14 px (borda curva) + 1 px de fenda
+na divisa.</td><td>pronto</td><td>médio (ver “Pro Dev”: fácil com numpy)</td></tr>
+<tr><td><b>3 · Estágios por cor</b></td><td>Sim: PNG indexado + rampa por estágio. Grama, umidade e água vêm por
+cima, como camadas.</td><td>pronto</td><td>baixo (troca de paleta no load)</td></tr>
+<tr><td><b>4 · Formações</b></td><td>Entram as 6; o gelo-portão em 3 etapas e a tampa da cratera em 3 etapas são o
+Marco 3.</td><td>pronto · polir 1 ou 2 depois de ver no jogo (~1 dia)</td><td>baixo: objeto com pegada de colisão
+(igual ao destroço)</td></tr>
+<tr><td><b>5 · Decoração</b></td><td>Entra primeiro (o maior ganho pelo menor custo, como a spec já previa).</td><td>pronto
+(36 decalques + 9 soltos)</td><td>baixo</td></tr>
+<tr><td><b>6 · Morros</b></td><td>Grade dual (marching squares) + face por extrusão.</td><td>pronto (topo e face
+indexados)</td><td>médio</td></tr>
+<tr><td><b>7 · Relevo e água</b></td><td>Altura por noise, bacias marcadas, 3 níveis. A marca d'água seca mostra
+onde vai alagar.</td><td>pronto</td><td>médio/alto (é o Marco 3)</td></tr></table></section>
+
+<section><h2>1 · As regiões</h2>
+<div class="grid2" style="align-items:start">
+<figure><img class="px" src="mapa_regioes.png" alt="" style="max-width:576px"><figcaption><b>mapa 192×192 da proposta</b>
+(3 px por tile) · triângulo = formação · quadrado azul = gelo-portão · círculo = cratera com gelo · base no meio ·
+linhas azuis = marcas d'água L1/L2/L3 · retângulos = as vistas dos mockups</figcaption></figure>
+<div class="box reco"><h3>Como o mapa se organiza</h3><ul>
+<li><b>Planalto rachado</b> em volta da base (raio ~45 tiles): o começo calmo, com morros e 3 depressões pequenas.</li>
+<li><b>Salar</b> a leste: a <b>maior depressão</b> (elipse de ~62×50 tiles), sem morro nenhum.</li>
+<li><b>Basalto</b> a oeste e sudoeste, um pouco mais alto, com mais morros e mais ferro.</li>
+<li><b>Faixa gelada</b> na borda norte (~24 tiles), com os gelos-portão fechando corredores entre morros. O
+contêiner lacrado fica atrás deles.</li>
+<li>A <b>cratera</b> nasce coberta de gelo (tampa em 3 etapas).</li>
+<li>O que o dono mandou de referência (<code>tempestade/referencia_dono.png</code>), aproveitado só como estilo:
+chão aparecendo em <b>graus diferentes</b> (manchas grandes de tom, baixo contraste), <b>sulcos de vento</b>
+longos e finos e nada de duna. Não copiei nenhum desenho.</li></ul></div></div>
+<div class="grid2" style="margin-top:16px"><div class="reg" style="--c:#8a573a"><h3>Planalto rachado</h3><p><i>em volta da base · o “normal” do planeta</i></p>
+<b style="font:11px var(--f-label);color:var(--gold)">PALETA BASE (ÁRIDO)</b><div class="sws"><i style="background:#3a231d" title="#3a231d"></i><i style="background:#5c3727" title="#5c3727"></i><i style="background:#80503a" title="#80503a"></i><i style="background:#8a573a" title="#8a573a"></i><i style="background:#93603f" title="#93603f"></i><i style="background:#b48258" title="#b48258"></i><i style="background:#857469" title="#857469"></i><i style="background:#56322a" title="#56322a"></i></div>
+<p><b>Chão:</b> Terra e rocha seca ocre-ferrugem (sai do vermelho de hoje e puxa pro ocre da referência). Textura grande de 512 px com manchas suaves de baixo contraste, pedrisco e poucas fendas.</p>
+<img class="px" src="sprites/ground_plateau_arid.png" alt="" style="max-width:512px">
+<p><b>Formações grandes:</b></p><ul><li><b>Monolito</b> (pilar de arenito, 1 tile de pé, 4 de altura)</li><li><b>Arco de pedra</b> (5 tiles, vão de 3 por onde se passa)</li><li><b>Morros mineráveis</b> com borda orgânica (ferro e silício)</li><li><b>Depressões pequenas</b> com leito seco e marca d'água</li></ul>
+<p><b>Decoração solta:</b></p><ul><li>Manchas grandes escuras e claras (3 a 7 tiles)</li><li>Rachaduras longas com galhos (4 a 7 tiles)</li><li>Placas soltas levantadas</li><li>Cascalho</li><li>Sulcos de vento (leste, 8° descendo, igual ao vento da tempestade)</li></ul></div><div class="reg" style="--c:#c6b8a4"><h3>Salar</h3><p><i>leito de lago seco · a maior depressão · vira o grande lago no Marco 3</i></p>
+<b style="font:11px var(--f-label);color:var(--gold)">PALETA BASE (ÁRIDO)</b><div class="sws"><i style="background:#6e5c54" title="#6e5c54"></i><i style="background:#978679" title="#978679"></i><i style="background:#b2a392" title="#b2a392"></i><i style="background:#c6b8a4" title="#c6b8a4"></i><i style="background:#d8ccba" title="#d8ccba"></i><i style="background:#ebe3d4" title="#ebe3d4"></i><i style="background:#b48d84" title="#b48d84"></i><i style="background:#fbf7ee" title="#fbf7ee"></i></div>
+<p><b>Chão:</b> Crosta de sal creme, um tico rosada (não é branco de neve: fica na família do planeta e não briga com o traje branco). Polígonos de ~50 px com crista clara e sombra embaixo, rede fina por dentro.</p>
+<img class="px" src="sprites/ground_salar_arid.png" alt="" style="max-width:512px">
+<p><b>Formações grandes:</b></p><ul><li><b>Crosta de sal elevada</b> (placas grossas empurradas, 5×1 tiles, baixa)</li><li>Sem morros: é plano de propósito, pra ler como fundo de lago</li><li>Anéis de marca d'água (L1, L2, L3) em anel escuro</li></ul>
+<p><b>Decoração solta:</b></p><ul><li>Cristinhas de sal</li><li>Manchas de crosta úmida (mais escura)</li><li>Rachaduras</li><li>Cristais de sal soltos (com altura, não colidem)</li></ul></div><div class="reg" style="--c:#3a343e"><h3>Basalto</h3><p><i>escuro, rochas pontudas · no futuro vira vulcão</i></p>
+<b style="font:11px var(--f-label);color:var(--gold)">PALETA BASE (ÁRIDO)</b><div class="sws"><i style="background:#17141b" title="#17141b"></i><i style="background:#231f28" title="#231f28"></i><i style="background:#2f2a33" title="#2f2a33"></i><i style="background:#3a343e" title="#3a343e"></i><i style="background:#4b444f" title="#4b444f"></i><i style="background:#685e68" title="#685e68"></i><i style="background:#5a3a30" title="#5a3a30"></i><i style="background:#7a4632" title="#7a4632"></i></div>
+<p><b>Chão:</b> Rocha escura fria com fraturas retas e angulosas, escória e manchas de óxido apagadas (nada de laranja vivo: o vulcão é só gancho, por enquanto está extinto).</p>
+<img class="px" src="sprites/ground_basalt_arid.png" alt="" style="max-width:512px">
+<p><b>Formações grandes:</b></p><ul><li><b>Pináculos de basalto</b> (colunas de topo quebrado, 3×2 tiles)</li><li><b>Cone de basalto</b> (cratera escura no topo: o gancho do vulcão, 5+3 tiles)</li><li>Morros escuros com mais ferro</li></ul>
+<p><b>Decoração solta:</b></p><ul><li>Escória (cascalho escuro)</li><li>Manchas de óxido pintadas</li><li>Rachaduras</li><li>Lascas pontudas soltas (com altura, não colidem)</li></ul></div><div class="reg" style="--c:#90a6b9"><h3>Faixa gelada</h3><p><i>borda norte · onde ficam os gelos-portão</i></p>
+<b style="font:11px var(--f-label);color:var(--gold)">PALETA BASE (ÁRIDO)</b><div class="sws"><i style="background:#33425a" title="#33425a"></i><i style="background:#536880" title="#536880"></i><i style="background:#7f95aa" title="#7f95aa"></i><i style="background:#90a6b9" title="#90a6b9"></i><i style="background:#a4bacb" title="#a4bacb"></i><i style="background:#cfe0ea" title="#cfe0ea"></i><i style="background:#62bede" title="#62bede"></i><i style="background:#c6f3ff" title="#c6f3ff"></i></div>
+<p><b>Chão:</b> Geada por cima da rocha: azul-acinzentado com manchas claras e brilhos de gelo. Na Névoa a geada some e aparece rocha molhada; no Verde vira tundra com musgo.</p>
+<img class="px" src="sprites/ground_frost_arid.png" alt="" style="max-width:512px">
+<p><b>Formações grandes:</b></p><ul><li><b>Gelos-portão</b> (bloco de gelo gigante com rocha presa dentro, 4×2 tiles) fechando corredores entre morros</li><li>Morros gelados com muito gelo</li><li>Atrás do portão: destroço melhor + contêiner lacrado (Marco 3)</li></ul>
+<p><b>Decoração solta:</b></p><ul><li>Lâminas de gelo liso com reflexo</li><li>Sulcos de geada</li><li>Pedaços de gelo soltos (com altura, não colidem)</li></ul></div></div></section>
+
+<section><h2>2 · As regiões no Árido (960×540, HUD B2)</h2>
+<div class="grid2">
+<figure><img class="px" src="arid_base.png" alt=""><figcaption><b>planalto · a base</b> · cratera com a tampa de gelo (canto direito)</figcaption></figure>
+<figure><img class="px" src="arid_plateau.png" alt=""><figcaption><b>planalto</b> · arco, monolito, afloramentos e uma depressão com leito seco</figcaption></figure>
+<figure><img class="px" src="arid_salar.png" alt=""><figcaption><b>salar</b> · crosta poligonal, crosta elevada, afloramentos de silício</figcaption></figure>
+<figure><img class="px" src="arid_basalt.png" alt=""><figcaption><b>basalto</b> · pináculos, cone, lascas soltas, morros escuros com ferro</figcaption></figure>
+<figure><img class="px" src="arid_frost.png" alt=""><figcaption><b>faixa gelada</b> · gelo-portão fechando o corredor entre 2 morros gelados</figcaption></figure>
+<figure><img class="px" src="../before/regioes_hoje_arido.png" alt=""><figcaption><b>antes · o jogo hoje</b> no Árido (mesmo chão em todo canto)</figcaption></figure>
+</div>
+<h3 style="margin-top:26px">Passagem de uma região pra outra</h3>
+<p class="lede">A região de cada pixel é a do tile em (x + dx, y + dy), com dx e dy vindos de um ruído preso no
+mundo (até ±14 px). A divisa vira curva irregular; 1 px de fenda escura marca o encontro.</p>
+<div class="grid3" style="margin-top:10px">
+<figure><img class="px" src="arid_t_salar.png" alt=""><figcaption><b>planalto → salar</b></figcaption></figure>
+<figure><img class="px" src="arid_t_basalt.png" alt=""><figcaption><b>planalto → basalto</b></figcaption></figure>
+<figure><img class="px" src="arid_t_frost.png" alt=""><figcaption><b>planalto → faixa gelada</b></figcaption></figure>
+</div></section>
+
+<section><h2>3 · Os 4 estágios numa região (planalto)</h2>
+<div class="grid2">
+<div><div class="cyc" style="--d:8s"><img class="" src="stage_storm.png" alt=""><img class="d1" src="stage_arid.png" alt=""><img class="d2" src="stage_mist.png" alt=""><img class="d3" src="stage_green.png" alt=""><span class="">1 · TEMPESTADE</span><span class="d1">2 · ÁRIDO</span><span class="d2">3 · NÉVOA</span><span class="d3">4 · VERDE</span></div><figcaption>ciclo de 2 s por estágio · mesma
+vista</figcaption></div>
+<div class="box reco"><h3>“Paleta base + variação”</h3><ul>
+<li>Cada região tem <b>1 rampa de 8 cores</b> (fenda, sombra, escuro, base, claro, brilho, 2 acentos). Os
+sprites são <b>PNG indexado</b>: o índice é o desenho, a rampa é a cor.</li>
+<li><b>Tempestade</b>: puxa 30% pro ocre da poeira e achata o contraste (a poeira assentou) + a camada de poeira
+que já está no jogo.</li>
+<li><b>Árido</b>: a rampa base.</li>
+<li><b>Névoa</b>: 45% menos saturação, 16% mais escuro, véu cinza-azulado; na faixa gelada a geada vira rocha
+molhada. Por cima: manchas de umidade, chuva e as bacias enchendo.</li>
+<li><b>Verde</b>: terra com matéria orgânica (mistura de verde-oliva, mais forte no planalto e na faixa gelada,
+fraca no salar). Por cima: <b>grama/musgo como camada com borda deformada</b> (musgo no basalto), que prefere a
+beira d'água, e as plantas de hoje.</li>
+<li>Resultado: <b>5 conjuntos de chão</b> (4 regiões + o leito seco) × 1 desenho cada.</li></ul></div></div>
+<div class="grid4" style="margin-top:14px">
+<figure><img class="px" src="stage_storm.png" alt=""><figcaption><b>Tempestade</b></figcaption></figure><figure><img class="px" src="stage_arid.png" alt=""><figcaption><b>Árido</b></figcaption></figure>
+<figure><img class="px" src="stage_mist.png" alt=""><figcaption><b>Névoa</b> · água no L2, chuva</figcaption></figure><figure><img class="px" src="stage_green.png" alt=""><figcaption><b>Verde</b> · água no L3, grama</figcaption></figure>
+</div>
+<h3 style="margin-top:22px">As rampas (região × estágio)</h3><table><tr><th>região</th><th>Tempestade</th><th>Árido</th><th>Névoa</th><th>Verde</th></tr><tr><td><b>planalto</b></td><td><img class="px" src="sprites/ground_plateau_storm.png" alt="" style="border:0"><div class="sws"><i style="background:#644837" title="#644837"></i><i style="background:#79553d" title="#79553d"></i><i style="background:#8f6448" title="#8f6448"></i><i style="background:#956848" title="#956848"></i><i style="background:#9b6e4c" title="#9b6e4c"></i><i style="background:#b0825b" title="#b0825b"></i><i style="background:#927a65" title="#927a65"></i><i style="background:#75513e" title="#75513e"></i></div></td><td><img class="px" src="sprites/ground_plateau_arid.png" alt="" style="border:0"><div class="sws"><i style="background:#3a231d" title="#3a231d"></i><i style="background:#5c3727" title="#5c3727"></i><i style="background:#80503a" title="#80503a"></i><i style="background:#8a573a" title="#8a573a"></i><i style="background:#93603f" title="#93603f"></i><i style="background:#b48258" title="#b48258"></i><i style="background:#857469" title="#857469"></i><i style="background:#56322a" title="#56322a"></i></div></td><td><img class="px" src="sprites/ground_plateau_mist.png" alt="" style="border:0"><div class="sws"><i style="background:#302928" title="#302928"></i><i style="background:#453833" title="#453833"></i><i style="background:#5c4b44" title="#5c4b44"></i><i style="background:#624f45" title="#624f45"></i><i style="background:#68554a" title="#68554a"></i><i style="background:#806c5b" title="#806c5b"></i><i style="background:#66625e" title="#66625e"></i><i style="background:#423534" title="#423534"></i></div></td><td><img class="px" src="sprites/ground_plateau_green.png" alt="" style="border:0"><div class="sws"><i style="background:#3a3322" title="#3a3322"></i><i style="background:#4d4029" title="#4d4029"></i><i style="background:#635036" title="#635036"></i><i style="background:#695436" title="#695436"></i><i style="background:#6e5a3a" title="#6e5a3a"></i><i style="background:#856e48" title="#856e48"></i><i style="background:#696651" title="#696651"></i><i style="background:#4a3e2b" title="#4a3e2b"></i></div></td></tr><tr><td><b>salar</b></td><td><img class="px" src="sprites/ground_salar_storm.png" alt="" style="border:0"><div class="sws"><i style="background:#846b58" title="#846b58"></i><i style="background:#9d856f" title="#9d856f"></i><i style="background:#ae977f" title="#ae977f"></i><i style="background:#baa489" title="#baa489"></i><i style="background:#c6b097" title="#c6b097"></i><i style="background:#d1bea7" title="#d1bea7"></i><i style="background:#b08976" title="#b08976"></i><i style="background:#dbcab7" title="#dbcab7"></i></div></td><td><img class="px" src="sprites/ground_salar_arid.png" alt="" style="border:0"><div class="sws"><i style="background:#6e5c54" title="#6e5c54"></i><i style="background:#978679" title="#978679"></i><i style="background:#b2a392" title="#b2a392"></i><i style="background:#c6b8a4" title="#c6b8a4"></i><i style="background:#d8ccba" title="#d8ccba"></i><i style="background:#ebe3d4" title="#ebe3d4"></i><i style="background:#b48d84" title="#b48d84"></i><i style="background:#fbf7ee" title="#fbf7ee"></i></div></td><td><img class="px" src="sprites/ground_salar_mist.png" alt="" style="border:0"><div class="sws"><i style="background:#56514f" title="#56514f"></i><i style="background:#746e69" title="#746e69"></i><i style="background:#89827a" title="#89827a"></i><i style="background:#999186" title="#999186"></i><i style="background:#a8a094" title="#a8a094"></i><i style="background:#b8b2a4" title="#b8b2a4"></i><i style="background:#8a7571" title="#8a7571"></i><i style="background:#cac3b0" title="#cac3b0"></i></div></td><td><img class="px" src="sprites/ground_salar_green.png" alt="" style="border:0"><div class="sws"><i style="background:#635950" title="#635950"></i><i style="background:#867b6d" title="#867b6d"></i><i style="background:#9d9280" title="#9d9280"></i><i style="background:#aea38e" title="#aea38e"></i><i style="background:#bdb39e" title="#bdb39e"></i><i style="background:#cfc7b1" title="#cfc7b1"></i><i style="background:#9f8074" title="#9f8074"></i><i style="background:#e1dac1" title="#e1dac1"></i></div></td></tr><tr><td><b>basalto</b></td><td><img class="px" src="sprites/ground_basalt_storm.png" alt="" style="border:0"><div class="sws"><i style="background:#4f3f35" title="#4f3f35"></i><i style="background:#56463d" title="#56463d"></i><i style="background:#5e4d44" title="#5e4d44"></i><i style="background:#64534b" title="#64534b"></i><i style="background:#6e5c55" title="#6e5c55"></i><i style="background:#816c64" title="#816c64"></i><i style="background:#785642" title="#785642"></i><i style="background:#8b5d43" title="#8b5d43"></i></div></td><td><img class="px" src="sprites/ground_basalt_arid.png" alt="" style="border:0"><div class="sws"><i style="background:#17141b" title="#17141b"></i><i style="background:#231f28" title="#231f28"></i><i style="background:#2f2a33" title="#2f2a33"></i><i style="background:#3a343e" title="#3a343e"></i><i style="background:#4b444f" title="#4b444f"></i><i style="background:#685e68" title="#685e68"></i><i style="background:#5a3a30" title="#5a3a30"></i><i style="background:#7a4632" title="#7a4632"></i></div></td><td><img class="px" src="sprites/ground_basalt_mist.png" alt="" style="border:0"><div class="sws"><i style="background:#1c1c20" title="#1c1c20"></i><i style="background:#25252a" title="#25252a"></i><i style="background:#2d2c32" title="#2d2c32"></i><i style="background:#343439" title="#343439"></i><i style="background:#403f45" title="#403f45"></i><i style="background:#545257" title="#545257"></i><i style="background:#463a38" title="#463a38"></i><i style="background:#58443e" title="#58443e"></i></div></td><td><img class="px" src="sprites/ground_basalt_green.png" alt="" style="border:0"><div class="sws"><i style="background:#1a1b1b" title="#1a1b1b"></i><i style="background:#232324" title="#232324"></i><i style="background:#2c2c2d" title="#2c2c2d"></i><i style="background:#343335" title="#343335"></i><i style="background:#413f42" title="#413f42"></i><i style="background:#565355" title="#565355"></i><i style="background:#49382f" title="#49382f"></i><i style="background:#5f4232" title="#5f4232"></i></div></td></tr><tr><td><b>gelada</b></td><td><img class="px" src="sprites/ground_frost_storm.png" alt="" style="border:0"><div class="sws"><i style="background:#5f5c5c" title="#5f5c5c"></i><i style="background:#747273" title="#747273"></i><i style="background:#8f8f8d" title="#8f8f8d"></i><i style="background:#9a9996" title="#9a9996"></i><i style="background:#a6a6a2" title="#a6a6a2"></i><i style="background:#c0bcb4" title="#c0bcb4"></i><i style="background:#7ca7ad" title="#7ca7ad"></i><i style="background:#bac9c2" title="#bac9c2"></i></div></td><td><img class="px" src="sprites/ground_frost_arid.png" alt="" style="border:0"><div class="sws"><i style="background:#33425a" title="#33425a"></i><i style="background:#536880" title="#536880"></i><i style="background:#7f95aa" title="#7f95aa"></i><i style="background:#90a6b9" title="#90a6b9"></i><i style="background:#a4bacb" title="#a4bacb"></i><i style="background:#cfe0ea" title="#cfe0ea"></i><i style="background:#62bede" title="#62bede"></i><i style="background:#c6f3ff" title="#c6f3ff"></i></div></td><td><img class="px" src="sprites/ground_frost_mist.png" alt="" style="border:0"><div class="sws"><i style="background:#3f4752" title="#3f4752"></i><i style="background:#505a66" title="#505a66"></i><i style="background:#64717e" title="#64717e"></i><i style="background:#6c7a87" title="#6c7a87"></i><i style="background:#768491" title="#768491"></i><i style="background:#8999a4" title="#8999a4"></i><i style="background:#588396" title="#588396"></i><i style="background:#80a7b4" title="#80a7b4"></i></div></td><td><img class="px" src="sprites/ground_frost_green.png" alt="" style="border:0"><div class="sws"><i style="background:#3c4a4d" title="#3c4a4d"></i><i style="background:#4d5e60" title="#4d5e60"></i><i style="background:#617579" title="#617579"></i><i style="background:#6a7e81" title="#6a7e81"></i><i style="background:#74898b" title="#74898b"></i><i style="background:#889d9d" title="#889d9d"></i><i style="background:#518b95" title="#518b95"></i><i style="background:#7eacae" title="#7eacae"></i></div></td></tr><tr><td><b>leito seco</b></td><td><img class="px" src="sprites/ground_bed_storm.png" alt="" style="border:0"><div class="sws"><i style="background:#6e4e3b" title="#6e4e3b"></i><i style="background:#825c44" title="#825c44"></i><i style="background:#916a4d" title="#916a4d"></i><i style="background:#9d7354" title="#9d7354"></i><i style="background:#a97f5d" title="#a97f5d"></i><i style="background:#b8906c" title="#b8906c"></i><i style="background:#927a65" title="#927a65"></i><i style="background:#78553f" title="#78553f"></i></div></td><td><img class="px" src="sprites/ground_bed_arid.png" alt="" style="border:0"><div class="sws"><i style="background:#4a2d24" title="#4a2d24"></i><i style="background:#6a4433" title="#6a4433"></i><i style="background:#835a42" title="#835a42"></i><i style="background:#96694d" title="#96694d"></i><i style="background:#aa7c5c" title="#aa7c5c"></i><i style="background:#c39874" title="#c39874"></i><i style="background:#857469" title="#857469"></i><i style="background:#5a372c" title="#5a372c"></i></div></td><td><img class="px" src="sprites/ground_bed_mist.png" alt="" style="border:0"><div class="sws"><i style="background:#3a312e" title="#3a312e"></i><i style="background:#4f413c" title="#4f413c"></i><i style="background:#5f5149" title="#5f5149"></i><i style="background:#6b5b51" title="#6b5b51"></i><i style="background:#7a695d" title="#7a695d"></i><i style="background:#937b67" title="#937b67"></i><i style="background:#66625e" title="#66625e"></i><i style="background:#453836" title="#453836"></i></div></td><td><img class="px" src="sprites/ground_bed_green.png" alt="" style="border:0"><div class="sws"><i style="background:#423526" title="#423526"></i><i style="background:#574631" title="#574631"></i><i style="background:#68553c" title="#68553c"></i><i style="background:#756045" title="#756045"></i><i style="background:#846d4e" title="#846d4e"></i><i style="background:#9a805a" title="#9a805a"></i><i style="background:#6c6755" title="#6c6755"></i><i style="background:#4d3d2c" title="#4d3d2c"></i></div></td></tr></table></section>
+
+<section><h2>4 · Formações fixas (marcos, não mineráveis)</h2>
+<p class="lede">Sprite grande ancorado no centro da base (igual aos outros objetos), ordenado pelo pé. Bloqueia
+<b>só os tiles do pé</b> (em vermelho na grade); o resto do desenho é “altura” e o player passa por trás. Cada uma
+tem 4 afloramentos (rochas pequenas com minério da região) em volta, entre 2,5 e 5 tiles.</p>
+<table style="margin-top:12px"><tr><th>formação</th><th>sprite (2×)</th><th>pegada na grade (vermelho = bloqueia, ponto
+= âncora)</th><th>tamanho</th></tr><tr><td><b>Monolito</b><br>planalto</td>
+<td><div class="chk" style="padding:8px"><img src="sprites/form_monolith.png" width="144" height="272" alt=""></div></td>
+<td><img class="px" src="sprites/foot_monolith.png" alt="" style="max-width:340px;border:0"></td>
+<td><b>72×136 · 2×4 tiles de desenho</b><br>bloqueia: <b>1 tile (o pé)</b><br>pilar fino e alto: marco visível de longe; bloqueia só o pé</td></tr><tr><td><b>Arco de pedra</b><br>planalto</td>
+<td><div class="chk" style="padding:8px"><img src="sprites/form_arch.png" width="352" height="256" alt=""></div></td>
+<td><img class="px" src="sprites/foot_arch.png" alt="" style="max-width:340px;border:0"></td>
+<td><b>176×128 · 5×4 tiles</b><br>bloqueia: <b>2 tiles (as pernas, nas pontas)</b><br>o player passa por baixo pelo vão de 3 tiles; a ordem por y resolve (sem camada de teto)</td></tr><tr><td><b>Pináculos de basalto</b><br>basalto</td>
+<td><div class="chk" style="padding:8px"><img src="sprites/form_basalt_spires.png" width="240" height="272" alt=""></div></td>
+<td><img class="px" src="sprites/foot_basalt_spires.png" alt="" style="max-width:340px;border:0"></td>
+<td><b>120×136 · 4×4 tiles</b><br>bloqueia: <b>3×2 tiles</b><br>aglomerado de colunas de topo quebrado, sem cara de cone</td></tr><tr><td><b>Cone de basalto</b><br>basalto</td>
+<td><div class="chk" style="padding:8px"><img src="sprites/form_cone.png" width="288" height="200" alt=""></div></td>
+<td><img class="px" src="sprites/foot_cone.png" alt="" style="max-width:340px;border:0"></td>
+<td><b>144×100 · 4,5×3 tiles</b><br>bloqueia: <b>5 + 3 tiles (pé largo)</b><br>o gancho do vulcão: cratera escura, óxido apagado</td></tr><tr><td><b>Crosta de sal elevada</b><br>salar</td>
+<td><div class="chk" style="padding:8px"><img src="sprites/form_salt_ridge.png" width="352" height="144" alt=""></div></td>
+<td><img class="px" src="sprites/foot_salt_ridge.png" alt="" style="max-width:340px;border:0"></td>
+<td><b>176×72 · 5,5×2 tiles</b><br>bloqueia: <b>5×1 tiles</b><br>baixa, não esconde ninguém; no Verde vira ilhota no lago</td></tr><tr><td><b>Gelo-portão</b><br>faixa gelada</td>
+<td><div class="chk" style="padding:8px"><img src="sprites/ice_gate_0.png" width="272" height="264" alt=""></div></td>
+<td><img class="px" src="sprites/foot_ice_gate_0.png" alt="" style="max-width:340px;border:0"></td>
+<td><b>136×132 · 4×4 tiles</b><br>bloqueia: <b>4×2 → 3×2 → 2×1 → nada</b><br>encolhe em 3 etapas nos marcos de calor; sublima (no Árido não tem água líquida) e deixa geada</td></tr></table>
+<h3 style="margin-top:26px">Gelo: o portão derretendo e a cratera</h3>
+<div class="grid2">
+<div><div class="cyc" style="--d:6s"><img class="" src="gate_melt_0.png" alt=""><img class="d1" src="gate_melt_1.png" alt=""><img class="d2" src="gate_melt_2.png" alt=""><img class="d3" src="gate_melt_3.png" alt=""><span class="">INTEIRO</span><span class="d1">ETAPA 1</span><span class="d2">ETAPA 2</span><span class="d3">ABERTO</span></div><figcaption><b>gelo-portão</b> · encolhe em etapas
+e deixa uma <b>geada</b> no chão (sublima: no Árido não tem água líquida)</figcaption></div>
+<div><div class="cyc" style="--d:6s"><img class="" src="crater_melt_0.png" alt=""><img class="d1" src="crater_melt_1.png" alt=""><img class="d2" src="crater_melt_2.png" alt=""><img class="d3" src="crater_melt_3.png" alt=""><span class="">TAMPA</span><span class="d1">RACHOU</span><span class="d2">RESTOS</span><span class="d3">ABERTA</span></div><figcaption><b>cratera</b> · overlay 96×96 por cima do
+<code>crater.png</code> de hoje (depois vem a rampa)</figcaption></div></div>
+<div class="chk" style="margin-top:14px">
+<figure><img src="sprites/ice_gate_0.png" width="272" height="264" alt=""><figcaption>ice_gate_0 · 4×2</figcaption></figure><figure><img src="sprites/ice_gate_1.png" width="272" height="264" alt=""><figcaption>ice_gate_1 · 3×2</figcaption></figure>
+<figure><img src="sprites/ice_gate_2.png" width="272" height="264" alt=""><figcaption>ice_gate_2 · 2×1</figcaption></figure>
+<figure><img src="sprites/crater_ice_0.png" width="192" height="192" alt=""><figcaption>crater_ice_0</figcaption></figure><figure><img src="sprites/crater_ice_1.png" width="192" height="192" alt=""><figcaption>crater_ice_1</figcaption></figure>
+<figure><img src="sprites/crater_ice_2.png" width="192" height="192" alt=""><figcaption>crater_ice_2</figcaption></figure></div>
+<h3 style="margin-top:22px">Soltos com altura (não colidem, não mineram)</h3>
+<div class="chk"><figure><img src="sprites/decor_shards.png" width="112" height="96" alt=""><figcaption>lascas de basalto</figcaption></figure>
+<figure><img src="sprites/decor_salt_crystals.png" width="88" height="64" alt=""><figcaption>cristais de sal</figcaption></figure>
+<figure><img src="sprites/decor_ice_chunks.png" width="104" height="72" alt=""><figcaption>pedaços de gelo</figcaption></figure></div></section>
+
+<section><h2>5 · Decoração que quebra a grade · sem × com</h2>
+<p class="lede">“Sem” é o jeito de hoje: tile 32×32 repetido (4 variações), região por tile, borda reta. “Com” é a
+proposta inteira: textura grande, borda deformada, decalques e entulho no pé dos morros.</p>
+<div class="grid2" style="margin-top:12px">
+<figure><img class="px" src="decor_off.png" alt=""><figcaption><b>sem</b> · o tile repete e a bacia vira escada</figcaption></figure>
+<figure><img class="px" src="decor_on.png" alt=""><figcaption><b>com</b> · manchas, rachaduras longas, placas, cascalho, sulcos</figcaption></figure>
+<figure><img class="px" src="decor_border_off.png" alt=""><figcaption><b>sem</b> · a divisa do salar é a grade</figcaption></figure>
+<figure><img class="px" src="decor_border_on.png" alt=""><figcaption><b>com</b> · a divisa vira costa</figcaption></figure>
+</div>
+<h3 style="margin-top:22px">Os decalques (Árido, 1×)</h3>
+<div class="grid2">
+<figure><img class="px" src="sprites/decals_plateau.png" alt=""><figcaption><b>planalto</b> · mancha escura, mancha clara, rachadura, placas, cascalho, sulcos</figcaption></figure>
+<figure><img class="px" src="sprites/decals_salar.png" alt=""><figcaption><b>salar</b> · cristinhas, mancha úmida, rachadura, mancha clara</figcaption></figure>
+<figure><img class="px" src="sprites/decals_basalt.png" alt=""><figcaption><b>basalto</b> · escória, óxido, rachadura, mancha, placas</figcaption></figure>
+<figure><img class="px" src="sprites/decals_frost.png" alt=""><figcaption><b>faixa gelada</b> · lâmina de gelo, geada, cascalho, mancha clara</figcaption></figure>
+</div>
+<div class="box" style="margin-top:12px"><p>Sorteio numa grade de <b>96 px presa no mundo</b> (≈ 3×3 tiles), 2
+sorteios por célula (um grande e um miúdo). Chance por região: planalto 40%, salar 35%, basalto 45%, gelada
+40%, leito 25%. A mesma célula dá sempre o mesmo decalque (seed do mundo), então não pisca nem muda entre
+vistas. Não sorteia no raio de 6 tiles da base nem em cima das formações.</p></div></section>
+
+<section><h2>6 · Morros mineráveis com borda orgânica</h2>
+<div class="grid2">
+<figure><img class="px" src="hills_before.png" alt=""><figcaption><b>antes</b> · o desenho de hoje (wall_dead + face por tile): degrau de grade</figcaption></figure>
+<figure><img class="px" src="hills_after.png" alt=""><figcaption><b>depois</b> · mesmos tiles, mesma colisão: borda curva, face em camadas, entulho no pé</figcaption></figure>
+</div>
+<div class="box reco" style="margin-top:12px"><h3>Como funciona (grade dual)</h3><ul>
+<li>A silhueta do topo sai de um campo <b>interpolado entre os centros dos tiles</b> (bilinear com smoothstep) mais
+um ruído, cortado em 0,5. A <b>borda reta cai exatamente na borda do tile</b> (a colisão bate), a escada diagonal
+vira diagonal, o canto convexo arredonda e o côncavo ganha um filete.</li>
+<li>A <b>face é a silhueta extrudada 24 px pra baixo</b> (o mesmo topo elevado de 24 px de hoje): sai certa em
+curva, canto e reentrância, sem peça especial. A face continua rocha: estratos tremidos, fissuras curtas e
+inclinadas, escurecendo pro pé, <b>sem junta vertical regular</b>.</li>
+<li>Minerar 1 tile só refaz a silhueta em volta dele (3×3 tiles).</li>
+<li>Os minérios de hoje (<code>ore_*.png</code>) continuam por cima do topo, recortados pela silhueta.</li></ul></div></section>
+
+<section><h2>7 · Relevo e água</h2>
+<figure class="one"><img class="px" src="corte_relevo.png" alt=""><figcaption><b>corte do relevo</b> · o salar é a
+bacia mais funda; as depressões pequenas do planalto só enchem de verdade no L3</figcaption></figure>
+<div class="grid2" style="margin-top:14px">
+<div><div class="cyc" style="--d:8s"><img class="" src="water_arid.png" alt=""><img class="d1" src="water_mist_l1.png" alt=""><img class="d2" src="water_mist_l2.png" alt=""><img class="d3" src="water_green_l3.png" alt=""><span class="">ÁRIDO · SECO</span><span class="d1">NÉVOA · L1</span><span class="d2">NÉVOA · L2</span><span class="d3">VERDE · L3</span></div><figcaption><b>a mesma bacia</b> enchendo
+das partes mais fundas pra fora</figcaption></div>
+<div class="box reco"><h3>Como a depressão aparece no seco</h3><ul>
+<li><b>Leito seco</b>: dentro do nível máximo (L3) o chão vira silte claro com rachadura de lama (placas de ~36 px
+com a borda enrolando). Dá pra ver de longe que “aqui já foi lago”.</li>
+<li><b>Marca d'água seca</b>: as curvas de nível <b>L1, L2 e L3</b> desenhadas no chão (linha mineral clara de 2 px
+com 1 px de sombra; L3 contínua, L1 e L2 tracejadas; no salar, anel escuro). A água vai chegar exatamente nelas.</li>
+<li><b>Na Névoa</b> chove e a água sobe de L1 pra L2 com o índice de água; as marcas de cima continuam visíveis, a
+margem fica 3 px úmida (terra escurecida), e tem raso, fundo e espuma na beira.</li>
+<li><b>No Verde</b> chega no L3; a grama e as plantas preferem a beira.</li>
+<li>Como as marcas mostram o futuro, o jogador já sabe onde <b>não</b> construir (máquina submersa para).</li></ul></div></div>
+<div class="grid2" style="margin-top:14px">
+<figure><img class="px" src="water_salar_mist.png" alt=""><figcaption><b>salar na Névoa</b> (L2) · o lago começa no meio</figcaption></figure>
+<figure><img class="px" src="water_salar_green.png" alt=""><figcaption><b>salar no Verde</b> (L3) · o grande lago, a crosta elevada vira ilhota</figcaption></figure>
+</div></section>
+
+<section><h2>Pro Dev integrar</h2>
+<div class="box dev"><h3>Camadas e ordem de desenho (superfície)</h3><ol style="color:var(--muted)">
+<li><b>Chão</b>: textura grande da classe do pixel (planalto, salar, basalto, gelada ou leito), recortada pela
+posição no mundo: <code>ground_{região}.png</code> 512×512, o tile (tx, ty) usa o retângulo
+<code>((tx % 16)·32, (ty % 16)·32, 32, 32)</code>. A classe do pixel = região do tile em <code>(x + dx, y +
+dy)</code> (deslocamento ±14 px, ruído preso no mundo). Leito = planalto com altura &lt; L3. 1 px de fenda
+(índice 1) na divisa.</li>
+<li><b>Marcas d'água</b> L1..L3 acima do nível atual (curva de nível da altura por pixel = bilinear das alturas dos
+tiles com o mesmo deslocamento).</li>
+<li><b>Decalques</b> (sorteio por célula de 96 px) e <b>entulho</b> no pé dos morros (45% dos tiles de pé).</li>
+<li><b>Água</b> (altura &lt; nível): espuma 1 px, raso, médio, fundo; margem úmida de 3 px.</li>
+<li><b>Cobertura</b>: umidade (Névoa) ou grama/musgo (Verde), com a borda deformada.</li>
+<li><b>Morros + objetos por linha</b> (igual ao <code>build_draw_list</code>): topo da grade dual na linha do tile,
+face na linha do topo de onde pende; formações, rochas, soltos, máquinas e player pelo pé.</li>
+<li>Clima (poeira/chuva) e HUD por cima, como hoje.</li></ol></div>
+
+<div class="grid2" style="margin-top:14px">
+<div class="box dev"><h3>O que é sprite e o que é procedural</h3><ul>
+<li><b>Sprite (PNG indexado)</b>: as 5 texturas de chão, topo e face do morro, 36 decalques, 5 formações, gelo-portão
+×3, tampa da cratera ×3, geada, 9 soltos. Total <b>64 PNG</b> em
+<code>assets/sprites/_pending/regions/</code>.</li>
+<li><b>Procedural</b>: mapa de região e de altura (noise), deslocamento da borda, silhueta dos morros (grade
+dual) e extrusão da face, curvas de nível, água, cobertura de grama/umidade, sorteio dos decalques.</li>
+<li><b>Recolorir</b>: PNG modo P com a rampa do Árido embutida. Índices: 0..7 rampa, 8 contorno
+<code>#1b1630</code>, 9 sombra (preto, alfa 80), 255 transparente. As rampas dos 4 estágios estão
+em <code>regions_palettes.json</code> (tabelas BASE, HILL, SAND e ICE). No load: trocar a paleta da Surface de 8
+bits (ou <code>PixelArray.replace</code>, se o pygame converter pra 32 bits; não testei qual dos dois o
+<code>pygame.image.load</code> devolve com o tRNS parcial da sombra).</li>
+<li>A receita completa por pixel está em <code>tools/sprites/regions_scene.py</code> (classe <code>Scene</code>),
+e as formações e pegadas em <code>tools/sprites/regions_formations.py</code>.</li></ul></div>
+<div class="box dev"><h3>Desempenho (recomendação)</h3><ul>
+<li>Assar o chão em <b>pedaços de 16×16 tiles (512×512 px)</b>: textura + borda + marcas + decalques + água +
+cobertura, cacheados e refeitos só quando muda o estágio, o nível da água ou um tile minerado. No quadro é
+1 blit por pedaço visível (~6), mais barato que os ~550 blits por tile de hoje.</li>
+<li>O jeito mais simples de assar é <b>numpy + <code>pygame.surfarray</code></b>, que é literalmente o
+<code>regions_scene.py</code> portado. O custo é pôr o numpy como dependência (hoje só tem pygame-ce). Decisão do
+gerente/dono.</li>
+<li>Sem numpy dá também, mas com mais código: autotile de 16 peças pra grade dual dos morros, máscaras de borda
+pré-geradas por (vizinhança, tx % 8, ty % 8) e água em autotile A2 (o de hoje).</li>
+<li>Não medi no jogo; os tempos acima são estimativa.</li></ul></div></div>
+
+<div class="box dev" style="margin-top:14px"><h3>Formações: âncora e colisão</h3>
+<table><tr><th>sprite</th><th>tamanho</th><th>âncora (px no sprite)</th><th>tiles que bloqueiam (dx, dy) relativos ao
+tile do pé</th></tr>
+<tr><td><code>form_monolith.png</code></td><td>72×136</td><td>(36, 128)</td><td>(0, 0)</td></tr><tr><td><code>form_arch.png</code></td><td>176×128</td><td>(88, 120)</td><td>(-2, 0), (2, 0)</td></tr><tr><td><code>form_basalt_spires.png</code></td><td>120×136</td><td>(62, 130)</td><td>(-1, 0), (0, 0), (1, 0), (-1, -1), (0, -1), (1, -1)</td></tr><tr><td><code>form_salt_ridge.png</code></td><td>176×72</td><td>(88, 68)</td><td>(-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0)</td></tr><tr><td><code>form_cone.png</code></td><td>144×100</td><td>(72, 92)</td><td>(-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (-1, -1), (0, -1), (1, -1)</td></tr><tr><td><code>ice_gate_0.png</code></td><td>136×132</td><td>(66, 118)</td><td>(-2, 0), (-2, -1), (-1, 0), (-1, -1), (0, 0), (0, -1), (1, 0), (1, -1)</td></tr><tr><td><code>ice_gate_1.png</code></td><td>136×132</td><td>(66, 118)</td><td>(-1, 0), (-1, -1), (0, 0), (0, -1), (1, 0), (1, -1)</td></tr><tr><td><code>ice_gate_2.png</code></td><td>136×132</td><td>(66, 118)</td><td>(-1, 0), (0, 0)</td></tr>
+</table><p style="color:var(--muted)">A âncora cai no meio da borda de baixo do tile do pé (y = tile·32 + 30).
+Arco: só as pernas bloqueiam; o vão é andável e a ordem por y basta (quem está atrás fica por trás do arco). O
+gelo-portão troca de sprite e de pegada a cada etapa. Afloramentos: 4 rochas pequenas por formação (raio 2,5 a 5
+tiles), com o minério da região (planalto ferro/silício, basalto ferro, salar silício, gelada gelo); as rochas
+de hoje recoloridas pela rocha da região.</p></div>
+
+<div class="box dev" style="margin-top:14px"><h3>Números de partida (ajustáveis)</h3><ul>
+<li>Níveis d'água (altura 0..1): <b>L1 0.19</b> (começo da Névoa), <b>L2 0.29</b>, <b>L3
+0.385</b> (Verde cheio). Salar: elipse de 31×25 tiles a leste; depressões do planalto de 6 a 8,5 tiles.</li>
+<li>Faixa gelada: y &lt; ~24 (com ruído). Basalto: x &lt; ~44 (com ruído) e y &gt; ~44.</li>
+<li>Decalques: célula de 96 px, chances acima, mistura por região no JSON. Soltos com altura: 3,5% dos tiles
+livres da região.</li>
+<li>Morros: ruído de 0,42 na grade dual (±4 px de tremido nas bordas retas). Nenhum morro no salar nem abaixo do L3.</li></ul></div>
+
+<details style="margin-top:14px"><summary style="cursor:pointer;color:var(--gold)">Lista dos 64 PNG pendentes</summary>
+<table style="margin-top:8px"><tr><th>arquivo</th><th>tamanho</th><th>rampa</th><th>região</th></tr><tr><td><code>crater_ice_0.png</code></td><td>96×96</td><td>ICE</td><td>frost</td></tr><tr><td><code>crater_ice_1.png</code></td><td>96×96</td><td>ICE</td><td>frost</td></tr><tr><td><code>crater_ice_2.png</code></td><td>96×96</td><td>ICE</td><td>frost</td></tr><tr><td><code>decal_crack_0.png</code></td><td>208×65</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_crack_1.png</code></td><td>162×54</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_crack_2.png</code></td><td>126×72</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_gravel_0.png</code></td><td>49×31</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_gravel_1.png</code></td><td>50×20</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_gravel_2.png</code></td><td>50×30</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_gravel_3.png</code></td><td>47×28</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_icesheet_0.png</code></td><td>128×72</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_icesheet_1.png</code></td><td>104×60</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_icesheet_2.png</code></td><td>88×52</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_dark_0.png</code></td><td>224×96</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_dark_1.png</code></td><td>176×80</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_dark_2.png</code></td><td>144×64</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_light_0.png</code></td><td>192×80</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_light_1.png</code></td><td>150×64</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_patch_light_2.png</code></td><td>120×56</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_plates_0.png</code></td><td>54×42</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_plates_1.png</code></td><td>62×40</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_plates_2.png</code></td><td>52×31</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_ridges_0.png</code></td><td>60×24</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_ridges_1.png</code></td><td>53×29</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_ridges_2.png</code></td><td>45×26</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_rubble_0.png</code></td><td>58×14</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_rubble_1.png</code></td><td>44×14</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_rubble_2.png</code></td><td>61×14</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_rubble_3.png</code></td><td>39×14</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_scoria_0.png</code></td><td>50×35</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_scoria_1.png</code></td><td>42×24</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_scoria_2.png</code></td><td>54×32</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_scoria_3.png</code></td><td>48×18</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_stain_0.png</code></td><td>144×88</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_stain_1.png</code></td><td>112×72</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_stain_2.png</code></td><td>96×56</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_wind_0.png</code></td><td>140×40</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_wind_1.png</code></td><td>128×33</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decal_wind_2.png</code></td><td>106×40</td><td>BASE</td><td>região onde cai</td></tr><tr><td><code>decor_ice_chunks_0.png</code></td><td>26×18</td><td>ICE</td><td>frost</td></tr><tr><td><code>decor_ice_chunks_1.png</code></td><td>26×18</td><td>ICE</td><td>frost</td></tr><tr><td><code>decor_ice_chunks_2.png</code></td><td>26×18</td><td>ICE</td><td>frost</td></tr><tr><td><code>decor_salt_crystals_0.png</code></td><td>22×16</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_salt_crystals_1.png</code></td><td>22×16</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_salt_crystals_2.png</code></td><td>22×16</td><td>BASE</td><td>salar</td></tr><tr><td><code>decor_shards_0.png</code></td><td>28×24</td><td>HILL</td><td>basalt</td></tr><tr><td><code>decor_shards_1.png</code></td><td>28×24</td><td>HILL</td><td>basalt</td></tr><tr><td><code>decor_shards_2.png</code></td><td>28×24</td><td>HILL</td><td>basalt</td></tr><tr><td><code>form_arch.png</code></td><td>176×128</td><td>SAND</td><td>plateau</td></tr><tr><td><code>form_basalt_spires.png</code></td><td>120×136</td><td>HILL</td><td>basalt</td></tr><tr><td><code>form_cone.png</code></td><td>144×100</td><td>HILL</td><td>basalt</td></tr><tr><td><code>form_monolith.png</code></td><td>72×136</td><td>SAND</td><td>plateau</td></tr><tr><td><code>form_salt_ridge.png</code></td><td>176×72</td><td>BASE</td><td>salar</td></tr><tr><td><code>frost_ring.png</code></td><td>176×72</td><td>BASE</td><td>frost</td></tr><tr><td><code>ground_basalt.png</code></td><td>512×512</td><td>BASE</td><td>basalt</td></tr><tr><td><code>ground_bed.png</code></td><td>512×512</td><td>BASE</td><td>bed</td></tr><tr><td><code>ground_frost.png</code></td><td>512×512</td><td>BASE</td><td>frost</td></tr><tr><td><code>ground_plateau.png</code></td><td>512×512</td><td>BASE</td><td>plateau</td></tr><tr><td><code>ground_salar.png</code></td><td>512×512</td><td>BASE</td><td>salar</td></tr><tr><td><code>hill_face.png</code></td><td>512×24</td><td>HILL</td><td>região do morro</td></tr><tr><td><code>hill_top.png</code></td><td>512×512</td><td>HILL</td><td>região do morro</td></tr><tr><td><code>ice_gate_0.png</code></td><td>136×132</td><td>ICE</td><td>frost</td></tr><tr><td><code>ice_gate_1.png</code></td><td>136×132</td><td>ICE</td><td>frost</td></tr><tr><td><code>ice_gate_2.png</code></td><td>136×132</td><td>ICE</td><td>frost</td></tr></table>
+</details></section>
+
+<section><h2>Desvios do contrato</h2><div class="box"><ul>
+<li><b>Nenhum arquivo do contrato atual foi tocado.</b> Tudo novo está em <code>_pending/regions/</code>.</li>
+<li>Se aprovado, o contrato do §6 ganha: <code>ground_*</code>, <code>hill_top</code>/<code>hill_face</code>,
+<code>decal_*</code>, <code>form_*</code>, <code>ice_gate_*</code>, <code>crater_ice_*</code>, <code>frost_ring</code>,
+<code>decor_*</code> (PNG indexado, o que é novo no projeto). Saem de uso na superfície: <code>sand_*</code> e os
+<code>wall_*</code>/<code>wall_face_*</code> dos morros (a caverna continua com os de hoje).</li></ul></div></section>
+</div></body></html>

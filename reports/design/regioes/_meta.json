@@ -1,0 +1,702 @@
+{
+ "files": {
+  "ground_plateau.png": [
+   "512×512",
+   "plateau",
+   "BASE"
+  ],
+  "ground_salar.png": [
+   "512×512",
+   "salar",
+   "BASE"
+  ],
+  "ground_basalt.png": [
+   "512×512",
+   "basalt",
+   "BASE"
+  ],
+  "ground_frost.png": [
+   "512×512",
+   "frost",
+   "BASE"
+  ],
+  "ground_bed.png": [
+   "512×512",
+   "bed",
+   "BASE"
+  ],
+  "hill_top.png": [
+   "512×512",
+   "região do morro",
+   "HILL"
+  ],
+  "hill_face.png": [
+   "512×24",
+   "região do morro",
+   "HILL"
+  ],
+  "decal_patch_dark_0.png": [
+   "224×96",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_patch_light_0.png": [
+   "192×80",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_crack_0.png": [
+   "208×65",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_plates_0.png": [
+   "54×42",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_wind_0.png": [
+   "140×40",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_ridges_0.png": [
+   "60×24",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_stain_0.png": [
+   "144×88",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_icesheet_0.png": [
+   "128×72",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_patch_dark_1.png": [
+   "176×80",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_patch_light_1.png": [
+   "150×64",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_crack_1.png": [
+   "162×54",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_plates_1.png": [
+   "62×40",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_wind_1.png": [
+   "128×33",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_ridges_1.png": [
+   "53×29",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_stain_1.png": [
+   "112×72",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_icesheet_1.png": [
+   "104×60",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_patch_dark_2.png": [
+   "144×64",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_patch_light_2.png": [
+   "120×56",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_crack_2.png": [
+   "126×72",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_plates_2.png": [
+   "52×31",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_wind_2.png": [
+   "106×40",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_ridges_2.png": [
+   "45×26",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_stain_2.png": [
+   "96×56",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_icesheet_2.png": [
+   "88×52",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_gravel_0.png": [
+   "49×31",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_scoria_0.png": [
+   "50×35",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_rubble_0.png": [
+   "58×14",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_gravel_1.png": [
+   "50×20",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_scoria_1.png": [
+   "42×24",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_rubble_1.png": [
+   "44×14",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_gravel_2.png": [
+   "50×30",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_scoria_2.png": [
+   "54×32",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_rubble_2.png": [
+   "61×14",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_gravel_3.png": [
+   "47×28",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_scoria_3.png": [
+   "48×18",
+   "região onde cai",
+   "BASE"
+  ],
+  "decal_rubble_3.png": [
+   "39×14",
+   "região onde cai",
+   "BASE"
+  ],
+  "form_monolith.png": [
+   "72×136",
+   "plateau",
+   "SAND"
+  ],
+  "form_arch.png": [
+   "176×128",
+   "plateau",
+   "SAND"
+  ],
+  "form_basalt_spires.png": [
+   "120×136",
+   "basalt",
+   "HILL"
+  ],
+  "form_salt_ridge.png": [
+   "176×72",
+   "salar",
+   "BASE"
+  ],
+  "form_cone.png": [
+   "144×100",
+   "basalt",
+   "HILL"
+  ],
+  "ice_gate_0.png": [
+   "136×132",
+   "frost",
+   "ICE"
+  ],
+  "ice_gate_1.png": [
+   "136×132",
+   "frost",
+   "ICE"
+  ],
+  "ice_gate_2.png": [
+   "136×132",
+   "frost",
+   "ICE"
+  ],
+  "crater_ice_0.png": [
+   "96×96",
+   "frost",
+   "ICE"
+  ],
+  "crater_ice_1.png": [
+   "96×96",
+   "frost",
+   "ICE"
+  ],
+  "crater_ice_2.png": [
+   "96×96",
+   "frost",
+   "ICE"
+  ],
+  "frost_ring.png": [
+   "176×72",
+   "frost",
+   "BASE"
+  ],
+  "decor_shards_0.png": [
+   "28×24",
+   "basalt",
+   "HILL"
+  ],
+  "decor_shards_1.png": [
+   "28×24",
+   "basalt",
+   "HILL"
+  ],
+  "decor_shards_2.png": [
+   "28×24",
+   "basalt",
+   "HILL"
+  ],
+  "decor_salt_crystals_0.png": [
+   "22×16",
+   "salar",
+   "BASE"
+  ],
+  "decor_salt_crystals_1.png": [
+   "22×16",
+   "salar",
+   "BASE"
+  ],
+  "decor_salt_crystals_2.png": [
+   "22×16",
+   "salar",
+   "BASE"
+  ],
+  "decor_ice_chunks_0.png": [
+   "26×18",
+   "frost",
+   "ICE"
+  ],
+  "decor_ice_chunks_1.png": [
+   "26×18",
+   "frost",
+   "ICE"
+  ],
+  "decor_ice_chunks_2.png": [
+   "26×18",
+   "frost",
+   "ICE"
+  ]
+ },
+ "feet": [
+  [
+   "monolith",
+   {
+    "foot": [
+     36,
+     128
+    ],
+    "tiles": [
+     [
+      0,
+      0
+     ]
+    ],
+    "size": [
+     1,
+     1
+    ],
+    "name": "Monolito"
+   }
+  ],
+  [
+   "arch",
+   {
+    "foot": [
+     88,
+     120
+    ],
+    "tiles": [
+     [
+      -2,
+      0
+     ],
+     [
+      2,
+      0
+     ]
+    ],
+    "size": [
+     5,
+     1
+    ],
+    "name": "Arco de pedra"
+   }
+  ],
+  [
+   "basalt_spires",
+   {
+    "foot": [
+     62,
+     130
+    ],
+    "tiles": [
+     [
+      -1,
+      0
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      1,
+      0
+     ],
+     [
+      -1,
+      -1
+     ],
+     [
+      0,
+      -1
+     ],
+     [
+      1,
+      -1
+     ]
+    ],
+    "size": [
+     3,
+     2
+    ],
+    "name": "Pináculos de basalto"
+   }
+  ],
+  [
+   "salt_ridge",
+   {
+    "foot": [
+     88,
+     68
+    ],
+    "tiles": [
+     [
+      -2,
+      0
+     ],
+     [
+      -1,
+      0
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      1,
+      0
+     ],
+     [
+      2,
+      0
+     ]
+    ],
+    "size": [
+     5,
+     1
+    ],
+    "name": "Crosta de sal elevada"
+   }
+  ],
+  [
+   "cone",
+   {
+    "foot": [
+     72,
+     92
+    ],
+    "tiles": [
+     [
+      -2,
+      0
+     ],
+     [
+      -1,
+      0
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      1,
+      0
+     ],
+     [
+      2,
+      0
+     ],
+     [
+      -1,
+      -1
+     ],
+     [
+      0,
+      -1
+     ],
+     [
+      1,
+      -1
+     ]
+    ],
+    "size": [
+     5,
+     2
+    ],
+    "name": "Cone de basalto"
+   }
+  ],
+  [
+   "ice_gate_0",
+   {
+    "foot": [
+     66,
+     118
+    ],
+    "tiles": [
+     [
+      -2,
+      0
+     ],
+     [
+      -2,
+      -1
+     ],
+     [
+      -1,
+      0
+     ],
+     [
+      -1,
+      -1
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      0,
+      -1
+     ],
+     [
+      1,
+      0
+     ],
+     [
+      1,
+      -1
+     ]
+    ],
+    "size": [
+     4,
+     2
+    ],
+    "name": "Gelo-portão"
+   }
+  ],
+  [
+   "ice_gate_1",
+   {
+    "foot": [
+     66,
+     118
+    ],
+    "tiles": [
+     [
+      -1,
+      0
+     ],
+     [
+      -1,
+      -1
+     ],
+     [
+      0,
+      0
+     ],
+     [
+      0,
+      -1
+     ],
+     [
+      1,
+      0
+     ],
+     [
+      1,
+      -1
+     ]
+    ],
+    "size": [
+     4,
+     2
+    ],
+    "name": "Gelo-portão"
+   }
+  ],
+  [
+   "ice_gate_2",
+   {
+    "foot": [
+     66,
+     118
+    ],
+    "tiles": [
+     [
+      -1,
+      0
+     ],
+     [
+      0,
+      0
+     ]
+    ],
+    "size": [
+     4,
+     2
+    ],
+    "name": "Gelo-portão"
+   }
+  ]
+ ],
+ "views": {
+  "base": [
+   101,
+   95
+  ],
+  "plateau": [
+   74,
+   112
+  ],
+  "salar": [
+   134,
+   107
+  ],
+  "basalt": [
+   29,
+   99
+  ],
+  "frost": [
+   96,
+   13
+  ],
+  "t_salar": [
+   122,
+   119
+  ],
+  "t_basalt": [
+   47,
+   78
+  ],
+  "t_frost": [
+   128,
+   26
+  ],
+  "hills": [
+   112,
+   62
+  ]
+ },
+ "forms": [
+  [
+   "arch",
+   [
+    63,
+    112
+   ]
+  ],
+  [
+   "monolith",
+   [
+    69,
+    108
+   ]
+  ],
+  [
+   "monolith",
+   [
+    100,
+    76
+   ]
+  ],
+  [
+   "basalt_spires",
+   [
+    24,
+    99
+   ]
+  ],
+  [
+   "cone",
+   [
+    36,
+    103
+   ]
+  ],
+  [
+   "basalt_spires",
+   [
+    30,
+    150
+   ]
+  ],
+  [
+   "salt_ridge",
+   [
+    136,
+    109
+   ]
+  ],
+  [
+   "salt_ridge",
+   [
+    160,
+    124
+   ]
+  ]
+ ]
+}
