@@ -933,8 +933,8 @@ class Renderer:
     def drill_tip(self, state: GameState) -> tuple[float, float]:
         """Ponta da broca em pixels do mundo (de onde saem as faíscas)."""
         p = state.player
-        return {"right": (p.x + 20, p.y - 11), "left": (p.x - 20, p.y - 11),
-                "down": (p.x + 5, p.y + 8), "up": (p.x + 12, p.y - 28)}[p.direction]
+        return {"right": (p.x + 15, p.y - 14), "left": (p.x - 16, p.y - 14),     # broca A (v6.0, furadeira de bolso)
+                "down": (p.x + 1, p.y - 3), "up": (p.x + 8, p.y - 24)}[p.direction]
 
     # ---- mineração e colocação ------------------------------------------------
     def draw_mining(self, canvas, state: GameState, mining: Mining, cam) -> None:

@@ -3716,12 +3716,8 @@ def build_explorer() -> dict[str, Canvas]:
 def build_pending() -> dict[str, Canvas]:
     """Assets novos aguardando aprovação do dono: vão pra assets/sprites/_pending/.
     Depois de aprovados, saem daqui e entram em build_v02()/build_v03()/build_v05()/build_sprites() (pasta oficial).
-    v6.0: 3 candidatas da broca de mão (mesmo tamanho de quadro e mesmo DRILL_GRIP da atual)."""
-    out: dict[str, Canvas] = {}
-    for cand in "ABC":
-        for view in ("side", "down", "up"):
-            out[f"drill_{view}_{cand}.png"] = from_px(hd.make_drill(cand, view))
-    return out
+    Vazio agora: na v6.0 o dono escolheu a broca A (virou o drill_* oficial); B e C seguem no hand_drill.py."""
+    return {}
 
 
 def build_candidates() -> dict[str, Canvas]:
@@ -3801,7 +3797,7 @@ def build_v02() -> dict[str, Canvas]:
 def build_sprites() -> dict[str, Canvas]:
     out: dict[str, Canvas] = {}
     for view in ("down", "up", "side"):
-        out[f"drill_{view}.png"] = make_drill(view)
+        out[f"drill_{view}.png"] = from_px(hd.make_drill("A", view))   # v6.0: A (furadeira de bolso), aprovada; a v2.1 é o make_drill
     out.update(build_explorer())        # v6.0: o astronauta chibi antigo (make_player/make_walk) fica de histórico
     for st in STAGES:
         for v in range(4):
@@ -4912,17 +4908,26 @@ def build_v51_report(spr: dict[str, Image.Image]) -> str:
 
 
 # ---------------------------------------------------------------- v6.0: Explorador (aprovado) + broca de mão (3 candidatas)
-DRILL_SRC = {"atual": lambda v: OUT / f"drill_{v}.png",
-             "experimento": lambda v: REP / "before" / f"drill_{v}_experimento.png"}
+DRILL_SRC = {"atual": lambda v: REP / "before" / f"drill_{v}_v21.png",
+             "experimento": lambda v: REP / "before" / f"drill_{v}_experimento.png",
+             "experimento_t2": lambda v: REP / "before" / f"drill_{v}_experimento_t2.png"}
+
+
+def drill_sheet(spr: dict[str, Image.Image], key: str, view: str) -> Image.Image:
+    """Folha da broca pra comparação: A = a oficial (aprovada), B/C = do hand_drill.py, o resto vem de before/."""
+    if key == "A":
+        return spr[f"drill_{view}.png"]
+    if len(key) == 1:
+        return from_px(hd.make_drill(key, view)).image().convert("RGBA")
+    return Image.open(DRILL_SRC[key](view)).convert("RGBA")
 
 
 def make_drill_hand_previews(spr: dict[str, Image.Image]) -> None:
     """Folhas 4×(44×44) da broca NA MÃO (player_mine quadro f + broca quadro f no DRILL_GRIP), uma por candidata e vista."""
     for view in ("side", "down", "up"):
         pm = spr[f"player_mine_{view}.png"]
-        for key in ("atual", "experimento", "A", "B", "C"):
-            sheet = (spr[f"_pending/drill_{view}_{key}.png"] if len(key) == 1
-                     else Image.open(DRILL_SRC[key](view)).convert("RGBA"))
+        for key in ("atual", "experimento", "experimento_t2", "A", "B", "C"):
+            sheet = drill_sheet(spr, key, view)
             hd.compose(pm, sheet, view).save(REP / f"drill_hand_{key}_{view}.png")
 
 
@@ -4948,24 +4953,24 @@ def build_v60_report(spr: dict[str, Image.Image]) -> str:
     def still(src, w, h, z):
         return f'<img src="{src}" width="{w * z}" height="{h * z}" alt="" style="image-rendering:pixelated;display:block">'
 
-    labels = {"atual": "Atual do jogo (v2.1)", "experimento": "Experimento (reprovada)",
-              "A": "A · furadeira de bolso", "B": "B · caneta-broca", "C": "C · broca de punho"}
+    labels = {"atual": "Antiga do jogo (v2.1)", "experimento": "Sessão experimental · nv.1 (reprovada)", "experimento_t2": "Sessão experimental · nv.2 perfuratriz térmica",
+              "A": "A · furadeira de bolso (APROVADA, oficial)", "B": "B · caneta-broca", "C": "C · broca de punho"}
     blurbs = {
         "atual": "a broca que está no jogo hoje, na mão do explorador novo",
         "experimento": "a que o dono achou feia e grande demais",
+        "experimento_t2": "a broca nv.2 que a sessão experimental propôs (perfuratriz térmica, ponta incandescente), na mão do explorador.",
         "A": "pistola em L minúscula: carcaça cinza-metal (a mesma tinta das ombreiras), faixa laranja, LED ciano, pega escura com a luva fechada nela e broca cônica de 6 px. A mais \"furadeira\" das três.",
         "B": "ferramenta reta e fina, segurada por cima como uma lanterna: tampa laranja, cabo de metal com anel, nariz branco com LED e broca fina. A silhueta mais leve.",
         "C": "módulo branco preso na própria luva, com cinta laranja: a broca sai direto da mão. A mais compacta das três.",
     }
     def bbox(key, view):                                        # área desenhada (com contorno) no quadro 0
-        sheet = (spr[f"_pending/drill_{view}_{key}.png"] if len(key) == 1
-                 else Image.open(DRILL_SRC[key](view)).convert("RGBA"))
+        sheet = drill_sheet(spr, key, view)
         a = np.array(sheet)[:, : sheet.width // 4, 3]
         ys, xs = np.nonzero(a)
         return f"{xs.max() - xs.min() + 1}×{ys.max() - ys.min() + 1}"
 
     rows = []
-    for key in ("A", "B", "C", "atual", "experimento"):
+    for key in ("A", "B", "C", "experimento", "experimento_t2", "atual"):
         blurbs[key] += (f" <b style=\"color:var(--fg)\">Área desenhada:</b> lado {bbox(key, 'side')}, baixo {bbox(key, 'down')}, "
                         f"cima {bbox(key, 'up')} px.")
         cells = []
@@ -4973,10 +4978,10 @@ def build_v60_report(spr: dict[str, Image.Image]) -> str:
             cells.append(f'<div class="dh"><span>{view}</span><div class="chkbg" style="padding:6px">'
                          f'{anim(f"drill_hand_{key}_{view}.png", 44, 44, Z)}</div>'
                          f'<div class="real">{still(f"drill_hand_{key}_{view}.png", 176, 44, 1)}</div></div>')
-        if len(key) == 1:
+        if key == "A":
             sheets = "".join(
-                f'<div class="dh"><span>drill_{v}_{key}.png</span><div class="chkbg" style="padding:6px">'
-                f'{still(f"{A}_pending/drill_{v}_{key}.png", *spr[f"_pending/drill_{v}_{key}.png"].size, 4)}</div></div>'
+                f'<div class="dh"><span>drill_{v}.png</span><div class="chkbg" style="padding:6px">'
+                f'{still(f"{A}drill_{v}.png", *spr[f"drill_{v}.png"].size, 4)}</div></div>'
                 for v in ("side", "down", "up"))
         else:
             sheets = ""
