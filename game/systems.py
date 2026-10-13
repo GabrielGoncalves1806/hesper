@@ -20,6 +20,8 @@ from game.inventory import Inventory
 from game.energy import PowerAlert, PowerReport, power_report
 from game.layers import CAVE, SURFACE, Layer
 from game.player import Player, Rect, overlaps
+from game.rain import Rain
+from game.thaw import lake_level
 from game.weather import Weather
 from game.world import World
 from game.wrecks import Crate, Wreck
@@ -280,6 +282,7 @@ class GameState:
         self.wrecks_visited: set[int] = set()          # rank dos destroços que o player já chegou perto
         self.explore_timer = 0.0                       # o explorado atualiza a cada EXPLORE_INTERVAL
         self.weather = Weather(seed)                   # tempestade (v0.4): vento, rajadas e raio de visão
+        self.rain = Rain(seed)                         # chuva (v0.4 M3.3): pancadas na Névoa e no Verde
         self.events: list[tuple] = []
 
     # ---- camadas --------------------------------------------------------------
@@ -436,6 +439,8 @@ class GameState:
         storm = storm_level(self)
         if self.weather.update(dt, storm):
             self.events.append(("gust", storm))
+        if self.rain.update(dt, self.stage):           # pancada de chuva começou (só a partir da Névoa)
+            self.events.append(("rain", True))
 
         if self.fainted:
             self.ramp = None                  # desmaiou no meio do fade: acorda na cápsula, sem viagem
@@ -939,6 +944,31 @@ class GameState:
         if stations:                         # drones (game/drones.py): só na superfície; no déficit voam mais devagar
             self.drone_deliveries += drones.update_stations(stations, self.drone_logistics(), work_dt, self.events)
         self._check_stage()
+        self._apply_thaw()
+
+    # ---- v0.4 Marco 3: o calor e a água mudando o mapa (game/thaw.py) -------------
+    def _apply_thaw(self) -> None:
+        """Aplica no mapa o que sai dos índices (função pura deles: no load é só chamar de novo). Chamado no fim
+        do _update_machines e depois do load. Só sobe (nunca desce) e solta os eventos de cada etapa."""
+        self._thaw_lake()
+
+    def _thaw_lake(self) -> None:
+        """M3.3: a água das bacias sobe com o índice de água (thaw.lake_level), só a partir da Névoa. O nível anda
+        em degraus de C.LAKE_STEP (o render e o mapa refazem a água poucas vezes por minuto), mas cada marca
+        L1/L2/L3 é batida exata e solta ("lake_rise", k) uma vez."""
+        surface = self.surface
+        if surface.geo is None or self.stage < C.MIST_STAGE:
+            return
+        old = surface.water_level
+        target = lake_level(self.indices["water"])
+        if target <= old:
+            return
+        crossed = [k for k, level in enumerate(C.GEO_LEVELS) if old < level <= target]
+        if not crossed and target - old < C.LAKE_STEP:
+            return
+        surface.water_level = target
+        for k in crossed:
+            self.events.append(("lake_rise", k))
 
     def _check_stage(self) -> None:
         new_stage = stage_for_ti(self.ti)

@@ -104,11 +104,19 @@ def test_hills_are_small_blobs():
 
 
 def test_water_and_plants_still_appear():
-    assert not any(W.is_water(x, y, 1) or W.is_water(x, y, 2) for x, y in ALL)   # Tempestade e Árido: seco
-    assert any(W.is_water(x, y, 3) for x, y in ALL)
+    """M3.3: com geo a água é o lago nas bacias, que sobe com o índice (`water_level`), e não mais a poça por
+    estágio. Seca no começo (em qualquer estágio); no L1 aparece; veio nunca alaga."""
+    assert W.water_level < 0
+    assert not any(W.is_water(x, y, s) for x, y in ALL for s in (1, 2, 3, 4))
+    try:
+        W.water_level = C.GEO_LEVELS[0]
+        assert any(W.is_water(x, y, 3) for x, y in ALL)
+        W.water_level = C.GEO_LEVELS[2]
+        for v in W.veins:
+            assert not any(W.is_water(x, y, 4) for x, y in v.tiles)
+    finally:
+        W.water_level = -1.0
     assert any(W.plant_at(x, y) for x, y in ALL)
-    for v in W.veins:
-        assert not any(W.is_water(x, y, 4) for x, y in v.tiles)
 
 
 def test_sand_variants_follow_the_designer_distribution():

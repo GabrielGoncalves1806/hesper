@@ -377,6 +377,7 @@ def state_from_dict(data: dict) -> GameState:
     if layer not in state.layers:
         raise ValueError(f"camada ativa sem dados: {layer!r}")
     state.layer = layer
+    state._apply_thaw()                    # v0.4 M3: o que sai dos índices (nível dos lagos...) é derivado, não salvo
     return state
 
 

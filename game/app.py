@@ -44,6 +44,7 @@ from game.fabricator import FabMenu, field_menu
 from game.inventory import Stack
 from game.map_view import MapView
 from game.objectives import ObjectiveTracker
+from game.rain import rain_level
 from game.render import Renderer, art_key, stage_key
 from game.surfaces import opaque
 from game.systems import Controls, GameState
@@ -1394,6 +1395,7 @@ class App:
         audio.duck_ambient(0.0 if state.fainted else duck)
         # vento e ambiente seguem a camada de DESTINO: descendo, já começam a sair junto com o fade
         audio.set_wind(self.ambient_layer() == "surface")    # vento do deserto: só na superfície
+        audio.set_rain(sound.rain_volume(rain_level(state)))   # chuva (M3.3): só na superfície, volume = intensidade
         want = self.ambient_want()
         if want != audio.ambient_key and not audio.busy_with_stage:
             audio.crossfade_to(want)              # amb_{estágio} <-> amb_cave (1,5 s sai, 2,5 s entra)
@@ -1724,6 +1726,7 @@ class App:
         self.audio.set_drone_loops([])
         self.audio.set_solar_hum(0.0)
         self.audio.set_wind(False)
+        self.audio.set_rain(0.0)
         self.audio.duck_ambient(1.0)
         if self.audio.ambient_key != "dead":
             self.audio.start_ambient("dead")
