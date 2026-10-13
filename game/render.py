@@ -29,6 +29,7 @@ from game import layers
 from game.assets import Sprites
 from game.lighting import LightSource, Lighting, helmet_lamp, lamp as lamp_light, ore_glints
 from game.minimap import Minimap
+from game.surfaces import opaque
 from game.systems import GameState, Mining
 from game.transition import BASE_SOURCE, StageMap
 from game.world import hash01
@@ -214,7 +215,7 @@ class Renderer:
         key = ("glow", radius, rgb, round(strength, 2))
         if key not in self._fx:
             src = art.radial(radius, rgb, int(255 * strength))
-            glow = pygame.Surface(src.get_size())
+            glow = opaque(src.get_size())   # o radial tem alfa; no formato padrão (ARGB no macOS) o blit zerava o alfa
             glow.fill((0, 0, 0))
             glow.blit(src, (0, 0))
             self._fx[key] = glow

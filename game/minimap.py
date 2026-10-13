@@ -9,6 +9,7 @@ marcadores por cima.
 import pygame
 
 from game import config as C
+from game.surfaces import opaque
 
 TILE_COLORS = {
     C.SAND: (138, 106, 78), C.FLOOR: (92, 84, 80),
@@ -43,7 +44,9 @@ class Minimap:
         world, explored = layer.world, layer.explored
         cached = self._tex.get(key)
         if cached is None or cached[0] != id(world):            # jogo novo/carregado: pinta do zero
-            surf = pygame.Surface((world.width, world.height))
+            # opaca de propósito: ela vai pra janela (minimapa e mapa aberto) e, no formato padrão (ARGB no
+            # macOS), o recorte dela nasce com SRCALPHA e o alfa vira 0 no caminho (o mapa saía preto)
+            surf = opaque((world.width, world.height))
             surf.fill(UNSEEN)
             w = world.width
             for i, b in enumerate(explored.bits):

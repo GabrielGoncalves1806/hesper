@@ -76,6 +76,7 @@ import pygame
 
 from game import config as C
 from game import viewport
+from game.surfaces import opaque
 
 T = C.TILE
 
@@ -188,7 +189,7 @@ class Lighting:
 
     def _make_texture(self, r: int, color, intensity: float) -> pygame.Surface:
         size = 2 * r
-        surf = pygame.Surface((size, size))
+        surf = opaque((size, size))
         surf.fill((0, 0, 0))
         cr, cg, cb = color
         for j in range(size):
@@ -216,8 +217,9 @@ class Lighting:
         ox, oy = -int(cx % cell), -int(cy % cell)
         sw, sh = (w - ox + cell - 1) // cell, (h - oy + cell - 1) // cell
         if self._small is None or self._small.get_size() != (sw, sh):
-            self._small = pygame.Surface((sw, sh))
-            self._big = pygame.Surface((sw * cell, sh * cell))
+            # opacos e no formato da tela interna: o BLEND_RGB_MULT final vira cópia direta, sem conversão
+            self._small = opaque((sw, sh))
+            self._big = opaque((sw * cell, sh * cell))
         small = self._small
 
         if isinstance(ambient, (int, float)):
