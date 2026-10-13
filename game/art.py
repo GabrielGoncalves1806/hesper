@@ -14,6 +14,7 @@ import random
 import pygame
 
 from game import config as C
+from game.surfaces import opaque   # tiles opacos: formato fixo, não o da janela (ver game/surfaces.py)
 
 Color = pygame.Color
 
@@ -45,7 +46,7 @@ def _crystal(surf, x, y, color, shadow, size):
 def floor(stage: str, variant: int) -> pygame.Surface:
     P = C.PALETTES[stage]
     rng = random.Random(f"floor-{stage}-{variant}")
-    s = pygame.Surface((C.TILE, C.TILE))
+    s = opaque((C.TILE, C.TILE))
     s.fill(P["floor"][variant % 3])
     for _ in range(5):   # manchas
         _r(s, P["patch"], rng.randrange(27), rng.randrange(29), rng.choice((2, 4, 6)), 2)
@@ -78,7 +79,7 @@ def sand(stage: str, variant: int) -> pygame.Surface:
     Fallback do sand_{stage}_{v}.png (Designer, pendente); a escolha da variação é do surface_gen."""
     P = C.PALETTES[stage]
     rng = random.Random(f"sand-{stage}-{variant}")
-    s = pygame.Surface((C.TILE, C.TILE))
+    s = opaque((C.TILE, C.TILE))
     s.fill(P["sand"][0])
     for _ in range(4):   # manchinhas suaves
         _r(s, P["sand"][1 + rng.randrange(2)], rng.randrange(26), rng.randrange(29), rng.choice((3, 5, 7)), 2)
@@ -220,7 +221,7 @@ def wall(stage: str, variant: int) -> pygame.Surface:
     """Topo da rocha (32×32). Com chão embaixo, só os 8 px de cima aparecem e a face (24 px) cobre o resto."""
     P = C.PALETTES[stage]
     rng = random.Random(f"wall-{stage}-{variant}")
-    s = pygame.Surface((C.TILE, C.TILE))
+    s = opaque((C.TILE, C.TILE))
     s.fill(P["rock"] if variant % 2 == 0 else P["rock2"])
     for i in range(5):   # blocos de pedra com luz em cima/esquerda e sombra embaixo/direita
         sx, sy = 1 + rng.randrange(20), 1 + rng.randrange(22)
@@ -236,7 +237,7 @@ def wall(stage: str, variant: int) -> pygame.Surface:
 def wall_face(stage: str) -> pygame.Surface:
     """Face frontal alta (32×24): é ela que faz a parede parecer parede, não degrau."""
     P = C.PALETTES[stage]
-    s = pygame.Surface((C.TILE, 24))
+    s = opaque((C.TILE, 24))
     s.fill(P["face"])
     _r(s, P["face_hi"], 0, 0, 32, 1)
     _r(s, P["face_hi"], 0, 1, 32, 1)
@@ -266,7 +267,7 @@ def moss(variant: int) -> pygame.Surface:
 
 
 def water(stage: str) -> pygame.Surface:
-    s = pygame.Surface((C.TILE, C.TILE))
+    s = opaque((C.TILE, C.TILE))
     s.fill(C.PALETTES[stage]["water"])
     return s
 

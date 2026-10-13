@@ -44,6 +44,7 @@ from game.inventory import Stack
 from game.map_view import MapView
 from game.objectives import ObjectiveTracker
 from game.render import Renderer, stage_key
+from game.surfaces import opaque
 from game.systems import Controls, GameState
 from game.textedit import TextField
 from game.ui import item_name
@@ -98,7 +99,7 @@ class App:
         # Tela interna SEM canal alfa, com máscaras explícitas. Sem isso, no macOS (driver Cocoa)
         # o Surface herda o formato da janela, que TEM alfa: os blits gravam alfa 0/255 misturado
         # e o macOS mostra retângulos pretos em volta de sprites (bug do playtest 1).
-        self.canvas = pygame.Surface((C.SCREEN_W, C.SCREEN_H), 0, 32, (0xFF0000, 0x00FF00, 0x0000FF, 0))
+        self.canvas = opaque((C.SCREEN_W, C.SCREEN_H))
         self._world_view: pygame.Surface | None = None   # onde o mundo é desenhado com zoom != 1 (mesmo formato)
         self.clock = pygame.time.Clock()
 

@@ -22,6 +22,7 @@ A sessão principal é o **gerente/orquestrador**: conversa com o dono, distribu
 - Jogo: `uv run python -m game`
 - Testes: `uv run pytest`
 - Smoke com prints: `uv run python tools/dev/smoke.py`
+- Vídeo real (janela escondida, compara com o dummy; pega superfície que sai preta/transparente no macOS): `uv run python tools/dev/real_video_check.py`
 - Balanceamento: `uv run python tools/dev/balance_sim.py`
 - Sprites: `python3 tools/sprites/build_sprites.py`
 - Áudio: `python3 tools/audio/build_audio.py`
