@@ -35,7 +35,8 @@ bloco da tela tem assado (começo do jogo, teleporte), assa a tela inteira na ho
 melhor que meio segundo de chão chapado).
 
 Funções puras (sem pygame) pra testar: `warp_half`, `depth_field`, `smooth_sample`, `bake_block_codes`,
-`decals_for_block`, `decor_items`.
+`decals_for_block`, `decor_items`, e os da v9 (M3.0): `v9_decals_for_block`, `decor_items_v9`, `decor_tile_free`,
+`decor_layers`.
 """
 
 from __future__ import annotations
@@ -45,6 +46,7 @@ import math
 import time
 import zlib
 from collections import OrderedDict
+from typing import NamedTuple
 
 import numpy as np
 import pygame
@@ -214,6 +216,7 @@ class RegionArt:
         self.ramps = self.meta["ramps"]
         self.decal_p = self.meta["decal_p"]
         self.decal_mix = {k: [(n, w) for n, w in v] for k, v in self.meta["decal_mix"].items()}
+        self.v9 = self.meta.get("v9_density", {})          # v9 (M3.0): decal_p/decal_mix, decor_p, moss_on
         self.files = self.meta["files"]
         self.textures = []
         for name in CLASS_NAMES:
@@ -363,6 +366,51 @@ def decals_for_block(geo, art: RegionArt, bx: int, by: int, tcls: np.ndarray, sk
                 x, y = px - dw // 2, py - dh // 2
                 if x < x0 + BP and y < y0 + BP and x + dw > x0 and y + dh > y0:
                     out.append((x, y, c, idx))
+    out += [d[:4] for d in v9_decals_for_block(geo, art, bx, by, tcls, skip)]   # por cima dos da v8
+    return out
+
+
+def v9_decals_for_block(geo, art: RegionArt, bx: int, by: int, tcls: np.ndarray, skip: set) -> list[tuple]:
+    """v9 (M3.0): o 3º sorteio por célula de 96 px, com hash e posição próprios (os da Designer, 952..962, mais
+    a seed) e só a lista da v9 da classe (`v9_density.decal_mix`, chance `decal_p`). [(x, y, classe, índices,
+    nome)]. Mesmas exclusões dos outros (base, volta das formações); espelho horizontal com 50%."""
+    v9 = getattr(art, "v9", None) or {}
+    if not v9.get("decal_p"):
+        return []
+    cell = art.meta["decal_cell"]
+    margin = C.GROUND_DECAL_MARGIN
+    H, W = tcls.shape
+    salt = seed_salt(geo.seed)
+    x0, y0 = bx * BP, by * BP
+    out = []
+    for cy in range((y0 - margin) // cell, (y0 + BP + margin) // cell + 1):
+        for cx in range((x0 - margin) // cell, (x0 + BP + margin) // cell + 1):
+            h = lambda s: float(hash2(cx, cy, s + salt))   # noqa: E731
+            px = cx * cell + int(h(952) * cell)
+            py = cy * cell + int(h(954) * cell)
+            tx, ty = px // T, py // T
+            if not (0 <= tx < W and 0 <= ty < H) or (tx, ty) in skip:
+                continue
+            c = int(tcls[ty, tx])
+            reg = CLASS_NAMES[c]
+            mix = v9["decal_mix"].get(reg)
+            if not mix or h(956) > v9["decal_p"].get(reg, 0.0):
+                continue
+            r = h(958) * sum(wt for _, wt in mix)
+            for name, wt in mix:
+                r -= wt
+                if r <= 0:
+                    break
+            variants = art.decals.get(name)
+            if not variants:
+                continue
+            idx = variants[int(h(960) * len(variants))]
+            if h(962) < 0.5:
+                idx = idx[:, ::-1]
+            dh, dw = idx.shape
+            x, y = px - dw // 2, py - dh // 2
+            if x < x0 + BP and y < y0 + BP and x + dw > x0 and y + dh > y0:
+                out.append((x, y, c, idx, name))
     return out
 
 
@@ -423,6 +471,68 @@ def decor_items(geo) -> dict[int, list[tuple[int, str, int]]]:
     return out
 
 
+class Decor9(NamedTuple):
+    """Um solto da v9: o pé (px do mundo, onde cai o centro de baixo do sprite), o tipo, a variação e o espelho."""
+    tx: int
+    ty: int
+    name: str
+    v: int
+    foot_x: int
+    foot_y: int
+    flip: bool
+
+
+def decor_items_v9(geo, decor_p: dict) -> dict[int, list[Decor9]]:
+    """v9 (M3.0): soltos novos com altura, 1 sorteio por tile (as chances da classe em `v9_density.decor_p` somam;
+    leito seco = bed). Pé em (tx·32 + 16 ± 7, ty·32 + 26..29), espelho com 50%. Nunca no tile de um solto da v8,
+    na volta da base nem das formações; máquina, veio, destroço, rocha e parede quem tira é o render
+    (`decor_tile_free`), porque mudam no jogo. Por linha, como o `decor_items`."""
+    if not decor_p:
+        return {}
+    tcls = tile_classes(geo)
+    H, W = tcls.shape
+    ys, xs = np.mgrid[0:H, 0:W]
+    salt = seed_salt(geo.seed)
+    r = hash2(xs, ys, 941 + salt)
+    v8 = {(tx, ty) for ty, row in decor_items(geo).items() for tx, _, _ in row}
+    skip = decal_skip_tiles(geo)
+    total = np.zeros((H, W))
+    for c, cname in enumerate(CLASS_NAMES):
+        total[tcls == c] = sum(p for _, p in decor_p.get(cname, ()))
+    out: dict[int, list[Decor9]] = {}
+    for ty, tx in zip(*np.nonzero(r < total)):
+        tx, ty = int(tx), int(ty)
+        if (tx, ty) in v8 or (tx, ty) in skip:
+            continue
+        acc, pick = 0.0, None
+        for name, p in decor_p[CLASS_NAMES[int(tcls[ty, tx])]]:
+            acc += p
+            if r[ty, tx] < acc:
+                pick = name
+                break
+        if pick is None:
+            continue
+        h = lambda s: float(hash2(tx, ty, s + salt))   # noqa: E731
+        out.setdefault(ty, []).append(Decor9(
+            tx, ty, pick, int(h(942) * 3), tx * T + 16 + int(h(944) * 14) - 7, ty * T + 26 + int(h(945) * 4),
+            h(943) < 0.5))
+    return out
+
+
+def decor_tile_free(world, tx: int, ty: int, machine_at) -> bool:
+    """O solto (v8 ou v9) aparece nesse tile? Só em chão livre: some onde tem máquina, veio, destroço, rocha,
+    parede ou formação (os três últimos não são chão)."""
+    return world.is_floor(tx, ty) and not world.vein_at(tx, ty) and not world.wreck_at(tx, ty) \
+        and not machine_at((tx, ty))
+
+
+def decor_layers(name: str, stage: int, moss_on) -> list[str]:
+    """O que desenhar no lugar do solto, em ordem: a pedra e, só no Verde, o overlay de musgo de mesmo N."""
+    if stage >= C.GREEN_STAGE and name in moss_on:
+        return [name, f"{name}_moss"]
+    return [name]
+
+
 # ---------------------------------------------------------------------------------------------------------------
 # Cache e desenho (pygame)
 # ---------------------------------------------------------------------------------------------------------------
@@ -441,6 +551,7 @@ class Ground:
         self._grid_tag = None
         self._lut: dict[str, np.ndarray] = {}
         self._decor: dict[int, list] = {}
+        self._decor9: dict[int, list[Decor9]] = {}
         self._decor_surf: dict = {}
         self.sync = False                           # True = assa tudo que pedir na hora (prints do mapa)
         self.bake_ms: list[float] = []              # tempo de cada bloco assado (B4)
@@ -468,6 +579,8 @@ class Ground:
         self._jobs.clear()
         self._grid_memo.clear()
         self._decor = decor_items(geo)
+        art = self.art
+        self._decor9 = decor_items_v9(geo, art.v9.get("decor_p", {})) if art is not None else {}
         self.bake_ms.clear()
 
     def reset(self) -> None:
@@ -618,7 +731,21 @@ class Ground:
     def decor_row(self, ty: int) -> list[tuple[int, str, int]]:
         return self._decor.get(ty, [])
 
-    def decor_surface(self, name: str, v: int, stage: str) -> pygame.Surface | None:
+    def decor_row_v9(self, ty: int) -> list[Decor9]:
+        return self._decor9.get(ty, [])
+
+    @property
+    def moss_on(self) -> tuple:
+        art = self.art
+        return tuple(art.v9.get("moss_on", ())) if art is not None else ()
+
+    def decor_surface(self, name: str, v: int, stage: str, flip: bool = False) -> pygame.Surface | None:
+        if flip:
+            key = (name, v, stage, True)
+            if key not in self._decor_surf:
+                base = self.decor_surface(name, v, stage)
+                self._decor_surf[key] = None if base is None else pygame.transform.flip(base, True, False)
+            return self._decor_surf[key]
         key = (name, v, stage)
         if key not in self._decor_surf:
             art = self.art
@@ -629,7 +756,11 @@ class Ground:
             idx = variants[v % len(variants)]
             info = art.files.get(f"decor_{name}_{v % len(variants)}.png", {})
             region, table = info.get("region", "plateau"), info.get("ramp", "BASE")
-            ramp = art.ramp(table, region, stage) + [OUTLINE, (0, 0, 0)]
+            if table.startswith("MOSS"):            # overlay de musgo do Verde (v9): rampa fixa, 0..3 + contorno
+                moss = [_hex(c) for c in art.ramps["MOSS"]]
+                ramp = moss + [moss[-1]] * (8 - len(moss)) + [OUTLINE, (0, 0, 0)]
+            else:
+                ramp = art.ramp(table, region, stage) + [OUTLINE, (0, 0, 0)]
             lut = np.zeros((256, 4), np.uint8)
             lut[:len(ramp), :3] = ramp
             lut[:len(ramp), 3] = 255

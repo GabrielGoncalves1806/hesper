@@ -573,7 +573,7 @@ def test_formations_are_fixed_landmarks_without_filter():
     bits[:] = b"\x01" * len(bits)
     entries = MV.map_entries(g, "surface")
     forms = [e for e in entries if e.category == "formation"]
-    assert len(forms) == len(g.surface.geo.formations)
+    assert len(forms) == len([f for f in g.surface.geo.formations if not f.small])   # as pequenas da v9: sem marcador
     assert "formation" not in MV.categories(entries) and "formation" not in MV.FILTERS
     assert len([e for e in MV.visible(entries, set(MV.FILTERS)) if e.category == "formation"]) == len(forms)
     arch = next(e for e in forms if e.title == "Arco de pedra")

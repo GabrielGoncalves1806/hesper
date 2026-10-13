@@ -180,8 +180,8 @@ def _hills(world: World, rng: random.Random) -> None:
     cx0, cy0 = world.center
     top = max(C.HILL_REGION_WEIGHT.values())
     taken: set[tuple[int, int]] = set()
-    for f in geo.formations:
-        taken |= _ring(f.box, C.FORMATION_HILL_GAP - 2)    # + o halo de 2 do morro = a folga toda
+    for f in geo.formations:                     # + o halo de 2 do morro = a folga toda (as pequenas: 3 tiles)
+        taken |= set(f.box) if f.small else _ring(f.box, C.FORMATION_HILL_GAP - 2)
     for p in geo.pockets:
         taken |= set(p.ring) | set(p.apron) | set(p.interior)
     while placed < target and tries < 4000:
@@ -364,7 +364,7 @@ def _outcrops(world: World) -> None:
     """Afloramentos: 3 ou 4 rochas pequenas a 1–2 tiles da pegada de cada formação (o gelo-portão não tem), com o
     minério da região (OUTCROP_ORE). Nunca no vão do arco, e espaçadas (nenhuma encosta na outra pelo lado)."""
     for i, f in enumerate(world.geo.formations):
-        if f.kind == "ice_gate":
+        if f.kind == "ice_gate" or f.small:          # o portão e as pequenas da v9 (miúdas) não têm
             continue
         rng = random.Random(world.seed * 6151 + i * 97 + 3)
         box = set(f.box)

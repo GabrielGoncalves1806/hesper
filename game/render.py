@@ -35,6 +35,7 @@ from game import ground
 from game import hills
 from game import layers
 from game.assets import Sprites
+from game.ground import decor_layers, decor_tile_free
 from game.lighting import LightSource, Lighting, helmet_lamp, lamp as lamp_light, ore_glints
 from game.minimap import Minimap
 from game.surfaces import opaque
@@ -770,16 +771,31 @@ class Renderer:
 
         geo = self.surface_geo(state)
         if geo is not None:                      # decoração solta com altura (v0.4 M2): não colide, ordena pelo pé
+            ground = self.ground
+            moss_on = ground.moss_on
+            tx1 = tx0 + self.view_w // T + 1
             for ty in range(max(0, ty0 - 1), min(world.height, ty0 + self.view_h // T + 2)):
-                for tx, name, v in self.ground.decor_row(ty):
-                    if not (tx0 - 1 <= tx <= tx0 + self.view_w // T + 1) or not world.is_floor(tx, ty) \
-                            or world.vein_at(tx, ty) or world.wreck_at(tx, ty) or state.machine_at((tx, ty)):
+                for tx, name, v in ground.decor_row(ty):
+                    if not (tx0 - 1 <= tx <= tx1) or not decor_tile_free(world, tx, ty, state.machine_at):
                         continue
-                    surf = self.ground.decor_surface(name, v, stage_key(self.stage_map.stage_at(tx, ty)))
+                    surf = ground.decor_surface(name, v, stage_key(self.stage_map.stage_at(tx, ty)))
                     if surf is not None:
                         px, py = tx * T + T // 2, ty * T + DECOR_FOOT
                         items.append((py, lambda s=surf, px=px, py=py: canvas.blit(
                             s, (px - cam_x - s.get_width() // 2, py - cam_y - s.get_height()))))
+                # v9 (M3.0): pé com folga, espelho, e o musgo logo depois da pedra só no Verde (estágio do tile do pé)
+                for d in ground.decor_row_v9(ty):
+                    if not (tx0 - 1 <= d.tx <= tx1) or not decor_tile_free(world, d.tx, ty, state.machine_at):
+                        continue
+                    stage = self.stage_map.stage_at(d.tx, ty)
+                    if stage >= C.MIST_STAGE and world.is_water(d.tx, ty, stage):
+                        continue                         # nada debaixo d'água (a poça de hoje; o lago do M3.3)
+                    key = stage_key(stage)
+                    surfs = [sf for sf in (ground.decor_surface(n, d.v, key, d.flip)
+                                           for n in decor_layers(d.name, stage, moss_on)) if sf is not None]
+                    if surfs:
+                        items.append((d.foot_y, lambda ss=surfs, px=d.foot_x, py=d.foot_y: [canvas.blit(
+                            sf, (px - cam_x - sf.get_width() // 2, py - cam_y - sf.get_height())) for sf in ss]))
 
         p = state.player
         items.append((p.y, lambda: self._draw_player(canvas, state, snap(p.x) - cam_x, snap(p.y) - cam_y, t)))
