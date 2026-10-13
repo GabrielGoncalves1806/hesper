@@ -55,6 +55,8 @@ def _load_specs() -> dict[str, FormationSpec]:
     data = json.loads(C.REGIONS_PALETTES.read_text(encoding="utf-8"))["formations"]
     specs = {}
     for key, info in data.items():
+        if key.startswith("crater_impact"):            # sprites da cratera (v8.1): não são formação colocada
+            continue
         kind = "ice_gate" if key.startswith("ice_gate") else key
         if kind == "ice_gate" and key != "ice_gate_0":     # etapa 0 (inteiro): as outras são do Marco 3
             continue
