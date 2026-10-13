@@ -87,7 +87,7 @@ CAVE_ORE_THRESHOLD = (0.64, 0.11)
 # Tipos de tile (inteiros pra caber numa grade simples)
 FLOOR, ROCK, IRON, SILICON, ICE, BEDROCK, TERMINAL = range(7)
 SAND = 7                        # chão do deserto (superfície)
-SMALL_IRON, SMALL_SILICON, SMALL_ICE = 8, 9, 10   # rocha pequena no chão: 1 tile, quebra com a broca, não volta
+SMALL_IRON, SMALL_SILICON, SMALL_ICE = 8, 9, 10   # rocha pequena no chão: 1 tile, quebra com a broca, reaparece devagar (game/rock_respawn.py)
 CRATER = 11                     # os 3×3 da cratera: obstáculo plano (no Marco 2 vira a rampa de descida)
 WRECK = 12                      # área de um destroço (Marco 3): obstáculo plano, o sprite é desenhado como objeto
 LOOT_CRATE = 13                 # caixa de saque de um destroço (1 tile, obstáculo plano; abre com E)
