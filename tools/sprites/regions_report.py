@@ -12,7 +12,7 @@ import regions_core as R
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "reports" / "design" / "regioes"
-PEND = ROOT / "assets" / "sprites" / "_pending" / "regions"
+PEND = ROOT / "assets" / "sprites" / "regions"
 
 CSS = """
 :root{--bg:#15100e;--panel:#1e1714;--panel2:#241b17;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;--alert:#ff6a55;
@@ -154,8 +154,9 @@ def build():
 
     form_rows = ""
     form_info = [
-        ("monolith", "Hoodoo (monolito)", "planalto", "fuste de arenito que afina e engorda, com a pedra de topo "
-         "mais dura (cinza, escura e inclinada) segurando tudo; camadas seguem a rocha"),
+        ("monolith", "Hoodoo (monolito)", "planalto", "fuste de arenito que afina e engorda; <b>v8.2</b>: a pedra de "
+         "topo virou uma laje de rocha dura com volume (contorno em facetas, topo claro, face escura, uma fratura em "
+         "degrau e uma trinca, aba sombreando o fuste), cor própria e sem salpicado"),
         ("arch", "Arco natural", "planalto", "erosão tipo Delicate Arch: perna esquerda maciça, direita fina com "
          "cintura, vão torto, buracos, ressaltos de estrato; só as pernas bloqueiam"),
         ("basalt_spires", "Basalto colunar", "basalto", "prismas hexagonais em patamares (Calçada dos Gigantes), "
@@ -171,6 +172,9 @@ def build():
         new = f"sprites/form_{key}.png" if not key.startswith("ice") else "sprites/ice_gate_0.png"
         old = f"../before/regioes_v80_form_{key}.png" if not key.startswith("ice") else \
             "../before/regioes_v80_ice_gate_0.png"
+        oldtag, newtag = "v8.0", "v8.1"
+        if key == "monolith":                      # v8.2: só a pedra de topo do hoodoo mudou
+            old, oldtag, newtag = "../before/regioes_v81_form_monolith.png", "v8.1", "v8.2"
         foot = f"sprites/foot_{key}.png"
         nw, nh = Image.open(OUT / new).size
         ow, oh = Image.open(OUT / old).size
@@ -179,9 +183,9 @@ def build():
         tiles = info["tiles"]
         form_rows += f"""<tr><td><b>{name}</b><br>{reg}<br><span style="font-size:13px">{note}</span></td>
 <td><div class="chk" style="padding:8px"><figure><img src="{old}" width="{ow * 2}" height="{oh * 2}" alt="">
-<figcaption>v8.0</figcaption></figure></div></td>
+<figcaption>{oldtag}</figcaption></figure></div></td>
 <td><div class="chk" style="padding:8px"><figure><img src="{new}" width="{nw * 2}" height="{nh * 2}" alt="">
-<figcaption>v8.1</figcaption></figure></div></td>
+<figcaption>{newtag}</figcaption></figure></div></td>
 <td><img class="px" src="{foot}" alt="" style="max-width:300px;border:0"><br><b>{nw}×{nh}</b> px · bloqueia
 <b>{len(tiles)} tile{'s' if len(tiles) > 1 else ''}</b></td></tr>"""
 
@@ -190,17 +194,27 @@ def build():
 
     html = f"""<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Hesper · Geografia nova · v8.1</title>
+<title>Hesper · Geografia nova · v8.2</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Pixelify+Sans:wght@400;600&family=Silkscreen&display=swap" rel="stylesheet">
 <style>{CSS}</style></head><body><div class="wrap">
-<div class="eyebrow">Hesper · Designer · v8.1 · v0.4 Marco 2 (geografia nova) · formações e cratera refeitas</div>
+<div class="eyebrow">Hesper · Designer · v8.2 · v0.4 Marco 2 (geografia nova) · aprovado · pedra de topo do hoodoo</div>
 <h1>Regiões, relevo e água</h1>
 <p class="lede">Objetivo: tirar a cara de “mapa gerado com tileset” e deixar a superfície orgânica e explorável. O
 planeta é <b>árido e vazio, não areia</b>: rocha, terra seca, sal, basalto e geada. Tudo aqui sai de script
 (<code>tools/sprites/regions_mockups.py</code>), em pixels reais 960×540 com a HUD B2 por cima. Nada disso está
 no jogo ainda: é pra tu aprovar antes do código.</p>
 
-<div class="v2"><b>v8.1 · o que mudou</b><ul>
+<div class="v2"><b>v8.2 · o que mudou</b><ul>
+<li><b>Pedra de topo do hoodoo</b> refeita: antes era um disco chapado com salpicado de ruído. Agora é uma laje de
+rocha dura com volume de verdade: contorno poligonal irregular (as facetas dão a textura), topo iluminado e face
+lateral escura nas mesmas 5 faixas de luz, uma fratura que vira degrau e uma trinca da borda, e a aba um pouco mais
+larga que o fuste, projetando sombra nele. Tem uma rampa própria de 5 tons (cinza-acastanhada), sem salpicado.
+Antes × depois na seção 4.</li>
+<li><b>Promovidos</b> pra <code>assets/sprites/regions/</code>: <code>form_*</code>, <code>ice_gate_0..2</code>,
+<code>crater_impact_0..4</code>, <code>crater_ejecta</code> e o <code>regions_palettes.json</code> (com as rampas
+<code>CAPROCK</code> e <code>METAL</code>). O <code>_pending/regions/</code> ficou vazio.</li>
+<li>O contrato novo (cratera de impacto na superfície) foi proposto na bíblia, §6.</li></ul></div>
+<div class="v2" style="opacity:.75"><b>v8.1 · aprovado</b><ul>
 <li><b>Formações refeitas como rocha natural</b> (seção 4, com antes × depois): o arco virou arco de erosão
 assimétrico e esburacado; o monolito virou <b>hoodoo</b> com pedra de topo; os pináculos viraram <b>basalto
 colunar</b> hexagonal em degraus com colunas caídas; a crosta de sal, o cone e o gelo-portão também foram
@@ -430,7 +444,7 @@ face na linha do topo de onde pende; formações, rochas, soltos, máquinas e pl
 <div class="box dev"><h3>O que é sprite e o que é procedural</h3><ul>
 <li><b>Sprite (PNG indexado)</b>: as 5 texturas de chão, topo e face do morro, 36 decalques, 5 formações, gelo-portão
 ×3, cratera ×5 + ejeção, geada, 9 soltos. Total <b>{n_pend} PNG</b> em
-<code>assets/sprites/_pending/regions/</code>.</li>
+<code>assets/sprites/regions/</code> (aprovados).</li>
 <li><b>Procedural</b>: mapa de região e de altura (noise), deslocamento da borda, silhueta dos morros (grade
 dual) e extrusão da face, curvas de nível, água, cobertura de grama/umidade, sorteio dos decalques.</li>
 <li><b>Recolorir</b>: PNG modo P com a rampa do Árido embutida. Índices: 0..7 rampa, 8 contorno
@@ -476,7 +490,7 @@ livres da região.</li>
 </details></section>
 
 <section><h2>Desvios do contrato</h2><div class="box"><ul>
-<li><b>Nenhum arquivo do contrato atual foi tocado.</b> Tudo novo está em <code>_pending/regions/</code>.</li>
+<li>Tudo aprovado está em <code>assets/sprites/regions/</code>; o contrato novo foi proposto na bíblia (§6).</li>
 <li>Se aprovado, o contrato do §6 ganha: <code>ground_*</code>, <code>hill_top</code>/<code>hill_face</code>,
 <code>decal_*</code>, <code>form_*</code>, <code>ice_gate_*</code>, <code>crater_impact_0..4</code> +
 <code>crater_ejecta</code>, <code>frost_ring</code>,

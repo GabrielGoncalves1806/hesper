@@ -11,8 +11,8 @@ Módulos:
     tools/sprites/ui_mockups.py          HUD B2 (importado, não é alterado)
 
 Saídas:
-    assets/sprites/_pending/regions/*.png      sprites INDEXADOS (PNG modo P, paleta do Árido embutida)
-    assets/sprites/_pending/regions/regions_palettes.json   as rampas dos 4 estágios + pegadas das formações
+    assets/sprites/regions/*.png               sprites INDEXADOS (PNG modo P, paleta do Árido embutida), APROVADOS
+    assets/sprites/regions/regions_palettes.json   as rampas dos 4 estágios + pegadas das formações
     reports/design/regioes/*.png               mockups 960×540, diagramas, prévias
     reports/design/regioes/index.html          o report (tools/sprites/regions_report.py)
 """
@@ -38,7 +38,7 @@ import ui_mockups as U  # noqa: E402
 
 ROOT = HERE.parents[1]
 SPR = ROOT / "assets" / "sprites"
-PEND = SPR / "_pending" / "regions"
+PEND = SPR / "regions"            # aprovado pelo dono (v8.1/v8.2): sai direto na pasta definitiva
 OUT = ROOT / "reports" / "design" / "regioes"
 T = 32
 
@@ -175,10 +175,19 @@ def form_idx(kind):
     return _FORM_CACHE[kind]
 
 
+def form_ramp(kind, stage):
+    """Rampa do sprite da formação no estágio. O hoodoo leva +5 cores (10..14) da rocha dura da pedra de topo."""
+    reg, table = FORM_TABLE[kind]
+    rmp = R.ramp(reg, stage, table)
+    if kind == "monolith":
+        cap = np.array([R.stage_color(R.rgb(c), reg, stage) for c in R.CAPROCK], np.uint8)
+        rmp = np.concatenate([rmp, cap])
+    return rmp
+
+
 def form_img(kind, stage):
     idx, info = form_idx(kind)
-    reg, table = FORM_TABLE[kind]
-    return R.colorize(idx, R.ramp(reg, stage, table)), info
+    return R.colorize(idx, form_ramp(kind, stage)), info
 
 
 _GATE: dict = {}
@@ -662,8 +671,10 @@ def export_pending():
     for kind in F.FORMATIONS:
         idx, info = form_idx(kind)
         reg, table = FORM_TABLE[kind]
-        save_indexed(idx, R.ramp(reg, "arid", table), PEND / f"form_{kind}.png")
+        save_indexed(idx, form_ramp(kind, "arid"), PEND / f"form_{kind}.png")
         tname = "SAND" if table is not R.HILL and table is not R.BASE else ("HILL" if table is R.HILL else "BASE")
+        if kind == "monolith":
+            tname = "SAND+CAPROCK"
         files[f"form_{kind}.png"] = (f"{idx.shape[1]}×{idx.shape[0]}", reg, tname)
         forms[kind] = dict(info, sprite=f"form_{kind}.png", region=reg, ramp=tname)
     for k, sc in enumerate((1.0, 0.72, 0.45)):
@@ -696,8 +707,13 @@ def export_pending():
         ramps[tname] = {}
         for reg in table:
             ramps[tname][reg] = {st: [R.hexc(c) for c in R.ramp(reg, st, table)[:8]] for st in R.STAGES}
+    ramps["CAPROCK"] = {"plateau": {st: [R.hexc(R.stage_color(R.rgb(c), "plateau", st)) for c in R.CAPROCK]
+                                    for st in R.STAGES}}
+    ramps["METAL"] = [R.hexc(c) for c in METAL]
     data = dict(note="Sprites indexados: 0..7 = rampa, 8 = contorno #1b1630, 9 = sombra (preto, alfa %d), "
-                     "255 = transparente. Cor final = ramps[tabela][região][estágio][índice]." % R.SHADOW_A,
+                     "255 = transparente. Cor final = ramps[tabela][região][estágio][índice]. form_monolith: "
+                     "10..14 = ramps.CAPROCK (pedra de topo). crater_impact_*: 10..17 = ramps.ICE.frost, "
+                     "18..20 = ramps.METAL." % R.SHADOW_A,
                 levels=R.LEVELS, warp_px=SC.WARP, decal_cell=R.DECAL_CELL, decal_p=R.DECAL_P,
                 decal_mix=R.DECAL_MIX, formations=forms, ramps=ramps,
                 files={k: dict(size=v[0], region=v[1], ramp=v[2]) for k, v in sorted(files.items())})

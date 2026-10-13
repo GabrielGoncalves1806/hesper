@@ -225,32 +225,78 @@ def _rz(Z):
     return np.interp(Z, zs, rs)
 
 
+def _cap_poly():
+    """Contorno da laje de topo: polígono convexo irregular (8 lados de tamanhos diferentes) -> facetas chapadas."""
+    rng = np.random.default_rng(57)
+    angs = np.sort((np.arange(8) + rng.uniform(-0.3, 0.3, 8)) / 8 * 2 * math.pi)
+    rad = rng.uniform(14.5, 18.5, 8)
+    return [(math.cos(a) * r, math.sin(a) * r * 0.86) for a, r in zip(angs, rad)]
+
+
+CAP_POLY = _cap_poly()
+CAP_C = (5.0, 0.0, 95.0)                   # centro da laje (em relação ao eixo do fuste no chão)
+CAP_CRACKS = [((-16, 3), (16, -6)), ((9, 13), (5, 4))]     # a fratura do degrau e uma trinca curta da borda
+STEP = ((-16, 3), (16, -6))                                  # o lado de trás dessa linha fica 2,5 px mais baixo
+
+
+def cap_dens(X, Y, Z):
+    """Laje de rocha dura: contorno poligonal (facetas), topo inclinado, base inclinada, uma quina lascada."""
+    cx, cy, cz = CAP_C
+    qx, qy = X - cx, Y - cy
+    d = np.full(X.shape, 1e9)
+    n = len(CAP_POLY)
+    for i in range(n):
+        x0, y0 = CAP_POLY[i]
+        x1, y1 = CAP_POLY[(i + 1) % n]
+        ex, ey = x1 - x0, y1 - y0
+        ln = math.hypot(ex, ey)
+        nx, ny = ey / ln, -ex / ln                          # normal pra fora (polígono anti-horário)
+        if nx * x0 + ny * y0 < 0:
+            nx, ny = -nx, -ny
+        d = np.minimum(d, (x0 - qx) * nx + (y0 - qy) * ny)
+    top = cz + 4.5 + 0.16 * qx - 0.07 * qy                  # topo inclinado pra esquerda/frente (pega luz)
+    (sx0, sy0), (sx1, sy1) = STEP
+    behind = ((qy - sy0) * (sx1 - sx0) - (qx - sx0) * (sy1 - sy0)) < 0
+    top = np.where(behind, top - 2.5, top)                  # degrau: a parte de trás da laje partiu e baixou
+    bot = cz - 4.5 + 0.08 * qx
+    d = np.minimum(d, np.minimum(top - Z, Z - bot))
+    chip = (qx * 0.7 + qy * 0.5 + (Z - cz) * 0.5) - 13.0       # quina lascada (corte em diagonal)
+    d = np.minimum(d, -chip)
+    return d + 0.35 * fbm3(X, Y, Z, 7, 58, 1)               # só um tico: a forma vem das facetas
+
+
 def hoodoo_dens(X, Y, Z, part=False):
     ax = 3 * np.sin(Z / 34) + 0.04 * Z
     ledge = np.clip(((Z + 3 * fbm3(X, Y, Z, 20, 56, 2)) % 10) - 7.5, 0, None)
     shaft = _rz(Z) - np.sqrt(((X - ax) * 0.9) ** 2 + (Y * 1.1) ** 2) + 4.5 * fbm3(X, Y, Z, 16, 51) \
         + 3.5 * fbm3(X / 2.5, Y / 2.5, Z, 6, 57, 2) + 1.2 * fbm3(X, Y, Z, 5, 52) - 1.0 * ledge
-    shaft = np.where(Z > 92, -9, shaft)
-    cx, cz = ax + 5, 94
-    tiltz = (Z - cz) + 0.12 * (X - cx)                                   # laje de topo inclinada
-    tiltz = (Z - cz) + 0.18 * (X - cx) - 0.08 * Y
-    cap = np.minimum(19 - np.sqrt(((X - cx) * 0.95) ** 2 + (Y * 1.2) ** 2) + 9 * fbm3(X, Y, Z, 12, 53, 2),
-                     5.0 - np.abs(tiltz) + 2.5 * fbm3(X, Y, Z, 6, 58, 2))
+    shaft = np.where(Z > 93, -9, shaft)
+    cap = cap_dens(X - (3 * np.sin(91 / 34) + 0.04 * 91), Y, Z)
     base = 9 - np.sqrt((X / 2.0) ** 2 + (Y / 1.6) ** 2 + (Z * 1.8) ** 2) + 5 * fbm3(X, Y, Z, 8, 54)
     if part:
-        return cap > np.maximum(shaft, base)
+        return cap > np.maximum(shaft, base) - 0.5
     return np.maximum(np.maximum(shaft, cap), base)
 
 
 def hoodoo_shade(hx, hy, hz, nrm, lit):
+    """Fuste: arenito em camadas. Laje: rampa própria (10..14, rocha dura cinza-acastanhada), as mesmas 5 faixas de
+    luz, fraturas escuras com 1 px de brilho na borda; sem salpicado."""
     b = sandstone(hx, hy, hz, nrm, lit, 55, 8.0)
     cap = hoodoo_dens(hx, hy, hz, part=True)
-    capb = bands(nrm @ L, lit)                                         # pedra de topo: mais dura, cinza e escura
-    capb = np.where(capb >= 3, 6, np.maximum(capb - 1, 0))
-    spk = hash2(np.round(hx).astype(int), np.round(hy * 2 + hz).astype(int), 59)
-    capb = np.where((capb == 6) & (spk < 0.18), 2, capb)
-    capb = np.where((capb == 6) & (spk > 0.9) & lit, 4, capb)
-    return np.where(cap, capb, b).astype(np.uint8)
+    cb = bands(nrm @ L, lit)                                             # 0..5
+    cb = np.clip(cb, 1, 5) + 9                                           # 10..14
+    ox = 3 * np.sin(91 / 34) + 0.04 * 91 + CAP_C[0]
+    qx, qy = hx - ox, hy - CAP_C[1]
+    for (x0, y0), (x1, y1) in CAP_CRACKS:
+        ex, ey = x1 - x0, y1 - y0
+        ln = math.hypot(ex, ey)
+        t = np.clip(((qx - x0) * ex + (qy - y0) * ey) / ln ** 2, 0, 1)
+        dist = np.hypot(qx - (x0 + t * ex), qy - (y0 + t * ey))
+        crack = (dist < 1.05) & (t > 0.06) & (t < 0.94)
+        cb = np.where(crack, 10, cb)
+        lip = (dist >= 1.05) & (dist < 2.0) & (t > 0.08) & (t < 0.92) & ((qy - y0) * ex - (qx - x0) * ey > 0)
+        cb = np.where(lip & (cb >= 12) & (nrm[:, 2] > 0.6), 14, cb)
+    return np.where(cap, cb, b).astype(np.uint8)
 
 
 def monolith():

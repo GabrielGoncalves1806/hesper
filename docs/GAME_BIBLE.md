@@ -185,6 +185,25 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 | `icon_drill.png` | 16×16 | ícone (estoque de máquinas e fabricador) |
 | `plant_bush.png` `plant_tree.png` `plant_flower.png` | até 32×40 | estágio verde |
 
+### Sprites da superfície do v0.4 · regiões: `assets/sprites/regions/` (proposta da Designer, **aprovado pelo dono, v8.1**; hoodoo v8.2)
+Report: `reports/design/regioes/index.html`. Gerados por `tools/sprites/regions_mockups.py` (volumes em `regions_volume.py`, receita do chão em `regions_scene.py`).
+
+**PNG indexado (modo P)**, com a paleta do Árido embutida. Índices: 0..7 = rampa da região, 8 = contorno `#1b1630`, 9 = sombra (preto, alfa 80), 255 = transparente. Os outros estágios trocam a paleta pela rampa do estágio em `regions/regions_palettes.json` (`ramps[tabela][região][estágio]`, tabelas `BASE`, `HILL`, `SAND`, `ICE`, `CAPROCK` e `METAL`). O JSON também traz âncoras, tiles que bloqueiam, níveis d'água e a mistura de decalques.
+
+| Arquivo | Tamanho | Observação |
+|---|---|---|
+| `ground_{plateau,salar,basalt,frost,bed}.png` | 512×512 | chão por região (`bed` = leito seco das depressões); emenda nos 4 lados; o tile (tx, ty) usa o recorte `((tx % 16)·32, (ty % 16)·32)`. Rampa `BASE` |
+| `hill_top.png` / `hill_face.png` | 512×512 / 512×24 | topo e face dos morros mineráveis (rampa `HILL` da região). Silhueta por grade dual; a face é a silhueta extrudada 24 px pra baixo |
+| `decal_*.png` | variados | decoração de chão (não colide, não minera). Rampa `BASE` da região onde cai |
+| `decor_{shards,salt_crystals,ice_chunks}_{0..2}.png` | até 28×24 | soltos com altura, ordenados pelo pé, não colidem |
+| `frost_ring.png` | 176×72 | geada no chão em volta do gelo-portão que sublima |
+| `form_{monolith,arch,basalt_spires,salt_ridge,cone}.png` | até 208×150 | formações fixas (não mineram, marcos no mapa), ancoradas no centro da base e ordenadas pelo pé. Bloqueiam só os tiles do pé (lista no JSON): hoodoo 1, arco 2 (as pernas; o vão de 3 é andável), basalto colunar 3×2, crosta de sal 5×1, cone 3×2. `form_monolith` tem 10..14 = `CAPROCK` (pedra de topo) |
+| `ice_gate_{0,1,2}.png` | 144×132 | gelo-portão em 3 etapas; bloqueia 4×2 → 3×2 → 2×1 → nada (aberto: sem sprite, fica o `frost_ring`) |
+| `crater_impact_{0..4}.png` | 168×150 | **cratera de impacto, substitui `crater.png` e `crater_ramp.png` na superfície.** 0 = tampa de gelo cheia, 1..3 = o gelo baixando (marcas de geada nas paredes), 4 = vazia, com a rampa e o buraco expostos. Âncora (84, 70) = centro dos 3×3 (px `(cx·32 + 48, cy·32 + 48)`), desenhada pelo pé (borda de baixo dos 3×3). Continua bloqueando os mesmos 3×3; o E segue no tile do meio de baixo. Paleta: 0..9 planalto (`BASE`), 10..17 `ICE`, 18..20 `METAL` (degraus e postes da rampa) |
+| `crater_ejecta.png` | 256×216 | manto de ejeção e pedrisco em volta da cratera, centrado no mesmo ponto; camada de decalques (não colide) |
+
+A caverna continua com o `cave_ramp_up.png` e os sprites de hoje. Na superfície, `sand_*` e os `wall_*`/`wall_face_*` dos morros saem de uso quando o Marco 2 entrar.
+
 ### Áudio: `assets/audio/` (Som)
 WAV, 44,1 kHz, 16-bit, mono. Loops precisam emendar sem estalo.
 
