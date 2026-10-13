@@ -229,6 +229,9 @@ MACHINES["drill"] = MachineType("drill", "Drill automática", "+ minério", DRIL
                                 DRILL_UNLOCK_TI, "machine_drill", size=2)
 
 MACHINE_ORDER = list(MACHINES)   # ordem no fabricador e nas teclas 1–7
+# v0.4 M3.4: máquinas de nome feminino (o aviso "Luminária submersa" / "Aquecedor submerso" concorda)
+MACHINE_FEMININE = {"drill", "drone_station", "lamp", "lamp_t2"}
+DISMANTLE_KEY = "Clique direito"   # o verbo de desmontar que o jogo já usa (dica do canto e aviso de submersa)
 MACHINE_SPRITE_SIZE = {1: (40, 56), 2: (40, 64)}   # tamanho do sprite por nível (usado pro mouse "acertar" a máquina)
 DRILL_SPRITE_SIZE = (64, 80)     # 1 quadro do machine_drill.png (4 quadros na horizontal)
 PLACE_REACH = 4                  # alcance pra colocar máquina (tiles)

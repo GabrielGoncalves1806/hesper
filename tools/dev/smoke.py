@@ -3357,6 +3357,74 @@ def check_shore_plants(bot) -> None:
     bot.frames(0.1)
 
 
+def check_submerged(bot) -> None:
+    """M3.4: uma máquina dentro do lago (L1 da Névoa) do lado de uma seca, pra comparar, e o fantasma vermelho de
+    colocar na água. As máquinas entram direto na lista (a água já está lá: o place recusaria) e o _apply_thaw
+    marca a de dentro como submersa (com o aviso)."""
+    from game.systems import Machine
+    s, app = bot.state, bot.app
+    w = s.surface.world
+    assert w.water_level >= C.GEO_LEVELS[0], "na Névoa o lago devia estar no L1"
+    back = (s.player.x, s.player.y)
+    zoom_before = app.zoom
+    app.set_zoom(1.0, notify=False)
+    bx, by = C.BASE_TILE
+
+    def dry(x, y):
+        return (w.is_floor(x, y) and not w.is_water(x, y, s.stage) and not w.vein_at(x, y)
+                and s.machine_at((x, y)) is None)
+
+    # lago mais perto da base: um tile com água nos 8 vizinhos e, na mesma linha, um seco a 2–4 tiles à direita
+    def inside(x, y):
+        return all(w.is_water(x + dx, y + dy, s.stage) for dx in (-1, 0, 1) for dy in (-1, 0, 1))
+
+    spot = None
+    for r in range(18, 90):
+        for x, y in ((x, y) for y in range(by - r, by + r + 1) for x in range(bx - r, bx + r + 1)
+                     if max(abs(x - bx), abs(y - by)) == r):
+            k = next((k for k in (2, 3, 4) if dry(x + k, y) and dry(x + k, y + 1)), None)
+            if k and inside(x, y):
+                spot = (x, y, k)
+                break
+        if spot:
+            break
+    assert spot, "não achei lago com chão seco do lado"
+    x, y, k = spot
+    wet_m, dry_m = Machine("o2", x, y), Machine("o2", x + k, y)
+    s.machines += [wet_m, dry_m]
+    s._apply_thaw()
+    assert wet_m.submerged and not dry_m.submerged
+    bot.teleport((x + k, y - 3))
+    s.o2 = s.o2_max
+    tx_, ty_ = bot.tile_on_screen((x, y))
+    bot.mouse_to((tx_ + 10, ty_ - 30))                   # no topo da máquina (fora d'água): a dica "Submersa"
+    bot.frames(0.4)
+    assert app.thaw_notice and "submerso" in app.thaw_notice, app.thaw_notice
+    hint = app.hint()
+    assert hint and hint.startswith("Submersa"), hint
+    print(f"  submersa em {(x, y)}: aviso \"{app.thaw_notice}\" · dica \"{hint}\"")
+    shot_zoom(bot, "m34_submersa.png", ((x + 0.5 + k / 2) * C.TILE, y * C.TILE), w=240, h=150, k=3)
+    bot.shot("m34_submersa_tela.png")
+    # fantasma de colocar na água: vermelho
+    s.machines.remove(wet_m)
+    s.machines.remove(dry_m)
+    give(s, o2=1)
+    bot.key(hotbar_key(bot, "o2"))
+    assert app.placing == "o2", app.placing
+    bot.mouse_to(bot.tile_on_screen((x, y)))
+    bot.frames(0.2)
+    assert not s.can_place("o2", (x, y)) and s.can_place("o2", (x + k, y))
+    shot_zoom(bot, "m34_fantasma_agua.png", ((x + 0.5 + k / 2) * C.TILE, y * C.TILE), w=240, h=150, k=3)
+    bot.key(pygame.K_ESCAPE)
+    app.placing = None
+    give(s, o2=0)
+    app.thaw_notice_time = 0.0
+    s.player.x, s.player.y = back
+    app.set_zoom(zoom_before, notify=False)
+    s.o2 = C.O2_MAX
+    bot.frames(0.1)
+
+
 def check_old_save_title(bot) -> None:
     """saves/slot1.json do v0.3 / v0.4 Marco 1 (versão 6), sem mundo nenhum: o título avisa "save antigo",
     não migra, e ao criar um mundo ele vira slot1.v6.json (sem apagar)."""
@@ -3573,6 +3641,7 @@ def main() -> None:
     bot.shot("stage2.png")
     check_lakes(bot)
     check_rain(bot)
+    check_submerged(bot)
     give(s, iron=40, silicon=30, ice=20)
     bot.key(pygame.K_e)
     bot.frames(0.2)

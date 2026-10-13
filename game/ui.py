@@ -271,6 +271,15 @@ def item_name(item: str) -> str:
     return C.MACHINES[item].name
 
 
+def submerged_notice(kinds: list[str]) -> str:
+    """v0.4 M3.4: aviso de máquina que o lago cobriu. Uma: "Aquecedor submerso · recolha [Clique direito]" (concorda
+    com o nome); várias juntas: "3 máquinas submersas · recolha [Clique direito]"."""
+    if len(kinds) == 1:
+        word = "submersa" if kinds[0] in C.MACHINE_FEMININE else "submerso"
+        return f"{item_name(kinds[0])} {word} · recolha [{C.DISMANTLE_KEY}]"
+    return f"{len(kinds)} máquinas submersas · recolha [{C.DISMANTLE_KEY}]"
+
+
 def used_in(item: str) -> list[str]:
     """"USADO EM": as receitas que gastam `item` (busca reversa nos custos), na ordem do MACHINE_ORDER."""
     return [k for k in C.MACHINE_ORDER if item in C.MACHINES[k].cost]

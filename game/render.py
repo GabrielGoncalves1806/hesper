@@ -824,7 +824,10 @@ class Renderer:
         for m in state.machines:
             mx, my = m.anchor                                  # centro da base (drill: centro dos 2×2)
             if -64 < mx - cam_x < self.view_w + 64 and -80 < my - cam_y < self.view_h + 80:
-                if m.is_drill:
+                if m.submerged:                                # v0.4 M3.4: só da metade pra cima, parada
+                    items.append((my, lambda m=m, mx=mx, my=my: self._blit_anchored(
+                        canvas, self.submerged_surface(m), mx - cam_x, my - cam_y)))
+                elif m.is_drill:
                     items.append((my, lambda m=m, mx=mx, my=my: self.draw_drill(canvas, m, mx - cam_x, my - cam_y, self.machine_t)))
                 elif m.is_chest:
                     items.append((my, lambda m=m, mx=mx, my=my: self._blit_anchored(
@@ -1008,12 +1011,61 @@ class Renderer:
 
     def highlight_outline(self, machine) -> pygame.Surface:
         """Contorno do sprite da máquina (drill no quadro 0: a silhueta não muda girando)."""
+        if machine.submerged:
+            return self.outline_of(("submerged",) + self._submerged_key(machine), self.submerged_surface(machine))
         if machine.is_drill:
             return self.outline_of("drill", self.drill_frame(0))
         if machine.is_chest:
             opened = machine is self.open_chest
             return self.outline_of(("chest", opened), self.chest_surface(opened))
         return self.outline_of("station", self.station_surface())
+
+    # ---- máquina submersa (v0.4 M3.4) ---------------------------------------------
+    SUBMERGED_TINT = 3      # px: quantas linhas acima da linha d'água ganham o tom da água
+
+    def machine_still(self, machine) -> tuple[pygame.Surface, bool]:
+        """Sprite parado da máquina (sem animação, drill no quadro 0) e se vai espelhado (rotação ímpar)."""
+        kind = machine.kind
+        if machine.is_drill:
+            return self.drill_frame(0), False
+        if machine.is_chest:
+            return self.chest_surface(), False
+        if machine.is_station:
+            return self.station_surface(), False
+        if machine.is_lamp:
+            return self.lamp_surface(kind), False
+        return self.surface(C.MACHINES[kind].sprite, lambda: art.machine(kind))[0], machine.rotation % 2 == 1
+
+    def _submerged_key(self, machine) -> tuple:
+        return machine.kind, machine.rotation % 2, art_key(self.stage_map.stage_at(machine.tx, machine.ty))
+
+    def submerged_surface(self, machine) -> pygame.Surface:
+        """A máquina debaixo d'água: só a metade de cima da silhueta, as últimas linhas no tom da água e a linha
+        d'água (a espuma da paleta do estágio) por cima do corte, um pouco mais larga que a máquina. Mesmo tamanho
+        do sprite (âncora igual): embaixo do corte aparece o tile de água do chão. No cache por tipo e estágio."""
+        key = ("submerged",) + self._submerged_key(machine)
+        if key not in self._fx:
+            sprite, flip = self.machine_still(machine)
+            if flip:
+                sprite = pygame.transform.flip(sprite, True, False)
+            w, h = sprite.get_size()
+            box = sprite.get_bounding_rect(40)
+            cut = box.top + box.height // 2                   # da metade da silhueta pra cima
+            out = pygame.Surface((w, h), pygame.SRCALPHA)
+            out.blit(sprite, (0, 0), (0, 0, w, cut))
+            pal = C.PALETTES[key[3]]
+            tint = self.SUBMERGED_TINT
+            band = pygame.mask.from_surface(out.subsurface((0, cut - tint, w, tint)), 40)
+            out.blit(band.to_surface(setcolor=(*pygame.Color(pal["water_d"])[:3], 120), unsetcolor=(0, 0, 0, 0)),
+                     (0, cut - tint))
+            row = pygame.mask.from_surface(out.subsurface((0, cut - 1, w, 1)), 40).get_bounding_rects()
+            x0 = min((r.left for r in row), default=box.left)
+            x1 = max((r.right for r in row), default=box.right)
+            x0, x1 = max(0, x0 - 2), min(w, x1 + 2)          # a espuma passa um pouco da silhueta
+            out.fill(pal["foam"], (x0, cut - 1, x1 - x0, 1))
+            out.fill(pal["water_d"], (x0 + 1, cut, x1 - x0 - 2, 1))
+            self._fx[key] = out
+        return self._fx[key]
 
     def _blit_anchored(self, canvas, surf, ax, ay, flip=False):
         if flip:
@@ -1387,6 +1439,8 @@ class Renderer:
             if not (-64 < x < self.view_w + 64 and -100 < y < self.view_h + 100):
                 continue
             top = y - round(m.sprite_rect[3])
+            if m.submerged:                       # parada: sem barra e sem raio (não gasta energia)
+                continue
             if m.is_drill:
                 top -= 2
                 self.draw_drill_bar(canvas, x, top - self.DRILL_BAR_H, m.stored / C.DRILL_CAPACITY,
@@ -1454,6 +1508,8 @@ class Renderer:
         # no déficit de energia o brilho das máquinas fica mais fraco (metade com fator 0)
         dim = 0.5 + 0.5 * state.power.factor
         for m in state.machines:
+            if m.submerged:  # v0.4 M3.4: debaixo d'água não acende
+                continue
             if m.is_drill:   # luzinha quente na cabeça da drill, só enquanto ela trabalha
                 if m.full:
                     continue

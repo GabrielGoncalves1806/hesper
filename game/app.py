@@ -49,7 +49,7 @@ from game.render import Renderer, art_key, stage_key
 from game.surfaces import opaque
 from game.systems import Controls, GameState
 from game.textedit import TextField
-from game.ui import item_name
+from game.ui import item_name, submerged_notice
 from game.title import TitleScreen, draw_saved_notice
 from game.ui import TAB_CRAFT, TAB_INVENTORY, TAB_LOGS, UI, FloatingTexts
 
@@ -167,6 +167,7 @@ class App:
         self.toast: str | None = None   # aviso neutro rápido ("Zoom 1,5×")
         self.thaw_notice: str | None = None   # v0.4 M3.1: "O gelo da cratera está cedendo" (pílula no estilo RAJADA)
         self.thaw_notice_time = 0.0
+        self.submerged_kinds: list[str] = []  # v0.4 M3.4: máquinas do aviso "submersa" que está na tela (agrupa)
         self.toast_time = 0.0
         self.audio.set_mix(**settings.mix(self.settings))
         self.audio.start_ambient(self.ambient_want())
@@ -1366,6 +1367,13 @@ class App:
             opened = event[1] >= C.CRATER_ICE_STAGES
             self.show_thaw_notice(CRATER_OPEN_TEXT if opened else CRATER_THAW_TEXT)
             self.audio.play("ice_crack")
+        elif kind == "submerged":             # v0.4 M3.4: o lago cobriu uma máquina (várias juntas: um aviso só)
+            showing = self.submerged_kinds and self.thaw_notice_time > 0 \
+                and self.thaw_notice == submerged_notice(self.submerged_kinds)
+            if not showing:                       # o aviso anterior já saiu (ou é outro): começa a contar de novo
+                self.submerged_kinds = []
+            self.submerged_kinds.append(event[1])
+            self.thaw_notice, self.thaw_notice_time = submerged_notice(self.submerged_kinds), C.THAW_CRATER_NOTICE_S
         elif kind == "fumarole_wake":         # só um aviso visual, e só com a fumarola na tela (sem som por ora)
             if self.vent_on_screen(event[1]):
                 self.show_thaw_notice(FUMAROLE_WAKE_TEXT)
@@ -1481,7 +1489,7 @@ class App:
             vw, vh = self.view_size
             for d in state.drills:
                 ax, ay = d.anchor
-                if not d.full and -64 < ax - cx < vw + 64 and -64 < ay - cy < vh + 64:
+                if not d.full and not d.submerged and -64 < ax - cx < vw + 64 and -64 < ay - cy < vh + 64:
                     side = random.choice((-1, 1))
                     self.renderer.spawn_chips(None, random.choice(("#9a9086", "#c8c0b4")), 1,
                                               at=(ax + side * random.uniform(4, 18), ay - 6))
@@ -1493,7 +1501,7 @@ class App:
         dt = dt * self.state.power.factor
         for i, m in enumerate(self.state.machines):
             phase = (i * 1.37) % period
-            if m.type.index is not None and (t - dt + phase) % period > (t + phase) % period:
+            if m.type.index is not None and not m.submerged and (t - dt + phase) % period > (t + phase) % period:
                 key = m.type.index
                 self.floaters.add(f"+{C.INDEX_LABEL[key]}", (m.tx + 0.5) * C.TILE, m.ty * C.TILE - 30, C.INDEX_COLOR[key])
 
@@ -1519,6 +1527,9 @@ class App:
         state = self.state
         if self.placing == "drill" and self.place_target() is None:
             return "Coloque a drill em cima de um veio"
+        target_tile = self.place_target() if self.placing else None
+        if target_tile is not None and state.world.is_water(*target_tile, state.stage):   # v0.4 M3.4
+            return "Não dá pra construir na água · Esc cancela"
         if self.placing == "drone_station" and not state.active.has_base:
             return "Drones só funcionam na superfície · Esc cancela"
         if self.placing == "drone_station":
@@ -1529,6 +1540,11 @@ class App:
         target = self.e_target()
         # mouse numa máquina que o E não vai abrir (longe, ou outra está no alcance): diz qual ele abre
         other = f" · {self.e_label(target)}" if target and target[1] is not machine else ""
+        if machine and machine.submerged:                  # v0.4 M3.4: parada debaixo d'água
+            if target and target[1] is machine:
+                return self.e_label(target) + f" · [{C.DISMANTLE_KEY}] recolher"
+            return (f"Submersa · [{C.DISMANTLE_KEY}] recolher" if state.can_dismantle(machine)
+                    else "Submersa · chegue mais perto pra recolher")
         if machine and machine.is_drill:
             label = C.RESOURCE_NAME[machine.resource]
             content = (f"Drill cheia: {machine.stored} {label}" if machine.full
@@ -1605,7 +1621,13 @@ class App:
         return target[1]                          # máquina ou caixa de saque
 
     def e_label(self, target: tuple[str, object]) -> str:
-        """Texto do canto pro alvo do E ("[E] Abrir baú", "[E] Ler terminal"...)."""
+        """Texto do canto pro alvo do E ("[E] Abrir baú", "[E] Ler terminal"...). Máquina submersa (v0.4 M3.4):
+        "Submersa · " na frente (o E continua abrindo, pra tirar o que estava dentro)."""
+        if getattr(target[1], "submerged", False):
+            return "Submersa · " + self._e_label(target)
+        return self._e_label(target)
+
+    def _e_label(self, target: tuple[str, object]) -> str:
         kind, obj = target
         if kind == "terminal":
             return "[E] Ler terminal"
@@ -1833,6 +1855,7 @@ class App:
         self.renderer.minimap.reset()
         self.blueprint_notice, self.blueprint_notice_time, self.blueprint_duck = None, 0.0, 0.0
         self.thaw_notice, self.thaw_notice_time = None, 0.0
+        self.submerged_kinds = []
         self.banner_stage, self.banner_time, self.end_timer = state.stage, 0.0, None
         self.drills_near.clear()
         self.drill_full_last.clear()
