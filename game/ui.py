@@ -759,17 +759,6 @@ class UI:
         self.draw_ti_panel(state)
         self.draw_energy(state)
 
-        # recursos (total de cada um, somando as pilhas): pílulas embaixo à esquerda
-        x = 6
-        y = self.h - 6 - 13
-        for res in C.RESOURCES:
-            label = str(state.inventory.count(res))
-            pw = 14 + self.font.size(label)[0] + 5
-            self.hud_panel(x, y, pw, 13)
-            self.native.append((icons[res], ((x + 2) * 2, (y + 2) * 2)))
-            self.tx(label, x + 12, y - 1, B_TEXT)
-            x += pw + 3
-
         if hint:
             self.draw_hint(hint)
 
