@@ -240,6 +240,12 @@ def item_category(item: str) -> tuple[str, str]:
     return "MÁQUINA", C.C_ACCENT
 
 
+def gust_warning(state) -> bool:
+    """Mostra o aviso RAJADA? Só enquanto a rajada está forte (some quando ela baixa)."""
+    weather = getattr(state, "weather", None)
+    return weather is not None and weather.gust > C.STORM_GUST_WARN
+
+
 def wrap(font: pygame.font.Font, text: str, max_w: int) -> list[str]:
     lines, line = [], ""
     for word in text.split(" "):
@@ -286,6 +292,8 @@ class UI:
         self.chest_label_rects: list[pygame.Rect] = []
         # painéis do HUD desenhados nesta camada (hud_panel): os floaters somem antes de entrar embaixo deles
         self.hud_rects: list[pygame.Rect] = []   # rótulos de baú deste frame (os floaters desviam)
+        self.left_bottom = 23                    # fundo da coluna da esquerda do HUD (O₂ e objetivo), px da UI
+        self.gust_rect: pygame.Rect | None = None   # aviso RAJADA deste frame (tempestade)
         self._dodge: dict[int, float] = {}                # desvio de cada floater (uid) do rótulo atual
         self._dodge_key = None
         # Silkscreen: letras da fonte, só o subscrito do "O₂" desenhado (os números dela são legíveis)
@@ -696,6 +704,7 @@ class UI:
         self.tx(value, 90, 3, ALERT_TEXT if crit else B_TEXT, self.body)
         if tank and item_icon is not None:           # tanque equipado: a barra vale 220 s
             self.native.append((self.small_icon(item_icon, "o2_tank"), (124 * 2, 10 * 2)))
+        self.left_bottom = 6 + 17                     # fundo da coluna da esquerda (o objetivo empurra pra baixo)
 
         # painel do Ti e, logo embaixo, o medidor de energia
         self.draw_ti_panel(state)
@@ -859,6 +868,7 @@ class UI:
         x, y, w = 6, 27, self.objective_w
         h = 17 + 12 * len(rows)
         self.hud_panel(x, y, w, h)
+        self.left_bottom = y + h
         self.fill(C.C_ACCENT, (x, y + 1, 2, h - 2))
         self.tx("OBJETIVO", x + 6, y, C.C_ACCENT)
         first = {}
@@ -874,6 +884,29 @@ class UI:
                 self.tx(text, x + 6, ly, B_TEXT, self.body)
             else:                                 # próximo: apagado
                 self.tx(text, x + 6, ly, B_DIM, self.body)
+
+    # ---- tempestade: aviso de rajada ------------------------------------------
+    GUST_W, GUST_H = 58, 15
+
+    def draw_gust_warning(self, state: GameState, t: float) -> None:
+        """Pílula "RAJADA" com ícone de vento logo abaixo da coluna do O₂/objetivo, enquanto a rajada
+        está forte (gust > STORM_GUST_WARN). Guarda o retângulo em gust_rect (None sem aviso)."""
+        self.gust_rect = None
+        if not gust_warning(state):
+            return
+        x, y = 6, self.left_bottom + 4
+        w, h = self.GUST_W, self.GUST_H
+        self.hud_panel(x, y, w, h)
+        self.fill(C.C_ACCENT, (x, y + 1, 2, h - 2))
+        # ícone de vento: 3 traços que correm pra direita (o de baixo com a pontinha virada)
+        shift = int(t * 6) % 3
+        for i, (dx, length) in enumerate(((2, 7), (0, 9), (3, 6))):
+            ly = y + 4 + 3 * i
+            lx = x + 5 + (dx + shift + i) % 4
+            self.fill(C.C_ACCENT if i == 1 else B_TEXT, (lx, ly, length, 1))
+        self.fill(B_TEXT, (x + 5 + (3 + shift + 2) % 4 + 6, y + 9, 1, 1))
+        self.tx("RAJADA", x + 18, y - 1, C.C_ACCENT)
+        self.gust_rect = pygame.Rect(x, y, w, h)
 
     def draw_floaters(self, floaters: FloatingTexts, cam: tuple[int, int], zoom: float = 1.0,
                       labels: list[pygame.Rect] = ()) -> None:

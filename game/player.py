@@ -58,6 +58,13 @@ class Player:
         self._move_axis(dx * speed * dt, 0, solids_near)
         self._move_axis(0, dy * speed * dt, solids_near)
 
+    def drift(self, vx: float, vy: float, dt: float, solids_near: Callable[[Rect], Iterable[Rect]]) -> None:
+        """Empurrão de fora (rajada de vento), em px/s: mesma colisão do `move`, sem virar nem animar o player."""
+        if vx == 0 and vy == 0:
+            return
+        self._move_axis(vx * dt, 0, solids_near)
+        self._move_axis(0, vy * dt, solids_near)
+
     def face(self, dx: float, dy: float) -> None:
         """Vira o player pra direção (dx, dy). Na diagonal, o lado ganha (o sprite de lado lê melhor)."""
         if dx == 0 and dy == 0:

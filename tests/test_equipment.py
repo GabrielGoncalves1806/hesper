@@ -27,6 +27,7 @@ def test_tank_raises_o2_max_and_refill_goes_to_220():
     assert g.equip_from(i) and g.inventory.count("o2_tank") == 0
     assert g.o2_max == 220 and "o2_tank" in g.equipped_ever
     assert ("equip", "o2_tank") in g.pop_events()
+    g.storm = 0.0                                  # céu limpo: a rajada não tira o player da base
     g.o2 = 50
     for _ in range(400):
         g.update(0.05, Controls())                 # parado na base: enche até 220
@@ -48,6 +49,7 @@ def test_unequip_clamps_o2_and_needs_space():
 def test_tank_lasts_220_seconds_outside():
     g = GameState(7)
     g.equipment.equip("o2_tank")
+    g.storm = 0.0                                 # céu limpo: na tempestade o O₂ gasta ×1,25
     g.o2 = g.o2_max
     g.player.x += 20 * C.TILE                     # fora da zona
     for _ in range(int(219 / 0.05)):

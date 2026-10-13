@@ -548,3 +548,22 @@ VOLUME.update({"crate_open": 0.9, "blueprint_found": 1.0, "equip": 0.7, "map_ope
 # energia, drones e equipamentos ficam só no fabricador: é o motivo de ainda voltar pra base.
 # ---------------------------------------------------------------------------
 FIELD_RECIPES = ("drill", "lamp", "lamp_t2", "chest")
+
+# ---------------------------------------------------------------------------
+# Tempestade de poeira (v0.4 Marco 1 · bíblia, seção da tempestade): o clima mora em game/weather.py.
+# Tudo aqui é multiplicado pela intensidade da tempestade (state.storm, 1 = cheia, 0 = sem tempestade).
+# ---------------------------------------------------------------------------
+STORM_VIEW_TILES = 7.0          # raio de visão na tempestade (tiles)
+STORM_GUST_VIEW_TILES = 4.0     # raio de visão no pico da rajada
+STORM_GUST_EVERY = (20.0, 40.0)  # s entre o começo de uma rajada e o da próxima (sorteio com seed)
+STORM_GUST_FIRST = (10.0, 20.0)  # s até a 1ª rajada (mais cedo, pro jogador conhecer a mecânica)
+STORM_GUST_LEN = (3.0, 5.0)     # s de duração de cada rajada
+STORM_GUST_MIN_STORM = 0.99    # rajada nova só com a tempestade cheia (na transição pro Árido elas param)
+STORM_GUST_RAMP = 0.5           # s pro gust ir de 0 a 1 (e de 1 a 0): sobe e desce suave
+STORM_PUSH = 0.35               # empurrão no pico da rajada, em fração da PLAYER_SPEED (dá pra vencer andando)
+STORM_O2_MULT = 1.25            # O₂ gasta ×1,25 fora da base na tempestade cheia (interpola com o storm)
+STORM_WIND_TURN = 8.0           # °/s: o vento vira no máximo isso (variação lenta)
+STORM_WIND_SWAY = 40.0          # °: quanto o vento foge da direção dominante (sorteada pela seed)
+STORM_WIND_RETARGET = (6.0, 14.0)  # s entre um novo alvo de direção e o próximo
+STORM_GUST_WARN = 0.3           # gust acima disso: aviso "RAJADA" no HUD
+VOLUME["gust"] = 0.7            # som da rajada (sem gust.wav, fica em silêncio); vezes o storm

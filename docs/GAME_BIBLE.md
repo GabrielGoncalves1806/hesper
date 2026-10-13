@@ -508,3 +508,17 @@ Referência: `reports/design/ui_redesign/index.html` (seção "Versão final (B 
   - **Persistência**: os filtros escondidos e o último zoom são **preferência do jogador**: vão no `settings.json` (`"map_hidden": ["machine"]`, `"map_zoom": 2`), valem pra qualquer save e **não entram no save do jogo**. A posição da câmera não é salva.
   - Nenhum clique, arrasto, rodinha ou tecla com o mapa aberto chega no jogo; Esc, M e Tab fecham.
 
+
+## 10. Escopo do v0.4: "mundo vivo"
+Spec: `docs/superpowers/specs/2026-10-13-v04-mundo-vivo-design.md`. Plano do Marco 1: `docs/superpowers/plans/2026-10-13-v04-marco1-tempestade.md`.
+
+### Marco 1 · Tempestade: clima e jogabilidade (números de partida, ajustáveis em `game/config.py`, bloco `STORM_*`)
+- **Intensidade**: tudo da tempestade é multiplicado por `state.storm` (1 = cheia no estágio Tempestade, desce até 0 em ~20 s ao chegar no Árido). Na **caverna** a intensidade efetiva é 0: lá embaixo não tem rajada, empurrão nem O₂ extra.
+- **Clima** (`game/weather.py`, `state.weather`, determinístico pela seed do mundo, não vai no save):
+  - **vento**: direção dominante sorteada pela seed; foge dela até **40°** pra cada lado, com um alvo novo a cada 6–14 s, virando no máximo **8°/s** (variação lenta);
+  - **rajadas**: a 1ª entre **10 e 20 s** (pro jogador conhecer logo a mecânica), depois uma a cada **20–40 s** (de começo a começo), cada uma segurando o pico por **3–5 s**; a força (`gust`, 0 a 1) sobe e desce em **0,5 s**. Rajada nova só começa com a tempestade cheia: na transição pro Árido as rajadas param (a que estava rolando termina);
+  - **visão** (`view_tiles`, lida pela camada de poeira): **7 tiles**, caindo até **4** no pico da rajada, e abrindo até o infinito conforme a tempestade some (raio ÷ intensidade).
+- **Empurrão**: na rajada o player ganha `vento × PLAYER_SPEED × 35% × gust × storm` px/s (~42 px/s no pico), somado ao andar e com a mesma colisão (não atravessa parede nem máquina). Parado, ele **desliza** sem animar a caminhada nem virar; andando contra, **avança a ~65%** da velocidade. Sem empurrão desmaiado, durante o fade da rampa e com qualquer tela aberta (inventário, fabricador, mapa, baú...).
+- **O₂**: fora da base gasta **×1,25** com a tempestade cheia, interpolando com a intensidade (`1 + 0,25 × storm`). Na zona da base, a recarga não muda; na caverna, o gasto é o normal.
+- **Aviso no HUD**: enquanto a rajada está forte (`gust > 0,3`), uma pílula **"RAJADA"** no estilo B2 (barra laranja à esquerda, ícone de vento com 3 traços correndo) logo abaixo da coluna do O₂/objetivo. Some quando a rajada baixa.
+- **Som**: `gust` (0,7 no `VOLUME`) no começo de cada rajada, com o volume proporcional à intensidade. Sem `gust.wav`, fica em silêncio.

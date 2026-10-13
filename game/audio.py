@@ -91,6 +91,11 @@ def wind_volume(level: float, ambient_level: float, ambient_gain: float) -> floa
     return C.DESERT_WIND_VOLUME / AMBIENT_VOLUME * level * ambient_level * ambient_gain
 
 
+def gust_gain(storm: float) -> float:
+    """Som da rajada (VOLUME['gust'] no config) proporcional à tempestade: cheia = inteiro, sumindo = mais baixo."""
+    return max(0.0, min(1.0, storm))
+
+
 def hum_volume(distance_tiles: float | None) -> float:
     """Zumbido pela máquina mais próxima: cheio até 2 tiles, some a partir de 8."""
     if distance_tiles is None:
