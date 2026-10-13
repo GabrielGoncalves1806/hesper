@@ -96,10 +96,12 @@ WRECK = 12                      # área de um destroço (Marco 3): obstáculo pl
 LOOT_CRATE = 13                 # caixa de saque de um destroço (1 tile, obstáculo plano; abre com E)
 FORMATION = 14                  # pegada de uma formação fixa (v0.4 Marco 2): sólida, não minera, não é parede
                                 # (quem desenha é o objeto da formação, game/geo.py · Formation)
+CONTAINER = 15                  # contêiner lacrado atrás de um gelo-portão (v0.4 Marco 3 · M3.2): 1 tile sólido baixo,
+                                # não abre nem minera (quem desenha é o render, como a caixa de saque)
 ORE_TILES = {IRON: "iron", SILICON: "silicon", ICE: "ice"}            # minério NA PAREDE (overlay no topo)
 SMALL_ROCKS = {SMALL_IRON: "iron", SMALL_SILICON: "silicon", SMALL_ICE: "ice"}
 WALL_TILES = {ROCK, IRON, SILICON, ICE, BEDROCK, TERMINAL}            # paredes ALTAS (topo elevado + face)
-FLAT_SOLIDS = set(SMALL_ROCKS) | {CRATER, WRECK, LOOT_CRATE, FORMATION}                         # sólidos baixos: bloqueiam, mas não têm altura
+FLAT_SOLIDS = set(SMALL_ROCKS) | {CRATER, WRECK, LOOT_CRATE, FORMATION, CONTAINER}                         # sólidos baixos: bloqueiam, mas não têm altura
 SOLID_TILES = WALL_TILES | FLAT_SOLIDS
 FLOOR_TILES = {FLOOR, SAND}
 TILE_RESOURCE = {**ORE_TILES, **SMALL_ROCKS}                          # o que cada tile dá ao quebrar
@@ -619,6 +621,22 @@ ICE_GATES = (2, 3)
 POCKET_SIZE = (8, 7)                # interior (largura, altura) em tiles, começando na linha 3
 POCKET_WALL = 2                     # espessura do anel de rocha
 POCKET_SPACING = 26                 # tiles entre os centros de dois bolsões
+
+# v0.4 Marco 3 · M3.2 (bíblia §12, "Gelos-portão"): os portões derretem com o calor, do 0 (o da esquerda) pro último.
+# Cada um tem 3 marcos de calor (pK): etapa 1, 2 e 3 (3 = aberto, sem gelo). O 3º trio só vale com 3 bolsões.
+# A etapa é derivada do índice (layer.gate_ice, não vai no save). Números de partida: o balanceamento é no Marco 4.
+THAW_GATE_HEAT = ((1500, 2500, 3500), (3500, 5000, 6500), (6000, 8000, 10000))
+THAW_GATE_NOTICE = "Um gelo-portão abriu ao norte"
+THAW_GATE_NOTICE_TIME = 4.0         # s do aviso
+VOLUME.setdefault("ice_crack", 0.9)  # estalo do gelo (sem ice_crack.wav, silêncio; o M3.1 usa o mesmo som)
+# Destroço rico: no wreck_spot de cada bolsão, uma nave de carga com o saque "rico" (mais material que a melhor
+# nave de fora) e, se algum projeto de BLUEPRINTS não caiu nos destroços de fora, o 1º que faltar.
+WRECK_RICH_KIND = "cargo"
+WRECK_RICH_LOOT = {"iron": (30, 40), "silicon": (20, 28), "ice": (14, 20)}
+# Contêiner lacrado no container_spot (gancho das peças raras do v0.5): não abre. O texto final passa pelo dono.
+CONTAINER_LORE = "Contêiner lacrado · selo da Colônia Hesper · o lacre não cede com a ferramenta que você tem"
+CONTAINER_REACH = 48                # px dos pés até a base dele (igual à caixa de saque)
+CONTAINER_LORE_TIME = 4.5           # s do aviso com a dica de lore
 
 # Morros por região (o salar quase sem morro, o basalto com mais) e o minério de cada uma
 HILL_REGION_WEIGHT = {"plateau": 1.0, "salar": 0.05, "basalt": 2.2, "frost": 1.0}

@@ -7,6 +7,7 @@ import random
 import pytest
 
 from game import config as C
+from game import layers
 from game import save
 from game.objectives import current_index
 from game.inventory import Stack
@@ -159,7 +160,10 @@ def test_geo_is_not_saved_and_comes_back_from_the_seed(tmp_path):
     assert a is not None and loaded.layers["surface"].geo is b
     assert np.array_equal(a.region, b.region) and np.array_equal(a.basin, b.basin)
     assert [(f.kind, f.tx, f.ty) for f in a.formations] == [(f.kind, f.tx, f.ty) for f in b.formations]
-    assert all(loaded.world.get(*t) == C.FORMATION for f in b.formations for t in f.tiles)
+    # v0.4 M3.2: o calor do rich_state já abriu o 1º gelo-portão; a pegada atual (derivada) volta igual no load
+    assert loaded.surface.gate_ice == state.surface.gate_ice and loaded.surface.gate_ice[0] == 3
+    assert all(loaded.world.get(*t) == C.FORMATION for f in layers.current_formations(loaded.surface)
+               for t in f.tiles)
     state.enter_layer("cave")
     assert state.active.geo is None                                # a caverna não tem geografia
 

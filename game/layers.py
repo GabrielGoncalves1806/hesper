@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from game import config as C
 
 from game.explore import Explored
+from game.geo import gate_at
 from game.rock_respawn import RockRespawn
 from game.surface_gen import generate_surface
 from game.world import World
@@ -37,10 +38,16 @@ class Layer:
     # com a rampa exposta. No M2 fica sempre tampada (o derretimento pelo calor é do M3); F4 abre na hora (debug).
     # Vai no save.
     crater_ice: int = 0
+    # v0.4 Marco 3 · M3.2: etapa do gelo de cada portão (índice = geo.pockets[i]): 0 inteiro .. 3 aberto. DERIVADA do
+    # índice de calor (game/thaw.py · gate_stage) pelo GameState._apply_thaw: NÃO vai no save, o load reconstrói.
+    gate_ice: list = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.explored is None:
             self.explored = Explored(self.world.width, self.world.height)
+        geo = self.world.geo
+        if geo is not None and not self.gate_ice:
+            self.gate_ice = [0] * len(geo.pockets)
 
     @property
     def geo(self):
@@ -52,6 +59,23 @@ class Layer:
     def has_base(self) -> bool:
         """A cápsula (e a zona de O₂) fica na superfície."""
         return self.key == SURFACE
+
+
+def current_formations(layer: Layer) -> list:
+    """As formações como estão agora: o gelo-portão na etapa de `layer.gate_ice` (cópia com a pegada e o sprite
+    da etapa) e sem o portão aberto. É o que o render desenha (o geo guarda só a etapa 0)."""
+    geo = layer.geo
+    if geo is None:
+        return []
+    stage = {id(p.gate): (layer.gate_ice[i] if i < len(layer.gate_ice) else 0) for i, p in enumerate(geo.pockets)}
+    out = []
+    for f in geo.formations:
+        if stage.get(id(f), 0) > 0:                  # inteiro (etapa 0): a própria formação do geo
+            f = gate_at(f, stage[id(f)])
+            if f is None:
+                continue
+        out.append(f)
+    return out
 
 
 def make_surface(seed: int) -> Layer:

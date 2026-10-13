@@ -237,8 +237,8 @@ class App:
     def zoom_step(self, step: int) -> None:
         self.set_zoom(viewport.step_zoom(self.zoom, step))
 
-    def show_toast(self, text: str) -> None:
-        self.toast, self.toast_time = text, C.ZOOM_TOAST_TIME
+    def show_toast(self, text: str, seconds: float = C.ZOOM_TOAST_TIME) -> None:
+        self.toast, self.toast_time = text, seconds
 
     @property
     def view_size(self) -> tuple[int, int]:
@@ -437,6 +437,8 @@ class App:
                     self.show_log(target[1].log)
                 elif target and target[0] == "crate":
                     self.open_loot(target[1])
+                elif target and target[0] == "container":          # v0.4 M3.2: lacrado, só a dica de lore
+                    self.show_toast(C.CONTAINER_LORE, C.CONTAINER_LORE_TIME)
                 elif target and target[0] == "drill" and self.shift_held():
                     state.collect(target[1])              # Shift+E: coleta tudo sem abrir o painel
                 elif target and target[0] == "drill":
@@ -1327,6 +1329,15 @@ class App:
         elif kind == "loot":
             _, resource, amount, (ax, ay) = event
             self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", ax, ay - 40, C.ORE_COLORS[resource][0])
+        elif kind == "gate_thaw":             # v0.4 M3.2: um gelo-portão baixou uma etapa (3 = aberto)
+            _, i, stage = event
+            pockets = self.state.surface.geo.pockets if self.state.surface.geo is not None else []
+            if i < len(pockets):                  # o mapa do scanner acompanha a pegada
+                for tile in pockets[i].gate.tiles:
+                    self.renderer.minimap.repaint(self.state, tile, "surface")
+            if stage >= 3:
+                self.show_toast(C.THAW_GATE_NOTICE, C.THAW_GATE_NOTICE_TIME)
+                self.audio.play("ice_crack")      # sem ice_crack.wav (Som), silêncio
         elif kind == "gust":                  # rajada começou (tempestade): volume pelo storm, sem gust.wav fica mudo
             self.audio.play("gust", gain=sound.gust_gain(event[1]))
         elif kind == "equip":
@@ -1528,6 +1539,8 @@ class App:
             return "Caixa vazia" if hover[1].empty else "Caixa de saque · chegue mais perto"
         if hover is not None and hover[0] == "wreck_log":
             return "Terminal · chegue mais perto"
+        if hover is not None and hover[0] == "container":
+            return "Contêiner lacrado · chegue mais perto"
         tile = self.mouse_tile()
         if state.world.get(*tile) == C.CRATER:            # rampa debaixo do mouse, mas longe
             if state.ramp_blocked():
@@ -1557,6 +1570,8 @@ class App:
             return "ramp", target[1]
         if target[0] == "wreck_log":
             return "wreck_log", target[1]
+        if target[0] == "container":
+            return "container", target[1]
         return target[1]                          # máquina ou caixa de saque
 
     def e_label(self, target: tuple[str, object]) -> str:
@@ -1572,6 +1587,8 @@ class App:
             return "[E] Caixa vazia" if obj.empty else "[E] Abrir caixa de saque"
         if kind == "wreck_log":
             return "[E] Ler terminal"
+        if kind == "container":
+            return "[E] Contêiner lacrado"
         if kind == "chest":
             name = obj.name or C.CHEST_DEFAULT_NAME
             return "[E] Abrir baú" if name == C.CHEST_DEFAULT_NAME else f"[E] Abrir baú: {name}"

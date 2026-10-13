@@ -1084,7 +1084,8 @@ def geo_stats(seed: int) -> dict:
     world = generate_surface(seed)
     dist = _walk_field(world, C.BASE_TILE)
     bx, by = C.BASE_TILE
-    wrecks = [(round(math.hypot(w.center[0] - bx, w.center[1] - by)), _reach(dist, [w.crate])) for w in world.wrecks]
+    wrecks = [(round(math.hypot(w.center[0] - bx, w.center[1] - by)), _reach(dist, [w.crate])) for w in world.wrecks
+              if not w.rich]                                   # o rico (M3.2) fica atrás do gelo-portão
     veins = [(v.resource, round(math.hypot(v.tx + 1 - bx, v.ty + 1 - by)), _reach(dist, v.tiles)) for v in world.veins]
     ore = {}
     for r in GEO_RADII:

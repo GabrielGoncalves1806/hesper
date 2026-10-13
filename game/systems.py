@@ -15,7 +15,9 @@ from game import config as C
 from game import drones
 from game import explore
 from game import layers
+from game import thaw
 from game.equipment import Equipment, is_equipment
+from game.geo import gate_at
 from game.inventory import Inventory
 from game.energy import PowerAlert, PowerReport, power_report
 from game.layers import CAVE, SURFACE, Layer
@@ -712,6 +714,9 @@ class GameState:
             wreck = self.world.wreck_at(*tile)
             if wreck is not None and wreck.terminal == tile:
                 return "wreck_log", wreck
+        for tile in tiles:                               # v0.4 M3.2: contêiner lacrado (só mostra a dica)
+            if self.world.get(*tile) == C.CONTAINER:
+                return "container", tile
         for i, tile in enumerate(self.world.terminals):
             if tuple(tile) in tiles:
                 return "terminal", i
@@ -729,6 +734,8 @@ class GameState:
             return self.crates.get(target.tile) is target and self.crate_distance(target) <= C.CRATE_REACH
         if kind == "wreck_log":
             return target in self.world.wrecks and self.wreck_terminal_distance(target) <= C.TERMINAL_REACH
+        if kind == "container":
+            return tuple(target) in self.world.containers and self.container_distance(target) <= C.CONTAINER_REACH
         reach = {"drill": C.DRILL_REACH, "chest": C.CHEST_REACH, "station": C.STATION_REACH}[kind]
         return any(m is target for m in self.machines) and self.drill_distance(target) <= reach
 
@@ -757,6 +764,9 @@ class GameState:
         wreck = self.nearby_wreck_terminal()
         if wreck is not None:
             options.append((self.wreck_terminal_distance(wreck), "wreck_log", wreck))
+        box = self.nearby_container()
+        if box is not None:
+            options.append((self.container_distance(box), "container", box))
         if self.ramp_distance() <= C.RAMP_REACH:
             options.append((self.ramp_distance(), "ramp", tuple(self.world.crater)))
         if not options:
@@ -939,6 +949,32 @@ class GameState:
         if stations:                         # drones (game/drones.py): só na superfície; no déficit voam mais devagar
             self.drone_deliveries += drones.update_stations(stations, self.drone_logistics(), work_dt, self.events)
         self._check_stage()
+        self._apply_thaw()                   # v0.4 M3: o calor muda o mapa (depois de somar os índices)
+
+    # ---- derretimento (v0.4 Marco 3 · game/thaw.py) ---------------------------------
+    def _apply_thaw(self) -> None:
+        """Despachante do derretimento: tudo o que o índice muda no mapa sobe aqui (nunca desce) e solta os eventos.
+        Chamado no fim do _update_machines e depois do load (game/save.py, que descarta os eventos do load)."""
+        self._thaw_gates()
+
+    def _thaw_gates(self) -> None:
+        """M3.2: cada gelo-portão sobe pra etapa do calor (thaw.gate_stage), troca a pegada C.FORMATION no mapa da
+        superfície (aberto: os tiles viram chão) e solta um ("gate_thaw", i, etapa) por etapa que subiu."""
+        surface = self.layers.get(SURFACE)
+        geo = surface.geo if surface is not None else None
+        if geo is None:
+            return
+        heat = self.indices["heat"]
+        for i, pocket in enumerate(geo.pockets):
+            old = surface.gate_ice[i]
+            new = max(old, thaw.gate_stage(heat, i))
+            if new == old:
+                continue
+            was, now = gate_at(pocket.gate, old), gate_at(pocket.gate, new)
+            surface.world.swap_footprint(was.tiles, now.tiles if now is not None else [])
+            surface.gate_ice[i] = new
+            for stage in range(old + 1, new + 1):
+                self.events.append(("gate_thaw", i, stage))
 
     def _check_stage(self) -> None:
         new_stage = stage_for_ti(self.ti)
@@ -1026,6 +1062,15 @@ class GameState:
         near = [w for w in self.world.wrecks
                 if w.terminal is not None and self.wreck_terminal_distance(w) <= C.TERMINAL_REACH]
         return min(near, key=self.wreck_terminal_distance, default=None)
+
+    def container_distance(self, tile: tuple[int, int]) -> float:
+        """Dos pés até a base do contêiner lacrado (v0.4 M3.2)."""
+        tx, ty = tile
+        return math.hypot(self.player.x - (tx + 0.5) * C.TILE, self.player.y - (ty + 1) * C.TILE)
+
+    def nearby_container(self) -> tuple[int, int] | None:
+        near = [t for t in self.world.containers if self.container_distance(t) <= C.CONTAINER_REACH]
+        return min(near, key=self.container_distance, default=None)
 
     def learn(self, blueprint: str) -> bool:
         """Projeto encontrado: libera a receita na hora. False se já tinha."""
@@ -1150,6 +1195,7 @@ class GameState:
         self.indices["heat"] += share
         self.indices["water"] += share
         self._check_stage()
+        self._apply_thaw()                    # o calor do F2 já derrete (igual ao tick das máquinas)
 
     def debug_melt_crater(self) -> None:
         """F4 (debug): derrete a tampa de gelo da cratera na hora (no M2 é o único jeito de descer)."""

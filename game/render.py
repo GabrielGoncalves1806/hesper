@@ -180,6 +180,7 @@ class Renderer:
         self._hill_stage_tags: dict[tuple[int, int], tuple] = {}
         self.formation_sprites = hills.FormationSprites()   # formações fixas (v0.4 M2 · C3)
         self.crater_sprites = hills.CraterSprites()          # cratera de impacto e a tampa de gelo (C4)
+        self.frost_ring = hills.FrostRing()                   # geada do gelo-portão derretendo (v0.4 M3.2)
 
     # ---- utilitários ----------------------------------------------------------
     @staticmethod
@@ -280,6 +281,7 @@ class Renderer:
             self.stage_map.update(state.ti, [BASE_SOURCE, *state.transition_sources])
         self.draw_floors(canvas, state, cam, stage, t)
         self.draw_crater_ejecta(canvas, state, cam)
+        self.draw_gate_frost(canvas, state, cam)
         self.draw_veins(canvas, state, cam)
         if state.active.has_base:
             self.draw_zone(canvas, cam, t)
@@ -485,12 +487,11 @@ class Renderer:
 
     def visible_formations(self, state: GameState, cam, margin: int = 0) -> list[tuple]:
         """[(formação, sprite, x, y)] das formações da camada que aparecem na tela (x, y = canto do sprite no mundo)."""
-        geo = getattr(state.active, "geo", None)
-        if geo is None:
+        if getattr(state.active, "geo", None) is None:
             return []
         out = []
         cam_x, cam_y = cam
-        for f in geo.formations:
+        for f in layers.current_formations(state.active):      # o gelo-portão na etapa do gelo (aberto: some)
             surf, x, y = self.formation_sprites.placement(f, self.stage_map.stage_at(*hills.foot_tile(f)))
             w, h = surf.get_size()
             if x + w > cam_x - margin and x < cam_x + self.view_w + margin \
@@ -734,6 +735,12 @@ class Renderer:
             x, y = tx * T - cam_x, ty * T - cam_y
             if -T < x < self.view_w and -T < y < self.view_h:
                 items.append(((ty + 1) * T, lambda c=crate, x=x, y=y: self.draw_crate(canvas, c, x, y)))
+        for tx, ty in getattr(world, "containers", ()):        # contêiner lacrado (v0.4 M3.2): pé na borda de baixo
+            surf = self.container_surface()
+            w, h = surf.get_size()
+            x, y = (tx * T + T // 2 - w // 2) - cam_x, (ty + 1) * T - h - cam_y
+            if -w < x < self.view_w and -h < y < self.view_h:
+                items.append(((ty + 1) * T, lambda t=(tx, ty), x=x, y=y: self.draw_container(canvas, t, x, y)))
         for m in state.machines:
             mx, my = m.anchor                                  # centro da base (drill: centro dos 2×2)
             if -64 < mx - cam_x < self.view_w + 64 and -80 < my - cam_y < self.view_h + 80:
@@ -812,6 +819,41 @@ class Renderer:
         y = cty * T + 48 - surf.get_height() // 2 - cam[1]
         if -surf.get_width() < x < self.view_w and -surf.get_height() < y < self.view_h:
             canvas.blit(surf, (x, y))
+
+    def gate_frost(self, state: GameState, cam) -> list[tuple[pygame.Surface, int, int]]:
+        """[(geada, x, y no mundo)] dos gelos-portão derretendo ou abertos (etapa ≥ 1) que aparecem na tela (v0.4 M3.2).
+        Fica no pé do portão (mesmo base_px do sprite), na camada de decalques: o portão aberto é só ela."""
+        layer = state.active
+        geo = getattr(layer, "geo", None)
+        if geo is None or not self.sprites.enabled:
+            return []
+        out = []
+        cam_x, cam_y = cam
+        for i, p in enumerate(geo.pockets):
+            if i >= len(layer.gate_ice) or layer.gate_ice[i] < 1:
+                continue
+            surf = self.frost_ring.surface(self.stage_map.stage_at(*hills.foot_tile(p.gate)))
+            if surf is None:
+                continue
+            x, y = hills.frost_ring_pos(p.gate, surf)
+            w, h = surf.get_size()
+            if x + w > cam_x and x < cam_x + self.view_w and y + h > cam_y and y < cam_y + self.view_h:
+                out.append((surf, x, y))
+        return out
+
+    def draw_gate_frost(self, canvas, state: GameState, cam) -> None:
+        for surf, x, y in self.gate_frost(state, cam):
+            canvas.blit(surf, (x - cam[0], y - cam[1]))
+
+    def container_surface(self) -> pygame.Surface:
+        """Contêiner lacrado: container_sealed.png (quando a Designer entregar e o dono aprovar) ou o placeholder."""
+        return self.surface("container_sealed", art.sealed_container)[0]
+
+    def draw_container(self, canvas, tile, x: int, y: int) -> None:
+        surf = self.container_surface()
+        canvas.blit(surf, (x, y))
+        if self.highlight == ("container", tile):          # alvo do E: contorno igual ao da caixa de saque
+            canvas.blit(self.outline_of("container", surf), (x - 1, y - 1))
 
     def crater_surface(self, surface_layer: bool = True) -> tuple[pygame.Surface, str]:
         """A rampa da camada (96×96) e a chave dela: na superfície a cratera com a rampa de descida aberta

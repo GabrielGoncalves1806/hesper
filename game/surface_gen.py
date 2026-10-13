@@ -6,7 +6,8 @@ Monta um `World` de 192×192 com a mesma interface do mapa antigo, então todo o
     geografia (game/geo.py: relevo, regiões, bacias, formações, bolsões)  →  areia + lowness
     →  borda (cordilheira, 2–3 tiles)  →  bolsões dos gelos-portão (anel de BEDROCK)  →  morros por região
     →  limpa a área da cápsula  →  pegadas das formações (C.FORMATION)  →  cratera 3×3 no planalto
-    →  veios (3 a 5, longe)  →  destroços (6 a 8, game/wrecks.py)  →  afloramentos  →  rochas pequenas
+    →  veios (3 a 5, longe)  →  destroços (6 a 8, game/wrecks.py)  →  destroço rico e contêiner lacrado nos bolsões
+    (v0.4 M3.2)  →  afloramentos  →  rochas pequenas
 
 Nada nasce em bacia (a água do Marco 3 sobe ali), nem no halo das formações, nem no bolsão ou no avental de
 um gelo-portão (`world.keep_clear`). O que fica atrás de um portão só é alcançável passando por ele.
@@ -90,6 +91,7 @@ def _copy(src: World) -> World:
     world.sand_variants = src.sand_variants     # só leitura
     world.wrecks = list(src.wrecks)             # destroços: geometria fixa (o conteúdo das caixas fica na camada)
     world.geo, world.keep_clear = src.geo, src.keep_clear   # só leitura
+    world.containers = list(src.containers)
     return world
 
 
@@ -119,6 +121,7 @@ def _build(seed: int) -> World:
     _crater(world, rng)
     _veins(world, rng)
     wreck_gen.place_wrecks(world, rng)           # Marco 3: destroços (antes das rochas pequenas, com folga livre)
+    _pocket_finds(world)                         # v0.4 M3.2: destroço rico e contêiner lacrado atrás dos portões
     _outcrops(world)
     _small_rocks(world)
     world.sand_variants = [bytes(sand_variant(x, y) for x in range(W)) for y in range(H)]
@@ -145,6 +148,20 @@ def _pockets(world: World) -> None:
             world.set(*t, C.BEDROCK)
         for t in pocket.interior + pocket.apron + pocket.gate.tiles:
             world.set(*t, C.SAND)
+
+
+def _pocket_finds(world: World) -> None:
+    """v0.4 Marco 3 · M3.2: em cada bolsão, o destroço rico no wreck_spot (game/wrecks.py · pocket_wrecks, depois dos
+    destroços de fora, então os ranks deles não mudam) e o contêiner lacrado (C.CONTAINER) no container_spot."""
+    rich = wreck_gen.pocket_wrecks(world.geo.pockets, world.wrecks)
+    for wreck in rich:
+        for t in wreck.tiles:
+            world.set(*t, C.WRECK)
+        world.set(*wreck.crate, C.LOOT_CRATE)
+    world.wrecks = world.wrecks + rich
+    world.containers = [p.container_spot for p in world.geo.pockets]
+    for t in world.containers:
+        world.set(*t, C.CONTAINER)
 
 
 def _ring(tiles, r: int) -> set[tuple[int, int]]:
