@@ -25,7 +25,7 @@ from game import rock_respawn  # noqa: E402
 from game import save  # noqa: E402
 from game import settings  # noqa: E402
 from game.app import NUMBER_KEYS, App  # noqa: E402
-from game.ui import TAB_CRAFT, TAB_INVENTORY, TAB_LOGS  # noqa: E402
+from game.ui import TAB_CRAFT, TAB_INVENTORY, TAB_LOGS, TI_PANEL_W  # noqa: E402
 
 # o smoke mexe nos volumes: grava num arquivo temporário, nunca no settings.json de verdade
 import tempfile  # noqa: E402
@@ -1317,15 +1317,20 @@ def check_polish(bot) -> None:
     tab = next(r for r, i in app.ui.fabricator_tabs if i == 0)
     bot.click((tab.centerx * 2, tab.centery * 2))            # clique na aba Terraformação
     assert app.fab.tab_id == "terraform"
+    # no redesign B2 cabem as 6 receitas da aba (C.FAB_VISIBLE_ROWS): pra ver a rolagem e a barra, o smoke
+    # encolhe a lista pra 4 linhas só neste trecho
+    app.fab.visible = 4
     pygame.event.post(pygame.event.Event(pygame.MOUSEWHEEL, x=0, y=-1, flipped=False))
     bot.frames(DT)
     assert app.fab.first[0] == 1, "a rodinha devia rolar a lista"
     app.fab.select("o2")                                     # do topo, 5× S: 6ª receita (a lista rola)
     for _ in range(5):
         bot.key(pygame.K_s)
-    assert app.fab.current == "heater_t2"
+    assert app.fab.current == "heater_t2" and app.fab.first[0] == 2
     bot.frames(0.1)
     bot.shot("fabricador_scroll.png")
+    app.fab.visible = C.FAB_VISIBLE_ROWS
+    app.fab.first[0] = 0
     app.fab.select("o2")
     before = s.inventory.count("o2")
     shift_key(bot, pygame.K_RETURN)
@@ -1385,6 +1390,10 @@ def check_field_craft(bot) -> None:
         assert app.inv_tab == TAB_CRAFT, f"clique na aba Fabricar ({ui_size})"
         bot.frames(DT)
         assert [k for _, k in app.ui.fabricator_rows] == list(C.FIELD_RECIPES)
+        # lista + detalhe: clique na linha da luminária escolhe; aí o FABRICAR (dela) aparece
+        bot.click(ui_to_window(app, next(r for r, k in app.ui.fabricator_rows if k == "lamp")))
+        assert app.field.current == "lamp"
+        bot.frames(DT)
         assert "lamp" in [k for _, k in app.ui.fabricator_buttons] and s.recipe_status("lamp_t2", True) == "blueprint"
         bot.shot(f"inventario_fabricar_{ui_size}.png")
         if ui_size == "pequena":
@@ -1398,6 +1407,106 @@ def check_field_craft(bot) -> None:
         assert app.mode == "play"
     s.inventory.slots[:] = slots_before
     s.blueprints = blueprints_before
+
+
+def check_b2_screens(bot) -> None:
+    """Redesign B2 nas interfaces Grande e Pequena (janela 1920×1080), tudo pelo mouse na posição da janela:
+    HUD, Tab com o detalhe do item, fabricador (×5/×1), baú (toggle de drone), estação, Opções (segmento do
+    zoom) e o mapa (tooltip do marcador e FECHAR). Prints: b2_<tela>_<tamanho>.png."""
+    from game.inventory import Stack
+    s, app = bot.state, bot.app
+    slots_before = [Stack(st.item, st.count) if st else None for st in s.inventory.slots]
+    equip_before = dict(s.equipment.slots)
+    zoom_before = app.zoom
+    s.inventory.slots[:] = [None] * len(s.inventory)
+    for item, n in [("iron", 42), ("silicon", 6), ("ice", 25), ("o2", 2), ("chest", 1), ("lamp", 3)]:
+        s.inventory.add(item, n)
+    s.inventory.slots[8], s.inventory.slots[9] = Stack("iron", 50), Stack("ice", 18)
+    s.equipment.slots["o2_tank"], s.equipment.slots["scanner"] = "o2_tank", "scanner"
+    for ui_size in ("grande", "pequena"):
+        app.set_ui_size(ui_size)
+        bot.teleport((96, 97))
+        s.o2 = s.o2_max
+        app.hotbar_selected = 3
+        bot.mouse_to(ui_to_window(app, pygame.Rect(app.ui.w // 2 - 60, app.ui.h // 2 - 40, 1, 1)))
+        bot.frames(0.2)
+        bot.shot(f"b2_hud_{ui_size}.png")
+        # Tab: mouse no gelo da mochila -> detalhe com "USADO EM"
+        bot.key(pygame.K_TAB)
+        bot.frames(DT)
+        ice = next(r for r, inv, i in app.ui.slot_rects if inv is s.inventory and i == 9)
+        bot.mouse_to(ui_to_window(app, ice))
+        bot.frames(DT)
+        assert app.ui.detail_item == "ice" and app.ui.detail_uses, app.ui.detail_uses
+        bot.shot(f"b2_inventario_{ui_size}.png")
+        bot.key(pygame.K_TAB)
+        # fabricador: aquecedor (falta silício), ×5 e ×1 pelo clique
+        bot.key(pygame.K_e)
+        assert app.mode == "fabricator"
+        app.fab.set_tab(0)
+        app.fab.select("heater")
+        bot.frames(DT)
+        five = next(r for r, n in app.ui.fabricator_batch if n == C.CRAFT_BATCH)
+        bot.click(ui_to_window(app, five))
+        assert app.fab.batch == C.CRAFT_BATCH
+        bot.mouse_to(ui_to_window(app, next(r for r, _ in app.ui.fabricator_tabs)))
+        bot.frames(DT)
+        bot.shot(f"b2_fabricador_{ui_size}.png")
+        bot.click(ui_to_window(app, next(r for r, n in app.ui.fabricator_batch if n == 1)))
+        assert app.fab.batch == 1
+        bot.key(pygame.K_e)
+        # baú: clique no Envia do gelo liga, de novo desliga
+        chest = s.chests[0]
+        s.player.x, s.player.y = chest.anchor[0], chest.anchor[1] + 10
+        bot.frames(0.1)
+        bot.key(pygame.K_e)
+        assert app.mode == "chest"
+        bot.frames(DT)
+        was = "ice" in chest.sends
+        toggle = next(r for r, v in app.ui.logistics_buttons if v == ("send", "ice"))
+        bot.click(ui_to_window(app, toggle))
+        assert ("ice" in chest.sends) != was, "clique no ícone do Envia devia ligar/desligar"
+        bot.mouse_to(ui_to_window(app, next(r for r, inv, i in app.ui.slot_rects if inv is chest.storage)))
+        bot.frames(DT)
+        bot.shot(f"b2_bau_{ui_size}.png")
+        bot.click(ui_to_window(app, next(r for r, v in app.ui.logistics_buttons if v == ("send", "ice"))))
+        assert ("ice" in chest.sends) == was
+        bot.key(pygame.K_ESCAPE)
+        # estação de drones
+        if s.stations:
+            station = s.stations[0]
+            app.open_station = station
+            app.set_mode("station")
+            bot.frames(DT)
+            bot.shot(f"b2_estacao_{ui_size}.png")
+            bot.key(pygame.K_ESCAPE)
+        # Opções: clique no segmento 1,5× do zoom
+        bot.key(pygame.K_ESCAPE)
+        bot.key(pygame.K_s)
+        bot.key(pygame.K_RETURN)
+        assert app.pause_screen == "volumes"
+        seg = next(r for r, (i, v) in app.ui.pause_segments if v == 1.5 and i == len(app.ui.VOLUME_ROWS) + 1)
+        bot.click(ui_to_window(app, seg))
+        assert app.zoom == 1.5
+        bot.shot(f"b2_opcoes_{ui_size}.png")
+        app.set_zoom(zoom_before, notify=False)
+        bot.key(pygame.K_ESCAPE)
+        bot.key(pygame.K_ESCAPE)
+        assert app.mode == "play"
+        # mapa: tooltip no marcador da base e FECHAR
+        bot.key(pygame.K_m)
+        assert app.mode == "map"
+        bot.frames(DT)
+        base = next(r for r, name in app.ui.map_markers if name.startswith("Base"))
+        bot.mouse_to(ui_to_window(app, base))
+        bot.frames(DT)
+        bot.shot(f"b2_mapa_{ui_size}.png")
+        bot.click(ui_to_window(app, app.ui.map_close_rect))
+        assert app.mode == "play"
+    s.inventory.slots[:] = slots_before
+    s.equipment.slots.update(equip_before)
+    app.hotbar_selected = 0
+    app.placing = None
 
 
 def check_inventory_logs(bot) -> None:
@@ -1483,7 +1592,7 @@ def check_ui_size(bot) -> None:
         times[ui_size] = 1000 * sum(bot.frame_times[start:]) / (len(bot.frame_times) - start)
         assert app.ui.surf.get_size() == size and app.ui.k == k
         # painel do Ti encosta na borda direita da janela (6 px da UI de margem)
-        right = app.ui.ti_panel_x + 160
+        right = app.ui.ti_panel_x + TI_PANEL_W
         assert round(right * k) == 1920 - round(6 * k), (ui_size, right, k)
         bot.shot(f"hud_{ui_size}.png")
         # aviso de projeto com o ícone, no projeto de nome mais comprido (cabe entre O₂ e Ti nos 3 tamanhos)
@@ -1568,6 +1677,7 @@ def check_ui_size(bot) -> None:
 
     check_inventory_logs(bot)
     check_field_craft(bot)
+    check_b2_screens(bot)
 
     # volta pro tamanho do resto do smoke
     app.set_ui_size(settings.DEFAULTS["ui_size"])
@@ -2047,8 +2157,26 @@ def check_wrecks(bot) -> None:
     assert app.mode == "map"
     bot.frames(0.3)
     bot.shot("mapa_grande.png")
+    # mouse no mapa (bug do dono): tooltip no marcador, FECHAR com hover, clique dentro não fecha, fora fecha
+    you = next(r for r, name in app.ui.map_markers if name == "Você")
+    bot.mouse_to((you.centerx * 2, you.centery * 2))
+    bot.frames(0.1)
+    assert app.ui.map_marker_at(app.mouse_ui) == "Você"
+    bot.shot("mapa_tooltip.png")
+    hotbar = app.hotbar_selected
+    pygame.event.post(pygame.event.Event(pygame.MOUSEWHEEL, x=0, y=-1, flipped=False))
+    bot.click((app.ui.map_rect.centerx * 2, app.ui.map_rect.centery * 2))
+    assert app.mode == "map" and app.hotbar_selected == hotbar and not app.mouse_held
+    close = app.ui.map_close_rect
+    bot.mouse_to((close.centerx * 2, close.centery * 2))
+    bot.frames(0.1)
+    bot.shot("mapa_fechar_hover.png")
+    bot.click((close.centerx * 2, close.centery * 2))
+    assert app.mode == "play", "o FECHAR devia fechar o mapa"
     bot.key(pygame.K_m)
-    assert app.mode == "play"
+    bot.frames(DT)
+    bot.click((4, 4))                                    # fora da janela do mapa
+    assert app.mode == "play" and not app.mouse_held, "clique fora devia fechar o mapa"
     # 8) caverna: o mapa só tem o que a luz revelou
     s.enter_layer("cave", layers.ramp_arrival(s.layers["cave"].world))     # o check_cave já criou a caverna
     cave = s.world

@@ -477,7 +477,7 @@ MACHINE_CATEGORY = {
     "chest": "storage",
     "lamp": "light",
 }
-FAB_VISIBLE_ROWS = 5            # receitas que cabem de uma vez na aba; com mais, a lista rola
+FAB_VISIBLE_ROWS = 6            # receitas que cabem de uma vez na aba (lista do redesign B2); com mais, rola
 
 # ---------------------------------------------------------------------------
 # Luminária (v0.3 Marco 2 · bíblia §9): luz de chão pra caverna. 1 Fe + 1 Si, liberada desde o começo, sem

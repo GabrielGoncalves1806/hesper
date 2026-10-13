@@ -141,5 +141,5 @@ def test_floater_under_a_hud_panel_is_not_drawn(ui):
         return pygame.image.tobytes(before, "RGBA") != pygame.image.tobytes(ui.surf, "RGBA")
 
     assert not draw(60, 14), "floater passou por baixo/por cima do painel de O₂"
-    assert pygame.Rect(6, 6, 112, 26) in ui.hud_rects
+    assert pygame.Rect(6, 6, 132, 17) in ui.hud_rects                # a pílula do O₂ (redesign B2)
     assert draw(240, 150), "floater no meio da tela tem que aparecer"

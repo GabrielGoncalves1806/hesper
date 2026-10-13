@@ -20,7 +20,7 @@ from game import config as C
 from game import save
 from game.assets import load_font
 from game.systems import GameState
-from game.ui import fmt
+from game.ui import B_DIM, B_LINE, B_MUTED, B_TEXT, B_WINDOW, fmt
 from game.world import hash01
 
 UP_KEYS = (pygame.K_w, pygame.K_UP)
@@ -135,7 +135,7 @@ class TitleScreen:
             self._draw_confirm()
         else:
             self._draw_menu()
-        ui.text("[W/S] ESCOLHE · [ENTER] OK", ui.w / 2, ui.h - 16, C.C_MUTED, align="center")
+        ui.help_line(ui.h - 16, [("W/S", "escolhe"), ("ENTER", "ok")])
         ui.draw_cursor(*mouse_ui)
         ui.finish(target)
 
@@ -176,20 +176,18 @@ class TitleScreen:
         ui = self.ui
         row = pygame.Rect(self.menu_x + 8, y, MENU_W - 16, ROW_H)
         selected = i == self.selected and enabled
-        ui.surf.fill(pygame.Color("#2c1e18" if selected else "#211915" if enabled else "#181210"), row)
-        pygame.draw.rect(ui.surf, pygame.Color(C.C_ACCENT if selected else "#3a2c25" if enabled else "#2a201b"), row, 1)
-        color = C.C_TEXT if selected else "#d9cfc4" if enabled else "#5e524a"
-        ui.text(label, row.x + 8, row.y + 3, color, ui.body)
+        ui.menu_row(row, selected, enabled)
+        color = B_TEXT if selected else B_MUTED if enabled else B_DIM
+        ui.tx(label, row.x + 8, row.y + 2, color, ui.body)
         self.items.append(row)
         return row
 
     def _box(self, y: int, h: int, title: str | None = None) -> None:
         ui = self.ui
         x = self.menu_x
-        ui.panel(x, y, MENU_W, h, (20, 14, 12, 225))
-        ui.surf.fill(pygame.Color(C.C_ACCENT), (x, y, MENU_W, 2))
+        ui.card(x, y, MENU_W, h, B_WINDOW, B_LINE)
         if title:
-            ui.text(title, x + 8, y + 7, C.C_TI)
+            ui.tx(title, x + 8, y + 4, C.C_TI)
 
     def _draw_menu(self) -> None:
         self.items = []
@@ -199,12 +197,12 @@ class TitleScreen:
         for i, (action, label) in enumerate(options):
             row = self._row(i, label, top + 8 + i * ROW_GAP, enabled=action != "old")
             if action == "old":
-                self.ui.text("SAVE ANTIGO", row.right - 8, row.y + 6, "#5e524a", align="right")
+                self.ui.tx("SAVE ANTIGO", row.right - 8, row.y + 4, B_DIM, align="right")
             if action == "continue":     # resumo do save, à direita da linha
                 minutes = int(self.saved.play_time // 60)
                 info = f"TI {fmt(self.saved.ti)} · {minutes} MIN"
-                self.ui.text(info, row.right - 8, row.y + 6, C.C_TI if i == self.selected else C.C_MUTED,
-                             align="right")
+                self.ui.tx(info, row.right - 8, row.y + 4, C.C_TI if i == self.selected else B_MUTED,
+                           align="right")
         if self.old:                    # aviso embaixo da caixa do menu
             y = top + 8 + ROW_GAP * len(options) + 10
             self.ui.text("Save de uma versão antiga · comece um novo jogo", self.ui.w // 2, y, C.C_TI,
@@ -215,7 +213,7 @@ class TitleScreen:
         y = MENU_Y - 8 + self.oy
         h = 46 + ROW_GAP * 2 + 2
         self._box(y, h, "NOVO JOGO")
-        self.ui.text("O save atual vai ser apagado.", self.menu_x + 8, y + 20, "#d9cfc4", self.ui.body)
+        self.ui.tx("O save atual vai ser apagado.", self.menu_x + 8, y + 18, B_TEXT, self.ui.body)
         for i, (_, label) in enumerate(self.options()):
             self._row(i, label, y + 38 + i * ROW_GAP)
 
@@ -229,7 +227,7 @@ def draw_saved_notice(ui, time_left: float) -> None:
     layer = pygame.Surface((w, h), pygame.SRCALPHA)
     ui.panel(0, 0, w, h, target=layer)
     _check(layer, 6, 6)
-    ui.text(label, 17, 2, C.C_OK, ui.body, target=layer)
+    ui.tx(label, 17, 1, C.C_OK, ui.body, target=layer)
     layer.set_alpha(int(255 * alpha))
     # encostado na borda direita, embaixo da coluna da direita (Ti, energia e, com o scanner, o minimapa):
     # o painel do Ti muda de altura, então um y fixo (era 100) caía em cima do medidor de energia
