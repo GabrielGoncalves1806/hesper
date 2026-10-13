@@ -234,6 +234,7 @@ def draw_saved_notice(ui, time_left: float) -> None:
     # encostado na borda direita, embaixo da coluna da direita (Ti, energia e, com o scanner, o minimapa):
     # o painel do Ti muda de altura, então um y fixo (era 100) caía em cima do medidor de energia
     ui.surf.blit(layer, (ui.w - 6 - w, ui.right_bottom + 4))
+    ui.hud_rects.append(pygame.Rect(ui.w - 6 - w, ui.right_bottom + 4, w, h))
 
 
 def _check(surf: pygame.Surface, x: int, y: int) -> None:

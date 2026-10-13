@@ -1492,7 +1492,6 @@ class App:
         if self.mode == "play":
             ui.draw_chest_labels(self.labeled_chests(), cam, self.zoom, icons)
             labels = ui.chest_label_rects
-        ui.draw_floaters(self.floaters, cam, self.zoom, labels)
         if critical:
             ui.draw_o2_critical(state, self.t, cam)
         ui.draw_hud(state, self.t, self.hint() if self.mode == "play" else None, icons)
@@ -1508,6 +1507,9 @@ class App:
         if self.banner_time < BANNER_TIME:
             alpha = min(1.0, self.banner_time / BANNER_FADE_IN, (BANNER_TIME - self.banner_time) / BANNER_FADE_OUT)
             ui.draw_banner(self.banner_stage, alpha)
+        # floaters por último na camada: já sabem onde ficou cada painel do HUD (ui.hud_rects) e somem
+        # antes de entrar embaixo deles
+        ui.draw_floaters(self.floaters, cam, self.zoom, labels)
         ui.finish(window)
 
         # camada 2: menus e telas por cima do HUD

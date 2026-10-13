@@ -1219,7 +1219,7 @@ def check_final_polish(bot) -> None:
     assert chest in app.labeled_chests()
     app.floaters.items.clear()
     app.floaters.add("+10 SILICIO", ax, ay - 78, C.ORE_COLORS["silicon"][0])   # entrega do drone
-    app.floaters.add("+O2", ax + 6, ay - 30, C.INDEX_COLOR["o2"])              # máquina logo embaixo
+    app.floaters.add("+O₂", ax + 6, ay - 30, C.INDEX_COLOR["o2"])              # máquina logo embaixo
     app.floaters.add("+5 FERRO", ax - 4, ay - 46, C.ORE_COLORS["iron"][0])
     bot.frames(0.35)
     assert chest in app.labeled_chests()
@@ -1266,7 +1266,7 @@ def check_polish(bot) -> None:
     a = app.floaters.add("+15 FERRO", x, y, iron)
     assert app.floaters.add("+15 FERRO", x + 3, y, iron) is a and a.text == "+30 FERRO"
     app.floaters.add("+15 SILICIO", x + 8, y + 4, sil)
-    app.floaters.add("+O2", x - 6, y + 8, C.INDEX_COLOR["o2"])
+    app.floaters.add("+O₂", x - 6, y + 8, C.INDEX_COLOR["o2"])
     app.floaters.add("+AGUA", x + 2, y - 2, C.INDEX_COLOR["water"])
     from game.floaters import LANE_PX
     ys = sorted(f.y * app.floaters.scale - f.lane * LANE_PX for f in app.floaters.items)   # y na tela
@@ -1330,7 +1330,7 @@ def check_polish(bot) -> None:
     before = s.inventory.count("o2")
     shift_key(bot, pygame.K_RETURN)
     assert s.inventory.count("o2") == before + 5, s.inventory.counts()
-    assert app.toast == "Gerador de O2 x5", app.toast
+    assert app.toast == "Gerador de O₂ x5", app.toast
     bot.frames(0.1)
     bot.shot("fabricar_lote.png")
     app.placing = None
@@ -1486,6 +1486,23 @@ def check_ui_size(bot) -> None:
         right = app.ui.ti_panel_x + 160
         assert round(right * k) == 1920 - round(6 * k), (ui_size, right, k)
         bot.shot(f"hud_{ui_size}.png")
+        # aviso de projeto com o ícone, no projeto de nome mais comprido (cabe entre O₂ e Ti nos 3 tamanhos)
+        app.blueprint_notice, app.blueprint_notice_time = "scanner", C.BLUEPRINT_NOTICE_TIME
+        bot.frames(0.1)
+        rect, icon = app.ui.blueprint_notice_layout("scanner")
+        assert rect.y == 6 and app.ui.BANNER_GAP[0] < rect.left and rect.right < app.ui.BANNER_GAP[1], rect
+        bot.shot(f"projeto_{ui_size}.png")
+        app.blueprint_notice_time = 0.0
+        # floaters subindo pra dentro do painel do Ti/energia e do de O₂: somem antes de entrar embaixo
+        ui = app.ui
+        kk = app.zoom * ui.canvas_k
+        cx, cy = app.cam
+        for i, dy in enumerate((2, 8, 16, 26)):
+            for ux, bottom in ((ui.ti_panel_x + 60, ui.energy_bottom), (60, 32)):
+                app.floaters.add(f"+{i + 1} FERRO", cx + ux / kk, cy + (bottom + dy) / kk, C.ORE_COLORS["iron"][0])
+        bot.frames(0.15)
+        bot.shot(f"floaters_hud_{ui_size}.png")
+        bot.frames(1.2)
     print("  interface 1920×1080, ms/frame: " + " · ".join(f"{n} {v:.1f}" for n, v in times.items()))
 
     # Pequena: fabricador (clique na aba) e baú (clique no slot transfere)

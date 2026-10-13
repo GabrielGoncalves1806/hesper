@@ -171,7 +171,7 @@ FAINT_DURATION = 3.0        # segundos até devolver o controle
 # Máquinas e índices (§4 Máquinas e índices)
 # ---------------------------------------------------------------------------
 INDEX_UNIT = {"o2": "ppq", "heat": "pK", "water": "ppm"}
-INDEX_LABEL = {"o2": "O2", "heat": "CALOR", "water": "AGUA"}
+INDEX_LABEL = {"o2": "O₂", "heat": "CALOR", "water": "AGUA"}
 
 
 @dataclass(frozen=True)
@@ -191,10 +191,10 @@ class MachineType:
 MACHINES = {
     m.key: m
     for m in [
-        MachineType("o2", "Gerador de O2", "+ oxigênio", {"iron": 10, "silicon": 4}, "o2", 3, 0, "machine_o2"),
+        MachineType("o2", "Gerador de O₂", "+ oxigênio", {"iron": 10, "silicon": 4}, "o2", 3, 0, "machine_o2"),
         MachineType("melter", "Derretedor de gelo", "+ água", {"iron": 6, "ice": 10}, "water", 2, 0, "machine_melter"),
         MachineType("heater", "Aquecedor", "+ calor", {"iron": 12, "silicon": 8}, "heat", 4, 500, "machine_heater"),
-        MachineType("o2_t2", "Gerador de O2 nv.2", "+ oxigênio", {"iron": 30, "silicon": 20, "ice": 10}, "o2", 25, 10_000, "machine_o2_t2"),
+        MachineType("o2_t2", "Gerador de O₂ nv.2", "+ oxigênio", {"iron": 30, "silicon": 20, "ice": 10}, "o2", 25, 10_000, "machine_o2_t2"),
         MachineType("melter_t2", "Derretedor nv.2", "+ água", {"iron": 25, "ice": 30}, "water", 20, 10_000, "machine_melter_t2"),
         MachineType("heater_t2", "Aquecedor nv.2", "+ calor", {"iron": 35, "silicon": 25}, "heat", 30, 10_000, "machine_heater_t2"),
     ]
@@ -507,7 +507,7 @@ WRECK_VISIT_DIST = 6            # tiles: chegou "perto" de um destroço (objetiv
 LOOT_CRATE_SIZE = (32, 32)
 
 # Projetos (chips de blueprint): item "bp_<id>" que, ao sair da caixa, libera a receita e some.
-BLUEPRINTS = {"o2_tank": "Tanque de O2", "scanner": "Scanner de navegação", "lamp_t2": "Luminária forte"}
+BLUEPRINTS = {"o2_tank": "Tanque de O₂", "scanner": "Scanner de navegação", "lamp_t2": "Luminária forte"}
 BLUEPRINT_ITEMS = {f"bp_{k}": k for k in BLUEPRINTS}
 RECIPE_BLUEPRINT = {"o2_tank": "o2_tank", "scanner": "scanner", "lamp_t2": "lamp_t2"}   # receita -> projeto
 
@@ -517,7 +517,7 @@ MACHINES["lamp_t2"] = MachineType("lamp_t2", "Luminária forte", "luz maior", {"
                                   None, 0, 0, "lamp_t2")
 MACHINE_ORDER.append("lamp_t2")
 # Equipamento (game/equipment.py): itens que vão num slot do traje (tela do Tab), não na hotbar nem no chão.
-MACHINES["o2_tank"] = MachineType("o2_tank", "Tanque de O2", "O2 dura 220 s", {"iron": 10, "silicon": 6, "ice": 4},
+MACHINES["o2_tank"] = MachineType("o2_tank", "Tanque de O₂", "O₂ dura 220 s", {"iron": 10, "silicon": 6, "ice": 4},
                                   None, 0, 0, "icon_o2_tank", placeable=False)
 MACHINES["scanner"] = MachineType("scanner", "Scanner de navegação", "mapa [M]", {"iron": 4, "silicon": 4},
                                   None, 0, 0, "icon_scanner", placeable=False)

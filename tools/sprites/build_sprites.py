@@ -2854,6 +2854,125 @@ def make_icon_lamp() -> Canvas:
     return cv
 
 
+# ---------------------------------------------------------------- v5.1 (aprovado): luminária forte (lamp_t2)
+
+LAMP2 = dict(hi="#ffffff", l="#fffbe8", m="#fff0bf", d="#ffd27a", dd="#f2a64a")   # vidro mais quente e mais branco
+LAMP2_BULB = (8, 7)         # centro do vidro no lamp_t2.png (A)
+
+
+def _lamp2_glass(L: Canvas, x, y, w, h, bars):
+    """Vidro aceso, mais branco que o da comum: núcleo quase branco, laranja só nas bordas da direita/baixo.
+    bars = colunas (relativas) das barras verticais da gaiola; aro horizontal no meio."""
+    for j in range(h):
+        for i in range(w):
+            c = LAMP2["hi"] if i == 0 else LAMP2["l"] if i <= 2 else LAMP2["dd"] if i == w - 1 else \
+                LAMP2["d"] if i == w - 2 else LAMP2["m"]
+            if j == h - 1 and 0 < i < w - 1:
+                c = LAMP2["d"]
+            if j == 0 and 0 < i < w - 2:
+                c = LAMP2["l"]
+            L.px(x + i, y + j, C(c))
+    L.px(x + 1, y + 1, C("#ffffff")); L.px(x + 2, y + 1, C("#ffffff")); L.px(x + 1, y + 2, C("#ffffff"))
+    for b in bars:
+        _m(L, x + b, y, 1, h, "kk")
+    _m(L, x, y + h // 2, w, 1, "k")
+    L.px(x, y + h // 2, C(MT["g"]))
+
+
+def _lamp2_head(L: Canvas, x, y, w, h, bars):
+    """Cabeça reforçada: capuz escuro com aba dourada mais larga que o vidro (refletor), vidro branco-quente
+    em 3 painéis, aro dourado + aro escuro embaixo. (x, y) = canto sup. esquerdo do vidro."""
+    _m(L, x + 2, y - 3, w - 4, 1, "k")                   # capuz (topo)
+    _m(L, x + 1, y - 2, w - 2, 1, "g")
+    _m(L, x - 1, y - 1, w + 2, 1, GOLD)                    # aba do refletor, dourada, 1 px pra fora de cada lado
+    L.px(x - 1, y - 1, C(GOLD_D)); L.px(x + w, y - 1, C(GOLD_D))
+    _lamp2_glass(L, x, y, w, h, bars)
+    _m(L, x - 1, y + h, w + 2, 1, GOLD)                    # aro de baixo dourado
+    L.px(x + w, y + h, C(GOLD_D))
+    _m(L, x - 1, y + h + 1, w + 2, 1, "k")
+
+
+def _lamp2_base(L: Canvas):
+    """Sapata em dois degraus, mais larga que a da comum (12 px), faixa laranja + parafusos dourados."""
+    _m(L, 2, 24, 12, 1, "w")                               # degrau de baixo: topo
+    _m(L, 2, 25, 12, 1, "l")
+    _m(L, 2, 26, 12, 3, "s")                               # frente
+    _m(L, 2, 26, 12, 1, "o")
+    _m(L, 2, 27, 12, 1, "od")
+    _m(L, 2, 28, 12, 1, "d")
+    _m(L, 13, 25, 1, 4, "g")
+    L.px(3, 25, C(GOLD)); L.px(12, 25, C(GOLD))            # parafusos dourados
+    _m(L, 4, 22, 8, 1, "w")                                # degrau de cima (pedestal)
+    _m(L, 4, 23, 8, 1, "m")
+    _m(L, 11, 22, 1, 2, "s")
+
+
+def make_lamp_t2(variant: str = "A") -> Canvas:
+    """Luminária forte 16x32, irmã nv.2 da lamp.png (mesma âncora: base na linha 29, centro x=8).
+    A (recomendada): cabeça de gaiola maior (vidro 10x7, 3 painéis) com aba dourada de refletor, poste mais
+    grosso com faixa laranja e anel dourado, sapata larga em 2 degraus.
+    B: poste com cruzeta e DUAS cabeças de gaiola menores (silhueta em T)."""
+    cv = Canvas(16, 32)
+    cv.ellipse(8, 29.5, 7, 2, SHADOW)
+    L = Canvas(16, 32)
+    _lamp2_base(L)
+    if variant == "A":
+        for y in range(14, 22):                            # poste 6 px (a comum tem 4)
+            L.bands(5, y, 1, [(MT["w"], 1), (MT["l"], 2), (MT["m"], 1), (MT["s"], 1), (MT["d"], 1)])
+        _m(L, 5, 16, 6, 1, "oh")                           # faixa laranja
+        _m(L, 5, 17, 6, 1, "o")
+        _m(L, 5, 18, 6, 1, "od")
+        _m(L, 5, 20, 6, 1, GOLD)                           # anel dourado
+        L.px(10, 20, C(GOLD_D))
+        _m(L, 4, 13, 8, 1, "g")                            # colar
+        _m(L, 4, 14, 8, 1, "k")
+        _lamp2_head(L, 3, 4, 10, 7, bars=(3, 6))
+    else:
+        for y in range(10, 22):                            # poste mais alto, 4 px
+            L.bands(6, y, 1, [(MT["w"], 1), (MT["l"], 1), (MT["m"], 1), (MT["s"], 1)])
+        _m(L, 6, 15, 4, 1, "oh")
+        _m(L, 6, 16, 4, 1, "o")
+        _m(L, 6, 17, 4, 1, "od")
+        _m(L, 6, 19, 4, 1, GOLD)
+        _m(L, 1, 9, 14, 1, "g")                            # cruzeta
+        _m(L, 1, 10, 14, 1, "k")
+        _m(L, 6, 8, 4, 1, GOLD)                            # topo do poste
+        for hx in (1, 10):                                 # duas cabeças
+            _m(L, hx + 1, 1, 3, 1, "k")
+            _m(L, hx, 2, 5, 1, GOLD)
+            for j in range(5):
+                for i in range(5):
+                    c = LAMP2["hi"] if i == 0 else LAMP2["l"] if i == 1 else LAMP2["dd"] if i == 4 else \
+                        LAMP2["d"] if i == 3 else LAMP2["m"]
+                    L.px(hx + i, 3 + j, C(c))
+            L.px(hx + 1, 4, C("#ffffff"))
+            _m(L, hx + 2, 3, 1, 5, "kk")
+            _m(L, hx, 5, 5, 1, "k")
+            _m(L, hx, 8, 5, 1, GOLD)
+    L.outline(C(OUTLINE))
+    cv.paste(L, 0, 0)
+    return cv
+
+
+def make_icon_lamp_t2() -> Canvas:
+    """Ícone da luminária forte: a cabeça reforçada (aba dourada, vidro branco-quente em 3 painéis) num poste
+    curto e grosso, sapata laranja larga. Mesmo enquadramento do icon_lamp, só que mais larga."""
+    cv = Canvas(16, 16)
+    L = Canvas(16, 16)
+    _m(L, 5, 10, 6, 3, "m")
+    _m(L, 5, 10, 1, 3, "w")
+    _m(L, 6, 10, 1, 3, "l")
+    _m(L, 9, 10, 2, 3, "s")
+    _m(L, 5, 11, 6, 1, GOLD)
+    _m(L, 2, 12, 12, 1, "l")
+    _m(L, 2, 13, 12, 1, "o")
+    _m(L, 2, 14, 12, 1, "od")
+    _lamp2_head(L, 3, 3, 10, 5, bars=(3, 6))
+    L.outline(C(OUTLINE))
+    cv.paste(L, 0, 0)
+    return cv
+
+
 CAVE = dict(hi="#958d90", light="#7a7275", mid="#635c5f", dark="#4f484b", deep="#3c3639",
             f1="#5d5659", f2="#484245", f3="#363134", f4="#2b272a", f5="#1f1c1e")
 CAVE_ROCK = dict(hi="#aca4a7", light="#857d80", mid="#686164", dark="#504a4d", deep="#3a3538")
@@ -3579,6 +3698,20 @@ def build_pending() -> dict[str, Canvas]:
     return {}
 
 
+def build_candidates() -> dict[str, Canvas]:
+    """Variantes pro dono escolher: vão pra assets/sprites/_pending/candidates/. Vazio agora: na v5.1 o dono escolheu
+    a A (virou o lamp_t2 oficial); a B segue no make_lamp_t2("B") e, de histórico, em reports/design/before/."""
+    return {}
+
+
+def build_v51() -> dict[str, Canvas]:
+    """Luminária forte (variante A), aprovada na v5.1."""
+    return {
+        "lamp_t2.png": make_lamp_t2("A"),
+        "icon_lamp_t2.png": make_icon_lamp_t2(),
+    }
+
+
 def build_v05() -> dict[str, Canvas]:
     """Sprites do v0.3 · Marco 2 (caverna) e Marco 3 (destroços), aprovados na v5.0."""
     return {
@@ -3673,6 +3806,7 @@ def build_sprites() -> dict[str, Canvas]:
     out.update(build_v02())
     out.update(build_v03())
     out.update(build_v05())
+    out.update(build_v51())
     return out
 
 
@@ -4096,7 +4230,7 @@ def gen_cave(seed=11):
     return g
 
 
-def render_cave(spr: dict[str, Image.Image], dark=True) -> Image.Image:
+def render_cave(spr: dict[str, Image.Image], dark=True, t2=()) -> Image.Image:
     """Caverna (128x128 no jogo) com a mesma ordem de desenho: chão névoa e veio; linhas de cima pra baixo
     (topo da parede em y−24, minério, face em y+8, terminal) e os objetos da linha (rampa, luminárias, baú,
     drill, player). Depois a escuridão (luzes: rampa, luminárias, capacete, drill) e o brilho dos minérios."""
@@ -4124,7 +4258,7 @@ def render_cave(spr: dict[str, Image.Image], dark=True) -> Image.Image:
     rx, ry = CAVE_RAMP_AT
     objs.append(((ry + 3) * T, rx * T + 48, P + "cave_ramp_up.png"))
     for (x, y) in CAVE_LAMPS:
-        objs.append(((y + 1) * T, x * T + 16, P + "lamp.png"))
+        objs.append(((y + 1) * T, x * T + 16, "lamp_t2.png" if (x, y) in t2 else P + "lamp.png"))
     objs.append(((10 + 1) * T, 9 * T + 16, "chest.png"))
     objs.append(((vein[1] + 2) * T, (vein[0] + 1) * T, "machine_drill.png#1"))
     player = (rx * T + 48 + 30, (ry + 4) * T + 10)
@@ -4162,7 +4296,7 @@ def render_cave(spr: dict[str, Image.Image], dark=True) -> Image.Image:
     if not dark:
         return img.convert("RGB")
     lights = [(rx * T + CAVE_RAMP["light"][0], ry * T + CAVE_RAMP["light"][1], 3.5 * T, (255, 240, 214), 1.0)]
-    lights += [(x * T + 16, y * T + 8, 5 * T, (255, 222, 184), 1.0) for (x, y) in CAVE_LAMPS]
+    lights += [(x * T + 16, y * T + 8, (7 if (x, y) in t2 else 5) * T, (255, 222, 184), 1.0) for (x, y) in CAVE_LAMPS]
     lights.append((player[0] + 10, player[1] - 18, 4 * T, (255, 236, 206), 1.0))
     lights.append(((vein[0] + 1) * T, (vein[1] + 1) * T, 1.8 * T, (150, 210, 230), 0.55))
     out, bright = apply_darkness(img, lights)
@@ -4184,6 +4318,74 @@ def render_cave(spr: dict[str, Image.Image], dark=True) -> Image.Image:
             for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                 a[py_ + dy, px_ + dx] = (c * 0.35).astype(np.uint8)
     return Image.fromarray(a)
+
+
+CAVE_LAMPS_T2 = [(12, 7), (23, 5)]              # na prévia v5.1, essas duas viram luminária forte
+
+
+def render_lamp_cmp(spr: dict[str, Image.Image], left: str, right: str, dark=True) -> Image.Image:
+    """Duas metades de caverna (480x480 cada), uma luminária no meio de cada: comum (raio 5) × forte (raio 7).
+    Chão e parede da névoa (a da caverna), mesma ordem de desenho e mesma escuridão da prévia da caverna."""
+    W_, H_ = 30, 15
+    g = [[FL] * W_ for _ in range(H_ + 1)]
+    for y in range(H_ + 1):
+        for x in range(W_):
+            edge = y <= 2 or x in (0, 14, 15, W_ - 1)
+            if y == 3 and hsh(x, y, 5) < 0.3:
+                edge = True
+            if edge:
+                g[y][x] = RK
+    for (x, y) in ((3, 2), (10, 2), (19, 3), (25, 2), (6, 2), (21, 2), (12, 2), (27, 2)):
+        g[y][x] = FE if x % 3 == 0 else SI if x % 3 == 1 else IC
+    lamps = [((7, 9), left), ((22, 9), right)]
+    img = Image.new("RGBA", (W_ * T, H_ * T), (0, 0, 0, 255))
+    shade = Image.new("RGBA", (T, 10), (0, 0, 0, 84))
+    shade_b = Image.new("RGBA", (T, 6), (0, 0, 0, 40))
+    for y in range(H_):
+        for x in range(W_):
+            if is_wall(g[y][x]):
+                continue
+            img.alpha_composite(spr[f"floor_mist_{int(hsh(x, y, 77) * 4)}.png"], (x * T, y * T))
+            if y > 0 and is_wall(g[y - 1][x]):
+                img.alpha_composite(shade, (x * T, y * T))
+                img.alpha_composite(shade_b, (x * T, y * T + 10))
+    for y in range(H_ + 1):
+        for x in range(W_):
+            t = g[y][x]
+            if not is_wall(t):
+                continue
+            img.alpha_composite(spr[f"wall_mist_{int(hsh(x, y, 91) * 3)}.png"], (x * T, y * T - 24))
+            if t in CAVE_ORE:
+                img.alpha_composite(spr[f"ore_{CAVE_ORE[t]}.png"], (x * T, y * T - 24))
+            if y + 1 <= H_ and not is_wall(g[y + 1][x]):
+                img.alpha_composite(spr["wall_face_mist.png"], (x * T, y * T + 8))
+        for (lx, ly), name in lamps:
+            if ly == y:
+                s_ = spr[name]
+                img.alpha_composite(s_, (lx * T + 16 - s_.width // 2, (ly + 1) * T - s_.height))
+    img = img.crop((0, 0, 960, 480))
+    if not dark:
+        return img.convert("RGB")
+    lights = [(lx * T + 16, ly * T + 8, (7 if "t2" in name else 5) * T, (255, 222, 184), 1.0)
+              for (lx, ly), name in lamps]
+    return apply_darkness(img, lights)[0]
+
+
+def make_icons_slot_v51(spr: dict[str, Image.Image]) -> Image.Image:
+    """icon_lamp × icon_lamp_t2 no ui_slot em 1x, 2x e 3x."""
+    keys = ["icon_lamp.png", "icon_lamp_t2.png"]
+    slot = spr["ui_slot.png"]
+    W = 12 + sum(20 * k + 8 for k in (1, 2, 3)) * len(keys) + 12 * len(keys)
+    out = Image.new("RGBA", (W, 60 + 24), C("#15100e"))
+    x = 12
+    for key in keys:
+        for k in (1, 2, 3):
+            y = 12 + (60 - 20 * k)
+            out.alpha_composite(slot.resize((20 * k, 20 * k), Image.NEAREST), (x, y))
+            out.alpha_composite(spr[key].resize((16 * k, 16 * k), Image.NEAREST), (x + 2 * k, y + 2 * k))
+            x += 20 * k + 8
+        x += 12
+    return out
 
 
 WRECK_SCENE = {   # tile de cima/esquerda de cada destroço na prévia e se a caixa já foi aberta
@@ -4613,6 +4815,75 @@ def build_v50_report(spr: dict[str, Image.Image]) -> str:
 </section>"""
 
 
+def build_v51_report(spr: dict[str, Image.Image]) -> str:
+    """Seção v5.1 (aprovada): luminária forte (lamp_t2) + ícone, com a comum do lado."""
+    if "lamp_t2.png" not in spr:
+        return ""
+    A = "../../assets/sprites/"
+
+    def img(n, s, cls=""):
+        im = spr[n]
+        return (f'<img class="{cls}" src="{A}{n}" width="{im.width * s}" height="{im.height * s}" alt="{n}" '
+                f'style="image-rendering:pixelated">')
+
+    def pair(bg, s):
+        return (f'<div class="lp {bg}"><div><span>lamp (comum)</span>{img("lamp.png", s)}</div>'
+                f'<div><span>lamp_t2 (forte)</span>{img("lamp_t2.png", s)}</div>'
+                f'<div><span>icon_lamp</span>{img("icon_lamp.png", s)}</div>'
+                f'<div><span>icon_lamp_t2</span>{img("icon_lamp_t2.png", s)}</div></div>')
+
+    def old(n, s):                                                  # histórico estático em reports/design/before/
+        return (f'<img src="before/{n}" width="{16 * s}" height="{32 * s}" alt="{n}" style="image-rendering:pixelated">')
+
+    ab = (f'<div class="lp chkbg"><div><span>A · escolhida</span>{img("lamp_t2.png", 4)}</div>'
+          f'<div><span>B · cabeça dupla</span>{old("lamp_t2_B_v51.png", 4)}</div>'
+          f'<div><span>A · 1×</span>{img("lamp_t2.png", 1)}</div>'
+          f'<div><span>B · 1×</span>{old("lamp_t2_B_v51.png", 1)}</div></div>')
+    sw, sh_ = Image.open(REP / "slot_preview_v51.png").size if (REP / "slot_preview_v51.png").exists() else (0, 0)
+    zw, zh = Image.open(REP / "lamp_t2_dark_zoom.png").size if (REP / "lamp_t2_dark_zoom.png").exists() else (0, 0)
+    lb = LAMP2_BULB
+    rows = [
+        ("<code>lamp_t2.png</code>", "16×32",
+         "<b>Drop-in</b>: mesmo tamanho e âncora da <code>lamp.png</code> (<code>C.LAMP_SPRITE_SIZE</code> não muda). Objeto de 1 tile: "
+         "<code>ax = tx·32 + 16</code>, <code>ay = (ty+1)·32</code>, blit em <code>(ax − 8, ay − 32)</code>, ordenado por <code>ay</code>. "
+         "Base na linha 29 do PNG, sombra já no PNG (um pouco mais larga, 14 px). Pé que bloqueia: o mesmo 12×12 da comum (a sapata tem 12 px). "
+         f"<b>Centro do vidro</b> = <code>{lb}</code> do PNG = <code>(ax, ay − {32 - lb[1]})</code> no mundo; o <code>lighting.lamp()</code> põe a luz em "
+         "<code>ay − 24</code>, 1 px abaixo do centro: pode deixar como está. Raio 7 e cor <code>LAMP_COLOR</code> iguais ao que já está no código; "
+         "a prévia usa exatamente isso."),
+        ("<code>icon_lamp_t2.png</code>", "16×16", "Ícone de item (hotbar, inventário, fabricador, aviso de projeto se quiser). Mesmo enquadramento do <code>icon_lamp</code>."),
+    ]
+    dev = "".join(f"<tr><td>{a}</td><td>{b}</td><td>{c}</td></tr>" for a, b, c in rows)
+    return f"""<section><h2>v5.1 · Luminária forte · comum × forte</h2>
+<div class="cmp" style="grid-template-columns:1fr">
+<figure><figcaption style="margin:0 0 8px">fundo claro · 4×</figcaption>{pair("lightbg", 4)}</figure>
+<figure><figcaption style="margin:0 0 8px">xadrez · 4×</figcaption>{pair("chkbg", 4)}</figure>
+<figure><figcaption style="margin:0 0 8px">tamanho real · 1× (como no jogo sem zoom)</figcaption>{pair("lightbg", 1)}{pair("darkbg", 1)}</figure>
+</div>
+<p class="lede" style="margin-top:14px">Mesma linguagem da comum aprovada (sapata pesada com faixa laranja <code>#e2733a</code>, poste cinza em faixas, colar escuro, cabeça de gaiola acesa, contorno <code>#1b1630</code>), só que na versão nv.2, como as máquinas: <b>dourado <code>#f2c46d</code></b> na aba e no aro da cabeça, nos parafusos e num anel do poste. A cabeça cresce de 6×6 pra <b>10×7 de vidro</b> com 3 painéis e uma aba de refletor mais larga que o vidro; o poste vai de 4 pra 6 px; a sapata ganha um <b>pedestal em 2 degraus</b> e 12 px de largura. O vidro é mais <b>branco-quente</b> (núcleo quase branco, laranja só na borda), pra ler como "luz mais forte" mesmo parado.</p></section>
+
+<section><h2>v5.1 · No escuro da caverna (halo simulado)</h2><div class="pvs">
+<figure class="pv"><img src="lamp_t2_dark.png" width="960" height="480" alt="comum x forte no escuro"><figcaption><b>Esquerda: comum (raio 5) · direita: forte (raio 7)</b><span>mesma escuridão da prévia da caverna (células de 4 px, anéis 100/68/40/18%, cor <code>LAMP_COLOR</code>). A forte chega na parede e mostra os minérios; a comum não</span></figcaption></figure>
+<figure class="pv"><img class="flick" src="lamp_t2_dark_zoom.png" width="{zw * 4}" height="{zh * 4}" alt="zoom no escuro" style="max-width:none;width:{zw * 4}px"><figcaption><b>Zoom 4× nas duas, no escuro</b><span>de relance: cabeça estreita e amarela × cabeça larga, branca e com aba dourada (a tremidinha é CSS, imitando o flicker 0,06 do jogo)</span></figcaption></figure>
+<figure class="pv"><img src="lamp_t2_lit.png" width="960" height="480" alt="mesma cena sem escuridão"><figcaption><b>A mesma cena sem a escuridão</b><span>chão e parede da névoa, que é a arte da caverna</span></figcaption></figure>
+<figure class="pv"><img src="preview_cave_t2.png" width="960" height="540" alt="caverna com luminárias fortes"><figcaption><b>Prévia da caverna com 2 fortes</b><span>a mesma da v5.0, só que as luminárias em (12, 7) e (23, 5) viraram <code>lamp_t2</code> com raio 7</span></figcaption></figure>
+<figure class="pv"><img src="preview_cave_t2_lit.png" width="960" height="540" alt="caverna com luminárias fortes, sem escuridão"><figcaption><b>A mesma, sem escuridão</b><span>pra ver as duas famílias lado a lado na cena</span></figcaption></figure>
+</div></section>
+
+<section><h2>v5.1 · Variantes A × B (o dono escolheu a A)</h2>{ab}
+<p class="lede" style="margin:14px 0"><b>A (a recomendada, escolhida pelo dono e promovida como <code>lamp_t2.png</code>)</b>: a mesma silhueta da comum, só que mais parruda; reconhece como irmã na hora. <b>B</b>: poste mais alto com cruzeta e duas cabeças de gaiola menores (silhueta em T), mais diferente de longe, mas perde o "é a mesma luminária, só que melhor" e cada vidro fica pequeno (5×5). A B ficou de histórico em <code>reports/design/before/</code> (e no <code>make_lamp_t2("B")</code> do script). A prévia lado a lado no escuro:</p>
+<figure class="pv"><img src="before/lamp_t2_AB_dark_v51.png" width="960" height="480" alt="A x B no escuro"><figcaption><b>A (esquerda) × B (direita), as duas com raio 7</b></figcaption></figure></section>
+
+<section><h2>v5.1 · Ícone no slot</h2>
+<p class="lede" style="margin:0 0 14px"><code>icon_lamp</code> (aprovado) e <code>icon_lamp_t2</code> no <code>ui_slot</code> em 1×, 2× e 3×: cabeça mais larga, vidro mais branco, aba e aro dourados, poste grosso com anel dourado e sapata mais larga.</p>
+<img src="slot_preview_v51.png" width="{sw}" height="{sh_}" alt="Ícones no slot" style="image-rendering:pixelated;display:block;max-width:100%;border:1px solid var(--line)">
+</section>
+
+<section><h2>v5.1 · Pro Dev integrar (luminária forte)</h2>
+<div class="box dev"><table class="tb"><thead><tr><th>Sprite</th><th>Tamanho</th><th>Âncora / uso</th></tr></thead><tbody>{dev}</tbody></table>
+<p class="lede"><b>Aprovado pelo dono e promovido pra <code>assets/sprites/</code></b>: o <code>render.lamp_surface("lamp_t2")</code> e o ícone já procuram <code>lamp_t2</code> e <code>icon_lamp_t2</code>, então o jogo troca o fallback <code>art.lamp_strong</code> pelos PNGs sem mudar código. Ordem de desenho igual à da comum (objeto da linha, por <code>ay</code>; a escuridão por cima). <b>Desvios do contrato:</b> nenhum.</p></div>
+</section>"""
+
+
 def build_report(spr: dict[str, Image.Image]):
     def lum(h):
         r, g, b = (int(h[i:i + 2], 16) for i in (1, 3, 5))
@@ -4631,6 +4902,7 @@ def build_report(spr: dict[str, Image.Image]):
         ("v0.3 · rocha, pickups, cratera e cápsula",
          [k for k in build_v03() if not k.startswith("sand_")] + ["pod.png"]),
         ("v0.3 · caverna e destroços (v5.0)", [k for k in build_v05()]),
+        ("v0.3 · luminária forte (v5.1)", [k for k in build_v51()]),
         ("Pendentes", [k for k in spr if k.startswith("_pending/")]),
     ]
     total = set()
@@ -4694,7 +4966,7 @@ def build_report(spr: dict[str, Image.Image]):
         chest_items.append(f'<figure><div class="pair">{b_html}<div>depois<img src="../../assets/sprites/{n}.png" width="{w}" height="{h}" alt="{n} depois"></div></div><figcaption>{n}.png · {sc}×</figcaption></figure>')
     chest_cmp = "".join(chest_items)
     slot_w, slot_h = Image.open(REP / "slot_preview.png").size if (REP / "slot_preview.png").exists() else (0, 0)
-    n_pending = sum(1 for k in spr if k.startswith("_pending/"))
+    n_pending = sum(1 for k in spr if k.startswith("_pending/") and "/candidates/" not in k)
     n_official = sum(1 for k in spr if "/" not in k)
 
     notes = [
@@ -4726,7 +4998,7 @@ def build_report(spr: dict[str, Image.Image]):
     ]
     integ_html = "".join(f"<li>{s}</li>" for s in integ)
 
-    surf_html = build_v50_report(spr) + build_v41_report(spr) + build_surface_report(spr, scale)
+    surf_html = build_v51_report(spr) + build_v50_report(spr) + build_v41_report(spr) + build_surface_report(spr, scale)
 
     page = f"""<!doctype html>
 <html lang="pt-BR">
@@ -4798,6 +5070,14 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 .tb{{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:12px}}
 .tb th,.tb td{{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line)}}
 .tb th{{font:11px var(--f-label);color:var(--muted)}}
+.lp{{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;padding:14px;border:1px solid var(--line)}}
+.lp div{{display:flex;flex-direction:column;gap:6px;font:11px var(--f-label);color:var(--muted)}}
+.lp img{{image-rendering:pixelated;display:block}}
+.lightbg{{background:#d9d3c9}}.lightbg span{{color:#4a3f38}}
+.darkbg{{background:#0b0a0c}}
+.chkbg{{background-color:#2a211d;background-image:conic-gradient(#3a2e28 25%,transparent 0 50%,#3a2e28 0 75%,transparent 0);background-size:16px 16px}}
+.flick{{animation:flick 1.6s steps(1) infinite}}
+@keyframes flick{{0%{{filter:brightness(1)}}37%{{filter:brightness(.94)}}41%{{filter:brightness(1)}}78%{{filter:brightness(.97)}}82%{{filter:brightness(1)}}}}
 .crate-anim{{image-rendering:pixelated;background:url(../../assets/sprites/loot_crate.png) 0 0/192px 192px;animation:crate 2.4s steps(1) infinite;outline:1px dashed var(--gold);outline-offset:2px}}
 @keyframes crate{{0%{{background-image:url(../../assets/sprites/loot_crate.png)}}50%{{background-image:url(../../assets/sprites/loot_crate_empty.png)}}}}
 </style>
@@ -4805,18 +5085,24 @@ code{{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}}
 <body>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Hesper · Designer · v5.0 (v0.3 · caverna e destroços, aprovado)</div>
+  <div class="eyebrow">Hesper · Designer · v5.1 (luminária forte, aprovado)</div>
   <h1>Sprites do MVP</h1>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
-  <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span><span class="chip">pod largo guardado em _future/ (fora do contrato)</span></div>
-  <div class="v2"><b>v5.0 · aprovado</b><ul>
+  <div class="status"><span class="chip ok">{n_official} oficiais + {n_pending} pendentes · tamanhos conferidos</span><span class="chip">{len(total)} cores no total</span><span class="chip ok">0 desvios do contrato</span><span class="chip">pod largo guardado em _future/ (fora do contrato)</span><span class="chip">variante B de histórico em before/</span></div>
+  <div class="v2"><b>v5.1 · aprovado</b><ul>
+    <li><b>O dono aprovou a v5.1 com a variante A</b> (a recomendada), e os 2 sprites foram promovidos de <code>_pending/</code> pra pasta oficial <code>assets/sprites/</code> com os mesmos bytes da entrega pendente (md5 conferido): <code>lamp_t2</code> (16×32) e <code>icon_lamp_t2</code> (16×16). O jogo agora carrega eles no lugar do fallback <code>art.lamp_strong</code>, sem mudar código.</li>
+    <li>O contrato oficial passou a ter 101 arquivos (99 + 2). Os outros 99 oficiais e o <code>_future/pod_wide</code> não mudaram (md5 conferido), e a pasta <code>_pending/</code> foi removida, com as candidatas junto.</li>
+    <li>A variante B (cabeça dupla em T) não foi pro jogo: ficou de histórico em <code>reports/design/before/lamp_t2_B_v51.png</code>, com a comparação A × B no escuro (<code>before/lamp_t2_AB_dark_v51.png</code>). O desenho dela continua no script (<code>make_lamp_t2("B")</code>).</li>
+    <li>Âncora, centro do vidro e raio continuam em "v5.1 · Pro Dev integrar (luminária forte)", logo abaixo.</li>
+  </ul></div>
+  <div class="v2" style="opacity:.75"><b>v5.0 · aprovado</b><ul>
     <li><b>O dono aprovou a v5.0 inteira</b>, e os 11 sprites foram promovidos de <code>_pending/</code> pra pasta oficial <code>assets/sprites/</code> com os mesmos bytes da entrega pendente (md5 conferido). O jogo agora carrega eles no lugar do fallback do <code>art.py</code>:
       <ul>
         <li><b>Marco 2 · caverna:</b> <code>lamp</code> (16×32), <code>icon_lamp</code> (16×16) e <code>cave_ramp_up</code> (96×96);</li>
         <li><b>Marco 3 · destroços:</b> <code>wreck_cargo</code> (128×112), <code>wreck_module</code> (96×88), <code>wreck_probe</code> (64×64), <code>loot_crate</code> e <code>loot_crate_empty</code> (32×32), <code>icon_blueprint</code>, <code>icon_o2_tank</code> e <code>icon_scanner</code> (16×16).</li>
       </ul></li>
     <li>O contrato oficial passou a ter 99 arquivos (88 + 11). Os outros 88 oficiais e o <code>_future/pod_wide</code> não mudaram (md5 conferido), e a pasta <code>_pending/</code> foi removida.</li>
-    <li>A luminária forte (<code>lamp_t2</code>, <code>icon_lamp_t2</code>) continua fora do contrato: o jogo usa o desenho de fallback.</li>
+    <li>A luminária forte (<code>lamp_t2</code>, <code>icon_lamp_t2</code>) ficou pra v5.1, aprovada depois.</li>
     <li>Âncoras, colisão, caixa, terminal, chegada da rampa e a luz sugerida da rampa continuam em "v5.0 · Pro Dev integrar".</li>
   </ul></div>
   <div class="v2" style="opacity:.75"><b>v4.1 · aprovado</b><ul>
@@ -4990,6 +5276,12 @@ def main():
         cv.image().save(PENDING / name)
     spr = {n: Image.open(OUT / n).convert("RGBA") for n in canv}
     spr.update({f"_pending/{n}": Image.open(PENDING / n).convert("RGBA") for n in pend})
+    cand = build_candidates()
+    if cand:
+        (PENDING / "candidates").mkdir(parents=True, exist_ok=True)
+    for name, cv in cand.items():
+        cv.image().save(PENDING / "candidates" / name)
+    spr.update({f"_pending/candidates/{n}": Image.open(PENDING / "candidates" / n).convert("RGBA") for n in cand})
     fut = build_future()
     FUTURE.mkdir(parents=True, exist_ok=True)
     for name, cv in fut.items():
@@ -5012,10 +5304,21 @@ def main():
         for st in STAGES:
             render_wrecks(st, spr).save(REP / f"preview_wrecks_{st}.png")
         make_icons_slot_v50(spr).save(REP / "slot_preview_v50.png")
+    if "lamp_t2.png" in spr:                                       # v5.1: luminária forte (aprovada)
+        render_cave(spr, t2=CAVE_LAMPS_T2).save(REP / "preview_cave_t2.png")
+        render_cave(spr, dark=False, t2=CAVE_LAMPS_T2).save(REP / "preview_cave_t2_lit.png")
+        dk = render_lamp_cmp(spr, "lamp.png", "lamp_t2.png")
+        dk.save(REP / "lamp_t2_dark.png")
+        zoom = Image.new("RGB", (2 * 64 + 8, 72), (21, 16, 14))           # recorte em volta das duas, pro zoom no report
+        zoom.paste(dk.crop((7 * T + 16 - 32, 10 * T - 60, 7 * T + 16 + 32, 10 * T + 12)), (0, 0))
+        zoom.paste(dk.crop((22 * T + 16 - 32, 10 * T - 60, 22 * T + 16 + 32, 10 * T + 12)), (72, 0))
+        zoom.save(REP / "lamp_t2_dark_zoom.png")
+        render_lamp_cmp(spr, "lamp.png", "lamp_t2.png", dark=False).save(REP / "lamp_t2_lit.png")
+        make_icons_slot_v51(spr).save(REP / "slot_preview_v51.png")
     make_drill_preview(spr).save(REP / "drill_preview.png")
     make_slot_preview(spr, "icon_drone.png", "icon_chest.png").save(REP / "slot_preview.png")
     build_report(spr)
-    print(f"{len(canv)} sprites oficiais em {OUT.relative_to(ROOT)}, {len(pend)} pendentes, "
+    print(f"{len(canv)} sprites oficiais em {OUT.relative_to(ROOT)}, {len(pend)} pendentes + {len(cand)} candidatas, "
           f"3 prévias + index.html em {REP.relative_to(ROOT)}")
 
 

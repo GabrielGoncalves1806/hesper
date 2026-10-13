@@ -281,13 +281,27 @@ def test_marker_shapes_draw_their_color(ui):
 
 @pytest.mark.parametrize("size", [(480, 270), (640, 360), (960, 540)])
 def test_blueprint_notice_fits_the_top_gap(ui, size):
-    """Aviso de projeto: no vão do topo (entre O₂ e Ti), sem cobrir os painéis do HUD, em todo tamanho."""
+    """Aviso de projeto: no vão do topo (entre O₂ e Ti), sem cobrir os painéis do HUD, em todo tamanho, e
+    sempre com o ícone (antes o Grande tirava o ícone pra caber) dentro do aviso, sem encostar no texto."""
     ui.set_layout((0, 0, size[0] * 2, size[1] * 2), 2.0, size)
     left, right = ui.BANNER_GAP
     for bp in C.BLUEPRINTS:
-        rect, with_icon = ui.blueprint_notice_layout(bp)
+        rect, icon = ui.blueprint_notice_layout(bp)
         assert rect.y == 6 and rect.left > left and rect.right < right, (size, bp, rect)
-        assert with_icon or size == (480, 270)
+        assert rect.contains(icon.inflate(2, 2)) and icon.size == (16, 16), (size, bp, icon)
+        text_x = icon.right + 5
+        text_w = max(ui.font.size(ui.BLUEPRINT_LABEL)[0], ui.body.size(C.BLUEPRINTS[bp])[0])
+        assert text_x + text_w <= rect.right - 4, (size, bp)
+
+
+def test_blueprint_notice_draws_the_icon(ui):
+    """O ícone vai pra camada nativa (resolução cheia) no lugar do layout, no Grande também."""
+    ui.set_layout((0, 0, 960, 540), 2.0, (480, 270))
+    ui.begin()
+    icon = pygame.Surface((32, 32))
+    ui.draw_blueprint_notice("scanner", 1.0, icon)
+    _, rect = ui.blueprint_notice_layout("scanner")
+    assert [pos for _, pos in ui.native] == [(rect.x * 2, rect.y * 2)]
 
 
 @pytest.mark.parametrize("size", [(480, 270), (640, 360), (960, 540)])

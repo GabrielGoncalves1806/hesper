@@ -127,3 +127,22 @@ def dodge_labels(boxes: dict, labels: list[tuple[float, float, float, float]],
                 break
         shifts[k] = s
     return shifts
+
+
+HUD_FADE_PX = 8.0     # px da UI: o floater some ao longo dos últimos 8 px antes de encostar num painel do HUD
+
+
+def hud_fade(box: tuple[float, float, float, float], panels: list[tuple[float, float, float, float]],
+             fade: float = HUD_FADE_PX) -> float:
+    """Opacidade (0..1) de um floater perto dos painéis do HUD: 1 longe, cai até 0 nos últimos `fade` px
+    e é 0 encostado ou embaixo de um painel. Assim ele some antes de entrar sob o painel de O₂, do Ti etc.,
+    em vez de passar por trás (ou por cima dos números dele).
+
+    box e panels: (esquerda, topo, direita, baixo) em px da UI.
+    """
+    x0, y0, x1, y1 = box
+    alpha = 1.0
+    for px0, py0, px1, py1 in panels:
+        gap = max(px0 - x1, x0 - px1, py0 - y1, y0 - py1)   # distância entre as caixas (<= 0: encostadas)
+        alpha = min(alpha, max(0.0, gap / fade))
+    return alpha

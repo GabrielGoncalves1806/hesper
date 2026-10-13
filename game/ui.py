@@ -20,7 +20,7 @@ from game import config as C
 from game import energy
 from game.assets import Sprites, load_font
 from game.fabricator import field_kinds, tab_kinds
-from game.floaters import LANE_PX, RISE, FloatingTexts, dodge_labels
+from game.floaters import LANE_PX, RISE, FloatingTexts, dodge_labels, hud_fade
 from game.inventory import Inventory, Stack
 from game.systems import GameState, eta_label, stage_progress
 from game.wrecks import Crate
@@ -66,53 +66,97 @@ DIGITS = {
 }
 DIGIT_ADVANCE = 7      # 1 px de margem + 5 px de dígito + 1 de espaço (igual ao avanço da Pixelify)
 
+# Subscrito desenhado em pixels: nas duas fontes o "O" maiúsculo é igual ao zero ("O2" lia "02") e
+# nenhuma das duas tem o "₂". O texto do jogo escreve "O₂" e a fonte desenha o 2 pequeno e rebaixado.
+# Dois tamanhos: 3×4 pra letra de 5 px (Silkscreen 8) e 3×5 pra de 7 px (Pixelify 11).
+SUBSCRIPTS = {
+    "₂": {4: ["## ", "  #", " # ", "###"],
+          5: ["## ", "  #", " # ", "#  ", "###"]},
+}
 
-class PixelDigitsFont:
-    """A Pixelify Sans, mas com os números desenhados em pixels (DIGITS).
 
+class PixelFont:
+    """Uma fonte do jogo com os pedaços que ela desenha mal trocados por pixels desenhados à mão.
+
+    - `digits=True` (Pixelify): os números saem de DIGITS ("5" virava "S", "2" virava "Z").
+    - sempre: o subscrito "₂" (O₂) sai de SUBSCRIPTS, menor e rebaixado, em vez do glifo que a fonte não tem.
     Tem os mesmos size() e render() de uma pygame.font.Font, então serve em qualquer lugar onde a
-    fonte era usada (medidas, quebra de linha, HUD, menus). Só os dígitos mudam; as letras são da fonte.
+    fonte era usada (medidas, quebra de linha, HUD, menus).
     """
 
-    def __init__(self, font: pygame.font.Font):
+    def __init__(self, font: pygame.font.Font, digits: bool = True):
         self.font = font
+        self.digits = digits
         # topo dos dígitos alinhado com o das letras maiúsculas (7 px acima da linha de base)
         self.digit_top = max(0, font.get_ascent() - 7)
+        # caixa das maiúsculas (pelo "O"): o subscrito se apoia nela
+        probe = font.render("O", False, (255, 255, 255), (0, 0, 0))
+        rows = [y for y in range(probe.get_height()) if any(probe.get_at((x, y)).r for x in range(probe.get_width()))]
+        cap_top, cap_bottom = (rows[0], rows[-1]) if rows else (0, font.get_height() - 1)
+        cap = cap_bottom - cap_top + 1
+        self.sub_scale = max(1, round(cap / 6))
+        self.sub_rows = 4 if cap / self.sub_scale <= 5 else 5
+        # o subscrito começa no meio da letra e passa 1 px (na escala) da linha de base
+        self.sub_top = cap_bottom + self.sub_scale - self.sub_rows * self.sub_scale + 1
+        self.sub_advance = 3 * self.sub_scale + 1
 
-    @staticmethod
-    def _runs(text: str) -> list[str]:
-        """'Ti 500 x' -> ['Ti ', '500', ' x']: separa sequências de dígitos do resto."""
+    def _kind(self, ch: str) -> str:
+        if ch in SUBSCRIPTS:
+            return "sub"
+        if self.digits and ch in DIGITS:          # "₂".isdigit() é True: por isso a lista, não isdigit()
+            return "digit"
+        return "text"
+
+    def _runs(self, text: str) -> list[str]:
+        """'Ti 500 x' -> ['Ti ', '500', ' x']: separa dígitos e subscritos do resto."""
         runs: list[str] = []
         for ch in text:
-            if runs and runs[-1][-1].isdigit() == ch.isdigit():
+            if runs and self._kind(runs[-1][-1]) == self._kind(ch):
                 runs[-1] += ch
             else:
                 runs.append(ch)
         return runs
 
+    def _run_width(self, run: str) -> int:
+        kind = self._kind(run[0])
+        if kind == "digit":
+            return DIGIT_ADVANCE * len(run)
+        if kind == "sub":
+            return self.sub_advance * len(run)
+        return self.font.size(run)[0]
+
     def size(self, text: str) -> tuple[int, int]:
-        width = sum(DIGIT_ADVANCE * len(r) if r[0].isdigit() else self.font.size(r)[0] for r in self._runs(text))
-        return width, self.font.get_height()
+        return sum(self._run_width(r) for r in self._runs(text)), self.font.get_height()
 
     def get_height(self) -> int:
         return self.font.get_height()
 
+    def get_ascent(self) -> int:
+        return self.font.get_ascent()
+
     def render(self, text: str, antialias: bool, color) -> pygame.Surface:
-        if not any(ch.isdigit() for ch in text):
+        if all(self._kind(ch) == "text" for ch in text):
             return self.font.render(text, antialias, color)
         surf = pygame.Surface(self.size(text), pygame.SRCALPHA)
         x = 0
         for run in self._runs(text):
-            if run[0].isdigit():
-                for ch in run:
-                    for dy, row in enumerate(DIGITS[ch]):
-                        for dx, cell in enumerate(row):
-                            if cell == "#":
-                                surf.fill(color, (x + 1 + dx, self.digit_top + dy, 1, 1))
-                    x += DIGIT_ADVANCE
-            else:
+            kind = self._kind(run[0])
+            if kind == "text":
                 surf.blit(self.font.render(run, antialias, color), (x, 0))
                 x += self.font.size(run)[0]     # avança pela medida (a imagem perde o espaço do fim)
+                continue
+            for ch in run:
+                if kind == "digit":
+                    glyph, top, s = DIGITS[ch], self.digit_top, 1
+                    ox = x + 1
+                else:
+                    glyph, top, s = SUBSCRIPTS[ch][self.sub_rows], self.sub_top, self.sub_scale
+                    ox = x
+                for dy, row in enumerate(glyph):
+                    for dx, cell in enumerate(row):
+                        if cell == "#":
+                            surf.fill(color, (ox + dx * s, top + dy * s, s, s))
+                x += DIGIT_ADVANCE if kind == "digit" else self.sub_advance
         return surf
 
 
@@ -126,7 +170,7 @@ def fmt_rate(n: float) -> str:
 
 
 def item_name(item: str) -> str:
-    """Nome de um item do inventário pra mostrar ao jogador ('Ferro', 'Gerador de O2', 'Baú')."""
+    """Nome de um item do inventário pra mostrar ao jogador ('Ferro', 'Gerador de O₂', 'Baú')."""
     if item in C.RESOURCE_NAME:
         return C.RESOURCE_NAME[item].capitalize()
     if item in C.BLUEPRINT_ITEMS:
@@ -157,14 +201,17 @@ class UI:
         self.canvas_k = 0.5               # px da UI por px do canvas (texto preso no mundo)
         self.surf = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
         self.native: list[tuple[pygame.Surface, tuple[int, int]]] = []
-        self.chest_label_rects: list[pygame.Rect] = []   # rótulos de baú deste frame (os floaters desviam)
+        self.chest_label_rects: list[pygame.Rect] = []
+        # painéis do HUD desenhados nesta camada (hud_panel): os floaters somem antes de entrar embaixo deles
+        self.hud_rects: list[pygame.Rect] = []   # rótulos de baú deste frame (os floaters desviam)
         self._dodge: dict[int, float] = {}                # desvio de cada floater (uid) do rótulo atual
         self._dodge_key = None
-        self.font = load_font("Silkscreen-Regular.ttf", 8, 12)        # rótulos
-        self.font_big = load_font("Silkscreen-Regular.ttf", 16, 22)   # títulos
+        # Silkscreen: letras da fonte, só o subscrito do "O₂" desenhado (os números dela são legíveis)
+        self.font = PixelFont(load_font("Silkscreen-Regular.ttf", 8, 12), digits=False)        # rótulos
+        self.font_big = PixelFont(load_font("Silkscreen-Regular.ttf", 16, 22), digits=False)   # títulos
         # textos: Pixelify 11 px (em 10 e 12 o "G" vira "Q"), com os dígitos desenhados em pixels
-        self.body = PixelDigitsFont(load_font("PixelifySans.ttf", 11, 13))
-        self.body_big = PixelDigitsFont(load_font("PixelifySans.ttf", 11, 16))   # títulos: mesmo tamanho (o "G" só fica certo em 11), destaque pela cor
+        self.body = PixelFont(load_font("PixelifySans.ttf", 11, 13))
+        self.body_big = PixelFont(load_font("PixelifySans.ttf", 11, 16))   # títulos: mesmo tamanho (o "G" só fica certo em 11), destaque pela cor
         self._text_cache: dict[tuple, pygame.Surface] = {}
         self._tmp: dict[tuple, pygame.Surface] = {}
         self.fabricator_buttons: list[tuple[pygame.Rect, str]] = []   # retângulos clicáveis (coord. da UI)
@@ -176,6 +223,8 @@ class UI:
         self.controls_pages = 1                       # quantas páginas a tela de Controles teve no último desenho
         # slots clicáveis da tela de inventário/baú: (retângulo na UI, inventário, índice do slot)
         self.slot_rects: list[tuple[pygame.Rect, Inventory, int]] = []
+        # títulos de janela, abas e rótulos de seção dos painéis com slots: o tooltip nunca cobre (tooltip_rect)
+        self.header_rects: list[pygame.Rect] = []
         # painel da estação: slots de drone (retângulo, nº do slot) e do buffer (retângulo, minério)
         self.bay_rects: list[tuple[pygame.Rect, int]] = []
         self.buffer_rects: list[tuple[pygame.Rect, str]] = []
@@ -229,6 +278,7 @@ class UI:
     def begin(self) -> None:
         self.surf.fill((0, 0, 0, 0))
         self.native.clear()
+        self.hud_rects.clear()
 
     # Fatias da UI esticadas uma a uma em finish(): o HUD é quase todo transparente, então esticar
     # só o que tem desenho (os cantos, a hotbar) poupa muito trabalho numa janela 1920×1080.
@@ -278,8 +328,9 @@ class UI:
             self._text_cache[key] = surf
         return surf
 
-    def text(self, s: str, x: float, y: float, color: str, font=None, align: str = "left", target=None) -> int:
-        """Texto com sombrinha preta (igual ao mockup). Devolve a largura."""
+    def text(self, s: str, x: float, y: float, color: str, font=None, align: str = "left", target=None,
+             alpha: float = 1.0) -> int:
+        """Texto com sombrinha preta (igual ao mockup). Devolve a largura. `alpha` < 1: esmaecido."""
         font = font or self.font
         target = target or self.surf
         img = self._render(font, s, color)
@@ -287,7 +338,11 @@ class UI:
         w = img.get_width()
         x = x - w if align == "right" else x - w // 2 if align == "center" else x
         x, y = int(x), int(y)
-        shadow.set_alpha(165)
+        if alpha < 1.0:                  # as imagens do cache são compartilhadas: esmaece uma cópia
+            img = img.copy()
+            img.set_alpha(round(255 * alpha))
+            shadow = shadow.copy()
+        shadow.set_alpha(round(165 * alpha))
         target.blit(shadow, (x + 1, y + 1))
         target.blit(img, (x, y))
         return w
@@ -310,14 +365,19 @@ class UI:
         self.fill(bg, (x, y, w, h), target)
         pygame.draw.rect(target or self.surf, (255, 255, 255, 40), (x, y, w, h), 1)
 
+    def hud_panel(self, x, y, w, h) -> None:
+        """Painel do HUD (O₂, Ti, energia, objetivos, minimapa, hotbar...): guarda o retângulo em hud_rects."""
+        self.panel(x, y, w, h)
+        self.hud_rects.append(pygame.Rect(x, y, w, h))
+
     # ---- HUD ------------------------------------------------------------------
     def draw_hud(self, state: GameState, t: float, hint: str | None, icons: dict[str, pygame.Surface]) -> None:
         crit = state.o2 < C.O2_LOW
         blink = crit and (t * 9) % 6 < 3
         o2 = min(1.0, state.o2 / state.o2_max)          # proporcional ao máximo (com o tanque, 220 s)
         # barra de O₂
-        self.panel(6, 6, 112, 26)
-        self.text("O2", 11, 10, C.C_ALERT if crit else C.C_O2)
+        self.hud_panel(6, 6, 112, 26)
+        self.text("O₂", 11, 10, C.C_ALERT if crit else C.C_O2)
         self.fill((20, 35, 42), (30, 11, 82, 7))
         bar = (C.C_ALERT if blink else "#c2281c") if crit else C.C_O2
         self.surf.fill(pygame.Color(bar), (30, 11, round(82 * o2), 7))
@@ -337,7 +397,7 @@ class UI:
         # resumo do inventário (total de cada recurso, somando as pilhas); os slots ficam na hotbar e no Tab
         counts = [str(state.inventory.count(res)) for res in C.RESOURCES]
         w = 6 + sum(14 + self.font.size(n)[0] + 6 for n in counts)
-        self.panel(6, self.h - 26, w, 20)
+        self.hud_panel(6, self.h - 26, w, 20)
         x = 12
         for res, n in zip(C.RESOURCES, counts):
             self.native.append((icons[res], (x * 2, (self.h - 20) * 2)))
@@ -347,7 +407,7 @@ class UI:
             w = self.body.size(hint)[0] + 14
             # dica embaixo à direita; se for comprida e encostar na hotbar, sobe uma linha
             y = self.h - 26 if self.w - 6 - w >= self.hotbar_x + GRID_W + 6 else self.hotbar_y - 34
-            self.panel(self.w - 6 - w, y, w, 20)
+            self.hud_panel(self.w - 6 - w, y, w, 20)
             self.text(hint, self.w - 13, y + 4, C.C_TEXT, self.body, "right")
 
         debug = ([f"DEBUG · TEMPO x{state.time_scale}"] if state.time_scale != 1 else []) \
@@ -365,7 +425,7 @@ class UI:
         line2 = f"faltam {fmt(remaining)} · {eta}"
         wrap_eta = self.body.size(line2)[0] > inner      # não coube: o tempo desce pra uma 3ª linha
         h = 64 if nxt is None else 90 if wrap_eta else 78
-        self.panel(px, 6, w, h)
+        self.hud_panel(px, 6, w, h)
         self.ti_panel_bottom = 6 + h      # o medidor de energia encaixa logo abaixo (draw_energy)
 
         self.text("TI", px + 6, 10, C.C_TI)
@@ -419,7 +479,7 @@ class UI:
             warning = [f"Energia insuficiente · máquinas a {int(power.factor * 100)}%"]
             if self.body.size(warning[0])[0] > w - 12:    # não coube numa linha: quebra no "·"
                 warning = warning[0].split(" · ")
-        self.panel(px, y, w, 15 + 12 * len(warning))
+        self.hud_panel(px, y, w, 15 + 12 * len(warning))
         self.energy_bottom = y + 15 + 12 * len(warning)
         self.right_bottom = self.energy_bottom        # fim da coluna da direita (Ti, energia, minimapa)
         self.draw_bolt(px + 6, y + 4, C.C_ENERGY if not power.deficit else C.C_ALERT)
@@ -475,7 +535,7 @@ class UI:
         x, y = 6, 40                              # O₂ ocupa y 6–32 e o banner de estágio vai até y 36
         w = max(112, max(self.body.size(line.text)[0] for line in lines) + 26)
         h = 15 + 13 * len(lines)
-        self.panel(x, y, w, h)
+        self.hud_panel(x, y, w, h)
         self.text("OBJETIVO", x + 6, y + 4, C.C_ACCENT)
         for i, line in enumerate(lines):
             ly = y + 13 + i * 13
@@ -495,7 +555,9 @@ class UI:
         """Textos presos num ponto do mundo: a posição acompanha o zoom, o tamanho da letra não
         (a letra segue o tamanho da interface, igual ao resto do texto). `labels`: rótulos de baú já
         desenhados neste frame; quem ia passar por trás deles nasce/fica acima (dodge_labels). O desvio
-        de cada floater é decidido uma vez e guardado enquanto o mesmo rótulo estiver na tela."""
+        de cada floater é decidido uma vez e guardado enquanto o mesmo rótulo estiver na tela.
+        Vem depois do HUD na mesma camada: quem chega perto de um painel do HUD (hud_rects) esmaece e
+        some antes de entrar embaixo dele (hud_fade), em vez de passar por trás."""
         k = zoom * self.canvas_k
         h = self.font.get_height()
         pos, boxes = {}, {}
@@ -514,7 +576,11 @@ class UI:
         for fid, (f, sx, sy) in pos.items():
             sy -= self._dodge.get(fid, 0.0)
             if -40 < sx < self.w + 40 and -20 < sy < self.h + 20:
-                self.text(f.text, sx, sy, f.color, align="center")
+                half = self.font.size(f.text)[0] / 2
+                alpha = hud_fade((sx - half, sy, sx + half, sy + h), [tuple(r.topleft + r.bottomright)
+                                                                      for r in self.hud_rects])
+                if alpha > 0:
+                    self.text(f.text, sx, sy, f.color, align="center", alpha=alpha)
 
     # ---- O₂ crítico -----------------------------------------------------------
     def draw_o2_critical(self, state: GameState, t: float, cam: tuple[int, int]) -> None:
@@ -702,7 +768,7 @@ class UI:
     def draw_hotbar(self, inventory: Inventory, selected: int, item_icon) -> None:
         """Os 8 primeiros slots do inventário no rodapé central, com o número da tecla (em cima de
         cada slot, pra não cobrir o ícone) e o selecionado destacado."""
-        self.panel(self.hotbar_x - 3, self.hotbar_y - 11, GRID_W + 6, SLOT + 14)
+        self.hud_panel(self.hotbar_x - 3, self.hotbar_y - 11, GRID_W + 6, SLOT + 14)
         for i in range(C.HOTBAR_SLOTS):
             x = self.hotbar_x + i * SLOT_STEP
             self.text(str(i + 1), x + SLOT / 2 + 1, self.hotbar_y - 10, C.C_TI if i == selected else C.C_MUTED, align="center")
@@ -729,6 +795,7 @@ class UI:
         self.text(text, w / 2, 4, C.C_TEXT, target=layer, align="center")
         layer.set_alpha(int(255 * alpha))
         self.surf.blit(layer, (self.w // 2 - w // 2, 40))   # logo abaixo do banner de estágio
+        self.hud_rects.append(pygame.Rect(self.w // 2 - w // 2, 40, w, 15))
 
     def _grid(self, inv: Inventory, indexes: list[int], x: int, y: int, item_icon, mouse, selected=None) -> None:
         """Desenha os slots `indexes` de `inv` em linhas de 8, a partir de (x, y), e guarda os retângulos."""
@@ -738,7 +805,13 @@ class UI:
             self.draw_slot(sx, sy, inv.slots[i], item_icon, selected=i == selected, hover=rect.collidepoint(mouse))
             self.slot_rects.append((rect, inv, i))
 
+    def _section_label(self, label: str, x: int, y: int, color: str = C.C_MUTED) -> None:
+        """Rótulo de seção de painel ("HOTBAR", "TRAJE", "DRONES"): entra nos cabeçalhos que o tooltip evita."""
+        w = self.text(label, x, y, color)
+        self.header_rects.append(pygame.Rect(x, y + 3, w + 1, 7))      # a letra (5 px) + sombra, com 1 px de folga
+
     def _window(self, x: int, y: int, w: int, h: int, title: str, color: str) -> None:
+        self.header_rects.append(pygame.Rect(x, y, w, 20))      # faixa do título: o tooltip não cobre
         self.surf.fill(pygame.Color("#1b1411"), (x, y, w, h))
         pygame.draw.rect(self.surf, pygame.Color("#5a4034"), (x, y, w, h), 1)
         self.surf.fill(pygame.Color("#2a1e19"), (x + 1, y + 1, w - 2, 18))
@@ -756,6 +829,7 @@ class UI:
         baú sendo editado (ou None). `status` = linha de estado da estação ("2 drones · 1 kW").
         Inventário: mochila (slots 8–15) em cima, hotbar (slots 0–7) embaixo, igual à ordem da tela."""
         self.slot_rects.clear()
+        self.header_rects.clear()
         self.bay_rects.clear()
         self.buffer_rects.clear()
         self.panel_buttons.clear()
@@ -792,7 +866,7 @@ class UI:
         hb = C.HOTBAR_SLOTS
         gx, gy = x + x_pad, y + top + 6
         self._grid(inventory, list(range(hb, len(inventory))), gx, gy, item_icon, mouse)
-        self.text("HOTBAR", gx, gy + SLOT + 4, C.C_MUTED)
+        self._section_label("HOTBAR", gx, gy + SLOT + 4)
         self._grid(inventory, list(range(hb)), gx, gy + SLOT + 14, item_icon, mouse, hotbar_selected)
         if side is None and equipment is not None:
             self._equipment_row(equipment, gx, gy + 2 * SLOT + 14 + 6, item_icon, mouse)
@@ -860,6 +934,7 @@ class UI:
             self.inv_tab_rects.append((rect, i))
             tx += tw + 3
         pygame.draw.line(self.surf, pygame.Color("#3a2c25"), (x + 8, y + 34), (x + w - 9, y + 34))
+        self.header_rects.append(pygame.Rect(x, y + 20, w, INV_TABS_H - 1))   # abas: o tooltip não cobre
 
     # ---- aba Fabricar do Tab (fabricar em campo) -------------------------------------
     FIELD_SAMPLE_HAVE = 999                            # largura do custo reservada pra "999/12 FERRO"
@@ -885,6 +960,7 @@ class UI:
         (_recipe_list), mas o custo conta só o inventário. `menu` = fabricator.field_menu().
         Hit-test: fabricator_rows, fabricator_buttons e inv_tab_rects."""
         self.slot_rects.clear()
+        self.header_rects.clear()
         self.equip_rects.clear()
         self.log_rows.clear()
         self.fabricator_rows.clear()
@@ -926,6 +1002,7 @@ class UI:
         ainda não abriu. `selected`/`first` = linha escolhida (W/S) e a primeira visível (rolagem).
         Hit-test: log_rows (só os lidos) e inv_tab_rects."""
         self.slot_rects.clear()
+        self.header_rects.clear()
         self.equip_rects.clear()
         self.log_rows.clear()
         self.fill((8, 5, 4, 158), (0, 0, self.w, self.h))
@@ -966,7 +1043,7 @@ class UI:
 
     def _equipment_row(self, equipment, x: int, y: int, item_icon, mouse) -> None:
         """TRAJE: um slot por equipamento (tanque, scanner). Vazio mostra o ícone apagado como dica."""
-        self.text("TRAJE", x, y, C.C_MUTED)
+        self._section_label("TRAJE", x, y)
         sx = x
         for kind in C.EQUIP_SLOTS:
             sy = y + 10
@@ -1096,7 +1173,7 @@ class UI:
         st = machine.station
         self._window(cx, y, pw, h, "ESTAÇÃO DE DRONES", C.C_O2)
         self.text(f"{len(st.drones)}/{C.STATION_DRONE_SLOTS}", cx + pw - 8, y + 6, C.C_MUTED, align="right")
-        self.text("DRONES", cx + 8, y + 24, C.C_MUTED)
+        self._section_label("DRONES", cx + 8, y + 24)
         self.text("ALCANCE: MAPA TODO", cx + pw - 8, y + 24, C.C_MUTED, align="right")
         n = C.STATION_DRONE_SLOTS
         margin = 6
@@ -1167,7 +1244,7 @@ class UI:
         Guarda os botões em `logistics_buttons`."""
         from game import drones                      # (import local: a UI não depende da lógica no topo)
         self.fill((255, 255, 255, 28), (x, y, w, 1))
-        self.text("DRONES", x, y + 4, C.C_O2)
+        self._section_label("DRONES", x, y + 4, C.C_O2)
         if not drones.configured(machine):
             self.text("NADA CONFIGURADO", x + w, y + 4, C.C_TI, align="right")
         col = x + self.font.size("LOTE POR VIAGEM")[0] + 8     # todos os botões começam na mesma coluna
@@ -1262,18 +1339,45 @@ class UI:
             if held.count > 1:
                 self.native_text(str(held.count), mx + 20, my + 14, C.C_TEXT, "right")
         elif label:
-            # ancorado no elemento debaixo do mouse (slot ou botão da seção DRONES): logo acima dele, ou
-            # abaixo se não couber, pra nunca cobrir a própria linha
             w = self.body.size(label)[0] + 12
-            under = next((r for r in [*(r for r, _, _ in self.slot_rects), *(r for r, _ in self.logistics_buttons)]
-                          if r.collidepoint(mouse)), None)
-            if under is None:
-                tx, ty = min(mx + 8, self.w - w - 2), my - 18
-            else:
-                tx = max(2, min(under.x, self.w - w - 2))
-                ty = under.top - 18 if under.top - 18 >= 2 else under.bottom + 2
-            self.panel(tx, ty, w, 16, (14, 10, 9, 235))
-            self.text(label, tx + 6, ty + 2, C.C_TEXT, self.body)
+            rect = self.tooltip_rect(w, mouse)
+            self.panel(*rect, (14, 10, 9, 255))     # opaco: o número da pilha vizinha não vaza
+            self.text(label, rect.x + 6, rect.y + (rect.h - 16) // 2 + 2, C.C_TEXT, self.body)
+
+    TOOLTIP_H = 16
+
+    def tooltip_rect(self, w: int, mouse) -> pygame.Rect:
+        """Onde vai o tooltip de largura `w`: ancorado no elemento debaixo do mouse (slot, slot do traje ou
+        botão da seção DRONES). Primeiro do lado direito dele, na faixa da linha (cobre só os vizinhos da
+        linha, nunca o título da janela, as abas ou um rótulo); se não couber na tela, do lado esquerdo;
+        senão, a posição embaixo/em cima mais perto do elemento que cabe na tela sem cobrir cabeçalho
+        (header_rects). Antes ia sempre em cima do slot e, na 1ª linha do baú, tapava o nome dele."""
+        h = self.TOOLTIP_H
+        anchors = [*(r for r, _, _ in self.slot_rects), *(r for r, _ in self.equip_rects),
+                   *(r for r, _ in self.logistics_buttons), *(r for r, _ in self.bay_rects),
+                   *(r for r, _ in self.buffer_rects)]
+        under = next((r for r in anchors if r.collidepoint(mouse)), None)
+        if under is None:
+            mx, my = int(mouse[0]), int(mouse[1])
+            under = pygame.Rect(mx - 2, my - 2, 4, 4)     # sem elemento: em volta do cursor
+        screen = pygame.Rect(0, 0, self.w, self.h).inflate(-4, -4)
+
+        def free(rect: pygame.Rect) -> bool:
+            return screen.contains(rect) and rect.collidelist(self.header_rects) < 0
+
+        # do lado, cobre a altura inteira do slot vizinho (senão o número da pilha dele aparece pela beirada)
+        side_h = max(h, under.h)
+        for x in (under.right + 2, under.left - 2 - w):
+            rect = pygame.Rect(x, under.centery - side_h // 2, w, side_h)
+            if free(rect):
+                return rect
+        x = max(2, min(under.x, self.w - w - 2))
+        for dy in range(0, self.h, 2):
+            for y in (under.bottom + 2 + dy, under.top - 2 - h - dy):
+                rect = pygame.Rect(x, y, w, h)
+                if free(rect):
+                    return rect
+        return pygame.Rect(x, under.bottom + 2, w, h).clamp(screen)
 
     def _arrow(self, cx: int, y: int, up: bool) -> None:
         """Setinha de 5×3 (tem mais receita pra cima/baixo)."""
@@ -1315,6 +1419,7 @@ class UI:
         self.text(s.subtitle, w / 2, 15, "#d9cfc4", self.body, "center", target=layer)
         layer.set_alpha(int(255 * alpha))
         self.surf.blit(layer, (x, y))
+        self.hud_rects.append(pygame.Rect(x, y, w, h))
 
     # ---- desmaio --------------------------------------------------------------
     def draw_faint(self, state: GameState) -> None:
@@ -1501,37 +1606,45 @@ class UI:
             self.text("[A/D] PÁGINA", prev.x - 8, back.y + 6, C.C_MUTED, align="right")
 
     # ---- projeto encontrado (Marco 3) -----------------------------------------------
-    def blueprint_notice_layout(self, blueprint: str) -> tuple[pygame.Rect, bool]:
-        """Onde vai o aviso do projeto: (retângulo na UI, com ícone?). Cabe no vão do topo entre o O₂ e o Ti;
-        no Grande (vão de 196 px) o ícone sai pra caber. Só se nem assim couber, desce pra y 40 (cobre HUD)."""
-        title = f"PROJETO: {C.BLUEPRINTS[blueprint].upper()}"
-        text_w = max(self.font.size(title)[0], self.body.size(self.BLUEPRINT_SUB)[0])
-        left, right = self.BANNER_GAP
-        for with_icon, pad in ((True, 34), (False, 12)):
-            w = text_w + pad
-            if w <= right - left - 4:
-                return pygame.Rect((left + right) // 2 - w // 2, 6, w, 30), with_icon
-        w = text_w + 34
-        return pygame.Rect((self.w - w) // 2, 40, w, 30), True
+    # Aviso em 2 linhas, igual nos 3 tamanhos: rótulo pequeno em cima e o nome do item embaixo, com o
+    # ícone do projeto (icon_blueprint, o mesmo da caixa e do inventário) à esquerda. O formato antigo
+    # ("PROJETO: SCANNER DE NAVEGAÇÃO" / "receita liberada no fabricador") não cabia com o ícone no vão
+    # de 196 px do Grande; assim o mais comprido fica com ~170 px.
+    BLUEPRINT_LABEL = "PROJETO · RECEITA LIBERADA"
+    BLUEPRINT_PAD, BLUEPRINT_ICON = 6, 16            # margem e ícone (px da UI); 5 px entre ícone e texto
 
-    BLUEPRINT_SUB = "receita liberada no fabricador"
+    def blueprint_notice_layout(self, blueprint: str) -> tuple[pygame.Rect, pygame.Rect]:
+        """(aviso, ícone) em px da UI: no vão do topo entre o painel de O₂ e o do Ti, sem encostar neles.
+        Só se nem assim couber (não acontece com os projetos de hoje), desce pro meio da tela, abaixo do HUD."""
+        text_w = max(self.font.size(self.BLUEPRINT_LABEL)[0], self.body.size(C.BLUEPRINTS[blueprint])[0])
+        pad, icon = self.BLUEPRINT_PAD, self.BLUEPRINT_ICON
+        w, h = pad + icon + 5 + text_w + pad, 30
+        left, right = self.BANNER_GAP
+        if w <= right - left - 4:
+            rect = pygame.Rect((left + right) // 2 - w // 2, 6, w, h)
+        else:
+            rect = pygame.Rect((self.w - w) // 2, self.h // 2 - 60, w, h)
+        return rect, pygame.Rect(rect.x + pad, rect.y + (h - icon) // 2, icon, icon)
 
     def draw_blueprint_notice(self, blueprint: str, alpha: float, icon: pygame.Surface) -> None:
-        """Aviso "PROJETO: <NOME>" no topo do centro, com o ícone do projeto: a receita já está liberada."""
-        title = f"PROJETO: {C.BLUEPRINTS[blueprint].upper()}"
-        rect, with_icon = self.blueprint_notice_layout(blueprint)
-        tx = 26 if with_icon else 6
+        """Aviso de projeto encontrado no topo do centro: ícone do projeto + "PROJETO · RECEITA LIBERADA" +
+        o nome do que ele libera. `icon`: o ícone 32×32 (resolução cheia) do item do projeto."""
+        rect, icon_rect = self.blueprint_notice_layout(blueprint)
+        tx = icon_rect.right - rect.x + 5
         layer = pygame.Surface(rect.size, pygame.SRCALPHA)
         self.panel(0, 0, rect.w, rect.h, (10, 18, 30, 235), target=layer)
         layer.fill(pygame.Color("#9fd0ff"), (0, 0, rect.w, 2))
-        self.text(title, tx, 6, "#cfe8ff", target=layer)
-        self.text(self.BLUEPRINT_SUB, tx, 15, "#d9cfc4", self.body, target=layer)
+        # fundinho escuro atrás do ícone: o projeto é azul e sumia no azul do aviso
+        back = icon_rect.move(-rect.x, -rect.y).inflate(2, 2)
+        layer.fill((4, 8, 14, 255), back)
+        pygame.draw.rect(layer, pygame.Color("#2c4a6a"), back, 1)
+        self.text(self.BLUEPRINT_LABEL, tx, 6, "#9fd0ff", target=layer)
+        self.text(C.BLUEPRINTS[blueprint], tx, 14, "#eef6ff", self.body, target=layer)
         layer.set_alpha(int(255 * alpha))
         self.surf.blit(layer, rect.topleft)
-        if with_icon:
-            ic = icon.copy()
-            ic.set_alpha(int(255 * alpha))
-            self.native.append((ic, ((rect.x + 6) * 2, (rect.y + 7) * 2)))
+        ic = icon.copy()
+        ic.set_alpha(int(255 * alpha))
+        self.native.append((ic, (icon_rect.x * 2, icon_rect.y * 2)))
 
     # ---- scanner: minimapa e mapa grande (Marco 3) -------------------------------------
     MINIMAP_SIZE = 64                                  # px da UI (= C.MINIMAP_TILES tiles a 2 px nativos)
@@ -1650,7 +1763,7 @@ class UI:
         self._map_markers(view, state, (ox, oy), k, t)
         px = self.w - 6 - (size + 8)
         py = self.energy_bottom + 4
-        self.panel(px, py, size + 8, size + 17)
+        self.hud_panel(px, py, size + 8, size + 17)
         self.right_bottom = py + size + 17
         self.text("MAPA", px + 4, py + 4, C.C_TERMINAL)
         self.text("[M]", px + size + 4, py + 4, C.C_MUTED, align="right")
@@ -1676,6 +1789,7 @@ class UI:
         close_w = self.font.size("[M] FECHA")[0]
         pw, ph = min(self.w - 4, max(mw + 16, 300, legend_w + close_w + 20)), mh + 50
         x, y = (self.w - pw) // 2, (self.h - ph) // 2
+        self.header_rects.clear()
         self._window(x, y, pw, ph, "MAPA · " + ("SUPERFÍCIE" if state.active.has_base else "CAVERNA"), C.C_TERMINAL)
         explored = state.active.explored
         pct = 100 * explored.count / (w * h)

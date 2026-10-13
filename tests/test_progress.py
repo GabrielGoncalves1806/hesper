@@ -74,8 +74,8 @@ def test_pixel_digits_font_measures_and_renders():
     import pygame
     pygame.font.init()
     from game.assets import load_font
-    from game.ui import DIGIT_ADVANCE, PixelDigitsFont
-    font = PixelDigitsFont(load_font("PixelifySans.ttf", 11, 13))
+    from game.ui import DIGIT_ADVANCE, PixelFont
+    font = PixelFont(load_font("PixelifySans.ttf", 11, 13))
     assert font._runs("Ti 500 ok") == ["Ti ", "500", " ok"]
     w, h = font.size("Ti 500")
     assert w == font.font.size("Ti ")[0] + 3 * DIGIT_ADVANCE

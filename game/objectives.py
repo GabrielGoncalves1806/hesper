@@ -55,7 +55,7 @@ OBJECTIVES = [
     Objective("Minere ferro", lambda s: s.mined_total["iron"] >= 10, ("iron", 10)),
     Objective("Minere silício", lambda s: s.mined_total["silicon"] >= 4, ("silicon", 4)),
     Objective("Abra o fabricador na base [E]", lambda s: s.fabricator_opened),
-    Objective("Fabrique um Gerador de O2", lambda s: crafted(s, "o2") >= 1),
+    Objective("Fabrique um Gerador de O₂", lambda s: crafted(s, "o2") >= 1),
     Objective("Coloque o gerador perto da base", lambda s: placed_near_base(s, "o2")),
     Objective("Fabrique um baú", lambda s: crafted(s, "chest") >= 1),
     # v0.3 Marco 2: a caverna é onde se minera de verdade (escura: lanterna + luminárias)
@@ -63,8 +63,8 @@ OBJECTIVES = [
     Objective("Coloque uma luminária", lambda s: s.lamps_placed >= 1),
     # v0.3 Marco 3: os destroços do deserto (o mais perto, a ~30 tiles, tem o projeto do tanque de O₂)
     Objective("Ache um destroço", lambda s: len(s.wrecks_visited) >= 1),
-    Objective("Ache o projeto do tanque de O2", lambda s: "o2_tank" in s.blueprints),
-    Objective("Fabrique e equipe o tanque de O2", lambda s: "o2_tank" in s.equipped_ever),
+    Objective("Ache o projeto do tanque de O₂", lambda s: "o2_tank" in s.blueprints),
+    Objective("Fabrique e equipe o tanque de O₂", lambda s: "o2_tank" in s.equipped_ever),
     Objective("Minere gelo e fabrique um Derretedor", lambda s: crafted(s, "melter") >= 1),
     Objective("Chegue a Ti 500", lambda s: s.ti >= 500),
     Objective("Fabrique um Aquecedor", lambda s: crafted(s, "heater") >= 1),
