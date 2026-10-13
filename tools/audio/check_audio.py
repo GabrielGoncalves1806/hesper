@@ -33,6 +33,8 @@ CONTRACT = {
     # v0.3 Marcos 2 e 3 (v8.1, aprovados)
     "amb_cave": True, "ramp_down": False, "ramp_up": False, "lamp_place": False,
     "crate_open": False, "blueprint_found": False, "equip": False, "map_open": False,
+    # v0.4 Marco 1 · Tempestade (v9.1, aprovados)
+    "amb_storm": True, "gust": False, "sky_clear": False,
 }
 # entregues em _pending/ até o dono aprovar
 PENDING: dict = {}

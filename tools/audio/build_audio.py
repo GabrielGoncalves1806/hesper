@@ -1508,6 +1508,248 @@ SOUNDS.update({
 })
 
 
+# ---------------------------------------------------------------------------
+# v9 (v0.4 · Marco 1 · Tempestade): amb_storm, gust e sky_clear, pendentes
+#
+# Ideias que valem pros três:
+#  - vento é só ruído: bandas largas cujo peso passeia, nada de seno nem de filtro
+#    estreito fixo. O "uivo" das rajadas é ruído numa banda de ~1/3 de oitava que
+#    ANDA (sobe com a rajada e desce com ela), então não vira nota parada;
+#  - "areia batendo no capacete" são grãos curtíssimos (0,3-1,5 ms) em tempo de
+#    Poisson, com densidade seguindo a força do vento, numa banda larga de 1,2 a
+#    6,5 kHz (passa-baixa de 1ª ordem: o visor abafa o brilho), mais umas pedrinhas
+#    esparsas e mais graves. Sem grão idêntico: 8 núcleos de ruído sorteados;
+#  - o amb_storm leva por baixo o mesmo drone de Lá do amb_dead (quinta vazia),
+#    abafado pela poeira, pra passagem pro Árido soar como "o vento morre e sobra o
+#    mesmo lugar".
+# ---------------------------------------------------------------------------
+
+def slow_noise(n: int, rng, hi: float, circular: bool = True) -> np.ndarray:
+    """Curva aleatória lenta (ruído com passa-baixa em `hi` Hz), normalizada pra 0..1."""
+    s = filt(rng.standard_normal(n), None, hi, 2, circular=circular)
+    s -= s.min()
+    return s / (s.max() + 1e-12)
+
+
+def tv_filter(x: np.ndarray, gain_fn, circular: bool = False, hop: int = 882) -> np.ndarray:
+    """Filtro que muda no tempo (STFT, janela raiz-de-Hann na análise e na síntese, 4 hops
+    por janela: a soma das janelas é constante, então sem filtro (ganho 1) volta igual).
+    gain_fn(t_segundos, freqs) -> ganho por bin. circular=True trata x como periódico
+    (precisa de len(x) múltiplo de hop)."""
+    W = 4 * hop
+    win = np.sqrt(0.5 - 0.5 * np.cos(2 * np.pi * np.arange(W) / W))
+    f = np.fft.rfftfreq(W, 1 / SR)
+    if circular:
+        assert len(x) % hop == 0
+        src, pad = x, 0
+    else:
+        pad = W
+        m = len(x) + 2 * W
+        m += (-m) % hop
+        src = np.zeros(m)
+        src[pad:pad + len(x)] = x
+    n = len(src)
+    out = np.zeros(n)
+    for k in range(n // hop):
+        idx = (k * hop + np.arange(W)) % n
+        tc = ((k * hop + W / 2 - pad) % n if circular else (k * hop + W / 2 - pad)) / SR
+        y = np.fft.irfft(np.fft.rfft(src[idx] * win) * gain_fn(tc, f), W) * win
+        out[idx] += y
+    out /= 2.0                                   # soma de Hann com 4 hops = 2
+    return out if circular else out[pad:pad + len(x)]
+
+
+def band_gain(f: np.ndarray, fc: float, octaves: float) -> np.ndarray:
+    """Banda gaussiana em escala log, largura total a -6 dB = `octaves` (sem Q alto)."""
+    sig = octaves / 2.355
+    return np.exp(-0.5 * (np.log2(np.maximum(f, 1.0) / fc) / sig) ** 2)
+
+
+def sand_veil(n: int, rng, circular: bool, lo: float = 600.0, hi: float = 2800.0,
+              breathe: float = 0.6) -> np.ndarray:
+    """v9.1: areia como véu contínuo, no lugar dos grãos (v9) que estalavam. Ruído numa
+    banda larga (2ª ordem dos dois lados) com o volume respirando devagar. Sem impulso
+    nenhum, sem ataque: a areia vira "textura do ar", não "tic"."""
+    s_ = filt(filt(rng.standard_normal(n), lo, None, 2, circular=circular), None, hi, 2, circular=circular)
+    return norm_rms(s_) * (0.55 + 0.45 * slow_noise(n, rng, breathe, circular))
+
+
+def storm_roar(n: int, L: float, rng, level: np.ndarray, bright: np.ndarray,
+               bands, wander_hi: float = 0.6) -> np.ndarray:
+    """Corpo do vento: bandas largas (ordem 1-2) com peso passeando, como o desert_wind,
+    mas mais grave, mais cheio e sem pausa."""
+    out = np.zeros(n)
+    for lo, hi, order, gain, dep in bands:
+        nb = norm_rms(filt(rng.standard_normal(n), lo, hi, order, circular=True))
+        w = (0.5 + 0.5 * slow_noise(n, rng, wander_hi)) * (1 + dep * (bright - 0.5) * 1.6)
+        out += gain * nb * np.clip(w, 0.05, None)
+    return norm_rms(out * level)
+
+
+def amb_storm(rng, *, roar=1.0, buffet=0.25, sand=0.12, howl=0.25, swells=0.35, drone=0.22,
+              top=2400.0):
+    """Tempestade de poeira em loop de 34 s (não bate com 32 dos ambientes, 36 do vento e
+    28 da caverna). v9.1: o caráter vem só do vento. Bandas largas respirando devagar,
+    rajadas internas lentas e suaves (5-10 s, no máximo uns +3 dB), um uivo distante que
+    passeia, o vento tremendo de leve no capacete e a areia como véu contínuo. Nada de
+    grão, pedrinha ou impulso. Rajada forte é o gust.wav, não o fundo."""
+    L = 34.0
+    n = ns(L)
+    tide = periodic_ctrl(n, L, rng, 1, 5)                  # maré lenta (dezenas de segundos)
+    turb = slow_noise(n, rng, 0.35)                        # turbulência lenta (2-3 s)
+    sw = filt(gusts(n, rng, 6, (5.0, 10.0), rise=0.45), None, 0.4, 1, circular=True)
+    sw = np.clip(sw, 0, None) / (sw.max() + 1e-12)         # rajadas internas suaves
+    level = 0.68 + 0.14 * tide + 0.08 * turb + 0.3 * swells * sw
+    bright = np.clip(0.3 * tide + 0.4 * turb + 0.6 * sw, 0, 1)
+    bands = [  # (lo, hi, ordem, ganho, quanto depende do "bright")
+        (30, 85, 2, 0.75, -0.3),
+        (70, 190, 2, 1.0, -0.2),
+        (160, 420, 1, 0.95, 0.0),
+        (380, 950, 1, 0.7, 0.35),
+        (850, 2100, 1, 0.4, 0.7),
+    ]
+    body = filt(storm_roar(n, L, rng, level, bright, bands, wander_hi=0.3), 28, top, 2, circular=True)
+    # o vento tremendo no capacete: grave com ondulação lenta (até ~4 Hz), sem pancada
+    tremor = slow_noise(n, rng, 4.0) ** 1.2
+    buf = norm_rms(filt(rng.standard_normal(n), 25, 150, 2, circular=True)) * (0.55 + 0.45 * tremor) * level
+    veil = sand_veil(n, rng, True) * (0.4 + 0.6 * bright) * level
+    x = roar * body + buffet * buf + sand * veil
+    if howl:
+        # uivo distante: ruído numa banda de ~0,4 oitava que passeia entre ~170 e ~330 Hz,
+        # mais presente quando o vento aperta
+        fc_curve = 170 * 2 ** (0.95 * slow_noise(n, rng, 0.12))
+        hw = tv_filter(rng.standard_normal(n), lambda t, f: band_gain(f, fc_curve[int(t * SR) % n], 0.4),
+                       circular=True)
+        x = x + howl * norm_rms(hw) * (0.25 + 0.75 * np.maximum(tide, sw))
+    x = filt(x, None, 3800, 2, circular=True)            # dentro do capacete: sem chiado fino
+    x = reverb(x, rng, decay=1.8, mix=0.2, lp=2000, circular=True)
+    if drone:
+        # o mesmo drone do amb_dead (Lá1 Mi2 Lá2 Mi3), abafado pela poeira
+        pad = sum(g * pad_voice(n, L, rng, midi(m), detune=(-0.125, 0.0, 0.125), harm=(1.0, 0.2, 0.06))
+                  for m, g in ((33, 0.45), (40, 0.5), (45, 1.0), (52, 0.45)))
+        pad = reverb(filt(norm_rms(pad), None, 700, 2, circular=True), rng, decay=6.0, mix=0.45,
+                     lp=1800, circular=True)
+        x = norm_rms(x) + drone * norm_rms(pad)
+    return x
+
+
+def amb_storm_A(rng):
+    """A · capacete: vento cheio, véu de areia, uivo distante discreto e o drone do morto por baixo."""
+    return amb_storm(rng)
+
+
+def amb_storm_B(rng):
+    """B · paredão: mais grave e mais pesado, tremor no capacete mais forte, uivo distante mais
+    presente, rajadas internas maiores, pouca areia e o drone quase sumido."""
+    return amb_storm(rng, roar=1.15, buffet=0.4, sand=0.07, howl=0.55, swells=0.5, drone=0.1, top=1900)
+
+
+def amb_storm_C(rng):
+    """C · o planeta por baixo: vento um pouco mais contido e o drone de Lá mais presente,
+    a mais perto da estética espacial aprovada."""
+    return amb_storm(rng, roar=0.85, buffet=0.2, sand=0.08, howl=0.18, swells=0.3, drone=0.5)
+
+
+def gust_env(n: int, rng, peak_at: float = 1.35, fall_from: float = 2.9) -> np.ndarray:
+    """Envelope de rajada: cresce (curva lenta no começo), fica forte com uns
+    sub-empurrões lentos e cai devagar. Tudo suave: nenhuma quina."""
+    t = tvec(n)
+    dur = n / SR
+    up = np.clip(t / peak_at, 0, 1)
+    up = up ** 1.8 * (3 - 2 * up)
+    down = 0.5 + 0.5 * np.cos(np.pi * np.clip((t - fall_from) / (dur - fall_from), 0, 1))
+    env = up * down
+    wob = slow_noise(n, rng, 1.5, circular=False)
+    return env * (0.85 + 0.15 * wob) * (1 + 0.12 * np.exp(-((t - 2.1) / 0.35) ** 2))
+
+
+def gust(rng, *, dur=4.6, howl=1.0, howl_path=(190, 410, 230), voices=1, sand=0.25,
+         body=1.0, low=0.45):
+    """v9.1: sem grãos e sem pedrinhas. Sopro que abre e fecha, uivo de banda que anda,
+    tremor grave lento e a areia como véu que incha com a rajada."""
+    n = ns(dur)
+    env = gust_env(n, rng)
+    t = tvec(n)
+    # corpo: ruído largo cujo passa-baixa abre com a rajada (escuro -> claro -> escuro)
+    def lp_gain(tc, f):
+        e = env[min(n - 1, max(0, int(tc * SR)))]
+        return bw_mag(f, 55, 250 + 1700 * e ** 1.4, 2)
+    whoosh = norm_rms(tv_filter(rng.standard_normal(n), lp_gain)) * env
+    trem = slow_noise(n, rng, 4.0, circular=False) ** 1.2
+    rum = norm_rms(filt(rng.standard_normal(n), 25, 150, 2)) * env ** 1.5 * (0.55 + 0.45 * trem)
+    veil = sand_veil(n, rng, False, 700, 3000, 1.2) * env ** 1.8
+    x = body * whoosh + low * rum + sand * veil
+    if howl:
+        f0, f1, f2 = howl_path
+        tp = 1.6
+        fc = np.where(t < tp, f0 + (f1 - f0) * np.clip(env / env.max(), 0, 1),
+                      f2 + (f1 - f2) * np.clip(env / env.max(), 0, 1))
+        hw = np.zeros(n)
+        for v in range(voices):
+            ratio = (1.0, 1.36)[v]
+            drift = 1 + 0.03 * (slow_noise(n, rng, 0.8, circular=False) - 0.5)
+            curve = fc * ratio * drift
+            hw += (1.0, 0.6)[v] * norm_rms(tv_filter(
+                rng.standard_normal(n), lambda tc, f, c=curve: band_gain(f, c[min(n - 1, max(0, int(tc * SR)))], 0.33)))
+        x = x + howl * hw * env ** 1.3
+    x = filt(x, None, 4000, 2)                                   # capacete
+    return reverb(x, rng, decay=1.6, mix=0.25, lp=2800)
+
+
+def gust_A(rng):
+    """A · uivo grave: corpo cheio, uivo de ~1/3 de oitava subindo de ~190 pra ~410 Hz e
+    voltando pra ~230, véu de areia inchando no pico."""
+    return gust(rng)
+
+
+def gust_B(rng):
+    """B · sopro e areia: sem uivo. O sopro abrindo e fechando, com mais véu de areia."""
+    return gust(rng, howl=0.0, sand=0.45, body=1.1, low=0.55)
+
+
+def gust_C(rng):
+    """C · uivo aberto: duas vozes de uivo (a segunda 1,36x acima, intervalo que não fecha
+    acorde), mais altas e mais agudas, quase sem areia. A mais 'cinema'."""
+    return gust(rng, howl=1.7, howl_path=(240, 560, 290), voices=2, sand=0.15)
+
+
+def sfx_sky_clear(rng):
+    """Céu limpando, ~7 s: a última lufada da tempestade indo embora (sopro que escurece e
+    afina) e, por baixo, a quinta vazia de Lá abrindo devagar, com quatro brilhos subindo
+    (Lá4, Mi5, Lá5, Mi6). Sem terça: o Árido ainda é morto. v9.1: sem os grãos de areia."""
+    dur = 7.2
+    n = ns(dur)
+    t = tvec(n)
+    tail = np.exp(-t / 1.3) * np.clip(t / 0.25, 0, 1) ** 2
+    def lp_gain(tc, f):
+        return bw_mag(f, 50, 160 + 1300 * np.exp(-max(tc, 0) / 1.1), 2)
+    wind = norm_rms(tv_filter(rng.standard_normal(n), lp_gain)) * tail
+    tr = Track()
+    tr.add(wind, 0, 1.0)
+    m = ns(6.2)
+    for mm, g in ((45, 1.0), (52, 0.7), (57, 0.5), (64, 0.3)):   # Lá2 Mi3 Lá3 Mi4
+        v = sum(np.sin(phase_of(midi(mm) * (1 + d), m, rng.uniform(0, 6.28))) for d in (-0.0012, 0, 0.0012))
+        tr.add(v * adsr(m, 2.0, 0.5, 0.85, 2.6) / 3, 0.9, 0.16 * g)
+    for i, mm in enumerate((69, 76, 81, 88)):
+        k = ns(2.6)
+        ph = phase_of(midi(mm), k)
+        x = (np.sin(ph) + 0.12 * np.sin(2 * ph)) * bump(k, 0.25) ** 1.5
+        tr.add(x, 2.0 + 0.55 * i, 0.07 * (1 - 0.12 * i))
+    out = tr.render(dur)
+    return reverb(out, rng, decay=5.0, mix=0.5, lp=4000)
+
+
+# v9.1 aprovado pelo dono (sem escolher letra, valeu a recomendação): amb_storm = A
+# (capacete), gust = A (uivo grave) e sky_clear. Promovidos pro SOUNDS com a seed do nome
+# da candidata, pra sair idêntico byte a byte ao que ele ouviu. As B e C ficam aqui só como
+# histórico (amb_storm_B/C, gust_B/C), sem gerar arquivo.
+SOUNDS.update({
+    "amb_storm": (lambda _rng: amb_storm_A(rng_for("amb_storm_A")), True, -27.0),
+    "gust": (lambda _rng: gust_A(rng_for("gust_A")), False, -21.0),
+    "sky_clear": (sfx_sky_clear, False, -21.0),
+})
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     REPORT_DIR.mkdir(parents=True, exist_ok=True)

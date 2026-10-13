@@ -37,7 +37,7 @@ VOLUME = {
     # drill_loop é o máximo (colado na drill), cai com a distância até sumir em ~8 tiles
     "drill_collect": 1.0, "drill_full": 0.7, "drill_loop": 0.5,
     # recompensa: o jingle de estágio continua sendo o som mais alto
-    "stage_up": 0.85,
+    "stage_up": 0.85, "sky_clear": 0.8,
 }
 AMBIENT_VOLUME = 0.7    # ambiente: o dono gostou, NÃO mexer sem pedir
 DESERT_WIND_VOLUME = 0.45  # vento do deserto (desert_wind.wav, pendente): por cima do ambiente (0,7), só na superfície
@@ -577,4 +577,4 @@ STORM_WIND_TURN = 8.0           # °/s: o vento vira no máximo isso (variação
 STORM_WIND_SWAY = 40.0          # °: quanto o vento foge da direção dominante (sorteada pela seed)
 STORM_WIND_RETARGET = (6.0, 14.0)  # s entre um novo alvo de direção e o próximo
 STORM_GUST_WARN = 0.3           # gust acima disso: aviso "RAJADA" no HUD
-VOLUME["gust"] = 0.7            # som da rajada (sem gust.wav, fica em silêncio); vezes o storm
+VOLUME["gust"] = 0.8            # som da rajada (sem gust.wav, fica em silêncio); vezes o storm

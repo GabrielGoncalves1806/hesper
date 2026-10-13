@@ -64,6 +64,7 @@ ZOOM_IN_KEYS = (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS)     # "=" é a
 ZOOM_OUT_KEYS = (pygame.K_MINUS, pygame.K_KP_MINUS)
 BANNER_TIME = 3.5          # banner de estágio: entra em 0,4 s, fica, sai em 0,8 s
 BANNER_FADE_IN, BANNER_FADE_OUT = 0.4, 0.8
+SKY_CLEAR_DELAY = 5.0   # s depois do stage_up do Árido
 END_SCREEN_DELAY = 4.5
 FOOTSTEP_INTERVAL = 0.3
 
@@ -1365,6 +1366,8 @@ class App:
             self.banner_stage = event[1]
             self.banner_time = 0.0
             self.audio.stage_up(self.ambient_want(event[1]))   # na caverna o ambiente não troca lá embaixo
+            if event[1] == C.ARID_STAGE and self.state.layer != "cave":
+                self.audio.play("sky_clear", delay=SKY_CLEAR_DELAY)   # a última lufada indo embora (Som v9)
             if event[1] == C.GREEN_STAGE:      # fim do jogo
                 self.end_timer = END_SCREEN_DELAY
 

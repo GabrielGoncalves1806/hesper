@@ -88,11 +88,13 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Hesper · report de som · v8.1</div>
+    <div class="eyebrow">Hesper · report de som · v9.2</div>
     <h1>Som do planeta</h1>
-    <p class="lede">Os 19 arquivos do contrato de áudio da bíblia (§6), todos gerados por síntese procedural com seed fixa em <code>tools/audio/build_audio.py</code>. A estética é 8/16-bit refinada: osciladores limitados em banda, ruído filtrado, envelopes, varreduras de pitch e um reverb de cratera. Dá o play em cada um, os loops tocam em repetição pra tu ouvir a emenda.</p>
-    <div class="note" style="border-left-color:#ff8f6a"><b style="color:#ff8f6a">v8.1 · refeitos · pendente:</b> tu reprovou o <code>crate_open</code>, o <code>ramp_down</code> e o <code>ramp_up</code> ("muito estranhos"), então os três foram refeitos do zero, com outra abordagem, e seguem em <code>assets/audio/_pending/</code>. A caixa agora é trava + rangido curto de dobradiça + batidinha seca da tampa, em 0,55 s. As rampas viraram 4 passos de cascalho num ritmo de caminhada, sem degrau de metal e sem a varredura de tom que soava como glissando. Também tem uma opção B das rampas com passos gravados (Kenney, CC0). As versões reprovadas ficam do lado pra comparar. Está tudo em <a href="#refeitos">v8.1 · refeitos</a>, logo abaixo. Nenhum outro arquivo mudou (conferido por md5, 44 arquivos idênticos byte a byte).</div>
-    <div class="note" style="border-left-color:#9b8cff"><b style="color:#9b8cff">v8 · v0.3 Marcos 2 e 3 · Caverna e Destroços · pendente:</b> 8 sons novos em <code>assets/audio/_pending/</code>, esperando teu ouvido. Caverna: <code>amb_cave</code> (loop de 28 s), <code>ramp_down</code>, <code>ramp_up</code> e <code>lamp_place</code>. Destroços: <code>crate_open</code>, <code>blueprint_found</code>, <code>equip</code> e <code>map_open</code>. Estão em <a href="#caverna">Caverna e destroços · pendentes</a>, logo abaixo, com prévias: a caverna mixada nos volumes sugeridos, a descida e a subida com o crossfade de verdade (superfície ↔ caverna) e o saque com projeto. Nenhum som oficial nem candidata mudou (conferido por md5, os 39 arquivos idênticos byte a byte).</div>
+    <p class="lede">Os 40 arquivos do contrato de áudio da bíblia (§6), todos gerados por síntese procedural com seed fixa em <code>tools/audio/build_audio.py</code>. A estética é 8/16-bit refinada: osciladores limitados em banda, ruído filtrado, envelopes, varreduras de pitch e um reverb de cratera. Dá o play em cada um, os loops tocam em repetição pra tu ouvir a emenda.</p>
+    <div class="note" style="border-left-color:#7fd67a"><b style="color:#7fd67a">v9.2 · Tempestade aprovada:</b> tu aprovou a v9.1 ("ficou muito bom agora os sons") sem escolher letra, então valeu a recomendação: <code>amb_storm.wav</code> = A (capacete), <code>gust.wav</code> = A (uivo grave) e <code>sky_clear.wav</code>, que toca ~5 s depois do <code>stage_up</code>. Os três agora são oficiais em <code>assets/audio/</code>, idênticos byte a byte ao que tu ouviu (md5). As B e C saíram do <code>_pending/</code>; o código delas fica no script só como histórico. O contrato agora tem 43 arquivos. Nenhum outro arquivo mudou.</div>
+    <div class="note" style="border-left-color:#ff6a55"><b style="color:#ff6a55">v9.1 · o que mudou (tempestade refeita · aprovada na v9.2):</b> tu ouviu a v9 e reclamou de "uns estralados de fundo que ficam feios e tiram a essência". A causa eram os grãos de areia e as pedrinhas batendo no capacete: impulsos curtos e secos, centenas por minuto. Na v9.1 eles <b>saíram</b> das 3 tempestades, das 3 rajadas e do <code>sky_clear</code>. Agora o caráter vem só do vento: bandas largas que respiram mais devagar, rajadas internas lentas e suaves (5 a 10 s, no máximo uns +3 dB), o uivo distante que passeia (agora nas três tempestades, mais forte na B) e o vento tremendo de leve no capacete. A areia virou um véu contínuo: ruído de banda larga, sem ataque e sem grão, bem mais baixo. Medi os transientes antes e depois: os estalos caíram de 240–370 por minuto nas rajadas pra <b>zero</b> em todos os arquivos (tabela em <a href="#transientes">Transientes</a>). Mesmos nomes, mesmos volumes sugeridos. Ainda falta tu escolher A, B ou C de cada. Nenhum outro arquivo mudou (md5, os 52 WAVs idênticos).</div>
+    <div class="note" style="border-left-color:#f0a05a"><b style="color:#f0a05a">v9 · v0.4 Marco 1 · Tempestade (primeira versão, refeita na v9.1):</b> o jogo agora começa numa tempestade de poeira, então tem 7 arquivos novos em <code>assets/audio/_pending/</code>: três candidatas pro loop da tempestade (<code>amb_storm_A/B/C</code>), três pra rajada (<code>gust_A/B/C</code>) e o <code>sky_clear</code>, uma textura curta de "céu limpando" pra passagem pro Árido. Está tudo em <a href="#tempestade">Tempestade</a>, logo abaixo, com uma prévia que simula o jogo: tempestade, rajada por cima e a saída de 20 s pro Árido. <b>Minha recomendação: <code>amb_storm_A</code> + <code>gust_A</code>, e o <code>sky_clear</code> tocando depois do <code>stage_up</code>.</b> Diz qual letra tu quer de cada que eu promovo. Nenhum arquivo existente mudou (conferido por md5, os 52 WAVs idênticos byte a byte).</div>
+    <div class="note" style="border-left-color:#9b8cff"><b style="color:#9b8cff">v8 e v8.1 · Caverna e Destroços · aprovados:</b> <code>amb_cave</code>, <code>ramp_down</code>, <code>ramp_up</code> (na opção B1, com os passos gravados do Kenney), <code>lamp_place</code>, <code>crate_open</code> (o refeito da v8.1), <code>blueprint_found</code>, <code>equip</code> e <code>map_open</code> são oficiais em <code>assets/audio/</code>. As seções abaixo agora tocam os arquivos oficiais. As versões reprovadas da v8 continuam em <code>_pending/rejected_v8/</code> só pra comparar.</div>
     <div class="note" style="border-left-color:#e8b46a"><b style="color:#e8b46a">v7 · v0.3 Marco 1 · Superfície · aprovado:</b> o <code>desert_wind.wav</code> (som e volume 0,45) foi aprovado e agora é oficial em <code>assets/audio/</code>, idêntico byte a byte ao que tu ouviu. É a camada de vento seco que toca por cima do ambiente do estágio na superfície. Está na seção <a href="#superficie">Superfície</a>, com a prévia mixada com cada um dos 3 ambientes. Nenhum outro som mudou (conferido por md5). O contrato agora tem 32 arquivos.</div>
     <div class="note" style="border-left-color:#7fd67a"><b style="color:#7fd67a">v6.1 · sons do v0.2 aprovados:</b> os 9 sons do v0.2 saíram de <code>_pending/</code> e agora são oficiais em <code>assets/audio/</code>, idênticos byte a byte aos que tu aprovou. Baú, inventário e save estão em <a href="#interface">Interface</a>. Painel solar e queda de energia estão em <a href="#energia">Energia</a>. Os drones estão em <a href="#drones">Drones</a>. Os volumes sugeridos estão na tabela de integração. O contrato agora tem 31 arquivos.</div>
     <div class="note" style="border-left-color:#c3d1e2"><b style="color:#c3d1e2">v5:</b> três sons novos da drill automática (§4 "Veios e drills automáticas"), na seção <a href="#drill">Drill</a>: <code>drill_loop</code> (loop), <code>drill_collect</code> e <code>drill_full</code>. Nenhum som existente mudou (conferido por md5).</div>
@@ -101,22 +103,89 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
     <div class="note" style="border-left-color:var(--cyan)"><b style="color:var(--cyan)">v2, o que mudou:</b> ambientes refeitos pra soar mais espaciais. Saíram vento, chiado, chuva e poeira (a fatia de energia acima de 2,5 kHz caiu de −12 a −16 dB pra −35 a −66 dB do total) e saíram os pássaros e insetos do verde. Agora é drone/pad longo, reverb de cauda longa e brilhos lentos, e a diferença entre estágios vem da harmonia. O <code>mine_break</code> virou rocha esfarelando (impacto curto + cascalho caindo em tempo irregular, sem notas). O <code>pickup</code> virou um "poop" de bolha de 110 ms. O resto não mudou.</div>
     <div class="note"><b>Aviso honesto:</b> quem gerou esses sons não consegue ouvir. Tudo foi validado por análise (formato, duração, pico, loudness aproximado, espectro por banda e teste de clique na emenda dos loops), mas o julgamento estético final é do teu ouvido. Se algum som incomodar, diz qual e o que incomoda (agudo demais, longo demais, grave demais) que dá pra ajustar rápido: é só mexer num número do script e rodar de novo.</div>
     <div class="stats">
-      <div class="stat"><b>32</b><span>arquivos oficiais</span></div>
+      <div class="stat"><b>43</b><span>arquivos oficiais</span></div>
       <div class="stat"><b>44,1k · 16b · mono</b><span>formato</span></div>
       <div class="stat"><b class="ok" id="st-peak">≤ −1 dBFS</b><span>pico máximo</span></div>
-      <div class="stat"><b>8</b><span>pendentes (v8)</span></div>
-      <div class="stat"><b class="ok">10 / 10</b><span>loops sem estalo</span></div>
+      <div class="stat"><b>0</b><span>pendentes</span></div>
+      <div class="stat"><b class="ok">11 / 11</b><span>loops sem estalo</span></div>
     </div>
     <nav class="toc">
-      <a href="#refeitos">v8.1 · refeitos (pendente)</a><a href="#caverna">Caverna e destroços (pendente)</a><a href="#superficie">Superfície</a><a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
+      <a href="#tempestade">Tempestade</a><a href="#refeitos">v8.1 · refeitos</a><a href="#caverna">Caverna e destroços</a><a href="#superficie">Superfície</a><a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
       <a href="#maquinas">Máquinas</a><a href="#drill">Drill</a><a href="#energia">Energia</a><a href="#drones">Drones</a><a href="#ambiente">Ambiente</a><a href="#recompensa">Recompensa</a>
       <a href="#direcao">Direção de ambientação</a><a href="#integracao">Integração</a><a href="#checagens">Checagens</a>
     </nav>
   </header>
 
+  <section class="pick" id="tempestade" style="border-color:#f0a05a">
+    <div class="sec-head" style="border-color:#6a4424"><span class="num">v9.1 · aprovado</span><h2 style="color:#f0a05a">Tempestade · v0.4 Marco 1</h2>
+      <p><b>Aprovado:</b> <code>amb_storm</code> (era a A), <code>gust</code> (era a A) e <code>sky_clear</code>, oficiais em <code>assets/audio/</code>. A v9.1 foi refeita sem os estalos (sem grãos e sem pedrinhas, a areia virou véu contínuo). O jogo começa numa tempestade de poeira: visão curta, rajadas de 3 a 5 s a cada 20 a 40 s que empurram o player, e a passagem pro Árido em ~20 s quando o Ti chega lá. Tem três peças: o loop da tempestade (<code>amb_storm</code>, que no jogo <b>substitui</b> o <code>amb_dead</code> enquanto tem tempestade), a rajada (<code>gust</code>, por cima) e um "céu limpando" opcional (<code>sky_clear</code>). As candidatas B e C ficam descritas abaixo só como histórico, sem player.</p></div>
+
+    <div class="note" style="margin:0 0 18px;border-left-color:#f0a05a;max-width:none"><b style="color:#f0a05a">A recomendação (que virou a escolha):</b> <code>amb_storm_A</code> + <code>gust_A</code>, com o <code>sky_clear</code> tocando ~5 s depois do <code>stage_up</code> na saída pro Árido. A tempestade A é a mais equilibrada: vento cheio, véu de areia, uivo distante discreto, e ainda guarda por baixo o drone do <code>amb_dead</code>, então, quando a tempestade baixa, o vento morre e sobra o mesmo lugar, sem degrau. A B é a mais pesada, mas o uivo mais presente dela pode cansar nos ~10 min de tempestade do começo. A C é a mais calma, talvez calma demais pra "tempestade". Na rajada, a A uiva grave. A B não uiva, é só sopro e areia (a mais segura se o uivo soar artificial), e a C uiva mais alto, com duas vozes, mais cinema.</div>
+
+    <h3 style="margin:4px 0 12px">Loop da tempestade · <code>amb_storm</code></h3>
+    <div class="cards" id="storm-loops"></div>
+    <h3 style="margin:28px 0 12px">Rajada · <code>gust</code></h3>
+    <div class="cards" id="storm-gusts"></div>
+    <h3 style="margin:28px 0 12px">Céu limpando · <code>sky_clear</code></h3>
+    <div class="cards" id="storm-sky"></div>
+
+    <h3 style="margin:28px 0 12px">Prévia: a tempestade no jogo</h3>
+    <div class="cards">
+      <article class="card" style="grid-column:1/-1">
+        <div class="card-top"><span class="fname">Simulação nos volumes sugeridos</span><span class="tags"><span class="tag">amb_storm 0,7</span><span class="tag">desert_wind 0,45</span><span class="tag">gust 0,8 × storm</span></span></div>
+        <div class="btns" id="storm-mix">
+          <button class="btn" data-k="start">▶ tempestade</button>
+          <button class="btn" data-k="gust">+ rajada agora</button>
+          <button class="btn" data-k="auto">rajadas automáticas on/off</button>
+          <button class="btn" data-k="arid">→ Árido (só stage_up)</button>
+          <button class="btn" data-k="arid-sky">→ Árido (stage_up + sky_clear)</button>
+          <button class="btn" data-k="ref">▶ referência: hoje (amb_dead + vento)</button>
+          <button class="btn" data-k="stop">■ parar</button>
+        </div>
+        <p class="what" id="storm-status">Parado.</p>
+        <p class="what">"▶ tempestade" toca o <code>amb_storm</code> a 0,7 com o <code>desert_wind</code> a 0,45 por cima, como vai ficar no jogo (o vento do deserto não precisa parar: fica 13 dB abaixo e é o que sobra quando a tempestade vai embora). As rajadas automáticas caem a cada 20 a 40 s, igual ao jogo, com a primeira em ~6 s. Os botões "→ Árido" fazem a passagem de 20 s: as rajadas param, a tempestade sai e o <code>amb_dead</code> entra em crossfade de potência constante seguindo a intensidade da tempestade, o <code>stage_up</code> toca no começo com o ambiente abaixado e, na segunda versão, o <code>sky_clear</code> entra 5 s depois, quando o jingle termina. A referência toca o que o jogo tem hoje, pra comparar o peso.</p>
+      </article>
+    </div>
+
+    <div class="tbl" style="margin-top:16px">
+      <table>
+        <thead><tr><th>Análise (não ouvido)</th><th>A</th><th>B</th><th>C</th><th>Referência aprovada</th></tr></thead>
+        <tbody>
+          <tr><td><code>amb_storm</code> · energia por banda (&lt;150 · 150–600 · 0,6–2,5k · 2,5–8k · &gt;8k dB do total)</td><td>−4,7 · −3,7 · −6,5 · −19,6 · −55,1</td><td>−5,2 · −3,2 · −6,7 · −22,7 · −59,4</td><td>−3,5 · −4,6 · −7,0 · −20,3 · −56,3</td><td><code>desert_wind</code> −6,1 · −2,8 · −6,4 · −31,2 · −63,9<br><code>amb_dead</code> −1,6 · −5,3 · −19,6 · −65,9 · −75,3</td></tr>
+          <tr><td><code>amb_storm</code> · centroide</td><td>448 Hz</td><td>418 Hz</td><td>405 Hz</td><td>vento 416 · morto 134 Hz</td></tr>
+          <tr><td><code>amb_storm</code> · loudness do loop</td><td colspan="3">−27 dB nas três (igual aos <code>amb_*</code>): a 0,7 dá −30,1 dB, o mesmo do <code>amb_dead</code> a 0,7, então a troca não dá degrau de volume</td><td>desert_wind −36 dB</td></tr>
+          <tr><td><code>amb_storm</code> · emenda do loop (34 s)</td><td class="pass">salto 242 lsb (percentil 90,9), agudos na emenda percentil 45</td><td class="pass">71 lsb (44,0) · 49</td><td class="pass">179 lsb (81,2) · 38</td><td>limite: percentil 99. O salto em lsb subiu porque o som ficou mais escuro (os saltos normais entre amostras também são maiores); o loop continua periódico por construção</td></tr>
+          <tr><td><code>gust</code> · energia por banda</td><td>−13,4 · −2,4 · −4,7 · −14,8 · −43,6</td><td>−10,8 · −5,8 · −2,3 · −11,8 · −40,4</td><td>−17,3 · −2,1 · −4,5 · −18,9 · −47,6</td><td></td></tr>
+          <tr><td><code>gust</code> · duração · pico</td><td>5,15 s · −9,9 dBFS</td><td>5,09 s · −9,9</td><td>5,16 s · −11,2</td><td>loudness −21 dB nas três (janela de 400 ms)</td></tr>
+          <tr><td><code>gust</code> a 0,8 por cima da tempestade a 0,7</td><td colspan="3">o pico momentâneo sobe de −27,8 pra −22,2 dB (+5,5 dB): a rajada chega sem pular na cara. Pico da mistura −11,1 dBFS</td><td></td></tr>
+          <tr><td>Pico estreito fixo (teste de "latinha")</td><td class="pass">storm 1,9 · gust 3,2 dB</td><td class="pass">1,6 · 2,7 dB</td><td class="pass">1,7 · 4,3 dB</td><td>aprovados de ruído: 4,2 a 4,4 dB (sem tom)</td></tr>
+          <tr><td>Uivo (saliência local de banda, 120–1500 Hz, janelas de ~0,2 s; mediana · p90)</td><td>gust 10,0 · 12,7 · storm 6,0 · 7,4</td><td>gust 6,2 · 7,6 (sem uivo = linha de base) · storm 6,5 · 8,1</td><td>gust 8,7 · 10,6 · storm 6,1 · 7,7</td><td><code>desert_wind</code> 6,3 · 7,6</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="transientes" style="margin:24px 0 12px">Transientes · v9 (antes) × v9.1 (depois)</h3>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Arquivo</th><th>Estalos por minuto (janela de 1 ms acima de 1 kHz que pula +12 dB da mediana dos 30 ms em volta)</th><th>Curtose dos agudos (&gt;1 kHz, janelas de 50 ms; ruído natural ≈ 3, crepitação &gt; 3)</th><th>Crest factor por janela de 10 ms (pico/RMS), p99</th></tr></thead>
+        <tbody>
+          <tr><td><code>amb_storm_A</code></td><td>2 → <b class="pass">0</b></td><td>3,4 → <b class="pass">2,9</b></td><td>11,3 → 10,6 dB</td></tr>
+          <tr><td><code>amb_storm_B</code></td><td>0 → <b class="pass">0</b></td><td>3,0 → 2,9</td><td>10,6 → 10,7 dB</td></tr>
+          <tr><td><code>amb_storm_C</code></td><td>0 → <b class="pass">0</b></td><td>3,0 → 2,9</td><td>10,9 → 10,6 dB</td></tr>
+          <tr><td><code>gust_A</code></td><td>274 → <b class="pass">0</b></td><td>3,2 → 3,0</td><td>14,6 → <b class="pass">10,9 dB</b></td></tr>
+          <tr><td><code>gust_B</code></td><td>366 → <b class="pass">0</b></td><td>3,5 → <b class="pass">2,9</b></td><td>15,6 → <b class="pass">11,4 dB</b></td></tr>
+          <tr><td><code>gust_C</code></td><td>323 → <b class="pass">0</b></td><td>3,1 → 3,0</td><td>11,6 → 10,3 dB</td></tr>
+          <tr><td><code>sky_clear</code></td><td>7 → <b class="pass">0</b></td><td>2,9 → 2,9</td><td>10,9 → 10,6 dB</td></tr>
+          <tr><td>referências aprovadas: <code>desert_wind</code> · <code>amb_dead</code></td><td>0 · 0</td><td>2,8 · 2,3</td><td>10,0 · 9,0 dB</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="what" style="margin-top:10px">Leitura: nas rajadas os estalos eram contáveis (centenas por minuto) e sumiram. Nas tempestades os grãos eram tão densos que viravam o "fundo" da contagem, mas apareciam na curtose (3,4 na A, um chiado crepitante) e no crest. Agora as três ficam em 2,9, como ruído de vento de verdade, e o crest p99 fica perto do <code>desert_wind</code>. Os envelopes são todos curvas suaves (sem quina), e os loops seguem periódicos por construção (sem emenda interna). Isso é medida, não ouvido: o teu ouvido decide.</p>
+    <p class="what" style="margin-top:10px">Leitura: as tempestades são bem mais pesadas que o <code>desert_wind</code> embaixo de 600 Hz. A areia agora é um véu (2,5 a 8 kHz em −20 a −23 dB, contra −16 a −20 da v9 com grãos), e acima de 8 kHz caiu pra −55 a −59 dB. O uivo é ruído numa banda de 1/3 de oitava que <b>anda</b> (sobe com a rajada e desce na queda), por isso aparece quadro a quadro e some na média longa: não vira nota parada.</p>
+  </section>
+
   <section class="pick" id="refeitos" style="border-color:#ff8f6a">
-    <div class="sec-head" style="border-color:#6a3a2a"><span class="num">v8.1 · pendente</span><h2 style="color:#ff8f6a">Refeitos · caixa de saque e rampas</h2>
-      <p>Os três sons que tu reprovou, refeitos com outra abordagem. Em cada linha, o novo vem primeiro e a versão reprovada (v8) vem do lado, só pra comparar. Nas rampas tem também uma opção B com passos gravados. Se o sintético ainda soar artificial, é só escolher a B. Os botões de "descer/subir" da seção de baixo já tocam os novos.</p></div>
+    <div class="sec-head" style="border-color:#6a3a2a"><span class="num">v8.1 · aprovado</span><h2 style="color:#ff8f6a">Refeitos · caixa de saque e rampas</h2>
+      <p>Os três sons que tu reprovou na v8, refeitos e aprovados. Em cada linha, o oficial vem primeiro e a versão reprovada (v8) vem do lado, só pra comparar. Nas rampas, a escolhida foi a opção B1 (passos gravados do Kenney), que é o que está oficial. Os botões de "descer/subir" da seção de baixo tocam os oficiais.</p></div>
     <div class="cards" id="redo"></div>
     <div class="tbl" style="margin-top:16px">
       <table>
@@ -134,8 +203,8 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
   </section>
 
   <section class="pick" id="caverna" style="border-color:#9b8cff">
-    <div class="sec-head" style="border-color:#3d3570"><span class="num">v8 · pendente</span><h2 style="color:#9b8cff">Caverna e destroços · pendentes de aprovação</h2>
-      <p>Os 8 sons dos contratos dos Marcos 2 e 3 do v0.3 (bíblia §9). Estão em <code>assets/audio/_pending/</code> e só vão pra pasta oficial depois que tu aprovar. Seguem as lições aprovadas: ambiente sem bicho e quase sem chiado, tudo em Lá; nada de tambor nem de latinha nos impactos (a tampa da caixa e os degraus são ruído de banda larga, sem modo fixo); jingle e bipes na família do <code>stage_up</code>/<code>save</code>. Se algum incomodar, diz qual e o quê.</p></div>
+    <div class="sec-head" style="border-color:#3d3570"><span class="num">v8 · aprovado</span><h2 style="color:#9b8cff">Caverna e destroços</h2>
+      <p>Os 8 sons dos contratos dos Marcos 2 e 3 do v0.3 (bíblia §9), aprovados e oficiais em <code>assets/audio/</code>. Seguem as lições aprovadas: ambiente sem bicho e quase sem chiado, tudo em Lá; nada de tambor nem de latinha nos impactos (a tampa da caixa e os degraus são ruído de banda larga, sem modo fixo); jingle e bipes na família do <code>stage_up</code>/<code>save</code>. Se algum incomodar, diz qual e o quê.</p></div>
     <h3 style="margin:4px 0 12px">Marco 2 · Caverna</h3>
     <div class="cards" id="pend-cave"></div>
     <div class="cards" style="margin-top:16px">
@@ -341,6 +410,10 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
           <tr><td>v0.3 · destroços</td><td><code>blueprint_found</code></td><td>1,0</td><td>quando o projeto entra no inventário, junto com o aviso "PROJETO: …". Se veio da caixa, ~0,4 s depois do <code>crate_open</code>. Abaixar o ambiente pra ~60% por 2 s, igual ao stage_up em escala menor. Não tocar <code>pickup</code> junto.</td></tr>
           <tr><td>v0.3 · destroços</td><td><code>equip</code></td><td>0,7</td><td>ao soltar o item no slot de equipamento (e ao trocar). Tirar do slot: <code>inv_move</code>.</td></tr>
           <tr><td>v0.3 · destroços</td><td><code>map_open</code></td><td>0,6</td><td>no M. Fechar: <code>ui_close</code>. Se o jogador abrir/fechar rápido, no máximo 1 a cada ~0,3 s.</td></tr>
+          <tr><td>v0.4 · tempestade</td><td><code>amb_storm</code></td><td>0,7 (o <code>AMBIENT_VOLUME</code>)</td><td>nos canais A/B do ambiente, no lugar do <code>amb_dead</code> enquanto tiver tempestade (o <code>ambient_for</code> do plano). Na saída pro Árido, <b>não</b> usar o crossfade fixo de 7 s: seguir o <code>state.storm</code> frame a frame em potência constante, tempestade <code>0,7·sin(π/2·storm)</code> e <code>amb_dead</code> <code>0,7·cos(π/2·storm)</code>. Na caverna não toca (vale o <code>amb_cave</code> de sempre). Sem variação de pitch.</td></tr>
+          <tr><td>v0.4 · tempestade</td><td><code>desert_wind</code></td><td>0,45 (sem mudança)</td><td>continua tocando na tempestade, por cima. Fica 13 dB abaixo do <code>amb_storm</code> (quase some), e quando a tempestade vai embora é ele que sobra no Árido. Não precisa de código novo.</td></tr>
+          <tr><td>v0.4 · tempestade</td><td><code>gust</code></td><td>0,8 × <code>storm</code></td><td>no começo de cada rajada (quando o <code>gust</code> sai de 0). Uma por vez, num canal só dela: se a rajada do jogo acabar antes do som (o arquivo tem ~5 s com a cauda), <code>fadeout(800)</code> quando o <code>weather.gust</code> voltar a 0. Variação de pitch 0,96 · 1,0 · 1,04 (já muda a duração junto, 4,8 a 5,3 s). Opcional: puxar o pan pro lado de onde vem o vento (<code>set_volume(esq, dir)</code>, no máximo 70/100). Com o player na caverna, não toca.</td></tr>
+          <tr><td>v0.4 · tempestade</td><td><code>sky_clear</code></td><td>0,8</td><td>uma vez na passagem pro Árido, ~5 s depois do <code>stage_up</code> (quando o jingle termina e o ambiente volta do abaixamento). Sem pitch. Se o player estiver na caverna, pula (o <code>stage_up</code> toca normal). Aprovado: usar.</td></tr>
           <tr><td>Ambiente</td><td><code>amb_*</code></td><td>0,7</td><td>já saem ~8–10 dB abaixo dos sfx.</td></tr>
           <tr><td>Recompensa</td><td><code>stage_up</code></td><td>1,0</td><td>é o som mais alto do jogo, de propósito.</td></tr>
         </tbody>
@@ -410,7 +483,7 @@ vol += (alvo - vol) * min(1.0, dt / (0.8 if alvo else 0.5))
 VENTO.set_volume(vol)               # o loop roda sempre, só o volume anda</pre>
       </div>
       <div class="box">
-        <h3>Superfície ↔ caverna (v0.3 · pendente)</h3>
+        <h3>Superfície ↔ caverna (v0.3)</h3>
         <ul>
           <li>A caverna <b>substitui</b> ambiente e vento: na caverna tocam só o <code>amb_cave</code> (0,7) e os sfx. Não deixar o vento em 0,0 "tocando por baixo" e somar: o loop dele pode continuar rodando, mas com volume alvo 0.</li>
           <li>Ordem no E da rampa: <code>ramp_down</code> → fade pro preto (o ambiente e o vento saem em 1,5 s) → troca o mapa → <code>amb_cave</code> entra com <code>fade_ms=2500</code>. O crossfade é mais curto que o de estágio (7 s) porque a troca é física e imediata.</li>
@@ -429,6 +502,26 @@ def subir():
     AMB[atual].fadeout(1500)
     agendar(0.5, lambda: AMB[prox].play(amb[estagio], loops=-1, fade_ms=2500))
     vento_alvo = 0.45</pre>
+      </div>
+      <div class="box">
+        <h3>Tempestade (v0.4)</h3>
+        <ul>
+          <li>Na tempestade tocam três camadas: <code>amb_storm</code> (0,7, canais A/B), <code>desert_wind</code> (0,45, canal 9, como já é hoje) e o <code>gust</code> (0,8 × storm, num canal próprio, por exemplo o 10) quando tem rajada.</li>
+          <li>A transição pro Árido é pela intensidade (<code>state.storm</code> de 1 a 0 em ~20 s), não por evento: o volume dos dois ambientes anda junto com ela. Assim, se o Dev mudar a duração, o som acompanha.</li>
+          <li>O <code>stage_up</code> do Árido funciona igual aos outros estágios (abaixa o ambiente pra ~40% durante o jingle). O <code>sky_clear</code> entra ~5 s depois.</li>
+          <li>Rajada: um som por rajada, nunca empilhar duas. As rajadas do jogo têm de 3 a 5 s; o arquivo cresce em ~1,3 s, fica forte até ~2,9 s e cai até ~4,6 s, mais uns 0,4 s de cauda.</li>
+          <li>Desmaio e terminal: a tempestade cai junto com o ambiente (é ambiente). Se cair uma rajada com o player desmaiado, pode pular.</li>
+        </ul>
+<pre>storm = state.storm                     # 1 = tempestade cheia, 0 = Árido
+k = math.pi / 2 * storm
+AMB_STORM.set_volume(0.7 * gain * math.sin(k))
+AMB_DEAD.set_volume(0.7 * gain * math.cos(k))
+
+if weather.gust &gt; 0 and not gust_tocando and layer != "cave":
+    GUST.set_volume(0.8 * storm)
+    GUST.play(random.choice(gust_variants))   # pitch 0,96 / 1,0 / 1,04
+elif weather.gust == 0 and GUST.get_busy():
+    GUST.fadeout(800)</pre>
       </div>
       <div class="box">
         <h3>Alarme e base</h3>
@@ -682,7 +775,7 @@ CANDS.forEach(([key, file, title, src, desc]) => {
 
 // ---- v8 (v0.3 Marcos 2 e 3): pendentes de aprovação + prévias ----
 (() => {
-  const A = "../../assets/audio/", P = A + "_pending/";
+  const A = "../../assets/audio/", P = A;   // v8 aprovado: os arquivos agora são os oficiais
   const CAVE = [
     ["amb_cave","Loop na caverna. Substitui o amb_{estágio} e o vento","O mesmo Lá dos ambientes, uma oitava mais escuro: drone em quinta (Lá1, Mi2, Lá2, Mi3) bem fechado, com um fio de Dó3 (terça menor) que só aparece quando o pad respira, sombra sem medo. Dez gotas por volta em tempo irregular (umas respingam), cada uma com eco de paredes a distâncias diferentes e cauda de 4 s. Dois brilhos frios bem apagados e um rumor de rocha assentando lá longe. Sem bicho, sem vento, quase nada acima de 2,5 kHz. Loop de 28 s (os ambientes têm 32 e o vento 36, então nada se repete junto)."],
     ["lamp_place","Colocou uma luminária","Base apoiando no chão, clique do interruptor e a luz acendendo: um \"fuum\" macio e um brilho quente em Lá (Lá3, Mi4, Lá4) que sobe um tiquinho e assenta, com um zumbido de filamento bem baixo. Curto e aconchegante."],
@@ -695,13 +788,13 @@ CANDS.forEach(([key, file, title, src, desc]) => {
   function cards(list, rootId, color){
     const root = document.getElementById(rootId);
     list.forEach(([name, when, what]) => {
-      const m = META["pend:" + name] || {};
+      const m = META[name] || {};
       const loop = !!m.loop;
       const card = document.createElement("article");
       card.className = "card";
       card.innerHTML = `
         <div class="card-top"><span class="fname">${name}.wav</span>
-          <span class="tags">${loop ? '<span class="tag loop">loop</span>' : '<span class="tag">sfx</span>'}<span class="tag src">pendente</span>
+          <span class="tags">${loop ? '<span class="tag loop">loop</span>' : '<span class="tag">sfx</span>'}<span class="tag src">aprovado</span>
           <span class="tag">${fmtDur(m.duration)}</span><span class="tag">pico ${fmtDb(m.peak_db)}</span></span></div>
         <canvas class="wave" aria-hidden="true"></canvas>
         <audio controls preload="metadata" ${loop ? "loop" : ""} src="${P}${name}.wav"></audio>
@@ -712,7 +805,7 @@ CANDS.forEach(([key, file, title, src, desc]) => {
       requestAnimationFrame(() => drawWave(cv, m.wave, color));
       window.addEventListener("resize", () => drawWave(cv, m.wave, color));
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td><code>_pending/${name}.wav</code></td><td>${fmtDur(m.duration)}</td><td class="pass">${fmtDb(m.peak_db)}</td><td>${fmtDb(m.loudness_db)}</td><td>${loop && m.seam_lsb != null ? `<span class="pass">OK · salto ${m.seam_lsb} lsb (percentil ${String(m.seam_pct).replace(".", ",")} dos saltos normais)</span>` : "—"}</td>`;
+      tr.innerHTML = `<td><code>${name}.wav</code></td><td>${fmtDur(m.duration)}</td><td class="pass">${fmtDb(m.peak_db)}</td><td>${fmtDb(m.loudness_db)}</td><td>${loop && m.seam_lsb != null ? `<span class="pass">OK · salto ${m.seam_lsb} lsb (percentil ${String(m.seam_pct).replace(".", ",")} dos saltos normais)</span>` : "—"}</td>`;
       checks.appendChild(tr);
     });
   }
@@ -720,13 +813,13 @@ CANDS.forEach(([key, file, title, src, desc]) => {
   // ---- v8.1: refeitos, lado a lado com os reprovados ----
   const REDO = [
     ["crate_open", "Abriu uma caixa de saque (0,9)",
-     "Novo: clique seco da trava e o ferrolho assentando, um rangido curto de dobradiça (0,19 s, atrito que agarra e solta como uma dobradiça de verdade, áspero e sem nota) e uma batidinha seca da tampa com um quiquezinho. 0,55 s, sem cauda.",
+     "Oficial: clique seco da trava e o ferrolho assentando, um rangido curto de dobradiça (0,19 s, atrito que agarra e solta como uma dobradiça de verdade, áspero e sem nota) e uma batidinha seca da tampa com um quiquezinho. 0,55 s, sem cauda.",
      "Reprovado: trava dupla, um arrasto de ruído de 0,4 s com a banda andando e um baque longo. Era comprido e soava esquisito, mais respiração do que caixa."],
     ["ramp_down", "E na rampa da cratera, descendo (0,8)",
-     "Novo: 4 passos em cascalho num ritmo de caminhada, um pouco irregular. A cada passo o som fica mais abafado (o filtro fecha de 5,5 kHz pra 1,6 kHz) e um pouco mais baixo, e o último ganha a cauda escura da caverna. Por baixo, um ar grave parado que sobe e some.",
+     "Oficial (B1): 4 passos gravados em concreto (Kenney, CC0) num ritmo de caminhada, um pouco irregular. A cada passo o som fica mais abafado (o filtro fecha de 5,5 kHz pra 1,6 kHz) e um pouco mais baixo, e o último ganha a cauda escura da caverna. Por baixo, um ar grave parado que sobe e some.",
      "Reprovado: degraus de grade metálica com um \"tinc\", eco em atrasos fixos repetindo o passo e um ar que descia de 1,4 kHz pra 160 Hz, que soava como glissando."],
     ["ramp_up", "E na rampa da caverna, subindo (0,8)",
-     "Novo: o mesmo ao contrário. O primeiro passo ainda vem abafado e com cauda de caverna, e os seguintes vão clareando e secando até o último, aberto e seco. Ar grave parado por baixo.",
+     "Oficial (B1): o mesmo ao contrário, com os passos gravados. O primeiro passo ainda vem abafado e com cauda de caverna, e os seguintes vão clareando e secando até o último, aberto e seco. Ar grave parado por baixo.",
      "Reprovado: os mesmos degraus metálicos, com um sopro que subia de 160 Hz pra 1,2 kHz."],
   ];
   const redo = document.getElementById("redo");
@@ -748,16 +841,8 @@ CANDS.forEach(([key, file, title, src, desc]) => {
     window.addEventListener("resize", () => drawWave(cv, m.wave, color));
   }
   REDO.forEach(([name, when, whatNew, whatOld]) => {
-    redoCard("pend:" + name, `_pending/${name}.wav`, `${name}.wav · novo v8.1`, "pendente", when, whatNew, "#ff8f6a");
+    redoCard(name, `${name}.wav`, `${name}.wav · oficial`, "aprovado", when, whatNew, "#ff8f6a");
     redoCard("rej:" + name, `_pending/rejected_v8/${name}.wav`, `${name}.wav · v8`, "reprovado", "Só pra comparar", whatOld, "#7a6a60");
-    if (name.startsWith("ramp")){
-      redoCard(`cand:${name}_B1`, `candidates/${name}_B1.wav`, `${name}_B1 · opção B`, "Kenney · CC0", when,
-        "Opção B: a mesma progressão (abafa/clareia, cauda de caverna, ar grave), mas com 4 passos gravados em concreto do pack Impact Sounds do Kenney (footstep_concrete_000 a 003), no lugar dos passos sintéticos. Soa mais natural e tem menos crocância de cascalho.", "#59d0e6");
-    }
-    const tr = document.createElement("tr");
-    const m = META["pend:" + name] || {};
-    tr.innerHTML = `<td><code>_pending/${name}.wav</code> (v8.1)</td><td>${fmtDur(m.duration)}</td><td class="pass">${fmtDb(m.peak_db)}</td><td>${fmtDb(m.loudness_db)}</td><td>—</td>`;
-    checks.appendChild(tr);
   });
   cards(CAVE, "pend-cave", "#9b8cff");
   cards(WRECK, "pend-wreck", "#e8b46a");
@@ -833,6 +918,142 @@ CANDS.forEach(([key, file, title, src, desc]) => {
   });
   // play num player da página para as prévias
   document.addEventListener("play", e => { if (e.target.tagName === "AUDIO" && e.target.isConnected){ stopAll(); cs.textContent = "Parado."; rs.textContent = "Parado."; } }, true);
+})();
+
+// ---- v9.1 (v0.4 Marco 1): tempestade, aprovada na v9.2 ----
+(() => {
+  const A = "../../assets/audio/", P = A;   // aprovados: arquivos oficiais
+  const LOOPS = [
+    ["amb_storm", "oficial (era a A · capacete)", "Loop na tempestade, no lugar do amb_dead (0,7)",
+     "Vento cheio e grave: 5 bandas largas cujo peso respira devagar, nada de tom. Tem rajadas internas lentas e suaves, de 5 a 10 s, um uivo distante e discreto que passeia entre ~170 e ~330 Hz, o vento tremendo de leve no capacete e a areia como um véu contínuo, sem grão e sem estalo. Tudo passa por um passa-baixa de capacete em ~3,8 kHz. Por baixo, abafado pela poeira, vem o mesmo drone do amb_dead (Lá1, Mi2, Lá2, Mi3). Sem rajada forte embutida: rajada é o gust. Loop de 34 s."],
+    ["amb_storm_B", "B · paredão", "Loop na tempestade, no lugar do amb_dead (0,7)",
+     "A mais pesada e opressiva: mais grave (o corpo do vento corta em 1,9 kHz), tremor no capacete mais forte, rajadas internas maiores e o uivo distante mais presente (ruído numa banda de 0,4 oitava que passeia, sem nota parada). Quase sem areia, e o drone do morto quase sumido. Risco: o uivo pode cansar em 10 minutos."],
+    ["amb_storm_C", "C · o planeta por baixo", "Loop na tempestade, no lugar do amb_dead (0,7)",
+     "A mais contida e a mais perto da estética espacial aprovada: o vento um pouco mais baixo, o uivo bem de leve, quase sem areia e o drone de Lá bem mais presente. Soa como o amb_dead no meio de uma ventania. Risco: pode soar calma demais pra \"tempestade\"."],
+  ];
+  const GUSTS = [
+    ["gust", "oficial (era a A · uivo grave)", "Começo de cada rajada (0,8 × storm)",
+     "Cresce em ~1,3 s, fica forte com uns sub-empurrões irregulares até ~2,9 s e cai até ~4,6 s. O sopro clareia na subida e escurece na queda. Um uivo de ruído em 1/3 de oitava sobe de ~190 pra ~410 Hz e volta pra ~230, e um véu de areia incha junto com o pico (sem grão, sem estalo). Tremor grave e lento no capacete por baixo."],
+    ["gust_B", "B · sopro e areia", "Começo de cada rajada (0,8 × storm)",
+     "Sem uivo nenhum: só o sopro abrindo e fechando, com mais véu de areia (contínuo, sem estalo). A mais \"física\", a mais segura se o uivo soar artificial."],
+    ["gust_C", "C · uivo aberto", "Começo de cada rajada (0,8 × storm)",
+     "Duas vozes de uivo (a segunda 1,36× acima, um intervalo que não fecha acorde), mais altas e mais agudas (de ~240 a ~560 Hz), quase sem areia. A mais \"cinema\", meio assombrada."],
+  ];
+  const SKY = [
+    ["sky_clear", "oficial", "Saída pro Árido, ~5 s depois do stage_up (0,8)",
+     "~8 s. A última lufada da tempestade indo embora (o sopro escurece e afina; na v9.1 saíram os grãos de areia) e, por baixo, a quinta vazia de Lá abrindo devagar (Lá2, Mi3, Lá3, Mi4), com quatro brilhos subindo (Lá4, Mi5, Lá5, Mi6) e reverb longo. Sem terça, porque o Árido ainda é o planeta morto: é o céu abrindo, não a vida voltando."],
+  ];
+  const color = {A:"#f0a05a", B:"#c9784a", C:"#e8c48a"};
+  // B e C: só histórico (não geram arquivo); viram um parágrafo, sem player
+  const HIST = [...LOOPS, ...GUSTS].filter(([n]) => /_[BC]$/.test(n));
+  function cards(list, rootId){
+    const root = document.getElementById(rootId);
+    list.filter(([n]) => !/_[BC]$/.test(n)).forEach(([name, title, when, what]) => {
+      const m = META[name] || {};
+      const loop = !!m.loop;
+      const card = document.createElement("article");
+      card.className = "card";
+      const isGust = name.startsWith("gust");
+      card.innerHTML = `
+        <div class="card-top"><span class="fname">${name}.wav · ${title}</span>
+          <span class="tags">${loop ? '<span class="tag loop">loop</span>' : '<span class="tag">sfx</span>'}<span class="tag src" style="color:#7fd67a;border-color:#2f5a2c">aprovado</span>
+          <span class="tag">${fmtDur(m.duration)}</span><span class="tag">pico ${fmtDb(m.peak_db)}</span></span></div>
+        <canvas class="wave" aria-hidden="true"></canvas>
+        <audio controls preload="metadata" ${loop ? "loop" : ""} src="${P}${name}.wav"></audio>
+        ${isGust ? '<div class="btns"><button class="btn" data-over>▶ rajada por cima da tempestade</button></div>' : ""}
+        <div class="when">${when}</div>
+        <p class="what">${what}</p>`;
+      root.appendChild(card);
+      const cv = card.querySelector("canvas");
+      const c = "#f0a05a";
+      requestAnimationFrame(() => drawWave(cv, m.wave, c));
+      window.addEventListener("resize", () => drawWave(cv, m.wave, c));
+      if (isGust) card.querySelector("[data-over]").onclick = () => overlay(name);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><code>${name}.wav</code></td><td>${fmtDur(m.duration)}</td><td class="pass">${fmtDb(m.peak_db)}</td><td>${fmtDb(m.loudness_db)}</td><td>${loop && m.seam_lsb != null ? `<span class="pass">OK · salto ${m.seam_lsb} lsb (percentil ${String(m.seam_pct).replace(".", ",")} dos saltos normais)</span>` : "—"}</td>`;
+      checks.appendChild(tr);
+    });
+  }
+  cards(LOOPS, "storm-loops"); cards(GUSTS, "storm-gusts"); cards(SKY, "storm-sky");
+  [["storm-loops", "amb_storm"], ["storm-gusts", "gust"]].forEach(([id, pre]) => {
+    const h = document.createElement("p"); h.className = "what"; h.style.marginTop = "10px";
+    h.innerHTML = "<b>Histórico (não escolhidas, sem arquivo):</b> " + HIST.filter(([n]) => n.startsWith(pre))
+      .map(([n, t, , w]) => `<code>${n}</code> · ${t}: ${w}`).join(" · ");
+    document.getElementById(id).after(h);
+  });
+
+  // ---- simulação ----
+  const live = new Set(), timers = new Set();
+  const st = document.getElementById("storm-status");
+  let storm = null, wind = null, dead = null, level = 1, duck = 1, auto = true, raf = 0, running = false;
+  function one(src, vol){ const a = new Audio(src); a.volume = Math.max(0, Math.min(1, vol)); a.play().catch(() => {}); live.add(a); a.onended = () => live.delete(a); return a; }
+  function loopA(src, vol){ const a = new Audio(src); a.loop = true; a.volume = vol; a.play().catch(() => {}); live.add(a); return a; }
+  function later(fn, ms){ const id = setTimeout(() => { timers.delete(id); fn(); }, ms); timers.add(id); }
+  function stopAll(){ live.forEach(a => a.pause()); live.clear(); timers.forEach(clearTimeout); timers.clear(); cancelAnimationFrame(raf);
+    storm = wind = dead = null; running = false; }
+  function apply(){
+    const k = Math.PI / 2 * level;
+    if (storm) storm.volume = Math.max(0, 0.7 * duck * Math.sin(k));
+    if (dead) dead.volume = Math.max(0, 0.7 * duck * Math.cos(k));
+  }
+  function gustNow(){
+    if (!running || level <= 0.02) return;
+    one(`${P}gust.wav`, 0.8 * level);
+    st.textContent = `Rajada (gust a ${(0.8 * level).toFixed(2).replace(".", ",")}) por cima do amb_storm.`;
+  }
+  function schedule(first){
+    later(() => { if (auto && running && level > 0.5) gustNow(); if (running && level > 0.5) schedule(false); },
+          first ? 6000 : 20000 + Math.random() * 20000);
+  }
+  function overlay(name){
+    stopAll(); document.querySelectorAll("audio").forEach(a => a.pause());
+    running = true; level = 1; duck = 1;
+    storm = loopA(P + "amb_storm.wav", 0.7);
+    later(() => one(P + name + ".wav", 0.8), 2500);
+    later(() => { stopAll(); st.textContent = "Parado."; }, 10000);
+    st.textContent = `amb_storm (0,7) e, em 2,5 s, ${name} (0,8) por cima.`;
+  }
+  function toArid(withSky){
+    if (!running || !storm){ st.textContent = "Começa a tempestade primeiro."; return; }
+    if (level < 1){ return; }
+    dead = loopA(A + "amb_dead.wav", 0);
+    one(A + "stage_up.wav", 1.0);
+    const t0 = performance.now();
+    const step = now => {
+      const t = (now - t0) / 1000;
+      level = Math.max(0, 1 - t / 20);
+      duck = t < 4.5 ? 0.4 + 0.6 * Math.max(0, (t - 3.5)) : 1;   // abaixa durante o jingle
+      if (t < 0.3) duck = 1 - 0.6 * (t / 0.3);
+      apply();
+      if (level > 0) raf = requestAnimationFrame(step);
+      else { if (storm){ storm.pause(); live.delete(storm); storm = null; }
+        st.textContent = "Árido: amb_dead (0,7) + vento (0,45). Céu limpo."; }
+    };
+    raf = requestAnimationFrame(step);
+    if (withSky) later(() => one(P + "sky_clear.wav", 0.8), 5000);
+    st.textContent = `Saindo da tempestade (20 s): stage_up agora${withSky ? ", sky_clear em 5 s" : ""}, tempestade → amb_dead seguindo a intensidade.`;
+  }
+  document.querySelectorAll("#storm-mix [data-k]").forEach(b => b.onclick = () => {
+    const k = b.dataset.k;
+    if (k === "gust"){ if (!running){ st.textContent = "Começa a tempestade primeiro."; return; } gustNow(); return; }
+    if (k === "auto"){ auto = !auto; st.textContent = `Rajadas automáticas: ${auto ? "ligadas (20 a 40 s)" : "desligadas"}.`; return; }
+    if (k === "arid" || k === "arid-sky"){ toArid(k === "arid-sky"); return; }
+    stopAll(); document.querySelectorAll("audio").forEach(a => a.pause());
+    if (k === "stop"){ st.textContent = "Parado."; return; }
+    level = 1; duck = 1; running = true;
+    if (k === "ref"){
+      dead = loopA(A + "amb_dead.wav", 0.7); wind = loopA(A + "desert_wind.wav", 0.45); level = 0; running = false;
+      st.textContent = "Referência: amb_dead (0,7) + desert_wind (0,45), o que o jogo toca hoje.";
+      return;
+    }
+    storm = loopA(`${P}amb_storm.wav`, 0); wind = loopA(A + "desert_wind.wav", 0.45);
+    const t0 = performance.now();
+    const fin = now => { const kk = Math.min(1, (now - t0) / 2000); if (storm) storm.volume = 0.7 * kk; if (kk < 1 && storm) requestAnimationFrame(fin); };
+    requestAnimationFrame(fin);
+    schedule(true);
+    st.textContent = `Tempestade: amb_storm (0,7) + desert_wind (0,45). Rajadas ${auto ? "a cada 20 a 40 s (primeira em ~6 s)" : "desligadas: usa \"+ rajada agora\""}.`;
+  });
+  document.addEventListener("play", e => { if (e.target.tagName === "AUDIO" && e.target.isConnected){ stopAll(); st.textContent = "Parado."; } }, true);
 })();
 
 // só uma faixa tocando por vez
