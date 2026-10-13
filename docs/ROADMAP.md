@@ -54,6 +54,8 @@ Inimigos, combate, primeiro boss, ruínas da Colônia Hesper.
 Fauna e flora surgindo com o Ti, farm, música.
 
 ## Futuro
+- Mapa: máquinas coladas viram uma "régua" de marcadores (agrupar por base ou desenhar menor quando estão juntas).
+- Testar em Windows/Linux (CI com testes + smoke nos 3 sistemas, varrer imagens criadas sem formato explícito) e empacotar executável.
 - Água e comida (barras de sobrevivência).
 - Drones: upgrade da estação (mais drones, drones mais rápidos).
 - Versão pra celular (navegador via pygbag + controles de toque), decidir se vira plataforma principal.
