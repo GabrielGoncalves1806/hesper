@@ -650,7 +650,7 @@ Plano: `docs/superpowers/plans/2026-10-13-v04-marco3-gelo-agua.md`. O que o calo
 - **Plantas na beira d'água** (Verde, com geo): **30%** de chance num tile de chão a até **3 tiles** (num quadrado) de uma bacia, **5%** longe dela, nenhuma dentro da bacia. Na seed 7: 27% na beira, 5% longe.
 - **Chuva** (`game/rain.py`, `state.rain`, determinística pela seed, não vai no save): pancadas no estilo das rajadas. A 1ª vem **15–40 s** depois de entrar na Névoa; na **Névoa**, **30–60 s** de chuva a cada **60–120 s** (de começo a começo); no **Verde**, **15–30 s** a cada 60–120 s. Intensidade 0..1 com **2 s** de subida e de descida. Pancada nova só da Névoa em diante; o evento `("rain", True)` sai no começo de cada uma. **Só na superfície** (`rain.rain_level(state)` dá 0 na caverna; o relógio continua lá em cima).
 - **Chuva na tela** (`RainDrops`, depois do clima do estágio e antes da poeira e da HUD): até **300 traços** com a chuva cheia (proporcional à intensidade), caindo a 620 px/s e tortos pro lado do vento (`state.weather.wind`, a componente x × 0,45), presos à câmera (espaço de dobra com módulo da visão, o padrão dos grãos do `dust.py`), traço de 10–18 px com a cauda sumindo, mais um véu frio leve (multiplicação, até −34). Custo medido no smoke: +0,2 ms no zoom 1× e +0,3 ms no 0,75×. A chuvinha fina de sempre da Névoa (`_draw_weather`) continua por baixo.
-- **Som**: `amb_rain` em loop com o volume = intensidade (pendente do Som: sem o wav, silêncio). Ver §6.
+- **Som**: `amb_rain` em loop com o volume = intensidade. Ver §6.
 - **Fora daqui (M3.4)**: máquina submersa e "não constrói na água". O player continua andando na água rasa.
 
 ### Máquina submersa (M3.4 · `game/systems.py`, `game/render.py`, `game/app.py`, `game/drones.py`)

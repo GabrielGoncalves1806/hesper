@@ -298,7 +298,11 @@ RAIN_SLANT = 0.45            # quanto o vento entorta a queda (vx = vento.x × R
 RAIN_LEN = (10, 18)          # px de cada traço
 RAIN_ALPHA = (70, 130)       # alfa dos traços
 RAIN_TINT = 34               # alfa máximo do véu cinza-azulado com a chuva cheia
-VOLUME["amb_rain"] = 1.0    # loop da chuva (amb_rain.wav, pendente do Som): volume = intensidade da chuva
+VOLUME["amb_rain"] = 0.55   # chuva (v11, canal 10): volume = 0,55 × intensidade. As variações (light/heavy) usam o mesmo
+# RAIN_VARIANTS_* abaixo: cada pancada sorteia uma; amb_rain é a média (a principal).
+RAIN_VARIANTS_MIST = (("amb_rain", 0.6), ("amb_rain_light", 0.2), ("amb_rain_heavy", 0.2))   # (arquivo, peso)
+RAIN_VARIANTS_GREEN = (("amb_rain", 0.5), ("amb_rain_light", 0.5))                         # no Verde, sem a forte
+VOLUME["vent_hiss"] = 0.6   # chiado da fumarola acordada mais perto (canal 11): × fade pela distância
 
 # ---------------------------------------------------------------------------
 # Lore (§2)
@@ -665,7 +669,7 @@ POCKET_SPACING = 26                 # tiles entre os centros de dois bolsões
 THAW_GATE_HEAT = ((1500, 2500, 3500), (3500, 5000, 6500), (6000, 8000, 10000))
 THAW_GATE_NOTICE = "Um gelo-portão abriu ao norte"
 THAW_GATE_NOTICE_TIME = 4.0         # s do aviso
-VOLUME.setdefault("ice_crack", 0.9)  # estalo do gelo (sem ice_crack.wav, silêncio; o M3.1 usa o mesmo som)
+VOLUME.setdefault("ice_crack", 0.7)  # estalo do gelo (ice_crack.wav + ice_crack_1.wav, v11)
 # Destroço rico: no wreck_spot de cada bolsão, uma nave de carga com o saque "rico" (mais material que a melhor
 # nave de fora) e, se algum projeto de BLUEPRINTS não caiu nos destroços de fora, o 1º que faltar.
 WRECK_RICH_KIND = "cargo"
@@ -740,5 +744,7 @@ THAW_FUMAROLE_GLOW = (255, 132, 56)   # brilho quente na boca da fumarola acorda
 THAW_FUMAROLE_GLOW_R = 7              # px de raio do brilho
 THAW_FUMAROLE_GLOW_MAX = 56           # intensidade no centro (0..255, somada), pulsando devagar entre 60% e 100%
 THAW_CRATER_NOTICE_S = 3.5        # s do aviso "O gelo da cratera está cedendo" / "A cratera abriu"
-VOLUME["ice_crack"] = 0.8        # gelo estalando (sem ice_crack.wav, silêncio)
+VOLUME["ice_crack"] = 0.7        # gelo estalando (ice_crack.wav / ice_crack_1.wav, v11): etapas 1–3 da cratera
+VOLUME["ice_collapse"] = 0.8     # o gelo desabando (ice_collapse.wav, v11): cratera aberta (etapa 4) e gelo-portão na 3
+ICE_COLLAPSE_CAVE_VOLUME = 0.5   # na caverna o desabamento sai a 0,5 (abafado pela rocha)
 DEBUG_MELT_CRATER = True        # F4 derrete a tampa na hora (atalho de debug, no mesmo esquema do F1–F3)

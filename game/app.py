@@ -1364,13 +1364,13 @@ class App:
                     self.renderer.minimap.repaint(self.state, tile, "surface")
             if stage >= 3:
                 self.show_toast(C.THAW_GATE_NOTICE, C.THAW_GATE_NOTICE_TIME)
-                self.audio.play("ice_crack")      # sem ice_crack.wav (Som), silêncio
+                self.play_ice_break(collapse=True)
         elif kind == "gust":                  # rajada começou (tempestade): volume pelo storm, sem gust.wav fica mudo
             self.audio.play("gust", gain=sound.gust_gain(event[1]))
-        elif kind == "crater_thaw":           # v0.4 M3.1: a tampa baixou uma etapa (sem ice_crack.wav, silêncio)
+        elif kind == "crater_thaw":           # v0.4 M3.1: a tampa baixou uma etapa (etapa 4 = a cratera abriu)
             opened = event[1] >= C.CRATER_ICE_STAGES
             self.show_thaw_notice(CRATER_OPEN_TEXT if opened else CRATER_THAW_TEXT)
-            self.audio.play("ice_crack")
+            self.play_ice_break(collapse=opened)
         elif kind == "submerged":             # v0.4 M3.4: o lago cobriu uma máquina (várias juntas: um aviso só)
             showing = self.submerged_kinds and self.thaw_notice_time > 0 \
                 and self.thaw_notice == submerged_notice(self.submerged_kinds)
@@ -1425,6 +1425,13 @@ class App:
             if event[1] == C.GREEN_STAGE:      # fim do jogo
                 self.end_timer = END_SCREEN_DELAY
 
+    def play_ice_break(self, collapse: bool) -> None:
+        """Gelo quebrando: estalo (ice_crack, sorteia entre as 2 variações sem repetir) ou desabamento (ice_collapse)."""
+        if collapse:
+            self.audio.play("ice_collapse", gain=sound.ice_collapse_gain(self.state.layer == "cave"))
+        else:
+            self.audio.play("ice_crack")
+
     def update_ambient_sounds(self, dt: float) -> None:
         state, audio = self.state, self.audio
         # alarme com histerese: liga abaixo de 25%, desliga em 27% (ou desmaiado)
@@ -1446,7 +1453,10 @@ class App:
         audio.duck_ambient(0.0 if state.fainted else duck)
         # vento e ambiente seguem a camada de DESTINO: descendo, já começam a sair junto com o fade
         audio.set_wind(self.ambient_layer() == "surface")    # vento do deserto: só na superfície
-        audio.set_rain(sound.rain_volume(rain_level(state)))   # chuva (M3.3): só na superfície, volume = intensidade
+        audio.set_rain(sound.rain_volume(rain_level(state)), state.rain.variant)   # chuva (M3.3): só na superfície
+        # chiado da fumarola acordada mais perto (v11): só na superfície; dormente não entra no cálculo
+        vent = state.vent_distance() if self.ambient_layer() == "surface" else None
+        audio.set_vent(sound.vent_hiss_volume(vent))
         want = self.ambient_want()
         if want != audio.ambient_key and not audio.busy_with_stage:
             audio.crossfade_to(want)              # amb_{estágio} <-> amb_cave (1,5 s sai, 2,5 s entra)
@@ -1800,6 +1810,7 @@ class App:
         self.audio.set_solar_hum(0.0)
         self.audio.set_wind(False)
         self.audio.set_rain(0.0)
+        self.audio.set_vent(0.0)
         self.audio.duck_ambient(1.0)
         if self.audio.ambient_key != "dead":
             self.audio.start_ambient("dead")
