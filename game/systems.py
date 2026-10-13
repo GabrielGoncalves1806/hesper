@@ -58,6 +58,9 @@ class Machine:
     # só a estação de drones usa este: drones + sobras do buffer antigo (game/drones.py, criado no place)
     station: drones.Station | None = None
     stored_init: dataclasses.InitVar[int] = 0         # atalho pros testes: Machine("drill", ..., stored_init=8)
+    # v0.4 M3.4: o lago subiu por cima dela (GameState._thaw_submerged). Derivado: não vai no save, o load refaz.
+    # Parada: não soma índice, não gera nem gasta energia, a drill não cava e a estação não manda drone.
+    submerged: bool = field(default=False, compare=False)
 
     def __post_init__(self, stored_init: int = 0) -> None:
         if self.storage is None and self.is_drill:
@@ -379,14 +382,19 @@ class GameState:
         return sum(self.indices.values())
 
     @property
+    def working_machines(self) -> list:
+        """As máquinas das duas camadas que estão funcionando (a submersa parou: v0.4 M3.4)."""
+        return [m for m in self.all_machines if not m.submerged]
+
+    @property
     def ti_rate(self) -> float:
         """Ti por segundo, já com o ritmo da energia (no déficit, todas rendem menos)."""
-        return sum(m.type.rate for m in self.all_machines) * self.power.factor
+        return sum(m.type.rate for m in self.working_machines) * self.power.factor
 
     @property
     def power(self) -> PowerReport:
-        """Energia agora: produção, consumo e o fator (ritmo) de todas as máquinas. Ver game/energy.py."""
-        return power_report(m.kind for m in self.all_machines)
+        """Energia agora: produção, consumo e o fator (ritmo) das máquinas que funcionam. Ver game/energy.py."""
+        return power_report(m.kind for m in self.working_machines)
 
     @property
     def drills(self) -> list[Machine]:
@@ -639,6 +647,8 @@ class GameState:
         pod = C.POD_TILES if self.active.has_base else ()
         for t in machine.tiles:
             if not self.world.is_floor(*t) or t in pod or self.machine_at(t):
+                return False
+            if self.world.is_water(*t, self.stage):     # v0.4 M3.4: não constrói na água (com geo, o estágio não entra)
                 return False
         px, py = self.player.tile
         if (px, py) in machine.tiles:
@@ -945,7 +955,7 @@ class GameState:
         if self.power_alert.update(power.deficit, dt):
             self.events.append(("power_low",))
         work_dt = dt * power.factor          # sem energia suficiente, tudo anda mais devagar
-        for m in self.all_machines:          # as duas camadas produzem (drill na caverna também)
+        for m in self.working_machines:      # as duas camadas produzem (drill na caverna também); submersa não
             if m.is_drill:
                 self._update_drill(m, work_dt)
             elif m.type.index is not None:   # painel solar, baú e estação não somam Ti
@@ -964,6 +974,7 @@ class GameState:
         self._thaw_fumaroles()
         self._thaw_gates()
         self._thaw_lake()
+        self._thaw_submerged()               # depois do lago: quem ficou debaixo d'água para
 
     def _thaw_gates(self) -> None:
         """M3.2: cada gelo-portão sobe pra etapa do calor (thaw.gate_stage), troca a pegada C.FORMATION no mapa da
@@ -1001,6 +1012,19 @@ class GameState:
         surface.water_level = target
         for k in crossed:
             self.events.append(("lake_rise", k))
+
+    def _thaw_submerged(self) -> None:
+        """M3.4: a máquina da superfície com algum tile na água (o lago só sobe) fica `submerged` e solta
+        ("submerged", kind, (tx, ty)) uma vez. Não dá pra construir na água, então só alaga quem já estava na bacia
+        seca. A caverna nunca terraforma; a base (raio 16) fica sempre acima de L3."""
+        surface = self.layers.get(SURFACE)
+        if surface is None or surface.world.water_level <= 0:
+            return
+        world = surface.world
+        for m in surface.machines:
+            if not m.submerged and any(world.is_water(x, y, self.stage) for x, y in m.tiles):
+                m.submerged = True
+                self.events.append(("submerged", m.kind, (m.tx, m.ty)))
 
     def _thaw_crater(self) -> None:
         """M3.1: a tampa de gelo baixa com o calor (o F4 e um save com etapa maior ficam: nunca fecha de novo).

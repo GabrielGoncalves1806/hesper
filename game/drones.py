@@ -425,6 +425,8 @@ def _finish_trip(drone: Drone) -> None:
 
 def update_drone(machine, drone: Drone, logistics, ledger: Ledger, dt: float, events: list) -> int:
     """Um passo do ciclo de um drone. Devolve quantas entregas ele fez (0 ou 1)."""
+    if drone.state == LANDED and getattr(machine, "submerged", False):
+        return 0                                         # v0.4 M3.4: estação debaixo d'água não manda drone
     if drone.state == LANDED:
         drone.timer -= dt
         if drone.timer > 0:
