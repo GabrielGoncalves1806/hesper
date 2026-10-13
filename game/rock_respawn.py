@@ -58,7 +58,7 @@ def can_spawn(world, tx: int, ty: int, blocked=()) -> bool:
         return False
     if any(world.is_solid(tx + dx, ty + dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
         return False
-    return not world.is_water(tx, ty, 3)
+    return not world.is_water(tx, ty, C.GREEN_STAGE)
 
 
 def pick_kind(r: float) -> int:

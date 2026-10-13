@@ -42,7 +42,7 @@ Referência obrigatória: `reports/mockups/mockups.html` (abre no navegador).
 
 ### Paletas por estágio (hex)
 
-| Elemento | Morto (Ti < 10k) | Névoa (10k–100k) | Verde (≥ 100k) |
+| Elemento | Morto (Tempestade e Árido, Ti < 10k) | Névoa (10k–100k) | Verde (≥ 100k) |
 |---|---|---|---|
 | Chão | `#7b402c` `#743b29` `#814430` | `#6e5a4f` `#685448` `#75604f` | `#4d7a39` `#477235` `#548140` |
 | Rocha topo | `#4b3332` `#563a38` | `#4a4447` `#544d50` | `#4b4a45` `#55544e` |
@@ -128,13 +128,22 @@ Meta: ~25 min de jogo até o fim do MVP. **Os números são chute e vão ser aju
 - Logística: os drones da estação levam o minério das drills pros baús (§8, Marco 3).
 
 ### Estágios de terraformação
+v0.4 Marco 1: são **4** estágios (`config.STAGES`, chaves `storm`, `arid`, `mist`, `green`). A Tempestade e o Árido usam a arte do Morto (`config.STAGE_ART`: sprites `*_dead_*` e `PALETTES["dead"]`).
+
 | Estágio | Ti | O que muda |
 |---|---|---|
-| 1 · Morto | 0 | paleta vermelha, poeira |
-| 2 · Névoa | 10.000 | paleta fria, poças em tiles baixos, névoa, chuva fina, receitas nv.2 |
-| 3 · Primeiro verde | 100.000 | grama, musgo, lagos, plantas · mensagem de fim do MVP |
+| 1 · Tempestade | 0 | paleta vermelha + tempestade de poeira (visão curta, rajadas, O₂ mais rápido fora da base) · jogo novo começa aqui |
+| 2 · Árido ("céu limpo") | 6.500 | a tempestade some em 20 s (`STORM_FADE_S`): a poeira afina e as rajadas param · mesma arte, sem água |
+| 3 · Névoa | 10.000 | paleta fria, poças em tiles baixos, névoa, chuva fina, receitas nv.2 |
+| 4 · Primeiro verde | 100.000 | grama, musgo, lagos, plantas · mensagem de fim do MVP |
 
-A transição de estágio tem um aviso na tela ("ESTÁGIO 2 · PRIMEIRAS CHUVAS").
+- O Ti do Árido saiu do simulador: com o chute de 2.500 o casual chegava em ~5 min; com **6.500** chega em 8m15s–8m24s (meta: 8 a 12 min). O tempo total da partida não mudou (casual 38–44 min).
+- `state.storm` (1,0 cheia, 0,0 sem) é a intensidade da tempestade. Começa em 1,0; passou do estágio Tempestade, desce linear até 0 em 20 s de jogo (também na caverna) e vai pro save. `storm_level(state)` dá 0 na caverna (a poeira não entra lá).
+- Objetivo "Limpe o céu (Árido)" logo antes de "Chegue ao estágio Névoa".
+- Ambiente: Tempestade toca `amb_storm` (se existir; senão `amb_dead`), Árido toca `amb_dead`.
+- Save do v0.3 (v6 sem `progress.stage_scheme`): o número do estágio sobe 1 (Morto 1 → Árido 2, Névoa 2 → 3, Verde 3 → 4) e carrega com `storm = 0`. O formato continua v6 até o Marco 2.
+
+A transição de estágio tem um aviso na tela ("ESTÁGIO 2 · CÉU LIMPO", "ESTÁGIO 3 · PRIMEIRAS CHUVAS").
 
 ### Fora do MVP, de propósito
 Energia, comida, inimigos, combate, save/load, escuridão, superfície × subsolo, música.
@@ -197,7 +206,7 @@ WAV, 44,1 kHz, 16-bit, mono. Loops precisam emendar sem estalo.
 | `drill_loop.wav` | loop | perto de uma drill trabalhando (volume pela distância). Some quando ela enche |
 | `drill_collect.wav` | sfx | coletou o conteúdo de uma drill |
 | `drill_full.wav` | sfx | discreto, quando o jogador chega perto de uma drill cheia |
-| `amb_dead.wav` `amb_mist.wav` `amb_green.wav` | loop 20–40 s | ambiente de cada estágio |
+| `amb_dead.wav` `amb_mist.wav` `amb_green.wav` | loop 20–40 s | ambiente de cada estágio (`amb_dead` no Árido, e na Tempestade quando não tem `amb_storm`) |
 
 ## 7. Organização da equipe
 
@@ -363,7 +372,7 @@ Design completo e aprovado: `docs/superpowers/specs/2026-10-12-v03-superficie-de
 - **Objetivo "Leia um terminal"**: só aparece quando existe uma camada com terminal (no Marco 1 os terminais estão na caverna, que ainda não abre).
 - **Vento do deserto** (`desert_wind.wav`): volume 0,45 por cima do ambiente, canal próprio, sobe em 2,5 s e desce em 1,5 s; some na caverna e no desmaio.
 - **Save v6** por camada. Save v1–v5: a tela de título mostra "Save de uma versão antiga · comece um novo jogo" com Continuar apagado; ao começar um jogo novo, o arquivo antigo é guardado como `saves/slot1.v5.json` (não é apagado).
-- **Água**: poça em chão baixo (noise), sem colisão, a partir da Névoa. Desenhada com autotile A2 (cantos redondos, margem, brilho). A geração é suavizada: água ligada só pela quina some; gota de 1 tile só fica se nem nas diagonais tem água (olhando o estágio 3, então a água da Névoa está sempre dentro da do Verde).
+- **Água**: poça em chão baixo (noise), sem colisão, a partir da Névoa. Desenhada com autotile A2 (cantos redondos, margem, brilho). A geração é suavizada: água ligada só pela quina some; gota de 1 tile só fica se nem nas diagonais tem água (olhando o estágio Verde, então a água da Névoa está sempre dentro da do Verde).
 - **Transição de estágio**: a frente da mancha vai até ~152 tiles (o canto do deserto fica a ~136 da base).
 - **Duração** (simulador, só superfície): 28–42 min nos números atuais, contra 23–30 min no v0.2. Quase todo o tempo a mais é andando; a caverna (Marco 2) é que traz minério em volume. *(Rochas reaparecendo no lugar dos soltos, média de 5 seeds na proposta: guloso 39,4 -> 38,2 min, variado 39,7 -> 36,4, casual 52,2 -> 48,3; caverna e destroços só mudam no ruído.)*
 

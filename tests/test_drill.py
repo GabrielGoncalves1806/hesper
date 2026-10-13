@@ -61,7 +61,7 @@ def test_vein_is_floor_not_minable_no_water_no_plants(world):
         for x, y in v.tiles:
             assert world.vein_at(x, y) is v
             assert not world.is_solid(x, y) and not world.is_minable(x, y)
-            assert not world.is_water(x, y, 3)
+            assert not world.is_water(x, y, C.GREEN_STAGE)
             assert world.plant_at(x, y) is None
 
 

@@ -694,9 +694,13 @@ def ti_in_window(stage: int, window_fraction: float) -> float:
 
 
 def check_transition(bot, stage: int, shots: list[tuple[str, float]]) -> None:
-    """Prints da mancha do próximo estágio se espalhando a partir da base e das máquinas."""
+    """Prints da mancha do próximo estágio se espalhando a partir da base e das máquinas.
+    O estágio oficial fica em `stage` durante os prints (sem banner nem tempestade) e volta no fim."""
     s = bot.state
     before = dict(s.indices)
+    stage_before, storm_before = s.stage, s.storm
+    s.stage = stage                              # sem stage_up: o banner não aparece nos prints
+    s.storm = 1.0 if stage <= C.STORM_STAGE else 0.0
     bot.teleport((96, 98))
     s.o2 = C.O2_MAX
     for name, fraction in shots:
@@ -705,7 +709,25 @@ def check_transition(bot, stage: int, shots: list[tuple[str, float]]) -> None:
         assert s.stage == stage, "a transição não pode trocar o estágio oficial antes do limiar"
         bot.shot(name)
     s.indices.update(before)
+    s.stage, s.storm = stage_before, storm_before
     bot.frames(DT)
+
+
+def check_arid(bot) -> None:
+    """Tempestade -> Árido: o Ti bate o limiar do Árido, aparece o banner "ESTÁGIO 2 · CÉU LIMPO" e a
+    tempestade some em STORM_FADE_S (prints: banner_arido, arido)."""
+    s, app = bot.state, bot.app
+    assert s.stage == C.STORM_STAGE and s.storm == 1.0
+    bot.teleport((96, 98))
+    s.o2 = C.O2_MAX
+    s.indices["o2"] += C.STAGES[C.ARID_STAGE - 1].ti - s.ti
+    bot.frames(0.8)
+    assert s.stage == C.ARID_STAGE and app.banner_stage == C.ARID_STAGE
+    assert 0.9 < s.storm < 1.0, s.storm               # começou a baixar
+    bot.shot("banner_arido.png")
+    bot.frames(C.STORM_FADE_S)
+    assert s.storm == 0.0
+    bot.shot("arido.png")
 
 
 def check_veins(bot) -> None:
@@ -741,7 +763,7 @@ def check_drill_feature(bot) -> None:
     """Névoa: fabrica a drill (tecla 7), fantasma gruda no veio, extrai, enche, abre o painel (E), liga o
     Envia, tira 1 e coleta o resto com Shift+E. Prints: drill_*, logistica_drill."""
     s, app = bot.state, bot.app
-    assert s.stage >= 2 and s.recipe_status("drill") != "locked"
+    assert s.stage >= C.MIST_STAGE and s.recipe_status("drill") != "locked"
     give(s, iron=60, silicon=40)
     bot.teleport((96, 97))
     bot.frames(0.1)
@@ -2402,6 +2424,7 @@ def main() -> None:
     bot.key(pygame.K_d, hold=0.6)       # anda um pouco pra direita
     bot.key(pygame.K_s, hold=0.3)
     bot.frames(0.5)
+    assert s.stage == C.STORM_STAGE and s.storm == 1.0, "jogo novo começa na tempestade"
     bot.shot("stage1.png")
     check_surface(bot)
     check_cave(bot)
@@ -2460,7 +2483,9 @@ def main() -> None:
     check_dismantle(bot)
     check_inventory_and_chest(bot)
     check_energy(bot)
-    check_transition(bot, 1, [("transicao_25.png", 0.25), ("transicao_60.png", 0.60), ("transicao_90.png", 0.90)])
+    # Árido -> Névoa (Tempestade -> Árido tem a mesma arte: quem muda é a poeira, trilha C)
+    check_transition(bot, C.ARID_STAGE, [("transicao_25.png", 0.25), ("transicao_60.png", 0.60),
+                                         ("transicao_90.png", 0.90)])
 
     print("4) terminal (na caverna; o check_cave já testou a rampa de verdade)")
     s.enter_layer("cave")
@@ -2489,13 +2514,14 @@ def main() -> None:
     bot.frames(0.5)
 
     print("6) estágios")
+    check_arid(bot)
     bot.key(pygame.K_F2)
     bot.frames(1.0)
-    assert s.stage == 2
-    s.indices["o2"] += 12_914 - s.ti          # exemplo do dono: Ti 12.914 = ~3% do estágio 2
+    assert s.stage == C.MIST_STAGE
+    s.indices["o2"] += 12_914 - s.ti          # exemplo do dono: Ti 12.914 = ~3% da Névoa
     bot.key(pygame.K_d, hold=0.5)
     bot.shot("stage2.png")
-    check_water(bot, 2)
+    check_water(bot, C.MIST_STAGE)
     give(s, iron=40, silicon=30, ice=20)
     bot.key(pygame.K_e)
     bot.frames(0.2)
@@ -2507,11 +2533,11 @@ def main() -> None:
     check_logistics(bot)
     check_polish(bot)
     check_final_polish(bot)
-    check_transition(bot, 2, [("transicao_verde_60.png", 0.60)])
+    check_transition(bot, C.MIST_STAGE, [("transicao_verde_60.png", 0.60)])
     for _ in range(9):
         bot.key(pygame.K_F2)
     bot.frames(1.0)
-    assert s.stage == 3
+    assert s.stage == C.GREEN_STAGE
     bot.shot("stage3.png")
     bot.frames(5.0)
     assert bot.app.mode == "end"
@@ -2520,7 +2546,7 @@ def main() -> None:
     bot.key(pygame.K_a, hold=1.0)
     bot.frames(1.0)
     bot.shot("stage3_explorando.png")
-    check_water(bot, 3)
+    check_water(bot, C.GREEN_STAGE)
 
     print("7) tamanho da interface")
     check_ui_size(bot)

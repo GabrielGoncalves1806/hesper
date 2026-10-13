@@ -68,7 +68,8 @@ def test_normal_sequence_walks_every_objective(game):
     craft_free(game, "heater"); step()
     craft_free(game, "solar"); step()
     game.read_terminal(0); step()               # terminal da caverna
-    game.debug_add_ti(); step()                 # Ti 10.500 -> Névoa
+    game.indices["o2"] = C.STAGES[C.ARID_STAGE - 1].ti; game._check_stage(); step()   # -> Árido
+    game.debug_add_ti(); step()                 # -> Névoa
     vein = game.world.veins[0]                  # drill de verdade num veio de verdade
     game.player.x, game.player.y = (vein.tx + 0.5) * C.TILE, (vein.ty + 3) * C.TILE - 4
     craft_free(game, "drill")
@@ -100,6 +101,7 @@ def test_normal_sequence_walks_every_objective(game):
         "Fabrique um Aquecedor",
         "Fabrique um painel solar",
         "Leia um terminal",
+        "Limpe o céu (Árido)",
         "Chegue ao estágio Névoa",
         "Coloque uma drill num veio",
         "Colete minério de uma drill",
@@ -246,7 +248,7 @@ def test_terminal_objective_needs_reading_one(game):
     game.indices["o2"] = 500
     assert current_text(game) == "Leia um terminal"
     game.read_terminal(0)
-    assert current_text(game) == "Chegue ao estágio Névoa"
+    assert current_text(game) == "Limpe o céu (Árido)"
 
 
 def test_small_rocks_count_as_mined(game):

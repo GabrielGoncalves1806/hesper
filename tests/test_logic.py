@@ -259,22 +259,30 @@ def test_f3_fast_mode_doubles_walk_and_mines_5x_faster(game):
 
 
 def test_stage_thresholds():
-    assert stage_for_ti(0) == 1
-    assert stage_for_ti(9_999) == 1
-    assert stage_for_ti(10_000) == 2
-    assert stage_for_ti(99_999) == 2
-    assert stage_for_ti(100_000) == 3
+    arid = C.STAGES[C.ARID_STAGE - 1].ti
+    assert stage_for_ti(0) == C.STORM_STAGE == 1
+    assert stage_for_ti(arid - 1) == 1
+    assert stage_for_ti(arid) == C.ARID_STAGE == 2
+    assert stage_for_ti(9_999) == 2
+    assert stage_for_ti(10_000) == C.MIST_STAGE == 3
+    assert stage_for_ti(99_999) == 3
+    assert stage_for_ti(100_000) == C.GREEN_STAGE == 4
 
 
 def test_stage_changes_and_emits_event(game):
-    game.debug_add_ti()
+    game.indices["o2"] = C.STAGES[C.ARID_STAGE - 1].ti
+    game._check_stage()
     assert game.stage == 2
     assert ("stage_up", 2) in game.pop_events()
+    game.indices["o2"] = 0
+    game.debug_add_ti()
+    assert game.stage == 3
+    assert ("stage_up", 3) in game.pop_events()
     for _ in range(9):
         game.debug_add_ti()
     assert game.ti == pytest.approx(100_000)
-    assert game.stage == 3
-    assert ("stage_up", 3) in game.pop_events()
+    assert game.stage == 4
+    assert ("stage_up", 4) in game.pop_events()
 
 
 # ---------------------------------------------------------------- player e terminais
@@ -317,12 +325,13 @@ def test_no_water_in_stage1_but_water_later():
     (A água da superfície de verdade é testada em tests/test_water.py.)"""
     w = World.generate()
     tiles = [(x, y) for y in range(128) for x in range(128)]
-    assert not any(w.is_water(x, y, 3) for x, y in tiles)       # caverna: rocha fria, sem poça
+    assert not any(w.is_water(x, y, 4) for x, y in tiles)       # caverna: rocha fria, sem poça
     w.terraforms = True
-    assert not any(w.is_water(x, y, 1) for x, y in tiles)       # Morto: nenhuma poça
-    stage2 = {t for t in tiles if w.is_water(*t, 2)}
-    stage3 = {t for t in tiles if w.is_water(*t, 3)}
-    assert stage2 and stage2 <= stage3                         # Névoa tem poças; Verde mantém e cresce
+    assert not any(w.is_water(x, y, 1) for x, y in tiles)       # Tempestade: nenhuma poça
+    assert not any(w.is_water(x, y, 2) for x, y in tiles)       # Árido: nenhuma poça
+    mist = {t for t in tiles if w.is_water(*t, 3)}
+    green = {t for t in tiles if w.is_water(*t, 4)}
+    assert mist and mist <= green                              # Névoa tem poças; Verde mantém e cresce
 
 
 # ---------------------------------------------------------------- desmontar

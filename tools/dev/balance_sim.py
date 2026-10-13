@@ -111,7 +111,7 @@ def patched_config(overrides: dict | None):
       {"PLAYER_SPEED": 140, "O2_DRAIN": 1.0, ...}                  escalares do config
       {"MINE_TIME": {"IRON": 0.8}}                                  por nome de tile
       {"MACHINES": {"o2": {"rate": 5, "cost": {"iron": 8}}}}        campos do MachineType
-      {"STAGES": {"mist": 8000, "green": 60000}}                    Ti de cada estágio
+      {"STAGES": {"arid": 6500, "mist": 8000, "green": 60000}}      Ti de cada estágio
     `cost` substitui a receita inteira. O código do jogo lê `C.<nome>` na hora do uso, então trocar o atributo
     do módulo basta.
     """
@@ -1071,7 +1071,7 @@ def without_t2(overrides):
     """Mesmos overrides, mas com as receitas da última tier trancadas (nunca liberam)."""
     ov = copy.deepcopy(overrides or {})
     with patched_config(ov):
-        t2 = [k for k, m in C.MACHINES.items() if m.unlock_ti >= C.STAGES[1].ti and m.index is not None]
+        t2 = [k for k, m in C.MACHINES.items() if m.unlock_ti >= C.STAGES[C.MIST_STAGE - 1].ti and m.index is not None]
     machines = ov.setdefault("MACHINES", {})
     for k in t2:
         machines.setdefault(k, {})["unlock_ti"] = 10**12

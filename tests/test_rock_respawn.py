@@ -64,7 +64,7 @@ def test_only_on_free_sand(world):
     pristine = generate_surface()
     for tx, ty in born:
         assert pristine.get(tx, ty) == C.SAND and pristine.vein_at(tx, ty) is None
-        assert not pristine.is_water(tx, ty, 3)                       # nunca num lago futuro
+        assert not pristine.is_water(tx, ty, C.GREEN_STAGE)                       # nunca num lago futuro
         assert (tx, ty) not in blocked                                # destroço, veio, cratera
         assert not any(pristine.is_solid(tx + dx, ty + dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1))
 

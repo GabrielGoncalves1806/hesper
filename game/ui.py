@@ -782,7 +782,7 @@ class UI:
         # ---- próximo estágio
         self.fill(B_LINE, (px + 6, y + 62, w - 12, 1))
         if nxt is None:
-            done = C.STAGE_COLOR[3]
+            done = C.STAGE_COLOR[C.GREEN_STAGE]
             label_w = self.tx("PLANETA VERDE", px + 6, y + 61, done)
             self.draw_check(px + 6 + label_w + 5, y + 65, done)   # a fonte não tem "✓": desenhamos um
             return
@@ -1998,8 +1998,8 @@ class UI:
         w, h = 340, 190
         x, y = (self.w - w) // 2, (self.h - h) // 2          # no centro (no Grande: 70, 40)
         self.card(x, y, w, h, B_WINDOW, B_LINE)
-        self.fill(C.STAGE_COLOR[3], (x + 2, y + 1, w - 4, 1))
-        self.tx("FIM DO MVP", self.w / 2, y + 10, C.STAGE_COLOR[3], self.font_big, "center")
+        self.fill(C.STAGE_COLOR[C.GREEN_STAGE], (x + 2, y + 1, w - 4, 1))
+        self.tx("FIM DO MVP", self.w / 2, y + 10, C.STAGE_COLOR[C.GREEN_STAGE], self.font_big, "center")
         body = ("O primeiro verde brotou na cratera. A Colônia Hesper tentou e sumiu; "
                 "tu chegou até aqui. O que tem dentro do gelo fica pra próxima.")
         for i, line in enumerate(wrap(self.body, body, w - 40)):

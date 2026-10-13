@@ -32,6 +32,7 @@ def rich_state() -> GameState:
     # progresso: Ti alto (Névoa), objetivos avançados, terminal lido
     state.debug_add_ti(12_345)
     state.indices["heat"] += 0.375
+    state.storm = 0.375                       # tempestade no meio da passagem: tem que voltar igual
     state.smoothed_rate = 51.5
     state.play_time = 1234.5
     state.mined_total.update(iron=37, silicon=12, ice=8)
@@ -94,7 +95,7 @@ def snapshot(state: GameState) -> dict:
         "inventory": state.inventory.to_data(), "crafted": dict(state.crafted),
         "machines": [(m.kind, m.tx, m.ty, m.rotation, m.resource, m.stored, m.timer,
                       m.storage.to_data() if m.storage else None) for m in state.all_machines],
-        "indices": dict(state.indices), "stage": state.stage, "ti": state.ti,
+        "indices": dict(state.indices), "stage": state.stage, "storm": state.storm, "ti": state.ti,
         "smoothed_rate": state.smoothed_rate, "play_time": state.play_time,
         "mined_total": dict(state.mined_total), "fabricator_opened": state.fabricator_opened,
         "drills_placed": state.drills_placed, "drill_collected": dict(state.drill_collected),
@@ -119,7 +120,7 @@ def test_roundtrip_keeps_everything(tmp_path):
         assert after[key] == before[key], key
     # o que os objetivos enxergam também bate
     assert current_index(loaded) == current_index(state)
-    assert loaded.stage == 2 and loaded.drills[0].stored == 7
+    assert loaded.stage == C.MIST_STAGE and loaded.drills[0].stored == 7
 
 
 def test_loaded_game_keeps_running(tmp_path):

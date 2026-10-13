@@ -9,11 +9,18 @@ from game.systems import Controls, GameState, eta_label, format_eta, smooth_rate
 from tests.helpers import give
 
 
-def test_progress_stage1_goes_from_0_to_10k():
+def test_progress_stage1_goes_from_0_to_arid():
+    arid = C.STAGES[1].ti
     nxt, frac, left = stage_progress(0)
-    assert nxt.name == "NÉVOA" and frac == 0 and left == 10_000
-    nxt, frac, left = stage_progress(2_500)
-    assert frac == pytest.approx(0.25) and left == 7_500
+    assert nxt.name == "ÁRIDO" and frac == 0 and left == arid
+    nxt, frac, left = stage_progress(arid / 4)
+    assert frac == pytest.approx(0.25) and left == pytest.approx(arid * 3 / 4)
+
+
+def test_progress_arid_goes_to_10k():
+    arid = C.STAGES[1].ti
+    nxt, frac, left = stage_progress(arid)
+    assert nxt.name == "NÉVOA" and frac == 0 and left == 10_000 - arid
 
 
 def test_progress_is_relative_to_current_stage():

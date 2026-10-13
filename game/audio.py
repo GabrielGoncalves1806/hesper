@@ -44,10 +44,15 @@ WIND_FADE_IN, WIND_FADE_OUT = 2.5, 1.5   # s: vento sobe devagar ao sair pra sup
 
 
 # ---------------------------------------------------------------- regras puras (testáveis)
-def ambient_for(layer: str, stage_key: str, has_cave: bool) -> str:
+def ambient_for(layer: str, stage_key: str, has_cave: bool, has_storm: bool = False) -> str:
     """Qual ambiente toca: na caverna o amb_cave (se o arquivo existir; senão fica o do estágio), na
-    superfície o amb_{estágio}. Mudar de estágio lá embaixo não troca o ambiente: o novo entra ao subir."""
-    return "cave" if layer == "cave" and has_cave else stage_key
+    superfície o amb_{arte do estágio}. Mudar de estágio lá embaixo não troca o ambiente: o novo entra ao subir.
+    Tempestade: amb_storm se o arquivo existir, senão amb_dead. Árido: amb_dead (mesma arte do Morto)."""
+    if layer == "cave" and has_cave:
+        return "cave"
+    if stage_key == "storm" and has_storm:
+        return "storm"
+    return C.STAGE_ART.get(stage_key, stage_key)
 
 
 def alarm_should_play(currently_on: bool, o2: float) -> bool:

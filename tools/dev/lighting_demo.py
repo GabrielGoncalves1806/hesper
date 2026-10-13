@@ -26,7 +26,7 @@ from game import config as C  # noqa: E402
 from game import viewport  # noqa: E402
 from game.assets import Sprites  # noqa: E402
 from game.lighting import Lighting, helmet_lamp, lamp, ore_glints  # noqa: E402
-from game.render import Renderer, stage_key  # noqa: E402
+from game.render import Renderer, art_key  # noqa: E402
 from game.systems import GameState  # noqa: E402
 
 T = C.TILE
@@ -105,7 +105,7 @@ def render_scene(zoom, banding, light=True):
     cam = (int(mid[0] - vw / 2), int(mid[1] - vh / 2))
     cam = (min(cam[0], int(p.x - 3 * T)), cam[1])          # player nunca cola na borda
     cam = (max(cam[0], int(p.x + 3 * T - vw)), cam[1])
-    stage = stage_key(state.stage)
+    stage = art_key(state.stage)
     t = 1.3
     renderer.draw_floors(view, state, cam, stage, t)
     renderer.draw_veins(view, state, cam)

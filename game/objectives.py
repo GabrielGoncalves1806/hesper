@@ -72,7 +72,9 @@ OBJECTIVES = [
     Objective("Fabrique um painel solar", lambda s: crafted(s, "solar") >= 1),
     # v0.3: os terminais ficam na caverna (a 19, 31 e 45 tiles da rampa)
     Objective("Leia um terminal", lambda s: len(s.logs_read) >= 1),
-    Objective("Chegue ao estágio Névoa", lambda s: s.stage >= 2),
+    # v0.4 Marco 1: o jogo começa na tempestade de poeira; o Árido é o céu limpando
+    Objective("Limpe o céu (Árido)", lambda s: s.stage >= C.ARID_STAGE),
+    Objective("Chegue ao estágio Névoa", lambda s: s.stage >= C.MIST_STAGE),
     Objective("Coloque uma drill num veio", lambda s: s.drills_placed >= 1),
     Objective("Colete minério de uma drill", lambda s: sum(s.drill_collected.values()) >= 1),
     # drones (bíblia §8, Marco 3): a estação busca o minério das drills sozinha
@@ -82,7 +84,7 @@ OBJECTIVES = [
     Objective("Coloque o drone na estação [E]", lambda s: s.drones_docked >= 1),
     Objective("Receba uma entrega de drone", lambda s: s.drone_deliveries >= 1),
     Objective("Fabrique uma máquina nv.2", lambda s: any(crafted(s, k) >= 1 for k in ("o2_t2", "melter_t2", "heater_t2"))),
-    Objective("Deixe o planeta verde", lambda s: s.stage >= 3),
+    Objective("Deixe o planeta verde", lambda s: s.stage >= C.GREEN_STAGE),
 ]
 
 

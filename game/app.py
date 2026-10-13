@@ -43,7 +43,7 @@ from game.fabricator import FabMenu, field_menu
 from game.inventory import Stack
 from game.map_view import MapView
 from game.objectives import ObjectiveTracker
-from game.render import Renderer, stage_key
+from game.render import Renderer, art_key, stage_key
 from game.surfaces import opaque
 from game.systems import Controls, GameState
 from game.textedit import TextField
@@ -1284,7 +1284,7 @@ class App:
         elif kind == "break":
             _, tile, tile_kind = event
             resource = C.TILE_RESOURCE.get(tile_kind)
-            color = C.ORE_COLORS[resource][0] if resource else C.PALETTES[stage_key(self.state.stage)]["rock_hi"]
+            color = C.ORE_COLORS[resource][0] if resource else C.PALETTES[art_key(self.state.stage)]["rock_hi"]
             self.renderer.spawn_chips(tile, color, 12)
             self.audio.play("mine_break")
             self.renderer.minimap.repaint(self.state, tile)      # o mapa do scanner acompanha a mineração
@@ -1363,7 +1363,7 @@ class App:
             self.banner_stage = event[1]
             self.banner_time = 0.0
             self.audio.stage_up(self.ambient_want(event[1]))   # na caverna o ambiente não troca lá embaixo
-            if event[1] == 3:
+            if event[1] == C.GREEN_STAGE:      # fim do jogo
                 self.end_timer = END_SCREEN_DELAY
 
     def update_ambient_sounds(self, dt: float) -> None:
@@ -1408,7 +1408,7 @@ class App:
     def ambient_want(self, stage: int | None = None) -> str:
         """Ambiente que deveria tocar agora (game/audio.ambient_for)."""
         key = stage_key(stage or self.state.stage)
-        return sound.ambient_for(self.ambient_layer(), key, self.audio.has("amb_cave"))
+        return sound.ambient_for(self.ambient_layer(), key, self.audio.has("amb_cave"), self.audio.has("amb_storm"))
 
     def update_drills_feedback(self, dt: float) -> None:
         """Som e poeira das drills: loop pelas 2 trabalhando mais perto, aviso de cheia, poeirinha na base."""

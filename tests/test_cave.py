@@ -26,7 +26,7 @@ def test_cave_has_ramp_up_in_the_open_hall():
 def test_cave_never_terraforms():
     tiles = [(x, y) for y in range(128) for x in range(128)]
     assert not W.terraforms
-    assert not any(W.is_water(x, y, 3) for x, y in tiles)
+    assert not any(W.is_water(x, y, C.GREEN_STAGE) for x, y in tiles)
     assert not any(W.plant_at(x, y) for x, y in tiles)
 
 

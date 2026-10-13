@@ -70,10 +70,16 @@ def build_draw_list(world, objects, tx0: int, tx1: int, ty0: int, ty1: int) -> l
 
 
 def stage_key(stage: int) -> str:
+    """Chave do estágio `stage` (1 a 4): "storm", "arid", "mist" ou "green"."""
     return C.STAGES[stage - 1].key
 
 
-CAVE_STAGE = 2                     # a caverna é desenhada sempre com a arte do estágio névoa (rocha fria)
+def art_key(stage: int) -> str:
+    """Arte (sprites e paleta) do estágio `stage`: "dead", "mist" ou "green". Tempestade e Árido usam a do Morto."""
+    return C.STAGE_ART[stage_key(stage)]
+
+
+CAVE_STAGE = C.MIST_STAGE          # a caverna é desenhada sempre com a arte do estágio névoa (rocha fria)
 RAMP_LIGHT = (255, 240, 214)       # luz do dia caindo pela boca da rampa de subida (cor da Designer, v5.0)
 TERMINAL_LIGHT = (111, 227, 160)
 MACHINE_LIGHT = {"o2": (89, 208, 230), "heater": (255, 138, 61), "melter": (159, 230, 255),
@@ -240,10 +246,10 @@ class Renderer:
         cave = not state.active.has_base
         if cave:                                         # rocha fria: sempre névoa, sem transição
             self.stage_map = self.cave_map
-            stage = stage_key(CAVE_STAGE)
+            stage = art_key(CAVE_STAGE)
         else:
             self.stage_map = self.surface_map
-            stage = stage_key(state.stage)
+            stage = art_key(state.stage)
             self.stage_map.update(state.ti, [BASE_SOURCE, *state.transition_sources])
         self.draw_floors(canvas, state, cam, stage, t)
         self.draw_veins(canvas, state, cam)
@@ -295,10 +301,10 @@ class Renderer:
                     canvas.fill(backstop, (sx, sy, T, T))   # fundo escuro (só aparece na borda do mapa)
                 else:
                     num = self.stage_map.stage_at(tx, ty)   # pode estar "à frente" no meio da transição
-                    self._draw_floor(canvas, world, tx, ty, sx, sy, stage_key(num), num, t)
+                    self._draw_floor(canvas, world, tx, ty, sx, sy, art_key(num), num, t)
 
     def draw_veins(self, canvas, state: GameState, cam) -> None:
-        """Veios 2×2: overlay do chão (vale pros 3 estágios), antes das paredes e dos objetos."""
+        """Veios 2×2: overlay do chão (vale pra todos os estágios), antes das paredes e dos objetos."""
         for v in state.world.veins:
             sx, sy = v.tx * T - cam[0], v.ty * T - cam[1]
             if -64 < sx < self.view_w and -64 < sy < self.view_h:
@@ -313,7 +319,7 @@ class Renderer:
         for item in build_draw_list(state.world, objects, tx0, tx1, ty0, ty1 + 1):
             if item[0] == "wall":
                 _, tx, ty = item
-                tile_stage = stage_key(self.stage_map.stage_at(tx, ty))
+                tile_stage = art_key(self.stage_map.stage_at(tx, ty))
                 self._draw_wall(canvas, state.world, tx, ty, tx * T - cam[0], ty * T - cam[1], tile_stage)
             else:
                 item[1]()
@@ -457,11 +463,13 @@ class Renderer:
         """Fronteira da mancha de transição: se o vizinho (do mesmo tipo: chão com chão, parede com
         parede) está em outro estágio, a versão daquele estágio entra pontilhada pela borda deste tile
         (50% na borda, sumindo até o meio). Como os dois lados fazem isso, a troca de estágio vira uma
-        faixa de mistura em vez de um degrau de cor. `sprite(stage)` devolve (nome, desenho de fallback)."""
+        faixa de mistura em vez de um degrau de cor. `sprite(arte)` devolve (nome, desenho de fallback).
+        Estágios com a mesma arte (Tempestade e Árido) não têm fronteira."""
+        art = art_key(stage_num)
         for direction, (dx, dy) in (("left", (-1, 0)), ("right", (1, 0)), ("up", (0, -1)), ("down", (0, 1))):
             other = self.stage_map.stage_at(tx + dx, ty + dy)
-            if other != stage_num and world.is_wall(tx + dx, ty + dy) == solid:
-                canvas.blit(self._fringe(*sprite(stage_key(other)), direction), (x, y))
+            if other != stage_num and art_key(other) != art and world.is_wall(tx + dx, ty + dy) == solid:
+                canvas.blit(self._fringe(*sprite(art_key(other)), direction), (x, y))
 
     def _fringe(self, name: str, painter, direction: str) -> pygame.Surface:
         """O tile `name` recortado num pontilhado que encosta na borda `direction`."""
@@ -551,11 +559,11 @@ class Renderer:
                 if resource:
                     items.append(((ty + 1) * T, lambda tx=tx, ty=ty, r=resource: self.draw_small_rock(
                         canvas, tx * T - cam_x, ty * T - cam_y, r)))
-        if self.stage_map.next_stage >= 3:   # plantas nascem junto com a mancha verde
+        if self.stage_map.next_stage >= C.GREEN_STAGE:   # plantas nascem junto com a mancha verde
             for ty in range(ty0, ty0 + self.view_h // T + 3):
                 for tx in range(tx0, tx0 + self.view_w // T + 2):
                     kind = state.world.plant_at(tx, ty)
-                    if kind and self.stage_map.stage_at(tx, ty) >= 3 and not state.machine_at((tx, ty)):
+                    if kind and self.stage_map.stage_at(tx, ty) >= C.GREEN_STAGE and not state.machine_at((tx, ty)):
                         px, py = tx * T + T // 2, (ty + 1) * T
                         surf = self.surface(f"plant_{kind}", lambda k=kind: art.plant(k))[0]
                         items.append((py, lambda s=surf, px=px, py=py: canvas.blit(
@@ -1101,9 +1109,10 @@ class Renderer:
             canvas.blit(self.light_glow(gr, rgb, a), (round(x - gr), round(y - gr)), special_flags=pygame.BLEND_RGB_ADD)
 
     def transition_fade(self) -> float:
-        """Quanto (0 a 1) o clima e a luz do próximo estágio já entraram. 0 = sem transição."""
+        """Quanto (0 a 1) o clima e a luz do próximo estágio já entraram. 0 = sem transição (ou o próximo
+        estágio tem a mesma arte, como Tempestade → Árido: aí quem cuida da passagem é o `state.storm`)."""
         m = self.stage_map
-        return m.progress if m.next_stage > m.stage else 0.0
+        return m.progress if m.next_stage > m.stage and art_key(m.next_stage) != art_key(m.stage) else 0.0
 
     def ambient_color(self, stage: str) -> tuple[int, int, int, int]:
         """Escuro ambiente do estágio, misturado com o do próximo durante a transição."""
@@ -1111,7 +1120,7 @@ class Renderer:
         fade = self.transition_fade()
         if fade <= 0:
             return color
-        target = C.PALETTES[stage_key(self.stage_map.next_stage)]["ambient"]
+        target = C.PALETTES[art_key(self.stage_map.next_stage)]["ambient"]
         return tuple(round(a + (b - a) * fade) for a, b in zip(color, target))
 
     def _faded(self, name: str, surf: pygame.Surface, amount: float) -> pygame.Surface:
@@ -1138,7 +1147,7 @@ class Renderer:
         fade = self.transition_fade()
         self._draw_weather(canvas, stage, t, 1.0 - fade)
         if fade > 0:
-            self._draw_weather(canvas, stage_key(self.stage_map.next_stage), t, fade)
+            self._draw_weather(canvas, art_key(self.stage_map.next_stage), t, fade)
         canvas.blit(self.view_fx("vignette"), (0, 0))
 
     def _draw_weather(self, canvas, stage: str, t: float, amount: float = 1.0) -> None:

@@ -274,7 +274,7 @@ class World:
 
     def _low_wet(self, tx: int, ty: int, stage: int) -> bool:
         """Água "crua": chão baixo o bastante pro estágio (antes da suavização do is_water)."""
-        if stage < 2 or not self.terraforms or not (0 <= tx < self.width and 0 <= ty < self.height):
+        if stage < C.MIST_STAGE or not self.terraforms or not (0 <= tx < self.width and 0 <= ty < self.height):
             return False
         if self.lowness[ty][tx] >= C.WATER_THRESHOLD[stage]:   # o teste mais barato primeiro
             return False
@@ -287,8 +287,8 @@ class World:
 
         Suavização (pra não sair água em xadrez ou ligada só pela quina): um tile de água crua só fica
         se tem um vizinho de lado que também é água, OU se é uma gota sozinha (nenhuma água nem nas
-        diagonais). A checagem da gota olha o estágio 3, assim a água de um estágio está sempre dentro
-        da do estágio seguinte (as rochas que reaparecem e as plantas usam `is_water(..., 3)` como "lago futuro")."""
+        diagonais). A checagem da gota olha o último estágio (Verde), assim a água de um estágio está sempre dentro
+        da do estágio seguinte (as rochas que reaparecem e as plantas usam `is_water(..., C.GREEN_STAGE)` como "lago futuro")."""
         if not self._low_wet(tx, ty, stage):
             return False
         low = self._low_wet
@@ -299,9 +299,9 @@ class World:
                     or low(tx - 1, ty + 1, top) or low(tx + 1, ty + 1, top))
 
     def plant_at(self, tx: int, ty: int) -> str | None:
-        """Planta decorativa do estágio 3 (sem colisão). Retorna 'bush', 'tree', 'flower' ou None."""
+        """Planta decorativa do estágio Verde (sem colisão). Retorna 'bush', 'tree', 'flower' ou None."""
         if not self.terraforms or not self.is_floor(tx, ty) or self.dist_from_center(tx, ty) < 7 \
-                or self.is_water(tx, ty, 3):
+                or self.is_water(tx, ty, C.GREEN_STAGE):
             return None
         if (tx, ty) in self._vein_tiles:      # nem planta em cima de veio
             return None

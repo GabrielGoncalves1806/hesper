@@ -169,6 +169,12 @@ def clean_chest_name(text: str) -> str:
     return text or C.CHEST_DEFAULT_NAME
 
 
+def storm_level(state) -> float:
+    """Intensidade da tempestade que vale onde o player está: 0 na caverna (a poeira não entra lá),
+    senão o `state.storm` (1 = tempestade cheia, 0 = céu limpo)."""
+    return 0.0 if state.layer == CAVE else state.storm
+
+
 def stage_for_ti(ti: float) -> int:
     stage = 1
     for s in C.STAGES:
@@ -238,6 +244,9 @@ class GameState:
         self.indices = {"o2": 0.0, "heat": 0.0, "water": 0.0}
         self.o2 = C.O2_MAX
         self.stage = 1
+        # Tempestade de poeira (v0.4): 1.0 cheia, 0.0 sem. Passou do estágio Tempestade, desce até 0 em
+        # STORM_FADE_S (a poeira afina e as rajadas param). Quem lê usa `storm_level(state)` (0 na caverna).
+        self.storm = 1.0
         self.mining: Mining | None = None
         self.fainted = False
         self.faint_time = 0.0          # segundos desde o desmaio
@@ -421,6 +430,7 @@ class GameState:
             self._update_mining(dt, controls.mine_tile)
             self._update_o2(sim_dt)
         self._update_machines(sim_dt)
+        self._update_storm(dt)
         self._update_rocks(sim_dt)
         self._update_explore(dt)
         # taxa efetiva em segundos reais (com F1 ligado, as máquinas rendem 10×)
@@ -910,6 +920,17 @@ class GameState:
         if new_stage > self.stage:          # estágio nunca volta
             self.stage = new_stage
             self.events.append(("stage_up", new_stage))
+
+    def _update_storm(self, dt: float) -> None:
+        """A tempestade some linear em STORM_FADE_S segundos (de jogo) depois que o estágio passa dela."""
+        target = 1.0 if self.stage <= C.STORM_STAGE else 0.0
+        step = dt / C.STORM_FADE_S
+        if self.storm > target:
+            self.storm = max(target, self.storm - step)
+        elif self.storm < target:
+            self.storm = min(target, self.storm + step)
+        if abs(self.storm - target) < 1e-6:     # sem resto de float: quem lê pode testar storm == 0
+            self.storm = target
 
     # ---- rochas pequenas reaparecendo (game/rock_respawn.py) -----------------
     def _update_rocks(self, dt: float) -> list[tuple[int, int]]:

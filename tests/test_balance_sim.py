@@ -21,7 +21,7 @@ def proposal():
 def test_proposta_chega_no_fim_dentro_da_meta(proposal, strategy):
     r = sim.simulate(strategy, seed=1, overrides=proposal)
     assert r.finished
-    assert set(r.milestones) == {"Ti 500", "Névoa", "Verde"}
+    assert set(r.milestones) == {"Ti 500", "Árido", "Névoa", "Verde"}
     # meta do v0.2: ~25 min (20 a 35). v0.3 Marco 1: só a superfície (pouco minério de propósito, a
     # caverna vem no Marco 2), então a partida fica mais lenta: o casual da proposta passa de ~33 pra ~43 min.
     # Teto provisório de 50 min até o Marco 2/4 (referência do v0.3: 25–40 min).
@@ -63,7 +63,7 @@ def test_overrides_nao_vazam_pro_config(proposal):
     with sim.patched_config({**proposal, "PLAYER_SPEED": 999, "MINE_TIME": {"IRON": 9},
                              "STAGES": {"mist": 1, "green": 2}}):
         assert C.MACHINES["o2"].rate == proposal["MACHINES"]["o2"]["rate"]
-        assert C.PLAYER_SPEED == 999 and C.MINE_TIME[C.IRON] == 9 and C.STAGES[1].ti == 1
+        assert C.PLAYER_SPEED == 999 and C.MINE_TIME[C.IRON] == 9 and C.STAGES[2].ti == 1
     assert (dict(C.MACHINES), list(C.STAGES), dict(C.MINE_TIME), C.PLAYER_SPEED) == before
 
 

@@ -91,11 +91,11 @@ def test_hills_are_small_blobs():
 
 
 def test_water_and_plants_still_appear():
-    assert not any(W.is_water(x, y, 1) for x, y in ALL)
-    assert any(W.is_water(x, y, 2) for x, y in ALL)
+    assert not any(W.is_water(x, y, 1) or W.is_water(x, y, 2) for x, y in ALL)   # Tempestade e Árido: seco
+    assert any(W.is_water(x, y, 3) for x, y in ALL)
     assert any(W.plant_at(x, y) for x, y in ALL)
     for v in W.veins:
-        assert not any(W.is_water(x, y, 3) for x, y in v.tiles)
+        assert not any(W.is_water(x, y, 4) for x, y in v.tiles)
 
 
 def test_sand_variants_follow_the_designer_distribution():

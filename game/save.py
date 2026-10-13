@@ -68,6 +68,10 @@ from game.wrecks import crate_loot
 
 SAVE_VERSION = 6   # v6 (v0.3): camadas (superfície/caverna), rochas quebradas e reaparecidas · sem migração de antes
 FIRST_VERSION = 6  # saves com versão menor que essa são de outra época do jogo: "save antigo"
+# Numeração dos estágios dentro do "progress" (o formato do arquivo continua v6 até o Marco 2 do v0.4):
+#   1 = v0.3: Morto, Névoa, Verde (o campo não existia)
+#   2 = v0.4: Tempestade, Árido, Névoa, Verde
+STAGE_SCHEME = 2
 SAVE_PATH = C.ROOT_DIR / "saves" / "slot1.json"   # o smoke e os testes apontam pra outro lugar
 
 
@@ -257,6 +261,8 @@ def progress_to_dict(state: GameState) -> dict:
     return {
         "indices": dict(state.indices),
         "stage": state.stage,
+        "stage_scheme": STAGE_SCHEME,                   # numeração dos estágios (ver migrate_stage_scheme)
+        "storm": state.storm,                           # tempestade no meio da passagem pro Árido continua de onde parou
         "smoothed_rate": state.smoothed_rate,           # pra estimativa do HUD não zerar ao carregar
         "play_time": state.play_time,
         "mined_total": dict(state.mined_total),
@@ -282,6 +288,7 @@ def progress_from_dict(state: GameState, data: dict) -> None:
     for key in state.indices:
         state.indices[key] = float(data["indices"][key])
     state.stage = int(data["stage"])
+    state.storm = max(0.0, min(1.0, float(data.get("storm", 0.0))))
     state.smoothed_rate = float(data["smoothed_rate"])
     state.play_time = float(data["play_time"])
     for r in state.mined_total:
@@ -379,6 +386,17 @@ def migrate(data: dict) -> dict:
         data = MIGRATIONS[version](data)
         version += 1
         data["version"] = version
+    return migrate_stage_scheme(data)
+
+
+def migrate_stage_scheme(data: dict) -> dict:
+    """Save com os 3 estágios do v0.3 (sem `progress.stage_scheme`): quem já jogou passou da tempestade, então
+    o estágio sobe 1 (Morto 1 -> Árido 2, Névoa 2 -> 3, Verde 3 -> 4) e carrega com `storm = 0`."""
+    progress = data.get("progress")
+    if isinstance(progress, dict) and progress.get("stage_scheme", 1) < STAGE_SCHEME:
+        progress["stage"] = min(len(C.STAGES), int(progress["stage"]) + 1)
+        progress["storm"] = 0.0
+        progress["stage_scheme"] = STAGE_SCHEME
     return data
 
 

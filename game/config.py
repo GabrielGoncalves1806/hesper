@@ -232,24 +232,35 @@ PLACE_REACH = 4                  # alcance pra colocar máquina (tiles)
 @dataclass(frozen=True)
 class Stage:
     number: int
-    key: str            # usado nos nomes de sprite: floor_dead_0 etc.
+    key: str            # "storm", "arid", "mist", "green" (a arte sai do STAGE_ART: floor_dead_0 etc.)
     ti: int             # Ti mínimo
     title: str
     subtitle: str
     name: str           # nome curto, usado no HUD ("PRÓXIMO: NÉVOA")
 
 
+# v0.4 Marco 1: 4 estágios. A Tempestade é o começo do jogo; o Árido é o "céu limpo" com o chão de hoje.
+# O Ti do Árido sai do tools/dev/balance_sim.py (meta: chegar entre 8 e 12 min no casual). Com 2.500 o casual
+# chegava em ~5 min; com 6.500, em 8m15s–8m24s (seeds 1–3). Névoa e Verde ficaram iguais (o total não mudou).
 STAGES = [
-    Stage(1, "dead", 0, "ESTÁGIO 1 · MORTO", "Planeta sem ar. Por enquanto.", "MORTO"),
-    Stage(2, "mist", 10_000, "ESTÁGIO 2 · PRIMEIRAS CHUVAS", "Máquinas nv.2 liberadas", "NÉVOA"),
-    Stage(3, "green", 100_000, "ESTÁGIO 3 · PRIMEIRO VERDE", "Ti 100.000 · fim do MVP", "VERDE"),
+    Stage(1, "storm", 0, "ESTÁGIO 1 · TEMPESTADE", "Sobreviva e monte a base", "TEMPESTADE"),
+    Stage(2, "arid", 6_500, "ESTÁGIO 2 · CÉU LIMPO", "A poeira baixou", "ÁRIDO"),
+    Stage(3, "mist", 10_000, "ESTÁGIO 3 · PRIMEIRAS CHUVAS", "Máquinas nv.2 liberadas", "NÉVOA"),
+    Stage(4, "green", 100_000, "ESTÁGIO 4 · PRIMEIRO VERDE", "Ti 100.000 · fim do MVP", "VERDE"),
 ]
+STORM_STAGE = 1      # estágio da tempestade de poeira (passou dele, a tempestade some)
+ARID_STAGE = 2
+MIST_STAGE = 3       # a água e as máquinas nv.2 começam aqui
+GREEN_STAGE = 4      # plantas e fim do jogo
+STORM_FADE_S = 20.0  # s pra tempestade sumir depois de entrar no Árido (state.storm de 1.0 a 0.0)
+# Arte de cada estágio (sprites floor_{arte}_N, PALETTES[arte]...): a Tempestade e o Árido usam a do Morto.
+STAGE_ART = {"storm": "dead", "arid": "dead", "mist": "mist", "green": "green"}
 
 RATE_SMOOTHING = 3.0   # segundos da média móvel da taxa de Ti usada na estimativa "~50 min"
 
 # Água: quanto mais baixo o limiar, menos poças. Só aparece a partir da Névoa (§3).
-WATER_THRESHOLD = {1: 0.0, 2: 0.24, 3: 0.33}   # estágio 1 (Morto) não tem água nenhuma (§3)
-PLANT_CHANCE = 0.11   # estágio 3: chance de um tile de chão ter planta
+WATER_THRESHOLD = {1: 0.0, 2: 0.0, 3: 0.24, 4: 0.33}   # Tempestade e Árido não têm água nenhuma (§3)
+PLANT_CHANCE = 0.11   # estágio Verde: chance de um tile de chão ter planta
 
 # ---------------------------------------------------------------------------
 # Lore (§2)
@@ -352,7 +363,7 @@ C_HEAT = "#ff8a3d"
 C_WATER = "#6aa8ff"
 C_TERMINAL = "#6fe3a0"
 INDEX_COLOR = {"o2": C_O2, "heat": C_HEAT, "water": C_WATER}
-STAGE_COLOR = {1: C_ACCENT, 2: "#9fd2e6", 3: "#a6e07a"}
+STAGE_COLOR = {1: C_ACCENT, 2: "#e8b37a", 3: "#9fd2e6", 4: "#a6e07a"}
 
 # ---------------------------------------------------------------------------
 # Transição gradual de estágio (game/transition.py)

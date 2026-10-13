@@ -24,22 +24,23 @@ def converted(ti: float, sources=SOURCES) -> float:
 
 
 def test_window_starts_at_65_percent_of_the_bar():
-    assert window_progress(6_000) == (1, 0.0)
-    assert window_progress(6_500) == (1, 0.0)
-    stage, progress = window_progress(ti_at(1, 0.5))
-    assert stage == 1 and abs(progress - 0.5) < 1e-9
-    assert window_progress(250_000) == (3, 0.0)          # último estágio: não tem janela
+    assert window_progress(7_000) == (2, 0.0)            # Árido (2.500 -> 10.000): a janela abre em 7.375
+    assert window_progress(7_300) == (2, 0.0)
+    stage, progress = window_progress(ti_at(2, 0.5))
+    assert stage == 2 and abs(progress - 0.5) < 1e-9
+    assert window_progress(250_000) == (4, 0.0)          # último estágio: não tem janela
 
 
 def test_nothing_changes_before_the_window():
-    for ti in (0, 3_000, 6_499, 10_000, 50_000, 68_000):
+    for ti in (0, 3_000, 8_000, 10_000, 50_000, 68_000):   # janelas: 4.225, 8.775 e 68.500
         stage = window_progress(ti)[0]
         assert all(tile_stage(x, y, ti, SOURCES) == stage for x, y in TILES)
 
 
 def test_everything_is_the_new_stage_at_the_threshold():
-    assert all(tile_stage(x, y, 10_000, SOURCES) == 2 for x, y in TILES)
-    assert all(tile_stage(x, y, 100_000, SOURCES) == 3 for x, y in TILES)
+    assert all(tile_stage(x, y, C.STAGES[1].ti, SOURCES) == 2 for x, y in TILES)
+    assert all(tile_stage(x, y, 10_000, SOURCES) == 3 for x, y in TILES)
+    assert all(tile_stage(x, y, 100_000, SOURCES) == 4 for x, y in TILES)
 
 
 def test_spot_starts_near_the_base_and_reaches_the_edges():

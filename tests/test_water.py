@@ -153,7 +153,7 @@ def _diagonal_only(world, stage):
     return bad
 
 
-@pytest.mark.parametrize("stage", [2, 3])
+@pytest.mark.parametrize("stage", [3, 4])
 def test_no_water_tile_touches_others_only_by_the_corner(stage):
     world = generate_surface(C.WORLD_SEED)
     assert not _diagonal_only(world, stage)
@@ -175,13 +175,13 @@ def test_smoothing_rules_on_a_handmade_field():
                  (8, 2), (9, 2), (10, 3),           # dupla + um na quina: a dupla fica, o da quina sai
                  (3, 9)):                           # gota sozinha: fica (vira poça redonda)
         world.lowness[y][x] = 0.0
-    wet = {(x, y) for y in range(12) for x in range(12) if world.is_water(x, y, 3)}
+    wet = {(x, y) for y in range(12) for x in range(12) if world.is_water(x, y, 4)}
     assert wet == {(8, 2), (9, 2), (3, 9)}
 
 
-def test_stage2_water_is_inside_stage3_water_on_the_surface():
+def test_mist_water_is_inside_green_water_on_the_surface():
     world = generate_surface(C.WORLD_SEED)
     tiles = [(x, y) for y in range(world.height) for x in range(world.width)]
-    stage2 = {t for t in tiles if world.is_water(*t, 2)}
-    stage3 = {t for t in tiles if world.is_water(*t, 3)}
-    assert stage2 and stage2 <= stage3
+    mist = {t for t in tiles if world.is_water(*t, C.MIST_STAGE)}
+    green = {t for t in tiles if world.is_water(*t, C.GREEN_STAGE)}
+    assert mist and mist <= green
