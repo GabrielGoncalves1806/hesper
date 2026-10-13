@@ -940,6 +940,15 @@ def check_drill_feature(bot) -> None:
     bot.frames(0.1)
 
 
+def zoom_crop(bot, world_xy, w: int = 240, h: int = 135, k: int = 2) -> pygame.Surface:
+    """Recorte w×h da tela em volta de um ponto do mundo, ampliado k× (sem salvar)."""
+    cx, cy = bot.app.cam
+    z = bot.app.zoom
+    x = max(0, min(C.SCREEN_W - w, int((world_xy[0] - cx) * z - w / 2)))
+    y = max(0, min(C.SCREEN_H - h, int((world_xy[1] - cy) * z - h / 2)))
+    return pygame.transform.scale_by(bot.app.frame.subsurface((x, y, w, h)).copy(), k)
+
+
 def shot_zoom(bot, name: str, world_xy, w: int = 240, h: int = 135, k: int = 3) -> None:
     """Recorte w×h da tela em volta de um ponto do mundo, ampliado k× (drone é pequeno: 16 px)."""
     cx, cy = bot.app.cam
@@ -2701,6 +2710,7 @@ def check_thaw(bot) -> None:
     ground_settle(bot, 0.3)
     assert not any(layer.vents_awake) and not r.vent_smoke.puffs
     bot.shot("m31_fumarolas_dormentes.png")
+    dormant_crop = zoom_crop(bot, (bx, by - 30), w=320, h=180)
     s.indices["heat"] = float(C.THAW_FUMAROLE_HEAT[1])    # todas acordam (e a cratera abre junto)
     bot.frames(DT)
     assert all(layer.vents_awake), layer.vents_awake
@@ -2709,6 +2719,14 @@ def check_thaw(bot) -> None:
     assert r.vent_smoke.puffs, "fumarola acordada na tela sem fumaça"
     bot.shot("m31_fumarolas_ativas.png")
     shot_zoom(bot, "m31_fumarolas_ativas_zoom.png", (bx, by - 30), w=320, h=180, k=3)
+    # M3.5: dormente × ativa lado a lado, no basalto (a fumaça mais clara e o brilho quente na boca)
+    active_crop = zoom_crop(bot, (bx, by - 30), w=320, h=180)
+    sheet = pygame.Surface((dormant_crop.get_width() * 2 + 12, dormant_crop.get_height()), 0, 32)
+    sheet.fill((20, 20, 24))
+    sheet.blit(dormant_crop, (0, 0))
+    sheet.blit(active_crop, (dormant_crop.get_width() + 12, 0))
+    pygame.image.save(sheet, str(OUT / "m35_fumaca.png"))
+    print("  screenshot: reports/dev/m35_fumaca.png  (dormente × ativa, recorte ampliado 2×)")
     print(f"  {len(vents)} fumarolas, {near(v)} perto da do print ({v.kind}), {len(r.vent_smoke.puffs)} puffs na tela")
     # 3) desempenho: passeio em volta das fumarolas (zoom 0,75), dormentes x acordadas
     app.set_zoom(0.75, notify=False)
@@ -3255,14 +3273,19 @@ def check_lakes(bot) -> None:
                      np.hypot(xs - bx, ys - by), 1e9)
     y, x = np.unravel_index(np.argmin(score), score.shape)
     spots["salar"] = (int(x), int(y))
+    r = app.renderer
+    bakes0, ms0 = r.lake.bakes, len(r.lake.bake_ms)
     for k in range(3):
         w.water_level = C.GEO_LEVELS[k]
         frames = []
-        for tx, ty in spots.values():
+        for name, (tx, ty) in spots.items():
             bot.teleport((tx, ty))
             s.o2 = C.O2_MAX
             ground_settle(bot, 0.15)
             frames.append(app.frame.copy())
+            if k == 1 and name == "planalto":            # M3.5: a margem do L2 na depressão do planalto, ampliada
+                shot_zoom(bot, "m35_lago_organico_zoom.png", ((tx + 0.5) * C.TILE, (ty + 0.5) * C.TILE),
+                          w=240, h=135, k=4)
         sheet = pygame.Surface((sum(f.get_width() for f in frames) + 8, frames[0].get_height()))
         sheet.fill((20, 20, 24))
         sheet.blit(frames[0], (0, 0))
@@ -3271,6 +3294,24 @@ def check_lakes(bot) -> None:
         pygame.image.save(sheet, str(OUT / f"m33_lago_L{k + 1}.png"))
         print(f"  screenshot: reports/dev/m33_lago_L{k + 1}.png  (salar · depressão do planalto; nível "
               f"{C.GEO_LEVELS[k]:g}, {wet} tiles de água)")
+        if k != 1:                                        # M3.5: margem orgânica (mesmo print, nome da etapa)
+            pygame.image.save(sheet, str(OUT / f"m35_lago_organico_L{k + 1}.png"))
+            print(f"  screenshot: reports/dev/m35_lago_organico_L{k + 1}.png")
+    ms = r.lake.bake_ms[ms0:]
+    print(f"  lago orgânico: {r.lake.bakes - bakes0} blocos assados, média {sum(ms) / max(1, len(ms)):.1f} ms "
+          f"· pior {max(ms or [0]):.1f} ms por bloco de {C.LAKE_BLOCK_TILES}×{C.LAKE_BLOCK_TILES} tiles")
+    # desempenho andando na beira do lago (L2, zoom 0,75): blocos já assados, só o blit e os reflexos
+    w.water_level = C.GEO_LEVELS[1]
+    avg = lambda ft: 1000 * sum(ft) / len(ft)   # noqa: E731
+    res = {}
+    for _ in range(2):                                    # alternado, vale a melhor média (o relógio oscila)
+        for organic in (False, True):
+            r.organic_lake = organic
+            res[organic] = min(res.get(organic, 1e9), avg(walk_perf(bot, spots["salar"])))
+    r.organic_lake = True
+    print(f"  perf andando na margem do lago (L2), zoom 0,75×: por tile {res[False]:.1f} ms · orgânico "
+          f"{res[True]:.1f} ms ({res[True] - res[False]:+.1f} ms)")
+    assert res[True] < 1000 / 60
     w.water_level = level_before
     s.player.x, s.player.y = back
     app.set_zoom(zoom_before, notify=False)

@@ -24,7 +24,8 @@ import pygame
 
 from game import config as C
 
-# Números da Designer (regions_palettes.json → smoke). Se o arquivo sumir, os mesmos valores aqui.
+# Números da Designer (regions_palettes.json → smoke). Se o arquivo sumir, os mesmos valores aqui. Por cima de tudo,
+# o C.SMOKE_OVERRIDE (M3.5: mais visível no basalto escuro, sem mexer no asset).
 _DEFAULT = {
     "rate": {"cone": 2.5, "pair": 2.0, "chimney": 3.5}, "life": [2.6, 3.4], "rise": [16.0, 22.0],
     "radius": [1.5, 2.5, 7.0, 10.0], "jitter": 3.0, "wind": 0.45,
@@ -38,7 +39,7 @@ def _load() -> dict:
         data = json.loads(C.REGIONS_PALETTES.read_text(encoding="utf-8")).get("smoke") or {}
     except (OSError, ValueError):
         data = {}
-    return {**_DEFAULT, **data}
+    return {**_DEFAULT, **data, **getattr(C, "SMOKE_OVERRIDE", {})}
 
 
 SMOKE = _load()
@@ -186,6 +187,44 @@ class VentSmoke:
                     surf.set_at((x, y), (*col, alpha))
             self._sprites[key] = surf
         return surf
+
+    def glow_sprite(self, k: int) -> pygame.Surface:
+        """Brilho quente da boca (radial, pra somar na tela), no degrau de intensidade k (0..7)."""
+        key = ("glow", k)
+        surf = self._sprites.get(key)
+        if surf is None:
+            r = C.THAW_FUMAROLE_GLOW_R
+            n = 2 * r + 1
+            surf = pygame.Surface((n, n), pygame.SRCALPHA)
+            peak = C.THAW_FUMAROLE_GLOW_MAX * k / 7
+            for y in range(n):
+                for x in range(n):
+                    d = math.hypot(x - r, (y - r) * 1.4) / r      # achatado: a boca é vista de cima-lado
+                    if d < 1:
+                        f = peak * (1 - d) ** 2 / 255
+                        surf.set_at((x, y), (*(round(c * f) for c in C.THAW_FUMAROLE_GLOW), 255))
+            self._sprites[key] = surf
+        return surf
+
+    def draw_glow(self, target: pygame.Surface, cam: tuple[int, int], sources: list[Source], t: float) -> None:
+        """Brilho quente bem leve em cada boca acordada (somado: só clareia), pulsando devagar. Fica embaixo dos
+        puffs. Ao acordar, acende junto com a taxa da fumaça."""
+        cx, cy = cam
+        tw, th = target.get_size()
+        r = C.THAW_FUMAROLE_GLOW_R
+        for src in sources:
+            ramp = 1.0
+            if src.index in self._waking:
+                ramp = min(1.0, self._waking[src.index] / C.THAW_FUMAROLE_WAKE_S)
+            for j, (mx, my) in enumerate(src.mouths):
+                x, y = round(mx - cx) - r, round(my - cy) - r
+                if x < -2 * r or y < -2 * r or x > tw or y > th:
+                    continue
+                pulse = 0.5 + 0.5 * math.sin(t * 1.7 + src.index * 2.3 + j * 1.1)
+                k = int(round(7 * ramp * (0.6 + 0.4 * pulse)))
+                if k <= 0:
+                    continue
+                target.blit(self.glow_sprite(k), (x, y), special_flags=pygame.BLEND_RGB_ADD)
 
     def draw(self, target: pygame.Surface, cam: tuple[int, int], stage: str) -> None:
         """Os puffs vão numa camada do tamanho da caixa deles com BLEND_RGBA_MAX (o alfa de dois puffs que se
