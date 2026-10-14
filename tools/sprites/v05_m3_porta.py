@@ -41,6 +41,7 @@ sys.path.insert(0, str(HERE))
 
 import machines_r3d as M  # noqa: E402
 import v05_m2_base as B  # noqa: E402
+import v05_m3_chao_base as CH  # noqa: E402  (chão novo da base, aprovado)
 
 ROOT = HERE.parents[1]
 REP = ROOT / "reports" / "design" / "v05_m3_porta"
@@ -54,7 +55,7 @@ ORANGE, ORANGE_D, ORANGE_L = M.ORANGE, M.ORANGE_D, M.ORANGE_L
 CYAN, CYAN_D, CYAN_L = M.CYAN, M.CYAN_D, M.CYAN_L
 MT = M.METAL                      # a7a3b8 7d7892 58536b 3a3549 26222f
 BG = M.BEIGE                      # fdf8ec efe6d4 d6c9b4 a99a8c 6f6070
-FL = B.FL
+FL = CH.FL2                       # o chão de dentro da porta é o chão novo (v05_m3_chao_base)
 GLASS = "#1d4a66"
 JW = 4                            # batente na fachada (contorno + 3)
 RETRACT = {1: [0, 8, 16, 24], 2: [0, 10, 20, 30]}
@@ -144,7 +145,7 @@ def door_h(edge, n, k):
             out[y, x] = rgb(c)
 
     # 1. chão do tile (rows 24..55), por baixo de tudo; no h_n, a grade da soleira no chão em frente à folha
-    floor = np.concatenate([B.floor_tile(0)] * n, axis=1)
+    floor = np.concatenate([CH.floor_tile(0)] * n, axis=1)
     out[LIFT:H] = floor
     if edge == "n":
         for x in range(2, L - 2):
@@ -333,7 +334,7 @@ def door_v(edge, n, k):
                 V.box(x0, x1, e1, a1, 0, Z_LEAF_V, LEAFB)
     HH = LIFT + L
     mat, face, P, depth = V.render(H=HH)
-    floor = np.concatenate([B.floor_tile(0)] * n, axis=0)
+    floor = np.concatenate([CH.floor_tile(0)] * n, axis=0)
     gr = range(d0 - 5, d0 - 1) if edge == "e" else range(d0 + DEPTH_V + 1, d0 + DEPTH_V + 5)
     for y in range(2, L - 2):                            # grade da soleira no chão, do lado de dentro
         for i, x in enumerate(gr):
