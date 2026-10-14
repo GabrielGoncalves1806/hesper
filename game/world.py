@@ -19,6 +19,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from game import config as C
+from game.geo import FROST
 
 
 # ---------------------------------------------------------------------------
@@ -385,6 +386,8 @@ class World:
         if self.dist_from_center(tx, ty) < 7 or self.future_water(tx, ty):
             return None
         if (tx, ty) in self._vein_tiles:      # nem planta em cima de veio
+            return None
+        if self.geo is not None and self.geo.region_at(tx, ty) == FROST:   # nem na neve (dono, v0.5 M3.3)
             return None
         if self.geo is None:
             chance = C.PLANT_CHANCE

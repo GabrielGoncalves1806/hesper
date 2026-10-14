@@ -318,3 +318,15 @@ def test_ice_vein_many_seeds():
     for seed in range(100, 130):
         w = generate_surface(seed)
         assert any(v.resource == "ice" for v in w.veins), seed
+
+
+def test_frost_has_no_grass_nor_plants():
+    """Dono (v0.5 M3.3): na neve não nasce grama nem planta no Verde."""
+    from game import config as C
+    from game.geo import FROST
+    from game.surface_gen import generate_surface
+    assert C.GROUND_GRASS_THR[FROST] > 1.0          # o ruído vai de 0 a 1: limiar acima disso = nunca
+    world = generate_surface(7)
+    frost = [(x, y) for y in range(world.height) for x in range(world.width) if world.geo.region_at(x, y) == FROST]
+    assert frost
+    assert all(world._plant_kind(x, y) is None for x, y in frost)
