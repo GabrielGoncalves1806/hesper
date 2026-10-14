@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Gelo gigante · v0.5.1 (proposta)</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Pixelify+Sans:wght@400;600&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--panel2:#241b17;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;--alert:#ff6a55;
+  --f-label:"Silkscreen",ui-monospace,monospace;--f-display:"Pixelify Sans",ui-monospace,monospace;--f-body:"IBM Plex Sans",system-ui,sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,monospace;color-scheme:dark}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 var(--f-body);padding-inline:16px}
+.wrap{max-width:1500px;margin:0 auto;padding-block:48px 80px}
+.eyebrow{font:12px var(--f-label);letter-spacing:.08em;color:var(--cyan);text-transform:uppercase}
+h1{font:600 clamp(34px,6vw,54px)/1.05 var(--f-display);margin:10px 0 14px}
+.lede{color:var(--muted);max-width:92ch;margin:0}
+h2{font:600 24px/1.2 var(--f-display);margin:0 0 16px}
+h2::before{content:"";display:inline-block;width:10px;height:10px;background:var(--cyan);margin-right:10px;vertical-align:middle}
+h3{font:600 18px var(--f-display);margin:0 0 8px}
+section{margin-top:56px}
+code{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}
+img{image-rendering:pixelated}
+.note{margin-top:22px;max-width:1040px;background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--cyan);padding:14px 18px}
+.note > b{font:13px var(--f-label);color:var(--cyan)}
+.note ul{margin:8px 0 0;padding-left:18px;color:var(--muted)}.note li{margin-bottom:6px}.note li b{color:var(--fg)}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media (max-width:1100px){.grid2,.grid3{grid-template-columns:1fr}}
+figure{margin:0}
+figcaption{font:12px var(--f-label);color:var(--muted);margin-top:6px;letter-spacing:.04em}figcaption b{color:var(--fg)}
+.box{background:var(--panel);border:1px solid var(--line);padding:18px 20px}
+.box ul{margin:0;padding-left:18px;color:var(--muted)}.box li{margin-bottom:8px}.box li b{color:var(--fg)}
+.box p{color:var(--muted);margin:6px 0}
+.dev{border-left:3px solid var(--cyan)}
+.chk{background-color:#2a2f38;background-image:linear-gradient(45deg,#333944 25%,transparent 25%,transparent 75%,#333944 75%),linear-gradient(45deg,#333944 25%,transparent 25%,transparent 75%,#333944 75%);background-size:16px 16px;background-position:0 0,8px 8px;padding:10px;display:inline-block}
+.scroll{overflow-x:auto;padding-bottom:6px}
+.scene{width:100%;height:auto;display:block;border:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{font:12px var(--f-label);color:var(--gold);background:var(--panel2)}td{color:var(--muted)}td b{color:var(--fg)}
+.sws{display:flex;gap:3px}.sws i{width:22px;height:22px;border:1px solid rgba(255,255,255,.12);display:inline-block}
+.tabs input{display:none}.tabs label{font:12px var(--f-label);padding:6px 12px;border:1px solid var(--line);cursor:pointer;display:inline-block;margin:0 4px 8px 0;color:var(--muted)}
+.tabs input:checked + label{color:var(--fg);border-color:var(--cyan);background:rgba(89,208,230,.08)}
+.tabs .pane{display:none}
+#t-coil:checked ~ .p-coil,#t-s:checked ~ .p-s,#t-piece:checked ~ .p-piece{display:block}
+.sprite{image-rendering:pixelated;background-repeat:no-repeat}
+@keyframes play{from{background-position-x:0}to{background-position-x:calc(-8 * var(--fw))}}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Designer · v0.5.1 · proposta · a criatura em "C" (a 1ª rodada segue abaixo como histórico)</div>
+<h1>O gelo gigante</h1>
+<p class="lede">Num canto da faixa gelada, um monólito de gelo antigo, encalhado, bem maior que tudo em volta, cercado de
+estilhaços. Lá dentro, escura e borrada pela espessura do gelo, a silhueta de uma coisa comprida e segmentada. O
+jogador não descobre o que é. Só vê, teoriza e lembra da Dra. Ilves: <i>"o gelo daqui não é só água, tem alguma
+coisa dentro dele"</i>, <i>"cresce quando ninguém olha"</i>, <i>"Não acorde o gelo"</i>.</p>
+
+<div class="note" style="border-left-color:var(--gold)"><b style="color:var(--gold)">v0.5.1 · o que mudou</b><ul>
+<li><b>O monólito, os estilhaços e a geada ficaram iguais</b>, como o dono pediu ("o gelo tá perfeito").</li>
+<li><b>A criatura virou um bicho encolhido em "C"</b>, em posição fetal, "tipo o Mewtwo no tubo". São 4 amostras novas:
+<b>Larva em C</b>, <b>Embrião</b>, <b>Casulo</b> e <b>Encolhido com cauda</b>. As 4 ocupam o miolo da face da frente
+e seguem a mesma regra: escura e difusa pela espessura do gelo, mais nítida perto da face, sumindo no fundo, sem olho e
+sem gore.</li>
+<li><b>Recomendação: Casulo.</b> As tiras dos 4 estágios dele estão logo abaixo.</li>
+<li>O motor da silhueta agora aceita corpo feito de tubos e bolas, mais uma <b>membrana</b> (casca de elipsoide) que
+aparece como véu na borda. Os índices e a rampa <code>ICE_DEEP</code> não mudaram.</li>
+</ul></div>
+
+<div class="note"><b>v0.5 · 1ª rodada</b><ul>
+<li><b>Gelo gigante</b> (<code>form_ice_giant_*.png</code>, 256×220): volume 3D no mesmo motor das formações (poliedros
+convexos como os blocos do portão), facetado, com estratos inclinados, bolhas presas, fissuras de ar e brilho especular.
+Pegada proposta de <b>7×4 tiles</b>.</li>
+<li><b>A silhueta</b>: um tubo segmentado <i>dentro</i> do volume. Cada pixel da superfície olha pra dentro pelo raio de
+visão; quanto mais fundo o bicho, mais ele vira só um escurecido do gelo. Tem 3 variações pro dono escolher:
+<b>Enrolada</b>, <b>Em S</b> e <b>Só um pedaço</b>.</li>
+<li><b>Rampa nova <code>ICE_DEEP</code></b> (3 cores, índices 10..12), derivada da <code>ICE</code> de cada estágio
+misturada com o contorno. Vale o mesmo esquema da <code>VENT</code> das fumarolas.</li>
+<li><b>Estilhaços</b>: nenhum sprite novo. São os <code>ice_block_*</code> do portão em quadros menores, mais os
+<code>decor_ice_chunks</code>, num arranjo fixo. A geada é uma <code>frost_field.png</code> nova (420×200), a
+<code>frost_ring</code> esticada.</li>
+<li><b>Animação</b> opcional e quase subliminar, numa tira de 8 quadros: uma faixa de brilho frio varre o gelo e a
+silhueta "respira" (o raio cresce até 7%, cerca de 1 px na borda).</li>
+<li>Nada foi pra <code>assets/</code>. Os pendentes estão em <code>reports/design/gelo_gigante/pendentes/</code>.</li>
+</ul></div>
+
+<section><h2>v0.5.1 · a criatura em "C" (4 amostras)</h2>
+<figure><div class="scroll"><img src="c_side_by_side.png" width="1506" height="280" class="scene" style="" alt=""></div>
+<figcaption>a mesma cena, no mesmo estágio (Árido), com o Explorador à esquerda. Só a criatura muda. Da esquerda pra
+direita: <b>Larva em C</b>, <b>Embrião</b>, <b>Casulo</b>, <b>Encolhido com cauda</b></figcaption></figure>
+<div class="grid2" style="margin-top:16px"><figure class="box"><h3>Larva em C</h3><p><code>form_ice_giant_larva.png</code></p>
+<div class="chk"><img src="giant_larva.png" width="512" height="440" class="" style="" alt=""></div>
+<div style="display:flex;gap:16px;align-items:flex-end;margin-top:10px">
+<div class="chk"><img src="giant_larva.png" width="256" height="220" class="" style="" alt=""></div><figcaption>tamanho real (1:1)</figcaption></div>
+<p>Corpo gordo e segmentado curvado em C, a cabeça (sem rosto) quase encostando na cauda, e 3 pares de patinhas dobradas pra dentro. É a mais 'bicho' das quatro.</p></figure><figure class="box"><h3>Embrião</h3><p><code>form_ice_giant_embryo.png</code></p>
+<div class="chk"><img src="giant_embryo.png" width="512" height="440" class="" style="" alt=""></div>
+<div style="display:flex;gap:16px;align-items:flex-end;margin-top:10px">
+<div class="chk"><img src="giant_embryo.png" width="256" height="220" class="" style="" alt=""></div><figcaption>tamanho real (1:1)</figcaption></div>
+<p>Cabeça grande em cima e o corpo enrolado por baixo, com brotos de braço e perna e um cordão fino que some no fundo do gelo. Silhueta de algo que ainda vai nascer.</p></figure><figure class="box"><h3>Casulo <span style="font:11px var(--f-label);color:var(--ok);border:1px solid var(--ok);padding:1px 6px">recomendada</span></h3><p><code>form_ice_giant_cocoon.png</code></p>
+<div class="chk"><img src="giant_cocoon.png" width="512" height="440" class="" style="" alt=""></div>
+<div style="display:flex;gap:16px;align-items:flex-end;margin-top:10px">
+<div class="chk"><img src="giant_cocoon.png" width="256" height="220" class="" style="" alt=""></div><figcaption>tamanho real (1:1)</figcaption></div>
+<p>A larva em C, menor, dentro de uma membrana oval: a casca aparece como um anel de véu e o miolo fica um tom mais escuro. É a crisálida no gelo, o 'Mewtwo no tubo'.</p></figure><figure class="box"><h3>Encolhido com cauda</h3><p><code>form_ice_giant_fetal.png</code></p>
+<div class="chk"><img src="giant_fetal.png" width="512" height="440" class="" style="" alt=""></div>
+<div style="display:flex;gap:16px;align-items:flex-end;margin-top:10px">
+<div class="chk"><img src="giant_fetal.png" width="256" height="220" class="" style="" alt=""></div><figcaption>tamanho real (1:1)</figcaption></div>
+<p>Variação minha: cabeça baixa com o crânio puxado pra trás, costas curvas, joelhos encolhidos, um braço abraçando as pernas e uma cauda longa dando a volta por fora (mais funda, quase só véu).</p></figure></div>
+<div class="box" style="margin-top:16px"><ul>
+<li><b>Por que o Casulo.</b> Ele resolve o "sugerir sem mostrar" sozinho: a membrana dá um contorno oval escuro e
+limpo, que lê de longe como "tem algo guardado ali", e o bicho lá dentro fica ainda mais borrado. É o que mais lembra
+"o Mewtwo no tubo" e conversa com a fala da Ilves ("cresce quando ninguém olha"), porque um casulo é algo que ainda vai
+sair. Se o dono quiser o bicho mais legível, a Larva em C é a 2ª opção.</li>
+<li>Em todas, a parte mais funda vira só um escurecido de 1 tom (o rabo do Encolhido, o cordão do Embrião, a
+casca de trás do Casulo). A franja é o xadrez de 1 px, sem alfa.</li>
+<li>A animação é a mesma da 1ª rodada (o brilho frio varrendo o gelo e a respiração de +7%). No Casulo a membrana
+fica parada e só o bicho respira.</li>
+</ul></div>
+<h3 style="margin-top:22px">Recomendada · Casulo nos 4 estágios</h3>
+<figure><div class="scroll"><img src="stages_cocoon.png" width="2084" height="480" class="" style="" alt=""></div><figcaption>sprite 2× sobre o chão da faixa gelada · Tempestade,
+Árido, Névoa, Verde</figcaption></figure>
+<figure style="margin-top:10px"><div class="scroll"><div class="chk"><img src="anim_cocoon_arid.png" width="2048" height="220" class="" style="" alt=""></div></div>
+<figcaption>tira <code>form_ice_giant_cocoon_anim.png</code> · 8 quadros de 256×220</figcaption></figure>
+<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:12px"><figure><div class="chk"><style>@keyframes a_cocoon_storm_1{0.000%{background-position-x:0px}5.556%{background-position-x:0px}11.111%{background-position-x:0px}16.667%{background-position-x:0px}22.222%{background-position-x:0px}27.778%{background-position-x:0px}33.333%{background-position-x:0px}38.889%{background-position-x:0px}44.444%{background-position-x:0px}50.000%{background-position-x:0px}55.556%{background-position-x:0px}61.111%{background-position-x:-256px}66.667%{background-position-x:-512px}72.222%{background-position-x:-768px}77.778%{background-position-x:-1024px}83.333%{background-position-x:-1280px}88.889%{background-position-x:-1536px}94.444%{background-position-x:-1792px}100%{background-position-x:0px}}</style><div class="sprite" style="width:256px;height:220px;background-image:url(anim_cocoon_storm.png);background-size:2048px 220px;animation:a_cocoon_storm_1 3.00s steps(1) infinite"></div></div><figcaption>Tempestade · animação</figcaption></figure><figure><div class="chk"><style>@keyframes a_cocoon_arid_1{0.000%{background-position-x:0px}5.556%{background-position-x:0px}11.111%{background-position-x:0px}16.667%{background-position-x:0px}22.222%{background-position-x:0px}27.778%{background-position-x:0px}33.333%{background-position-x:0px}38.889%{background-position-x:0px}44.444%{background-position-x:0px}50.000%{background-position-x:0px}55.556%{background-position-x:0px}61.111%{background-position-x:-256px}66.667%{background-position-x:-512px}72.222%{background-position-x:-768px}77.778%{background-position-x:-1024px}83.333%{background-position-x:-1280px}88.889%{background-position-x:-1536px}94.444%{background-position-x:-1792px}100%{background-position-x:0px}}</style><div class="sprite" style="width:256px;height:220px;background-image:url(anim_cocoon_arid.png);background-size:2048px 220px;animation:a_cocoon_arid_1 3.00s steps(1) infinite"></div></div><figcaption>Árido · animação</figcaption></figure><figure><div class="chk"><style>@keyframes a_cocoon_mist_1{0.000%{background-position-x:0px}5.556%{background-position-x:0px}11.111%{background-position-x:0px}16.667%{background-position-x:0px}22.222%{background-position-x:0px}27.778%{background-position-x:0px}33.333%{background-position-x:0px}38.889%{background-position-x:0px}44.444%{background-position-x:0px}50.000%{background-position-x:0px}55.556%{background-position-x:0px}61.111%{background-position-x:-256px}66.667%{background-position-x:-512px}72.222%{background-position-x:-768px}77.778%{background-position-x:-1024px}83.333%{background-position-x:-1280px}88.889%{background-position-x:-1536px}94.444%{background-position-x:-1792px}100%{background-position-x:0px}}</style><div class="sprite" style="width:256px;height:220px;background-image:url(anim_cocoon_mist.png);background-size:2048px 220px;animation:a_cocoon_mist_1 3.00s steps(1) infinite"></div></div><figcaption>Névoa · animação</figcaption></figure><figure><div class="chk"><style>@keyframes a_cocoon_green_1{0.000%{background-position-x:0px}5.556%{background-position-x:0px}11.111%{background-position-x:0px}16.667%{background-position-x:0px}22.222%{background-position-x:0px}27.778%{background-position-x:0px}33.333%{background-position-x:0px}38.889%{background-position-x:0px}44.444%{background-position-x:0px}50.000%{background-position-x:0px}55.556%{background-position-x:0px}61.111%{background-position-x:-256px}66.667%{background-position-x:-512px}72.222%{background-position-x:-768px}77.778%{background-position-x:-1024px}83.333%{background-position-x:-1280px}88.889%{background-position-x:-1536px}94.444%{background-position-x:-1792px}100%{background-position-x:0px}}</style><div class="sprite" style="width:256px;height:220px;background-image:url(anim_cocoon_green.png);background-size:2048px 220px;animation:a_cocoon_green_1 3.00s steps(1) infinite"></div></div><figcaption>Verde · animação</figcaption></figure></div>
+<div class="grid2" style="margin-top:14px"><figure><img class="scene" src="scene_cocoon_storm.png" alt=""><figcaption><b>Tempestade</b></figcaption></figure><figure><img class="scene" src="scene_cocoon_arid.png" alt=""><figcaption><b>Árido</b></figcaption></figure><figure><img class="scene" src="scene_cocoon_mist.png" alt=""><figcaption><b>Névoa</b></figcaption></figure><figure><img class="scene" src="scene_cocoon_green.png" alt=""><figcaption><b>Verde</b></figcaption></figure></div>
+<h3 style="margin-top:22px">As outras 3 nos 4 estágios</h3>
+<div style="display:grid;gap:10px"><figure><div class="scroll"><img src="stages_larva.png" width="1042" height="240" class="" style="" alt=""></div><figcaption><b>Larva em C</b> · 4 estágios</figcaption></figure><figure><div class="scroll"><img src="stages_embryo.png" width="1042" height="240" class="" style="" alt=""></div><figcaption><b>Embrião</b> · 4 estágios</figcaption></figure><figure><div class="scroll"><img src="stages_fetal.png" width="1042" height="240" class="" style="" alt=""></div><figcaption><b>Encolhido com cauda</b> · 4 estágios</figcaption></figure></div>
+</section>
+
+<section><h2>Histórico · 1ª rodada: o verme comprido</h2>
+<p class="lede" style="margin-bottom:12px">As 3 silhuetas da 1ª rodada, guardadas pra comparar. O dono aprovou o monólito,
+os estilhaços e a geada, e pediu a criatura encolhida em "C" (acima).</p>
+<div class="grid3"><figure class="box"><h3>Enrolada <code>form_ice_giant_coil.png</code></h3>
+<div class="chk"><img src="giant_coil.png" width="512" height="440" class="" style="" alt=""></div>
+<div style="display:flex;gap:16px;align-items:flex-end;margin-top:10px">
+<div class="chk"><img src="giant_coil.png" width="256" height="220" class="" style="" alt=""></div><figcaption>tamanho real (1:1)</figcaption></div>
+<p>1,25 volta de espiral, dormindo enrolada. A cabeça fica por fora, embaixo à esquerda, e o rabo afina pro miolo. A metade de cima está mais funda e quase some.</p></figure><figure class="box"><h3>Em S <code>form_ice_giant_s.png</code></h3>
+<div class="chk"><img src="giant_s.png" width="512" height="440" class="" style="" alt=""></div>
+<div style="display:flex;gap:16px;align-items:flex-end;margin-top:10px">
+<div class="chk"><img src="giant_s.png" width="256" height="220" class="" style="" alt=""></div><figcaption>tamanho real (1:1)</figcaption></div>
+<p>Atravessa o bloco na diagonal. A cabeça, perto da face, mostra a boca; o rabo afunda à direita e vira só um vulto. É a que mais lê como 'bicho comprido'.</p></figure><figure class="box"><h3>Só um pedaço <code>form_ice_giant_piece.png</code></h3>
+<div class="chk"><img src="giant_piece.png" width="512" height="440" class="" style="" alt=""></div>
+<div style="display:flex;gap:16px;align-items:flex-end;margin-top:10px">
+<div class="chk"><img src="giant_piece.png" width="256" height="220" class="" style="" alt=""></div><figcaption>tamanho real (1:1)</figcaption></div>
+<p>Só um arco grosso (raio 15, o dobro das outras) saindo do fundo e voltando pro fundo. Não tem cabeça nem rabo: o jogador nunca sabe o tamanho. Medo pelo tamanho.</p></figure></div>
+<div class="box" style="margin-top:16px"><ul>
+<li><b>Sugere, não mostra.</b> Perto da face, o corpo aparece em 2 tons (corpo e miolo) e as juntas dos segmentos
+ficam um tom mais claras. Mais fundo, vira véu e depois só um escurecido de 1 tom no gelo. A franja é um xadrez de
+1 px (é o "difuso" sem alfa).</li>
+<li><b>A boca</b> (Enrolada e Em S) é um disco escuro na ponta da cabeça com um anel um tom mais claro em volta.
+Lê como abertura, não como olho, e não brilha.</li>
+<li>O tampo do bloco tem geada: ali a silhueta aparece só pela metade, então o bicho nunca "vaza" pra cima.</li>
+<li>Sem olho, sem dente nítido, sem gore. O medo vem da forma e do tamanho: cada segmento tem a largura do Explorador.</li>
+</ul></div>
+<figure style="margin-top:14px"><div class="scroll"><img src="stages_coil.png" width="1042" height="240" class="" style="" alt=""></div><figcaption><b>Enrolada</b> · Tempestade, Árido, Névoa, Verde (só troca a paleta)</figcaption></figure>
+<figure style="margin-top:14px"><div class="scroll"><img src="stages_s.png" width="1042" height="240" class="" style="" alt=""></div><figcaption><b>Em S</b> · Tempestade, Árido, Névoa, Verde (só troca a paleta)</figcaption></figure>
+<figure style="margin-top:14px"><div class="scroll"><img src="stages_piece.png" width="1042" height="240" class="" style="" alt=""></div><figcaption><b>Só um pedaço</b> · Tempestade, Árido, Névoa, Verde (só troca a paleta)</figcaption></figure>
+</section>
+
+<section><h2>Histórico · o verme na faixa gelada, nos 4 estágios</h2>
+<p class="lede" style="margin-bottom:12px">O mundo dos mockups da v9, com o gigante num canto da faixa gelada. Em volta ficam
+os estilhaços (blocos do portão em quadros menores, caídos mais pra frente-direita, o lado que "rachou"), os caquinhos
+soltos e a geada grande no chão. O Explorador está à esquerda pra dar escala.</p>
+<div class="tabs"><input type="radio" name="sc" id="t-coil" checked><label for="t-coil">Enrolada</label><input type="radio" name="sc" id="t-s" ><label for="t-s">Em S</label><input type="radio" name="sc" id="t-piece" ><label for="t-piece">Só um pedaço</label><div class="pane p-coil"><div class="grid2"><figure><img class="scene" src="scene_coil_storm.png" alt=""><figcaption><b>Tempestade</b></figcaption></figure><figure><img class="scene" src="scene_coil_arid.png" alt=""><figcaption><b>Árido</b></figcaption></figure><figure><img class="scene" src="scene_coil_mist.png" alt=""><figcaption><b>Névoa</b></figcaption></figure><figure><img class="scene" src="scene_coil_green.png" alt=""><figcaption><b>Verde</b></figcaption></figure></div><figure style="margin-top:14px"><div class="scroll"><img src="crop_coil_arid.png" width="960" height="600" class="" style="" alt=""></div><figcaption>recorte 2× do Árido: o Explorador (32×32) do lado, pra dar escala</figcaption></figure></div><div class="pane p-s"><div class="grid2"><figure><img class="scene" src="scene_s_storm.png" alt=""><figcaption><b>Tempestade</b></figcaption></figure><figure><img class="scene" src="scene_s_arid.png" alt=""><figcaption><b>Árido</b></figcaption></figure><figure><img class="scene" src="scene_s_mist.png" alt=""><figcaption><b>Névoa</b></figcaption></figure><figure><img class="scene" src="scene_s_green.png" alt=""><figcaption><b>Verde</b></figcaption></figure></div><figure style="margin-top:14px"><div class="scroll"><img src="crop_s_arid.png" width="960" height="600" class="" style="" alt=""></div><figcaption>recorte 2× do Árido: o Explorador (32×32) do lado, pra dar escala</figcaption></figure></div><div class="pane p-piece"><div class="grid2"><figure><img class="scene" src="scene_piece_storm.png" alt=""><figcaption><b>Tempestade</b></figcaption></figure><figure><img class="scene" src="scene_piece_arid.png" alt=""><figcaption><b>Árido</b></figcaption></figure><figure><img class="scene" src="scene_piece_mist.png" alt=""><figcaption><b>Névoa</b></figcaption></figure><figure><img class="scene" src="scene_piece_green.png" alt=""><figcaption><b>Verde</b></figcaption></figure></div><figure style="margin-top:14px"><div class="scroll"><img src="crop_piece_arid.png" width="960" height="600" class="" style="" alt=""></div><figcaption>recorte 2× do Árido: o Explorador (32×32) do lado, pra dar escala</figcaption></figure></div></div>
+</section>
+
+<section><h2>Histórico · a animação na 1ª rodada</h2>
+<div class="grid3"><figure class="box"><h3>Enrolada</h3><div class="chk"><style>@keyframes a_coil_arid_2{0.000%{background-position-x:0px}5.556%{background-position-x:0px}11.111%{background-position-x:0px}16.667%{background-position-x:0px}22.222%{background-position-x:0px}27.778%{background-position-x:0px}33.333%{background-position-x:0px}38.889%{background-position-x:0px}44.444%{background-position-x:0px}50.000%{background-position-x:0px}55.556%{background-position-x:0px}61.111%{background-position-x:-512px}66.667%{background-position-x:-1024px}72.222%{background-position-x:-1536px}77.778%{background-position-x:-2048px}83.333%{background-position-x:-2560px}88.889%{background-position-x:-3072px}94.444%{background-position-x:-3584px}100%{background-position-x:0px}}</style><div class="sprite" style="width:512px;height:440px;background-image:url(anim_coil_arid.png);background-size:4096px 440px;animation:a_coil_arid_2 3.00s steps(1) infinite"></div></div><figcaption>2× · segura o quadro 0 e toca a tira uma vez · GIF: <a href="anim_coil.gif" style="color:var(--cyan)">anim_coil.gif</a></figcaption></figure><figure class="box"><h3>Em S</h3><div class="chk"><style>@keyframes a_s_arid_2{0.000%{background-position-x:0px}5.556%{background-position-x:0px}11.111%{background-position-x:0px}16.667%{background-position-x:0px}22.222%{background-position-x:0px}27.778%{background-position-x:0px}33.333%{background-position-x:0px}38.889%{background-position-x:0px}44.444%{background-position-x:0px}50.000%{background-position-x:0px}55.556%{background-position-x:0px}61.111%{background-position-x:-512px}66.667%{background-position-x:-1024px}72.222%{background-position-x:-1536px}77.778%{background-position-x:-2048px}83.333%{background-position-x:-2560px}88.889%{background-position-x:-3072px}94.444%{background-position-x:-3584px}100%{background-position-x:0px}}</style><div class="sprite" style="width:512px;height:440px;background-image:url(anim_s_arid.png);background-size:4096px 440px;animation:a_s_arid_2 3.00s steps(1) infinite"></div></div><figcaption>2× · segura o quadro 0 e toca a tira uma vez · GIF: <a href="anim_s.gif" style="color:var(--cyan)">anim_s.gif</a></figcaption></figure><figure class="box"><h3>Só um pedaço</h3><div class="chk"><style>@keyframes a_piece_arid_2{0.000%{background-position-x:0px}5.556%{background-position-x:0px}11.111%{background-position-x:0px}16.667%{background-position-x:0px}22.222%{background-position-x:0px}27.778%{background-position-x:0px}33.333%{background-position-x:0px}38.889%{background-position-x:0px}44.444%{background-position-x:0px}50.000%{background-position-x:0px}55.556%{background-position-x:0px}61.111%{background-position-x:-512px}66.667%{background-position-x:-1024px}72.222%{background-position-x:-1536px}77.778%{background-position-x:-2048px}83.333%{background-position-x:-2560px}88.889%{background-position-x:-3072px}94.444%{background-position-x:-3584px}100%{background-position-x:0px}}</style><div class="sprite" style="width:512px;height:440px;background-image:url(anim_piece_arid.png);background-size:4096px 440px;animation:a_piece_arid_2 3.00s steps(1) infinite"></div></div><figcaption>2× · segura o quadro 0 e toca a tira uma vez · GIF: <a href="anim_piece.gif" style="color:var(--cyan)">anim_piece.gif</a></figcaption></figure></div>
+<figure style="margin-top:10px"><div class="scroll"><div class="chk"><img src="anim_s_arid.png" width="2048" height="220" class="" style="" alt=""></div></div><figcaption>tira <code>form_ice_giant_s_anim.png</code> · 8 quadros de 256×220</figcaption></figure>
+<div class="box" style="margin-top:12px"><ul>
+<li><b>Brilho frio</b>: uma faixa diagonal de 7 px sobe 1 tom nas faces iluminadas e passa em 5 dos 8 quadros.</li>
+<li><b>Respiração</b>: o raio da silhueta vai até +7% e volta (0, 2, 5, 7, 7, 5, 2, 0%), o que dá 1 px na borda.
+Quase ninguém nota de propósito: a ideia é o jogador achar que viu alguma coisa.</li>
+<li><b>No jogo</b>: fica parado no quadro 0. A cada 9 a 14 s (sorteado), toca a tira uma vez a 6 fps e volta pro 0.</li>
+</ul></div>
+</section>
+
+<section><h2>Pegada e âncora (proposta)</h2>
+<div class="grid2">
+<figure><div class="chk"><img src="footprint.png" width="720" height="600" class="" style="" alt=""></div><figcaption>amarelo: a caixa 7×4 · vermelho: os tiles que
+bloqueiam · ciano: o corte da base do volume (Z = 1..3) · ponto ciano: a âncora</figcaption></figure>
+<div class="box dev"><h3>Pro Dev integrar (depois do ok do dono)</h3><ul>
+<li><b>Sprite</b>: <code>form_ice_giant.png</code> (256×220, a variação escolhida) + <code>form_ice_giant_anim.png</code>
+(2048×220, 8 quadros de 256×220). PNG indexado no esquema das formações: 0..7 rampa <code>ICE</code>
+(<code>ramps.ICE.frost[estágio]</code>), 8 contorno, 9 sombra (alfa 80), <b>10..12 rampa nova
+<code>ramps.ICE_DEEP[estágio]</code></b>, 255 transparente.</li>
+<li><b>Âncora</b>: <code>foot = (120, 216)</code>, o centro da base no sprite, que cai no meio da borda de baixo
+do tile da âncora. É o mesmo <code>place_sprite_foot</code> das formações (pé em <code>(tx·32+16, ty·32+30)</code>).
+Ordenado pelo pé.</li>
+<li><b>Pegada</b>: <code>size = (7, 4)</code> reservado (nada nasce dentro). Os tiles que bloqueiam viram
+<code>FORMATION</code>, relativos ao tile da âncora (dy negativo = pra trás): (-3, -1), (-2, -2), (-2, -1), (-2, 0), (-1, -2), (-1, -1), (-1, 0), (0, -2), (0, -1), (0, 0), (1, -2), (1, -1), (1, 0), (2, -1), (2, 0), (3, -1), (3, 0). Não minera, não tem afloramento.
+Merece um marcador no mapa, porque é marco.</li>
+<li><b>Quantos e onde</b>: 1 por mundo, num canto da faixa gelada, longe dos gelos-portão. O <code>keep_clear</code>
+é de 11×7 tiles em volta da pegada, que é onde moram os estilhaços e a geada.</li>
+<li><b>Estilhaços</b> (objetos, ordenados pelo pé, colisão = a caixa daquele quadro no <code>regions_palettes.json</code>
+(<code>blocks</code>); (x, y) = pé relativo à âncora do gigante):<br><code>ice_block_boulder_1.png</code> quadro 1 em (128, 18)<br><code>ice_block_slab_1.png</code> quadro 3 em (78, 34)<br><code>ice_block_boulder_0.png</code> quadro 5 em (40, 40)<br><code>ice_block_slab_0.png</code> quadro 6 em (170, -8)<br><code>ice_block_boulder_1.png</code> quadro 6 em (112, 50)<br><code>ice_block_boulder_0.png</code> quadro 7 em (158, 40)<br><code>ice_block_shard_1.png</code> quadro 2 em (-142, -30)<br><code>ice_block_slab_1.png</code> quadro 4 em (-112, 26)<br><code>ice_block_boulder_0.png</code> quadro 6 em (-160, 14)<br><code>ice_block_boulder_1.png</code> quadro 7 em (-64, 40)<br><code>ice_block_slab_0.png</code> quadro 5 em (-150, -96)<br><code>ice_block_boulder_0.png</code> quadro 4 em (140, -100)</li>
+<li><b>Caquinhos</b> (<code>decor_ice_chunks</code>, sem colisão): (-96, 52) · (12, 58) · (196, 22) · (-190, -40) · (60, 66) · (-30, 64) · (186, -70) · (92, 70) · (-180, 40)</li>
+<li><b>Geada</b>: <code>frost_field.png</code> (420×200), rampa <code>BASE</code> da faixa gelada, na camada de
+decalques, centrada em (âncora.x, âncora.y − 54).</li>
+<li><b>Ordem de desenho</b>: chão → decalques (geada) → objetos ordenados pelo pé (estilhaços, gigante, Explorador)
+→ partículas/clima → HUD.</li>
+<li><b>Contrato</b>: isso tudo é <b>proposta</b>. A bíblia §6 ganharia a linha do <code>form_ice_giant*</code>, a
+<code>frost_field.png</code> e a rampa <code>ICE_DEEP</code>. Os dados estão em <code>pendentes/gelo_gigante.json</code>.</li>
+</ul></div></div>
+<h3 style="margin-top:20px">Rampa nova ICE_DEEP (índices 10 véu, 11 corpo, 12 miolo/boca)</h3>
+<table><tr><th>Estágio</th><th>Cores</th><th>Hex</th></tr><tr><td><b>Tempestade</b></td><td><div class="sws"><i style="background:#5f727e" title="#5f727e"></i><i style="background:#4b4e56" title="#4b4e56"></i><i style="background:#313042" title="#313042"></i></div></td><td><code>#5f727e #4b4e56 #313042</code></td></tr><tr><td><b>Árido</b></td><td><div class="sws"><i style="background:#326890" title="#326890"></i><i style="background:#1e3755" title="#1e3755"></i><i style="background:#1d2642" title="#1d2642"></i></div></td><td><code>#326890 #1e3755 #1d2642</code></td></tr><tr><td><b>Névoa</b></td><td><div class="sws"><i style="background:#455868" title="#455868"></i><i style="background:#333d4c" title="#333d4c"></i><i style="background:#26283d" title="#26283d"></i></div></td><td><code>#455868 #333d4c #26283d</code></td></tr><tr><td><b>Verde</b></td><td><div class="sws"><i style="background:#3e5d66" title="#3e5d66"></i><i style="background:#2f4049" title="#2f4049"></i><i style="background:#242a3c" title="#242a3c"></i></div></td><td><code>#3e5d66 #2f4049 #242a3c</code></td></tr></table>
+<p class="lede" style="margin-top:8px">Fórmula: 10 = 75% <code>ICE[1]</code> + 25% <code>ICE[2]</code> · 11 = 85%
+<code>ICE[0]</code> + 15% contorno · 12 = 40% <code>ICE[0]</code> + 60% contorno.</p>
+</section>
+
+<section><h2>Arquivos</h2><div class="box"><ul>
+<li>Gerador: <code>tools/sprites/gelo_gigante.py</code> (+ <code>gelo_gigante_report.py</code>). Roda com
+<code>python3 tools/sprites/gelo_gigante.py</code>, é determinístico e reaproveita <code>regions_volume</code> e
+<code>regions_ice_blocks</code>.</li>
+<li>Pendentes: <code>pendentes/form_ice_giant_{coil,s,piece}.png</code> (256×220),
+<code>pendentes/form_ice_giant_{coil,s,piece}_anim.png</code> (2048×220), <code>pendentes/frost_field.png</code>
+(420×200) e <code>pendentes/gelo_gigante.json</code>.</li>
+</ul></div></section>
+</div></body></html>

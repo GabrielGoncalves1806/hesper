@@ -1,0 +1,293 @@
+{
+ "note": "v0.5 (PROPOSTA): gelo gigante da faixa gelada com a silhueta presa. O dono escolhe UMA variação (coil, s ou piece); a escolhida vira form_ice_giant.png + form_ice_giant_anim.png. PNG indexado: 0..7 rampa ICE (ramps.ICE.frost[estágio]), 8 contorno, 9 sombra (alfa 80), 10..12 a silhueta (rampa nova ICE_DEEP[estágio]), 255 transparente.",
+ "formation": {
+  "sprite": "form_ice_giant.png",
+  "size_px": [
+   256,
+   220
+  ],
+  "foot": [
+   120,
+   216
+  ],
+  "size": [
+   7,
+   4
+  ],
+  "tiles": [
+   [
+    -3,
+    -1
+   ],
+   [
+    -2,
+    -2
+   ],
+   [
+    -2,
+    -1
+   ],
+   [
+    -2,
+    0
+   ],
+   [
+    -1,
+    -2
+   ],
+   [
+    -1,
+    -1
+   ],
+   [
+    -1,
+    0
+   ],
+   [
+    0,
+    -2
+   ],
+   [
+    0,
+    -1
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    1,
+    -2
+   ],
+   [
+    1,
+    -1
+   ],
+   [
+    1,
+    0
+   ],
+   [
+    2,
+    -1
+   ],
+   [
+    2,
+    0
+   ],
+   [
+    3,
+    -1
+   ],
+   [
+    3,
+    0
+   ]
+  ],
+  "region": "frost",
+  "ramp": "ICE",
+  "extra_ramp": "ICE_DEEP",
+  "small": false,
+  "count": "1 por mundo, num canto da faixa gelada, longe dos gelos-portão",
+  "keep_clear": "retângulo 11×7 tiles centrado na pegada (os estilhaços e a geada moram aí)"
+ },
+ "anim": {
+  "sprite": "form_ice_giant_anim.png",
+  "frames": 8,
+  "frame": [
+   256,
+   220
+  ],
+  "fps": 6,
+  "rule": "parado no quadro 0; a cada 9–14 s (sorteio) toca a tira 1 vez a 6 fps e volta pro 0",
+  "breath": [
+   0.0,
+   0.02,
+   0.05,
+   0.07,
+   0.07,
+   0.05,
+   0.02,
+   0.0
+  ],
+  "glint_pos": [
+   -260,
+   -260,
+   -130,
+   -60,
+   10,
+   80,
+   150,
+   -260
+  ]
+ },
+ "ramps": {
+  "ICE_DEEP": {
+   "storm": [
+    "#5f727e",
+    "#4b4e56",
+    "#313042"
+   ],
+   "arid": [
+    "#326890",
+    "#1e3755",
+    "#1d2642"
+   ],
+   "mist": [
+    "#455868",
+    "#333d4c",
+    "#26283d"
+   ],
+   "green": [
+    "#3e5d66",
+    "#2f4049",
+    "#242a3c"
+   ]
+  }
+ },
+ "shards": [
+  {
+   "sprite": "ice_block_boulder_1.png",
+   "frame": 1,
+   "x": 128,
+   "y": 18
+  },
+  {
+   "sprite": "ice_block_slab_1.png",
+   "frame": 3,
+   "x": 78,
+   "y": 34
+  },
+  {
+   "sprite": "ice_block_boulder_0.png",
+   "frame": 5,
+   "x": 40,
+   "y": 40
+  },
+  {
+   "sprite": "ice_block_slab_0.png",
+   "frame": 6,
+   "x": 170,
+   "y": -8
+  },
+  {
+   "sprite": "ice_block_boulder_1.png",
+   "frame": 6,
+   "x": 112,
+   "y": 50
+  },
+  {
+   "sprite": "ice_block_boulder_0.png",
+   "frame": 7,
+   "x": 158,
+   "y": 40
+  },
+  {
+   "sprite": "ice_block_shard_1.png",
+   "frame": 2,
+   "x": -142,
+   "y": -30
+  },
+  {
+   "sprite": "ice_block_slab_1.png",
+   "frame": 4,
+   "x": -112,
+   "y": 26
+  },
+  {
+   "sprite": "ice_block_boulder_0.png",
+   "frame": 6,
+   "x": -160,
+   "y": 14
+  },
+  {
+   "sprite": "ice_block_boulder_1.png",
+   "frame": 7,
+   "x": -64,
+   "y": 40
+  },
+  {
+   "sprite": "ice_block_slab_0.png",
+   "frame": 5,
+   "x": -150,
+   "y": -96
+  },
+  {
+   "sprite": "ice_block_boulder_0.png",
+   "frame": 4,
+   "x": 140,
+   "y": -100
+  }
+ ],
+ "chips": [
+  {
+   "sprite": "decor_ice_chunks (seed 1)",
+   "x": -96,
+   "y": 52
+  },
+  {
+   "sprite": "decor_ice_chunks (seed 2)",
+   "x": 12,
+   "y": 58
+  },
+  {
+   "sprite": "decor_ice_chunks (seed 3)",
+   "x": 196,
+   "y": 22
+  },
+  {
+   "sprite": "decor_ice_chunks (seed 4)",
+   "x": -190,
+   "y": -40
+  },
+  {
+   "sprite": "decor_ice_chunks (seed 5)",
+   "x": 60,
+   "y": 66
+  },
+  {
+   "sprite": "decor_ice_chunks (seed 2)",
+   "x": -30,
+   "y": 64
+  },
+  {
+   "sprite": "decor_ice_chunks (seed 4)",
+   "x": 186,
+   "y": -70
+  },
+  {
+   "sprite": "decor_ice_chunks (seed 1)",
+   "x": 92,
+   "y": 70
+  },
+  {
+   "sprite": "decor_ice_chunks (seed 3)",
+   "x": -180,
+   "y": 40
+  }
+ ],
+ "frost_field": {
+  "sprite": "frost_field.png",
+  "size": [
+   420,
+   200
+  ],
+  "ramp": "BASE frost",
+  "at": [
+   0,
+   -54
+  ],
+  "rule": "camada de decalques, centro em (âncora.x, âncora.y − 54)"
+ },
+ "variants": {
+  "larva": "Larva em C",
+  "embryo": "Embrião",
+  "cocoon": "Casulo",
+  "fetal": "Encolhido com cauda",
+  "coil": "Enrolada",
+  "s": "Em S",
+  "piece": "Só um pedaço"
+ },
+ "recommended": "cocoon",
+ "history": "coil, s e piece são a 1ª rodada (verme comprido); larva, embryo, cocoon e fetal a 2ª (criatura em C)"
+}

@@ -1,0 +1,9 @@
+# gerados (refaz com capture.py / render_cutscenes.py / npm run render)
+video/node_modules/
+video/out/
+frames/
+video/public/clips/
+video/public/art/
+video/public/audio/
+video/public/sfx/
+video/public/fonts/

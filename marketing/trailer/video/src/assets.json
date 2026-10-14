@@ -1,0 +1,92 @@
+{
+ "musicReal": true,
+ "musicPlaceholder": false,
+ "cutscenes": [
+  {
+   "id": "cena1",
+   "src": "art/cena1.mp4",
+   "title": "Laboratório, noite · Dia 140"
+  },
+  {
+   "id": "cena1b",
+   "src": "art/cena1b.mp4",
+   "title": "Close: Ilves na ocular"
+  },
+  {
+   "id": "cena2",
+   "src": "art/cena2.mp4",
+   "title": "Close no microscópio"
+  },
+  {
+   "id": "cena3",
+   "src": "art/cena3.mp4",
+   "title": "Ilves tranca o laboratório · Dia 140, noite"
+  },
+  {
+   "id": "cena3b",
+   "src": "art/cena3b.mp4",
+   "title": "Insert: a chave girando"
+  },
+  {
+   "id": "cena4",
+   "src": "art/cena4.mp4",
+   "title": "A cargueira VÉSPER-7 · Dia 188"
+  },
+  {
+   "id": "cena5",
+   "src": "art/cena5.mp4",
+   "title": "Terminal da última mensagem · Dia 230"
+  },
+  {
+   "id": "cena6",
+   "src": "art/cena6.mp4",
+   "title": "O gelo gigante · forma: cocoon"
+  },
+  {
+   "id": "cena6b",
+   "src": "art/cena6b.mp4",
+   "title": "Close: a coisa dentro do gelo"
+  }
+ ],
+ "clips": [
+  "base",
+  "cave",
+  "crater",
+  "deep_cave",
+  "drones",
+  "gate",
+  "giant",
+  "green",
+  "green_lake",
+  "landing",
+  "magma",
+  "mine",
+  "rain",
+  "soon_machines",
+  "storm_walk"
+ ],
+ "sfx": [
+  "amb_rain.wav",
+  "amb_rain_light.wav",
+  "amb_storm.wav",
+  "craft.wav",
+  "drill_loop.wav",
+  "gust.wav",
+  "gust_2.wav",
+  "ice_collapse.wav",
+  "ice_crack.wav",
+  "ice_crack_1.wav",
+  "machine_hum.wav",
+  "mine_break.wav",
+  "mine_hit.wav",
+  "place.wav",
+  "sky_clear.wav",
+  "stage_up.wav",
+  "terminal_open.wav",
+  "trailer_heartbeat.wav",
+  "trailer_logo_hit.wav",
+  "trailer_reverse_ice.wav",
+  "trailer_whoosh.wav",
+  "vent_hiss.wav"
+ ]
+}

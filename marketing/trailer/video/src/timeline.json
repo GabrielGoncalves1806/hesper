@@ -1,0 +1,464 @@
+{
+ "fps": 30,
+ "duration": 90,
+ "_nota": "Tempos em segundos do trailer, cortados nos marcadores da trilha (audio/trailer_music.json): baque 9,6 · pulso 12 · compassos de 2 s até 40 · abertura 40 · queda 55 · estalos 59/65/71 · coração 75–83 · sugada 84–84,85 · logo 85. Cada shot: clip (public/clips/<clip>.mp4), from = segundo do clipe onde começa, rate = velocidade, zoom = [início, fim] (Ken Burns por cima), fx = in/out (fade do/ pro preto), focus = x do recorte no vertical (0..1).",
+ "shots": [
+  {
+   "clip": "landing",
+   "at": 0,
+   "dur": 12,
+   "from": 0,
+   "zoom": [
+    1,
+    1
+   ],
+   "in": 1.4
+  },
+  {
+   "clip": "storm_walk",
+   "at": 12,
+   "dur": 4,
+   "from": 0.4,
+   "zoom": [
+    1,
+    1.06
+   ]
+  },
+  {
+   "clip": "mine",
+   "at": 16,
+   "dur": 2,
+   "from": 0.5,
+   "zoom": [
+    1.04,
+    1
+   ]
+  },
+  {
+   "clip": "magma",
+   "at": 18,
+   "dur": 4,
+   "from": 1.0,
+   "zoom": [
+    1,
+    1.05
+   ]
+  },
+  {
+   "clip": "base",
+   "at": 22,
+   "dur": 4,
+   "from": 0.2,
+   "rate": 1.6,
+   "zoom": [
+    1,
+    1
+   ]
+  },
+  {
+   "clip": "drones",
+   "at": 26,
+   "dur": 4,
+   "from": 0.8,
+   "rate": 1.2,
+   "zoom": [
+    1,
+    1.04
+   ]
+  },
+  {
+   "clip": "gate",
+   "at": 30,
+   "dur": 4,
+   "from": 0.8,
+   "rate": 1.4,
+   "zoom": [
+    1,
+    1.04
+   ]
+  },
+  {
+   "clip": "cave",
+   "at": 34,
+   "dur": 3,
+   "from": 1.2,
+   "zoom": [
+    1.05,
+    1
+   ]
+  },
+  {
+   "clip": "soon_machines",
+   "at": 37,
+   "dur": 3,
+   "from": 0.5,
+   "zoom": [
+    1,
+    1.06
+   ],
+   "soon": true
+  },
+  {
+   "clip": "crater",
+   "at": 40,
+   "dur": 5,
+   "from": 0,
+   "zoom": [
+    1,
+    1.04
+   ]
+  },
+  {
+   "clip": "rain",
+   "at": 45,
+   "dur": 4.5,
+   "from": 1.0,
+   "rate": 1.25,
+   "zoom": [
+    1,
+    1.03
+   ]
+  },
+  {
+   "clip": "green",
+   "at": 49.5,
+   "dur": 3.5,
+   "from": 0.6,
+   "rate": 1.6,
+   "zoom": [
+    1,
+    1
+   ]
+  },
+  {
+   "clip": "green_lake",
+   "at": 53,
+   "dur": 2,
+   "from": 1.5,
+   "zoom": [
+    1,
+    1.03
+   ],
+   "out": 0.5
+  },
+  {
+   "clip": "deep_cave",
+   "at": 75,
+   "dur": 2.6,
+   "from": 0.6,
+   "zoom": [
+    1,
+    1.05
+   ],
+   "in": 0.4,
+   "soon": true,
+   "soonUntil": 84.0
+  },
+  {
+   "clip": "giant",
+   "at": 77.6,
+   "dur": 2.8,
+   "from": 0.2,
+   "zoom": [
+    1,
+    1.05
+   ]
+  }
+ ],
+ "cutscenes": [
+  {
+   "id": "cena1",
+   "slot": 0,
+   "at": 56.4,
+   "dur": 2.6,
+   "from": 3.4,
+   "label": "COLÔNIA HESPER",
+   "vfocus": 0.6
+  },
+  {
+   "id": "cena1b",
+   "slot": 1,
+   "at": 59,
+   "dur": 2.0,
+   "from": 0.6,
+   "label": "LOG 04 · DIA 140"
+  },
+  {
+   "id": "cena2",
+   "slot": 2,
+   "at": 61.0,
+   "dur": 4.0,
+   "from": 0,
+   "quote": "\"cresce quando ninguém olha\"",
+   "quoteAt": 61.6
+  },
+  {
+   "id": "cena3",
+   "slot": 3,
+   "at": 68.2,
+   "dur": 1.4,
+   "from": 1.6
+  },
+  {
+   "id": "cena3b",
+   "slot": 4,
+   "at": 69.6,
+   "dur": 1.4,
+   "from": 0.4
+  },
+  {
+   "id": "cena5",
+   "slot": 6,
+   "at": 71.0,
+   "dur": 4.0,
+   "from": 6.0,
+   "label": "LOG 07 · DIA 230",
+   "vfit": 1.125,
+   "vfocus": 0.08
+  },
+  {
+   "id": "cena6",
+   "slot": 7,
+   "at": 80.4,
+   "dur": 2.2,
+   "from": 1.0
+  },
+  {
+   "id": "cena6b",
+   "slot": 8,
+   "at": 82.6,
+   "dur": 2.25,
+   "from": 1.6,
+   "suck": [
+    84.0,
+    84.85
+   ]
+  }
+ ],
+ "captions": [
+  {
+   "text": "Um planeta sem ar.",
+   "at": 1.2,
+   "until": 4.2
+  },
+  {
+   "text": "A primeira colônia *sumiu*.",
+   "at": 4.6,
+   "until": 7.6
+  },
+  {
+   "text": "Agora é a *sua vez*.",
+   "at": 10.3,
+   "until": 11.85
+  },
+  {
+   "kicker": "SOBREVIVA",
+   "text": "A tempestade não perdoa.",
+   "at": 12.2,
+   "until": 15.8
+  },
+  {
+   "kicker": "MINERE",
+   "text": "Ferro, silício, gelo.",
+   "at": 16.1,
+   "until": 17.85
+  },
+  {
+   "kicker": "EXPLORE",
+   "text": "*Magmatita* nas fumarolas.",
+   "at": 18.2,
+   "until": 21.8
+  },
+  {
+   "kicker": "CONSTRUA",
+   "text": "A base cresce com você.",
+   "at": 22.2,
+   "until": 25.8
+  },
+  {
+   "kicker": "AUTOMATIZE",
+   "text": "Drones levam o minério.",
+   "at": 26.2,
+   "until": 29.8
+  },
+  {
+   "kicker": "DERRETA",
+   "text": "O calor abre caminho.",
+   "at": 30.2,
+   "until": 33.8
+  },
+  {
+   "kicker": "DESÇA",
+   "text": "Só a lanterna no escuro.",
+   "at": 34.2,
+   "until": 36.85
+  },
+  {
+   "kicker": "EM BREVE",
+   "text": "Drills novas e vento.",
+   "at": 37.2,
+   "until": 39.8
+  },
+  {
+   "text": "Esquente o planeta,",
+   "at": 40.6,
+   "until": 44.6
+  },
+  {
+   "text": "traga a *chuva*,",
+   "at": 45.4,
+   "until": 49.2
+  },
+  {
+   "text": "e veja ele *ficar verde*.",
+   "at": 49.8,
+   "until": 54.4
+  },
+  {
+   "text": "Mas alguém chegou *antes*.",
+   "at": 55.25,
+   "until": 56.3,
+   "center": true
+  },
+  {
+   "kicker": "EM BREVE",
+   "text": "Mais fundo.",
+   "at": 75.3,
+   "until": 77.4
+  },
+  {
+   "kicker": "EM BREVE",
+   "text": "Algo *dorme* no gelo.",
+   "at": 79.2,
+   "until": 83.6
+  }
+ ],
+ "logs": [
+  {
+   "at": 65,
+   "until": 68.2,
+   "label": "LOG 06 · DIA 212",
+   "text": "Dia 212. O derretedor 4 parou de novo.",
+   "punch": "\"O gelo daqui não é só água.\"",
+   "bg": "cena4",
+   "bgFrom": 1.0
+  }
+ ],
+ "logo": {
+  "at": 85,
+  "tagline": "Planeta sem ar. Por enquanto.",
+  "status": "em desenvolvimento"
+ },
+ "sfx": [
+  {
+   "file": "gust.wav",
+   "at": 12.9,
+   "vol": 0.5
+  },
+  {
+   "file": "mine_hit.wav",
+   "at": 16.1,
+   "vol": 0.45
+  },
+  {
+   "file": "mine_hit.wav",
+   "at": 16.35,
+   "vol": 0.45
+  },
+  {
+   "file": "mine_hit.wav",
+   "at": 16.6,
+   "vol": 0.45
+  },
+  {
+   "file": "mine_break.wav",
+   "at": 16.85,
+   "vol": 0.6,
+   "duck": true
+  },
+  {
+   "file": "vent_hiss.wav",
+   "at": 18.32,
+   "vol": 0.5
+  },
+  {
+   "file": "place.wav",
+   "at": 22.14,
+   "vol": 0.3
+  },
+  {
+   "file": "place.wav",
+   "at": 22.38,
+   "vol": 0.3
+  },
+  {
+   "file": "place.wav",
+   "at": 22.62,
+   "vol": 0.3
+  },
+  {
+   "file": "place.wav",
+   "at": 22.86,
+   "vol": 0.3
+  },
+  {
+   "file": "place.wav",
+   "at": 23.1,
+   "vol": 0.3
+  },
+  {
+   "file": "place.wav",
+   "at": 23.34,
+   "vol": 0.3
+  },
+  {
+   "file": "place.wav",
+   "at": 23.58,
+   "vol": 0.3
+  },
+  {
+   "file": "place.wav",
+   "at": 23.82,
+   "vol": 0.3
+  },
+  {
+   "file": "place.wav",
+   "at": 24.06,
+   "vol": 0.3
+  },
+  {
+   "file": "place.wav",
+   "at": 24.3,
+   "vol": 0.3
+  },
+  {
+   "file": "place.wav",
+   "at": 24.54,
+   "vol": 0.3
+  },
+  {
+   "file": "place.wav",
+   "at": 24.78,
+   "vol": 0.3
+  },
+  {
+   "file": "drill_loop.wav",
+   "at": 26,
+   "vol": 0.22,
+   "dur": 4
+  },
+  {
+   "file": "terminal_open.wav",
+   "at": 65.05,
+   "vol": 0.5,
+   "duck": true
+  },
+  {
+   "file": "terminal_open.wav",
+   "at": 71.05,
+   "vol": 0.5,
+   "duck": true
+  }
+ ],
+ "_sfx_nota": "SFX do jogo (audio/sfx do Som). Sem ice_crack*/ice_collapse (reverb CC BY 4.0). duck = trilha a 0,65 por ~1 s."
+}

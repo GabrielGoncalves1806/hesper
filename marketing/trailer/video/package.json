@@ -1,0 +1,22 @@
+{
+  "name": "hesper-trailer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node sync-assets.mjs",
+    "render": "node sync-assets.mjs && remotion render src/index.ts HesperTrailer out/hesper_trailer.mp4 --codec h264 --crf 18",
+    "render:vertical": "node sync-assets.mjs && remotion render src/index.ts HesperTrailerVertical out/hesper_trailer_vertical.mp4 --codec h264 --crf 20",
+    "stills": "node stills.mjs",
+    "studio": "remotion studio src/index.ts"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.533",
+    "@remotion/cli": "4.0.533",
+    "@remotion/renderer": "4.0.533",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "4.0.533",
+    "typescript": "^5.6.0"
+  }
+}

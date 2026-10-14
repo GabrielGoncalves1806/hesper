@@ -1,0 +1,218 @@
+{
+  "file": "trailer_music.wav",
+  "duration": 90.0,
+  "sample_rate": 44100,
+  "channels": 2,
+  "bpm": 120,
+  "beat_grid": {
+    "start": 12.0,
+    "end": 40.0,
+    "beat": 0.5,
+    "bar": 2.0,
+    "note": "grade de 120 BPM só vale de 12 a 40 s; cortes em múltiplos de 2 s caem no compasso"
+  },
+  "sections": [
+    {
+      "id": "storm",
+      "start": 0.0,
+      "end": 12.0,
+      "title": "Pouso na tempestade",
+      "description": "Vento de banda larga respirando, uivo distante, poeira no fundo, drone em Lá (quinta vazia) subindo devagar e um Sib roçando no fim (tensão contida). Baque do pouso em 9,6 s."
+    },
+    {
+      "id": "build",
+      "start": 12.0,
+      "end": 40.0,
+      "title": "Construir e explorar",
+      "description": "120 BPM. Baixo em colcheias com o filtro abrindo; a cada 8 s entra uma camada: 20 s pulso grave e arpejo, 24 s chimbal, 28 s palma e picaretadas do jogo como percussão, 36 s subida e rufar. Acordes A add9, F maj7(#11), D add9, E sus4: otimista, com o Si natural sobre o Fá dando a estranheza."
+    },
+    {
+      "id": "open",
+      "start": 40.0,
+      "end": 55.0,
+      "title": "O planeta muda",
+      "description": "Sem bateria. Pads largos em Lá maior (como o amb_green), melodia lenta, brilhos com reverb longo e chuva de verdade bem baixa. Em 53 s volta o F maj7(#11) e o filtro fecha."
+    },
+    {
+      "id": "cold",
+      "start": 55.0,
+      "end": 75.0,
+      "title": "A virada (Dra. Ilves)",
+      "description": "Tudo cai. Drone Lá1 + Sib1 (batimento lento), trítono, um agudo que escorrega meio-tom, gelo estalando (estalos grandes em 59, 65 e 71 s pras falas dos LOGs) e gemidos de gelo."
+    },
+    {
+      "id": "giant",
+      "start": 75.0,
+      "end": 85.0,
+      "title": "O gelo gigante",
+      "description": "Quase silêncio. Batimento grave lento (1,30 s acelerando pra 1,12 s), respiração de ar bem baixa, um resto de Lá. Sugada reversa 84,0-84,85 e 150 ms de silêncio absoluto."
+    },
+    {
+      "id": "logo",
+      "start": 85.0,
+      "end": 90.0,
+      "title": "Corte seco + logo HESPER",
+      "description": "Baque grave de ruído, gelo partindo, Lá aberto florescendo no reverb e cauda até 90 s."
+    }
+  ],
+  "hits": [
+    {
+      "t": 9.6,
+      "kind": "hit",
+      "label": "pouso (baque)",
+      "frame30": 288,
+      "frame60": 576
+    },
+    {
+      "t": 12.0,
+      "kind": "hit",
+      "label": "o pulso começa (1ª nota do baixo)",
+      "frame30": 360,
+      "frame60": 720
+    },
+    {
+      "t": 40.0,
+      "kind": "hit",
+      "label": "abertura (a cratera derrete)",
+      "frame30": 1200,
+      "frame60": 2400
+    },
+    {
+      "t": 55.0,
+      "kind": "hit",
+      "label": "a queda (corte pro frio)",
+      "frame30": 1650,
+      "frame60": 3300
+    },
+    {
+      "t": 59.0,
+      "kind": "hit",
+      "label": "estalo de gelo · deixa do LOG 1",
+      "frame30": 1770,
+      "frame60": 3540
+    },
+    {
+      "t": 65.0,
+      "kind": "hit",
+      "label": "estalo de gelo · deixa do LOG 2",
+      "frame30": 1950,
+      "frame60": 3900
+    },
+    {
+      "t": 71.0,
+      "kind": "hit",
+      "label": "estalo de gelo · deixa do LOG 3",
+      "frame30": 2130,
+      "frame60": 4260
+    },
+    {
+      "t": 85.0,
+      "kind": "hit",
+      "label": "corte seco + logo HESPER",
+      "frame30": 2550,
+      "frame60": 5100
+    }
+  ],
+  "cues": [
+    {
+      "t": 20.0,
+      "kind": "cue",
+      "label": "entra o pulso grave e o arpejo",
+      "frame30": 600,
+      "frame60": 1200
+    },
+    {
+      "t": 24.0,
+      "kind": "cue",
+      "label": "entra o chimbal",
+      "frame30": 720,
+      "frame60": 1440
+    },
+    {
+      "t": 28.0,
+      "kind": "cue",
+      "label": "entra a palma e a picareta",
+      "frame30": 840,
+      "frame60": 1680
+    },
+    {
+      "t": 36.0,
+      "kind": "cue",
+      "label": "começa a subida",
+      "frame30": 1080,
+      "frame60": 2160
+    },
+    {
+      "t": 39.92,
+      "kind": "cue",
+      "label": "respiro de 80 ms antes do hit de 40 s (silêncio)",
+      "frame30": 1198,
+      "frame60": 2395
+    },
+    {
+      "t": 44.0,
+      "kind": "cue",
+      "label": "acorde 2 (Ré maj7)",
+      "frame30": 1320,
+      "frame60": 2640
+    },
+    {
+      "t": 48.0,
+      "kind": "cue",
+      "label": "acorde 3 (Fá# m9)",
+      "frame30": 1440,
+      "frame60": 2880
+    },
+    {
+      "t": 53.0,
+      "kind": "cue",
+      "label": "estranheza volta, filtro começa a fechar",
+      "frame30": 1590,
+      "frame60": 3180
+    },
+    {
+      "t": 84.0,
+      "kind": "cue",
+      "label": "sugada (reverso) começa",
+      "frame30": 2520,
+      "frame60": 5040
+    },
+    {
+      "t": 84.85,
+      "kind": "cue",
+      "label": "silêncio total",
+      "frame30": 2546,
+      "frame60": 5091
+    }
+  ],
+  "beats_heart": [
+    75.7,
+    77.0,
+    78.27,
+    79.512,
+    80.725,
+    81.91,
+    83.069
+  ],
+  "bars": [
+    12.0,
+    14.0,
+    16.0,
+    18.0,
+    20.0,
+    22.0,
+    24.0,
+    26.0,
+    28.0,
+    30.0,
+    32.0,
+    34.0,
+    36.0,
+    38.0
+  ],
+  "loudness": {
+    "integrated_lufs": -13.9,
+    "true_peak_dbtp": -1.2,
+    "lra_lu": 14.0
+  }
+}
