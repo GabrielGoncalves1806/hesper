@@ -40,6 +40,8 @@ CONTRACT = {
     # v0.4 Marco 3 · gelo e água (v11, gravações, aprovados pelo dono)
     "ice_crack": False, "ice_crack_1": False, "ice_collapse": False,
     "amb_rain": True, "amb_rain_light": True, "amb_rain_heavy": True, "vent_hiss": True,
+    # v0.5 Marco 1 · construtor (v12, aprovados pelo dono)
+    "build": False, "dismantle_charge": False, "dismantle_done": False, "diagram_read": False,
 }
 # entregues em _pending/ até o dono aprovar
 PENDING: dict = {}

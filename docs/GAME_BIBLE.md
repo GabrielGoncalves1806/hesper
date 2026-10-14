@@ -240,6 +240,10 @@ WAV, 44,1 kHz, 16-bit, mono. Loops precisam emendar sem estalo.
 | `ice_collapse.wav` | sfx ~2,4 s | **aprovado pelo dono, v11** (gravação). A cratera abriu (`crater_thaw` etapa 4) e um gelo-portão abriu (`gate_thaw` etapa 3). Volume sugerido **0,8**; na caverna, 0,5 ou nada |
 | `amb_rain.wav` `amb_rain_light.wav` `amb_rain_heavy.wav` | loop 24 s | **aprovado pelo dono, v11** (gravação). v0.4 M3.3: chuva na superfície, no canal 10, com o volume = **0,55** × intensidade da pancada (`rain.rain_level`, 0..1, já com a subida e a descida de 2 s). Uma variação por pancada (média = a principal; fraca ou média no Verde; a forte quando quiser aguaceiro), sorteada pela seed. Para quando a intensidade chega a 0. Na caverna, 0. Sem variar o pitch |
 | `vent_hiss.wav` | loop 20 s | **aprovado pelo dono, v11** (gravação). Perto de uma fumarola **acordada** (`layer.vents_awake`): um canal só, pela mais próxima, volume **0,6** × `fade_by_distance(d, 2, 7)` em tiles. Dormente não toca. Só na superfície. Sem variar o pitch |
+| `build.wav` | sfx 1,54 s | **aprovado pelo dono, v12.** Máquina colocada com o construtor (scanner varrendo): feixe subindo de tom e clack de trava a ~1,35 s (o Dev ajusta a animação ao clack). Volume **0,55**, pitch 0,97–1,03 |
+| `dismantle_charge.wav` | sfx 1,98 s | **aprovado pelo dono, v12.** Enquanto segura o botão direito (2 s), sobe de tom e trêmolo. Canal único; ao soltar, `channel.fadeout(60)` (nunca `stop()` seco). Volume **0,45**, sem variar o pitch |
+| `dismantle_done.wav` | sfx 0,55 s | **aprovado pelo dono, v12.** Desmonte concluído e materiais devolvidos; **substitui o `place_low`** no desmonte de máquina. Volume **0,6**, pitch 0,97–1,03 |
+| `diagram_read.wav` | sfx 1,24 s | **aprovado pelo dono, v12.** Ler um diagrama na bancada e liberar a receita ("aprendi algo"; mais calmo que o `blueprint_found`). Volume **0,6**, sem variar o pitch |
 
 Os 7 sons da v11 vêm de gravações livres (CC0, domínio público do NPS e um IR de reverb em **CC BY 4.0**): o crédito obrigatório pra tela de créditos está em `assets/audio/CREDITS.md`. O build deles precisa do pedalboard: `uv run python tools/audio/build_audio.py`.
 

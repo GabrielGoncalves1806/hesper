@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Som · v0.5 M1 Construtor (proposta)</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;margin:0;padding:16px}
+.wrap{max-width:1000px;margin:0 auto;padding-block:36px 70px}
+h1{font-size:34px;margin:8px 0 12px}h2{font-size:22px;margin:44px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.eyebrow{font:12px monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--rust)}
+.note{border-left:3px solid var(--gold);background:var(--panel);padding:12px 16px;margin:18px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:8px}
+.card.nb{opacity:.85}
+.fname{font:500 14px monospace}.when{font:11px monospace;color:var(--gold);text-transform:uppercase}
+.what{margin:0;color:var(--muted);font-size:14px}.tag{font:11px monospace;color:var(--muted);border:1px solid var(--line);padding:1px 6px;margin-right:4px}
+canvas{width:100%;height:44px;background:#251c18;display:block}audio{width:100%;height:36px}
+button{background:#251c18;color:var(--fg);border:1px solid var(--rust);padding:6px 12px;cursor:pointer;font:13px monospace;margin:4px 6px 4px 0}
+button:hover{background:var(--rust);color:#000}
+code{font:13px monospace;color:var(--cyan)}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px}
+li{margin:4px 0;color:var(--muted)}li b{color:var(--fg)}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Som · v0.5 Marco 1 · aprovado pelo dono</div>
+<h1>Construtor: construir, desmontar, ler diagrama</h1>
+<div class="note"><b>v12 · APROVADOS pelo dono e promovidos:</b> 4 sons novos (<code>build</code>, <code>dismantle_charge</code>, <code>dismantle_done</code>, <code>diagram_read</code>). Agora são oficiais em <code>assets/audio/</code> (gerados pelo <code>build_audio.py</code>, idênticos byte a byte aos desta pasta) e nenhum arquivo oficial mudou (md5 dos 54 WAVs oficiais + 9 candidatas conferido, idênticos). Validação por análise (duração, pico, loudness, espectro); eu não ouço, a palavra final é do teu ouvido.</div>
+<p style="color:var(--muted)">Ideia: tecnologia, não magia. O scanner é um feixe de dente de serra filtrado (Lá2 a Lá4) com trêmolo e tiquinhos digitais, e fecha com um clack mecânico de ruído de banda larga, sem seno grave (nada de tambor) e sem ressonância estreita (nada de latinha). Tudo em Lá, mesma família do <code>equip</code> (clack + selo pneumático + bipe Mi5 a Lá5) e do <code>blueprint_found</code> (Lá maior).</p>
+
+<h2>Os 4 novos</h2><div class="cards" id="new"></div>
+
+<h2>Simulações</h2>
+<div class="note">
+<button onclick="simBuild()">Construir (build)</button>
+<button onclick="simFull()">Desmontar até o fim (charge 2 s + done)</button>
+<button onclick="simCancel(0.7)">Desmontar e soltar aos 0,7 s (fadeout 60 ms)</button>
+<button onclick="simCancel(1.5)">Soltar aos 1,5 s</button>
+<button onclick="simDiagram()">Ler diagrama</button>
+<button onclick="stopAll()">Parar</button>
+<p id="log" style="font:12px monospace;color:var(--muted);margin:6px 0 0"></p></div>
+
+<h2>Vizinhos pra comparar</h2><div class="cards" id="nb"></div>
+
+<h2>Como encaixam</h2>
+<div class="tbl"><table>
+<tr><th>Som</th><th>Diferença pro vizinho</th></tr>
+<tr><td><code>build</code> x <code>place</code></td><td>O <code>place</code> é um baque grave e pesado (centroide ~180 Hz). O <code>build</code> é um feixe médio-agudo subindo (~800 Hz) que fecha com um clack leve de trava, tipo <code>equip</code>. Dá pra ouvir os dois seguidos: um coloca o fantasma, o outro varre.</td></tr>
+<tr><td><code>dismantle_done</code> x <code>pickup</code></td><td>O <code>pickup</code> é uma bolha de seno subindo (330 a 750 Hz). O <code>dismantle_done</code> não tem nenhum seno que sobe: é clack mais grave, feixe <i>descendo</i>, selo e tiquinhos de triângulo agudos e espalhados. Se tocar junto com 1-3 <code>pickup</code> dos materiais voltando, o contorno descendente do início ainda separa bem.</td></tr>
+<tr><td><code>dismantle_done</code> x <code>place_low</code></td><td>O <code>place_low</code> hoje toca no desmonte antigo. Sugiro trocar por este (ou deixar o <code>place_low</code> só pra baú/estação).</td></tr>
+<tr><td><code>diagram_read</code> x <code>blueprint_found</code></td><td>O blueprint é a festa (arpejo pulse subindo até Lá5, 1,8 s). O diagrama é o "entendi": varredura de dados curta, 4 blips em Mi-Lá-Si-Dó# e um sino macio de seno em Lá4+Mi5 (sem pulse), 1,2 s e mais baixo (-22 contra -16).</td></tr>
+</table></div>
+
+<h2>Dicas pro Dev</h2><ul>
+<li><b>Volumes sugeridos</b> (escala do <code>VOLUME</code>): <code>build</code> 0,55 · <code>dismantle_charge</code> 0,45 · <code>dismantle_done</code> 0,6 · <code>diagram_read</code> 0,6. Os alvos de loudness já saem em -20, -26, -22 e -22 dB, então esses fatores ficam no mesmo patamar do <code>equip</code>/<code>place</code>.</li>
+<li><b>Cortar o <code>dismantle_charge</code></b>: guarde o <code>Channel</code> devolvido por <code>play()</code> e, ao soltar o botão ou tirar o mouse da máquina, chame <code>channel.fadeout(60)</code> (60 ms; o pygame faz a rampa e para o canal, sem clique). <b>Não use</b> <code>stop()</code> seco, que corta na amostra e estala. O arquivo começa em zero com entrada de 15 ms, então o início é limpo. Se o desmonte completar, <b>não</b> corte: o arquivo termina sozinho (fade de 25 ms) e o <code>dismantle_done</code> entra na mesma hora.</li>
+<li><b>Sincronia:</b> o <code>charge</code> dura 1,98 s pra bater com os 2 s da barrinha; toque no mesmo frame em que a barrinha começa. O <code>build</code> tem o feixe de 0 a 1,3 s e o clack em ~1,35 s; a animação do scanner (1,5 s) pode ser ajustada pra o topo do sprite bater com o clack, ou o clack ser disparado quando a máquina fica pronta, se preferir (me avisa que eu separo em dois arquivos).</li>
+<li><b>Canais:</b> se várias máquinas forem construídas ao mesmo tempo, um canal só pro <code>build</code> (reiniciar) evita empilhar. O <code>charge</code> deve ser sempre único.</li>
+<li><b>Variação de pitch</b> no <code>build</code> e no <code>dismantle_done</code>: 0,97 a 1,03 (como o pickup). No <code>charge</code> e no <code>diagram_read</code> não.</li>
+<li>Se o ambiente estiver tocando, não precisa de ducking: são curtos e discretos.</li>
+</ul>
+<p style="color:var(--muted);font-size:13px">Gerado por <code>tools/audio/build_audio.py</code> (seed por nome, só numpy). Decisões do gerente: o Dev ajusta a animação ao clack do build; o dismantle_done substitui o place_low no desmonte de máquina.</p>
+</div>
+<script src="v05_meta.js"></script>
+<script>
+const M=window.V05_META;
+const NEW={build:["Ao colocar a máquina (clique esquerdo)","Scanner varrendo: feixe subindo de tom, trava mecânica no fim. Tecnologia, não magia."],
+ dismantle_charge:["Enquanto segura o botão direito (2 s)","Sobe de tom e de trêmolo até o fim, como uma carga. Cortar com fadeout(60)."],
+ dismantle_done:["Máquina desfeita, materiais voltaram","Destrava, feixe que cai, selo e tiquinhos espalhados. Irmão ao contrário do build."],
+ diagram_read:["Ler diagrama na bancada","Varredura de dados, quatro blips e um sino macio: o 'aprendi algo'."]};
+const NB={place:["Colocar máquina hoje","Baque grave e pesado."],pickup:["Coletar item","Bolha curta de seno subindo."],
+ blueprint_found:["Projeto achado","Jingle de conquista em Lá maior."],equip:["Equipar no traje","Clack + selo + bipe Mi5 a Lá5."],
+ place_low:["Desmontar hoje (place a 0,8x)","O place mais grave."]};
+function card(name,key,txt,nb){const m=M[key];const el=document.createElement("div");el.className="card"+(nb?" nb":"");
+ el.innerHTML=`<div><span class="fname">${name}.wav</span> <span class="tag">${m.duration.toFixed(2)} s</span><span class="tag">pico ${m.peak_db} dBFS</span><span class="tag">loud ${m.loudness_db} dB</span></div>
+ <div class="when">${txt[0]}</div><canvas class="wave" width="320" height="44"></canvas>
+ <audio controls preload="metadata" src="${m.file}"></audio><p class="what">${txt[1]}</p>`;
+ const c=el.querySelector("canvas").getContext("2d");c.fillStyle=nb?"#8a7a6e":"#e2733a";const w=m.wave,bw=320/w.length;
+ w.forEach((v,i)=>{const h=Math.max(1,v*42);c.fillRect(i*bw,22-h/2,Math.max(1,bw-0.5),h)});return el}
+for(const k in NEW)document.getElementById("new").append(card(k,k,NEW[k],false));
+for(const k in NB)document.getElementById("nb").append(card("nb_"+k,"nb:"+k,NB[k],true));
+let timers=[],auds=[];
+function A(n){const a=new Audio(M[n].file);a.volume=1;auds.push(a);return a}
+function stopAll(){timers.forEach(clearTimeout);timers=[];auds.forEach(a=>{a.pause()});auds=[];log("")}
+function log(s){document.getElementById("log").textContent=s}
+function later(ms,f){timers.push(setTimeout(f,ms))}
+function fadeOut(a,ms){const t0=performance.now();(function s(){const k=(performance.now()-t0)/ms;if(k>=1){a.pause();return}a.volume=1-k;requestAnimationFrame(s)})()}
+function simBuild(){stopAll();A("build").play();log("build")}
+function simFull(){stopAll();A("dismantle_charge").play();later(1980,()=>{A("dismantle_done").play();log("charge completo + done")});log("segurando...")}
+function simCancel(s){stopAll();const a=A("dismantle_charge");a.play();later(s*1000,()=>{fadeOut(a,60);log("soltou aos "+s+" s: fadeout 60 ms")});log("segurando...")}
+function simDiagram(){stopAll();A("diagram_read").play();log("diagram_read")}
+</script></body></html>

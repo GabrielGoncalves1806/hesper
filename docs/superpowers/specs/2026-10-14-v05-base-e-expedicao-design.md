@@ -62,7 +62,7 @@ Pro v0.6 ("logística e fundo"): **chip num slot** de baú/máquina deixa ela vi
 - **Validação** (flood fill a partir do tile do Dispersor, pelo chão, vizinhança de 4): a base é válida quando todo o chão alcançado está cercado de parede ou porta, tem **≥ 9 tiles de chão** (o 3×3 mínimo, em qualquer formato), **≥ 1 porta** e **≤ ~200 tiles** de chão. Recalcula quando um bloco é colocado ou desmontado perto.
 - **Dispersor de O₂** (construtor): 1 slot de cápsulas de água, gasta 1 cápsula a cada X minutos (número no balanceamento). Estado no painel e em cima dele: "Vedado ✓", "Vazamento" (o tile furado pisca) ou "Sem água". Tudo ok: dentro da base o O₂ recarrega igual à zona da cápsula.
 - **Derretedor**: continua terraformando como hoje e ganha inventário (entra gelo, sai cápsula de água). Os drones tiram as cápsulas e levam pros baús (mesma rota da drill).
-- **Em aberto**: o Dispersor gasta energia (recomendação: sim, 1 kW)?
+- **Energia**: o Dispersor consome **1 kW** (decisão do dono), como as outras máquinas.
 
 ### Marco 3 · Mundo
 

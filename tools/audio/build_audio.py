@@ -2259,6 +2259,142 @@ SOUNDS.update(RECORDED)
 PROPOSALS_V11: dict = {}   # promovidas; reports/audio/v11/ deixou de ser gerado
 
 
+# ---------------------------------------------------------------------------
+# v0.5 Marco 1 · construtor (v12, APROVADOS pelo dono)
+# ---------------------------------------------------------------------------
+
+def click(rng, at_gain=1.0, lo=500, hi=2800, dur=0.035):
+    """Trava mecânica: ruído de banda larga + estalinho agudo, sem tom."""
+    tr = Track()
+    tr.add(noise_burst(rng, lo, hi, 0.0003, 0.006, dur, order=1), 0, 0.9 * at_gain)
+    tr.add(noise_burst(rng, 2000, 7000, 0.0002, 0.0008, 0.006, order=1), 0, 0.4 * at_gain)
+    tr.add(noise_burst(rng, None, 350, 0.001, 0.012, 0.05, order=2), 0.001, 0.35 * at_gain)
+    return tr.render()
+
+
+def scan_ticks(rng, tr, t0, t1, r0, r1, gain, lo=2500, hi=7000):
+    """Tiquinhos de varredura, taxa subindo de r0 a r1 por segundo, timing irregular."""
+    t = t0
+    while t < t1:
+        k = (t - t0) / (t1 - t0)
+        tr.add(noise_burst(rng, lo, hi, 0.0002, 0.0012, 0.008, order=1), t, gain * (0.5 + 0.5 * k) * rng.uniform(0.6, 1.0))
+        t += rng.uniform(0.6, 1.4) / (r0 + (r1 - r0) * k)
+
+
+def sfx_build(rng):
+    """Scanner construindo (~1,5 s): feixe de dente de serra filtrado subindo duas oitavas
+    (Lá2 -> Lá4) com uma segunda voz em quinta e trêmolo de varredura, tiquinhos digitais
+    acelerando; corta seco no 1,3 s e fecha com a trava: clack de banda larga + selo
+    pneumático + bipe Mi5->Lá5 baixinho (família do equip)."""
+    tr = Track()
+    L = 1.3
+    n = ns(L)
+    t = tvec(n)
+    k = t / L
+    f = 110 * 4 ** k
+    cut = 500 + 2600 * k
+    beam = bl_wave(f, n, "saw", 3800)
+    beam = filt(beam, None, 3200, 1)
+    beam2 = bl_wave(f * 1.5 * 1.002, n, "tri", 3000)
+    trem = 0.8 + 0.2 * np.sin(2 * np.pi * np.cumsum(14 + 22 * k) / SR)
+    env = np.minimum(1, t / 0.06) * (0.35 + 0.65 * k ** 0.7) * np.clip((L - t) / 0.03, 0, 1)
+    tr.add((beam * 0.6 + beam2 * 0.25) * trem * env, 0, 0.5)
+    # brilho do feixe: banda de ruído larga subindo junto, bem baixa
+    tr.add(noise_sweep(rng, L, 1200, 5000, 2.5) * env * 0.5, 0, 0.12)
+    scan_ticks(rng, tr, 0.05, L, 14, 38, 0.16)
+    # encaixe
+    at = L + 0.04
+    tr.add(click(rng), at, 0.85)
+    nn = ns(0.12)
+    tr.add(filt(rng.standard_normal(nn), 1500, 5000, 1) * bump(nn, 0.1) ** 2, at + 0.02, 0.1)
+    for m, d in ((76, 0.06), (81, 0.11)):
+        q = ns(0.14)
+        tr.add(np.sin(phase_of(midi(m), q)) * perc(q, 0.003, 0.035), at + d, 0.15)
+    return tail_cut(reverb(tr.render(), rng, decay=0.4, mix=0.1, lp=4000), 1.55, 0.12)
+
+
+def sfx_dismantle_charge(rng):
+    """Carga do desmonte (2,0 s), sobe até o fim. Zumbido de serra baixo (Lá2 -> Mi4, só
+    uma oitava e meia), filtro abrindo, trêmolo acelerando de 5 a 26 Hz (a barrinha
+    enchendo) e tiquinhos de contagem mais densos no fim. Entra em 15 ms e termina em
+    fade de 25 ms. Sem estalo no começo. Pode ser cortado com fadeout (ver report)."""
+    tr = Track()
+    L = 1.98
+    n = ns(L)
+    t = tvec(n)
+    k = t / L
+    f = 110 * 2 ** (1.6 * k ** 1.3 * 1.0)
+    saw = bl_wave(f, n, "saw", 3500)
+    # filtro abrindo (mistura de duas versões filtradas)
+    dark = filt(saw, None, 700, 1)
+    bright = filt(saw, 300, 3200, 1)
+    body = dark * (1 - k) + bright * k
+    trem = 0.72 + 0.28 * np.sin(2 * np.pi * np.cumsum(5 + 21 * k ** 1.5) / SR)
+    env = np.minimum(1, t / 0.015) * (0.3 + 0.7 * k ** 1.2) * np.clip((L - t) / 0.025, 0, 1)
+    tr.add(body * trem * env, 0, 0.5)
+    body2 = bl_wave(f * 2.0 * 1.003, n, "tri", 3000)
+    tr.add(body2 * trem * env * k ** 1.5, 0, 0.18)
+    tr.add(noise_sweep(rng, L, 800, 4500, 2.5) * env * k, 0, 0.07)
+    scan_ticks(rng, tr, 0.1, L - 0.03, 5, 30, 0.14, 1800, 6000)
+    return tr.render()   # sem reverb: a duração tem que ser a da barrinha (2,0 s)
+
+
+def sfx_dismantle_done(rng):
+    """Desmonte pronto (~0,6 s), o build ao contrário e menor: destrava (clack mais grave e
+    seco), o feixe cai rápido (Lá4 -> Lá3, 0,16 s), selo pneumático soltando e três
+    tiquinhos agudos espalhados (os materiais voltando). Sem bolha de seno, pra não
+    lembrar o pickup."""
+    tr = Track()
+    tr.add(click(rng, 1.0, 350, 2000, 0.04), 0, 0.85)
+    n = ns(0.17)
+    t = tvec(n)
+    f = 440 * 2 ** (-1.0 * t / 0.17)
+    beam = filt(bl_wave(f, n, "saw", 3000), None, 2600, 1) * bump(n, 0.15) ** 1.2
+    tr.add(beam, 0.04, 0.3)
+    nn = ns(0.22)
+    tr.add(filt(rng.standard_normal(nn), 1200, 5000, 1) * bump(nn, 0.12) ** 2, 0.06, 0.13)
+    for at, m, g in ((0.2, 88, 0.1), (0.275, 93, 0.08), (0.35, 85, 0.07)):
+        q = ns(0.06)
+        tr.add(bl_wave(midi(m), q, "tri", 6000) * perc(q, 0.001, 0.012), at + rng.uniform(0, 0.012), g)
+        tr.add(noise_burst(rng, 3000, 8000, 0.0002, 0.001, 0.006, order=1), at, 0.1)
+    return reverb(tr.render(), rng, decay=0.35, mix=0.1, lp=4000)
+
+
+def sfx_diagram_read(rng):
+    """Leitura de diagrama (~1 s): "aprendi algo". Varredura curta de dados subindo
+    (feixe rápido + quatro blips digitais Mi5-Lá5-Si5-Dó#6, mais lentos que o arpejo do
+    blueprint_found e sem o pulse) e um sino macio de seno em Lá4 + Mi5 que assenta com
+    o reverb. Termina mais baixo e calmo, enquanto o blueprint_found festeja no alto."""
+    tr = Track()
+    n = ns(0.2)
+    t = tvec(n)
+    f = 300 * 4 ** (t / 0.2)
+    beam = filt(bl_wave(f, n, "saw", 4500), None, 4000, 1) * bump(n, 0.7)
+    tr.add(beam, 0, 0.22)
+    tr.add(noise_sweep(rng, 0.2, 1500, 6000, 2.5) * bump(n, 0.7), 0, 0.1)
+    for i, m in enumerate((76, 81, 83, 85)):
+        at = 0.14 + 0.065 * i
+        q = ns(0.09)
+        tr.add(bl_wave(midi(m), q, "square", 3500, 0.5) * perc(q, 0.002, 0.03), at, 0.15)
+        q2 = ns(0.09)
+        tr.add(np.sin(phase_of(midi(m + 12), q2)) * perc(q2, 0.002, 0.02), at, 0.06)
+    for m, g in ((69, 0.5), (76, 0.32)):
+        q = ns(0.9)
+        tt = tvec(q)
+        bell = (np.sin(phase_of(midi(m), q)) + 0.2 * np.sin(phase_of(midi(m) * 2.0, q))) * np.exp(-tt / 0.28)
+        bell *= np.minimum(1, tt / 0.006)
+        tr.add(bell, 0.43, g)
+    return tail_cut(reverb(tr.render(), rng, decay=1.1, mix=0.24, lp=4500), 1.25, 0.35)
+
+
+SOUNDS.update({
+    "build": (sfx_build, False, -20.0),
+    "dismantle_charge": (sfx_dismantle_charge, False, -26.0),
+    "dismantle_done": (sfx_dismantle_done, False, -22.0),
+    "diagram_read": (sfx_diagram_read, False, -22.0),
+})
+
+
 def v11_ready() -> str | None:
     """None se dá pra gerar a v11; senão, o motivo."""
     import importlib.util
