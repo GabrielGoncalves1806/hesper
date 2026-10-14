@@ -63,6 +63,7 @@ Inimigos, combate, primeiro boss, ruínas da Colônia Hesper.
 Fauna e flora surgindo com o Ti, farm, música.
 
 ## Futuro
+- Ideia do dono (2026-10-13): **variação de tom por mundo**, a seed puxando um leve deslocamento de cor em cada região (um basalto mais avermelhado num mundo, mais acinzentado em outro). Hoje a cor é só região × estágio.
 - Mapa: máquinas coladas viram uma "régua" de marcadores (agrupar por base ou desenhar menor quando estão juntas).
 - Testar em Windows/Linux (CI com testes + smoke nos 3 sistemas, varrer imagens criadas sem formato explícito) e empacotar executável.
 - Água e comida (barras de sobrevivência).
