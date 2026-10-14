@@ -141,6 +141,16 @@ def craft_menu() -> FabMenu:
     return FabMenu(visible=C.CRAFT_VISIBLE_ROWS, tabs=C.CRAFT_TABS, kinds_of=craft_kinds)
 
 
+def t2_kinds(tab_id: str) -> list[str]:
+    """Receitas da Bancada T2 (C.T2_RECIPES); vazia no M1 (o painel mostra o estado vazio)."""
+    return list(C.T2_RECIPES)
+
+
+def t2_menu() -> FabMenu:
+    """Menu da Bancada T2: mesmas regras do fabricador, receitas dela (v0.5 M1 B2)."""
+    return FabMenu(visible=C.CRAFT_VISIBLE_ROWS, tabs=C.T2_TABS, kinds_of=t2_kinds)
+
+
 def build_menu() -> FabMenu:
     """Menu do construtor (E com ele na mão): as máquinas, nas abas de categoria."""
     return FabMenu(tabs=C.FAB_TABS, kinds_of=build_kinds)

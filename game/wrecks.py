@@ -186,9 +186,9 @@ def place_wrecks(world, rng: random.Random) -> list[Wreck]:
 
 
 def missing_blueprints(wrecks: list[Wreck]) -> list[str]:
-    """Diagramas de C.BLUEPRINTS que nenhum desses destroços traz (na ordem do config)."""
+    """Diagramas de C.WRECK_DIAGRAMS que nenhum desses destroços traz (na ordem do config)."""
     have = {w.blueprint for w in wrecks}
-    return [bp for bp in C.BLUEPRINTS if bp not in have]
+    return [bp for bp in C.WRECK_DIAGRAMS if bp not in have]
 
 
 def pocket_wrecks(pockets, outside: list[Wreck]) -> list[Wreck]:

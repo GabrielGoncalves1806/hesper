@@ -1612,6 +1612,70 @@ def check_build_menu(bot) -> None:
     s.blueprints = blueprints_before
 
 
+def check_bench_t2(bot) -> None:
+    """v0.5 M1 B2 · Bancada T2: no chão ao lado de um baú, o painel dela (E perto) nos 3 tamanhos de interface (janela
+    1920×1080), o clique em E longe não abre e a animação de fabricar (8 quadros). Prints: bancada_t2_chao.png,
+    bancada_t2_painel_<tamanho>.png, bancada_t2_animando.png."""
+    s, app = bot.state, bot.app
+    slots_before = [Stack(st.item, st.count) if st else None for st in s.inventory.slots]
+    blueprints_before = set(s.blueprints)
+    machines_before = list(s.surface.machines)
+    s.blueprints.add("workbench")
+    bot.teleport((96, 97))
+    bot.frames(0.1)
+    px, py = s.player.tile
+    spot_ = next((px + dx, py + dy) for dy in range(2, 9) for dx in range(-6, 4)
+                 if s.can_place("chest", (px + dx, py + dy)) and s.can_place("workbench", (px + dx + 2, py + dy)))
+    chest = build_at(s, "chest", spot_)
+    bench = build_at(s, "workbench", (spot_[0] + 2, spot_[1]))
+    s.inventory.slots[:] = [None] * len(s.inventory)
+    give(s, diagram_lamp_t2=1, diagram_scanner=1, iron=12)
+    bot.teleport((spot_[0] + 1, spot_[1] + 1))
+    bot.mouse_to((40, 40))
+    bot.frames(0.3)
+    def window_crop(w: int, h: int, k: int, dx: int = 0) -> pygame.Surface:
+        """Recorte w×h da janela (1920×1080) em volta do meio da bancada, ampliado k×."""
+        bx, by = bot.tile_on_screen(bench.tiles[0])
+        scale = app.window.get_width() // C.SCREEN_W
+        x = max(0, min(app.window.get_width() - w, bx * scale + dx - w // 2))
+        y = max(0, min(app.window.get_height() - h, by * scale - h // 2))
+        return pygame.transform.scale_by(app.window.subsurface((x, y, w, h)).copy(), k)
+
+    bot.shot("bancada_t2_tela.png")
+    pygame.image.save(window_crop(320, 200, 3, dx=-80), str(OUT / "bancada_t2_chao.png"))
+    print("  screenshot: reports/dev/bancada_t2_chao.png  (recorte ampliado 3×)")
+    # painel nos 3 tamanhos, aberto pelo E (parado do lado da bancada)
+    bot.teleport((spot_[0] + 3, spot_[1]))
+    bot.frames(0.2)
+    assert s.interaction() == ("bench", bench), s.interaction()
+    for ui_size in ("grande", "media", "pequena"):
+        app.set_ui_size(ui_size)
+        bot.key(pygame.K_e)
+        assert app.mode == "fabricator" and app.fab_bench == "t2", (app.mode, app.fab_bench)
+        bot.frames(DT)
+        assert app.ui.fabricator_rows == [] and app.ui.diagram_buttons, "painel vazio com o LER do diagrama de máquina"
+        bot.shot(f"bancada_t2_painel_{ui_size}.png")
+        bot.key(pygame.K_e)
+        assert app.mode == "play"
+    # animação: 1 ciclo de fabricar (8 quadros), uma tira com um quadro a cada 0,25 s
+    bench.work = C.BENCH_WORK_TIME
+    bot.mouse_to((40, 40))
+    sheet = pygame.Surface((8 * 160, 140))
+    for i in range(8):
+        bot.frames(0.25 if i else DT)
+        sheet.blit(window_crop(80, 70, 2), (i * 160, 0))
+    pygame.image.save(sheet, str(OUT / "bancada_t2_animando.png"))
+    print("  screenshot: reports/dev/bancada_t2_animando.png  (8 quadros, 0,25 s cada)")
+    bot.frames(0.5)
+    assert bench.work == 0
+    for m in (chest, bench):
+        s.surface.machines.remove(m)
+    s.surface.machines[:] = machines_before
+    s.inventory.slots[:] = slots_before
+    s.blueprints = blueprints_before
+    app.hotbar_selected = 0
+
+
 def check_b2_screens(bot) -> None:
     """Redesign B2 nas interfaces Grande e Pequena (janela 1920×1080), tudo pelo mouse na posição da janela:
     HUD, Tab com o detalhe do item, fabricador (×5/×1), baú (toggle de drone), estação, Opções (segmento do
@@ -1888,6 +1952,7 @@ def check_ui_size(bot) -> None:
 
     check_inventory_logs(bot)
     check_build_menu(bot)
+    check_bench_t2(bot)
     check_b2_screens(bot)
 
     # volta pro tamanho do resto do smoke
