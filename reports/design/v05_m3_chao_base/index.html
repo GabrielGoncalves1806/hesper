@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · v0.5 M3 · Chão da base · v1.0</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;600&family=Pixelify+Sans:wght@600&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 "IBM Plex Sans",system-ui,sans-serif;padding:0 16px}
+.wrap{max-width:1300px;margin:0 auto;padding:44px 0 80px}
+.eyebrow{font:12px "Silkscreen",monospace;letter-spacing:.08em;color:var(--rust);text-transform:uppercase}
+h1{font:600 44px/1.1 "Pixelify Sans",monospace;margin:8px 0 12px}h2{font:600 24px "Pixelify Sans",monospace;margin:44px 0 12px}
+h2::before{content:"";display:inline-block;width:10px;height:10px;background:var(--rust);margin-right:10px;vertical-align:middle}
+h3{font:600 16px "Pixelify Sans",monospace;margin:18px 0 6px}code{font-family:"IBM Plex Mono",monospace;color:var(--gold);font-size:.92em}
+p,li,td{color:var(--muted)}li b,p b,td b{color:var(--fg)}
+.v2{background:#241b17;border:1px solid var(--line);border-left:3px solid var(--rust);padding:12px 18px;max-width:1100px}
+.v2>b{font:13px "Silkscreen",monospace;color:var(--rust)}
+.chk{display:inline-block;padding:10px;background-color:#2a2f38;background-image:linear-gradient(45deg,#333944 25%,transparent 25%,transparent 75%,#333944 75%),linear-gradient(45deg,#333944 25%,transparent 25%,transparent 75%,#333944 75%);background-size:16px 16px;background-position:0 0,8px 8px}
+.plain{display:inline-block;line-height:0}
+img{image-rendering:pixelated}figure{margin:0}figcaption{font:12px "Silkscreen",monospace;color:var(--muted);margin-top:6px}
+.flex{display:flex;gap:22px;align-items:flex-end;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:repeat(2,max-content);gap:14px;overflow-x:auto}
+.box{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--cyan);padding:16px 20px}
+.chip{display:inline-block;font:12px "Silkscreen",monospace;padding:3px 10px;border:1px solid var(--line);margin:0 6px 6px 0}
+.chip.ok{border-color:var(--ok);color:var(--ok)}.chip.bad{border-color:var(--rust);color:var(--rust)}
+.sw{display:inline-block;width:120px;font-size:12px;margin:0 8px 10px 0}.sw span{display:block;height:34px;border:1px solid #000}
+.one{display:flex;gap:8px;flex-wrap:wrap;line-height:0}
+.wipe{position:relative;width:960px;height:540px;overflow:hidden;border:1px solid var(--line)}
+.wipe img{position:absolute;left:0;top:0}
+.wipe img.top{animation:wipe 4s steps(1) infinite}
+@keyframes wipe{0%{opacity:1}50%{opacity:0}}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Designer · v0.5 M3 · chão da base · v1.0</div>
+<h1>Chão da base, um só e sutil</h1>
+<div class="v2"><b>v1.0 · o que mudou</b><ul>
+<li><b>Um chão só.</b> As 4 variações de antes (lisa, emendada, grelha, tampa) viraram <b>a mesma chapa</b>: os 4 arquivos continuam (o jogo sorteia entre eles), mas a única diferença são 3–4 pintinhas de desgaste de 1 tom, que só servem pra repetição não marcar padrão.</li>
+<li><b>Cor da referência:</b> cinza-azulado puxando pro verde (aço), no lugar do lilás de antes. Tudo em 4 tons a ±1–2 degraus da chapa.</li>
+<li><b>Junta fina e discreta:</b> 1 px de junta, sombra de 1 px na borda de baixo/direita, fio de luz de 1 px na borda de cima/esquerda. Saíram os rebites dos cantos, o chanfro claro e o contraste forte.</li>
+<li><b>Pino em losango</b> no cruzamento das juntas (da referência): cada tile desenha 1/4 dele, 4 tiles montam o losango 4×4.</li>
+<li><b>Ícone do menu</b> (<code>icon_base_floor.png</code>) refeito: 4 chapas novas com a junta em cruz e o pino no meio.</li>
+<li>A porta nas cenas é a de hoje no <code>assets/</code> (a redesenhada do v05_m3_porta); no "depois" ela foi regerada com o chão novo por baixo.</li>
+</ul></div>
+<p style="margin-top:14px"><span class="chip ok">5 arquivos · tamanhos conferidos</span><span class="chip">cores no chão: 9 antes → 8 depois</span><span class="chip ok">0 desvios do contrato</span><span class="chip">pendentes, nada no assets/</span></p>
+
+<h2>Antes × depois em cena</h2>
+<p>A base do M2 (paredes, porta solo embaixo e na direita, Dispersor, bancada, baú, O₂ nv.1, luminária, painel fora) com o player na porta. Montada só com os sprites, na ordem do jogo. Ampliado ×2. O chão da base <b>não recolore por estágio</b> (o jogo usa o mesmo PNG nos 4); o que muda é o terreno em volta.</p>
+<h3>Tempestade</h3><div class="grid2"><figure><div class="plain"><img src="cena_storm_old.png" width="960" height="540" alt=""></div><figcaption>antes (assets de hoje)</figcaption></figure><figure><div class="plain"><img src="cena_storm_new.png" width="960" height="540" alt=""></div><figcaption>depois</figcaption></figure></div><h3>Árido</h3><div class="grid2"><figure><div class="plain"><img src="cena_arid_old.png" width="960" height="540" alt=""></div><figcaption>antes (assets de hoje)</figcaption></figure><figure><div class="plain"><img src="cena_arid_new.png" width="960" height="540" alt=""></div><figcaption>depois</figcaption></figure></div><h3>Névoa</h3><div class="grid2"><figure><div class="plain"><img src="cena_mist_old.png" width="960" height="540" alt=""></div><figcaption>antes (assets de hoje)</figcaption></figure><figure><div class="plain"><img src="cena_mist_new.png" width="960" height="540" alt=""></div><figcaption>depois</figcaption></figure></div><h3>Verde</h3><div class="grid2"><figure><div class="plain"><img src="cena_green_old.png" width="960" height="540" alt=""></div><figcaption>antes (assets de hoje)</figcaption></figure><figure><div class="plain"><img src="cena_green_new.png" width="960" height="540" alt=""></div><figcaption>depois</figcaption></figure></div>
+<h3>Recorte ×3 (Árido)</h3>
+<div class="grid2"><figure><div class="plain"><img src="zoom_arid_old.png" width="768" height="672" alt=""></div><figcaption>antes</figcaption></figure><figure><div class="plain"><img src="zoom_arid_new.png" width="768" height="672" alt=""></div><figcaption>depois</figcaption></figure></div>
+<h3>Escala real (1:1), os 4 estágios, depois</h3>
+<div class="one"><img src="cena_storm_new.png" width="480" height="270" alt=""><img src="cena_arid_new.png" width="480" height="270" alt=""><img src="cena_mist_new.png" width="480" height="270" alt=""><img src="cena_green_new.png" width="480" height="270" alt=""></div>
+
+<h2>Área grande (repetição)</h2>
+<p>24×12 tiles de chão em 960×540, 1:1, como fica na tela. Antes e depois alternando sozinhos a cada 2 s.</p>
+<div class="wipe"><img src="area_arid_new.png" width="960" height="540" alt=""><img class="top" src="area_arid_old.png" width="960" height="540" alt=""></div>
+<div class="grid2" style="margin-top:14px"><figure><div class="plain"><img src="area_arid_old.png" width="960" height="540" alt=""></div><figcaption>Árido · antes</figcaption></figure><figure><div class="plain"><img src="area_arid_new.png" width="960" height="540" alt=""></div><figcaption>Árido · depois</figcaption></figure></div>
+<h3>Vazia (só o chão), Névoa</h3>
+<div class="grid2"><figure><div class="plain"><img src="area_vazia_mist_old.png" width="960" height="540" alt=""></div><figcaption>antes</figcaption></figure><figure><div class="plain"><img src="area_vazia_mist_new.png" width="960" height="540" alt=""></div><figcaption>depois</figcaption></figure></div>
+<h3>Os outros estágios, depois</h3>
+<div class="grid2"><figure><div class="plain"><img src="area_storm_new.png" width="960" height="540" alt=""></div><figcaption>Tempestade · depois · 1:1</figcaption></figure><figure><div class="plain"><img src="area_mist_new.png" width="960" height="540" alt=""></div><figcaption>Névoa · depois · 1:1</figcaption></figure><figure><div class="plain"><img src="area_green_new.png" width="960" height="540" alt=""></div><figcaption>Verde · depois · 1:1</figcaption></figure></div>
+
+<h2>Os sprites</h2>
+<div class="flex"><figure><div class="chk"><img src="pendentes/base_floor_0.png" width="256" height="256" alt=""></div><figcaption><code>base_floor_0.png</code> · 32×32</figcaption></figure><figure><div class="chk"><img src="pendentes/base_floor_1.png" width="256" height="256" alt=""></div><figcaption><code>base_floor_1.png</code> · 32×32</figcaption></figure><figure><div class="chk"><img src="pendentes/base_floor_2.png" width="256" height="256" alt=""></div><figcaption><code>base_floor_2.png</code> · 32×32</figcaption></figure><figure><div class="chk"><img src="pendentes/base_floor_3.png" width="256" height="256" alt=""></div><figcaption><code>base_floor_3.png</code> · 32×32</figcaption></figure></div>
+<h3>2×2 de cada variação (×4): antes · depois</h3>
+<div class="flex"><figure><div class="chk"><img src="tiles_old.png" width="1152" height="256" alt=""></div><figcaption>antes</figcaption></figure><figure><div class="chk"><img src="tiles_new.png" width="1152" height="256" alt=""></div><figcaption>depois</figcaption></figure></div>
+<h3>Ícone do menu</h3>
+<div class="flex"><figure><div class="chk"><img src="../v05_m2_base/pendentes/icon_base_floor.png" width="128" height="128" alt=""></div><figcaption>antes</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_base_floor.png" width="128" height="128" alt=""></div><figcaption>depois · <code>icon_base_floor.png</code> 16×16</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_base_floor.png" width="16" height="16" alt=""> <img src="pendentes/icon_base_floor.png" width="32" height="32" alt=""></div><figcaption>1:1 e ×2</figcaption></figure></div>
+<h3>Paleta do chão</h3>
+<div><div class="sw"><span style="background:#505c65"></span><code>seam</code><br><code>#505c65</code></div><div class="sw"><span style="background:#5a6770"></span><code>shade</code><br><code>#5a6770</code></div><div class="sw"><span style="background:#616e78"></span><code>base</code><br><code>#616e78</code></div><div class="sw"><span style="background:#65737c"></span><code>wear</code><br><code>#65737c</code></div><div class="sw"><span style="background:#5d6a73"></span><code>pit</code><br><code>#5d6a73</code></div><div class="sw"><span style="background:#677580"></span><code>light</code><br><code>#677580</code></div><div class="sw"><span style="background:#72808a"></span><code>stud</code><br><code>#72808a</code></div><div class="sw"><span style="background:#4c5861"></span><code>stud_d</code><br><code>#4c5861</code></div></div>
+
+<h2>Referência do dono</h2>
+<div class="flex"><figure><div class="chk"><img src="ref/referencia_chao.png" width="312" height="328" alt=""></div><figcaption>referência (só estilo)</figcaption></figure></div>
+<p>Aproveitei <b>só o estilo</b>: a cor (cinza-azulado com um pé no verde), o contraste baixo, a junta fina rebaixada e a ideia do pino em losango no cruzamento das juntas. O desenho é nosso: pixel art 1:1 sem gradiente, chapa de 1 tile (a referência tem chapa bem maior, com junta dupla larga e manchas suaves, que viram barulho em 32 px), luz de cima/esquerda igual à parede e às máquinas, e o desgaste reduzido a pintinhas de 1 tom.</p>
+
+<h2>Pro Dev integrar</h2>
+<div class="box"><ul>
+<li><b>Nada muda no código.</b> Mesmos nomes e tamanhos: <code>base_floor_{0..3}.png</code> 32×32 em <code>(tx·32, ty·32)</code>, passada do chão (embaixo de tudo), sorteio de hoje (<code>floor_variant</code>) pode ficar como está. <code>icon_base_floor.png</code> 16×16 igual.</li>
+<li>Integrar = copiar <code>reports/design/v05_m3_chao_base/pendentes/*.png</code> pra <code>assets/sprites/</code> (depois do ok do dono).</li>
+<li>Opcional: como as 4 são quase iguais, o <code>FLOOR_PICK</code> pode virar <code>(0,1,2,3,0,1,2,3)</code> pra espalhar as pintinhas; não é obrigatório.</li>
+<li><b>A porta tem chão dentro</b> (a soleira dos <code>base_door*</code> é o <code>floor_tile(0)</code> do gerador). Se o chão novo entrar, a porta precisa ser regerada com a soleira nova, senão fica um quadrado lilás no vão. O gerador novo expõe <code>v05_m3_chao_base.floor_tile(0)</code> e a paleta <code>FL2</code> (soleira: <code>grate → FL2["seam"]</code>, <code>light → FL2["light"]</code>); as cenas "depois" daqui já usam uma porta regerada assim (só pra prévia, em <code>cena_src/</code>). Quem está refazendo a porta (<code>v05_m3_porta</code>) só precisa trocar a importação do chão.</li>
+<li>Fantasma do construtor usa <code>base_floor_0</code>: continua igual.</li>
+</ul></div>
+<p style="margin-top:30px;font-size:12px">Gerado por <code>python3 tools/sprites/v05_m3_chao_base.py</code> (determinístico).</p>
+</div></body></html>
