@@ -553,4 +553,5 @@ def test_crater_ice_hint_shows_the_heat_it_needs(app):
     s = app.state
     s.surface.crater_ice = 0
     s.indices["heat"] = 12.0
-    assert app.crater_ice_hint().endswith(f"abre com {C.THAW_CRATER_HEAT[-1]} pK (agora 12)")
+    need = f"{C.THAW_CRATER_HEAT[-1]:,}".replace(",", ".")      # o HUD escreve milhar com ponto
+    assert app.crater_ice_hint().endswith(f"abre com {need} pK (agora 12)")

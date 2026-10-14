@@ -30,7 +30,8 @@ def test_proposta_chega_no_fim_dentro_da_meta(proposal, strategy):
     # O teto ganhou 2 min de folga pra esse ruído de uma seed só.
     # v0.4 M3: sem rocha pequena no chão de bacia (vira lago), a seed 1 do casual foi a ~53 min. Teto provisório
     # de 55 até a rodada de balanceamento do Marco 4 (o dono pediu pra tunar tudo do v0.4 de uma vez).
-    ceiling = 55
+    # v0.4 M4: SMALL_ROCK_CHANCE 0,019 devolveu o minério solto e o casual da seed 1 fecha em ~38 min: teto de referência.
+    ceiling = 52
     assert 20 * 60 <= r.total <= ceiling * 60
     # Névoa por volta dos 10–12 min. Marco 2: quem só minera na caverna começa mais devagar (não pega rocha da
     # superfície e cada viagem paga ~20 tiles de rampa: base -> cratera -> fade), ~14 min na proposta.
@@ -74,7 +75,7 @@ def test_overrides_nao_vazam_pro_config(proposal):
 
 
 def test_desmaio_usa_a_regra_real_e_o_jogo_continua(proposal):
-    afobado = sim.Strategy("afobado", pick="balanced", walk_factor=2.5, o2_margin=0.0)
+    afobado = sim.Strategy("afobado", pick="balanced", walk_factor=2.5, o2_margin=0.0)   # (checado no M4: segue desmaiando)
     r = sim.simulate(afobado, seed=1, overrides=proposal)
     assert r.faints > 0
     assert r.finished
@@ -86,8 +87,21 @@ def test_estrategia_caverna_minera_la_embaixo():
     sim_ = sim.Sim(sim.STRATEGIES["caverna"], seed=1)
     r = sim_.run()
     # v0.4 M3: sem tubo de lava/sal o mapa da seed 1 muda um pouco (~40,7 min); teto provisório até o balanceamento do Marco 4
-    assert r.finished and 25 * 60 <= r.total <= 42 * 60
+    assert r.finished and 25 * 60 <= r.total <= 40 * 60      # v0.4 M4: seed 1 em ~36 min, teto de volta à referência (era 42)
     cave = sim_.gs.layers["cave"]
     assert sum(m.is_drill for m in cave.machines) == 3 and not any(m.is_drill for m in sim_.gs.surface.machines)
     assert r.drill_units > 0 and r.drone_units == 0 and r.faints == 0
     assert sim_.ramp_k > 15                       # a viagem até a caverna custa (cratera a 15–20 tiles)
+
+
+def test_cratera_e_portoes_no_ritmo_do_m4(proposal):
+    """v0.4 M4 (feedback do dono: cratera e gelos-portão abriam rápido demais): a cratera abre uns 3 a 5 min depois do
+    1º aquecedor, e os portões vêm depois da Névoa, em ordem, o último perto do Verde."""
+    r = sim.simulate("casual", seed=1, overrides=proposal)
+    assert r.heater_at is not None and r.crater_at is not None
+    assert 3 * 60 <= r.crater_at - r.heater_at <= 5 * 60
+    assert set(r.gate_at) == {0, 1, 2}
+    assert r.milestones["Névoa"] < r.gate_at[0] < r.gate_at[1] < r.gate_at[2] <= r.total
+    assert r.gate_at[2] >= 0.7 * r.total                    # o último, perto do fim
+    assert set(r.lake_at) == {0, 1, 2}                      # os três lagos aparecem antes do Verde
+    assert r.lake_at[0] - r.milestones["Névoa"] <= 60       # o 1º lago junto com a Névoa
