@@ -239,7 +239,7 @@ MACHINES["drill"] = MachineType("drill", "Drill automática", "+ minério", DRIL
 
 MACHINE_ORDER = list(MACHINES)   # ordem no fabricador e nas teclas 1–7
 # v0.4 M3.4: máquinas de nome feminino (o aviso "Luminária submersa" / "Aquecedor submerso" concorda)
-MACHINE_FEMININE = {"drill", "drone_station", "lamp", "lamp_t2"}
+MACHINE_FEMININE = {"drill", "drone_station", "lamp", "lamp_t2", "workbench"}
 DISMANTLE_KEY = "Clique direito"   # o botão de desmontar (segurar): dica do canto e aviso de submersa
 MACHINE_SPRITE_SIZE = {1: (40, 56), 2: (40, 64)}   # tamanho do sprite por nível (usado pro mouse "acertar" a máquina)
 DRILL_SPRITE_SIZE = (64, 80)     # 1 quadro do machine_drill.png (4 quadros na horizontal)
@@ -572,13 +572,16 @@ LOOT_CRATE_SIZE = (32, 32)
 
 # Diagramas (v0.5 M1, antes "projetos"): item "diagram_<id>" que fica no inventário como item normal. Ler na bancada
 # (GameState.read_diagram) gasta 1 e libera a receita pra sempre (state.blueprints). O save antigo tinha "bp_<id>".
-BLUEPRINTS = {"o2_tank": "Tanque de O₂", "scanner": "Scanner de navegação", "lamp_t2": "Luminária forte"}
+BLUEPRINTS = {"o2_tank": "Tanque de O₂", "scanner": "Scanner de navegação", "lamp_t2": "Luminária forte",
+              "workbench": "Bancada T2"}
+WRECK_DIAGRAMS = ("o2_tank", "scanner", "lamp_t2")   # os que dão nos destroços (o da Bancada T2 se fabrica no T1)
 DIAGRAM_ITEMS = {f"diagram_{k}": k for k in BLUEPRINTS}
 LEGACY_DIAGRAM_ITEMS = {f"bp_{k}": f"diagram_{k}" for k in BLUEPRINTS}   # item do save antigo -> item de hoje
-RECIPE_BLUEPRINT = {"o2_tank": "o2_tank", "scanner": "scanner", "lamp_t2": "lamp_t2"}   # receita -> diagrama
+RECIPE_BLUEPRINT = {"o2_tank": "o2_tank", "scanner": "scanner", "lamp_t2": "lamp_t2",
+                    "workbench": "workbench"}   # receita -> diagrama
 # Bancada que lê cada diagrama ("t1" = o fabricador da cápsula, "t2" = a Bancada T2 do Dev B2). Diagrama de máquina
 # (placeable) é lido em qualquer bancada (spec); os de item só na bancada daqui.
-DIAGRAM_BENCH = {"o2_tank": "t1", "scanner": "t1", "lamp_t2": "t1"}
+DIAGRAM_BENCH = {"o2_tank": "t1", "scanner": "t1", "lamp_t2": "t1", "workbench": "t1"}
 BENCH_LABEL = {"t1": "FABRICADOR", "t2": "BANCADA T2"}
 
 # Luminária forte (diagrama): raio 7 tiles. A luminária comum tem 5.
@@ -866,3 +869,29 @@ DISMANTLE_BAR = (22, 3)         # barrinha do desmonte em cima da máquina (larg
 VOLUME.update({"build": 0.55, "dismantle_charge": 0.45, "dismantle_done": 0.6,
                "diagram_read": 0.6})   # diagram_read: do Dev B (ler diagrama na bancada), só o volume
 DISMANTLE_CHARGE_FADE_MS = 60   # soltou antes de completar: o charge sai em 60 ms (nunca um stop seco)
+
+
+# ---------------------------------------------------------------------------
+# v0.5 Marco 1 · B2 · Bancada T2 (spec 2026-10-14-v05-base-e-expedicao-design.md)
+# Máquina de chão (construtor), trancada pelo diagrama "workbench", que o fabricador T1 fabrica. O E perto dela abre o
+# mesmo painel do fabricador com as receitas dela (T2_RECIPES): materiais SÓ do inventário (posto avançado).
+# ---------------------------------------------------------------------------
+BENCH_COST = {"iron": 20, "silicon": 10}          # número de partida (balanceamento depois)
+BENCH_DIAGRAM_COST = {"iron": 15, "silicon": 8}   # o item diagram_workbench no fabricador T1 (partida)
+BENCH_REACH = CHEST_REACH       # px dos pés até a base da bancada pro E (igual ao baú)
+BENCH_SPRITE_SIZE = (32, 40)    # machine_workbench.png (parada) e cada quadro da tira anim_machine_workbench.png
+BENCH_WORK_TIME = 2.0           # s que ela anima depois de fabricar (1 ciclo: 8 quadros a 4 fps)
+BENCH_FPS = 4
+MACHINES["workbench"] = MachineType("workbench", "Bancada T2", "fabrica fora da base", BENCH_COST, None, 0, 0,
+                                    "machine_workbench")
+MACHINE_ORDER.append("workbench")
+MACHINE_CATEGORY["workbench"] = "automation"
+POWER_USE["workbench"] = 1
+# O item do diagrama: sai do fabricador T1 (aba Ferramentas), vai pro inventário e é lido como qualquer diagrama.
+MACHINES["diagram_workbench"] = MachineType("diagram_workbench", "Diagrama: Bancada T2", "libera a Bancada T2",
+                                            BENCH_DIAGRAM_COST, None, 0, 0, "icon_diagram", placeable=False)
+MACHINE_ORDER.append("diagram_workbench")
+MACHINE_CATEGORY["diagram_workbench"] = "tools"
+# Receitas da Bancada T2 (itens, ids de MACHINES). Vazia no M1: os itens dela (mochila, broca nv.2) vêm depois.
+T2_RECIPES: tuple[str, ...] = ()
+T2_TABS = (("t2", "Itens"),)    # a Bancada T2 tem uma aba só por enquanto

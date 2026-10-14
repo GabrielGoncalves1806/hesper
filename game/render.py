@@ -62,6 +62,13 @@ def anim_frame_index(t: float, phase: int = 0, working: bool = True, fps: float 
     return (int(t * fps) + phase) % ANIM_FRAMES
 
 
+def bench_frame_index(work: float) -> int:
+    """Quadro (0–7) da Bancada T2 com `work` s de animação por tocar: o ciclo anda do 0 ao 7 e termina parada (0)."""
+    if work <= 0:
+        return 0
+    return min(int((C.BENCH_WORK_TIME - work) * C.BENCH_FPS), 7)
+
+
 def rock_variant(tx: int, ty: int) -> int:
     """Variação (0 ou 1) da rocha pequena com veio, por hash do tile (sempre a mesma pro mesmo tile)."""
     return ((tx * 73856093) ^ (ty * 19349663)) & 1
@@ -1133,6 +1140,8 @@ class Renderer:
         if machine.is_chest:
             opened = machine is self.open_chest
             return self.outline_of(("chest", opened), self.chest_surface(opened))
+        if machine.is_bench:
+            return self.outline_of("bench", self.machine_still(machine)[0])
         return self.outline_of("station", self.station_surface())
 
     # ---- luz de scanner: construir e desmontar (v0.5 M1) -----------------------------------
@@ -1307,20 +1316,22 @@ class Renderer:
 
     # ---- animação das máquinas e do ambiente (tiras anim/anim_<sprite>.png, 4 quadros lado a lado) -------------
     def anim_frames(self, name: str, still: pygame.Surface) -> list[pygame.Surface] | None:
-        """Os 4 quadros da tira `anim/anim_<name>.png`, recortados uma vez (cache). O quadro tem o tamanho do
-        sprite parado `still`. None se a tira não existe ou não bate com o parado (aí vale o parado)."""
+        """Os quadros da tira `anim/anim_<name>.png`, recortados uma vez (cache). O quadro tem o tamanho do
+        sprite parado `still` e o nº de quadros é a largura da tira ÷ a largura do parado (4 nas máquinas, 8 na
+        bancada). None se a tira não existe ou não bate com o parado (aí vale o parado)."""
         key = ("anim", name, still.get_size())
         if key not in self._fx:
             strip = self.sprites.get(f"anim/anim_{name}")
             w, h = still.get_size()
-            ok = strip is not None and strip.get_size() == (w * ANIM_FRAMES, h)
-            self._fx[key] = [strip.subsurface((i * w, 0, w, h)) for i in range(ANIM_FRAMES)] if ok else None
+            n = strip.get_width() // w if strip is not None else 0
+            ok = n >= 1 and strip.get_size() == (w * n, h)
+            self._fx[key] = [strip.subsurface((i * w, 0, w, h)) for i in range(n)] if ok else None
         return self._fx[key]
 
     def anim_surface(self, name: str, still: pygame.Surface, index: int | None) -> pygame.Surface:
         """Quadro `index` da tira, ou o parado (`index` None ou sem tira)."""
         frames = None if index is None else self.anim_frames(name, still)
-        return still if frames is None else frames[index % ANIM_FRAMES]
+        return still if frames is None else frames[index % len(frames)]
 
     def machine_anim_index(self, m, powered: bool, clock: float) -> int:
         """Quadro da animação da máquina `m`. Submersa ou sem energia nenhuma: quadro 0. O painel solar anima
@@ -1328,6 +1339,8 @@ class Renderer:
         `machine_t`, que já corre no ritmo do power.factor (déficit = mais devagar)."""
         if m.submerged:
             return 0
+        if m.is_bench:                  # v0.5 M1 B2: só anima fabricando, 1 ciclo (0 -> 7 a BENCH_FPS), sem fase por tile
+            return bench_frame_index(m.work)
         phase = tile_phase(m.tx, m.ty)
         if m.kind == "solar":
             return anim_frame_index(clock, phase)
@@ -1480,6 +1493,8 @@ class Renderer:
                 small = self.surface("icon_o2_tank", art.o2_tank_icon)[0]
             elif item == "scanner":
                 small = self.surface("icon_scanner", art.scanner_icon)[0]
+            elif item == "workbench":           # v0.5 M1 B2: icon_workbench.png (aprovado)
+                small = self.surface("icon_workbench", lambda: art.machine("workbench"))[0]
             elif item == "constructor":          # v0.5 M1: com o icon_constructor.png no assets, ele (sem mudar código)
                 small = self.surface("icon_constructor", art.constructor_icon)[0]
             elif item in C.DIAGRAM_ITEMS:       # v0.5 M1: icon_diagram.png (aprovado); sem ele, o chip de projeto de antes
@@ -1509,6 +1524,8 @@ class Renderer:
             return pygame.transform.scale_by(self.drone_icon(), 3)   # 16×16 → 48×48, pixel a pixel
         if kind == "chest":
             return self.chest_surface()
+        if kind in C.DIAGRAM_ITEMS:      # o item do diagrama (receita no fabricador): o ícone ×3, pixel a pixel
+            return pygame.transform.scale_by(self.surface("icon_diagram", art.blueprint_icon)[0], 3)
         if kind == "drone_station":
             return self.station_surface()
         if kind in C.LAMP_RADIUS:

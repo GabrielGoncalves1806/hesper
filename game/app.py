@@ -44,7 +44,7 @@ from game.perf_meter import PerfMeter
 from game.assets import Sprites
 from game.audio import Audio
 from game.equipment import is_equipment
-from game.fabricator import FabMenu, build_menu, craft_menu
+from game.fabricator import FabMenu, build_menu, craft_menu, t2_menu
 from game.inventory import Stack
 from game.map_view import MapView
 from game.objectives import ObjectiveTracker
@@ -156,6 +156,8 @@ class App:
         self.rotation = 0
         self.fab_bench = "t1"           # bancada do painel de fabricar aberto ("t2" = a Bancada T2): qual diagrama ela lê
         self.fab = craft_menu()         # aba, seleção e rolagem do fabricador (só itens · game/fabricator.py)
+        self.fab_t2 = t2_menu()         # o mesmo, da Bancada T2 (receitas dela)
+        self.open_bench = None          # Bancada T2 aberta (Machine): quem anima quando fabrica
         self.build_menu = build_menu()  # v0.5 M1: menu do construtor (E com ele na mão): as máquinas
         self.terminal_index = 0
         self.inv_tab = TAB_INVENTORY    # Tab: Inventário / LOGs (a aba Fabricar saiu no v0.5 M1)
@@ -494,6 +496,12 @@ class App:
                     self.open_drill = target[1]
                     self.placing = None
                     self.set_mode("drill")
+                elif target and target[0] == "bench":              # Bancada T2: o painel do fabricador, receitas dela
+                    self.open_bench = target[1]
+                    self.fab_bench = "t2"
+                    self.fab_t2.diag = None
+                    self.placing = None
+                    self.set_mode("fabricator")
                 elif target and target[0] == "station":
                     self.open_station = target[1]
                     self.placing = None
@@ -507,6 +515,8 @@ class App:
                 elif state.in_base_zone():
                     self.placing = None
                     self.fab.diag = None
+                    self.fab_bench = "t1"
+                    self.open_bench = None
                     self.set_mode("fabricator")
                     state.fabricator_opened = True
             elif key == pygame.K_ESCAPE and self.placing:
@@ -561,7 +571,9 @@ class App:
         self.rotation = 0
 
     def menu_of_mode(self) -> FabMenu:
-        return self.build_menu if self.mode == "build" else self.fab
+        if self.mode == "build":
+            return self.build_menu
+        return self.fab_t2 if self.fab_bench == "t2" else self.fab
 
     # ---- destroços e scanner (Marco 3) --------------------------------------------
     def show_log(self, log: int, after=None) -> None:
@@ -633,7 +645,7 @@ class App:
             self.show_notice(f"Esse diagrama se lê na {C.BENCH_LABEL[C.DIAGRAM_BENCH[diagram]].title()}")
         elif result == "known":
             self.show_notice("Receita já liberada")
-        self.fab.clamp_diag(self.diagram_count())
+        self.menu_of_mode().clamp_diag(self.diagram_count())
 
     def craft_batch(self, menu: FabMenu) -> bool:
         """Fabrica em lote (até C.CRAFT_BATCH)? Sim com o seletor em ×5 ou com o Shift segurado."""
@@ -1297,7 +1309,9 @@ class App:
     def try_craft(self, kind: str, batch: bool = False) -> None:
         """Fabrica 1 (ou, com Shift, até C.CRAFT_BATCH: para quando faltar recurso). O lote mostra "Drone x5".
         Fabricou: fecha o menu e, se o item caiu na hotbar, seleciona o slot (o construtor já fica na mão)."""
-        made = self.state.craft_many(kind) if batch else int(self.state.craft(kind))
+        bench = self.fab_bench if self.mode == "fabricator" else "t1"
+        at = self.open_bench if bench == "t2" else None            # a Bancada T2 anima enquanto fabrica
+        made = self.state.craft_many(kind, bench=bench, at=at) if batch else int(self.state.craft(kind, bench, at))
         if batch and made:
             self.show_toast(f"{item_name(kind)} x{made}")
         if made:
@@ -1689,6 +1703,10 @@ class App:
             used = sum(1 for st in machine.storage.slots if st)
             mine = target is not None and target[1] is machine
             return f"{machine.name or C.CHEST_DEFAULT_NAME} ({used}/{C.CHEST_SLOTS})" + (" · [E] abrir" if mine else other)
+        if machine and machine.is_bench:
+            mine = target is not None and target[1] is machine
+            return "Bancada T2" + (" · [E] abrir" if mine else other) + (
+                f" · segure [{C.DISMANTLE_KEY}] desmontar" if state.can_dismantle(machine) else "")
         if machine:
             if state.power.deficit and energy.machine_use(machine.kind) > 0:     # no déficit: mostra o ritmo
                 rhythm = f"Ritmo {self.power_percent()}%"
@@ -1791,6 +1809,8 @@ class App:
         if kind == "chest":
             name = obj.name or C.CHEST_DEFAULT_NAME
             return "[E] Abrir baú" if name == C.CHEST_DEFAULT_NAME else f"[E] Abrir baú: {name}"
+        if kind == "bench":
+            return "[E] Bancada T2"
         if kind == "station":
             return "[E] Estação de drones" if obj.station.drones else "[E] Estação: coloque drones"
         return (f"[E] Drill · [Shift+E] coletar {obj.stored} {C.RESOURCE_NAME[obj.resource]}" if obj.stored

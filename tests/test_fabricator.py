@@ -11,18 +11,18 @@ def test_every_recipe_has_a_tab():
     assert set(C.MACHINE_CATEGORY.values()) <= ids
     assert tab_kinds("terraform") == ["o2", "melter", "heater", "o2_t2", "melter_t2", "heater_t2"]
     assert tab_kinds("energy") == ["solar"]
-    assert tab_kinds("automation") == ["drill", "drone_station", "drone"]
+    assert tab_kinds("automation") == ["drill", "drone_station", "drone", "workbench"]
     assert tab_kinds("storage") == ["chest"]
     assert tab_kinds("light") == ["lamp", "lamp_t2"]
     assert tab_kinds("suit") == ["o2_tank", "scanner"]                   # Marco 3: aba "Traje"
-    assert tab_kinds("tools") == ["constructor"]                         # v0.5 M1
+    assert tab_kinds("tools") == ["constructor", "diagram_workbench"]                         # v0.5 M1
 
 
 def test_craft_tabs_have_only_items_and_build_tabs_only_machines():
-    assert craft_kinds("tools") == ["constructor"]
+    assert craft_kinds("tools") == ["constructor", "diagram_workbench"]
     assert craft_kinds("automation") == ["drone"]
     assert craft_kinds("suit") == ["o2_tank", "scanner"]
-    assert build_kinds("automation") == ["drill", "drone_station"]
+    assert build_kinds("automation") == ["drill", "drone_station", "workbench"]
     for tab, _ in C.CRAFT_TABS:
         assert all(not C.MACHINES[k].placeable for k in craft_kinds(tab))
     for tab, _ in C.FAB_TABS:

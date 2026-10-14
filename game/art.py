@@ -503,10 +503,24 @@ def solar_panel() -> pygame.Surface:
     return s
 
 
+def workbench() -> pygame.Surface:
+    """Bancada T2 32×40 (fallback se o machine_workbench.png sumir): tampo de cobre entre duas colunas."""
+    s = pygame.Surface(C.BENCH_SPRITE_SIZE, pygame.SRCALPHA)
+    _r(s, "#1b1630", 2, 36, 28, 4)
+    _r(s, "#3b3f46", 3, 35, 26, 3)
+    _r(s, "#1b1630", 4, 8, 24, 28)
+    _r(s, "#d9a066", 5, 9, 22, 8)       # tampo
+    _r(s, "#c2cad4", 5, 17, 3, 18); _r(s, "#c2cad4", 24, 17, 3, 18)   # colunas
+    _r(s, "#59d0e6", 12, 20, 8, 6)      # visor
+    return s
+
+
 def machine(kind: str) -> pygame.Surface:
     """Máquina nv.1 (40×58) ou nv.2 (40×66: mesma máquina num pedestal com faixas douradas)."""
     if kind == "solar":
         return solar_panel()
+    if kind == "workbench":
+        return workbench()
     tier = 2 if kind.endswith("_t2") else 1
     base_kind = kind.removesuffix("_t2")
     w, h = MACHINE_SIZE[tier]

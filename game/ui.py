@@ -85,7 +85,7 @@ OK_TEXT, ALERT_TEXT = "#b6f0b0", "#ff8a7a"
 OK_BG, OK_BORDER = (127, 214, 122, 18), "#2f4a33"
 BAD_BG, BAD_BORDER = (255, 106, 85, 30), "#6a302b"
 # ícone de cada aba do fabricador (só a ativa mostra o nome: cabe nos 3 tamanhos)
-FAB_TAB_ICON = {"tools": "constructor", "terraform": "o2", "energy": "solar", "automation": "drill", "storage": "chest", "light": "lamp",
+FAB_TAB_ICON = {"t2": "workbench", "tools": "constructor", "terraform": "o2", "energy": "solar", "automation": "drill", "storage": "chest", "light": "lamp",
                 "suit": "o2_tank"}
 
 
@@ -1091,8 +1091,12 @@ class UI:
         w, h = min(self.w - 8, max(FAB_W, tabs_w + 16)), min(self.h - 4, FAB_H)
         x, y = (self.w - w) // 2, (self.h - h) // 2       # no centro
         self.fabricator_panel = pygame.Rect(x, y, w, h)
+        t2 = bench == "t2" and not build                  # Bancada T2: posto avançado, só o inventário
+        inv_only = build or t2
         if build:
             self.window(x, y, w, h, "Construtor", "MATERIAIS: SÓ O INVENTÁRIO")
+        elif t2:
+            self.window(x, y, w, h, "Bancada T2", "MATERIAIS: SÓ O INVENTÁRIO")
         else:
             self.window(x, y, w, h, "Fabricador", "MATERIAIS: INVENTÁRIO + BAÚS")
         # abas com ícone
@@ -1101,7 +1105,8 @@ class UI:
             on = i == menu.tab
             tw = 22 + (self.body.size(label)[0] + 4 if on else 0)
             rect = pygame.Rect(tx, y + 18, tw, 20)
-            unlocked = any(state.recipe_status(k) not in ("locked", "blueprint") for k in menu.kinds_of(tab_id))
+            unlocked = not menu.kinds_of(tab_id) or any(state.recipe_status(k, inv_only) not in ("locked", "blueprint")
+                                                        for k in menu.kinds_of(tab_id))
             hover = not on and rect.collidepoint(mouse)
             self.round_rect(rect, B_HOVER if on or hover else B_WELL, C.C_ACCENT if on else B_LINE)
             icon = item_icon(FAB_TAB_ICON.get(tab_id, "chest"))
@@ -1113,7 +1118,7 @@ class UI:
         self.fill(B_LINE, (x + 8, y + 42, w - 16, 1))
         list_y = y + 48
         detail = pygame.Rect(x + 8 + FAB_LIST_W + 6, list_y, w - FAB_LIST_W - 22, h - 72)
-        self._recipe_list(state, menu, x + 8, list_y, FAB_LIST_W, detail.h, item_icon, mouse, inv_only=build)
+        self._recipe_list(state, menu, x + 8, list_y, FAB_LIST_W, detail.h, item_icon, mouse, inv_only=inv_only)
         if not build:
             top = list_y + menu.visible * RECIPE_ROW_STEP + 2
             self._diagram_area(state, menu, x + 8, top, FAB_LIST_W, list_y + detail.h - top, item_icon, mouse, bench)
@@ -1122,7 +1127,10 @@ class UI:
             batch = 5 if shift else menu.batch
             self._recipe_detail(state, kind, detail, machine_preview, item_icon, batch, mouse,
                                 max_rows=max((len(C.MACHINES[k].cost) for k in menu.kinds), default=1),
-                                inv_only=build, build=build)
+                                inv_only=inv_only, build=build)
+        else:
+            self.round_rect(detail, B_CARD)
+            self.tx("Nenhuma receita ainda", detail.centerx, detail.centery - 6, B_MUTED, self.body, "center")
         if build:
             pairs = [("A/D", "aba"), ("W/S", "escolhe"), ("ENTER", "constrói"), ("E", "fecha")]
         else:
@@ -1173,6 +1181,10 @@ class UI:
         """Lista de receitas da aba atual do `menu`: ícone, nome e o estado à direita (✓ dá pra fabricar,
         "falta" em vermelho, cadeado trancado ou sem diagrama). Rola com a barra quando não cabe."""
         kinds = menu.kinds
+        if not kinds:                                  # aba sem receita (a Bancada T2 no M1): estado vazio
+            self.round_rect((x, y, w, RECIPE_ROW_H), B_CARD)
+            self.tx("nenhuma receita", x + 6, y + 2, B_DIM, self.body)
+            return
         selected, first = menu.selected[menu.tab], menu.first[menu.tab]
         scroll = len(kinds) > menu.visible
         row_w = w - 6 if scroll else w
@@ -1200,6 +1212,8 @@ class UI:
                 status_w = 9
             elif status == "missing":
                 status_w = self.tx("falta", right, ry + 2, ALERT_TEXT, self.body, "right")
+            elif status == "known":                    # diagrama que já foi lido
+                status_w = self.tx("lido", right, ry + 2, B_DIM, self.body, "right")
             else:
                 self.draw_lock(right - 7, ry + 7, B_DIM)
                 status_w = 9
@@ -1329,6 +1343,8 @@ class UI:
                 self.fabricator_buttons.append((button, kind))
         elif hidden:
             label, kind_b = "SEM DIAGRAMA", "off"
+        elif status == "known":
+            label, kind_b = "JÁ LIDO", "off"
         else:
             label, kind_b = f"LIBERA EM TI {fmt(m.unlock_ti)}", "off"
         self.button(button, label, kind_b, hover=kind_b == "primary" and button.collidepoint(mouse))

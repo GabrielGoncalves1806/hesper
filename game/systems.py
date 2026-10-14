@@ -65,6 +65,8 @@ class Machine:
     # v0.5 M1: segundos que faltam pra terminar de se construir (o scanner varrendo). Enquanto > 0 ela não funciona
     # (não soma Ti, não gera nem gasta energia). Não vai no save: carregou, já está pronta.
     build: float = field(default=0.0, compare=False)
+    # v0.5 M1 B2: só a Bancada T2. Segundos que faltam da animação de "fabricando" (C.BENCH_WORK_TIME ao fabricar).
+    work: float = field(default=0.0, compare=False)
 
     def __post_init__(self, stored_init: int = 0) -> None:
         if self.storage is None and self.is_drill:
@@ -89,6 +91,10 @@ class Machine:
     @property
     def is_chest(self) -> bool:
         return self.kind == "chest"
+
+    @property
+    def is_bench(self) -> bool:
+        return self.kind == "workbench"
 
     @property
     def is_station(self) -> bool:
@@ -146,6 +152,8 @@ class Machine:
             w, h = C.CHEST_SPRITE_SIZE
         elif self.is_station:
             w, h = C.DRONE_STATION_SPRITE_SIZE
+        elif self.is_bench:
+            w, h = C.BENCH_SPRITE_SIZE
         elif self.is_lamp:
             w, h = C.LAMP_SPRITE_SIZE
         else:
@@ -582,12 +590,15 @@ class GameState:
         return self.inventory.count(resource) + sum(c.storage.count(resource) for c in self.craft_sources(inv_only))
 
     def recipe_status(self, kind: str, inv_only: bool = False) -> str:
-        """'blueprint' (diagrama não lido), 'locked' (Ti insuficiente), 'missing' (falta recurso) ou 'ok'.
+        """'blueprint' (diagrama não lido), 'known' (a receita é um diagrama que já foi lido), 'locked' (Ti
+        insuficiente), 'missing' (falta recurso) ou 'ok'.
         `inv_only`: conta só o inventário (o construtor, v0.5 M1)."""
         machine = C.MACHINES[kind]
         blueprint = C.RECIPE_BLUEPRINT.get(kind)
         if blueprint is not None and blueprint not in self.blueprints:
             return "blueprint"
+        if kind in C.DIAGRAM_ITEMS and C.DIAGRAM_ITEMS[kind] in self.blueprints:
+            return "known"                      # o diagrama dessa receita já foi lido: não se fabrica de novo
         if self.ti < machine.unlock_ti:
             return "locked"
         if any(self.available(r, inv_only) < n for r, n in machine.cost.items()):
@@ -609,12 +620,17 @@ class GameState:
                     break
                 left -= chest.storage.remove(r, left)
 
-    def craft(self, kind: str) -> bool:
+    def craft(self, kind: str, bench: str = "t1", at: Machine | None = None) -> bool:
         """Fabrica 1 item no fabricador da base (v0.5 M1: só itens; máquina vem do construtor). Gasta primeiro o
-        inventário, depois os baús da base. O item vai pro inventário (falha com aviso se não couber)."""
-        if C.MACHINES[kind].placeable or not self.in_base_zone():
+        inventário, depois os baús da base. O item vai pro inventário (falha com aviso se não couber).
+        `bench` "t2" = a Bancada T2 (`at`, a máquina): só receitas C.T2_RECIPES, em qualquer lugar, gastando SÓ o
+        inventário, e ela anima por C.BENCH_WORK_TIME."""
+        t2 = bench == "t2"
+        if C.MACHINES[kind].placeable or (kind in C.T2_RECIPES) != t2:
             return False
-        if self.recipe_status(kind) != "ok":
+        if not t2 and not self.in_base_zone():
+            return False
+        if self.recipe_status(kind, inv_only=t2) != "ok":
             return False
         cost = C.MACHINES[kind].cost
         # "e se eu gastar o que vem do inventário, sobra lugar pro item?" (testa numa cópia)
@@ -624,18 +640,20 @@ class GameState:
         if not trial.has_space(kind):
             self.events.append(("inv_full",))
             return False
-        self._spend(cost)
+        self._spend(cost, inv_only=t2)
         self.inventory.add(kind, 1)
         self.crafted[kind] += 1
         self.events.append(("craft", kind))
+        if at is not None:
+            at.work = C.BENCH_WORK_TIME
         return True
 
-    def craft_many(self, kind: str, limit: int = C.CRAFT_BATCH) -> int:
+    def craft_many(self, kind: str, limit: int = C.CRAFT_BATCH, bench: str = "t1", at: Machine | None = None) -> int:
         """Fabrica até `limit` de uma vez (Shift no fabricador). Para no primeiro que falhar (faltou
         recurso ou não cabe no inventário). Devolve quantas fabricou; o evento "craft" sai uma vez só
         (um som), com a quantidade."""
         made = 0
-        while made < limit and self.craft(kind):
+        while made < limit and self.craft(kind, bench, at):
             made += 1
         if made > 1:
             crafts = [e for e in self.events if e[0] == "craft" and e[1] == kind]
@@ -722,6 +740,8 @@ class GameState:
         for m in self.all_machines:
             if m.build > 0:
                 m.build = max(0.0, m.build - dt)
+            if m.work > 0:
+                m.work = max(0.0, m.work - dt)
 
     # ---- drill automática ---------------------------------------------------
     def drill_distance(self, drill: Machine) -> float:
@@ -758,6 +778,11 @@ class GameState:
         near = [c for c in self.chests if self.drill_distance(c) <= C.CHEST_REACH]
         return min(near, key=self.drill_distance, default=None)
 
+    def nearby_bench(self) -> Machine | None:
+        """Bancada T2 ao alcance do E (a mais perto; ainda se construindo não abre)."""
+        near = [m for m in self.machines if m.is_bench and m.build <= 0 and self.drill_distance(m) <= C.BENCH_REACH]
+        return min(near, key=self.drill_distance, default=None)
+
     def nearby_station(self) -> Machine | None:
         """Estação de drones ao alcance do E (abre o painel dela: drones e buffer)."""
         near = [m for m in self.stations if self.drill_distance(m) <= C.STATION_REACH]
@@ -769,7 +794,7 @@ class GameState:
         machine = self.machine_at_point(px, py)
         if machine is not None:
             for kind, flag in (("drill", machine.is_drill), ("chest", machine.is_chest),
-                               ("station", machine.is_station)):
+                               ("station", machine.is_station), ("bench", machine.is_bench)):
                 if flag:
                     return kind, machine
             return None                                  # O2, aquecedor...: o E não abre nada
@@ -803,7 +828,8 @@ class GameState:
             return target in self.world.wrecks and self.wreck_terminal_distance(target) <= C.TERMINAL_REACH
         if kind == "container":
             return tuple(target) in self.world.containers and self.container_distance(target) <= C.CONTAINER_REACH
-        reach = {"drill": C.DRILL_REACH, "chest": C.CHEST_REACH, "station": C.STATION_REACH}[kind]
+        reach = {"drill": C.DRILL_REACH, "chest": C.CHEST_REACH, "station": C.STATION_REACH,
+                 "bench": C.BENCH_REACH}[kind]
         return any(m is target for m in self.machines) and self.drill_distance(target) <= reach
 
     def interaction(self, hover: tuple[str, object] | None = None) -> tuple[str, object] | None:
@@ -825,6 +851,9 @@ class GameState:
         station = self.nearby_station()
         if station is not None:
             options.append((self.drill_distance(station), "station", station))
+        bench = self.nearby_bench()
+        if bench is not None:
+            options.append((self.drill_distance(bench), "bench", bench))
         crate = self.nearby_crate()
         if crate is not None:
             options.append((self.crate_distance(crate), "crate", crate))
