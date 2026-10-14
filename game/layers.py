@@ -57,9 +57,10 @@ class Layer:
             self.explored = Explored(self.world.width, self.world.height)
         geo = self.world.geo
         if geo is not None and not self.gate_ice:
-            self.gate_ice = [0] * len(geo.pockets)
-            self.gate_melt = [0.0] * len(geo.pockets)
-            self.gate_recipes = [ice_blocks.recipe_for(geo.seed, i) for i in range(len(geo.pockets))]
+            n = ice_blocks.gate_count(geo)       # os dos bolsões + o portão grande por último (M3.6.3)
+            self.gate_ice = [0] * n
+            self.gate_melt = [0.0] * n
+            self.gate_recipes = [ice_blocks.gate_recipe(geo.seed, geo, i) for i in range(n)]
             self.refresh_gates()
         if self.world.geo is not None and not self.vents_awake:
             self.vents_awake = [False] * len(self.world.geo.vents)
@@ -70,12 +71,12 @@ class Layer:
         if geo is None:
             return
         blocks, closed = [], set()
-        for i, pocket in enumerate(geo.pockets):
+        for i in range(ice_blocks.gate_count(geo)):
             p, recipe = self.gate_melt[i], self.gate_recipes[i]
             self.gate_ice[i] = thaw.gate_stage(p, ice_blocks.opens_at(recipe))
-            blocks += ice_blocks.blocks_at(pocket.gate.base_px, recipe, p, i)
+            blocks += ice_blocks.blocks_at(ice_blocks.gate_base_px(geo, i), recipe, p, i)
             if self.gate_ice[i] < thaw.GATE_OPEN:
-                closed.update(pocket.gate.tiles)
+                closed.update(ice_blocks.gate_tiles(geo, i))
         self.gate_blocks = blocks
         self.world.closed_gate_tiles = frozenset(closed)
 

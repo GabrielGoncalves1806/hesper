@@ -16,6 +16,7 @@ from game import drones
 from game.base import BaseBlock, BaseGrid, Seal
 from game.base import H as ORIENT_H, V as ORIENT_V
 from game import explore
+from game import ice_blocks
 from game import layers
 from game import magmatite
 from game import thaw
@@ -1472,8 +1473,8 @@ class GameState:
         heat = self.indices["heat"]
         old_stage = list(surface.gate_ice)
         changed = False
-        for i in range(len(geo.pockets)):
-            p = max(surface.gate_melt[i], thaw.gate_progress(heat, i))
+        for i in range(ice_blocks.gate_count(geo)):
+            p = max(surface.gate_melt[i], thaw.gate_progress(heat, i, giant=ice_blocks.is_giant_gate(geo, i)))
             if p != surface.gate_melt[i]:
                 surface.gate_melt[i] = p
                 changed = True
@@ -1483,7 +1484,10 @@ class GameState:
         for i, (was, now) in enumerate(zip(old_stage, surface.gate_ice)):
             for stage in (thaw.GATE_MELTING, thaw.GATE_OPEN):
                 if was < stage <= now:
-                    self.events.append(("gate_thaw", i, stage))
+                    if ice_blocks.is_giant_gate(geo, i):        # M3.6.3: o portão grande tem evento próprio (a 6.4 pendura nele)
+                        self.events.append(("giant_gate_thaw", stage))
+                    else:
+                        self.events.append(("gate_thaw", i, stage))
 
     def _thaw_lake(self) -> None:
         """M3.3: a água das bacias sobe com o índice de água (thaw.lake_level), só a partir da Névoa. O nível anda

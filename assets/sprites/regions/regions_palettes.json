@@ -555,6 +555,112 @@
     }
    ],
    "opens_at": 0.58
+  },
+  "G": {
+   "name": "Muralha larga (11 blocos)",
+   "corridor_tiles": 8,
+   "blocks": [
+    {
+     "b": "boulder_1",
+     "x": -104,
+     "y": -30,
+     "melt": [
+      0.47,
+      0.96
+     ]
+    },
+    {
+     "b": "slab_1",
+     "x": -62,
+     "y": -32,
+     "melt": [
+      0.37,
+      0.88
+     ]
+    },
+    {
+     "b": "shard_1",
+     "x": -14,
+     "y": -34,
+     "melt": [
+      0.59,
+      1.0
+     ]
+    },
+    {
+     "b": "slab_0",
+     "x": 34,
+     "y": -30,
+     "melt": [
+      0.31,
+      0.82
+     ]
+    },
+    {
+     "b": "boulder_0",
+     "x": 84,
+     "y": -28,
+     "melt": [
+      0.51,
+      0.98
+     ]
+    },
+    {
+     "b": "shard_0",
+     "x": 118,
+     "y": -24,
+     "melt": [
+      0.25,
+      0.74
+     ]
+    },
+    {
+     "b": "shard_0",
+     "x": -120,
+     "y": -2,
+     "melt": [
+      0.21,
+      0.7
+     ]
+    },
+    {
+     "b": "slab_0",
+     "x": -74,
+     "y": -2,
+     "melt": [
+      0.43,
+      0.92
+     ]
+    },
+    {
+     "b": "boulder_1",
+     "x": -22,
+     "y": -4,
+     "melt": [
+      0.53,
+      1.0
+     ]
+    },
+    {
+     "b": "slab_1",
+     "x": 30,
+     "y": -2,
+     "melt": [
+      0.27,
+      0.78
+     ]
+    },
+    {
+     "b": "boulder_0",
+     "x": 86,
+     "y": -4,
+     "melt": [
+      0.41,
+      0.9
+     ]
+    }
+   ],
+   "opens_at": 0.565
   }
  },
  "note": "Sprites indexados: 0..7 = rampa, 8 = contorno #1b1630, 9 = sombra (preto, alfa 80), 255 = transparente. Cor final = ramps[tabela][região][estágio][índice]. crater_impact_*: 10..17 = ramps.ICE.frost, 18..20 = ramps.METAL. decor_*_moss_*: 0..3 = ramps.MOSS (só no Verde). Formações com small=true são as pequenas da v9; vent_* (v9.1) têm sprites dormant/active, paleta HILL.basalt + 10..13 = ramps.VENT.basalt e mouths (px de onde sai a fumaça do bloco smoke).",

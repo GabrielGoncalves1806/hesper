@@ -270,6 +270,7 @@ class Result:
     crater_at: float | None = None                   # v0.4 M3.1: quando o calor abriu a cratera (só informa)
     magma_trips: int = 0                             # v0.4: idas da caverna até as fumarolas buscar magmatita
     gate_at: dict = field(default_factory=dict)      # v0.4 M4: portão i -> quando a fresta abriu (só lê os eventos)
+    giant_at: float | None = None                    # v0.5 M3.6.3: quando a fresta do portão grande abriu
     final_indices: dict = field(default_factory=dict)   # v0.4 M4: o2/heat/water no fim (só leitura)
     lake_at: dict = field(default_factory=dict)      # v0.4 M4: lago k (0..2 = L1..L3) -> quando a água bateu a marca
     magma_at: float | None = None                    # v0.4 M4: quando minerou a 1ª magmatita (o que o inventário já viu)
@@ -520,6 +521,8 @@ class Sim:
         for ev in self.gs.events:              # v0.4 M4: só lê o estado (portão aberto, lago subindo), não muda o jogo
             if ev[0] == "gate_thaw" and ev[2] == thaw.GATE_OPEN:
                 self.res.gate_at.setdefault(ev[1], self.t + dt)
+            elif ev[0] == "giant_gate_thaw" and ev[1] == thaw.GATE_OPEN and self.res.giant_at is None:
+                self.res.giant_at = self.t + dt
             elif ev[0] == "lake_rise":
                 self.res.lake_at.setdefault(ev[1], self.t + dt)
         self.gs.events.clear()                 # os eventos (degelo etc.) são do App: aqui só iam acumular
@@ -1115,7 +1118,7 @@ def table(title, results, markdown=False):
     marks = ["Ti 500"] + [s.name.capitalize() for s in C.STAGES[1:]]
     kinds = list(C.MACHINES)
     head = ["estratégia", "seed", *marks, "total", "espera total", "maior espera", "desm.", "drill un.",
-            "drone un.", "déficit", "tanque", "saque", "magmat.", "aquec.", "cratera", "portão 1", "portão 2", "portão 3", "L1", "L2", "L3",
+            "drone un.", "déficit", "tanque", "saque", "magmat.", "aquec.", "cratera", "portão 1", "portão 2", "portão 3", "grande", "L1", "L2", "L3",
             "máquinas (" + "/".join(kinds) + ")"]
     rows = []
     for r in results:
@@ -1123,7 +1126,7 @@ def table(title, results, markdown=False):
                      fmt(r.total) + ("" if r.finished else " (não acabou)"),
                      fmt(r.idle_total), fmt(r.idle_longest), str(r.faints), str(r.drill_units),
                      str(r.drone_units), fmt(r.deficit_time), fmt(r.tank_at), str(r.loot_units),
-                     fmt(r.magma_at), fmt(r.heater_at), fmt(r.crater_at), *[fmt(r.gate_at.get(i)) for i in range(3)],
+                     fmt(r.magma_at), fmt(r.heater_at), fmt(r.crater_at), *[fmt(r.gate_at.get(i)) for i in range(3)], fmt(r.giant_at),
                      *[fmt(r.lake_at.get(k)) for k in range(3)], "/".join(str(r.machines[k]) for k in kinds)])
     out = [f"\n{'### ' if markdown else '== '}{title}\n"]
     if markdown:
