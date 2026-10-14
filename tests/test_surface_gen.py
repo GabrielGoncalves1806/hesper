@@ -15,8 +15,8 @@ HILL_TILES = (C.ROCK, C.IRON, C.SILICON, C.ICE)     # morro minerável (a BEDROC
 
 
 def pocket_rock(w) -> set:
-    """Os anéis de rocha dos bolsões dos gelos-portão (BEDROCK ligada à cordilheira do norte)."""
-    return {t for p in w.geo.pockets for t in p.ring}
+    """Os anéis de rocha dos bolsões dos gelos-portão e o do bolsão grande da criatura (BEDROCK ligada à cordilheira)."""
+    return {t for p in w.geo.pockets for t in p.ring} | set(w.geo.giant.ring)
 
 
 def test_size_seed_and_copy():
@@ -219,7 +219,7 @@ def test_every_formation_has_outcrops(seed):
     kinds = [f.kind for f in w.geo.formations]
     assert {"monolith", "arch", "basalt_spires", "cone"} <= set(kinds)   # sem sal por enquanto (dono)
     for f in w.geo.formations:
-        if f.kind == "ice_gate" or f.small or f.kind.startswith("vent_"):   # portão, pequenas da v9 e fumarolas: sem afloramento
+        if f.kind in ("ice_gate", "ice_giant") or f.small or f.kind.startswith("vent_"):   # portão, gelo gigante, pequenas da v9 e fumarolas: sem afloramento
             continue
         ring = _near(f.tiles, 2) - set(f.box)
         rocks = [t for t in ring if w.get(*t) in C.SMALL_ROCKS]

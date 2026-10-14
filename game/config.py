@@ -707,6 +707,18 @@ POCKET_SIZE = (8, 7)                # interior (largura, altura) em tiles, come�
 POCKET_WALL = 2                     # espessura do anel de rocha
 POCKET_SPACING = 26                 # tiles entre os centros de dois bolsões
 
+# v0.5 M3.6.2: bolsão grande da criatura (1 por mundo, lugar sorteado pela seed dentro da faixa gelada). Anel de BEDROCK
+# de POCKET_WALL tiles, interior GIANT_POCKET_SIZE com o gelo gigante (pegada 7×3) no meio e 4 tiles de corredor em cada
+# lado, e uma entrada GIANT_ENTRY_W de largura no muro de baixo (virada pra fora da cordilheira do norte), aberta até a 6.3.
+GIANT_POCKET_SIZE = (15, 11)        # interior (largura, altura) em tiles
+GIANT_ENTRY_W = 8                   # largura da entrada no muro de baixo (onde o portão grande entra na 6.3)
+GIANT_APRON = (4, 2)                # folga livre na frente da entrada: (linhas, colunas de cada lado)
+GIANT_GAP = 3                       # tiles entre o bolsão grande e os outros bolsões / formações
+GIANT_MIN_BASE_DIST = 40            # tiles da base até o centro do bolsão
+GIANT_VARIANTS = ("larva", "cocoon")   # as duas criaturas aprovadas pelo dono: o sorteio é pela seed
+GIANT_SALT = 6203                   # sal do sorteio da variação
+GIANT_BREATH_PAUSE = (9.0, 14.0)    # s parado no quadro 0 entre uma "respirada" e outra (sorteio)
+
 # v0.4 Marco 3 · M3.2 (bíblia §12, "Gelos-portão"): os portões derretem com o calor, do 0 (o da esquerda) pro último.
 # M3.5: cada portão é um amontoado de blocos (game/ice_blocks.py) e o progresso p (0..1) anda linear entre o 1º e o
 # último marco de calor (pK) do trio dele (o do meio fica de referência). O 3º trio só vale com 3 bolsões.

@@ -35,6 +35,7 @@ from game import dust
 from game import energy
 from game import ground
 from game import hills
+from game import ice_giant
 from game import lake
 from game import layers
 from game import smoke
@@ -232,6 +233,10 @@ class Renderer:
         self.crater_sprites = hills.CraterSprites()          # cratera de impacto e a tampa de gelo (C4)
         self.frost_ring = hills.FrostRing()                   # geada do gelo-portão derretendo (v0.4 M3.2)
         self.ice_block_sprites = hills.IceBlockSprites()      # blocos do gelo-portão (v0.4 M3.5)
+        self.frost_field = hills.FrostRing("frost_field.png")  # geada grande do gelo gigante (v0.5 M3.6.2)
+        self.giant_breath = ice_giant.Breath(C.WORLD_SEED)   # a respirada do gelo gigante (refeita a cada seed)
+        self.giant_shards: list = []                          # estilhaços dele (IceBlock sem colisão), cache por seed
+        self.anim_t = 0.0                                     # relógio do último draw (a animação da respirada)
         # v0.4 M3.1: fumaça das fumarolas acordadas (game/smoke.py), partícula; relógio próprio pelo `t` do draw
         self.vent_smoke = smoke.VentSmoke(seed=C.WORLD_SEED)
         self._smoke_t: float | None = None
@@ -326,6 +331,7 @@ class Renderer:
              ghost: tuple[str, tuple[int, int], int, bool] | None = None, overlay: dict | None = None) -> None:
         self.view_w, self.view_h = canvas.get_size()     # tamanho da visão (com zoom, não é 960×540)
         self.use_seed(state.seed)
+        self.anim_t = t
         cave = not state.active.has_base
         if cave:                                         # rocha fria: sempre névoa, sem transição
             self.stage_map = self.cave_map
@@ -337,6 +343,7 @@ class Renderer:
         self.draw_floors(canvas, state, cam, stage, t)
         self.draw_crater_ejecta(canvas, state, cam)
         self.draw_gate_frost(canvas, state, cam)
+        self.draw_giant_frost(canvas, state, cam)
         self.draw_veins(canvas, state, cam)
         self.draw_base_floors(canvas, state, cam)
         if state.active.has_base:
@@ -378,6 +385,8 @@ class Renderer:
         self.rain_drops = RainDrops(seed=seed)
         self.vent_smoke = smoke.VentSmoke(seed=seed)
         self._vents_seen = None
+        self.giant_breath = ice_giant.Breath(seed)
+        self.giant_shards = []
 
     def draw_storm(self, canvas, state: GameState, cam, t: float) -> None:
         """Tempestade de poeira (game/dust.py): poeira com a visão recortada + grãos e faixas de vento.
@@ -832,10 +841,20 @@ class Renderer:
                 and y + h > cam_y - margin and y < cam_y + self.view_h + margin
 
         for f in layers.current_formations(state.active):      # todas menos o gelo-portão (vai em blocos)
+            frame = self.giant_breath.frame(self.anim_t) if f.kind == "ice_giant" else 0
             surf, x, y = self.formation_sprites.placement(f, self.stage_map.stage_at(*hills.foot_tile(f)),
-                                                          self.formation_variant(state, f))
+                                                          self.formation_variant(state, f), frame)
             if visible(surf, x, y):
                 out.append((f, surf, x, y))
+        giant = getattr(geo, "giant", None)
+        if giant is not None:                                    # v0.5 M3.6.2: estilhaços em volta do gelo gigante
+            if not self.giant_shards:
+                self.giant_shards = ice_giant.shards(giant.giant)
+            stage = self.stage_map.stage_at(*hills.foot_tile(giant.giant))
+            for b in self.giant_shards:
+                surf, x, y = self.ice_block_sprites.placement(b, stage)
+                if visible(surf, x, y):
+                    out.append((b, surf, x, y))
         for b in state.active.gate_blocks:
             stage = self.stage_map.stage_at(*hills.foot_tile(geo.pockets[b.gate].gate))
             surf, x, y = self.ice_block_sprites.placement(b, stage)
@@ -1275,6 +1294,20 @@ class Renderer:
 
     def draw_gate_frost(self, canvas, state: GameState, cam) -> None:
         for surf, x, y in self.gate_frost(state, cam):
+            canvas.blit(surf, (x - cam[0], y - cam[1]))
+
+    def draw_giant_frost(self, canvas, state: GameState, cam) -> None:
+        """Geada grande no chão em volta do gelo gigante (v0.5 M3.6.2), na camada de decalques."""
+        geo = getattr(state.active, "geo", None)
+        giant = getattr(geo, "giant", None)
+        if giant is None or not self.sprites.enabled:
+            return
+        surf = self.frost_field.surface(self.stage_map.stage_at(*hills.foot_tile(giant.giant)))
+        if surf is None:
+            return
+        x, y = hills.frost_field_pos(giant.giant, surf)
+        w, h = surf.get_size()
+        if x + w > cam[0] and x < cam[0] + self.view_w and y + h > cam[1] and y < cam[1] + self.view_h:
             canvas.blit(surf, (x - cam[0], y - cam[1]))
 
     def container_surface(self) -> pygame.Surface:

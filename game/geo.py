@@ -15,6 +15,7 @@ deslocamento de borda (tools/sprites/regions_scene.warp_field), com o mapa aprov
              limitados a ±GEO_WARP px: a divisa vira curva e nunca passa de 14 px da divisa por tile
     marcos   formações fixas (monolito, arco, pináculos, cone, crosta de sal) na região de cada uma, longe da
              base e umas das outras; e 2 ou 3 bolsões na cordilheira do norte, cada um fechado por um gelo-portão
+             (v0.5 M3.6.2: mais 1 bolsão grande da criatura, num lugar da faixa gelada sorteado pela seed)
 
 A seed mexe em tudo: o ruído, a posição e o tamanho do salar e das depressões, as bordas do basalto e da faixa
 gelada, e o sorteio das formações e dos bolsões. Testado em tests/test_geo.py.
@@ -138,6 +139,36 @@ class Pocket:
 
 
 @dataclass
+class IceCreature:
+    """Estado da criatura presa no gelo gigante (v0.5 M3.6.2). Sai da seed (não vai no save): é o gancho do futuro, em que
+    ela derrete e foge pra caverna (`trapped` vira False e `tile` anda). Teaser sem interação por enquanto."""
+    variant: str                         # "larva" ou "cocoon" (C.GIANT_VARIANTS), sorteada pela seed
+    tile: tuple[int, int]                # tile do pé do gelo gigante
+    trapped: bool = True                 # presa no gelo
+
+
+@dataclass
+class GiantPocket:
+    """Bolsão grande da criatura (v0.5 M3.6.2): anel de BEDROCK com o gelo gigante no meio e uma entrada larga na
+    parede de baixo. A entrada fica ABERTA até a 6.3 (portão grande): `entry` guarda onde ela é, pra fechar depois."""
+    giant: Formation                     # o gelo gigante (kind "ice_giant", variant 0 = larva, 1 = casulo)
+    interior: list[tuple[int, int]]      # chão de dentro
+    ring: list[tuple[int, int]]          # anel de rocha (vira C.BEDROCK); sem os tiles da entrada
+    apron: list[tuple[int, int]]         # chão livre na frente da entrada (nada nasce aqui)
+    entry: list[tuple[int, int]]         # tiles do vão da entrada (GIANT_ENTRY_W × POCKET_WALL), hoje areia aberta
+    entry_rect: tuple[int, int, int, int]   # (x, y, largura, altura) do vão, em tiles
+    side: str                            # lado da entrada ("s": pra baixo, longe da cordilheira do norte)
+    creature: IceCreature
+
+    @property
+    def outer(self) -> tuple[int, int, int, int]:
+        """(x, y, largura, altura) do bolsão inteiro (interior + anel), em tiles."""
+        xs = [x for x, _ in self.ring + self.interior]
+        ys = [y for _, y in self.ring + self.interior]
+        return min(xs), min(ys), max(xs) - min(xs) + 1, max(ys) - min(ys) + 1
+
+
+@dataclass
 class Geo:
     seed: int
     region: np.ndarray                   # (H, W) uint8, região de cada tile (PLATEAU, SALAR, BASALT, FROST)
@@ -147,6 +178,7 @@ class Geo:
     region_px: Callable = None           # region_px(px, py) -> região num pixel do mundo (borda orgânica)
     pockets: list[Pocket] = field(default_factory=list)   # bolsões dos gelos-portão (as formações "ice_gate")
     vents: list[Formation] = field(default_factory=list)  # M3.1: fumarolas do basalto ("vent_*", também em formations)
+    giant: GiantPocket | None = None                     # v0.5 M3.6.2: bolsão grande da criatura (o gelo gigante também está em formations)
 
     def region_at(self, tx: int, ty: int) -> int:
         """Região do tile (fora do mapa: a do tile mais perto)."""
@@ -284,7 +316,10 @@ def generate_geo(seed: int, w: int, h: int, base: tuple[int, int]) -> Geo:
     geo.pockets = _pockets(geo, rng)                     # antes das bacias: o bolsão é seco
     geo.basin = _basins(geo.height)
     geo.formations = _formations(geo, rng, base) + [p.gate for p in geo.pockets]
+    geo.giant = _giant_pocket(geo, base)                 # v0.5 M3.6.2: depois das grandes (desvia delas), antes das pequenas
     geo.formations += _small_formations(geo, base)       # v9: no fim, com gerador próprio (o resto não muda)
+    if geo.giant is not None:
+        geo.formations.append(geo.giant.giant)           # por último: não muda o índice das outras (os afloramentos usam o índice)
     geo.region_px = lambda px, py: _region_px(geo.region, seed, px, py)
     return geo
 
@@ -345,6 +380,83 @@ def _pockets(geo: Geo, rng: np.random.Generator) -> list[Pocket]:
     return pockets
 
 
+def _giant_pocket(geo: Geo, base: tuple[int, int]) -> GiantPocket | None:
+    """Bolsão grande da criatura (v0.5 M3.6.2): 1 por mundo, num lugar sorteado pela seed dentro da faixa gelada (no meio,
+    num canto, colado na cordilheira). Interior GIANT_POCKET_SIZE com o gelo gigante no meio (4 tiles de corredor em cada
+    lado), anel de POCKET_WALL e uma entrada de GIANT_ENTRY_W no muro de baixo, virada pra fora da cordilheira do norte
+    e aberta. Não encosta (GIANT_GAP) nos bolsões de hoje nem nas formações, e a frente da entrada fica livre.
+    Gerador próprio: o resto da geografia não muda. Sempre acha lugar (varre tudo se o sorteio falhar)."""
+    rng = np.random.default_rng([geo.seed & 0xFFFFFFFF, 2026, 62])
+    h, w = geo.region.shape
+    iw, ih = C.GIANT_POCKET_SIZE
+    wall = C.POCKET_WALL
+    ow, oh = iw + 2 * wall, ih + 2 * wall
+    ap_rows, ap_cols = C.GIANT_APRON
+    spec = FORMATION_SPECS["ice_giant"]
+    bx, by = base
+    blocked: set[tuple[int, int]] = set()
+    for p in geo.pockets:
+        blocked |= set(p.interior) | set(p.ring) | set(p.apron) | set(p.gate.tiles)
+    for f in geo.formations:
+        blocked |= set(f.box)
+    gap = C.GIANT_GAP
+
+    def layout(ox: int, oy: int, off: int):
+        """Retângulos do bolsão com o canto de cima-esquerda em (ox, oy); `off` desloca a entrada em volta do centro."""
+        ix0, iy0 = ox + wall, oy + wall
+        ex = ix0 + (iw - C.GIANT_ENTRY_W) // 2 + off
+        return ix0, iy0, ex
+
+    def fits(ox: int, oy: int) -> bool:
+        x1, y1 = ox + ow, oy + oh + ap_rows                        # inclui o avental, com folga nas laterais
+        if ox < 1 or oy < 1 or x1 + 1 > w or y1 + 1 > h:
+            return False
+        if math.hypot(ox + ow / 2 - bx, oy + oh / 2 - by) < C.GIANT_MIN_BASE_DIST:
+            return False
+        if (geo.region[oy:y1, ox:x1] != FROST).any() or (geo.basin[oy:y1, ox:x1] >= 0).any():
+            return False
+        xs0, xs1, ys0, ys1 = ox - gap, x1 + gap, oy - gap, y1 + gap
+        return not any(xs0 <= x < xs1 and ys0 <= y < ys1 for x, y in blocked)
+
+    spots = None
+    for _ in range(1500):                                         # sorteio livre (quase sempre acha)
+        ox = int(rng.integers(1, w - ow - 1))
+        oy = int(rng.integers(1, max(2, h // 2 - oh)))
+        if fits(ox, oy):
+            spots = (ox, oy)
+            break
+    if spots is None:                                             # varre tudo, a partir de um ponto sorteado
+        order = [(x, y) for y in range(1, h // 2) for x in range(1, w - ow - 1)]
+        start = int(rng.integers(0, len(order)))
+        for ox, oy in order[start:] + order[:start]:
+            if fits(ox, oy):
+                spots = (ox, oy)
+                break
+    if spots is None:
+        return None
+    ox, oy = spots
+    ix0, iy0, ex = layout(ox, oy, int(rng.integers(-2, 3)))
+    iy1 = iy0 + ih                                                # 1ª linha do muro de baixo
+    interior = {(x, y) for x in range(ix0, ix0 + iw) for y in range(iy0, iy1)}
+    entry = {(x, y) for x in range(ex, ex + C.GIANT_ENTRY_W) for y in range(iy1, iy1 + wall)}
+    outer = {(x, y) for x in range(ox, ox + ow) for y in range(oy, oy + oh)}
+    ring = outer - interior - entry
+    apron = {(x, y) for x in range(ex - ap_cols, ex + C.GIANT_ENTRY_W + ap_cols)
+             for y in range(oy + oh, oy + oh + ap_rows)}
+    for x, y in interior | ring | entry | apron:
+        geo.region[y, x] = FROST
+        geo.basin[y, x] = NO_BASIN
+        geo.height[y, x] = max(geo.height[y, x], C.GEO_LEVELS[2] + 0.06)
+    fw = max(x for x, _ in spec.footprint) + 1
+    fh = max(y for _, y in spec.footprint) + 1
+    gx, gy = ix0 + (iw - fw) // 2, iy0 + (ih - fh) // 2           # no meio do interior
+    variant = min(int(float(hash2(7, 11, geo.seed + C.GIANT_SALT)) * len(C.GIANT_VARIANTS)), len(C.GIANT_VARIANTS) - 1)
+    giant = Formation("ice_giant", gx, gy, list(spec.footprint), spec.anchor, variant)
+    creature = IceCreature(C.GIANT_VARIANTS[variant], (gx + fw // 2, gy + fh - 1))
+    return GiantPocket(giant, sorted(interior), sorted(ring), sorted(apron), sorted(entry),
+                       (ex, iy1, C.GIANT_ENTRY_W, wall), "s", creature)
+
+
 def _formations(geo: Geo, rng: np.random.Generator, base: tuple[int, int]) -> list[Formation]:
     """Formações na região de cada uma: a caixa da pegada + o halo inteiro na mesma região, fora de bacia (a
     crosta de sal pode: no Verde vira ilhota), longe da base, da borda e das outras formações."""
@@ -396,6 +508,8 @@ def _small_formations(geo: Geo, base: tuple[int, int]) -> list[Formation]:
     blocked = set()
     for p in geo.pockets:
         blocked |= set(p.interior) | set(p.ring) | set(p.apron)
+    if geo.giant is not None:
+        blocked |= set(geo.giant.interior) | set(geo.giant.ring) | set(geo.giant.apron) | set(geo.giant.entry)
     others = list(geo.formations)
     placed: list[Formation] = []
     for kind, (lo, hi) in C.GEO_SMALL_FORMATIONS.items():

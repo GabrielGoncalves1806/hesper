@@ -2831,7 +2831,7 @@ def check_formations(bot) -> None:
     bot.mouse_to((900, 500))
     first = {}
     for f in geo.formations:
-        if not f.small and not f.kind.startswith("vent_"):   # as pequenas têm o check_v9_elements, as fumarolas o check_thaw
+        if not f.small and not f.kind.startswith("vent_") and f.kind != "ice_giant":   # as pequenas têm o check_v9_elements, as fumarolas o check_thaw, o gelo gigante o shot_bolsao
             first.setdefault(f.kind, f)
     assert set(first) == {"monolith", "arch", "basalt_spires", "cone", "ice_gate"}, set(first)   # sem sal por enquanto
     # 1) as 6 no mundo (o player 3 tiles abaixo do pé) + um mosaico dos recortes
