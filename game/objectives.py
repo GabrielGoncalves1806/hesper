@@ -43,12 +43,22 @@ def crater_open(state: GameState) -> bool:
     return not state.crater_frozen or visited_cave(state)
 
 
+MAGMATITE_HINT = "Os sensores detectaram calor a oeste. Talvez exista algo por lá pra gerar calor."
+
+
+def found_magmatite(state: GameState) -> bool:
+    """Já minerou magmatita? (ou já fabricou um Aquecedor: o save de antes da magmatita não regride)"""
+    return state.mined_total.get("magmatite", 0) >= 1 or crafted(state, "heater") >= 1
+
+
 @dataclass(frozen=True)
 class Objective:
     text: str
     done: Callable[[GameState], bool]
     # Opcional: (recurso, meta). Mostra um contador "(3/10)" usando o TOTAL minerado.
     counter: tuple[str, int] | None = None
+    # Opcional: dica que aparece como aviso no topo quando o objetivo vira o atual (App.update_objective_hint).
+    hint: str | None = None
 
     def label(self, state: GameState) -> str:
         if self.counter is None:
@@ -68,6 +78,9 @@ OBJECTIVES = [
     # Derretedor -> Ti 500 -> Aquecedor vem antes da cratera.
     Objective("Minere gelo e fabrique um Derretedor", lambda s: crafted(s, "melter") >= 1),
     Objective("Chegue a Ti 500", lambda s: s.ti >= 500),
+    # v0.4 (bíblia §12 "Magmatita"): o Aquecedor custa magmatita, que só nasce em volta das fumarolas do basalto.
+    # Quem já fabricou um Aquecedor (save de antes dela) não volta pra cá.
+    Objective("Encontre magmatita no basalto (oeste)", found_magmatite, hint=MAGMATITE_HINT),
     Objective("Fabrique um Aquecedor", lambda s: crafted(s, "heater") >= 1),
     # v0.3 Marco 2: a caverna é onde se minera de verdade (escura: lanterna + luminárias)
     # v0.4 Marco 3: a cratera nasce coberta de gelo e derrete com o calor (game/thaw.py, marcos THAW_CRATER_HEAT)
@@ -123,6 +136,7 @@ class ObjectiveTracker:
 
     def __init__(self, state: GameState):
         self.shown = current_index(state)       # objetivo atual na tela
+        self.hinted: set[int] = set()            # objetivos que já mostraram a dica (Objective.hint) nesta sessão
         self.flash: str | None = None            # texto do objetivo que acabou de ser cumprido
         self.flash_time = 0.0
 
@@ -137,6 +151,13 @@ class ObjectiveTracker:
             self.flash = OBJECTIVES[self.shown].label(state)
             self.flash_time = FLASH_TIME
         self.shown = now
+
+    def take_hint(self) -> str | None:
+        """A dica do objetivo atual, uma vez só por objetivo (o App mostra como aviso no topo); None se não tem."""
+        if self.shown is None or self.shown in self.hinted or OBJECTIVES[self.shown].hint is None:
+            return None
+        self.hinted.add(self.shown)
+        return OBJECTIVES[self.shown].hint
 
     @property
     def visible(self) -> bool:

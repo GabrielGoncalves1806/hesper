@@ -828,11 +828,11 @@ def check_veins(bot) -> None:
     s, app = bot.state, bot.app
     cx, cy = C.BASE_TILE
     near = [min((v for v in s.world.veins if v.resource == r), key=lambda v: math.hypot(v.tx - cx, v.ty - cy))
-            for r in C.RESOURCES]
+            for r in C.VEIN_RESOURCES]
     # os 3 não cabem juntos na tela (HUD em cima e embaixo): monta um recorte de cada
     # (a dica "Veio de ... · drill libera na Névoa" é conferida pelo assert)
     crops = []
-    for vein in sorted(near, key=lambda v: C.RESOURCES.index(v.resource)):
+    for vein in sorted(near, key=lambda v: C.VEIN_RESOURCES.index(v.resource)):
         s.player.x, s.player.y = (vein.tx + 1) * C.TILE, (vein.ty + 4) * C.TILE   # player logo abaixo do veio
         bot.frames(0.1)
         pos = bot.tile_on_screen((vein.tx, vein.ty))
@@ -1134,7 +1134,7 @@ def check_logistics(bot) -> None:
     bot.frames(DT)
     send_ice = next(r for r, v in app.ui.logistics_buttons if v == ("send", "ice"))
     bot.click((send_ice.centerx * 2, send_ice.centery * 2))   # Envia gelo: sai do Recebe
-    assert chest.sends == {"ice"} and chest.receives == {"iron", "silicon"} and app.mode == "chest"
+    assert chest.sends == {"ice"} and chest.receives == set(C.RESOURCES) - {"ice"} and app.mode == "chest"
     lote = next(r for r, v in app.ui.logistics_buttons if v == ("batch", 20))
     bot.click((lote.centerx * 2, lote.centery * 2))
     assert chest.batch == 20 and app.held is None
@@ -2001,6 +2001,7 @@ def check_surface(bot) -> None:
     saved_tiles = [row[:] for row in w.tiles]
     s.pop_events()
     born = s._update_rocks(C.ROCK_RESPAWN * (C.ROCK_MAX - start_rocks) + 1)
+    born = [t for t in born if w.get(*t) != C.SMALL_MAGMATITE]   # a magmatita tem o reaparecimento dela
     assert rock_respawn.count(w) == C.ROCK_MAX and len(born) == C.ROCK_MAX - start_rocks
     assert all(rock_respawn.hidden_from(C.SPAWN_POS, *t) and w.dist_from_center(*t) >= C.ROCK_BASE_DIST for t in born)
     print(f"  rochas: {start_rocks} no começo, teto {C.ROCK_MAX} (+{len(born)} reaparecidas)")
@@ -3740,6 +3741,112 @@ def check_rock_veins(bot) -> None:
     bot.frames(0.1)
 
 
+def check_magmatite(bot) -> None:
+    """v0.4 · Magmatita (bíblia §12): rochas em volta da fumarola dormente e da acordada, o objetivo novo com a dica
+    no topo e a receita do Aquecedor no fabricador. Prints magmatita_{dormente,acordada,objetivo,fabricador}.png.
+    No fim volta tudo (mapa, calor, progresso e objetivos)."""
+    from game import magmatite
+    from game.objectives import MAGMATITE_HINT, OBJECTIVES, ObjectiveTracker
+    from game.systems import Machine
+    print("1b) magmatita")
+    s, app = bot.state, bot.app
+    r, layer, w = app.renderer, s.surface, s.surface.world
+    before = dict(s.indices)
+    stage_before, storm_before, zoom_before = s.stage, s.storm, app.zoom
+    s.stage, s.storm = C.ARID_STAGE, 0.0                   # Árido: sem poeira na frente dos prints
+    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    banner_before, app.banner_time = app.banner_time, 999.0   # sem o banner do estágio na frente
+    vents = layer.geo.vents
+    rings = {t for f in vents for t in magmatite.ring_tiles(f)}
+    saved_tiles = {t: w.get(*t) for t in rings}
+    awake_before = list(layer.vents_awake)
+    layer.vents_awake[:] = [False] * len(layer.vents_awake)   # os checks de antes podem ter acordado alguma
+    pristine = save.pristine_tiles(s.seed)
+    for x, y in rings:                                        # o anel como saiu da seed (antes ninguém minerou)
+        w.set(x, y, pristine[y][x])
+    v = max(vents, key=lambda f: len(magmatite.rocks_around(w, f)))
+    n0 = len(magmatite.rocks_around(w, v))
+    app.set_zoom(1.0, notify=False)
+    # o player do lado (a fumarola e o anel na tela, longe do player), num tile de areia livre
+    fx, fy = v.tx + v.size[0] // 2, v.ty + v.size[1] - 1
+    stand = next(t for t in ((fx + dx, fy + dy) for dx in (7, -7, 8, -8, 6, -6) for dy in (1, 0, 2, -1))
+                 if w.get(*t) == C.SAND and not any(w.is_solid(t[0] + a, t[1] + b) for a in (-1, 0, 1) for b in (0, 1)))
+    bot.teleport(stand)
+    bot.mouse_to((1200, 80))
+    s.o2 = C.O2_MAX
+    ground_settle(bot, 0.3)
+    assert not any(layer.vents_awake) and n0 >= C.MAGMATITE_DORMANT[0]
+    bot.shot("magmatita_dormente.png")
+    # acordada: o calor acorda as fumarolas e elas expelem mais (o relógio de reaparecimento adiantado)
+    s.indices["heat"] = float(C.THAW_FUMAROLE_HEAT[1])
+    bot.frames(DT)
+    assert all(layer.vents_awake)
+    for _ in range(12):
+        s._update_rocks(C.MAGMATITE_AWAKE_RESPAWN)
+    bot.frames(3.0)
+    s.o2 = C.O2_MAX
+    n1 = len(magmatite.rocks_around(w, v))
+    assert n1 > n0, (n0, n1)
+    bot.shot("magmatita_acordada.png")
+    print(f"  fumarola {v.kind}: {n0} rochas dormente -> {n1} acordada")
+    # volta o mapa e o degelo como estavam
+    for t, kind in saved_tiles.items():
+        w.set(*t, kind)
+    s.indices["heat"] = 0.0
+    layer.crater_ice = 0
+    layer.vents_awake[:] = awake_before
+    app.thaw_notice_time = 0.0
+    r.vent_smoke.clear()
+    for t in rings:
+        r.minimap.repaint(s, t, "surface")
+    # objetivo novo: progresso até "Chegue a Ti 500" feito, a dica aparece no topo
+    progress = (dict(s.mined_total), s.fabricator_opened, dict(s.crafted), list(layer.machines))
+    s.mined_total.update(iron=10, silicon=4)
+    s.fabricator_opened = True
+    s.crafted.update(o2=max(1, s.crafted["o2"]), chest=max(1, s.crafted["chest"]), melter=max(1, s.crafted["melter"]))
+    layer.machines.append(Machine("o2", 93, 98))
+    app.set_zoom(1.0, notify=False)
+    bot.teleport((96, 97))
+    app.objectives = ObjectiveTracker(s)
+    bot.frames(0.6)
+    shown = app.objectives.lines(s)
+    assert shown[0].text == "Encontre magmatita no basalto (oeste)", shown
+    assert app.objective_hint == MAGMATITE_HINT and app.objective_hint_time > 0
+    bot.shot("magmatita_objetivo.png")
+    # fabricador: a receita do Aquecedor com a magmatita
+    inv_before = s.inventory.to_data()
+    give(s, iron=40, silicon=20, magmatite=2)
+    app.objective_hint_time = 0.0
+    bot.key(pygame.K_e)
+    bot.frames(0.2)
+    assert app.mode == "fabricator"
+    bot.click(ui_to_window(app, next(rect for rect, k in app.ui.fabricator_rows if k == "heater")))
+    bot.frames(0.2)
+    assert s.recipe_status("heater") == "missing"         # 2 de 3 magmatitas: falta 1
+    bot.shot("magmatita_fabricador.png")
+    bot.click(ui_to_window(app, next(rect for rect, k in app.ui.fabricator_rows if k == "o2")))   # volta a seleção
+    bot.key(pygame.K_ESCAPE)
+    bot.frames(0.1)
+    assert app.mode == "play"
+    # volta o progresso
+    s.inventory = type(s.inventory).from_data(inv_before)
+    s.mined_total.clear()
+    s.mined_total.update(progress[0])
+    s.fabricator_opened = progress[1]
+    s.crafted.clear()
+    s.crafted.update(progress[2])
+    layer.machines[:] = progress[3]
+    s.indices.update(before)
+    s.stage, s.storm = stage_before, storm_before
+    app.objectives = ObjectiveTracker(s)
+    app.banner_time = banner_before
+    app.set_zoom(zoom_before, notify=False)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+    assert OBJECTIVES[app.objectives.shown].text != "Encontre magmatita no basalto (oeste)"
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     bot = Bot()
@@ -3766,6 +3873,7 @@ def main() -> None:
     check_veins(bot)
     check_machine_anim(bot)
     check_rock_veins(bot)
+    check_magmatite(bot)
 
     print("2) mineração")
     ore = find_ore_with_floor_below(s)

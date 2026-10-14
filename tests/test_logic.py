@@ -181,7 +181,7 @@ def test_craft_fails_without_resources(game):
 
 
 def test_recipes_locked_by_ti(game):
-    give(game, iron=100, silicon=100, ice=100)
+    give(game, iron=100, silicon=100, ice=100, magmatite=20)
     assert game.recipe_status("heater") == "locked"
     assert not game.craft("heater")
     game.indices["o2"] = 500

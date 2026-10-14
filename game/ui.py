@@ -940,6 +940,7 @@ class UI:
         """Pílula "RAJADA" com ícone de vento logo abaixo da coluna do O₂/objetivo, enquanto a rajada
         está forte (gust > STORM_GUST_WARN). Guarda o retângulo em gust_rect (None sem aviso)."""
         self.gust_rect = None
+        self.thaw_rect = None                  # o aviso do degelo (se vier) é desenhado depois, neste frame
         if not gust_warning(state):
             return
         x, y = 6, self.left_bottom + 4
@@ -976,6 +977,26 @@ class UI:
             self.fill(B_TEXT, (cx + d, cy + d, 1, 1), layer)
             self.fill(B_TEXT, (cx + d, cy - d, 1, 1), layer)
         self.tx(text, 18, 1, B_TEXT, self.body, target=layer)
+        layer.set_alpha(round(255 * min(1.0, alpha)))
+        self.surf.blit(layer, (x, y))
+        self.hud_rects.append(pygame.Rect(x, y, w, h))
+        self.thaw_rect = pygame.Rect(x, y, w, h)
+
+    def draw_objective_hint(self, text: str, alpha: float) -> None:
+        """Dica do objetivo atual (v0.4, a da magmatita): cartão da largura do objetivo, com a barra no laranja do
+        calor, logo abaixo da coluna da esquerda (O₂/objetivo, RAJADA e aviso do degelo, o que estiver na tela).
+        Texto quebra na largura do cartão. Some com `alpha`."""
+        if not text or alpha <= 0:
+            return
+        below = [self.left_bottom] + [r.bottom for r in (self.gust_rect, getattr(self, "thaw_rect", None)) if r]
+        x, y, w = 6, max(below) + 4, self.objective_w
+        lines = wrap(self.body, text, w - 12)
+        h = 7 + 12 * len(lines)
+        layer = pygame.Surface((w, h + 1), pygame.SRCALPHA)
+        self.card(0, 0, w, h, B_HUD, target=layer)
+        self.fill(C.C_HEAT, (0, 1, 2, h - 2), layer)
+        for i, line in enumerate(lines):
+            self.tx(line, 6, 12 * i, B_TEXT, self.body, target=layer)
         layer.set_alpha(round(255 * min(1.0, alpha)))
         self.surf.blit(layer, (x, y))
         self.hud_rects.append(pygame.Rect(x, y, w, h))

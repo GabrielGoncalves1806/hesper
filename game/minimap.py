@@ -19,6 +19,7 @@ TILE_COLORS = {
     C.ROCK: (58, 50, 54), C.BEDROCK: (30, 24, 28), C.TERMINAL: (111, 227, 160),
     C.IRON: (150, 92, 60), C.SILICON: (110, 118, 140), C.ICE: (70, 130, 160),
     C.SMALL_IRON: (106, 90, 80), C.SMALL_SILICON: (106, 90, 80), C.SMALL_ICE: (106, 90, 80),
+    C.SMALL_MAGMATITE: (106, 90, 80),   # rocha pequena: a mesma cor neutra das outras
     C.CRATER: (21, 16, 24), C.WRECK: (200, 192, 176), C.LOOT_CRATE: (242, 163, 58),
     C.FORMATION: (46, 38, 42),          # a pegada; o marcador "Formação" do mapa vai por cima
     C.CONTAINER: (239, 229, 218),       # contêiner lacrado (v0.4 M3.2); o marcador "Contêiner" vai por cima

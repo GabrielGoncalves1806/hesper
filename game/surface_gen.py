@@ -24,6 +24,7 @@ import random
 import numpy as np
 
 from game import config as C
+from game import magmatite
 from game import wrecks as wreck_gen
 from game.geo import REGION_NAMES, add_vents, generate_geo
 from game.world import Vein, World, hash01, value_noise
@@ -134,6 +135,7 @@ def _build(seed: int) -> World:
     _pocket_finds(world)                         # v0.4 M3.2: destroço rico e contêiner lacrado atrás dos portões
     _outcrops(world)
     _small_rocks(world)
+    magmatite.place_initial(world)               # v0.4: magmatita em volta das fumarolas (rng próprio, por último)
     world.sand_variants = [bytes(sand_variant(x, y) for x in range(W)) for y in range(H)]
     return world
 
@@ -357,9 +359,9 @@ def _veins(world: World, rng: random.Random) -> None:
     """3 a 5 veios 2×2, longe da base, em areia aberta, um de cada recurso primeiro."""
     lo, hi = C.SURFACE_VEINS
     count = rng.randint(lo, hi)
-    resources = list(C.RESOURCES)
+    resources = list(C.VEIN_RESOURCES)
     rng.shuffle(resources)
-    resources += [rng.choice(C.RESOURCES) for _ in range(count - len(resources))]
+    resources += [rng.choice(C.VEIN_RESOURCES) for _ in range(count - len(resources))]
     cx, cy = world.center
     max_dist = min(world.width, world.height) / 2 - 8
     crater = world.crater

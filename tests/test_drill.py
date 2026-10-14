@@ -30,7 +30,7 @@ def test_veins_are_deterministic(world):
 
 def test_one_of_each_type_near_base_and_reachable(world):
     near = near_veins(world)
-    assert sorted(v.resource for v in near) == sorted(C.RESOURCES)
+    assert sorted(v.resource for v in near) == sorted(C.VEIN_RESOURCES)
     reach = world.reachable_from(C.CAVE_CENTER)
     for v in near:
         assert all(t in reach for t in v.tiles)          # dá pra chegar andando, sem cavar
@@ -38,7 +38,7 @@ def test_one_of_each_type_near_base_and_reachable(world):
 
 def test_more_veins_far_away(world):
     far = [v for v in world.veins if v not in near_veins(world)]
-    for r in C.RESOURCES:
+    for r in C.VEIN_RESOURCES:
         assert sum(v.resource == r for v in far) == C.VEINS_FAR_PER_TYPE
 
 

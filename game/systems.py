@@ -15,6 +15,7 @@ from game import config as C
 from game import drones
 from game import explore
 from game import layers
+from game import magmatite
 from game import thaw
 from game.equipment import Equipment, is_equipment
 from game.inventory import Inventory
@@ -243,6 +244,7 @@ class GameState:
         self.layers: dict[str, Layer] = {SURFACE: layers.make_surface(seed)}
         self.layer = SURFACE
         self.rng = rng or random.Random()
+        self.magma_rng = random.Random(seed * 7919 + C.MAGMATITE_SEED)   # reaparecimento da magmatita (game/magmatite.py)
         self.player = Player(*C.SPAWN_POS)
         # mochila com slots (game/inventory.py): recursos E máquinas fabricadas ainda não colocadas.
         # A hotbar são os slots 0 a 7 (a primeira linha).
@@ -1095,6 +1097,9 @@ class GameState:
             return []
         where = (self.player.x, self.player.y) if self.layer == SURFACE else C.SPAWN_POS
         born = surface.rocks.update(surface.world, self.rng, dt, where, surface.machines)
+        # magmatita em volta das fumarolas (game/magmatite.py), com rng próprio: não mexe no sorteio das outras
+        born += magmatite.respawn(surface.world, surface.vents_awake, surface.rocks.vent_timers, self.magma_rng, dt,
+                                  where, surface.machines)
         for tile in born:
             self.events.append(("rock_spawn", tile))
         return born

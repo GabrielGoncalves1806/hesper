@@ -59,6 +59,7 @@ def test_normal_sequence_walks_every_objective(game):
     craft_free(game, "chest"); step()
     craft_free(game, "melter"); step()          # v0.4 M3: o trio do aquecedor vem antes da cratera (dono)
     game.indices["o2"] = 500; step()
+    game.mined_total["magmatite"] = 2; step()   # v0.4: achou magmatita em volta de uma fumarola
     craft_free(game, "heater"); step()
     game.indices["heat"] = C.THAW_CRATER_HEAT[-1]; game._apply_thaw(); step()   # o calor derrete a tampa
     game.enter_layer("cave"); step()            # desceu pela rampa
@@ -94,6 +95,7 @@ def test_normal_sequence_walks_every_objective(game):
         "Fabrique um baú",
         "Minere gelo e fabrique um Derretedor",
         "Chegue a Ti 500",
+        "Encontre magmatita no basalto (oeste)",
         "Fabrique um Aquecedor",
         "Derreta o gelo da cratera",
         "Desça na caverna pela cratera [E]",
@@ -149,7 +151,7 @@ def test_counter_is_capped_at_goal(game):
 
 def test_rock_does_not_count_as_ore(game):
     mine_one(game, C.ROCK)
-    assert game.mined_total == {"iron": 0, "silicon": 0, "ice": 0}
+    assert game.mined_total == {"iron": 0, "silicon": 0, "ice": 0, "magmatite": 0}
 
 
 # ---------------------------------------------------------------- fora de ordem

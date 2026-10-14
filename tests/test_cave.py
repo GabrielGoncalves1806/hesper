@@ -54,7 +54,7 @@ def test_cave_ore_share_is_about_38_to_40_percent_and_the_ramp_has_enough():
         shares.append(wall_ore_share(world))
         near = [C.ORE_TILES[world.tiles[y][x]] for y in range(128) for x in range(128)
                 if world.tiles[y][x] in C.ORE_TILES and world.dist_from_center(x, y) < 20]
-        for resource in C.RESOURCES:                 # começo: dezenas de cada minério a até 20 tiles da rampa
+        for resource in C.VEIN_RESOURCES:            # começo: dezenas de cada minério a até 20 tiles da rampa
             assert near.count(resource) >= 40, (seed, resource, near.count(resource))
     assert all(0.35 < s < 0.43 for s in shares)
     assert 0.37 <= sum(shares) / len(shares) <= 0.41

@@ -205,6 +205,35 @@ def surface_walk_to_zone(world, target) -> float:
     return INF
 
 
+def surface_zone_field(world) -> dict:
+    """Tiles andando (8 vizinhos, sem cortar quina) da zona de O₂ da base até cada tile de chão da superfície."""
+    W, H = world.width, world.height
+    def free(x, y):
+        return world.is_floor(x, y) and (x, y) not in C.POD_TILES
+    dist, heap = {}, []
+    for y in range(H):
+        for x in range(W):
+            if free(x, y) and math.hypot((x + 0.5) * C.TILE - C.BASE_CENTER[0],
+                                         y * C.TILE + 24 - C.BASE_CENTER[1]) <= C.BASE_RADIUS:
+                dist[(x, y)] = 0.0
+                heap.append((0.0, (x, y)))
+    heapq.heapify(heap)
+    while heap:
+        d, (x, y) = heapq.heappop(heap)
+        if d > dist[(x, y)]:
+            continue
+        for dx, dy, step in NEIGHBORS:
+            nx, ny = x + dx, y + dy
+            if not (0 < nx < W - 1 and 0 < ny < H - 1) or not free(nx, ny):
+                continue
+            if dx and dy and not (free(x + dx, y) and free(x, y + dy)):
+                continue
+            if d + step < dist.get((nx, ny), INF):
+                dist[(nx, ny)] = d + step
+                heapq.heappush(heap, (d + step, (nx, ny)))
+    return dist
+
+
 class Fainted(Exception):
     pass
 
@@ -235,6 +264,7 @@ class Result:
     tank_at: float | None = None                     # Marco 3: quando equipou o tanque de O₂
     loot_units: int = 0                              # Marco 3: recursos tirados da caixa do destroço
     crater_at: float | None = None                   # v0.4 M3.1: quando o calor abriu a cratera (só informa)
+    magma_trips: int = 0                             # v0.4: idas da caverna até as fumarolas buscar magmatita
 
 
 # ---------------------------------------------------------------------------
@@ -771,6 +801,48 @@ class Sim:
             self._advance(self.s.craft_overhead)
             self.res.tank_at = self.t
 
+    # ---- magmatita (v0.4) ----
+    def magma_trip(self, need) -> bool:
+        """Estratégias da caverna: a magmatita só nasce na SUPERFÍCIE, em volta das fumarolas. Sai da base a pé
+        (caminho real, O₂ caindo) até a rocha de magmatita mais perto que cabe no O₂, minera as que alcança dali
+        (regra real: `_break_tile`) e volta. False = nenhuma rocha alcançável agora (espera o reaparecimento)."""
+        w = self.base_world
+        field = surface_zone_field(w)
+        best = None
+        for y in range(w.height):
+            for x in range(w.width):
+                if w.tiles[y][x] != C.SMALL_MAGMATITE:
+                    continue
+                for sx, sy in ((x, y + 1), (x - 1, y), (x + 1, y), (x, y - 1)):
+                    d = field.get((sx, sy))
+                    if d is not None and (best is None or d < best[0]):
+                        best = (d, (sx, sy))
+        if best is None:
+            return False
+        walk = best[0] * self.tw * self.s.walk_factor
+        if 2 * walk + self.s.o2_margin + 4 * C.MINE_TIME[C.SMALL_MAGMATITE] > self.gs.o2_max / C.O2_DRAIN:
+            return False
+        stand = best[1]
+        self._set_player(self.home)
+        self._advance(walk, outside=True, what="andar")
+        self.gs.enter_layer(SURFACE, self._tile_pos(*stand))
+        R = C.MINE_REACH
+        got = 0
+        for yy in range(stand[1] - R, stand[1] + R + 1):
+            for xx in range(stand[0] - R, stand[0] + R + 1):
+                if got >= need or w.get(xx, yy) != C.SMALL_MAGMATITE:
+                    continue
+                self._advance(C.MINE_TIME[C.SMALL_MAGMATITE] + self.s.mine_overhead, outside=True, what="minerar")
+                before = self.gs.inventory.count("magmatite")
+                self.gs._break_tile((xx, yy), C.SMALL_MAGMATITE)
+                got += self.gs.inventory.count("magmatite") - before
+                self.res.tiles_mined += 1
+        self.res.magma_trips += 1
+        self._advance(walk, outside=True, what="andar")
+        self._set_player(self.home)
+        self._advance((self.gs.o2_max - self.gs.o2) / C.O2_REFILL)
+        return True
+
     def _xy_spawn(self):
         return int(C.SPAWN_POS[0] // C.TILE), int((C.SPAWN_POS[1] - 1) // C.TILE)
 
@@ -940,6 +1012,12 @@ class Sim:
                     continue
                 self._not_idle()
                 missing = [r for r, n in self.cost(kind).items() if self.gs.inventory.count(r) < n]
+                if self.cave and "magmatite" in missing:     # magmatita só na superfície (em volta das fumarolas)
+                    if not self.zone[self.cur]:
+                        self.go_base()
+                    need = self.cost(kind)["magmatite"] - self.gs.inventory.count("magmatite")
+                    if self.magma_trip(need):
+                        continue
                 if self.zone[self.cur] and self.collect_trip(missing):
                     continue
                 got = self.mine_here(missing)

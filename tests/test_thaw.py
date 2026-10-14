@@ -88,7 +88,8 @@ def test_debug_ti_heat_thaws_too(new_state):
 def test_heater_trio_comes_right_after_the_chest_and_before_the_crater():
     texts = [o.text for o in OBJECTIVES]
     i = texts.index("Fabrique um baú")
-    assert texts[i + 1:i + 6] == ["Minere gelo e fabrique um Derretedor", "Chegue a Ti 500", "Fabrique um Aquecedor",
+    assert texts[i + 1:i + 7] == ["Minere gelo e fabrique um Derretedor", "Chegue a Ti 500",
+                                  "Encontre magmatita no basalto (oeste)", "Fabrique um Aquecedor",
                                   "Derreta o gelo da cratera", "Desça na caverna pela cratera [E]"]
     j = texts.index("Fabrique e equipe o tanque de O₂")
     assert texts.index("Desça na caverna pela cratera [E]") < texts.index("Ache um destroço") < j

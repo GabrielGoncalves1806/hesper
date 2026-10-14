@@ -31,8 +31,8 @@ def hidden_from(player_xy, tx: int, ty: int) -> bool:
 
 
 def count(world) -> int:
-    """Quantas rochas pequenas tem no mapa agora."""
-    kinds = tuple(C.SMALL_ROCKS)
+    """Quantas rochas pequenas tem no mapa agora (sem a magmatita, que tem o teto dela por fumarola)."""
+    kinds = tuple(KIND_OF.values())
     return sum(row.count(k) for row in world.tiles for k in kinds)
 
 
@@ -75,8 +75,10 @@ def pick_kind(r: float) -> int:
 
 
 class RockRespawn:
-    def __init__(self, timer: float = 0.0):
+    def __init__(self, timer: float = 0.0, vent_timers: list | None = None):
         self.timer = timer            # segundos acumulados pra próxima rocha
+        # magmatita (game/magmatite.py): o relógio de cada fumarola (índice = geo.vents)
+        self.vent_timers: list[float] = list(vent_timers or [])
 
     def update(self, world, rng: random.Random, dt: float, player_xy, machines=()) -> list[tuple[int, int]]:
         """Soma o tempo e põe 1 rocha a cada ROCK_RESPAWN s (até o teto). Devolve os tiles que ganharam rocha."""
@@ -102,8 +104,11 @@ class RockRespawn:
 
     # ---- save --------------------------------------------------------------------------
     def to_data(self) -> dict:
-        return {"timer": self.timer}
+        return {"timer": self.timer, "vents": list(self.vent_timers)}
 
     @classmethod
     def from_data(cls, data: dict) -> "RockRespawn":
-        return cls(min(max(float(data.get("timer", 0.0)), 0.0), C.ROCK_RESPAWN))
+        """Save v7 de antes da magmatita não tem "vents": os relógios das fumarolas começam do zero."""
+        top = max(C.MAGMATITE_DORMANT_RESPAWN, C.MAGMATITE_AWAKE_RESPAWN)
+        vents = [min(max(float(t), 0.0), top) for t in data.get("vents", [])]
+        return cls(min(max(float(data.get("timer", 0.0)), 0.0), C.ROCK_RESPAWN), vents)

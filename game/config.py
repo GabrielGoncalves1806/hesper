@@ -98,8 +98,10 @@ FORMATION = 14                  # pegada de uma formação fixa (v0.4 Marco 2): 
                                 # (quem desenha é o objeto da formação, game/geo.py · Formation)
 CONTAINER = 15                  # contêiner lacrado atrás de um gelo-portão (v0.4 Marco 3 · M3.2): 1 tile sólido baixo,
                                 # não abre nem minera (quem desenha é o render, como a caixa de saque)
+SMALL_MAGMATITE = 16            # rocha pequena de magmatita (v0.4 · bíblia §12): só em volta das fumarolas
+                                # (game/magmatite.py), sem veio e sem minério de parede
 ORE_TILES = {IRON: "iron", SILICON: "silicon", ICE: "ice"}            # minério NA PAREDE (overlay no topo)
-SMALL_ROCKS = {SMALL_IRON: "iron", SMALL_SILICON: "silicon", SMALL_ICE: "ice"}
+SMALL_ROCKS = {SMALL_IRON: "iron", SMALL_SILICON: "silicon", SMALL_ICE: "ice", SMALL_MAGMATITE: "magmatite"}
 WALL_TILES = {ROCK, IRON, SILICON, ICE, BEDROCK, TERMINAL}            # paredes ALTAS (topo elevado + face)
 FLAT_SOLIDS = set(SMALL_ROCKS) | {CRATER, WRECK, LOOT_CRATE, FORMATION, CONTAINER}                         # sólidos baixos: bloqueiam, mas não têm altura
 SOLID_TILES = WALL_TILES | FLAT_SOLIDS
@@ -154,15 +156,19 @@ PLAYER_BOX_W, PLAYER_BOX_H = 14, 8   # caixa de colisão nos pés
 # Mineração (§4 Mineração)
 # ---------------------------------------------------------------------------
 MINE_TIME = {ROCK: 0.6, IRON: 1.0, SILICON: 1.2, ICE: 0.8,
-             SMALL_IRON: 0.7, SMALL_SILICON: 0.7, SMALL_ICE: 0.7}   # rocha pequena: rapidinha
+             SMALL_IRON: 0.7, SMALL_SILICON: 0.7, SMALL_ICE: 0.7,   # rocha pequena: rapidinha
+             SMALL_MAGMATITE: 0.9}                                  # magmatita: basalto, um pouco mais dura
 DROP_MIN, DROP_MAX = 1, 2       # minério de parede
 DROP_RANGE = {k: (2, 4) for k in SMALL_ROCKS}   # rocha pequena dá 2 a 4 (o resto usa DROP_MIN/MAX)
 MINE_REACH = 2              # alcance em tiles (distância de Chebyshev a partir do tile do player)
 MINE_HIT_INTERVAL = 0.25    # som de picareta a cada 0,25 s
 
-RESOURCES = ("iron", "silicon", "ice")
-RESOURCE_LABEL = {"iron": "FERRO", "silicon": "SILICIO", "ice": "GELO"}   # rótulos do HUD (Silkscreen)
-RESOURCE_NAME = {"iron": "ferro", "silicon": "silício", "ice": "gelo"}      # em frases (Pixelify, com acento)
+RESOURCES = ("iron", "silicon", "ice", "magmatite")
+# Os que têm veio e minério de parede (drill, caverna, sorteio dos veios da superfície). A magmatita (v0.4, bíblia
+# §12) é só rocha solta em volta das fumarolas: fica fora daqui pra não mexer no sorteio dos veios.
+VEIN_RESOURCES = ("iron", "silicon", "ice")
+RESOURCE_LABEL = {"iron": "FERRO", "silicon": "SILICIO", "ice": "GELO", "magmatite": "MAGMATITA"}   # HUD (Silkscreen)
+RESOURCE_NAME = {"iron": "ferro", "silicon": "silício", "ice": "gelo", "magmatite": "magmatita"}   # em frases (Pixelify)
 
 # ---------------------------------------------------------------------------
 # Sobrevivência (§4 Sobrevivência)
@@ -200,10 +206,12 @@ MACHINES = {
     for m in [
         MachineType("o2", "Gerador de O₂", "+ oxigênio", {"iron": 10, "silicon": 4}, "o2", 3, 0, "machine_o2"),
         MachineType("melter", "Derretedor de gelo", "+ água", {"iron": 6, "ice": 10}, "water", 2, 0, "machine_melter"),
-        MachineType("heater", "Aquecedor", "+ calor", {"iron": 12, "silicon": 8}, "heat", 4, 500, "machine_heater"),
+        MachineType("heater", "Aquecedor", "+ calor", {"iron": 12, "silicon": 8, "magmatite": 3}, "heat", 4, 500,
+                    "machine_heater"),
         MachineType("o2_t2", "Gerador de O₂ nv.2", "+ oxigênio", {"iron": 30, "silicon": 20, "ice": 10}, "o2", 25, 10_000, "machine_o2_t2"),
         MachineType("melter_t2", "Derretedor nv.2", "+ água", {"iron": 25, "ice": 30}, "water", 20, 10_000, "machine_melter_t2"),
-        MachineType("heater_t2", "Aquecedor nv.2", "+ calor", {"iron": 35, "silicon": 25}, "heat", 30, 10_000, "machine_heater_t2"),
+        MachineType("heater_t2", "Aquecedor nv.2", "+ calor", {"iron": 35, "silicon": 25, "magmatite": 10}, "heat", 30,
+                    10_000, "machine_heater_t2"),
     ]
 }
 
@@ -391,6 +399,7 @@ ORE_COLORS = {  # cor, sombra
     "iron": ("#e8a066", "#a5582c"),
     "silicon": ("#c3d1e2", "#7d8ca3"),
     "ice": ("#a6ecff", "#4fb3d6"),
+    "magmatite": ("#ff7a2e", "#a8361a"),   # laranja-lava (a fissura da pedra), sombra de brasa
 }
 
 # UI
@@ -761,3 +770,18 @@ VOLUME["ice_crack"] = 0.7        # gelo estalando (ice_crack.wav / ice_crack_1.w
 VOLUME["ice_collapse"] = 0.8     # o gelo desabando (ice_collapse.wav, v11): cratera aberta (etapa 4) e gelo-portão na 3
 ICE_COLLAPSE_CAVE_VOLUME = 0.5   # na caverna o desabamento sai a 0,5 (abafado pela rocha)
 DEBUG_MELT_CRATER = True        # F4 derrete a tampa na hora (atalho de debug, no mesmo esquema do F1–F3)
+
+# ---------------------------------------------------------------------------
+# Magmatita (v0.4 · bíblia §12 "Magmatita"; game/magmatite.py). Só nasce como rocha pequena (C.SMALL_MAGMATITE) em
+# volta das fumarolas (geo.vents): nunca na pegada nem no halo dela (keep_clear), nem em bacia, e sempre com os 8
+# vizinhos livres (não fecha caminho). Rng próprio pela seed: as rochas de antes não mudam.
+# O Aquecedor custa MACHINES["heater"].cost["magmatite"] (3) e o nv.2 10; a rocha dá 2–4 (DROP_RANGE).
+# ---------------------------------------------------------------------------
+MAGMATITE_SEED = 7717              # rng próprio (seed + isso) do sorteio na geração e do reaparecimento
+MAGMATITE_RING = (3, 5)            # tiles (Chebyshev) da caixa da pegada até a rocha: logo depois do halo de 2
+MAGMATITE_DORMANT = (2, 3)         # rochas em volta de cada fumarola DORMENTE no mapa da seed: 2 já dão ≥ 4 (1 aquecedor)
+MAGMATITE_DORMANT_MAX = 3          # dormente: reaparece até ter isso em volta...
+MAGMATITE_DORMANT_RESPAWN = 120.0  # ...uma a cada 120 s
+MAGMATITE_AWAKE_MAX = 6            # acordada: expele até 6 em volta...
+MAGMATITE_AWAKE_RESPAWN = 20.0     # ...uma a cada 20 s
+OBJECTIVE_HINT_TIME = 9.0          # s da dica do objetivo ("Os sensores detectaram calor a oeste..."), embaixo dele
