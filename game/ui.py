@@ -58,7 +58,8 @@ INV_TABS_H = 15
 INV_CONTENT_Y = 40                               # onde começa o conteúdo das 3 abas
 TAB_INVENTORY, TAB_LOGS = range(2)               # índices das abas do Tab (a Fabricar saiu no v0.5 M1)
 TAB_INV_W = 346                                  # janela da aba Inventário (mochila/hotbar/traje + detalhe)
-TAB_INV_H = 184
+TAB_INV_H = 178                                  # sem a mochila; com ela soma BACKPACK_ROW_H (210 = o que cabe no Grande)
+BACKPACK_ROW_H = 32                              # a linha extra da mochila: rótulo (10) + slots (20) + vão (2)
 FAB_W, FAB_H, FAB_LIST_W = 456, 258, 176         # fabricador da base
 RECIPE_ROW_H, RECIPE_ROW_STEP = 22, 24           # linha da lista de receitas
 LOG_ROW_H, LOG_ROW_STEP = 15, 16                 # linha da aba LOGs e o passo entre elas
@@ -1420,7 +1421,7 @@ class UI:
             self.slot_rects.append((rect, inv, i))
 
     def _section_label(self, label: str, x: int, y: int, color: str = B_MUTED) -> int:
-        """Rótulo de seção ("MOCHILA", "HOTBAR", "TRAJE", "DRONES"): entra nos cabeçalhos que o tooltip evita."""
+        """Rótulo de seção ("INVENTÁRIO", "MOCHILA", "HOTBAR", "TRAJE", "DRONES"): entra nos cabeçalhos que o tooltip evita."""
         w = self.tx(label, x, y, color)
         self.header_rects.append(pygame.Rect(x, y + 3, w + 1, 7))      # a letra (5 px) com 1 px de folga
         return w
@@ -1461,7 +1462,8 @@ class UI:
         item com o mouse (ou da mão, ou o da hotbar) com "USADO EM"."""
         tabbed = state is not None
         w = max(TAB_INV_W, self.inv_tabs_width() + 16) if tabbed else TAB_INV_W
-        h = TAB_INV_H if equipment is not None else TAB_INV_H - 74
+        extra = BACKPACK_ROW_H if len(inventory) > 2 * C.HOTBAR_SLOTS else 0     # linha da mochila (equipada)
+        h = (TAB_INV_H + extra) if equipment is not None else TAB_INV_H - 74
         x = (self.w - w) // 2
         y = self.inv_tabs_top(h) if tabbed else self.window_top(h)
         used = sum(1 for s in inventory.slots if s)
@@ -1471,14 +1473,19 @@ class UI:
         top = y + (INV_CONTENT_Y if tabbed else 22)
         gx = x + 10
         hb = C.HOTBAR_SLOTS
-        self._section_label("MOCHILA", gx, top)
-        self._grid(inventory, list(range(hb, len(inventory))), gx, top + 10, item_icon, mouse)
+        if extra:                                    # mochila equipada: a linha nova (slots 16–23) fica em cima
+            self._section_label("MOCHILA", gx, top, C.C_ACCENT)
+            self._grid(inventory, list(range(2 * hb, len(inventory))), gx, top + 10, item_icon, mouse)
+            top += extra
+        self._section_label("INVENTÁRIO", gx, top)
+        self._grid(inventory, list(range(hb, 2 * hb)), gx, top + 10, item_icon, mouse)
         self._section_label("HOTBAR", gx, top + 32)
         self._grid(inventory, list(range(hb)), gx, top + 42, item_icon, mouse, hotbar_selected)
         if equipment is not None:
-            self._suit_card(equipment, gx, top + 68, GRID_W, h - (top - y) - 68 - 8, item_icon, mouse,
+            self._suit_card(equipment, gx, top + 68, GRID_W, y + h - 8 - (top + 68), item_icon, mouse,
                             state.o2_max if state is not None else None)
         # painel do item: o do mouse, a pilha da mão ou o da hotbar
+        top -= extra
         dx, dy = gx + GRID_W + 12, top              # detalhe: do fim da grade até a borda (8 px)
         detail = pygame.Rect(dx, dy, x + w - 8 - dx, y + h - 8 - dy)
         item, count = None, 0
@@ -1545,10 +1552,10 @@ class UI:
         com o rótulo e o estado embaixo de cada slot. Os slots são os mesmos equip_rects de sempre."""
         self.round_rect((x, y, w, h), B_CARD)
         self._section_label("TRAJE", x + 6, y - 1, C.C_O2)
-        ex, ey = x + w // 2 - 16, y + 12
+        ex, ey = x + w // 2 - 16, y + 6
         self.round_rect((ex - 2, ey + 30, 36, 3), B_DEEP)               # sombrinha no chão
         self.native.append((self.explorer_image(), (ex * 2, ey * 2)))
-        kinds = list(C.EQUIP_SLOTS)
+        kinds = [k for k in C.EQUIP_SLOTS if k != "backpack"]       # tanque e scanner: um de cada lado do corpo
         for n, kind in enumerate(kinds):
             left = n == 0
             sx = x + 8 if left else x + w - 28
@@ -1596,6 +1603,21 @@ class UI:
                 sw = self.body.size(sub)[0]
                 self.fill(sub_color, (sx + 20 - sw - 5, sy + 31, 3, 3))
                 self.tx(sub, sx + 20, sy + 26, sub_color, self.body, "right")
+        self._backpack_slot(equipment, x + w // 2 - SLOT // 2, y + 41, item_icon, mouse)
+
+    def _backpack_slot(self, equipment, sx: int, sy: int, item_icon, mouse) -> None:
+        """Slot da mochila no traje: embaixo do Explorer (onde ela fica), com o rótulo ao lado."""
+        rect = pygame.Rect(sx, sy, SLOT, SLOT)
+        item = equipment.slots.get("backpack")
+        self.draw_slot(sx, sy, Stack(item, 1) if item else None, item_icon, hover=rect.collidepoint(mouse))
+        if item:
+            self.round_rect((sx - 1, sy - 1, SLOT + 2, SLOT + 2), (0, 0, 0, 0), C.C_O2)
+        else:
+            ghost = item_icon("backpack").copy()
+            ghost.set_alpha(45)
+            self.native.append((ghost, (sx * 2 + 4, sy * 2 + 4)))
+        self.equip_rects.append((rect, "backpack"))
+        self.tx(C.EQUIP_LABEL["backpack"], sx + SLOT + 4, sy + 7, B_TEXT if item else B_MUTED)
 
     # ---- painéis lado a lado: inventário | botões do meio | baú, drill, estação ou caixa ----
     def _side_layout(self, side_h: int) -> tuple[int, int, int, int]:
@@ -1614,15 +1636,23 @@ class UI:
             side_h = 92 + LOGI_H - LOGI_ROW + 10
         else:
             side_h = 164
+        hb = C.HOTBAR_SLOTS
+        extra = BACKPACK_ROW_H if len(inventory) > 2 * hb else 0                  # linha da mochila (equipada)
+        inv_h = SIDE_INV_H + extra
+        side_h = max(side_h, inv_h)                  # o painel do lado cresce junto, pras duas janelas ficarem iguais
         lx, rx, y, h = self._side_layout(side_h)
         used = sum(1 for s in inventory.slots if s)
-        self.window(lx, y, SIDE_W, SIDE_INV_H, "Inventário", f"{used}/{len(inventory)}")
-        hb = C.HOTBAR_SLOTS
+        self.window(lx, y, SIDE_W, inv_h, "Inventário", f"{used}/{len(inventory)}")
         gx = lx + 8
-        self._section_label("MOCHILA", gx, y + 16)
-        self._grid(inventory, list(range(hb, len(inventory))), gx, y + 26, item_icon, mouse)
-        self._section_label("HOTBAR", gx, y + 48)
-        self._grid(inventory, list(range(hb)), gx, y + 58, item_icon, mouse, hotbar_selected)
+        gy = y
+        if extra:
+            self._section_label("MOCHILA", gx, gy + 16, C.C_ACCENT)
+            self._grid(inventory, list(range(2 * hb, len(inventory))), gx, gy + 26, item_icon, mouse)
+            gy += extra
+        self._section_label("INVENTÁRIO", gx, gy + 16)
+        self._grid(inventory, list(range(hb, 2 * hb)), gx, gy + 26, item_icon, mouse)
+        self._section_label("HOTBAR", gx, gy + 48)
+        self._grid(inventory, list(range(hb)), gx, gy + 58, item_icon, mouse, hotbar_selected)
         mid = pygame.Rect(lx + SIDE_W + 4, y + 22, SIDE_MID - 8, 40)
         if isinstance(side, Crate):
             self._crate_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, mid)

@@ -14,14 +14,14 @@ def test_every_recipe_has_a_tab():
     assert tab_kinds("automation") == ["drill", "drone_station", "drone"]
     assert tab_kinds("storage") == ["chest"]
     assert tab_kinds("light") == ["lamp", "lamp_t2"]
-    assert tab_kinds("suit") == ["o2_tank", "scanner"]                   # Marco 3: aba "Traje"
+    assert tab_kinds("suit") == ["o2_tank", "scanner", "backpack"]                   # Marco 3: aba "Traje"
     assert tab_kinds("tools") == ["constructor"]                         # v0.5 M1
 
 
 def test_craft_tabs_have_only_items_and_build_tabs_only_machines():
     assert craft_kinds("tools") == ["constructor"]
     assert craft_kinds("automation") == ["drone"]
-    assert craft_kinds("suit") == ["o2_tank", "scanner"]
+    assert craft_kinds("suit") == ["o2_tank", "scanner", "backpack"]
     assert build_kinds("automation") == ["drill", "drone_station"]
     for tab, _ in C.CRAFT_TABS:
         assert all(not C.MACHINES[k].placeable for k in craft_kinds(tab))

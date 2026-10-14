@@ -221,12 +221,14 @@ def slots_from_data(data: list, size: int) -> Inventory:
 
 
 def inventory_to_dict(state: GameState) -> dict:
-    """Os 16 slots do player (a hotbar são os 8 primeiros)."""
+    """Os slots do player: 16 (a hotbar são os 8 primeiros) ou 24 com a mochila equipada."""
     return {"slots": state.inventory.to_data()}
 
 
 def inventory_from_dict(state: GameState, data: dict) -> None:
-    state.inventory = slots_from_data(data["slots"], C.INVENTORY_SLOTS)
+    # 16 slots, ou 24 se o save tem a linha da mochila (quem decide de vez é o sync_backpack, depois do equipamento)
+    size = C.INVENTORY_SLOTS + C.BACKPACK_SLOTS if len(data["slots"]) > C.INVENTORY_SLOTS else C.INVENTORY_SLOTS
+    state.inventory = slots_from_data(data["slots"], size)
 
 
 def machine_to_dict(m: Machine) -> dict:
@@ -340,6 +342,7 @@ def progress_from_dict(state: GameState, data: dict) -> None:
     state.blueprints = {b for b in data.get("blueprints", []) if b in C.BLUEPRINTS}
     state.equipment = Equipment.from_data(data.get("equipment"))
     state.equipped_ever = {e for e in data.get("equipped_ever", []) if e in C.EQUIP_SLOTS}
+    state.sync_backpack()          # v0.5 B3: 24 slots com a mochila, 16 sem (save v8 sem mochila continua com 16)
     state.wrecks_visited = {int(r) for r in data.get("wrecks_visited", [])}
 
 
