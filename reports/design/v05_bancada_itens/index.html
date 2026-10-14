@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · v0.5 · Bancada T2 e itens novos · v2</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;600&family=Pixelify+Sans:wght@600&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 "IBM Plex Sans",system-ui,sans-serif;padding:0 16px}
+.wrap{max-width:1300px;margin:0 auto;padding:44px 0 80px}
+.eyebrow{font:12px "Silkscreen",monospace;letter-spacing:.08em;color:var(--rust);text-transform:uppercase}
+h1{font:600 44px/1.1 "Pixelify Sans",monospace;margin:8px 0 12px}h2{font:600 24px "Pixelify Sans",monospace;margin:44px 0 12px}
+h2::before{content:"";display:inline-block;width:10px;height:10px;background:var(--rust);margin-right:10px;vertical-align:middle}
+h3{font:600 16px "Pixelify Sans",monospace;margin:0 0 4px}code{font-family:"IBM Plex Mono",monospace;color:var(--gold);font-size:.92em}
+p,li{color:var(--muted)}li b,p b{color:var(--fg)}
+.v2{background:#241b17;border:1px solid var(--line);border-left:3px solid var(--rust);padding:12px 18px;max-width:1040px}
+.v2>b{font:13px "Silkscreen",monospace;color:var(--rust)}
+.chk{display:inline-block;padding:10px;background-color:#2a2f38;background-image:linear-gradient(45deg,#333944 25%,transparent 25%,transparent 75%,#333944 75%),linear-gradient(45deg,#333944 25%,transparent 25%,transparent 75%,#333944 75%);background-size:16px 16px;background-position:0 0,8px 8px}
+.lt{display:inline-block;padding:10px;background-color:#e8e2d6;background-image:linear-gradient(45deg,#d8d0c2 25%,transparent 25%,transparent 75%,#d8d0c2 75%),linear-gradient(45deg,#d8d0c2 25%,transparent 25%,transparent 75%,#d8d0c2 75%);background-size:16px 16px;background-position:0 0,8px 8px}
+img{image-rendering:pixelated}figure{margin:0}figcaption{font:12px "Silkscreen",monospace;color:var(--muted);margin-top:6px;max-width:420px}
+.flex{display:flex;gap:22px;align-items:flex-end;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}@media(max-width:1000px){.grid2{grid-template-columns:1fr}}
+img.px{width:100%;height:auto;border:1px solid var(--line);display:block}
+.box{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--cyan);padding:16px 20px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);padding:14px}.card p{margin:6px 0 0;font-size:14px}
+.row{display:flex;gap:12px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.one{display:flex;gap:10px;align-items:center;background:#2a2f38;padding:10px}
+.sp{background-repeat:no-repeat;image-rendering:pixelated;display:inline-block}
+.a-wb{width:192px;height:240px;background-image:url(pendentes/anim/anim_machine_workbench.png);background-size:1536px 240px;animation:wb 2.0s steps(8) infinite}
+@keyframes wb{from{background-position:0 0}to{background-position:-1536px 0}}
+.a-wb1{width:32px;height:40px;background-image:url(pendentes/anim/anim_machine_workbench.png);background-size:256px 40px;animation:wb1 2.0s steps(8) infinite}
+@keyframes wb1{from{background-position:0 0}to{background-position:-256px 0}}
+.a-v1{width:240px;height:384px;background-image:url(v1/anim_machine_workbench.png);background-size:960px 384px;animation:v1 .6667s steps(4) infinite}
+@keyframes v1{from{background-position:0 0}to{background-position:-960px 0}}
+.cmp{display:flex;gap:30px;align-items:flex-end;flex-wrap:wrap}
+details>summary{color:var(--muted);cursor:pointer;font:600 18px "Pixelify Sans",monospace;margin-top:40px}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Designer · v0.5 · proposta pro dono aprovar (nada disso está no jogo)</div>
+<h1>Bancada T2 e os ícones dos itens novos</h1>
+
+<div class="v2"><b>v2 · o que mudou (feedback do dono sobre a v1)</b><ul>
+<li><b>Bancada menor</b>: de 40×64 pra <b>32×40</b>, o mesmo quadro do baú. O corpo ocupa uns 28×24 px, quase a pegada
+do baú (31×23), e ela continua lendo como máquina: sapata B, colunas bege com a faixa laranja e o friso dourado,
+corpo de cobre, visor e boca com bandeja.</li>
+<li><b>Braço robótico na quina</b> da frente-esquerda do tampo, <b>de perfil</b>: base giratória (escura com anel
+laranja), braço, cotovelo, antebraço, punho e garra de 2 dedos. É bege com juntas escuras pra destacar do cobre. O
+antebraço baixa e o laser sai da garra e desce pro visor.</li>
+<li><b>Animação mais lenta: 8 quadros a 4 fps</b> (ciclo de 2 s). Escolhi mais quadros em vez de só baixar o fps:
+com 4 quadros a 3 fps o braço "pula"; com 8 ele desce, trabalha (laser fino → cheio → pulsa) e volta suave.</li>
+<li><b>Lingote de ferro refeito</b> pela referência do dono: barra de <b>aço cinza claro</b>, bloco retangular em 3/4
+com o tampo grande e chanfrado, brilho no tampo, a frente média com um reflexo e o lado na sombra. Nada de cobre.</li>
+<li><b>Decisões do dono registradas:</b> o <b>diagrama substitui o projeto</b> (<code>bp_&lt;id&gt;</code>) e o ícone
+novo fica no lugar do <code>icon_blueprint</code>; o <code>icon_workbench</code> fica (redesenhado pra bancada
+nova); os ids propostos estão ok: <code>workbench</code>, <code>iron_ingot</code>, <code>water_capsule</code>,
+<code>silicon_wafer</code>, <code>circuit</code>, <code>chip</code>, <code>wire</code> e <code>diagram</code>.</li>
+<li>Os outros ícones (cápsula, wafer, circuito, chip, fios e diagrama) foram <b>aprovados</b> e não mudaram.</li>
+</ul></div>
+
+<h2>v2 · Bancada ao lado da v1, do baú e da cápsula</h2>
+<div class="flex">
+<figure><div class="chk"><img src="comparacao_v2.png" width="960" height="360" alt=""></div><figcaption>v1 (40×64) · <b>v2 (32×40)</b> · baú (32×40) · cápsula/fabricador (64×72), pés alinhados, 5×</figcaption></figure>
+<figure><div class="chk"><img src="comparacao_v2.png" width="192" height="72" alt=""></div><figcaption>1×</figcaption></figure>
+</div>
+<div class="flex" style="margin-top:18px">
+<figure><div class="chk"><img src="pendentes/machine_workbench.png" width="192" height="240" alt=""></div><figcaption>v2 · repouso · <code>machine_workbench.png</code> · 6×</figcaption></figure>
+<figure><div class="chk"><div class="sp a-wb"></div></div><figcaption>v2 · operando · 8 quadros a 4 fps · 6×</figcaption></figure>
+<figure><div class="chk" style="padding:18px"><img src="pendentes/machine_workbench.png" width="32" height="40" alt=""> <div class="sp a-wb1"></div> <img src="atual/chest.png" width="32" height="40" alt=""></div><figcaption>1×: parado, operando e o baú</figcaption></figure>
+<figure><div class="chk"><div class="sp a-v1"></div></div><figcaption>v1 (histórico) · 6×</figcaption></figure>
+</div>
+
+<h2>v2 · Os 8 quadros</h2>
+<div class="flex"><figure><div class="chk"><img src="bancada_v2_q0.png" width="160" height="200" alt=""></div><figcaption>0 · repouso (= o parado): braço dobrado pra cima, visor desligado</figcaption></figure><figure><div class="chk"><img src="bancada_v2_q1.png" width="160" height="200" alt=""></div><figcaption>1 · o antebraço começa a baixar</figcaption></figure><figure><div class="chk"><img src="bancada_v2_q2.png" width="160" height="200" alt=""></div><figcaption>2 · o punho chega em cima do visor, a grade acende</figcaption></figure><figure><div class="chk"><img src="bancada_v2_q3.png" width="160" height="200" alt=""></div><figcaption>3 · a garra abre, laser fino</figcaption></figure><figure><div class="chk"><img src="bancada_v2_q4.png" width="160" height="200" alt=""></div><figcaption>4 · laser cheio, visor todo aceso, faíscas</figcaption></figure><figure><div class="chk"><img src="bancada_v2_q5.png" width="160" height="200" alt=""></div><figcaption>5 · laser cheio (pulsa), faíscas trocam</figcaption></figure><figure><div class="chk"><img src="bancada_v2_q6.png" width="160" height="200" alt=""></div><figcaption>6 · laser apaga, o braço sobe</figcaption></figure><figure><div class="chk"><img src="bancada_v2_q7.png" width="160" height="200" alt=""></div><figcaption>7 · voltando pro repouso, visor apagando</figcaption></figure></div>
+
+<h2>v2 · Lingote de ferro: referência × v1 × v2</h2>
+<div class="cmp">
+<figure><img src="ref_lingote_aco.png" width="220" height="220" style="image-rendering:auto" alt=""><figcaption>referência do dono (só estilo, não copiado)</figcaption></figure>
+<figure><div class="chk"><img src="v1/icon_iron_ingot.png" width="160" height="160" alt=""></div><figcaption>v1 · trapézio cor de cobre (o “pão de forma”)</figcaption></figure>
+<figure><div class="chk"><img src="pendentes/icon_iron_ingot.png" width="160" height="160" alt=""></div><figcaption><b>v2</b> · barra de aço cinza claro</figcaption></figure>
+<figure><div class="lt"><img src="pendentes/icon_iron_ingot.png" width="160" height="160" alt=""></div><figcaption>v2 sobre fundo claro</figcaption></figure>
+<figure><div class="one" style="padding:16px"><img src="v1/icon_iron_ingot.png" width="16" height="16" alt=""><img src="pendentes/icon_iron_ingot.png" width="16" height="16" alt=""><img src="atual/icon_iron.png" width="16" height="16" alt=""><img src="pendentes/icon_chip.png" width="16" height="16" alt=""><img src="pendentes/icon_iron_ingot.png" width="32" height="32" alt=""></div><figcaption>1×: v1, v2, o minério de ferro e o chip; e a v2 a 2×</figcaption></figure>
+</div>
+<p><b>O que veio da referência:</b> o bloco retangular deitado em 3/4, o tampo grande e claro com a faixa de brilho,
+a quina chanfrada clara entre o tampo e a frente, a frente cinza média com um pontinho de reflexo e a lateral
+escura. <b>No nosso estilo:</b> 16×16, contorno <code>#1b1630</code>, só cores chapadas (6 cinzas frios, do
+<code>#ffffff</code> ao <code>#555b6a</code>), sem alfa parcial. Diferencia-se do minério de ferro (pepitas cobre) e
+do tampo prateado do chip pelo formato de barra.</p>
+
+<h2>v2 · No chão do jogo</h2>
+<div class="grid2">
+<figure><img class="px" src="cena_base_arid.png" alt=""><figcaption><b>base</b> · Árido · bancada em repouso ao lado da cápsula</figcaption></figure>
+<figure><img class="px" src="cena_base_arid_operando.png" alt=""><figcaption><b>base</b> · Árido · operando (quadro 4)</figcaption></figure>
+<figure><img class="px" src="cena_base_green.png" alt=""><figcaption><b>base</b> · Verde · operando</figcaption></figure>
+<figure><img class="px" src="cena_posto_mist.png" alt=""><figcaption><b>posto avançado</b> · Névoa, faixa gelada · com baú, luminária forte e painel</figcaption></figure>
+</div>
+<p>Recortes 480×270 (metade da tela) ampliados 2×, montados só com os sprites, ordenados pelo pé como o jogo desenha.</p>
+
+<h2>Ícones dos itens</h2>
+<div class="cards"><div class="card"><h3>Lingote de ferro</h3><code>icon_iron_ingot.png</code> · 16×16<div class="row">
+<figure><div class="chk"><img src="pendentes/icon_iron_ingot.png" width="128" height="128" alt=""></div></figure><figure><div class="lt"><img src="pendentes/icon_iron_ingot.png" width="128" height="128" alt=""></div></figure>
+<div class="one"><img src="pendentes/icon_iron_ingot.png" width="16" height="16" alt=""><img src="pendentes/icon_iron_ingot.png" width="32" height="32" alt=""></div>
+</div><p>barra em tronco de pirâmide na cor do ferro do jogo</p></div><div class="card"><h3>Cápsula de água</h3><code>icon_water_capsule.png</code> · 16×16<div class="row">
+<figure><div class="chk"><img src="pendentes/icon_water_capsule.png" width="128" height="128" alt=""></div></figure><figure><div class="lt"><img src="pendentes/icon_water_capsule.png" width="128" height="128" alt=""></div></figure>
+<div class="one"><img src="pendentes/icon_water_capsule.png" width="16" height="16" alt=""><img src="pendentes/icon_water_capsule.png" width="32" height="32" alt=""></div>
+</div><p>cilindro de vidro com tampas de metal, água azul até 2/3</p></div><div class="card"><h3>Wafer de silício</h3><code>icon_silicon_wafer.png</code> · 16×16<div class="row">
+<figure><div class="chk"><img src="pendentes/icon_silicon_wafer.png" width="128" height="128" alt=""></div></figure><figure><div class="lt"><img src="pendentes/icon_silicon_wafer.png" width="128" height="128" alt=""></div></figure>
+<div class="one"><img src="pendentes/icon_silicon_wafer.png" width="16" height="16" alt=""><img src="pendentes/icon_silicon_wafer.png" width="32" height="32" alt=""></div>
+</div><p>disco espelhado com grade de dies, chanfro reto e reflexo iridescente</p></div><div class="card"><h3>Circuito elétrico</h3><code>icon_circuit.png</code> · 16×16<div class="row">
+<figure><div class="chk"><img src="pendentes/icon_circuit.png" width="128" height="128" alt=""></div></figure><figure><div class="lt"><img src="pendentes/icon_circuit.png" width="128" height="128" alt=""></div></figure>
+<div class="one"><img src="pendentes/icon_circuit.png" width="16" height="16" alt=""><img src="pendentes/icon_circuit.png" width="32" height="32" alt=""></div>
+</div><p>placa verde deitada, trilhas, CI, resistor e os dentes dourados</p></div><div class="card"><h3>Chip de computador</h3><code>icon_chip.png</code> · 16×16<div class="row">
+<figure><div class="chk"><img src="pendentes/icon_chip.png" width="128" height="128" alt=""></div></figure><figure><div class="lt"><img src="pendentes/icon_chip.png" width="128" height="128" alt=""></div></figure>
+<div class="one"><img src="pendentes/icon_chip.png" width="16" height="16" alt=""><img src="pendentes/icon_chip.png" width="32" height="32" alt=""></div>
+</div><p>CPU quadrada escura, pernas douradas nos 4 lados, tampa prateada</p></div><div class="card"><h3>Fios</h3><code>icon_wire.png</code> · 16×16<div class="row">
+<figure><div class="chk"><img src="pendentes/icon_wire.png" width="128" height="128" alt=""></div></figure><figure><div class="lt"><img src="pendentes/icon_wire.png" width="128" height="128" alt=""></div></figure>
+<div class="one"><img src="pendentes/icon_wire.png" width="16" height="16" alt=""><img src="pendentes/icon_wire.png" width="32" height="32" alt=""></div>
+</div><p>carretel com voltas de fio de cobre e a ponta solta</p></div><div class="card"><h3>Diagrama</h3><code>icon_diagram.png</code> · 16×16<div class="row">
+<figure><div class="chk"><img src="pendentes/icon_diagram.png" width="128" height="128" alt=""></div></figure><figure><div class="lt"><img src="pendentes/icon_diagram.png" width="128" height="128" alt=""></div></figure>
+<div class="one"><img src="pendentes/icon_diagram.png" width="16" height="16" alt=""><img src="pendentes/icon_diagram.png" width="32" height="32" alt=""></div>
+</div><p>cartão de planta azul deitado, desenho técnico, clipe laranja</p></div><div class="card"><h3>Bancada T2 (item)</h3><code>icon_workbench.png</code> · 16×16<div class="row">
+<figure><div class="chk"><img src="pendentes/icon_workbench.png" width="128" height="128" alt=""></div></figure><figure><div class="lt"><img src="pendentes/icon_workbench.png" width="128" height="128" alt=""></div></figure>
+<div class="one"><img src="pendentes/icon_workbench.png" width="16" height="16" alt=""><img src="pendentes/icon_workbench.png" width="32" height="32" alt=""></div>
+</div><p>redesenhado na v2 pra acompanhar a bancada nova (baixa, braço de perfil na quina)</p></div></div>
+
+<h2>Na hotbar, em tamanho real</h2>
+<div class="flex">
+<figure><img src="hotbar_escuro.png" width="250" height="28" alt=""><figcaption>1×</figcaption></figure>
+</div>
+<div class="flex" style="margin-top:14px">
+<figure><img src="hotbar_escuro.png" width="750" height="84" alt=""><figcaption>3× sobre fundo escuro · no fim, os aprovados (minério de ferro, silício e o projeto que sai) pra comparar</figcaption></figure>
+<figure><img src="hotbar_claro.png" width="750" height="84" alt=""><figcaption>3× sobre fundo claro</figcaption></figure>
+</div>
+
+<h2>Projeto (sai) × Diagrama (entra)</h2>
+<div class="cmp">
+<figure><div class="chk"><img src="atual/icon_blueprint.png" width="160" height="160" alt=""></div><figcaption>sai · <code>icon_blueprint.png</code> (projeto, bp_&lt;id&gt;)</figcaption></figure>
+<figure><div class="chk"><img src="pendentes/icon_diagram.png" width="160" height="160" alt=""></div><figcaption>entra · <code>icon_diagram.png</code> (diagrama)</figcaption></figure>
+</div>
+<p>Decisão do dono: o diagrama <b>substitui</b> o projeto. Mesma família (azul de planta, grade, traço claro, laranja
+de acento), agora um cartão deitado com clipe.</p>
+
+<h2>Pro Dev integrar</h2>
+<div class="box"><ul>
+<li><b>Nada disso entra sem o ok do dono.</b> Ids aprovados: <code>workbench</code>, <code>iron_ingot</code>,
+<code>water_capsule</code>, <code>silicon_wafer</code>, <code>circuit</code>, <code>chip</code>, <code>wire</code>,
+<code>diagram</code>.</li>
+<li><b>Bancada</b>: <code>machine_workbench.png</code> <b>32×40</b> (v2; a v1 era 40×64), âncora do baú: pé no centro
+da borda de baixo do tile, 1 tile, cabe no tile (não passa pros lados). Sem sombra no sprite.</li>
+<li><b>Animação</b>: <code>anim/anim_machine_workbench.png</code> <b>256×40</b>, <b>8 quadros</b> de 32×40 na
+horizontal, <b>4 fps</b> sugerido (ciclo de 2 s). <b>Atenção:</b> o <code>anim_frames</code> de hoje usa
+<code>ANIM_FRAMES = 4</code> fixo; essa tira precisa do nº de quadros tirado da largura (largura ÷ largura do parado) ou
+de um caso só pra ela. Quadro 0 = o repouso (pixel a pixel igual ao parado). Sugestão: anima só enquanto fabrica e sem
+fase por tile.</li>
+<li>Pontos no quadro (32×40): ponta da garra trabalhando (quadros 3–5) em (17, 13); miolo do visor em (16, 22); boca de
+(12, 26) a (20, 30).</li>
+<li><b>Ícones</b> 16×16, contorno <code>#1b1630</code>, alpha 0/255: <code>icon_iron_ingot</code> (v2),
+<code>icon_water_capsule</code>, <code>icon_silicon_wafer</code>, <code>icon_circuit</code>, <code>icon_chip</code>,
+<code>icon_wire</code>, <code>icon_diagram</code> (no lugar do <code>icon_blueprint</code> nos itens
+<code>bp_&lt;id&gt;</code> / aviso de projeto) e <code>icon_workbench</code> (v2).</li>
+<li>Regerar: <code>python3 tools/sprites/v05_bancada_itens.py</code> (determinístico; refaz este report). A v1 fica
+congelada em <code>v1/</code>.</li>
+</ul></div>
+
+<details><summary>v1 · histórico</summary>
+<div class="v2" style="margin-top:12px"><b>v1.0 · o que tinha</b><ul>
+<li>Bancada 40×64 (tamanho do nv.2), garra no meio do tampo, 4 quadros a 6 fps.</li>
+<li>Lingote em trapézio cor de cobre. O resto dos ícones é o mesmo da v2.</li>
+</ul></div>
+<div class="flex" style="margin-top:14px">
+<figure><img src="ref_conceito_montadora.png" width="512" height="383" style="image-rendering:auto" alt=""><figcaption>conceito do dono (Montadora)</figcaption></figure>
+<figure><div class="chk"><img src="v1/machine_workbench.png" width="200" height="320" alt=""></div><figcaption>v1 · repouso</figcaption></figure>
+<figure><div class="chk"><img src="v1/bancada_q0.png" width="160" height="256" alt=""></div><figcaption>v1 · quadro 0</figcaption></figure><figure><div class="chk"><img src="v1/bancada_q1.png" width="160" height="256" alt=""></div><figcaption>v1 · quadro 1</figcaption></figure><figure><div class="chk"><img src="v1/bancada_q2.png" width="160" height="256" alt=""></div><figcaption>v1 · quadro 2</figcaption></figure><figure><div class="chk"><img src="v1/bancada_q3.png" width="160" height="256" alt=""></div><figcaption>v1 · quadro 3</figcaption></figure>
+<figure><div class="chk"><img src="v1/familia.png" width="624" height="288" alt=""></div><figcaption>v1 · cápsula × bancada × O₂ nv.2</figcaption></figure>
+<figure><div class="chk"><img src="v1/icon_workbench.png" width="128" height="128" alt=""></div><figcaption>v1 · icon_workbench</figcaption></figure>
+</div>
+<div class="grid2" style="margin-top:14px">
+<figure><img class="px" src="v1/cena_base_arid_operando.png" alt=""><figcaption>v1 · base no Árido, operando</figcaption></figure>
+<figure><img class="px" src="v1/cena_posto_mist.png" alt=""><figcaption>v1 · posto avançado</figcaption></figure>
+</div>
+<p><b>O que veio do conceito (vale pras duas versões):</b> corpo de cobre entre laterais creme, base escura larga, garra
+robótica, visor na frente, boca com bandeja, laser azul da garra pro visor, visor piscando em ciano, faíscas. Traduzido
+pro nosso pixel art: colunas bege com faixa laranja e friso dourado (família do fabricador e das nv.2), sapata B
+padrão, cobre em 5 faixas de luz, laser em pixel chapado (núcleo branco, borda ciano), sem glow nem gradiente.</p>
+</details>
+</div></body></html>

@@ -288,6 +288,9 @@
   "s": "Em S",
   "piece": "Só um pedaço"
  },
- "recommended": "cocoon",
+ "approved": [
+  "larva",
+  "cocoon"
+ ],
  "history": "coil, s e piece são a 1ª rodada (verme comprido); larva, embryo, cocoon e fetal a 2ª (criatura em C)"
 }

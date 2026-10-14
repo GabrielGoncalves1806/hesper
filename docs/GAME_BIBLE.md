@@ -696,3 +696,13 @@ Plano: `docs/superpowers/plans/2026-10-13-v04-marco3-gelo-agua.md`. O que o calo
 - **Aviso** (a pílula neutra do degelo): **"Gerador de O₂ submerso · recolha [Clique direito]"** (concorda com o nome: "Luminária submersa", "Estação de drones submersa"; `C.MACHINE_FEMININE`). Se outra alagar enquanto o aviso está na tela, vira **"3 máquinas submersas · recolha [Clique direito]"**. Sem som.
 - **Dica do mouse**: "Submersa · [Clique direito] recolher" (longe: "Submersa · chegue mais perto pra recolher"); no alvo do E, "Submersa · [E] Abrir baú…".
 - O player continua andando na água rasa (rever no playtest do Marco 4).
+
+## 13. Escopo do v0.5: "base e expedição"
+Design completo em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-design.md` (aprovado pelo dono em 2026-10-14). Em resumo:
+- **Construtor** é o único jeito de colocar máquina (luz de scanner construindo). **Desmontar** = segurar o botão direito 2 s, devolve os materiais da receita; o clique rápido não faz nada.
+- **Fabricador da nave = bancada T1** (só itens básicos). Ela fabrica o diagrama da **Bancada T2**, construída onde quiser, com as receitas avançadas.
+- **Diagrama** substitui o projeto: item lido na bancada.
+- **Mochila**: equipamento, +1 linha de slots.
+- **Base respirável**: chão, parede e porta; base fechada (≥ 9 tiles de chão, ≥ 1 porta) com **Dispersor de O₂** dentro, gastando **cápsula de água** (sai do derretedor).
+- Itens novos (lingote de ferro, cápsula de água, wafer, circuito, chip, fios, diagrama); fora a cápsula, só loot no v0.5.
+- Mapa ~256, faixa gelada, cratera orgânica, criatura no gelo gigante (Larva em C ou Casulo por mapa), broca de mão nv.1/nv.2.

@@ -144,7 +144,7 @@ coisa dentro dele"</i>, <i>"cresce quando ninguém olha"</i>, <i>"Não acorde o 
 <b>Larva em C</b>, <b>Embrião</b>, <b>Casulo</b> e <b>Encolhido com cauda</b>. As 4 ocupam o miolo da face da frente
 e seguem a mesma regra: escura e difusa pela espessura do gelo, mais nítida perto da face, sumindo no fundo, sem olho e
 sem gore.</li>
-<li><b>Recomendação: Casulo.</b> As tiras dos 4 estágios dele estão logo abaixo.</li>
+<li><b>Aprovadas pelo dono: Larva em C e Casulo.</b> As tiras dos 4 estágios do Casulo estão logo abaixo.</li>
 <li>O motor da silhueta agora aceita corpo feito de tubos e bolas, mais uma <b>membrana</b> (casca de elipsoide) que
 aparece como véu na borda. Os índices e a rampa <code>ICE_DEEP</code> não mudaram.</li>
 </ul></div>
@@ -252,7 +252,7 @@ decalques, centrada em (âncora.x, âncora.y − 54).</li>
 
 def new_block(data):
     C = G.C_VARIANTS
-    rec = G.RECOMMENDED
+    rec = G.SHOWCASE
     desc = {
         "larva": "Corpo gordo e segmentado curvado em C, a cabeça (sem rosto) quase encostando na cauda, e 3 pares de "
                  "patinhas dobradas pra dentro. É a mais 'bicho' das quatro.",
@@ -265,7 +265,7 @@ def new_block(data):
     }
     cards = []
     for k in C:
-        badge = ' <span style="font:11px var(--f-label);color:var(--ok);border:1px solid var(--ok);padding:1px 6px">recomendada</span>' if k == rec else ""
+        badge = ' <span style="font:11px var(--f-label);color:var(--ok);border:1px solid var(--ok);padding:1px 6px">aprovada</span>' if k in G.APPROVED else ""
         cards.append(f"""<figure class="box"><h3>{C[k]['name']}{badge}</h3><p><code>form_ice_giant_{k}.png</code></p>
 <div class="chk">{img(f'giant_{k}.png', 2)}</div>
 <div style="display:flex;gap:16px;align-items:flex-end;margin-top:10px">
@@ -281,16 +281,17 @@ def new_block(data):
 direita: <b>Larva em C</b>, <b>Embrião</b>, <b>Casulo</b>, <b>Encolhido com cauda</b></figcaption></figure>
 <div class="grid2" style="margin-top:16px">{''.join(cards)}</div>
 <div class="box" style="margin-top:16px"><ul>
-<li><b>Por que o Casulo.</b> Ele resolve o "sugerir sem mostrar" sozinho: a membrana dá um contorno oval escuro e
+<li><b>O dono aprovou as duas versões: a Larva em C e o Casulo.</b></li>
+<li><b>O Casulo.</b> Ele resolve o "sugerir sem mostrar" sozinho: a membrana dá um contorno oval escuro e
 limpo, que lê de longe como "tem algo guardado ali", e o bicho lá dentro fica ainda mais borrado. É o que mais lembra
 "o Mewtwo no tubo" e conversa com a fala da Ilves ("cresce quando ninguém olha"), porque um casulo é algo que ainda vai
-sair. Se o dono quiser o bicho mais legível, a Larva em C é a 2ª opção.</li>
+sair. A Larva em C é o mesmo bicho sem a membrana: maior e mais legível.</li>
 <li>Em todas, a parte mais funda vira só um escurecido de 1 tom (o rabo do Encolhido, o cordão do Embrião, a
 casca de trás do Casulo). A franja é o xadrez de 1 px, sem alfa.</li>
 <li>A animação é a mesma da 1ª rodada (o brilho frio varrendo o gelo e a respiração de +7%). No Casulo a membrana
 fica parada e só o bicho respira.</li>
 </ul></div>
-<h3 style="margin-top:22px">Recomendada · {C[rec]['name']} nos 4 estágios</h3>
+<h3 style="margin-top:22px">{C[rec]['name']} nos 4 estágios</h3>
 <figure><div class="scroll">{img(f'stages_{rec}.png', 2)}</div><figcaption>sprite 2× sobre o chão da faixa gelada · Tempestade,
 Árido, Névoa, Verde</figcaption></figure>
 <figure style="margin-top:10px"><div class="scroll"><div class="chk">{img(f'anim_{rec}_arid.png', 1)}</div></div>

@@ -323,7 +323,8 @@ C_VARIANTS = {
 
 
 ALL = {**{k: v["name"] for k, v in C_VARIANTS.items()}, **{k: v["name"] for k, v in VARIANTS.items()}}
-RECOMMENDED = "cocoon"
+APPROVED = ("larva", "cocoon")      # o dono aprovou as duas (v0.5.1)
+SHOWCASE = "cocoon"                 # a que o report mostra nos 4 estágios
 
 
 def make_creature(key, br=0.0):
@@ -752,7 +753,7 @@ def export():
         chips=[dict(sprite=f"decor_ice_chunks (seed {sd})", x=x, y=y) for sd, x, y in CHIPS],
         frost_field=dict(sprite="frost_field.png", size=[420, 200], ramp="BASE frost", at=[0, -54],
                          rule="camada de decalques, centro em (âncora.x, âncora.y − 54)"),
-        variants=dict(ALL), recommended=RECOMMENDED,
+        variants=dict(ALL), approved=list(APPROVED),
         history="coil, s e piece são a 1ª rodada (verme comprido); larva, embryo, cocoon e fetal a 2ª (criatura em C)",
     )
     (PEND / "gelo_gigante.json").write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n")

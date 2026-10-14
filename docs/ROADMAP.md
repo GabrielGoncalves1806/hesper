@@ -55,13 +55,21 @@ Design em `docs/superpowers/specs/2026-10-13-v04-mundo-vivo-design.md`. Novo jog
 
 **v0.4 fechado em 2026-10-14.** Ficou pra depois (ver "Futuro"): rodada de sons e tela de créditos (o IR da reverb do gelo é CC BY 4.0), eólico no jogo (sprite pronto), drills T2/T3 (aranha e tripé guardados em `reports/design/maquinas_r3d/futuro/`), drill nv.2 na fumarola, formação nova pro basalto, papel do salar sem sal, lingotes/wafers redesenhados, marca de queimado no veio minerado.
 
-## v0.5 · Fundo
-Biomas de caverna, mochila, broca nv.2 (perfuratriz térmica, que também minera a rocha dura dos anéis dos bolsões), peças raras (o contêiner lacrado do v0.4), elevador de carga (drones atendem a caverna). Ganchos: basalto → vulcão, espécie nativa nas cavernas.
+## v0.5 · Base e expedição
+Design em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-design.md`. Novo jogo obrigatório (no Marco 3).
 
-## v0.6 · Perigo e lore
+- [ ] Marco 1: construtor (único jeito de colocar máquina, luz de scanner), desmontar segurando 2 s, fabricador T1 → Bancada T2, diagrama no lugar do projeto, mochila (+1 linha)
+- [ ] Marco 2: base respirável (chão, parede, porta, flood fill, Dispersor de O₂ gastando cápsula de água, derretedor com inventário)
+- [ ] Marco 3: mundo (mapa ~256, faixa gelada, cratera orgânica, fumarola perto, criatura no gelo gigante)
+- [ ] Marco 4: expedição e loot (broca de mão nv.1/nv.2, contêiner lacrado, itens novos nos loots) + playtest
+
+## v0.6 · Logística e fundo
+Chip num slot deixa baú/máquina visível pros drones (menu "Drone"), drones abastecendo máquinas, elevador de carga, biomas de caverna. Ganchos: basalto → vulcão, espécie nativa nas cavernas. Fornalha (magmatita → lingote) e cobre → fios.
+
+## v0.7 · Perigo e lore
 Inimigos, combate, primeiro boss, ruínas da Colônia Hesper.
 
-## v0.7 · Vida
+## v0.8 · Vida
 Fauna e flora surgindo com o Ti, farm, música.
 
 ## Futuro
