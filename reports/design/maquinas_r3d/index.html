@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Máquinas r3d (o freela) · v1.0</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;600&family=Pixelify+Sans:wght@600&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;--bad:#ff6a55;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 "IBM Plex Sans",system-ui,sans-serif;padding:0 16px}
+.wrap{max-width:1300px;margin:0 auto;padding:44px 0 80px}
+.eyebrow{font:12px "Silkscreen",monospace;letter-spacing:.08em;color:var(--rust);text-transform:uppercase}
+h1{font:600 44px/1.1 "Pixelify Sans",monospace;margin:8px 0 12px}h2{font:600 24px "Pixelify Sans",monospace;margin:44px 0 12px}
+h2::before{content:"";display:inline-block;width:10px;height:10px;background:var(--rust);margin-right:10px;vertical-align:middle}
+h3{font:600 16px "Pixelify Sans",monospace;margin:0 0 8px}code{font-family:"IBM Plex Mono",monospace;color:var(--gold);font-size:.92em}
+p,li{color:var(--muted)}li b,p b{color:var(--fg)}
+.v2{background:#241b17;border:1px solid var(--line);border-left:3px solid var(--rust);padding:12px 18px;max-width:1050px}
+.v2>b{font:13px "Silkscreen",monospace;color:var(--rust)}
+.chk{display:inline-block;padding:10px;background-color:#2a2f38;background-image:linear-gradient(45deg,#333944 25%,transparent 25%,transparent 75%,#333944 75%),linear-gradient(45deg,#333944 25%,transparent 25%,transparent 75%,#333944 75%);background-size:16px 16px;background-position:0 0,8px 8px}
+.chk img,.sp{image-rendering:pixelated}img{image-rendering:pixelated}figure{margin:0}figcaption{font:12px "Silkscreen",monospace;color:var(--muted);margin-top:6px}
+.pairs{display:grid;grid-template-columns:repeat(auto-fill,minmax(520px,1fr));gap:18px}
+.pair{background:var(--panel);border:1px solid var(--line);padding:14px}.ab{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}@media(max-width:1000px){.grid2{grid-template-columns:1fr}}
+img.px{width:100%;height:auto;border:1px solid var(--line);display:block}
+.box{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--cyan);padding:16px 20px}
+.new{border-left-color:var(--ok)}
+.anim{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end}
+.sp{background-repeat:no-repeat}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;color:var(--muted)}th{background:#241b17;color:var(--fg)}
+td.ok,li.okl{color:var(--ok)}td.bad,li.bad{color:var(--bad)}
+ul.cols{columns:3;list-style:none;padding:0;font-size:13px}
+@keyframes play640{from{background-position-x:0}to{background-position-x:-640px}}
+@keyframes play768{from{background-position-x:0}to{background-position-x:-768px}}
+@keyframes play800{from{background-position-x:0}to{background-position-x:-800px}}
+@keyframes play1536{from{background-position-x:0}to{background-position-x:-1536px}}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Designer · v1.0 · M4 do v0.4 · máquinas do "freela" trazidas iguais (espera o ok do dono)</div>
+<h1>Máquinas r3d · o freela no jogo</h1>
+<div class="v2"><b>v1.0 · o que mudou</b><ul>
+<li><b>Não é redesenho.</b> O dono aprovou as máquinas da sessão experimental como estão. O código foi <b>portado</b> pra
+<code>tools/sprites/machines_r3d.py</code> (autocontido, depende só do <code>r3d.py</code> do repo) e gera
+<b>27 de 27 PNGs idênticos pixel a pixel</b> aos do freela.</li>
+<li>14 sprites do contrato (mesmo nome, tamanho e âncora de hoje): O₂, aquecedor e derretedor nv.1 e nv.2, drill, painel
+solar, luminária e luminária forte, estação de drones, drone, cápsula e terminal.</li>
+<li>10 tiras de animação que só o freela tem (<b>novo, o Dev liga depois</b>) e o <b>gerador eólico</b> pronto, ainda
+<b>fora do jogo</b>. A fornalha não entra.</li>
+<li>Baú, caixa de saque e contêiner ficam como estão (o r3d azul já foi aprovado e promovido).</li>
+<li>Estilo aproveitado do freela (nada de referência externa nova): corpo bege/branco, faixas laranja, LED, base de metal,
+nv.2 mais robustas com dourado, contorno <code>#1b1630</code>, volume calculado pelo motor r3d.</li>
+</ul></div>
+
+<h2>Antes (o jogo de hoje) × depois (o freela)</h2>
+<div class="pairs"><div class="pair"><h3>Gerador de O₂ nv.1 · <code>machine_o2.png</code> · 40×56</h3><div class="ab">
+<figure><div class="chk"><img src="view/machine_o2_antes.png" width="240" height="336" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
+<figure><div class="chk"><img src="view/machine_o2_depois.png" width="240" height="336" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/machine_o2_antes.png" width="40" height="56" alt=""> <img src="view/machine_o2_depois.png" width="40" height="56" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
+</div></div><div class="pair"><h3>Gerador de O₂ nv.2 · <code>machine_o2_t2.png</code> · 40×64</h3><div class="ab">
+<figure><div class="chk"><img src="view/machine_o2_t2_antes.png" width="240" height="384" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
+<figure><div class="chk"><img src="view/machine_o2_t2_depois.png" width="240" height="384" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/machine_o2_t2_antes.png" width="40" height="64" alt=""> <img src="view/machine_o2_t2_depois.png" width="40" height="64" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
+</div></div><div class="pair"><h3>Aquecedor nv.1 · <code>machine_heater.png</code> · 40×56</h3><div class="ab">
+<figure><div class="chk"><img src="view/machine_heater_antes.png" width="240" height="336" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
+<figure><div class="chk"><img src="view/machine_heater_depois.png" width="240" height="336" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/machine_heater_antes.png" width="40" height="56" alt=""> <img src="view/machine_heater_depois.png" width="40" height="56" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
+</div></div><div class="pair"><h3>Aquecedor nv.2 · <code>machine_heater_t2.png</code> · 40×64</h3><div class="ab">
+<figure><div class="chk"><img src="view/machine_heater_t2_antes.png" width="240" height="384" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
+<figure><div class="chk"><img src="view/machine_heater_t2_depois.png" width="240" height="384" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/machine_heater_t2_antes.png" width="40" height="64" alt=""> <img src="view/machine_heater_t2_depois.png" width="40" height="64" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
+</div></div><div class="pair"><h3>Derretedor nv.1 · <code>machine_melter.png</code> · 40×56</h3><div class="ab">
+<figure><div class="chk"><img src="view/machine_melter_antes.png" width="240" height="336" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
+<figure><div class="chk"><img src="view/machine_melter_depois.png" width="240" height="336" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/machine_melter_antes.png" width="40" height="56" alt=""> <img src="view/machine_melter_depois.png" width="40" height="56" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
+</div></div><div class="pair"><h3>Derretedor nv.2 · <code>machine_melter_t2.png</code> · 40×64</h3><div class="ab">
+<figure><div class="chk"><img src="view/machine_melter_t2_antes.png" width="240" height="384" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
+<figure><div class="chk"><img src="view/machine_melter_t2_depois.png" width="240" height="384" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/machine_melter_t2_antes.png" width="40" height="64" alt=""> <img src="view/machine_melter_t2_depois.png" width="40" height="64" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
+</div></div><div class="pair"><h3>Drill automática (2×2) · <code>machine_drill.png</code> · 256×80 · tira de 4 quadros (1º quadro ampliado)</h3><div class="ab">
+<figure><div class="chk"><img src="view/machine_drill_antes.png" width="256" height="320" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
+<figure><div class="chk"><img src="view/machine_drill_depois.png" width="256" height="320" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/machine_drill_antes.png" width="64" height="80" alt=""> <img src="view/machine_drill_depois.png" width="64" height="80" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
+</div></div><div class="pair"><h3>Painel solar · <code>solar_panel.png</code> · 32×40</h3><div class="ab">
+<figure><div class="chk"><img src="view/solar_panel_antes.png" width="192" height="240" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
+<figure><div class="chk"><img src="view/solar_panel_depois.png" width="192" height="240" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/solar_panel_antes.png" width="32" height="40" alt=""> <img src="view/solar_panel_depois.png" width="32" height="40" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
+</div></div><div class="pair"><h3>Luminária · <code>lamp.png</code> · 16×32</h3><div class="ab">
+<figure><div class="chk"><img src="view/lamp_antes.png" width="128" height="256" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
+<figure><div class="chk"><img src="view/lamp_depois.png" width="128" height="256" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/lamp_antes.png" width="16" height="32" alt=""> <img src="view/lamp_depois.png" width="16" height="32" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
+</div></div><div class="pair"><h3>Luminária forte · <code>lamp_t2.png</code> · 16×32</h3><div class="ab">
+<figure><div class="chk"><img src="view/lamp_t2_antes.png" width="128" height="256" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
+<figure><div class="chk"><img src="view/lamp_t2_depois.png" width="128" height="256" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/lamp_t2_antes.png" width="16" height="32" alt=""> <img src="view/lamp_t2_depois.png" width="16" height="32" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
+</div></div><div class="pair"><h3>Estação de drones (2×2) · <code>drone_station.png</code> · 64×72</h3><div class="ab">
+<figure><div class="chk"><img src="view/drone_station_antes.png" width="256" height="288" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
+<figure><div class="chk"><img src="view/drone_station_depois.png" width="256" height="288" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/drone_station_antes.png" width="64" height="72" alt=""> <img src="view/drone_station_depois.png" width="64" height="72" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
+</div></div><div class="pair"><h3>Drone · <code>drone.png</code> · 64×16 · tira de 4 quadros (1º quadro ampliado)</h3><div class="ab">
+<figure><div class="chk"><img src="view/drone_antes.png" width="128" height="128" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
+<figure><div class="chk"><img src="view/drone_depois.png" width="128" height="128" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/drone_antes.png" width="16" height="16" alt=""> <img src="view/drone_depois.png" width="16" height="16" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
+</div></div><div class="pair"><h3>Cápsula / base · <code>pod.png</code> · 64×72</h3><div class="ab">
+<figure><div class="chk"><img src="view/pod_antes.png" width="256" height="288" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
+<figure><div class="chk"><img src="view/pod_depois.png" width="256" height="288" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/pod_antes.png" width="64" height="72" alt=""> <img src="view/pod_depois.png" width="64" height="72" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
+</div></div><div class="pair"><h3>Terminal de parede · <code>terminal.png</code> · 32×32</h3><div class="ab">
+<figure><div class="chk"><img src="view/terminal_antes.png" width="192" height="192" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
+<figure><div class="chk"><img src="view/terminal_depois.png" width="192" height="192" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/terminal_antes.png" width="32" height="32" alt=""> <img src="view/terminal_depois.png" width="32" height="32" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
+</div></div></div>
+
+<h2>Animações que o jogo já usa</h2>
+<p>Drill (4 quadros de 64×80, recorte do <code>drill_frame</code>) e drone (4 quadros de 16×16). Mesmo formato do contrato.</p>
+<div class="anim">
+<figure><div class="chk"><div class="sp" style="width:192px;height:240px;background-image:url('before/machine_drill.png');background-size:768px 240px;animation:play768 0.500s steps(4) infinite;"></div></div><figcaption>drill · hoje · 8 fps</figcaption></figure>
+<figure><div class="chk"><div class="sp" style="width:192px;height:240px;background-image:url('pendentes/machine_drill.png');background-size:768px 240px;animation:play768 0.500s steps(4) infinite;"></div></div><figcaption>drill · freela · 8 fps</figcaption></figure>
+<figure><div class="chk"><div class="sp" style="width:160px;height:160px;background-image:url('before/drone.png');background-size:640px 160px;animation:play640 0.267s steps(4) infinite;"></div></div><figcaption>drone · hoje · 15 fps</figcaption></figure>
+<figure><div class="chk"><div class="sp" style="width:160px;height:160px;background-image:url('pendentes/drone.png');background-size:640px 160px;animation:play640 0.267s steps(4) infinite;"></div></div><figcaption>drone · freela · 15 fps</figcaption></figure>
+</div>
+
+<h2>Animações novas: o Dev liga depois</h2>
+<p>Hoje o jogo só anima a drill e o drone. As máquinas do freela têm 4 quadros de LED, ventoinha, grelha, água etc. Cada
+tira tem 4 quadros lado a lado do tamanho do sprite parado; o quadro 0 é o PNG parado do contrato. Mostradas a
+5 fps (sugestão; o jogo decide).</p>
+<div class="anim"><figure><div class="chk"><div class="sp" style="width:200px;height:280px;background-image:url('pendentes/anim/anim_machine_o2.png');background-size:800px 280px;animation:play800 0.800s steps(4) infinite;"></div></div><figcaption>Gerador de O₂ nv.1<br><code>anim/anim_machine_o2.png</code> · 160×56 · NOVO</figcaption></figure><figure><div class="chk"><div class="sp" style="width:200px;height:320px;background-image:url('pendentes/anim/anim_machine_o2_t2.png');background-size:800px 320px;animation:play800 0.800s steps(4) infinite;"></div></div><figcaption>Gerador de O₂ nv.2<br><code>anim/anim_machine_o2_t2.png</code> · 160×64 · NOVO</figcaption></figure><figure><div class="chk"><div class="sp" style="width:200px;height:280px;background-image:url('pendentes/anim/anim_machine_heater.png');background-size:800px 280px;animation:play800 0.800s steps(4) infinite;"></div></div><figcaption>Aquecedor nv.1<br><code>anim/anim_machine_heater.png</code> · 160×56 · NOVO</figcaption></figure><figure><div class="chk"><div class="sp" style="width:200px;height:320px;background-image:url('pendentes/anim/anim_machine_heater_t2.png');background-size:800px 320px;animation:play800 0.800s steps(4) infinite;"></div></div><figcaption>Aquecedor nv.2<br><code>anim/anim_machine_heater_t2.png</code> · 160×64 · NOVO</figcaption></figure><figure><div class="chk"><div class="sp" style="width:200px;height:280px;background-image:url('pendentes/anim/anim_machine_melter.png');background-size:800px 280px;animation:play800 0.800s steps(4) infinite;"></div></div><figcaption>Derretedor nv.1<br><code>anim/anim_machine_melter.png</code> · 160×56 · NOVO</figcaption></figure><figure><div class="chk"><div class="sp" style="width:200px;height:320px;background-image:url('pendentes/anim/anim_machine_melter_t2.png');background-size:800px 320px;animation:play800 0.800s steps(4) infinite;"></div></div><figcaption>Derretedor nv.2<br><code>anim/anim_machine_melter_t2.png</code> · 160×64 · NOVO</figcaption></figure><figure><div class="chk"><div class="sp" style="width:160px;height:200px;background-image:url('pendentes/anim/anim_solar_panel.png');background-size:640px 200px;animation:play640 0.800s steps(4) infinite;"></div></div><figcaption>Painel solar<br><code>anim/anim_solar_panel.png</code> · 128×40 · NOVO</figcaption></figure><figure><div class="chk"><div class="sp" style="width:160px;height:160px;background-image:url('pendentes/anim/anim_terminal.png');background-size:640px 160px;animation:play640 0.800s steps(4) infinite;"></div></div><figcaption>Terminal<br><code>anim/anim_terminal.png</code> · 128×32 · NOVO</figcaption></figure><figure><div class="chk"><div class="sp" style="width:192px;height:216px;background-image:url('pendentes/anim/anim_drone_station.png');background-size:768px 216px;animation:play768 0.800s steps(4) infinite;"></div></div><figcaption>Estação de drones<br><code>anim/anim_drone_station.png</code> · 256×72 · NOVO</figcaption></figure><figure><div class="chk"><div class="sp" style="width:192px;height:216px;background-image:url('pendentes/anim/anim_pod.png');background-size:768px 216px;animation:play768 0.800s steps(4) infinite;"></div></div><figcaption>Cápsula<br><code>anim/anim_pod.png</code> · 256×72 · NOVO</figcaption></figure></div>
+
+<h2>Gerador eólico · pronto, ainda fora do jogo</h2>
+<div class="box new"><b>Não entra no jogo agora</b>: o dono põe depois. Os arquivos estão em
+<code>pendentes/eolico/</code>, separados de propósito pra ninguém copiar junto com o contrato. Eixo vertical, 3 pás
+helicoidais, 32×64 (1 tile), âncora no centro da base. 8 quadros = 120° de giro (as 3 pás são iguais, então fecha sem
+emenda). Ícone 16×16 incluído.</div><br>
+<div class="anim">
+<figure><div class="chk"><img src="pendentes/eolico/wind_turbine.png" width="192" height="384" alt=""></div><figcaption><code>wind_turbine.png</code> · 32×64 (1 tile)</figcaption></figure>
+<figure><div class="chk"><div class="sp" style="width:192px;height:384px;background-image:url('pendentes/eolico/anim_wind_turbine.png');background-size:1536px 384px;animation:play1536 1.000s steps(8) infinite;"></div></div><figcaption>girando · 8 quadros · 8 fps</figcaption></figure>
+<figure><div class="chk"><img src="pendentes/eolico/icon_wind.png" width="128" height="128" alt=""></div><figcaption><code>icon_wind.png</code> · 16×16</figcaption></figure>
+<figure><div class="chk" style="padding:18px"><img src="pendentes/eolico/wind_turbine.png" width="32" height="64" alt=""> <img src="pendentes/eolico/icon_wind.png" width="16" height="16" alt=""></div><figcaption>tamanho real (1×)</figcaption></figure>
+</div>
+
+<h2>Na base, com as máquinas novas, o baú azul e o Explorador</h2>
+<div class="grid2">
+<figure><img class="px" src="cena_base_arid_antes.png" alt=""><figcaption><b>antes</b> · Árido, as máquinas de hoje</figcaption></figure>
+<figure><img class="px" src="cena_base_arid.png" alt=""><figcaption><b>depois</b> · Árido, o freela</figcaption></figure>
+<figure><img class="px" src="cena_base_green_antes.png" alt=""><figcaption><b>antes</b> · Verde</figcaption></figure>
+<figure><img class="px" src="cena_base_green.png" alt=""><figcaption><b>depois</b> · Verde</figcaption></figure>
+</div>
+<p>Recortes 480×270 (metade da tela do jogo) ampliados 2×, só com sprites, ordenados pelo pé como o jogo desenha. Cada
+fileira é o nv.1 (em cima) e o nv.2 (embaixo). A estação leva os 4 drones nos <code>DRONE_PADS</code> de hoje
+((18,44) (46,44) (25,55) (53,55)).</p>
+
+<h2>Desvios de contrato</h2>
+<div class="box"><b>Tamanho: nenhum desvio.</b> Os 14 sprites do freela têm exatamente o mesmo tamanho dos que estão em
+<code>assets/sprites/</code> e o que a bíblia §6 / §8 / §9 pede. Âncoras também iguais (centro da base do PNG), então é
+troca de arquivo, sem mexer em <code>config.py</code>.</div>
+<p>O que muda é <b>onde a arte ocupa dentro do PNG</b> (caixa dos pixels opacos). Isso não quebra nada (o jogo ancora
+pelo PNG inteiro), mas o Dev deve olhar no smoke: onde o pé sobe/desce o objeto parece flutuar ou afundar uns px.</p>
+<table><tr><th>arquivo</th><th>hoje</th><th>freela</th><th>tamanho</th><th>pixels opacos hoje (1º quadro)</th><th>pixels opacos freela</th><th>pé</th></tr>
+<tr><td><code>machine_o2.png</code></td><td>40×56</td><td>40×56</td><td class="ok">igual</td><td>x 3–36 · y 1–55</td><td>x 3–37 · y 0–55</td><td></td></tr><tr><td><code>machine_o2_t2.png</code></td><td>40×64</td><td>40×64</td><td class="ok">igual</td><td>x 0–39 · y 0–63</td><td>x 0–39 · y 7–63</td><td></td></tr><tr><td><code>machine_heater.png</code></td><td>40×56</td><td>40×56</td><td class="ok">igual</td><td>x 3–36 · y 5–55</td><td>x 3–37 · y 0–55</td><td></td></tr><tr><td><code>machine_heater_t2.png</code></td><td>40×64</td><td>40×64</td><td class="ok">igual</td><td>x 1–38 · y 0–63</td><td>x 0–39 · y 1–63</td><td></td></tr><tr><td><code>machine_melter.png</code></td><td>40×56</td><td>40×56</td><td class="ok">igual</td><td>x 2–39 · y 8–55</td><td>x 3–38 · y 9–55</td><td></td></tr><tr><td><code>machine_melter_t2.png</code></td><td>40×64</td><td>40×64</td><td class="ok">igual</td><td>x 0–39 · y 0–63</td><td>x 0–39 · y 8–63</td><td></td></tr><tr><td><code>machine_drill.png</code></td><td>256×80</td><td>256×80</td><td class="ok">igual</td><td>x 1–62 · y 2–78</td><td>x 3–61 · y 16–79</td><td><b>pé 1 px</b></td></tr><tr><td><code>solar_panel.png</code></td><td>32×40</td><td>32×40</td><td class="ok">igual</td><td>x 1–30 · y 3–39</td><td>x 1–31 · y 7–39</td><td></td></tr><tr><td><code>lamp.png</code></td><td>16×32</td><td>16×32</td><td class="ok">igual</td><td>x 1–14 · y 0–30</td><td>x 1–14 · y 0–29</td><td><b>pé -1 px</b></td></tr><tr><td><code>lamp_t2.png</code></td><td>16×32</td><td>16×32</td><td class="ok">igual</td><td>x 1–14 · y 0–30</td><td>x 0–15 · y 0–29</td><td><b>pé -1 px</b></td></tr><tr><td><code>drone_station.png</code></td><td>64×72</td><td>64×72</td><td class="ok">igual</td><td>x 1–62 · y 0–70</td><td>x 0–63 · y 11–71</td><td><b>pé 1 px</b></td></tr><tr><td><code>drone.png</code></td><td>64×16</td><td>64×16</td><td class="ok">igual</td><td>x 0–15 · y 2–14</td><td>x 0–15 · y 2–15</td><td><b>pé 1 px</b></td></tr><tr><td><code>pod.png</code></td><td>64×72</td><td>64×72</td><td class="ok">igual</td><td>x 0–63 · y 2–71</td><td>x 0–63 · y 2–69</td><td><b>pé -2 px</b></td></tr><tr><td><code>terminal.png</code></td><td>32×32</td><td>32×32</td><td class="ok">igual</td><td>x 4–27 · y 4–28</td><td>x 3–28 · y 6–28</td><td></td></tr></table>
+<ul>
+<li><b>Pé (última linha opaca)</b>: onde a coluna "pé" aparece, a base do freela fica mais acima/abaixo que a de hoje.
+Se incomodar, o ajuste é de arte (eu desloco no gerador), não de código.</li>
+<li><b>Estação</b>: o freela é mais baixa no topo (a torre sobe até y=11; a de hoje vai até y=0), com os mesmos 2 pads
+H em (18,44) e (46,44). Os slots 3 e 4 ((25,55) e (53,55)) caem na frente do deck; confira na cena acima.</li>
+<li><b>Drill</b>: o indicador de enchimento continua em <code>(48, 47, 7, 12)</code> (<code>DRILL_FILL_RECT</code>),
+desenhado no próprio PNG como hoje.</li>
+<li><b>Luminárias</b>: a luz é desenhada pelo jogo no tile, não depende do sprite. O vidro aceso do freela fica uns 2 px
+mais baixo no PNG que o de hoje (centro do vidro ~ (7,16)).</li>
+<li><b>Terminal</b>: fica do jeito 2D de sempre (o freela não o refez em 3D), mas é outro desenho: placa bege com tela
+verde.</li>
+<li><b>Baús</b> e <b>caixas</b>: o freela tem os dele (<code>chest.png</code>), mas o jogo já usa o r3d azul aprovado:
+<b>não trazido de propósito</b>.</li>
+<li><b>Broca de mão</b> (<code>drill_*.png</code> da raiz do freela): não é máquina e já foi tratada na sua própria
+rodada (<code>reports/design/drill_hand_*</code>). Fora deste lote.</li>
+</ul>
+
+<h2>Pro Dev integrar</h2>
+<div class="box"><ul>
+<li><b>Drop-in:</b> os 14 PNGs de <code>pendentes/</code> têm o mesmo nome e tamanho dos de <code>assets/sprites/</code>.
+Na promoção, copia só <code>pendentes/*.png</code> (não as pastas <code>anim/</code> e <code>eolico/</code>).</li>
+<li><b>Âncora:</b> centro da base do PNG (como hoje). 1 tile: nv.1 40×56, nv.2 40×64 (passam 4 px de cada lado do tile),
+solar 32×40, luminária 16×32, terminal 32×32 na parede. 2×2: drill 64×80 (4 quadros) e estação 64×72, cápsula 64×72.</li>
+<li><b>Quadros:</b> <code>machine_drill.png</code> 256×80 = 4×(64×80), recorte <code>(64·f, 0, 64, 80)</code>;
+<code>drone.png</code> 64×16 = 4×(16×16). Os dois já são animados pelo jogo (8 e 15 fps). O quadro 0
+dos outros é o PNG parado.</li>
+<li><b>Animações novas</b> (<code>pendentes/anim/</code>): tiras de 4 quadros lado a lado, tamanho do quadro = tamanho do
+sprite parado. Pra ligar é o mesmo recorte do <code>drill_frame</code>. Rodar só com a máquina ligada/com energia é
+decisão do jogo.</li>
+<li><b>Drones:</b> os 4 slots pousam nos <code>DRONE_PADS</code> de hoje, sem mudar.</li>
+<li><b>Ordem de desenho:</b> igual a hoje (ordenado pelo pé; sem sombra no sprite, como o r3d azul: se quiser a sombra de
+chão, o jogo põe).</li>
+<li><b>Contorno do alvo do E</b> e <b>máquina submersa</b> usam a silhueta opaca: funcionam sem mudança.</li>
+<li><b>Eólico:</b> <code>pendentes/eolico/</code> (32×64, 8 quadros de 32×64 em 256×64, ícone 16×16). Fora do jogo até o dono pedir.</li>
+<li><b>Regerar:</b> <code>python3 tools/sprites/machines_r3d.py</code> (determinístico);
+<code>--check</code> compara pixel a pixel com o freela do Desktop; este report sai de
+<code>python3 tools/sprites/machines_r3d_report.py</code>.</li>
+</ul></div>
+
+<h2>Conferência pixel a pixel com o freela</h2>
+<p><b>27 de 27</b> bateram (RGBA idêntico). Nenhum diferente.</p>
+<ul class="cols"><li class="okl"><code>machine_o2.png</code></li><li class="okl"><code>machine_o2_t2.png</code></li><li class="okl"><code>machine_heater.png</code></li><li class="okl"><code>machine_heater_t2.png</code></li><li class="okl"><code>machine_melter.png</code></li><li class="okl"><code>machine_melter_t2.png</code></li><li class="okl"><code>machine_drill.png</code></li><li class="okl"><code>solar_panel.png</code></li><li class="okl"><code>terminal.png</code></li><li class="okl"><code>lamp.png</code></li><li class="okl"><code>lamp_t2.png</code></li><li class="okl"><code>drone_station.png</code></li><li class="okl"><code>drone.png</code></li><li class="okl"><code>pod.png</code></li><li class="okl"><code>anim/anim_machine_o2.png</code></li><li class="okl"><code>anim/anim_machine_o2_t2.png</code></li><li class="okl"><code>anim/anim_machine_heater.png</code></li><li class="okl"><code>anim/anim_machine_heater_t2.png</code></li><li class="okl"><code>anim/anim_machine_melter.png</code></li><li class="okl"><code>anim/anim_machine_melter_t2.png</code></li><li class="okl"><code>anim/anim_solar_panel.png</code></li><li class="okl"><code>anim/anim_terminal.png</code></li><li class="okl"><code>anim/anim_drone_station.png</code></li><li class="okl"><code>anim/anim_pod.png</code></li><li class="okl"><code>eolico/wind_turbine.png</code></li><li class="okl"><code>eolico/anim_wind_turbine.png</code></li><li class="okl"><code>eolico/icon_wind.png</code></li></ul>
+</div></body></html>
