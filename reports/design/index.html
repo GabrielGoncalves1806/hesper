@@ -90,8 +90,13 @@ code{font-family:var(--f-mono);font-size:.92em;color:var(--gold)}
 <header>
   <div class="eyebrow">Hesper · Designer · v6.0 (explorador aprovado · broca de mão: 3 candidatas)</div>
   <h1>Sprites do MVP</h1>
+  <p class="lede" style="margin-top:12px"><a href="galeria/index.html" style="color:#59d0e6"><b>Galeria completa</b></a> · todos os PNGs num HTML só, com base64, pra mandar de referência de estilo (gerada por <code>tools/sprites/build_gallery.py</code>).</p>
   <p class="lede">Todos os sprites do contrato (bíblia §6) em pixel art 1:1, gerados por <code>tools/sprites/build_sprites.py</code>. Primeiro as três cenas de prévia, montadas só com esses PNGs como o jogo vai montar; embaixo cada sprite ampliado, a paleta e as decisões. Nada disso entra no jogo antes da tua aprovação.</p>
   <div class="status"><span class="chip ok">107 oficiais + 0 pendentes · tamanhos conferidos</span><span class="chip">369 cores no total</span><span class="chip ok">0 desvios do contrato</span><span class="chip">pod largo guardado em _future/ (fora do contrato)</span><span class="chip">variante B de histórico em before/</span><span class="chip">broca de mão: candidatas A · B · C em _pending/</span></div>
+  <div class="v2" style="border-left-color:#59d0e6"><b>Reports à parte (v0.5)</b><ul>
+    <li><b><a href="v05_m2_base/index.html" style="color:#59d0e6">v0.5 M2 · Base respirável</a></b> · v1.2 · chão, parede, Dispersor, vazamento e ícones <b>aprovados</b>; <b>porta refeita: solo e dupla, vão largo (variante B)</b>.</li>
+    <li><a href="v05_m1_construtor/index.html" style="color:#59d0e6">v0.5 M1 · Construtor, mochila e luz de scanner</a> · <a href="v05_bancada_itens/index.html" style="color:#59d0e6">v0.5 · Bancada T2 e itens novos</a> · <a href="maquinas_r3d/index.html" style="color:#59d0e6">Máquinas r3d</a> · <a href="bau_r3d/index.html" style="color:#59d0e6">Baú r3d</a></li>
+  </ul></div>
   <div class="v2"><b>v6.0 · o que mudou</b><ul>
     <li><b>Personagem novo: o Explorador, com visor dourado</b> (aprovado pelo dono direto com o gerente). Saiu da sessão experimental e agora é gerado aqui, por <code>tools/sprites/explorer.py</code>, chamado pelo <code>build_sprites.py</code>, sem depender de nada fora do repo. Os PNGs saem idênticos aos do experimento (pixel a pixel).</li>
     <li>Trocados no contrato, mesmos tamanhos e âncora: <code>player_{down,up,side}</code> (32×32) e <code>player_walk_*</code> (128×32). <b>Novos</b>: <code>player_idle_*</code> e <code>player_mine_*</code> (128×32, 4 quadros cada). O astronauta chibi antigo ficou em <code>reports/design/before/</code>.</li>

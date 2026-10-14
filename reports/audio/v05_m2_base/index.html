@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Som · v0.5 M2 Base respirável (proposta)</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;margin:0;padding:16px}
+.wrap{max-width:1000px;margin:0 auto;padding-block:36px 70px}
+h1{font-size:34px;margin:8px 0 12px}h2{font-size:22px;margin:44px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.eyebrow{font:12px monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--rust)}
+.note{border-left:3px solid var(--gold);background:var(--panel);padding:12px 16px;margin:18px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:8px}
+.card.nb{opacity:.85}
+.fname{font:500 14px monospace}.when{font:11px monospace;color:var(--gold);text-transform:uppercase}
+.what{margin:0;color:var(--muted);font-size:14px}.tag{font:11px monospace;color:var(--muted);border:1px solid var(--line);padding:1px 6px;margin-right:4px}
+.tag.loop{color:var(--cyan);border-color:#2c5560}
+canvas{width:100%;height:44px;background:#251c18;display:block}audio{width:100%;height:36px}
+button{background:#251c18;color:var(--fg);border:1px solid var(--rust);padding:6px 12px;cursor:pointer;font:13px monospace;margin:4px 6px 4px 0}
+button:hover{background:var(--rust);color:#000}
+code{font:13px monospace;color:var(--cyan)}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+li{margin:4px 0;color:var(--muted)}li b{color:var(--fg)}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Som · v0.5 Marco 2 · proposta (nada entrou no jogo)</div>
+<h1>Base respirável</h1>
+<div class="note"><b>v13.1 · porta refeita (B, "shhhiii"):</b> a pedido do dono, <code>door_open</code> e <code>door_close</code> agora são o sibilo pneumático de nave (ruído de 2 a 9 kHz, ataque rápido, cauda que some, ~0,7 s); a versão anterior ficou como A em <code>pendentes/anterior_A/</code> pra comparar. Os outros 4 sons seguem byte a byte iguais.<br><b>v13 · o que mudou:</b> 6 sons novos, todos em <code>reports/audio/v05_m2_base/pendentes/</code>. Nenhum arquivo de <code>assets/audio/</code> foi tocado. Validação feita por análise (formato, pico, loudness aproximado, espectro por banda, picos tonais, emenda do loop); eu não ouço, a palavra final é do teu ouvido.</div>
+<p style="color:var(--muted)">Ideia: o ar da base é o contrário do vento lá fora. Porta e selo são pneumáticos (ruído de banda larga, trava mecânica sem tom, nada de tambor nem de latinha). O Dispersor é ar circulando num drone baixo em Lá. Os dois alertas da base (vazamento e sem água) são <b>sopro e mecânica</b>, de propósito longe dos alertas de O₂/energia do traje, que são <b>bipes</b>.</p>
+
+<h2>Porta</h2><div class="cards" id="porta"></div>
+<div class="note"><button onclick="simDoor(1)">B: abre e fecha</button><button onclick="simDoor(1,'_A')">A (anterior): abre e fecha</button><button onclick="simDoor(6)">B: entra e sai 6×</button><button onclick="simDoor(6,'_A')">A: 6×</button><button onclick="stopAll()">Parar</button><span id="log" style="font:12px monospace;color:var(--muted)"></span></div>
+
+<h2>Base e Dispersor</h2><div class="cards" id="base"></div>
+<div class="note"><button onclick="simSeal()">Vedar a base (sealed, hum entra após 1,5 s)</button><button onclick="stopAll()">Parar</button></div>
+
+<h2>Alertas da base</h2><div class="cards" id="alert"></div>
+<div class="note">
+<button onclick="simLeak(5)">Vazamento 5× (a cada 4 s)</button>
+<button onclick="simCompare()">Comparar: leak, o2_low, power_low, leak</button>
+<button onclick="simDry()">Sem água: dry e depois silêncio</button>
+<button onclick="stopAll()">Parar</button></div>
+
+<h2>Vizinhos pra comparar</h2><div class="cards" id="nb"></div>
+
+<h2>Como se distinguem</h2>
+<table>
+<tr><th>Som</th><th>Timbre</th><th>Contorno</th><th>Quando</th></tr>
+<tr><td><code>o2_low</code></td><td>bipes quadrados agudos (F5, C5)</td><td>loop de 1,1 s, "ba-dum" descendente</td><td>teu O₂ acabando</td></tr>
+<tr><td><code>power_low</code></td><td>motor caindo + bipe duplo Lá4</td><td>1,4 s</td><td>energia baixa</td></tr>
+<tr><td><code>leak_alert</code></td><td><b>sopro</b> de banda larga com tremor + glissando macio de triângulo; sem onda quadrada</td><td>ataca e cai (5 kHz para 700 Hz), 0,9 s</td><td>furo na vedação</td></tr>
+<tr><td><code>dispenser_dry</code></td><td><b>mecânico e grave</b>: 3 tossidas de ruído escuro, motor perdendo rotação, relé</td><td>engasga, desacelera, clique</td><td>Dispersor sem cápsula</td></tr>
+</table>
+
+<h2>Dicas pro Dev</h2><ul>
+<li><b>Volumes sugeridos</b> (escala do <code>VOLUME</code>): <code>door_open</code> 0,45 · <code>door_close</code> 0,45 (B é mais agudo e mais longo; baixe se cansar) · <code>base_sealed</code> 0,6 · <code>dispenser_hum</code> 0,35 · <code>leak_alert</code> 0,55 · <code>dispenser_dry</code> 0,5. Os alvos de loudness já saem em -25, -25, -19, -34, -21 e -23 dB.</li>
+<li><b><code>dispenser_hum</code> (loop de 8 s, emenda sem clique)</b>: toca enquanto a base está <b>Vedada com o Dispersor ligado e o player dentro</b>; fora, ou com a porta aberta dos dois lados, desce pra ~0,15 (use <code>fade_by_distance</code> como o <code>vent_hiss</code>). Entra e sai com fade de ~0,8 s. É escuro (nada acima de 2,5 kHz), não tem apito nem tom estreito; o nível varia só ~3 dB em 8 s, então dá pra deixar 10 min sem cansar. Se o <code>machine_hum</code> estiver tocando junto, o hum do Dispersor pode substituir o dele quando o player está dentro (os dois são graves e se somam).</li>
+<li><b>Porta</b>: <code>door_open</code> quando a porta começa a abrir e <code>door_close</code> quando fecha de vez. Varie o pitch 0,95 a 1,05 e use um canal de rodízio (2 a 3 canais) pra não cortar um som no outro quando o player passa e volta. São curtos (~0,7 s, sibilo que some sozinho) e baixos, aguentam centenas de repetições. Não toque se a porta já estava no estado (ex.: reabrir antes de fechar).</li>
+<li><b><code>base_sealed</code></b>: uma vez, na transição inválida para válida (Vazamento ou recém-construída para Vedado). Não toque no carregamento do save, nem em toda recalculada de flood fill que mantém o mesmo estado, e use um cooldown de ~3 s se o jogador ficar colocando e tirando parede. Pode tocar junto com o <code>o2_refill</code> quando o player está dentro (o selo cobre o começo, o refill vem depois).</li>
+<li><b><code>leak_alert</code></b>: dispare ao entrar em Vazamento e <b>repita a cada 4 s</b> enquanto durar (0,9 s de som, ~3 s de respiro; use 5 s se achar insistente). Pare de repetir ao vedar e aí toca o <code>base_sealed</code>. Só toque se o player está na base ou perto dela (até ~12 tiles), senão fica sem sentido. Não varie o pitch, o contorno é o reconhecimento. Sincronize com o pisca do tile furado (a cada repetição).</li>
+<li><b><code>dispenser_dry</code></b>: uma vez, quando o estado vira "Sem água" (a última cápsula acabou). Depois disso, o <code>dispenser_hum</code> sai com fade de 0,3 s. Não repete: se quiser lembrete, reaproveite o <code>power_low</code>/aviso de texto. Se a base ficar sem água <b>e</b> furada, só o vazamento repete.</li>
+<li>Sem ducking necessário; só o <code>dispenser_hum</code> é contínuo, e está mais baixo que o <code>amb_*</code> (-27).</li>
+</ul>
+<p style="color:var(--muted);font-size:13px">Gerado por <code>tools/audio/build_v05_m2.py</code> (seed por nome, só numpy; usa os blocos do <code>build_audio.py</code>). Para promover: mover os wavs de <code>pendentes/</code> para <code>assets/audio/</code> e registrar no contrato do <code>check_audio.py</code>.</p>
+</div>
+<script src="v05_meta.js"></script>
+<script>
+const M=window.V05_META;
+const NEW={
+ door_open:["porta","B (shhhiii) · porta começa a abrir","Trava leve e o sibilo pneumático: ataque rápido, brilho subindo de 2 a 9 kHz, cauda que some em ~0,6 s. Deslizar bem baixinho por baixo."],
+ door_close:["porta","B (shhhiii) · porta termina de fechar","O ar entra: o sibilo cresce e o brilho desce, e corta na trava seca (clack mais grave + 'tss'). A trava no fim separa do open."],
+ "anterior_A/door_open_A":["porta","A (anterior) · abrindo","Sopro curto e macio, ~0,4 s."],
+ "anterior_A/door_close_A":["porta","A (anterior) · fechando","Desliza e trava com 'tss', ~0,45 s."],
+ base_sealed:["base","Base passou a Vedada (inválida para válida)","Selo pneumático, ar que enche e sobe, acorde de Lá que abre e um sininho de 'estável'. O prêmio da construção."],
+ dispenser_hum:["base","Loop enquanto a base está Vedada e o Dispersor ligado (player dentro)","Ar circulando num drone baixo em Lá. Escuro, sem apito, sem tom estreito. Feito pra ficar 10 min."],
+ leak_alert:["alert","Repete a cada 4 s enquanto a base estiver em Vazamento","Ar escapando: fsssh que cai de brilho com tremor, mais um glissando macio descendo (pressão caindo). Sem bipe, diferente do o2_low."],
+ dispenser_dry:["alert","Uma vez, quando o Dispersor fica 'Sem água'","Engasga em 3 tossidas cada vez mais fracas, o motor perde rotação e o relé desliga."]};
+const NB={o2_low:["O₂ baixo (loop)","Bipes quadrados F5 e C5."],power_low:["Energia baixa","Motor caindo e bipe duplo Lá4."],machine_hum:["Perto de máquinas (loop)","Zumbido 60 Hz com ventoinha."],o2_refill:["Entrou na zona da base","Recarga de O₂."],build:["Construir (M1)","Feixe de scanner e trava."]};
+function card(name,key,txt,nb){const m=M[key];const el=document.createElement("div");el.className="card"+(nb?" nb":"");
+ el.innerHTML=`<div><span class="fname">${name}.wav</span> <span class="tag">${m.duration.toFixed(2)} s</span><span class="tag">pico ${m.peak_db} dBFS</span><span class="tag">loud ${m.loudness_db} dB</span>${m.loop?'<span class="tag loop">loop</span>':''}</div>
+ <div class="when">${txt[0]}</div><canvas width="320" height="44"></canvas>
+ <audio controls preload="metadata" ${m.loop?'loop':''} src="${m.file}"></audio><p class="what">${txt[1]}</p>`;
+ const c=el.querySelector("canvas").getContext("2d");c.fillStyle=nb?"#8a7a6e":"#e2733a";const w=m.wave,bw=320/w.length;
+ w.forEach((v,i)=>{const h=Math.max(1,v*42);c.fillRect(i*bw,22-h/2,Math.max(1,bw-0.5),h)});return el}
+for(const k in NEW){const v=NEW[k];document.getElementById(v[0]).append(card(k,k,[v[1],v[2]],false))}
+for(const k in NB)document.getElementById("nb").append(card("nb_"+k,"nb:"+k,NB[k],true));
+let timers=[],auds=[];
+function A(n,v){const a=new Audio(M[n].file);a.volume=v==null?1:v;auds.push(a);return a}
+function stopAll(){timers.forEach(clearTimeout);timers=[];auds.forEach(a=>a.pause());auds=[];log("")}
+function log(s){document.getElementById("log").textContent=s}
+function later(ms,f){timers.push(setTimeout(f,ms))}
+function simDoor(n,sx){sx=sx||"";const O=sx?"anterior_A/door_open_A":"door_open",C=sx?"anterior_A/door_close_A":"door_close";stopAll();for(let i=0;i<n;i++){later(i*2400,()=>{const a=A(O,.5);a.playbackRate=.95+Math.random()*.1;a.play()});later(i*2400+1200,()=>{const a=A(C,.5);a.playbackRate=.95+Math.random()*.1;a.play()})}log(" "+n+"×")}
+function simSeal(){stopAll();A("base_sealed",.6).play();later(1500,()=>{const h=A("dispenser_hum",.35);h.loop=true;h.play()})}
+function simLeak(n){stopAll();for(let i=0;i<n;i++)later(i*4000,()=>A("leak_alert",.55).play())}
+function simCompare(){stopAll();A("leak_alert",.55).play();later(1800,()=>A("nb:o2_low",.5).play());later(3200,()=>A("nb:power_low",.5).play());later(5400,()=>A("leak_alert",.55).play())}
+function simDry(){stopAll();const h=A("dispenser_hum",.35);h.loop=true;h.play();later(2500,()=>{h.pause();A("dispenser_dry",.5).play()})}
+</script></body></html>
