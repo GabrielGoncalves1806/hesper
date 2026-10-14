@@ -60,7 +60,7 @@ def test_three_to_five_veins_far_and_apart():
     for seed in (1, 2, 3, C.WORLD_SEED):
         w = generate_surface(seed)
         assert lo <= len(w.veins) <= hi
-        assert {v.resource for v in w.veins} == set(C.RESOURCES)
+        assert {v.resource for v in w.veins} == set(C.VEIN_RESOURCES)
         seen = set()
         for v in w.veins:
             assert all(w.dist_from_center(*t) >= C.SURFACE_VEIN_MIN_DIST for t in v.tiles)

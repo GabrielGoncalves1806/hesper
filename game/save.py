@@ -173,6 +173,10 @@ def layers_from_dict(state: GameState, data: dict) -> None:
         for x, y, kind in ldata["changed_tiles"]:
             layer.world.set(int(x), int(y), int(kind))
         layer.machines = [machine_from_dict(d) for d in ldata["machines"]]
+        for m in layer.machines:            # save v7 de antes da magmatita: a rocha nova da seed não fica embaixo
+            for t in m.tiles:               # de uma máquina que já estava lá (vira areia; o próximo save guarda)
+                if layer.world.get(*t) == C.SMALL_MAGMATITE:
+                    layer.world.set(*t, C.SAND)
         if layer.rocks is not None and "rocks" in ldata:     # save v6 antigo: "rocks" falta e "pickups"
             layer.rocks = RockRespawn.from_data(ldata["rocks"])  # (os soltos, que saíram do jogo) é ignorado
         for x, y, slots, opened in ldata.get("crates", []):      # Marco 3 (save do Marco 1/2 não tem)

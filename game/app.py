@@ -175,6 +175,8 @@ class App:
         self.toast: str | None = None   # aviso neutro rápido ("Zoom 1,5×")
         self.thaw_notice: str | None = None   # v0.4 M3.1: "O gelo da cratera está cedendo" (pílula no estilo RAJADA)
         self.thaw_notice_time = 0.0
+        self.objective_hint: str | None = None   # v0.4: dica do objetivo atual (magmatita), embaixo da coluna da esquerda
+        self.objective_hint_time = 0.0
         self.submerged_kinds: list[str] = []  # v0.4 M3.4: máquinas do aviso "submersa" que está na tela (agrupa)
         self.toast_time = 0.0
         self.audio.set_mix(**settings.mix(self.settings))
@@ -1293,6 +1295,7 @@ class App:
         self.notice_time = max(0.0, self.notice_time - dt)
         self.toast_time = max(0.0, self.toast_time - dt)
         self.thaw_notice_time = max(0.0, self.thaw_notice_time - dt)
+        self.objective_hint_time = max(0.0, self.objective_hint_time - dt)
         self.blueprint_notice_time = max(0.0, self.blueprint_notice_time - dt)
         self.blueprint_duck = max(0.0, self.blueprint_duck - dt)
         self.banner_time += dt
@@ -1314,6 +1317,9 @@ class App:
         self.update_ambient_sounds(dt)
         self.spawn_machine_floaters(dt)
         self.objectives.update(self.state, dt)
+        hint = self.objectives.take_hint()
+        if hint:                                  # objetivo com dica virou o atual (magmatita): aviso embaixo dele
+            self.objective_hint, self.objective_hint_time = hint, C.OBJECTIVE_HINT_TIME
 
     def on_game_event(self, event: tuple) -> None:
         kind = event[0]
@@ -1755,6 +1761,8 @@ class App:
         ui.draw_gust_warning(state, self.t)
         if self.thaw_notice_time > 0 and self.thaw_notice:
             ui.draw_thaw_notice(self.thaw_notice, min(1.0, self.thaw_notice_time / 0.4))
+        if self.objective_hint_time > 0 and self.objective_hint and not critical:
+            ui.draw_objective_hint(self.objective_hint, min(1.0, self.objective_hint_time / 0.4))
         if state.has_scanner and self.mode != "map":           # scanner equipado: minimapa
             ui.draw_minimap(state, self.renderer.minimap.texture(state), self.t, self.renderer.item_icon)
         if self.saved_notice > 0:
@@ -1915,6 +1923,7 @@ class App:
         self.renderer.minimap.reset()
         self.blueprint_notice, self.blueprint_notice_time, self.blueprint_duck = None, 0.0, 0.0
         self.thaw_notice, self.thaw_notice_time = None, 0.0
+        self.objective_hint, self.objective_hint_time = None, 0.0
         self.submerged_kinds = []
         self.banner_stage, self.banner_time, self.end_timer = state.stage, 0.0, None
         self.drills_near.clear()

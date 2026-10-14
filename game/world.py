@@ -194,7 +194,7 @@ class World:
         # perto da base: chão aberto, alcançável a pé a partir da cratera
         reach = self.reachable_from(C.CAVE_CENTER)
         lo, hi = C.VEINS_NEAR_BASE
-        for resource in C.RESOURCES:
+        for resource in C.VEIN_RESOURCES:
             candidates = [(tx, ty) for ty in range(self.height - 1) for tx in range(self.width - 1)
                           if lo <= center_dist(tx, ty) <= hi and block_ok(tx, ty, spacing=8)
                           and open_floor(tx, ty)
@@ -204,7 +204,7 @@ class World:
 
         # longe: mais veios, alternando caverna aberta e bolsão escavado na rocha
         lo, hi = C.VEINS_FAR_RANGE
-        for resource in C.RESOURCES:
+        for resource in C.VEIN_RESOURCES:
             placed = 0
             for _ in range(400):
                 if placed >= C.VEINS_FAR_PER_TYPE:
