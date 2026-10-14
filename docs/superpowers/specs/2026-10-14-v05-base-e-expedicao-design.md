@@ -77,7 +77,7 @@ Decisões do dono (2026-10-14). Cada item abaixo é **uma tarefa, soltas uma por
    - Chão **azul-neve**, não cinza; **sem rachaduras** (sai o `decal_icepoly`, entra coisa de neve: montinhos, sastrugi, brilho); **mais variações** de chão.
    - **Minério de gelo** com a **mesma silhueta** de hoje, mas **facetado como cristal de gelo** (hoje parece prata).
 3. **Faixa gelada como região de verdade** (Dev, depois da arte aprovada)
-   - Região maior e marcada no mapa 256, com a arte nova integrada.
+   - Arte nova integrada. **O tamanho da faixa não muda no M3** (dono, 2026-10-14: achou curta, mas tem ideias pro gelo e mexe nisso em outra versão, junto do rebalanceamento).
    - **Veio de gelo (2×2, da drill) só nasce na faixa gelada.** Ferro e silício continuam como hoje.
 4. **Cratera orgânica** (Dev)
    - Os **blocos mineráveis dentro da cratera** (caverna) ganham o formato orgânico dos morros da superfície, **reaproveitando o motor dos morros** (`game/hills.py`). Sem arte nova.
