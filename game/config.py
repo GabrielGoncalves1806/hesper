@@ -770,6 +770,13 @@ VOLUME["ice_crack"] = 0.7        # gelo estalando (ice_crack.wav / ice_crack_1.w
 VOLUME["ice_collapse"] = 0.8     # o gelo desabando (ice_collapse.wav, v11): cratera aberta (etapa 4) e gelo-portão na 3
 ICE_COLLAPSE_CAVE_VOLUME = 0.5   # na caverna o desabamento sai a 0,5 (abafado pela rocha)
 # Contador de desempenho (game/perf_meter.py): F5 liga/desliga; ligado por padrão enquanto o jogo está em desenvolvimento
+# Cenário pausado pelo dono (catálogo do cenário, reports/design/catalogo_cenario): some do mundo, o sorteio não
+# muda. Tira o nome da lista pra voltar.
+SCENERY_PAUSED = frozenset({
+    "decor_shards", "decor_salt_crystals", "decor_ice_chunks",        # soltos v8
+    "decor_slabs", "decor_mud_curls", "decor_salt_mound", "decor_salt_slabs",   # soltos v9
+    "decal_gravel",                                                    # decalque v8
+})
 PERF_METER_ON = True
 # Colisão da rocha pequena: só a base do desenho (x, y, w, h dentro do tile), não o tile inteiro (o sprite ocupa
 # x 1–30, y 9–31; com o tile todo sólido o player travava no ar, longe da pedra · playtest do dono)

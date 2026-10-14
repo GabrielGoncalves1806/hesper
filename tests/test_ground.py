@@ -45,8 +45,16 @@ def block_with(geo, a, b):
 def test_indexed_png_keeps_the_index(art):
     for tex in art.textures:
         assert tex.shape == (BP, BP) and tex.dtype == np.uint8 and tex.max() <= 7
-    assert {"crack", "gravel", "patch_dark", "wind", "ridges", "scoria", "icesheet"} <= set(art.decals)
-    assert {"shards", "salt_crystals", "ice_chunks"} <= set(art.decor)   # v9 acrescenta tipos (o M3.0 integra)
+    paused = {k.partition("_")[2] for k in C.SCENERY_PAUSED}   # o dono pausou alguns (catálogo do cenário)
+    assert {"crack", "gravel", "patch_dark", "wind", "ridges", "scoria", "icesheet"} - paused <= set(art.decals)
+    assert {"shards", "salt_crystals", "ice_chunks"} - paused <= set(art.decor)   # v9 acrescenta tipos
+
+
+def test_paused_scenery_is_not_loaded(art):
+    """C.SCENERY_PAUSED: o item some (sem sprite o render pula), sem mexer no sorteio dos outros."""
+    for key in C.SCENERY_PAUSED:
+        kind, _, name = key.partition("_")
+        assert name not in (art.decals if kind == "decal" else art.decor), key
 
 
 def test_bake_is_deterministic_and_strip_size_does_not_matter(geo, art, monkeypatch):

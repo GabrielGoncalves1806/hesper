@@ -211,5 +211,6 @@ def test_decor_surfaces_moss_and_flip(art):
     assert pygame.image.tobytes(flip, "RGBA") == pygame.image.tobytes(pygame.transform.flip(stone, True, False),
                                                                        "RGBA")
     for name in ("pebbles", "mud_curls", "penitentes", "rimed_rock", "salt_slabs", "bombs"):
-        assert gr.decor_surface(name, 0, "arid") is not None, name
+        paused = f"decor_{name}" in C.SCENERY_PAUSED                # o dono pausou alguns: sem sprite
+        assert (gr.decor_surface(name, 0, "arid") is None) == paused, name
     assert REGION_NAMES                                       # import usado

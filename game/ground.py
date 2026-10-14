@@ -240,6 +240,11 @@ class RegionArt:
             idx = load_indexed(path)
             if idx is not None:
                 self.decor.setdefault(name, []).append(idx)
+        # Itens pausados pelo dono (C.SCENERY_PAUSED, nomes de arquivo sem a variação): o sorteio continua igual
+        # e só o desenho some (o render pula decalque/solto sem sprite), então os outros não ocupam o lugar.
+        for key in C.SCENERY_PAUSED:
+            kind, _, name = key.partition("_")
+            (self.decals if kind == "decal" else self.decor).pop(name, None)
         self.ok = True
 
     def ramp(self, table: str, region: str, stage: str) -> list[tuple[int, int, int]]:
