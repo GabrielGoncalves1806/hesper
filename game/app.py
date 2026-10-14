@@ -1899,6 +1899,7 @@ class App:
         # camada 1: HUD e textos flutuantes
         ui.begin()
         icons = {r: self.renderer.surface(f"icon_{r}", lambda r=r: art.icon(r))[0] for r in C.RESOURCES}
+        icons["water_capsule"] = self.renderer.surface("icon_water_capsule", art.water_capsule_icon)[0]   # rótulo do baú
         labels = []
         if self.mode == "play":
             ui.draw_chest_labels(self.labeled_chests(), cam, self.zoom, icons)

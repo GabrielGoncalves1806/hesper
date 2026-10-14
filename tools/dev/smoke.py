@@ -1458,8 +1458,11 @@ def check_final_polish(bot) -> None:
     # 3) rótulo do baú x floaters: quem ia passar por trás do rótulo nasce acima dele
     s.player.x, s.player.y = ax + 8, ay + 12
     bot.frames(0.5)                                               # a câmera chega no player
+    drones.toggle_receive(chest, "water_capsule")                 # v0.5 M2: o rótulo com a cápsula crashava (KeyError)
     mouse_on(chest)
+    bot.frames(0.1)
     assert chest in app.labeled_chests()
+    drones.toggle_receive(chest, "water_capsule")
     app.floaters.items.clear()
     app.floaters.add("+10 SILICIO", ax, ay - 78, C.ORE_COLORS["silicon"][0])   # entrega do drone
     app.floaters.add("+O₂", ax + 6, ay - 30, C.INDEX_COLOR["o2"])              # máquina logo embaixo
