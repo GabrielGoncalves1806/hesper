@@ -33,7 +33,7 @@ def test_giant_pocket_exists_in_frost_and_clear_of_the_rest(seed):
     area = set(gp.interior) | set(gp.ring) | set(gp.apron) | set(gp.entry)
     assert all(g.region_at(*t) == FROST for t in area)                     # tudo dentro da faixa gelada
     assert all(g.basin_at(*t) < 0 for t in area)                           # nenhuma água
-    assert len(gp.interior) == C.GIANT_POCKET_SIZE[0] * C.GIANT_POCKET_SIZE[1]
+    assert len(gp.interior) <= C.GIANT_POCKET_SIZE[0] * C.GIANT_POCKET_SIZE[1]
     assert gp.entry_rect[2] == C.GIANT_ENTRY_W and len(gp.entry) == C.GIANT_ENTRY_W * C.POCKET_WALL
     assert not (set(gp.entry) & set(gp.ring))
     for p in g.pockets:                                                    # longe dos bolsões de hoje (e do portão deles)
@@ -52,6 +52,40 @@ def test_giant_has_corridor_all_around(seed):
     gp = geo(seed).giant
     near = box_around(gp.giant, 3) - set(gp.giant.box)
     assert near <= set(gp.interior)                                        # 3 tiles livres em cada lado, dentro do bolsão
+
+
+@pytest.mark.parametrize("seed", GEO_SEEDS)
+def test_giant_ring_is_organic_thick_and_sealed(seed):
+    gp = geo(seed).giant
+    inside, ring, entry = set(gp.interior), set(gp.ring), set(gp.entry)
+    around = lambda t, r: {(t[0] + dx, t[1] + dy) for dx in range(-r, r + 1) for dy in range(-r, r + 1)}
+    wall = C.POCKET_WALL
+    # espessura: tudo a até `wall` tiles (quina inclusa) do interior é anel ou vão da entrada, então nenhuma fresta nem fino
+    assert all(around(t, wall) <= inside | ring | entry for t in inside)
+    ix = [x for x, _ in inside]
+    assert max(ix) - min(ix) + 1 <= C.GIANT_POCKET_SIZE[0]
+    # não é um retângulo: o interior tem cantos cortados e o anel não é uma caixa cheia
+    x0, y0, w, h = gp.outer
+    full = inside | ring | entry
+    assert not any(c in full for c in ((x0, y0), (x0 + w - 1, y0), (x0, y0 + h - 1), (x0 + w - 1, y0 + h - 1)))
+    assert len(full) < w * h - 4
+    # o vão é reto (caixa do portão) e colado no fundo reto do interior
+    ex, ey, ew, eh = gp.entry_rect
+    assert set(gp.entry) == {(x, y) for x in range(ex, ex + ew) for y in range(ey, ey + eh)}
+    assert all((x, ey - 1) in inside for x in range(ex, ex + ew))
+    # sem ponta de 1 tile nem tile ilhado no interior
+    assert all(sum(n in inside for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1))) >= 2 for x, y in inside)
+
+
+@pytest.mark.parametrize("seed", WORLD_SEEDS)
+def test_giant_interior_only_reachable_through_the_entry(seed):
+    w = generate_surface(seed)
+    gp = w.geo.giant
+    inside = set(gp.interior) - set(gp.giant.tiles)
+    assert inside <= w.reachable_from(C.BASE_TILE)                      # aberta: dá pra entrar
+    for t in gp.entry:                                                  # fecha o vão com rocha (o portão da 6.3)
+        w.set(*t, C.ROCK)
+    assert not (inside & w.reachable_from(C.BASE_TILE))                 # sem fresta (nem pela quina): ninguém entra
 
 
 def test_giant_pocket_entry_faces_away_from_the_mountains():
@@ -126,3 +160,26 @@ def test_sprites_and_shards_load():
     assert hills.ramp("ICE+ICE_DEEP", "frost", "arid").shape == (13, 3)
     assert len(ice_giant.shards(gp.giant)) == 12 and all(b.rect is None for b in ice_giant.shards(gp.giant))
     assert hills.FrostRing("frost_field.png").surface(2).get_size() == (420, 200)
+
+
+def test_green_butterflies_never_fly_over_the_frost_band():
+    """A "florzinha rosa" da faixa gelada era uma borboleta do clima do Verde (efeito de tela, sem região): agora some na neve."""
+    from game.assets import Sprites
+    from game.render import Renderer
+
+    class Canvas:                                          # só conta os retângulos pintados (as asas)
+        fills = 0
+        def blit(self, *a, **k): pass
+        def fill(self, *a, **k): self.fills += 1
+
+    class FakeGeo:
+        def __init__(self, region): self.region = region
+        def region_px(self, px, py): return self.region
+
+    pygame.init()
+    pygame.display.set_mode((64, 64))
+    r = Renderer(Sprites())
+    on_sand, on_snow = Canvas(), Canvas()
+    r._draw_weather(on_sand, "green", 1.0, 1.0, (0, 0), FakeGeo(0))
+    r._draw_weather(on_snow, "green", 1.0, 1.0, (0, 0), FakeGeo(FROST))
+    assert on_sand.fills > 0 and on_snow.fills == 0
