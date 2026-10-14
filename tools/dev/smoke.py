@@ -1055,6 +1055,193 @@ def check_melter(bot) -> None:
     bot.frames(0.1)
 
 
+def find_free_area(state, w: int, h: int, near=(96, 99), spread: int = 22):
+    """Canto (x, y) de uma área w×h de chão livre (sem máquina, veio, água nem cápsula) o mais perto de `near`."""
+    best = None
+    for y in range(near[1] - spread, near[1] + spread):
+        for x in range(near[0] - spread, near[0] + spread):
+            tiles = [(x + i, y + j) for i in range(w) for j in range(h)]
+            if all(state.world.is_floor(*t) and state.machine_at(t) is None and not state.world.vein_at(*t)
+                   and not state.world.is_water(*t, state.stage) and t not in C.POD_TILES for t in tiles):
+                d = abs(x - near[0]) + abs(y - near[1])
+                if best is None or d < best[0]:
+                    best = (d, (x, y))
+    assert best, "sem área livre pra base"
+    return best[1]
+
+
+def check_base(bot) -> None:
+    """v0.5 M2 · base respirável. Menu do construtor (aba Base), blocos pelo clique de verdade (chão, parede, porta
+    dupla girada com R), desmontar uma parede segurando, uma base montada e vedada com o Dispersor soprando e uma
+    máquina em cima do chão, o painel do Dispersor, porta solo aberta, porta dupla, o raio-x atrás da parede e um
+    vazamento (o tile pisca). Prints: base_menu, base_vedada, base_painel_dispersor, base_porta_solo, base_porta_dupla,
+    base_raiox, base_raiox_fundo, base_vazamento_aceso/_apagado, base_sem_agua."""
+    from game.base import BaseBlock
+    s, app = bot.state, bot.app
+    slots_before = [Stack(st.item, st.count) if st else None for st in s.inventory.slots]
+    machines_before = list(s.machines)
+    bx, by = find_free_area(s, 10, 8)
+    s.o2 = C.O2_MAX
+    # sala: chão 6×4 em (bx+1, by+1), parede em volta; solo na parede de baixo, dupla (v) na da direita
+    fx, fy, fw, fh = bx + 2, by + 2, 6, 4
+    door_tile = (fx + 1, fy + fh)
+    double_tile = (fx + fw, fy + 1)
+    bot.teleport((fx + 2, fy + 1))
+    bot.frames(0.2)
+    give(s, iron=200, silicon=80, ice=20, water_capsule=0)
+    s.inventory.slots[CONSTRUCTOR_SLOT] = None
+    hold_constructor(bot)
+    # --- o menu: a aba Base tem os 5 itens
+    bot.mouse_to((40, 40))
+    bot.key(pygame.K_e)
+    assert app.mode == "build"
+    base_tab = [t for t, _ in C.FAB_TABS].index("base")
+    bot.click(ui_to_window(app, next(r for r, i in app.ui.fabricator_tabs if i == base_tab)))
+    assert app.build_menu.tab_id == "base" and app.build_menu.kinds == [*C.BASE_KINDS, C.DISPENSER]
+    bot.frames(0.2)
+    bot.shot("base_menu.png")
+    bot.key(pygame.K_ESCAPE)
+    # --- blocos pelo clique de verdade: chão, parede e a dupla (R gira, o fantasma vira 1×2)
+    def place(kind, tile, rot=0):
+        hold_constructor(bot, kind)
+        app.rotation = rot
+        bot.mouse_to(bot.tile_on_screen(tile))
+        bot.click(bot.tile_on_screen(tile))
+        release_constructor(bot)
+
+    iron0 = s.inventory.count("iron")
+    place(C.BASE_FLOOR, (fx, fy + 3))
+    assert s.base.get((fx, fy + 3)).is_floor and s.inventory.count("iron") == iron0 - C.BASE_COST[C.BASE_FLOOR]["iron"]
+    place(C.BASE_WALL, (fx - 1, fy))
+    assert s.base.get((fx - 1, fy)).is_wall
+    bot.teleport((fx + 2, fy + 1))
+    hold_constructor(bot, C.BASE_DOOR2)
+    assert app.placing == C.BASE_DOOR2
+    bot.key(pygame.K_r)
+    assert app.rotation == 1
+    bot.mouse_to(bot.tile_on_screen(double_tile))
+    bot.frames(0.1)
+    bot.shot("base_fantasma_dupla.png")
+    bot.click(bot.tile_on_screen(double_tile))
+    release_constructor(bot)
+    dd = s.base.get(double_tile)
+    assert dd is not None and dd.is_double and dd.orient == "v" and s.base.get((double_tile[0], double_tile[1] + 1)) is dd
+    # --- desmontar a parede segurando o botão direito
+    wall = s.base.get((fx - 1, fy))
+    wx, wy = bot.tile_on_screen((fx - 1, fy))
+    pos = (wx, wy + 8)
+    bot.mouse_to(pos)
+    assert "desmontar" in app.hint(), app.hint()
+    iron1 = s.inventory.count("iron")
+    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=pos, button=3))
+    bot.frames(C.DISMANTLE_HOLD + 0.1)
+    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONUP, pos=pos, button=3))
+    bot.frames(DT)
+    assert s.base.get((fx - 1, fy)) is None and s.inventory.count("iron") == iron1 + C.BASE_COST[C.BASE_WALL]["iron"]
+    # --- o resto da base, direto na grade (o fluxo de verdade já foi testado acima)
+    for y in range(fy - 1, fy + fh + 1):
+        for x in range(fx - 1, fx + fw + 1):
+            tile = (x, y)
+            if s.base.get(tile) is not None:
+                continue
+            inside = fx <= x < fx + fw and fy <= y < fy + fh
+            if inside:
+                s.base.add(BaseBlock(C.BASE_FLOOR, x, y))
+            elif tile == door_tile:
+                s.base.add(BaseBlock(C.BASE_DOOR, x, y))
+            else:
+                s.base.add(BaseBlock(C.BASE_WALL, x, y))
+    disp = build_at(s, C.DISPENSER, (fx + 1, fy))                 # no chão da base, canto de cima à esquerda
+    gen = build_at(s, "o2", (fx + 4, fy))                         # máquina em cima do chão da base
+    bench = build_at(s, "chest", (fx + 4, fy + 2))
+    disp.sealed_prev = False
+    disp.storage.slots[0] = Stack("water_capsule", 3)
+    bot.teleport((fx + 2, fy + 2))
+    s.o2 = 40.0
+    bot.frames(0.6)
+    assert s.dispenser_state(disp) == "sealed" and s.in_sealed_base(), s.dispenser_state(disp)
+    assert s.o2 > 40.0, "dentro da base vedada o O₂ recarrega"
+    sealed_events = [e for e in app.state.events if e[0] == "base_sealed"]
+    bot.shot("base_vedada.png")
+    shot_zoom(bot, "base_vedada_zoom.png", ((fx + 3) * C.TILE, (fy + 2) * C.TILE), w=300, h=190, k=3)
+    # --- painel do Dispersor (E): cápsula no slot, estado
+    bot.teleport((fx + 1, fy + 1))
+    bot.frames(0.2)
+    assert s.interaction() == ("dispenser", disp) and app.hint() == "[E] Abrir Dispersor de O₂", app.hint()
+    bot.key(pygame.K_e)
+    assert app.mode == "dispenser" and app.open_dispenser is disp
+    bot.frames(0.2)
+    bot.shot("base_painel_dispersor.png")
+    iron_slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "iron")
+    bot.click(slot_pos(bot, s.inventory, iron_slot))
+    assert app.notice == "O Dispersor só aceita cápsula de água"
+    bot.key(pygame.K_ESCAPE)
+    assert app.mode == "play"
+    # --- porta solo aberta (player perto) e fechada (longe)
+    bot.teleport((door_tile[0], door_tile[1] - 1))
+    bot.frames(0.5)
+    door = s.base.get(door_tile)
+    assert not door.closed and door.frame == C.DOOR_FRAMES - 1
+    bot.shot("base_porta_solo.png")
+    shot_zoom(bot, "base_porta_solo_zoom.png", ((door_tile[0] + 0.5) * C.TILE, door_tile[1] * C.TILE), w=240, h=150, k=4)
+    bot.teleport((door_tile[0], door_tile[1] + 1))                 # do lado de fora, atravessando pela porta
+    bot.frames(0.3)
+    assert not door.closed
+    # --- porta dupla (vertical, na parede da direita)
+    bot.teleport((double_tile[0] - 1, double_tile[1]))
+    bot.frames(0.5)
+    assert not dd.closed
+    bot.shot("base_porta_dupla.png")
+    shot_zoom(bot, "base_porta_dupla_zoom.png", ((double_tile[0] + 0.5) * C.TILE, (double_tile[1] + 1) * C.TILE), w=240,
+              h=170, k=4)
+    # --- raio-x: dentro, encostado na parede de baixo (o topo cobre o corpo); por fora, atrás da parede de cima
+    bot.teleport((fx + 4, fy + fh - 1))
+    bot.frames(0.3)
+    assert app.renderer.player_occluded(s)
+    bot.shot("base_raiox.png")
+    shot_zoom(bot, "base_raiox_zoom.png", (s.player.x, s.player.y), w=200, h=140, k=4)
+    bot.teleport((fx + 2, by - 1))                                   # fora, em cima da parede de cima? (acima dela)
+    bot.frames(0.2)
+    s.player.y = (fy - 1) * C.TILE - 3                               # logo acima da parede de cima, por fora
+    bot.frames(0.3)
+    assert app.renderer.player_occluded(s)
+    bot.shot("base_raiox_fundo.png")
+    shot_zoom(bot, "base_raiox_fundo_zoom.png", (s.player.x, s.player.y), w=200, h=140, k=4)
+    # --- vazamento: tira uma parede e o tile pisca
+    leak_tile = (fx + fw, fy + 3)
+    s.base.remove(s.base.get(leak_tile))
+    bot.teleport((fx + 4, fy + 2))
+    bot.frames(0.2)
+    assert s.dispenser_state(disp) == "leak" and s.seal_of(disp).leak == leak_tile
+    assert app.hint() is not None
+    for name, want in (("base_vazamento_aceso.png", 0), ("base_vazamento_apagado.png", 1)):
+        while int(app.t * C.LEAK_BLINK_HZ * 2) % 2 != want:
+            bot.frames(DT)
+        bot.shot(name)
+    shot_zoom(bot, "base_vazamento_zoom.png", ((leak_tile[0] + 0.5) * C.TILE, (leak_tile[1] + 0.5) * C.TILE), w=240,
+              h=150, k=4)
+    assert any(e[0] == "leak_alert" for e in s.events) or s.dispenser_state(disp) == "leak"
+    s.base.add(BaseBlock(C.BASE_WALL, *leak_tile))
+    bot.frames(0.2)
+    assert s.dispenser_state(disp) == "sealed"
+    # --- sem água
+    disp.storage.slots[0] = None
+    disp.burn = 0.0
+    bot.frames(0.3)
+    assert s.dispenser_state(disp) == "dry"
+    s.o2 = 40.0
+    bot.frames(0.5)
+    assert s.o2 < 40.0
+    bot.shot("base_sem_agua.png")
+    # limpa: a base sai do resto do smoke
+    for block in list(s.base.blocks):
+        s.base.remove(block)
+    s.surface.machines[:] = machines_before
+    s.inventory.slots[:] = slots_before
+    bot.teleport((96, 97))
+    bot.frames(0.2)
+
+
 def max_stack_capsule() -> int:
     from game.inventory import max_stack
     return max_stack("water_capsule")
@@ -4264,6 +4451,7 @@ def main() -> None:
     bot.frames(3.0)                           # deixa o banner do estágio 2 sumir
     check_drill_feature(bot)
     check_melter(bot)
+    check_base(bot)
     check_drones(bot)
     check_logistics(bot)
     check_polish(bot)

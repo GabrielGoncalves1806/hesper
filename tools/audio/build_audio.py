@@ -2395,6 +2395,198 @@ SOUNDS.update({
 })
 
 
+# ---------------------------------------------------------------------------
+# v0.5 Marco 2 · base respirável (v13.1, APROVADOS pelo dono): porta (B, "shhhiii"), selo, zumbido do Dispersor,
+# vazamento e Dispersor sem água. Geradores promovidos de tools/audio/build_v05_m2.py (que importa daqui). Cada som
+# mantém a seed da proposta (4º item do SOUNDS), então o wav sai byte a byte igual ao aprovado.
+# ---------------------------------------------------------------------------
+
+def click_m2(rng, gain=1.0, lo=500, hi=2600, dur=0.03):
+    """Trava mecânica leve: ruído de banda larga, sem tom."""
+    tr = Track()
+    tr.add(noise_burst(rng, lo, hi, 0.0003, 0.005, dur, order=1), 0, 0.8 * gain)
+    tr.add(noise_burst(rng, 2000, 7000, 0.0002, 0.0007, 0.005, order=1), 0, 0.3 * gain)
+    tr.add(noise_burst(rng, None, 300, 0.001, 0.010, 0.04, order=2), 0.001, 0.3 * gain)
+    return tr.render()
+
+
+def slide(rng, dur, lo=110, hi=1100, irregular=True):
+    """Corrimão da porta: ruído de banda larga, envelope suave com leve tremor irregular."""
+    n = ns(dur)
+    x = filt(rng.standard_normal(n), lo, hi, 2)
+    env = bump(n, 0.35)
+    if irregular:
+        wob = filt(rng.standard_normal(n), 8, 40, 1)
+        wob = wob / (np.max(np.abs(wob)) + 1e-9)
+        env = env * (0.8 + 0.2 * wob)
+    return x * env
+
+
+def servo(dur, f0, f1, gain_env=None):
+    """Zumbido de servo bem discreto (dente de serra filtrada), glissando suave."""
+    n = ns(dur)
+    t = tvec(n)
+    f = f0 + (f1 - f0) * t / dur
+    x = filt(bl_wave(f, n, "saw", 1800), 80, 1500, 1) * bump(n, 0.3)
+    return x
+
+
+def sfx_base_sealed(rng):
+    """~2,3 s. 'Pressurizou'. Selo pneumático (clack + 'tchss'), um sopro de ar que ENCHE e
+    sobe (banda larga 300 Hz -> 4 kHz, crescendo) e um acorde de Lá maior sus2 -> maior (Lá3,
+    Mi4, Lá4, Dó#5) que abre por baixo do sopro e assenta, com um sininho suave de seno em
+    Lá5+Mi5 no fim ('ok, estável'). Sem seno grave com pitch (nada de tambor)."""
+    tr = Track()
+    tr.add(click_m2(rng, 1.0, 400, 2400, 0.04), 0.0, 0.8)
+    m = ns(0.3)
+    tr.add(filt(rng.standard_normal(m), 1200, 6000, 1) * bump(m, 0.06) ** 1.5, 0.01, 0.35)
+    # sopro subindo
+    L = 1.5
+    n = ns(L)
+    sweep = noise_sweep(rng, L, 300, 3800, 2.5)
+    tr.add(sweep * bump(n, 0.75) ** 1.3, 0.12, 0.55)
+    # acorde que abre
+    for mn, d, g in ((57, 0.30, 0.22), (64, 0.42, 0.20), (69, 0.54, 0.17), (73, 0.66, 0.13)):
+        q = ns(1.7)
+        tt = tvec(q)
+        x = (np.sin(phase_of(midi(mn), q)) + 0.25 * np.sin(phase_of(midi(mn) * 2, q))
+             + 0.12 * np.sin(phase_of(midi(mn) * 3, q)))
+        env = np.minimum(1, tt / 0.45) * np.exp(-np.maximum(0, tt - 0.5) / 0.7)
+        tr.add(x * env, d, g)
+    # sininho de confirmação
+    for mn, d, g in ((81, 1.18, 0.20), (88, 1.27, 0.12)):
+        q = ns(1.0)
+        tt = tvec(q)
+        bell = (np.sin(phase_of(midi(mn), q)) + 0.15 * np.sin(phase_of(midi(mn) * 2.0, q))) * np.exp(-tt / 0.3)
+        tr.add(bell * np.minimum(1, tt / 0.005), d, g)
+    return tail_cut(filt(reverb(tr.render(), rng, decay=1.3, mix=0.28, lp=4500), None, 7000, 2), 2.5, 0.5)
+
+
+def shhh(rng, dur, up=True, attack=0.01, decay=0.2, rise=None):
+    """Sibilo pneumático 'shhhiii': ruído de banda larga em 2 a 9 kHz cujo brilho sobe
+    (ou desce) durante o som. Duas bandas em crossfade (média 1,8-4,5 kHz e aguda 4,5-9 kHz)."""
+    n = ns(dur)
+    t = tvec(n)
+    k = t / dur
+    if not up:
+        k = 1 - k
+    mid = filt(rng.standard_normal(n), 1800, 4500, 2)
+    hi = filt(rng.standard_normal(n), 4500, 9000, 2)
+    body = filt(rng.standard_normal(n), 700, 2200, 1)
+    x = mid * (1 - 0.8 * k) + hi * (0.25 + 0.9 * k) + 0.25 * body
+    if rise is None:
+        env = np.minimum(1, t / attack) * np.exp(-t / decay)
+    else:
+        env = bump(n, rise) ** 1.2
+    flut = 0.9 + 0.1 * filt(rng.standard_normal(n), 6, 30, 1) / 0.3
+    return x * env * np.clip(flut, 0.7, 1.1)
+
+
+def sfx_door_open_B(rng):
+    """~0,75 s. Trava leve (clack) e na sequência o 'shhhiii' pneumático: ataque rápido, o
+    brilho sobe de 2 para 9 kHz e a cauda some em ~0,6 s. Desliza por baixo, bem baixinho."""
+    tr = Track()
+    tr.add(click_m2(rng, 0.9), 0.0, 0.5)
+    tr.add(shhh(rng, 0.72, True, 0.012, 0.22), 0.02, 0.8)
+    tr.add(slide(rng, 0.4, 110, 900), 0.05, 0.22)
+    tr.add(servo(0.3, 210, 330), 0.05, 0.06)
+    return tail_cut(filt(reverb(tr.render(), rng, decay=0.35, mix=0.1, lp=6000), None, 9500, 2), 0.78, 0.12)
+
+
+def sfx_door_close_B(rng):
+    """~0,75 s. O ar entra: o 'shhhiii' cresce rápido, o brilho DESCE (pressão se igualando)
+    e corta na trava seca (clack mais grave + 'tss'), que fecha o som. Open e close se
+    distinguem pela trava: leve no começo, seca no fim."""
+    tr = Track()
+    tr.add(shhh(rng, 0.5, False, rise=0.3), 0.0, 0.8)
+    tr.add(slide(rng, 0.4, 110, 900), 0.0, 0.22)
+    tr.add(servo(0.3, 330, 200), 0.0, 0.06)
+    tr.add(click_m2(rng, 1.0, 380, 2200, 0.035), 0.48, 1.0)
+    m = ns(0.12)
+    tr.add(filt(rng.standard_normal(m), 2500, 8000, 1) * bump(m, 0.08) ** 2, 0.495, 0.2)
+    return tail_cut(filt(reverb(tr.render(), rng, decay=0.35, mix=0.1, lp=6000), None, 9500, 2), 0.74, 0.12)
+
+
+def loop_dispenser_hum(rng):
+    """Loop de 8 s: ar circulando, pra ficar 10 min dentro da base. Só banda larga escura
+    (130 Hz a 1,3 kHz) com um sopro lento que vai e vem (circulação, período inteiro no
+    loop), um drone muito baixo em Lá (55/110 Hz) e uma quinta bem leve, sem apito, sem
+    tom estreito e sem agudo. Reverb circular curto pra dar volume de sala."""
+    L = 8.0
+    n = ns(L)
+    t = tvec(n)
+    air = norm_rms(filt(rng.standard_normal(n), 130, 1300, 2, circular=True))
+    air_hi = norm_rms(filt(rng.standard_normal(n), 900, 2600, 1, circular=True))
+    circ = 0.55 + 0.45 * periodic_ctrl(n, L, rng, 1, 3, 1.2)          # sopro lento
+    bright = 0.3 + 0.7 * periodic_ctrl(n, L, rng, 1, 2, 1.0)
+    x = air * circ * 0.9 + air_hi * bright * circ * 0.18
+    drone = (np.sin(2 * np.pi * fr(55.0, L) * t + 0.3)
+             + 0.6 * np.sin(2 * np.pi * fr(110.0, L) * t + 1.1)
+             + 0.22 * np.sin(2 * np.pi * fr(164.8, L) * t + 2.0))
+    drone *= 1 + 0.1 * np.sin(2 * np.pi * (1 / L) * t)
+    x = x + norm_rms(drone) * 0.22
+    x = reverb(x, rng, decay=1.1, mix=0.35, lp=2500, circular=True)
+    return filt(x, 35, 2800, 2, circular=True)
+
+
+def sfx_leak_alert(rng):
+    """~0,85 s. Vazamento. Ar escapando: 'fsssh' de banda larga que cai de brilho (5 kHz -> 700 Hz),
+    com tremor rápido de 17 Hz (ar passando por uma fresta) e um glissando suave descendo (Lá5
+    -> Mi4, triângulo filtrada) que lê como 'pressão caindo'. Dominado por ruído e queda, sem
+    nenhum bipe de onda quadrada: o o2_low são bipes quadrados F5->C5 em loop e o power_low
+    é motor + bipe duplo Lá4. Aqui é sopro, nunca bipe."""
+    tr = Track()
+    L = 0.7
+    n = ns(L)
+    t = tvec(n)
+    hiss = noise_sweep(rng, L, 3500, 600, 2.6)
+    flutter = 0.65 + 0.35 * np.sin(2 * np.pi * np.cumsum(17 + 6 * np.exp(-t / 0.3)) / SR)
+    env = np.minimum(1, t / 0.012) * np.exp(-t / 0.33)
+    tr.add(hiss * flutter * env, 0, 0.7)
+    q = ns(0.5)
+    tq = tvec(q)
+    f = 880 * 2 ** (-1.5 * (tq / 0.5) ** 0.8)
+    gl = filt(bl_wave(f, q, "tri", 2500), 200, 2200, 1) * bump(q, 0.12) ** 1.1
+    tr.add(gl, 0.02, 0.28)
+    tr.add(click_m2(rng, 0.7, 600, 3000, 0.02), 0, 0.4)
+    return tail_cut(filt(reverb(tr.render(), rng, decay=0.5, mix=0.12, lp=4000), None, 6500, 2), 0.95, 0.15)
+
+
+def sfx_dispenser_dry(rng):
+    """~1,6 s. Dispersor sem água: engasga e desliga. Três tossidas mecânicas (rajadas de ruído
+    escuro 200 Hz-1,8 kHz com chacoalhar rápido, cada uma mais fraca e mais grave), o motor
+    perdendo rotação (dente de serra filtrada 120 -> 38 Hz sumindo) e um 'clique' de relé +
+    sopro curto de ar morrendo. Mecânico e pesado, o oposto do sopro agudo do leak_alert."""
+    tr = Track()
+    cough = [(0.0, 1.0, 1800), (0.30, 0.75, 1400), (0.62, 0.5, 1000)]
+    for at, g, hi in cough:
+        d = ns(0.2)
+        td = tvec(d)
+        x = filt(rng.standard_normal(d), 180, hi, 2)
+        rattle = 0.55 + 0.45 * np.sin(2 * np.pi * np.cumsum(np.full(d, 38.0)) / SR)
+        tr.add(x * rattle * perc(d, 0.006, 0.07), at, 0.7 * g)
+        tr.add(noise_burst(rng, None, 250, 0.004, 0.05, 0.12, order=2), at, 0.25 * g)
+    L = 1.3
+    n = ns(L)
+    t = tvec(n)
+    f = 38 + 85 * np.exp(-t / 0.45)
+    mot = filt(bl_wave(f, n, "saw", 700), 40, 700, 1) * np.exp(-t / 0.55) * np.minimum(1, t / 0.02)
+    tr.add(mot, 0.0, 0.55)
+    tr.add(click_m2(rng, 0.8, 350, 2000, 0.035), 1.12, 0.7)
+    m = ns(0.25)
+    tr.add(filt(rng.standard_normal(m), 400, 2500, 1) * bump(m, 0.1) ** 2, 1.1, 0.1)
+    return tail_cut(reverb(tr.render(), rng, decay=0.5, mix=0.14, lp=3500), 1.6, 0.2)
+
+SOUNDS.update({
+    "door_open": (sfx_door_open_B, False, -25.0, "v05m2:door_open_B"),
+    "door_close": (sfx_door_close_B, False, -25.0, "v05m2:door_close_B"),
+    "base_sealed": (sfx_base_sealed, False, -19.0, "v05m2:base_sealed"),
+    "dispenser_hum": (loop_dispenser_hum, True, -34.0, "v05m2:dispenser_hum"),
+    "leak_alert": (sfx_leak_alert, False, -21.0, "v05m2:leak_alert"),
+    "dispenser_dry": (sfx_dispenser_dry, False, -23.0, "v05m2:dispenser_dry"),
+})
+
+
 def v11_ready() -> str | None:
     """None se dá pra gerar a v11; senão, o motivo."""
     import importlib.util
@@ -2415,11 +2607,11 @@ def main() -> None:
     meta = {}
     print(f"{'arquivo':<20}{'dur(s)':>8}{'pico dBFS':>11}{'loud dB':>9}")
     rec_skip = v11_ready()
-    for name, (fn, loop, target) in SOUNDS.items():
+    for name, (fn, loop, target, *seed) in SOUNDS.items():
         if name in RECORDED and rec_skip:
             print(f"{name}: pulado ({rec_skip}); o wav que já está em assets/audio fica")
             continue
-        x = finalize(fn(rng_for(name)), loop, target)
+        x = finalize(fn(rng_for(seed[0] if seed else name)), loop, target)
         xi = write_wav(OUT_DIR / f"{name}.wav", x)
         xf = xi.astype(float) / 32768
         peak_db = 20 * np.log10(np.max(np.abs(xf)) + 1e-12)

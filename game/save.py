@@ -7,10 +7,11 @@ surface_gen.py, a caverna do world.py), então o save não guarda as 192×192 ca
 tiles que ficaram diferentes do mapa gerado (paredes mineradas, rochas pequenas quebradas ou reaparecidas). Pra carregar,
 gera o mapa da seed de novo e aplica as diferenças.
 
-Formato do arquivo (JSON, v8 · v0.5 Marco 1, construtor; o v7 do v0.4 tinha o mesmo formato, com máquina como item):
+Formato do arquivo (JSON, v9 · v0.5 Marco 2, base respirável; o v8 é igual sem os blocos da base; o v7 do v0.4 tinha
+o mesmo formato, com máquina como item):
 
     {
-      "version": 8,
+      "version": 9,
       "seed": 7,
       "layer": "surface",          # camada em que o player está
       "layers": {                  # uma entrada por camada que já existe ("surface", e "cave" no Marco 2)
@@ -20,7 +21,8 @@ Formato do arquivo (JSON, v8 · v0.5 Marco 1, construtor; o v7 do v0.4 tinha o m
           "rocks": {"timer": 3.5},   # relógio do reaparecimento das rochas pequenas (só superfície)
           "crates": [[x, y, slots, aberta], ...],   # Marco 3: só as caixas de destroço que mudaram
           "explored": "eJzt...",    # Marco 3: tiles vistos (bitset, zlib, base64)
-          "crater_ice": 0           # v0.4 M2: tampa de gelo da cratera, 0 (tampada) a 4 (vazia); só superfície
+          "crater_ice": 0,          # v0.4 M2: tampa de gelo da cratera, 0 (tampada) a 4 (vazia); só superfície
+          "base": [...]             # v9: blocos da base (chão, parede, portas), ver abaixo; ausente = sem base
         }
       },
       "player":    {...},          # posição, direção, O₂, desmaio
@@ -37,6 +39,11 @@ Baú: {"kind": "chest", ..., "storage": [...], "name": "Minério",
       "sends": ["ice"], "receives": ["iron", "silicon"], "batch": 10}
 Drill: {"kind": "drill", ..., "resource": "iron", "timer": 3.2, "storage": [["iron", 12]],
         "sends": ["iron"], "receives": [], "batch": 10}
+Bloco da base (v9): {"kind": "base_wall", "tx": 70, "ty": 80}. A porta dupla é UM objeto: {"kind": "base_door2",
+        "tx": 70, "ty": 80, "orient": "h"|"v"} com a âncora na metade de oeste/norte. Nada de estado de porta (nasce
+        fechada) nem da vedação (recalculada no load, sem som).
+Dispersor de O₂ (v9): {"kind": "o2_dispenser", ..., "storage": [["water_capsule", 2]], "burn": 80.5, "sealed_once": true}.
+        `burn` = segundos que faltam da cápsula que está sendo gasta (já saiu do slot).
 Derretedor (v0.5 M2, ainda v8): {"kind": "melter", ..., "timer": 4.0, "storage": [["ice", 12], ["water_capsule", 2]],
         "sends": ["water_capsule"], "receives": [], "batch": 10}. Slot 0 = gelo, slot 1 = cápsulas. Sem "storage"
         (derretedor de antes) carrega vazio: não precisou subir a versão.
@@ -68,6 +75,8 @@ from pathlib import Path
 from game import config as C
 from game import drones
 from game import layers
+from game.base import BaseBlock, BaseGrid
+from game.base import H as ORIENT_H, V as ORIENT_V
 from game.equipment import Equipment
 from game.explore import Explored
 from game.inventory import Inventory, Stack, max_stack
@@ -77,7 +86,7 @@ from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 from game.wrecks import crate_loot
 
-SAVE_VERSION = 8   # v8 (v0.5 Marco 1): máquina não é mais item (construtor) · o v7 migra (migrate_v7)
+SAVE_VERSION = 9   # v9 (v0.5 Marco 2): blocos da base e Dispersor · o v8 migra (migrate_v8: sem base) · v8: máquina não é item (migrate_v7)
 FIRST_VERSION = 7  # saves com versão menor que essa são de outra época do jogo: "save antigo" (v1–v6)
 # Numeração dos estágios dentro do "progress": 2 = v0.4 (Tempestade, Árido, Névoa, Verde). O 1 (os 3 estágios do
 # v0.3) só existia no save v6, que não carrega mais.
@@ -150,6 +159,27 @@ def crates_to_list(state: GameState, layer) -> list:
     return out
 
 
+def block_to_dict(b: BaseBlock) -> dict:
+    data = {"kind": b.kind, "tx": b.tx, "ty": b.ty}
+    if b.is_double:
+        data["orient"] = b.orient
+    return data
+
+
+def base_from_list(data: list) -> BaseGrid:
+    """Grade da base do save. Bloco de tipo desconhecido ou em cima de outro é ignorado (nunca quebra o load)."""
+    grid = BaseGrid()
+    for d in data:
+        kind = d.get("kind")
+        if kind not in C.BASE_KINDS:
+            continue
+        orient = ORIENT_V if d.get("orient") == ORIENT_V else ORIENT_H
+        block = BaseBlock(kind, int(d["tx"]), int(d["ty"]), orient if kind == C.BASE_DOOR2 else ORIENT_H)
+        if all(t not in grid.cells for t in block.tiles):
+            grid.add(block)
+    return grid
+
+
 def layers_to_dict(state: GameState) -> dict:
     out = {}
     for key, layer in state.layers.items():
@@ -162,6 +192,8 @@ def layers_to_dict(state: GameState) -> dict:
             data["crates"] = crates_to_list(state, layer)
         if layer.has_base:                                       # v0.4 M2: a tampa de gelo da cratera (0..4)
             data["crater_ice"] = layer.crater_ice
+        if layer.base.blocks:                                    # v9: blocos da base (a dupla é 1 objeto)
+            data["base"] = [block_to_dict(b) for b in layer.base.blocks]
         out[key] = data
     return out
 
@@ -176,6 +208,7 @@ def layers_from_dict(state: GameState, data: dict) -> None:
         for x, y, kind in ldata["changed_tiles"]:
             layer.world.set(int(x), int(y), int(kind))
         layer.machines = [machine_from_dict(d) for d in ldata["machines"]]
+        layer.base = base_from_list(ldata.get("base", []))       # v9 (o v8 migrado não tem: sem base)
         for m in layer.machines:            # save v7 de antes da magmatita: a rocha nova da seed não fica embaixo
             for t in m.tiles:               # de uma máquina que já estava lá (vira areia; o próximo save guarda)
                 if layer.world.get(*t) == C.SMALL_MAGMATITE:
@@ -244,12 +277,23 @@ def melter_storage(data: list) -> Inventory:
     return inv
 
 
+def dispenser_storage(data: list) -> Inventory:
+    """Inventário do Dispersor do save: 1 slot, só cápsula de água (outra coisa vira vazio)."""
+    inv = Inventory(C.DISPENSER_SLOTS)
+    d = data[C.DISPENSER_CAPSULE_SLOT] if len(data) > C.DISPENSER_CAPSULE_SLOT else None
+    if d and d[0] == "water_capsule" and int(d[1]) > 0:
+        inv.slots[C.DISPENSER_CAPSULE_SLOT] = Stack("water_capsule", min(int(d[1]), max_stack("water_capsule")))
+    return inv
+
+
 def machine_to_dict(m: Machine) -> dict:
     data = {"kind": m.kind, "tx": m.tx, "ty": m.ty, "rotation": m.rotation}
     if m.is_drill:
         data.update(resource=m.resource, timer=m.timer)
     if m.is_melter:
         data["timer"] = m.timer          # v0.5 M2: progresso da cápsula (o inventário vai com o resto do logístico)
+    if m.is_dispenser:                   # v9
+        data.update(storage=m.storage.to_data(), burn=m.burn, sealed_once=m.sealed_once)
     if m.is_chest:
         data["name"] = m.name or C.CHEST_DEFAULT_NAME
     if m.is_logistic:
@@ -285,6 +329,10 @@ def machine_from_dict(data: dict) -> Machine:
         # v0.5 M2: [0] gelo, [1] cápsulas. Save de antes do Marco 2 não tem "storage": carrega vazio (sem migração)
         machine.storage = melter_storage(data.get("storage", []))
         machine.timer = min(max(machine.timer, 0.0), C.MELTER_CAPSULE_TIME[kind])
+    if machine.is_dispenser:
+        machine.storage = dispenser_storage(data.get("storage", []))
+        machine.burn = min(max(float(data.get("burn", 0.0)), 0.0), C.DISPENSER_CAPSULE_TIME)
+        machine.sealed_once = bool(data.get("sealed_once", False))
     if machine.is_logistic:
         # o que não pode (item desconhecido, a drill recebendo, o mesmo item dos dois lados) é ignorado
         machine.sends = {i for i in data.get("sends", []) if drones.can_send(machine, i)}
@@ -463,7 +511,13 @@ def migrate_v7(data: dict) -> dict:
     return data
 
 
-MIGRATIONS: dict = {7: migrate_v7}
+def migrate_v8(data: dict) -> dict:
+    """v8 -> v9 (v0.5 M2, base respirável): só entram os blocos da base e o Dispersor. O v8 não tem nenhum dos dois,
+    então não há o que converter: a camada sem "base" carrega sem base."""
+    return data
+
+
+MIGRATIONS: dict = {7: migrate_v7, 8: migrate_v8}
 
 
 class SaveError(Exception):

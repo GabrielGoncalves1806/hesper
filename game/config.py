@@ -920,3 +920,65 @@ MACHINE_CATEGORY["diagram_workbench"] = "tools"
 # Receitas da Bancada T2 (itens, ids de MACHINES). O fabricador T1 não mostra estas (fabricator.craft_kinds).
 T2_RECIPES: tuple[str, ...] = ("backpack",)   # a mochila (B3); a broca nv.2 entra no M4
 T2_TABS = (("t2", "Itens"),)    # a Bancada T2 tem uma aba só por enquanto
+
+
+# ---------------------------------------------------------------------------
+# v0.5 Marco 2 · Base respirável (spec 2026-10-14-v05-base-e-expedicao-design.md · lógica em game/base.py)
+# Blocos do construtor (chão, parede, porta solo e porta dupla), a vedação (flood fill a partir do Dispersor) e o
+# Dispersor de O₂. Arte aprovada: reports/design/v05_m2_base (v1.2, porta na variante B). Números PROVISÓRIOS
+# (balanceamento depois).
+# ---------------------------------------------------------------------------
+BASE_FLOOR, BASE_WALL, BASE_DOOR, BASE_DOOR2 = "base_floor", "base_wall", "base_door", "base_door2"
+BASE_KINDS = (BASE_FLOOR, BASE_WALL, BASE_DOOR, BASE_DOOR2)
+BASE_DOOR_KINDS = (BASE_DOOR, BASE_DOOR2)
+BASE_COST = {BASE_FLOOR: {"iron": 1}, BASE_WALL: {"iron": 2},
+             BASE_DOOR: {"iron": 4, "silicon": 2}, BASE_DOOR2: {"iron": 8, "silicon": 4}}
+BASE_NAME = {BASE_FLOOR: ("Chão da base", "piso, aceita máquina"), BASE_WALL: ("Parede da base", "bloqueia, veda"),
+             BASE_DOOR: ("Porta", "abre sozinha, veda"), BASE_DOOR2: ("Porta dupla", "2 tiles · R gira")}
+BASE_ICON = {BASE_FLOOR: "icon_base_floor", BASE_WALL: "icon_base_wall", BASE_DOOR: "icon_base_door",
+             BASE_DOOR2: "icon_base_door_double"}
+FLOOR_PICK = (0, 0, 0, 0, 1, 1, 2, 3)     # sorteio do chão por hash do tile: (tx·73856093 ^ ty·19349663) & 7
+BASE_WALL_LIFT = 24                       # a parede da base tem a altura da parede de rocha (WALL_LIFT)
+BASE_FACE_Y = 8                           # a face (32×24) começa 8 px abaixo do topo do tile
+DOOR_OPEN_RANGE = 1.5 * TILE              # a porta abre com o player a até 1,5 tile do tile (de qualquer tile da dupla)
+DOOR_FPS = 12                             # 4 quadros (0 fechada .. 3 aberta) a ~12 fps
+DOOR_FRAMES = 4
+DOOR_XRAY_FRAMES = 2                      # quadros 0–1 entram no raio-x; 2–3 (passagem aberta) não
+DOOR_VOLUME_RANGE = (3, 12)               # tiles: o som da porta cheio até 3, some em 12
+# Vedação
+BASE_MIN_FLOOR = 9                        # o 3×3 mínimo, em qualquer formato
+BASE_MIN_DOORS = 1
+BASE_MAX_FLOOR = 200                      # acima disso o flood fill para (barato) e a base não vale
+BASE_LOG_KEEP = 64                        # mudanças de bloco lembradas pro recálculo só quando mexe perto
+# Dispersor de O₂
+DISPENSER = "o2_dispenser"
+DISPENSER_SLOTS = 1                       # 1 slot, só cápsula de água
+DISPENSER_CAPSULE_SLOT = 0
+DISPENSER_CAPSULE_TIME = 180.0            # s (3 min) que 1 cápsula dura, contados só com a base vedada e ligado
+DISPENSER_REACH = MELTER_REACH
+DISPENSER_SPRITE_SIZE = (32, 48)          # machine_o2_dispenser.png e cada quadro das tiras (4 quadros, ~6 fps)
+DISPENSER_FPS = 6
+LEAK_BLINK_HZ = 2.5                       # leak_blink.png: 2 quadros (aceso, apagado) alternando, 0,2 s cada
+LEAK_ALERT_EVERY = 4.0                    # s entre os leak_alert enquanto vaza...
+LEAK_ALERT_RANGE = 12                     # ...com o player a até 12 tiles da base (Dispersor ou tile furado)
+SEAL_SOUND_COOLDOWN = 3.0                 # s: o base_sealed não repete antes disso (colocar/tirar parede)
+STATE_LABEL = {"sealed": "Vedado ✓", "leak": "Vazamento", "dry": "Sem água", "nopower": "Sem energia",
+               "small": "Base pequena", "nodoor": "Sem porta", "big": "Base grande", "nofloor": "Sem chão"}
+STATE_COLOR = {"sealed": "#7fd67a", "leak": "#ffb347", "dry": "#8fa3b8", "nopower": "#ff6a55",
+               "small": "#ffb347", "nodoor": "#ffb347", "big": "#ffb347", "nofloor": "#ffb347"}
+
+for _kind in BASE_KINDS:
+    _name, _desc = BASE_NAME[_kind]
+    MACHINES[_kind] = MachineType(_kind, _name, _desc, BASE_COST[_kind], None, 0, 0, BASE_ICON[_kind])
+    MACHINE_ORDER.append(_kind)
+    MACHINE_CATEGORY[_kind] = "base"
+MACHINES[DISPENSER] = MachineType(DISPENSER, "Dispersor de O₂", "base respirável", {"iron": 14, "silicon": 8},
+                                  None, 0, 0, "machine_o2_dispenser")
+MACHINE_ORDER.append(DISPENSER)
+MACHINE_CATEGORY[DISPENSER] = "base"
+POWER_USE[DISPENSER] = 1                  # 1 kW na rede, como as outras máquinas
+FAB_TABS = FAB_TABS + (("base", "Base"),)  # o menu do construtor ganha a aba "Base" (o fabricador não: CRAFT_TABS)
+# Sons (Som, v13.1, aprovados). door_*: sibilo curto, pitch 0,95–1,05; hum: loop com fade de 0,8 s (0,3 s ao secar)
+VOLUME.update({"door_open": 0.45, "door_close": 0.45, "base_sealed": 0.6, "dispenser_hum": 0.35,
+               "leak_alert": 0.55, "dispenser_dry": 0.5})
+DISPENSER_HUM_FADE_MS, DISPENSER_HUM_DRY_FADE_MS = 800, 300

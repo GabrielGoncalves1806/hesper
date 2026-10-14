@@ -37,6 +37,8 @@ PITCH_VARIANTS = {
     "ui_click": (0.98, 1.0, 1.02),
     "build": (0.97, 1.0, 1.03),            # v0.5 M1 (Som): construir e desmontar variam um pouco
     "dismantle_done": (0.97, 1.0, 1.03),
+    "door_open": (0.95, 1.0, 1.05),        # v0.5 M2 (Som): a porta varia o pitch 0,95–1,05
+    "door_close": (0.95, 1.0, 1.05),
 }
 VOLUME_JITTER = {"mine_hit": 0.10}   # ±10% de volume no mine_hit
 DERIVED = {"place_low": ("place", 0.8)}   # nome -> (arquivo base, fator de pitch); 0.8 = mais grave
@@ -183,8 +185,8 @@ class Audio:
         try:
             if not pygame.mixer.get_init():
                 pygame.mixer.init(44100, -16, 2, 512)
-            pygame.mixer.set_num_channels(16)
-            pygame.mixer.set_reserved(13)
+            pygame.mixer.set_num_channels(17)
+            pygame.mixer.set_reserved(14)
             self.amb = [pygame.mixer.Channel(0), pygame.mixer.Channel(1)]
             self.alarm_channel = pygame.mixer.Channel(2)
             self.hum_channel = pygame.mixer.Channel(3)
@@ -203,6 +205,8 @@ class Audio:
             self.vent_channel = pygame.mixer.Channel(11)   # chiado da fumarola (v11): pela mais perto
             self._vent_on = [False]
             self.charge_channel = pygame.mixer.Channel(12)   # v0.5 M1: o "carregando" do desmonte (canal único)
+            self.dispenser_channel = pygame.mixer.Channel(13)   # v0.5 M2: o zumbido do Dispersor (loop com fade)
+            self._dispenser_on = [False]
             self.ok = True
         except pygame.error as err:
             print(f"[audio] sem áudio ({err}). Seguindo em silêncio.")
@@ -335,6 +339,24 @@ class Audio:
         if volume > 0 and not self.hum_channel.get_busy():
             self.hum_channel.play(sounds[0], loops=-1)
         self.hum_channel.set_volume(volume * self.sfx_gain)
+
+    def set_dispenser_hum(self, volume: float, out_ms: int = C.DISPENSER_HUM_FADE_MS) -> None:
+        """dispenser_hum.wav (v0.5 M2): loop num canal próprio, entra com fade de 0,8 s e sai com `out_ms` (0,3 s quando a
+        água acabou). Volume 0 = sai. Sem o arquivo, silêncio."""
+        if not self.ok:
+            return
+        sounds = self._get("dispenser_hum")
+        if not sounds:
+            return
+        channel = self.dispenser_channel
+        if volume > 0:
+            if not self._dispenser_on[0] or not channel.get_busy():
+                channel.play(sounds[0], loops=-1, fade_ms=C.DISPENSER_HUM_FADE_MS)
+                self._dispenser_on[0] = True
+            channel.set_volume(volume * self.sfx_gain)
+        elif self._dispenser_on[0]:
+            channel.fadeout(out_ms)
+            self._dispenser_on[0] = False
 
     def set_drill_loops(self, volumes: list[float]) -> None:
         """Loop da drill em até 2 canais (as 2 trabalhando mais perto). Volume 0 = some com fadeout(400)."""

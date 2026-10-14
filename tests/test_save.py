@@ -139,7 +139,7 @@ def test_loaded_game_keeps_running(tmp_path):
 def test_save_only_stores_what_changed(tmp_path):
     state = rich_state()
     data = save.state_to_dict(state)
-    assert data["version"] == save.SAVE_VERSION == 8
+    assert data["version"] == save.SAVE_VERSION == 9
     assert set(data) == {"version", "seed", "layer", "layers", "player", "inventory", "progress", "world"}
     assert set(data["layers"]) == {"surface"} and data["layer"] == "surface"
     assert len(data["layers"]["surface"]["changed_tiles"]) == 6   # 5 minérios + 1 cavado na marra
@@ -234,10 +234,10 @@ def test_migration_hook_runs(tmp_path, monkeypatch):
         d["progress"]["play_time"] = 99.0
         return d
 
-    monkeypatch.setattr(save, "SAVE_VERSION", 9)
-    monkeypatch.setattr(save, "MIGRATIONS", {8: old_to_new})
+    monkeypatch.setattr(save, "SAVE_VERSION", 10)
+    monkeypatch.setattr(save, "MIGRATIONS", {**save.MIGRATIONS, 9: old_to_new})
     migrated = save.migrate(data)
-    assert migrated["version"] == 9 and migrated["progress"]["play_time"] == 99.0
+    assert migrated["version"] == 10 and migrated["progress"]["play_time"] == 99.0
 
 
 # ---------------------------------------------------------------- v7 -> v8 (v0.5 M1: máquina não é mais item)
@@ -383,7 +383,7 @@ def test_save_with_old_pickups_field_still_loads(tmp_path):
     surface["pickups"] = {"items": [["iron", 2, 3200.5, 3300.0], ["ice", 1, 100.0, 200.0]], "timer": 3.5}
     path = tmp_path / "slot1.json"
     path.write_text(json.dumps(data), encoding="utf-8")
-    assert data["version"] == save.SAVE_VERSION == 8
+    assert data["version"] == save.SAVE_VERSION == 9
     status, loaded = save.probe(path)
     assert status == "ok" and loaded.surface.rocks.timer == 0.0
     assert not hasattr(loaded.surface, "pickups")

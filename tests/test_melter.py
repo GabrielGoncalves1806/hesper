@@ -158,7 +158,7 @@ def test_v8_save_without_melter_storage_loads_empty():
     entry = next(m for m in data["layers"]["surface"]["machines"] if m["kind"] == "melter")
     for key in ("storage", "sends", "receives", "batch", "timer"):
         entry.pop(key, None)
-    assert data["version"] == 8
+    assert data["version"] == save.SAVE_VERSION
     loaded = save.state_from_dict(save.migrate(data))
     got = next(x for x in loaded.machines if x.is_melter)
     assert got.storage.is_empty() and got.timer == 0 and not got.sends

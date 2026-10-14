@@ -186,7 +186,7 @@ def test_save_has_no_new_thaw_fields(new_state):
     new_state.indices["heat"] = 10_000
     new_state._apply_thaw()
     data = save.state_to_dict(new_state)
-    assert data["version"] == 8                              # v8 (v0.5 M1): sem campo novo do degelo
+    assert data["version"] == save.SAVE_VERSION              # v9 (v0.5 M2): sem campo novo do degelo
     assert set(data["layers"]["surface"]) == set(save.state_to_dict(GameState(rng=random.Random(1)))["layers"]["surface"])
 
 

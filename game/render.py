@@ -27,6 +27,7 @@ import pygame
 
 from game import art
 from game import autotile
+from game.base import floor_variant
 from game import config as C
 from game import drones
 from game import dust
@@ -42,6 +43,7 @@ from game.lighting import LightSource, Lighting, helmet_lamp, lamp as lamp_light
 from game.minimap import Minimap
 from game.rain import RainDrops, rain_level
 from game.surfaces import opaque
+from game.base import BaseBlock
 from game.systems import GameState, Mining
 from game.transition import BASE_SOURCE, StageMap
 from game.world import hash01
@@ -190,6 +192,8 @@ class Renderer:
         self.shadow_left = pygame.Surface((4, T), pygame.SRCALPHA)
         self.shadow_left.fill((0, 0, 0, 40))
         self.water_tiles = autotile.WaterTiles()   # tiles de água já montados (≤ 47 por estágio)
+        self.base_wall_tiles = autotile.WaterTiles()   # topos da parede da base já montados (≤ 47, v0.5 M2)
+        self.power_factor = 1.0                    # ritmo da energia neste frame (o Dispersor lê o estado dele)
         # água por tile: com geo (lago nas bacias, M3.3) vale até o nível d'água mudar; sem geo, só um frame
         self._wet_memo: dict[tuple[int, int], bool] = {}
         self._wet_key = None                       # (id do mundo, water_level) do memo; None = zera a cada frame
@@ -331,9 +335,11 @@ class Renderer:
         self.draw_crater_ejecta(canvas, state, cam)
         self.draw_gate_frost(canvas, state, cam)
         self.draw_veins(canvas, state, cam)
+        self.draw_base_floors(canvas, state, cam)
         if state.active.has_base:
             self.draw_zone(canvas, cam, t)
         self.draw_walls_and_objects(canvas, state, cam, stage, t)
+        self.draw_leaks(canvas, state, cam, t)               # v0.5 M2: o tile furado pisca, por cima dos objetos e do raio-x
         if not cave:
             if state.mining:
                 self.draw_mining(canvas, state, state.mining, cam)
@@ -501,7 +507,8 @@ class Renderer:
         """Passada 2: linha por linha, paredes com topo elevado e objetos ordenados pelo pé."""
         tx0, tx1, ty0, ty1 = self.visible_tiles(cam)
         self.clock = t                                  # relógio do ambiente (terminal, pod, painel solar)
-        self.powered = state.power.factor > 0           # sem energia nenhuma: máquinas no quadro 0
+        self.power_factor = state.power.factor
+        self.powered = self.power_factor > 0            # sem energia nenhuma: máquinas no quadro 0
         objects = self.collect_objects(canvas, state, cam, t)
         strips = self.hill_strips(state, cam) if self.organic_hills(state) else None
         hill_rows = None if strips is None else {r for rows in strips.values() for r in rows}
@@ -528,6 +535,167 @@ class Renderer:
             if not behind:
                 p = state.player
                 canvas.blit(frame, (snap(p.x) - cam[0] + dx, snap(p.y) - cam[1] + dy))
+
+    # ---- base respirável (v0.5 M2 · game/base.py · arte: reports/design/v05_m2_base) ---------------------
+    @staticmethod
+    def _placeholder(size: int, key: str = "") -> pygame.Surface:
+        """Quadradinho colorido quando o PNG não existe (sprites desligados nos testes)."""
+        surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        surf.fill((90 + hash(key) % 100, 110, 140, 255))
+        return surf
+
+    def base_view(self, cam) -> tuple[int, int, int, int]:
+        """Tiles visíveis com folga (o topo da parede sobe 24 px; a face desce até a linha de baixo)."""
+        tx0, tx1, ty0, ty1 = self.visible_tiles(cam)
+        return tx0 - 1, tx1 + 1, ty0 - 1, ty1 + 2
+
+    def draw_base_floors(self, canvas, state: GameState, cam) -> None:
+        """Passada do chão: as 4 variações do base_floor por hash do tile (igual nos 3 estágios), embaixo de tudo."""
+        grid = state.base
+        if not grid.blocks:
+            return
+        tx0, tx1, ty0, ty1 = self.base_view(cam)
+        for b in grid.blocks:
+            if not b.is_floor or not (tx0 <= b.tx <= tx1 and ty0 <= b.ty <= ty1):
+                continue
+            surf, _ = self.surface(f"base_floor_{floor_variant(b.tx, b.ty)}",
+                                   lambda b=b: self._placeholder(T, "floor"))
+            canvas.blit(surf, (b.tx * T - cam[0], b.ty * T - cam[1]))
+
+    def collect_base_objects(self, items: list, canvas, state: GameState, cam) -> None:
+        """Parede e porta da base entram na ordem de profundidade com ay = ty·32 + 1: caem na linha certa e saem
+        primeiro dela (antes dos objetos com o pé naquela linha), também onde a linha vira tira de morro."""
+        grid = state.base
+        if not grid.blocks:
+            return
+        tx0, tx1, ty0, ty1 = self.base_view(cam)
+        for b in grid.blocks:
+            if b.is_floor:
+                continue
+            for tile in b.tiles:
+                if not (tx0 <= tile[0] <= tx1 and ty0 <= tile[1] <= ty1):
+                    continue
+                ay = tile[1] * T + 1
+                if b.is_wall:
+                    items.append((ay, lambda t=tile: self.draw_base_wall(canvas, state, t, cam)))
+                else:
+                    items.append((ay, lambda b=b, t=tile: self.draw_base_door(canvas, state, b, t, cam)))
+
+    def draw_base_wall(self, canvas, state: GameState, tile, cam) -> None:
+        """Parede alta da base: topo no autotile A2 de 47 combinações (conecta só com parede da base: a porta e a
+        rocha não contam) em (x, y−24); a face 32×24 em (x, y+8) quando não tem parede da base embaixo."""
+        tx, ty = tile
+        grid = state.base
+        x, y = tx * T - cam[0], ty * T - cam[1]
+        atlas = self.sprites.get("base_wall_top")
+        if atlas is None:                                       # sem sprites (testes): caixa lisa
+            canvas.fill((58, 62, 78), (x, y - C.BASE_WALL_LIFT, T, T))
+            if not grid.is_wall((tx, ty + 1)):
+                canvas.fill((176, 160, 130), (x, y + C.BASE_FACE_Y, T, T - C.BASE_FACE_Y))
+            return
+        key = autotile.tile_key(lambda a, b: grid.is_wall((a, b)), tx, ty)
+        canvas.blit(self.base_wall_tiles.get("base_wall", atlas, key), (x, y - C.BASE_WALL_LIFT))
+        if not grid.is_wall((tx, ty + 1)):
+            face = self.sprites.get("base_wall_face")
+            if face is not None:
+                idx = int(grid.is_wall((tx - 1, ty))) + 2 * int(grid.is_wall((tx + 1, ty)))
+                canvas.blit(face, (x, y + C.BASE_FACE_Y), (idx * T, 0, T, C.BASE_WALL_LIFT))
+
+    def draw_base_door(self, canvas, state: GameState, door: BaseBlock, tile, cam) -> None:
+        """Quadro de 32×56 da porta em (x, y−24): moldura, folha e soleira (o tile não desenha chão à parte). O
+        sprite é o da orientação e da borda de fora (variante B, ver BaseGrid.layout). Dupla: cada tile pega a sua
+        metade (a 1ª nos quadros 0–3 da tira, a 2ª nos 4–7)."""
+        orient, edge = state.base.layout(door)
+        x, y = tile[0] * T - cam[0], tile[1] * T - cam[1]
+        name = f"{'base_door2' if door.is_double else 'base_door'}_{orient}_{edge}"
+        sheet = self.sprites.get(name)
+        if sheet is None:
+            canvas.fill((120, 110, 100), (x, y - C.BASE_WALL_LIFT + 8, T, T + C.BASE_WALL_LIFT - 8))
+            return
+        half = door.tiles.index(tuple(tile)) if door.is_double else 0
+        canvas.blit(sheet, (x, y - C.BASE_WALL_LIFT),
+                    ((half * C.DOOR_FRAMES + door.frame_index) * T, 0, T, T + C.BASE_WALL_LIFT))
+
+    def draw_base_ghost(self, canvas, cam, kind, tile, rotation, valid, t) -> None:
+        """Fantasma do construtor pros blocos: quadrado verde/vermelho em cada tile (a dupla mostra 2×1 ou 1×2) e o
+        sprite translúcido por cima."""
+        color = (127, 214, 122) if valid else (255, 106, 85)
+        tiles = GameState.base_tiles(kind, tile, rotation)
+        for tx, ty in tiles:
+            px, py = tx * T - cam[0], ty * T - cam[1]
+            tint = pygame.Surface((T, T), pygame.SRCALPHA)
+            tint.fill((*color, 51))
+            canvas.blit(tint, (px, py))
+            step = int(t * 8) % 8
+            for i in range(0, T - 2, 8):
+                k = (i + step) % (T - 2)
+                for rx, ry, w, h in [(px + 1 + k, py + 1, 4, 2), (px + 1 + k, py + T - 3, 4, 2),
+                                     (px + 1, py + 1 + k, 2, 4), (px + T - 3, py + 1 + k, 2, 4)]:
+                    canvas.fill(color, (rx, ry, w, h))
+        px, py = tile[0] * T - cam[0], tile[1] * T - cam[1]
+        if kind == C.BASE_FLOOR:
+            sprite = self.sprites.get("base_floor_0")
+            area = None
+            dest = (px, py)
+        elif kind == C.BASE_WALL:
+            sprite = self.sprites.get("base_wall_top")
+            area = (0, 0, T, T)                                  # a peça isolada do atlas (bloco 0,0–32,32)
+            dest = (px, py - C.BASE_WALL_LIFT)
+        else:
+            horizontal = kind == C.BASE_DOOR2 and rotation % 2 == 0 or kind == C.BASE_DOOR
+            sprite = self.sprites.get(f"{'base_door2' if kind == C.BASE_DOOR2 else 'base_door'}_"
+                                      f"{'h_s' if horizontal else 'v_e'}")
+            area = (0, 0, T, T + C.BASE_WALL_LIFT)
+            dest = (px, py - C.BASE_WALL_LIFT)
+            if kind == C.BASE_DOOR2 and sprite is not None:     # as 2 metades fechadas (quadro 0 e quadro 4)
+                for half, (dx, dy) in enumerate(((0, 0), (T, 0) if rotation % 2 == 0 else (0, T))):
+                    piece = sprite.subsurface((half * C.DOOR_FRAMES * T, 0, T, T + C.BASE_WALL_LIFT)).copy()
+                    piece.set_alpha(140)
+                    canvas.blit(piece, (dest[0] + dx, dest[1] + dy))
+                return
+        if sprite is not None:
+            piece = sprite.subsurface(area).copy() if area else sprite.copy()
+            piece.set_alpha(140)
+            canvas.blit(piece, dest)
+
+    def dispenser_frame(self, state: GameState, m, t: float) -> pygame.Surface:
+        """Sprite do Dispersor agora: soprando (tira de 4 quadros a 6 fps) quando vedado, a tira âmbar no vazamento,
+        o parado sem água ou sem energia (ou sem a tira)."""
+        still = self.surface(C.MACHINES[m.kind].sprite, lambda: art.machine(m.kind))[0]
+        status = state.dispenser_state(m, self.power_factor)
+        phase = tile_phase(m.tx, m.ty)
+        idx = (int(t * C.DISPENSER_FPS) + phase) % ANIM_FRAMES
+        if status == "sealed":
+            return self.anim_surface(C.MACHINES[m.kind].sprite, still, idx)
+        if status in ("leak", "small", "nodoor", "big", "nofloor"):
+            return self.anim_surface(C.MACHINES[m.kind].sprite + "_leak", still, idx)
+        return still
+
+    def draw_dispenser(self, canvas, state: GameState, m, ax, ay, t: float) -> None:
+        self._blit_anchored(canvas, self.dispenser_frame(state, m, t), ax, ay)
+
+    def draw_leaks(self, canvas, state: GameState, cam, t: float) -> None:
+        """leak_blink.png (2 quadros de 32×56, aceso/apagado a ~2,5 Hz) em (x, y−24) do tile furado de cada Dispersor
+        em "Vazamento". Depois dos objetos e do raio-x, por cima de tudo (chão, vazio, parede de baixo)."""
+        sheet = None
+        for m in state.machines:
+            if not m.is_dispenser or m.submerged or m.build > 0:
+                continue
+            if state.dispenser_state(m, self.power_factor) not in ("leak", "nofloor") or m.seal is None:
+                continue
+            leak = m.seal.leak
+            if leak is None:
+                continue
+            x, y = leak[0] * T - cam[0], leak[1] * T - cam[1]
+            if not (-T < x < self.view_w and -T < y - 24 < self.view_h):
+                continue
+            if sheet is None:
+                sheet = self.sprites.get("leak_blink")
+            frame = int(t * C.LEAK_BLINK_HZ * 2) % 2
+            if sheet is not None:
+                canvas.blit(sheet, (x, y - C.BASE_WALL_LIFT), (frame * T, 0, T, T + C.BASE_WALL_LIFT))
+            elif frame == 0:
+                canvas.fill((235, 70, 60), (x + 2, y + 2, T - 4, T - 4), special_flags=0)
 
     # ---- morros orgânicos da superfície (v0.4 Marco 2 · game/hills.py) ----------
     def organic_hills(self, state: GameState) -> bool:
@@ -634,6 +802,9 @@ class Renderer:
         p = state.player
         row_below = int((p.y - 1) // T) + 1
         cols = {int((p.x - 10) // T), int((p.x + 9) // T)}
+        grid = state.base                                # v0.5 M2: parede da base e porta fechada/abrindo (quadros 0–1)
+        if grid.blocks and any((b := grid.get((tx, row_below))) is not None and b.xray for tx in cols):
+            return True
         return any(state.world.is_wall(tx, row_below) for tx in cols) or self.formation_occludes(state)
 
     def formation_occludes(self, state: GameState) -> bool:
@@ -921,6 +1092,7 @@ class Renderer:
             if step == 1:                                      # apagado, ACESO, apagado (C.SCAN_BLINK_STEPS)
                 items.append((by, lambda i=info, x=bx - cam_x, y=by - cam_y: self._blit_anchored(
                     canvas, i["ghost"], x, y)))
+        self.collect_base_objects(items, canvas, state, cam)
         for m in state.machines:
             mx, my = m.anchor                                  # centro da base (drill: centro dos 2×2)
             if -64 < mx - cam_x < self.view_w + 64 and -80 < my - cam_y < self.view_h + 80:
@@ -939,6 +1111,9 @@ class Renderer:
                         canvas, self.chest_surface(m is self.open_chest), mx - cam_x, my - cam_y)))
                 elif m.is_station:
                     items.append((my, lambda m=m: self.draw_station(canvas, m, cam, t)))
+                elif m.is_dispenser:
+                    items.append((my, lambda m=m, mx=mx, my=my: self.draw_dispenser(
+                        canvas, state, m, mx - cam_x, my - cam_y, t)))
                 else:
                     items.append((my, lambda m=m, mx=mx, my=my: self.draw_machine(
                         canvas, m.kind, mx - cam_x, my - cam_y, self.machine_t, m.rotation,
@@ -947,6 +1122,8 @@ class Renderer:
                     items.append((my, lambda m=m, mx=mx, my=my: self._blit_anchored(
                         canvas, self.highlight_outline(m), mx - cam_x, my - cam_y + 1)))
 
+        grid = state.base
+        occupied = (lambda t: state.machine_at(t) or grid.get(t)) if grid.blocks else state.machine_at   # máquina ou bloco da base
         tx0, ty0 = cam_x // T, cam_y // T
         for ty in range(max(0, ty0), min(world.height, ty0 + self.view_h // T + 2)):   # rochas pequenas (pé na borda de baixo)
             row = world.tiles[ty]
@@ -959,7 +1136,7 @@ class Renderer:
             for ty in range(ty0, ty0 + self.view_h // T + 3):
                 for tx in range(tx0, tx0 + self.view_w // T + 2):
                     kind = state.world.plant_at(tx, ty)
-                    if kind and self.stage_map.stage_at(tx, ty) >= C.GREEN_STAGE and not state.machine_at((tx, ty)):
+                    if kind and self.stage_map.stage_at(tx, ty) >= C.GREEN_STAGE and not occupied((tx, ty)):
                         px, py = tx * T + T // 2, (ty + 1) * T
                         surf = self.surface(f"plant_{kind}", lambda k=kind: art.plant(k))[0]
                         items.append((py, lambda s=surf, px=px, py=py: canvas.blit(
@@ -972,7 +1149,7 @@ class Renderer:
             tx1 = tx0 + self.view_w // T + 1
             for ty in range(max(0, ty0 - 1), min(world.height, ty0 + self.view_h // T + 2)):
                 for tx, name, v in ground.decor_row(ty):
-                    if not (tx0 - 1 <= tx <= tx1) or not decor_tile_free(world, tx, ty, state.machine_at):
+                    if not (tx0 - 1 <= tx <= tx1) or not decor_tile_free(world, tx, ty, occupied):
                         continue
                     surf = ground.decor_surface(name, v, stage_key(self.stage_map.stage_at(tx, ty)))
                     if surf is not None:
@@ -981,7 +1158,7 @@ class Renderer:
                             s, (px - cam_x - s.get_width() // 2, py - cam_y - s.get_height()))))
                 # v9 (M3.0): pé com folga, espelho, e o musgo logo depois da pedra só no Verde (estágio do tile do pé)
                 for d in ground.decor_row_v9(ty):
-                    if not (tx0 - 1 <= d.tx <= tx1) or not decor_tile_free(world, d.tx, ty, state.machine_at):
+                    if not (tx0 - 1 <= d.tx <= tx1) or not decor_tile_free(world, d.tx, ty, occupied):
                         continue
                     stage = self.stage_map.stage_at(d.tx, ty)
                     if stage >= C.MIST_STAGE and world.is_water(d.tx, ty, stage):
@@ -1504,6 +1681,9 @@ class Renderer:
                 small = self.surface("icon_backpack", art.backpack_icon)[0]
             elif item == "water_capsule":        # v0.5 M2: icon_water_capsule.png (aprovado)
                 small = self.surface("icon_water_capsule", art.water_capsule_icon)[0]
+            elif item in C.BASE_KINDS or item == C.DISPENSER:   # v0.5 M2: icon_base_*.png e icon_o2_dispenser.png
+                name = C.BASE_ICON.get(item, "icon_o2_dispenser")
+                small = self.surface(name, lambda: self._placeholder(16, item))[0]
             elif item == "constructor":          # v0.5 M1: com o icon_constructor.png no assets, ele (sem mudar código)
                 small = self.surface("icon_constructor", art.constructor_icon)[0]
             elif item in C.DIAGRAM_ITEMS:       # v0.5 M1: icon_diagram.png (aprovado); sem ele, o chip de projeto de antes
@@ -1546,6 +1726,8 @@ class Renderer:
             return pygame.transform.scale_by(self.surface("icon_constructor", art.constructor_icon)[0], 3)
         if kind == "water_capsule":
             return pygame.transform.scale_by(self.surface("icon_water_capsule", art.water_capsule_icon)[0], 3)
+        if kind in C.BASE_KINDS:
+            return pygame.transform.scale_by(self.surface(C.BASE_ICON[kind], lambda: self._placeholder(16, kind))[0], 3)
         if kind == "drill":
             icon = self.sprites.get("icon_drill")
             if icon:
@@ -1709,6 +1891,9 @@ class Renderer:
         canvas.fill("#fff3c4", (px - 2, py - 14, round(36 * prog), 1))
 
     def draw_ghost(self, canvas, cam, kind, tile, rotation, valid, t) -> None:
+        if kind in C.BASE_KINDS:
+            self.draw_base_ghost(canvas, cam, kind, tile, rotation, valid, t)
+            return
         px, py = tile[0] * T - cam[0], tile[1] * T - cam[1]
         size = C.MACHINES[kind].size * T                  # drill ocupa 2×2
         color = (127, 214, 122) if valid else (255, 106, 85)
@@ -1739,6 +1924,13 @@ class Renderer:
         """Barrinha de enchimento em cima de cada drill e raio vermelho piscando em quem está sem energia."""
         factor = state.power.factor
         blink = (t * 2.5) % 1 < 0.6
+        block = state.dismantling
+        if isinstance(block, BaseBlock):                      # v0.5 M2: desmontando um bloco da base
+            xs = [tx for tx, _ in block.tiles]
+            bw, bh = C.DISMANTLE_BAR
+            x = round((sum(xs) / len(xs) + 0.5) * T - cam[0])
+            y = round(block.ty * T - cam[1]) - (0 if block.is_floor else C.BASE_WALL_LIFT) - bh - 2
+            self.draw_drill_bar(canvas, x, y, state.dismantle_progress, C.C_O2, False, w=bw, h=bh)
         for m in state.machines:
             ax, ay = m.anchor
             x, y = round(ax - cam[0]), round(ay - cam[1])

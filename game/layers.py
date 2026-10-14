@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 
 from game import config as C
 from game import ice_blocks, thaw
+from game.base import BaseGrid
 from game.explore import Explored
 from game.rock_respawn import RockRespawn
 from game.surface_gen import generate_surface
@@ -37,6 +38,7 @@ class Layer:
     # com a rampa exposta. No M2 fica sempre tampada (o derretimento pelo calor é do M3); F4 abre na hora (debug).
     # Vai no save.
     crater_ice: int = 0
+    base: BaseGrid = field(default_factory=BaseGrid)   # v0.5 M2: chão, parede e porta da base (game/base.py); vai no save
     # v0.4 Marco 3 · gelos-portão (índice = geo.pockets[i]), tudo DERIVADO do índice de calor pelo
     # GameState._apply_thaw (NÃO vai no save, o load reconstrói). M3.5: `gate_melt` = progresso p (0..1,
     # thaw.gate_progress), `gate_ice` = a etapa derivada (0 inteiro, 1 derretendo, 3 fresta aberta: thaw.gate_stage),
