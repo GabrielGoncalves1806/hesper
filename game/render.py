@@ -46,6 +46,26 @@ from game.systems import GameState, Mining
 from game.transition import BASE_SOURCE, StageMap
 from game.world import hash01
 
+ANIM_FRAMES = 4
+MACHINE_ANIM_FPS = 5      # máquinas e ambiente animam a ~5 fps (a drill tem o dela, DRILL_FPS)
+
+
+def tile_phase(tx: int, ty: int) -> int:
+    """Fase 0–3 da animação de um tile (hash do tile): as máquinas não piscam em sincronia."""
+    return ((tx * 73856093) ^ (ty * 19349663)) >> 4 & (ANIM_FRAMES - 1)
+
+
+def anim_frame_index(t: float, phase: int = 0, working: bool = True, fps: float = MACHINE_ANIM_FPS) -> int:
+    """Quadro (0–3) da tira de animação no tempo `t` com a fase do tile. Parada = quadro 0."""
+    if not working:
+        return 0
+    return (int(t * fps) + phase) % ANIM_FRAMES
+
+
+def rock_variant(tx: int, ty: int) -> int:
+    """Variação (0 ou 1) da rocha pequena com veio, por hash do tile (sempre a mesma pro mesmo tile)."""
+    return ((tx * 73856093) ^ (ty * 19349663)) & 1
+
 T = C.TILE
 WALL_LIFT = C.WALL_LIFT   # o topo da parede é desenhado 24 px acima do tile (altura, estilo Core Keeper)
 LANDED_SHADOW_DROP = 6   # px abaixo do centro do drone: a sombra encostada nele (ainda no chão)
@@ -151,6 +171,8 @@ class Renderer:
         # Relógio das animações das máquinas: o App soma dt × fator da energia (game/energy.py).
         # No déficit ele anda mais devagar, então a drill gira e as máquinas animam mais devagar.
         self.machine_t = 0.0
+        self.clock = 0.0
+        self.powered = True
 
         # Superfícies de efeito pré-calculadas (fazer isso a cada frame seria lento).
         self.shadow_top = self._alpha_strips(T, [(10, 84), (6, 40)])   # sombra que a parede joga no chão
@@ -467,6 +489,8 @@ class Renderer:
     def draw_walls_and_objects(self, canvas, state: GameState, cam, stage: str, t: float) -> None:
         """Passada 2: linha por linha, paredes com topo elevado e objetos ordenados pelo pé."""
         tx0, tx1, ty0, ty1 = self.visible_tiles(cam)
+        self.clock = t                                  # relógio do ambiente (terminal, pod, painel solar)
+        self.powered = state.power.factor > 0           # sem energia nenhuma: máquinas no quadro 0
         objects = self.collect_objects(canvas, state, cam, t)
         strips = self.hill_strips(state, cam) if self.organic_hills(state) else None
         hill_rows = None if strips is None else {r for rows in strips.values() for r in rows}
@@ -666,7 +690,7 @@ class Renderer:
             canvas.blit(self.surface(f"wall_face_{stage}", lambda: art.wall_face(stage))[0], (sx, sy + FACE_Y))
             if kind == C.TERMINAL:   # o terminal fica pendurado na face
                 term = self.surface("terminal", art.terminal)[0]
-                canvas.blit(term, (sx, sy))
+                canvas.blit(self.anim_surface("terminal", term, anim_frame_index(self.clock, tile_phase(tx, ty))), (sx, sy))
                 if self.highlight is not None and self.highlight == ("terminal", (tx, ty)):
                     canvas.blit(self.outline_of("terminal", term), (sx - 1, sy - 1))
 
@@ -894,7 +918,9 @@ class Renderer:
                 elif m.is_station:
                     items.append((my, lambda m=m: self.draw_station(canvas, m, cam, t)))
                 else:
-                    items.append((my, lambda m=m, mx=mx, my=my: self.draw_machine(canvas, m.kind, mx - cam_x, my - cam_y, self.machine_t, m.rotation)))
+                    items.append((my, lambda m=m, mx=mx, my=my: self.draw_machine(
+                        canvas, m.kind, mx - cam_x, my - cam_y, self.machine_t, m.rotation,
+                        frame=self.machine_anim_index(m, self.powered, t))))
                 if m is self.highlight:   # alvo do E: contorno logo depois dele (quem está na frente cobre)
                     items.append((my, lambda m=m, mx=mx, my=my: self._blit_anchored(
                         canvas, self.highlight_outline(m), mx - cam_x, my - cam_y + 1)))
@@ -906,7 +932,7 @@ class Renderer:
                 resource = C.SMALL_ROCKS.get(row[tx])
                 if resource:
                     items.append(((ty + 1) * T, lambda tx=tx, ty=ty, r=resource: self.draw_small_rock(
-                        canvas, tx * T - cam_x, ty * T - cam_y, r)))
+                        canvas, tx * T - cam_x, ty * T - cam_y, r, tx, ty)))
         if self.stage_map.next_stage >= C.GREEN_STAGE:   # plantas nascem junto com a mancha verde
             for ty in range(ty0, ty0 + self.view_h // T + 3):
                 for tx in range(tx0, tx0 + self.view_w // T + 2):
@@ -1049,10 +1075,24 @@ class Renderer:
         if self.highlight is crate:
             canvas.blit(self.outline_of(("crate", crate.empty), surf), (x - 1, y - 1))
 
-    def draw_small_rock(self, canvas, x: int, y: int, resource: str) -> None:
-        """Rocha pequena em (tx·32, ty·32) + o cristalzinho do minério que ela dá (pra ler de longe)."""
-        canvas.blit(self.surface("rock_small", art.rock_small)[0], (x, y))
-        canvas.blit(self.surface(None, lambda: art.ore_fleck(resource), f"fleck#{resource}")[0], (x, y))
+    def small_rock_surface(self, resource: str, tx: int, ty: int) -> tuple[pygame.Surface, bool]:
+        """Rocha pequena do minério (rock_small_<minério>_{0,1}.png, variação por hash do tile) e se é o
+        jeito antigo (rock_small neutro + cristalzinho por cima), que vale quando o PNG não existe."""
+        name = f"rock_small_{resource}_{rock_variant(tx, ty)}"
+        sprite = self.sprites.get(name)
+        if sprite is not None:
+            return self.surface(name, art.rock_small)[0], False
+        key = f"rock_small_old#{resource}"
+        if key not in self._surfaces:
+            base = self.surface("rock_small", art.rock_small)[0].copy()
+            base.blit(self.surface(None, lambda: art.ore_fleck(resource), f"fleck#{resource}")[0], (0, 0))
+            self._surfaces[key] = (base, True)
+        return self._surfaces[key]
+
+    def draw_small_rock(self, canvas, x: int, y: int, resource: str, tx: int = 0, ty: int = 0) -> None:
+        """Rocha pequena em (tx·32, ty·32): a do minério com veio (2 variações por tile)."""
+        surf, _ = self.small_rock_surface(resource, tx, ty)
+        canvas.blit(surf, (x, y))
 
     HIGHLIGHT_RGBA = (255, 236, 176, 150)   # contorno do alvo do E: creme claro, meio transparente
 
@@ -1127,6 +1167,37 @@ class Renderer:
             self._fx[key] = out
         return self._fx[key]
 
+    # ---- animação das máquinas e do ambiente (tiras anim/anim_<sprite>.png, 4 quadros lado a lado) -------------
+    def anim_frames(self, name: str, still: pygame.Surface) -> list[pygame.Surface] | None:
+        """Os 4 quadros da tira `anim/anim_<name>.png`, recortados uma vez (cache). O quadro tem o tamanho do
+        sprite parado `still`. None se a tira não existe ou não bate com o parado (aí vale o parado)."""
+        key = ("anim", name, still.get_size())
+        if key not in self._fx:
+            strip = self.sprites.get(f"anim/anim_{name}")
+            w, h = still.get_size()
+            ok = strip is not None and strip.get_size() == (w * ANIM_FRAMES, h)
+            self._fx[key] = [strip.subsurface((i * w, 0, w, h)) for i in range(ANIM_FRAMES)] if ok else None
+        return self._fx[key]
+
+    def anim_surface(self, name: str, still: pygame.Surface, index: int | None) -> pygame.Surface:
+        """Quadro `index` da tira, ou o parado (`index` None ou sem tira)."""
+        frames = None if index is None else self.anim_frames(name, still)
+        return still if frames is None else frames[index % ANIM_FRAMES]
+
+    def machine_anim_index(self, m, powered: bool, clock: float) -> int:
+        """Quadro da animação da máquina `m`. Submersa ou sem energia nenhuma: quadro 0. O painel solar anima
+        sempre que está em pé (gera, não gasta; sem noite no jogo). A estação só com drone dentro. O resto anda no
+        `machine_t`, que já corre no ritmo do power.factor (déficit = mais devagar)."""
+        if m.submerged:
+            return 0
+        phase = tile_phase(m.tx, m.ty)
+        if m.kind == "solar":
+            return anim_frame_index(clock, phase)
+        working = powered
+        if m.is_station:
+            working = powered and bool(m.station is not None and m.station.drones)
+        return anim_frame_index(self.machine_t, phase, working)
+
     def _blit_anchored(self, canvas, surf, ax, ay, flip=False):
         if flip:
             surf = pygame.transform.flip(surf, True, False)
@@ -1134,7 +1205,7 @@ class Renderer:
 
     def _draw_pod(self, canvas, ax, ay, t) -> None:
         surf, fallback = self.surface("pod", art.pod)
-        self._blit_anchored(canvas, surf, ax, ay)
+        self._blit_anchored(canvas, self.anim_surface("pod", surf, anim_frame_index(t, 0)), ax, ay)
         if fallback and (t * 9) % 10 < 5:   # luz da antena piscando
             canvas.fill("#ff5a4a", (round(ax) - 32 + 49, round(ay) - 72 + 1, 3, 3))
 
@@ -1190,7 +1261,9 @@ class Renderer:
     def draw_station(self, canvas, machine, cam, t: float) -> None:
         """Estação + os drones pousados nos pads (os que estão voando são desenhados depois, por cima)."""
         ax, ay = machine.anchor
-        self._blit_anchored(canvas, self.station_surface(), ax - cam[0], ay - cam[1])
+        still = self.station_surface()
+        frame = self.machine_anim_index(machine, self.powered, t)
+        self._blit_anchored(canvas, self.anim_surface("drone_station", still, frame), ax - cam[0], ay - cam[1])
         if machine.station is None:
             return
         for i, drone in enumerate(machine.station.drones):
@@ -1316,7 +1389,8 @@ class Renderer:
             return self.surface("lamp_t2", art.lamp_strong)[0]
         return self.surface("lamp", art.lamp)[0]
 
-    def draw_machine(self, canvas, kind, ax, ay, t, rotation=0, alpha=None) -> None:
+    def draw_machine(self, canvas, kind, ax, ay, t, rotation=0, alpha=None, frame: int | None = None) -> None:
+        """`frame` = quadro da tira de animação; None = o parado (fantasma de colocar, ícones)."""
         if kind in C.LAMP_RADIUS:                # luminária: sem animação nem rotação (a luz vem do lighting)
             surf = self.lamp_surface(kind)
             if alpha is not None:
@@ -1338,6 +1412,8 @@ class Renderer:
             return
         name = C.MACHINES[kind].sprite
         surf, fallback = self.surface(name, lambda: art.machine(kind))
+        if not fallback and alpha is None:
+            surf = self.anim_surface(name, surf, frame)
         if alpha is not None:
             surf = surf.copy()
             surf.set_alpha(alpha)
