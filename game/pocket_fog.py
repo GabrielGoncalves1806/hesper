@@ -13,7 +13,6 @@ smoothscale pro tamanho da tela. Só desenha se o bolsão aparece na tela.
 from __future__ import annotations
 
 import numpy as np
-import pygame
 
 from game import config as C
 from game import ice_blocks, thaw
@@ -96,9 +95,11 @@ class PocketFog:
             mask[max(0, cy - k):cy + k, cx:cx + k] = 1.0
         mask = _blur(mask, EDGE_CELLS)
         self._mask, self._origin = mask, (gx0, gy0)
+        import pygame                         # só o desenho usa: layers/worlds importam este módulo sem pygame
         self._buf = pygame.Surface((gw, gh), pygame.SRCALPHA)
 
     def draw(self, canvas: pygame.Surface, geo, cam, t: float, alpha: float) -> None:
+        import pygame
         if alpha <= 0 or getattr(geo, "giant", None) is None:
             return
         self._prepare(geo)
