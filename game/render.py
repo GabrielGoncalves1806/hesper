@@ -1142,7 +1142,12 @@ class Renderer:
             return self.outline_of(("chest", opened), self.chest_surface(opened))
         if machine.is_bench:
             return self.outline_of("bench", self.machine_still(machine)[0])
-        return self.outline_of("station", self.station_surface())
+        if machine.is_station:
+            return self.outline_of("station", self.station_surface())
+        sprite, flip = self.machine_still(machine)   # derretedor e o resto: a silhueta do próprio sprite
+        if flip:
+            sprite = pygame.transform.flip(sprite, True, False)
+        return self.outline_of((machine.kind, flip), sprite)
 
     # ---- luz de scanner: construir e desmontar (v0.5 M1) -----------------------------------
     # Referência da Designer: tools/sprites/v05_m1_construtor.py · scan_frame (o mesmo algoritmo, em pygame).

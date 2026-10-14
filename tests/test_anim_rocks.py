@@ -138,3 +138,14 @@ def test_small_rock_falls_back_to_old_way_without_png():
     assert r.small_rock_surface("iron", 5, 5)[0] is surf                  # fallback no cache
     canvas = pygame.Surface((32, 32), pygame.SRCALPHA)
     r.draw_small_rock(canvas, 0, 0, "iron", 3, 4)
+
+
+def test_highlight_outline_follows_the_machine_own_sprite():
+    """O contorno do E no derretedor é a silhueta dele, não a da estação de drones (bug do v0.5 M2)."""
+    r = renderer()
+    for kind in ("melter", "melter_t2"):
+        m = Machine(kind, 4, 4)
+        sprite, _ = r.machine_still(m)
+        outline = r.highlight_outline(m)
+        assert outline.get_size() == (sprite.get_width() + 2, sprite.get_height() + 2)
+        assert outline is not r.highlight_outline(Machine("drone_station", 3, 3))
