@@ -12,7 +12,7 @@ from game import drones, save
 from game.drones import CARRYING, LANDED, Ledger, OUTBOUND, RETURNING
 from game.inventory import Stack
 from game.systems import GameState, Machine
-from tests.helpers import give
+from tests.helpers import build_now
 
 ST = (60, 70)
 
@@ -62,15 +62,14 @@ def total(game, item: str) -> int:
 
 # ---------------------------------------------------------------- configuração
 def test_new_chest_and_new_drill_start_with_nothing(game):
-    give(game, chest=1, drill=1)
     game.player.x, game.player.y = 94.5 * C.TILE, 102 * C.TILE
-    assert game.place("chest", (94, 100))
+    assert build_now(game, "chest", (94, 100))
     c = game.chests[0]
     assert c.sends == set() and c.receives == set() and c.batch == 10
     assert not drones.configured(c)
     vein = game.world.veins[0]
     game.player.x, game.player.y = (vein.tx + 1) * C.TILE, (vein.ty + 3) * C.TILE + 8
-    assert game.place("drill", (vein.tx, vein.ty))
+    assert build_now(game, "drill", (vein.tx, vein.ty))
     d = game.drills[0]
     assert d.sends == set() and d.receives == set() and d.batch == 10       # drill nova também vem vazia
 

@@ -188,11 +188,12 @@ def test_heater_recipes_charge_magmatite():
     assert C.MACHINES["heater_t2"].cost["magmatite"] == 10
     g = GameState(1)
     g.indices["o2"] = 500
-    give(g, iron=50, silicon=50)
-    assert g.recipe_status("heater") == "missing"
-    assert not g.craft("heater")
+    give(g, constructor=1, iron=50, silicon=50)
+    px, py = g.player.tile
+    assert g.build_status("heater") == "missing"
+    assert not g.build("heater", (px + 2, py))
     give(g, magmatite=5)
-    assert g.recipe_status("heater") == "ok" and g.craft("heater")
+    assert g.build_status("heater") == "ok" and g.build("heater", (px + 2, py))
     assert g.inventory.count("magmatite") == 2
 
 
@@ -200,7 +201,7 @@ def test_heater_recipes_charge_magmatite():
 def test_objective_right_before_the_heater_with_the_hint():
     texts = [o.text for o in OBJECTIVES]
     i = texts.index("Encontre magmatita no basalto (oeste)")
-    assert texts[i - 1] == "Chegue a Ti 500" and texts[i + 1] == "Fabrique um Aquecedor"
+    assert texts[i - 1] == "Chegue a Ti 500" and texts[i + 1] == "Construa um Aquecedor"
     assert OBJECTIVES[i].hint == MAGMATITE_HINT
     assert MAGMATITE_HINT == "Os sensores detectaram calor a oeste. Talvez exista algo por lá pra gerar calor."
 
@@ -209,7 +210,7 @@ def _state_at_magmatite_objective() -> GameState:
     g = GameState(1)
     g.mined_total.update(iron=10, silicon=4)
     g.fabricator_opened = True
-    g.crafted.update(o2=1, chest=1, melter=1)
+    g.crafted.update(constructor=1, o2=1, chest=1, melter=1)
     g.surface.machines.append(Machine("o2", 93, 98))
     g.indices["o2"] = 500
     return g
@@ -225,14 +226,14 @@ def test_objective_completes_on_first_magmatite_and_shows_hint_once():
     assert tracker.take_hint() is None                                   # uma vez só
     g.mined_total["magmatite"] = 2
     tracker.update(g, 0.1)
-    assert OBJECTIVES[current_index(g)].text == "Fabrique um Aquecedor"
+    assert OBJECTIVES[current_index(g)].text == "Construa um Aquecedor"
 
 
 def test_old_progress_with_heater_does_not_go_back():
     g = _state_at_magmatite_objective()
     g.crafted["heater"] = 1                                               # save de antes da magmatita
     assert OBJECTIVES[current_index(g)].text != "Encontre magmatita no basalto (oeste)"
-    assert current_index(g) > [o.text for o in OBJECTIVES].index("Fabrique um Aquecedor")
+    assert current_index(g) > [o.text for o in OBJECTIVES].index("Construa um Aquecedor")
 
 
 # ---------------------------------------------------------------- save
@@ -250,14 +251,14 @@ def test_old_v7_save_without_magmatite_loads():
     g = GameState(7)
     give(g, iron=5)
     data = json.loads(json.dumps(save.state_to_dict(g)))
-    assert data["version"] == 7
+    data["version"] = 7                                                   # um save v7 (o v8 é do v0.5 M1)
     del data["progress"]["mined_total"]["magmatite"]
     del data["progress"]["drill_collected"]["magmatite"]
     del data["layers"]["surface"]["rocks"]["vents"]
     # uma máquina que estava em cima de onde agora nasce uma rocha de magmatita
     x, y = magma_tiles(g.surface.world)[0]
     data["layers"]["surface"]["machines"].append({"kind": "o2", "tx": x, "ty": y, "rotation": 0})
-    back = save.state_from_dict(data)
+    back = save.state_from_dict(save.migrate(data))
     assert back.mined_total["magmatite"] == 0 and back.inventory.count("iron") == 5
     assert back.surface.rocks.vent_timers == []
     assert back.surface.world.get(x, y) == C.SAND                        # a rocha nova não fica embaixo da máquina

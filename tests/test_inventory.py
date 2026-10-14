@@ -7,7 +7,7 @@ import pytest
 from game import config as C
 from game.inventory import Inventory, Stack, max_stack
 from game.systems import GameState
-from tests.helpers import give
+from tests.helpers import build_now, give
 
 
 # ================================================================ modelo puro
@@ -192,37 +192,35 @@ def test_mining_with_room_for_part_of_the_drop(game):
 
 
 def test_craft_turns_into_an_item(game):
-    give(game, iron=10, silicon=4)
-    assert game.craft("o2")
-    assert game.inventory.counts() == {"o2": 1}
+    give(game, iron=5)
+    assert game.craft("constructor")
+    assert game.inventory.counts() == {"constructor": 1}
 
 
 def test_craft_counts_the_slot_freed_by_the_recipe(game):
     fill_with_ice(game)
     game.inventory.remove("ice", 50)                    # libera o último slot...
-    give(game, iron=6)                                  # ...e o ferro ocupa ele: inventário lotado
-    assert not game.inventory.has_space("chest")
-    assert game.craft("chest")                          # o ferro é gasto todo: o slot dele vira o baú
-    assert game.inventory.count("chest") == 1 and game.inventory.count("iron") == 0
+    give(game, iron=5)                                  # ...e o ferro ocupa ele: inventário lotado
+    assert not game.inventory.has_space("constructor")
+    assert game.craft("constructor")                    # o ferro é gasto todo: o slot dele vira o construtor
+    assert game.inventory.count("constructor") == 1 and game.inventory.count("iron") == 0
 
 
 def test_craft_with_full_inventory_warns(game):
     fill_with_ice(game)
     chest = place_chest_with(game, iron=10, silicon=4)  # recurso só no baú
-    assert game.recipe_status("o2") == "ok"
-    assert not game.craft("o2")                         # a máquina não teria onde ficar
+    assert game.recipe_status("constructor") == "ok"
+    assert not game.craft("constructor")                # o item não teria onde ficar
     assert ("inv_full",) in game.pop_events()
     assert chest.storage.count("iron") == 10            # não gastou nada
 
 
 def place_chest_with(game: GameState, **content) -> object:
-    """Fabrica e coloca um baú do lado do player (na base) e enche com `content`."""
+    """Constrói um baú do lado do player (na base) e enche com `content`."""
     saved = game.inventory.copy()
     game.inventory.clear()
-    give(game, iron=6)
-    assert game.craft("chest")
     px, py = game.player.tile
-    assert game.place("chest", (px + 2, py))
+    assert build_now(game, "chest", (px + 2, py))
     game.inventory = saved
     chest = game.chests[-1]
     for item, n in content.items():
@@ -240,13 +238,12 @@ def test_chest_is_a_machine_without_index(game):
 
 
 def test_fabricator_uses_inventory_first_then_base_chests(game):
-    chest = place_chest_with(game, iron=20, silicon=10)
-    give(game, iron=4)
-    assert game.available("iron") == 24
-    assert game.craft("o2")                             # 10 ferro + 4 silício
-    assert game.inventory.count("iron") == 0            # gastou os 4 do inventário primeiro
-    assert chest.storage.count("iron") == 14            # e 6 do baú
-    assert chest.storage.count("silicon") == 6
+    chest = place_chest_with(game, iron=20)
+    give(game, iron=2)
+    assert game.available("iron") == 22
+    assert game.craft("constructor")                    # 5 ferro
+    assert game.inventory.count("iron") == 0            # gastou os 2 do inventário primeiro
+    assert chest.storage.count("iron") == 17            # e 3 do baú
 
 
 def test_chests_outside_the_base_do_not_count(game):
@@ -254,7 +251,7 @@ def test_chests_outside_the_base_do_not_count(game):
     assert chest in game.base_chests()
     chest.ty += 30                                      # "leva" o baú pra longe da zona de O₂
     assert chest not in game.base_chests()
-    assert game.recipe_status("o2") == "missing"
+    assert game.recipe_status("constructor") == "missing"
 
 
 def test_e_opens_the_closest_chest(game):
@@ -271,41 +268,33 @@ def test_chest_with_content_cannot_be_dismantled(game):
     assert chest in game.machines and ("chest_not_empty",) in game.pop_events()
     chest.storage.clear()
     assert game.dismantle(chest)
-    assert game.inventory.count("chest") == 1
+    assert game.inventory.count("chest") == 0 and game.inventory.count("iron") == 6   # v0.5 M1: a receita
 
 
-def test_dismantle_needs_room_for_the_item(game):
-    give(game, iron=10, silicon=4)
-    game.craft("o2")
+def test_dismantle_needs_room_for_the_recipe(game):
     px, py = game.player.tile
-    game.place("o2", (px + 2, py))
+    m = build_now(game, "o2", (px + 2, py))
     fill_with_ice(game)
-    m = game.machines[0]
     assert not game.dismantle(m)
     assert m in game.machines and ("inv_full",) in game.pop_events()
 
 
-def test_place_consumes_from_the_chosen_slot(game):
-    give(game, iron=100, silicon=100)
-    game.craft("o2")
-    game.craft("o2")
-    game.inventory.move(game.inventory.slots.index(Stack("o2", 2)), 7)   # pilha de 2 no slot 7
+def test_build_spends_from_the_inventory_not_from_a_slot(game):
+    give(game, constructor=1, iron=100, silicon=100)
     px, py = game.player.tile
-    assert not game.place("o2", (px + 2, py), slot=0)  # slot 0 é ferro, não gerador
-    assert game.place("o2", (px + 2, py), slot=7)
-    assert game.inventory.slots[7] == Stack("o2", 1)
-    assert not game.can_place("chest", (px - 2, py))  # sem baú no inventário
+    assert game.build("o2", (px + 2, py))
+    assert game.inventory.count("iron") == 90 and game.inventory.count("silicon") == 96
+    assert game.inventory.count("o2") == 0
 
 
 # ================================================================ drill e inventário
 def mist_game_with_drill():
     game = GameState(rng=random.Random(5))
     game.debug_add_ti()
-    give(game, iron=12, silicon=6)
-    assert game.craft("drill")
     vein = game.world.veins[0]
     game.player.x, game.player.y = (vein.tx + 0.5) * C.TILE, (vein.ty + 3) * C.TILE - 4
-    assert game.place("drill", (vein.tx, vein.ty))
+    assert build_now(game, "drill", (vein.tx, vein.ty))
+    game.inventory.clear()
     return game, game.drills[0]
 
 
@@ -325,6 +314,6 @@ def test_dismantling_a_drill_that_does_not_fit_keeps_it_in_place():
     fill_with_ice(game)
     game.inventory.remove("ice", 50)
     game.inventory.add(drill.resource, 45)              # cabem só 5 dos 20
-    assert not game.dismantle(drill)
-    assert drill in game.machines and drill.stored == 15
-    assert game.inventory.count(drill.resource) == 50
+    assert not game.dismantle(drill)                    # v0.5 M1: ou cabe tudo (minério + receita), ou nada muda
+    assert drill in game.machines and drill.stored == 20
+    assert game.inventory.count(drill.resource) == 45

@@ -19,7 +19,7 @@ from game import config as C  # noqa: E402
 from game import drones, save  # noqa: E402
 from game.drones import LANDED  # noqa: E402
 from game.systems import GameState, Machine  # noqa: E402
-from tests.helpers import give  # noqa: E402
+from tests.helpers import build_now, give  # noqa: E402
 
 
 def mist_state() -> GameState:
@@ -63,18 +63,17 @@ def test_can_place_refuses_a_water_tile():
     s = mist_state()
     flood(s)
     tile = basin_tile(s)
-    give(s, o2=1)
+    give(s, constructor=1, iron=10, silicon=4)
     stand_near(s, tile)
     assert s.surface.world.is_water(*tile, s.stage)
     assert not s.can_place("o2", tile)
-    assert not s.place("o2", tile)
-    assert s.inventory.count("o2") == 1
+    assert not s.build("o2", tile)
+    assert s.inventory.count("iron") == 10
 
 
 def test_can_place_on_the_same_tile_while_it_is_dry():
     s = mist_state()
     tile = basin_tile(s)
-    give(s, o2=1)
     stand_near(s, tile)
     assert s.can_place("o2", tile)                     # bacia seca: dá pra construir (e alagar depois)
 
@@ -83,7 +82,6 @@ def test_can_place_refuses_when_any_tile_of_a_big_machine_is_water():
     s = mist_state()
     flood(s)
     world = s.surface.world
-    give(s, drone_station=1)
     for tx, ty in wet_at(world, C.GEO_LEVELS[0]):      # estação 2×2 com só um canto na água (margem)
         corner = (tx - 1, ty - 1)
         tiles = [(corner[0] + dx, corner[1] + dy) for dy in (0, 1) for dx in (0, 1)]
@@ -100,9 +98,8 @@ def test_can_place_refuses_when_any_tile_of_a_big_machine_is_water():
 def test_machine_in_a_dry_basin_floods_later_and_fires_once():
     s = mist_state()
     tile = basin_tile(s)
-    give(s, o2=1)
     stand_near(s, tile)
-    assert s.place("o2", tile)
+    assert build_now(s, "o2", tile)
     m = s.machine_at(tile)
     s._apply_thaw()
     assert not m.submerged and not submerged_events(s)
@@ -222,7 +219,7 @@ def test_dismantle_a_submerged_machine_returns_it():
     s, m = flooded_machine("o2")
     stand_near(s, (m.tx, m.ty))
     assert s.dismantle(m)
-    assert m not in s.machines and s.inventory.count("o2") == 1
+    assert m not in s.machines and s.inventory.count("iron") == C.MACHINES["o2"].cost["iron"]   # a receita
 
 
 # ---------------------------------------------------------------- derivado: fora do save
@@ -239,9 +236,9 @@ def test_submerged_is_derived_on_load_without_events():
 # ---------------------------------------------------------------- aviso e dica (App)
 def test_submerged_notice_text_agrees_with_the_machine():
     from game.ui import submerged_notice
-    assert submerged_notice(["o2"]) == f"Gerador de O₂ submerso · recolha [{C.DISMANTLE_KEY}]"
-    assert submerged_notice(["lamp"]) == f"Luminária submersa · recolha [{C.DISMANTLE_KEY}]"
-    assert submerged_notice(["o2", "heater", "lamp"]) == f"3 máquinas submersas · recolha [{C.DISMANTLE_KEY}]"
+    assert submerged_notice(["o2"]) == f"Gerador de O₂ submerso · segure [{C.DISMANTLE_KEY}]"
+    assert submerged_notice(["lamp"]) == f"Luminária submersa · segure [{C.DISMANTLE_KEY}]"
+    assert submerged_notice(["o2", "heater", "lamp"]) == f"3 máquinas submersas · segure [{C.DISMANTLE_KEY}]"
     assert C.DISMANTLE_KEY == "Clique direito"          # o verbo que a dica de desmontar já usa
 
 

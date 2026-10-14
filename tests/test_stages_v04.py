@@ -144,7 +144,7 @@ def test_new_save_does_not_move_the_stage_again(tmp_path):
     loaded = save.load_game(path)
     assert loaded.stage == C.STORM_STAGE and loaded.storm == 1.0
     assert save.state_to_dict(loaded)["progress"]["stage_scheme"] == save.STAGE_SCHEME
-    assert save.state_to_dict(loaded)["version"] == 7          # v7: geografia nova (v0.4 Marco 2)
+    assert save.state_to_dict(loaded)["version"] == 8          # v8 (v0.5 M1); v7 = geografia nova (v0.4 M2)
 
 
 # ---------------------------------------------------------------- A4 · objetivo, banner e ambiente

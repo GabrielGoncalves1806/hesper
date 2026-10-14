@@ -87,13 +87,13 @@ def test_debug_ti_heat_thaws_too(new_state):
 # ---------------------------------------------------------------- objetivos (ordem decidida pelo dono)
 def test_heater_trio_comes_right_after_the_chest_and_before_the_crater():
     texts = [o.text for o in OBJECTIVES]
-    i = texts.index("Fabrique um baú")
-    assert texts[i + 1:i + 7] == ["Minere gelo e fabrique um Derretedor", "Chegue a Ti 500",
-                                  "Encontre magmatita no basalto (oeste)", "Fabrique um Aquecedor",
+    i = texts.index("Construa um baú")
+    assert texts[i + 1:i + 7] == ["Minere gelo e construa um Derretedor", "Chegue a Ti 500",
+                                  "Encontre magmatita no basalto (oeste)", "Construa um Aquecedor",
                                   "Derreta o gelo da cratera", "Desça na caverna pela cratera [E]"]
     j = texts.index("Fabrique e equipe o tanque de O₂")
     assert texts.index("Desça na caverna pela cratera [E]") < texts.index("Ache um destroço") < j
-    assert texts[j + 1] == "Fabrique um painel solar"
+    assert texts[j + 1] == "Construa um painel solar"
 
 
 # ---------------------------------------------------------------- fumarolas
@@ -182,11 +182,11 @@ def test_state_wakes_fumaroles_and_load_rebuilds(new_state):
     assert other.surface.vents_awake == [False] * len(vents)
 
 
-def test_save_stays_v7_without_new_fields(new_state):
+def test_save_has_no_new_thaw_fields(new_state):
     new_state.indices["heat"] = 10_000
     new_state._apply_thaw()
     data = save.state_to_dict(new_state)
-    assert data["version"] == 7
+    assert data["version"] == 8                              # v8 (v0.5 M1): sem campo novo do degelo
     assert set(data["layers"]["surface"]) == set(save.state_to_dict(GameState(rng=random.Random(1)))["layers"]["surface"])
 
 

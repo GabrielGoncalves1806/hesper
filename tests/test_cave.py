@@ -167,26 +167,26 @@ def test_lamp_recipe_is_cheap_unlocked_and_unpowered():
     assert C.MACHINE_CATEGORY["lamp"] == "light" and ("light", "Luz") in C.FAB_TABS
     assert energy.machine_use("lamp") == 0
     g = GameState(rng=random.Random(1))
-    give(g, iron=1, silicon=1)
-    assert g.recipe_status("lamp") == "ok" and g.craft("lamp") and g.inventory.count("lamp") == 1
+    give(g, constructor=1, iron=1, silicon=1)
+    px, py = g.player.tile
+    assert g.build_status("lamp") == "ok" and g.build("lamp", (px + 2, py)) and g.inventory.count("iron") == 0
 
 
 def test_lamp_goes_on_both_layers_and_counts():
     g = GameState(rng=random.Random(1))
-    give(g, lamp=2)
+    give(g, constructor=1, iron=2, silicon=2)
     px, py = g.player.tile
-    assert g.place("lamp", (px + 2, py)) and g.lamps_placed == 1
+    assert g.build("lamp", (px + 2, py)) and g.lamps_placed == 1
     g.enter_layer(CAVE)
     g.player.x, g.player.y = layers.ramp_arrival(g.world)
     px, py = g.player.tile
-    assert g.place("lamp", (px + 2, py)) and g.lamps_placed == 2
+    assert g.build("lamp", (px + 2, py)) and g.lamps_placed == 2
     assert g.machines[0].is_lamp and g.power.consumption == 0
     assert g.dismantle(g.machines[0]) and g.lamps_placed == 2          # só cresce
 
 
 def test_no_drone_station_in_the_cave_but_drill_works():
     g = cave_state()
-    give(g, drone_station=1)
     px, py = g.player.tile
     assert not g.can_place("drone_station", (px + 2, py + 1))
     g.enter_layer(SURFACE)

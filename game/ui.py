@@ -30,7 +30,6 @@ from game import energy
 from game import map_markers
 from game import map_view
 from game.assets import Sprites, load_font
-from game.fabricator import field_kinds, tab_kinds
 from game.floaters import LANE_PX, RISE, FloatingTexts, dodge_labels, hud_fade  # noqa: F401 (FloatingTexts: app)
 from game.inventory import Inventory, Stack, max_stack
 from game.systems import GameState, eta_label, stage_progress
@@ -57,10 +56,9 @@ SIDE_INV_H = 84                                  # janela "Inventário" do lado 
 INV_TABS_Y = 20                                  # y das abas dentro da janela
 INV_TABS_H = 15
 INV_CONTENT_Y = 40                               # onde começa o conteúdo das 3 abas
-TAB_INVENTORY, TAB_CRAFT, TAB_LOGS = range(3)    # índices das abas do Tab
+TAB_INVENTORY, TAB_LOGS = range(2)               # índices das abas do Tab (a Fabricar saiu no v0.5 M1)
 TAB_INV_W = 346                                  # janela da aba Inventário (mochila/hotbar/traje + detalhe)
 TAB_INV_H = 184
-FIELD_W, FIELD_LIST_W = 400, 150                 # aba Fabricar: janela e lista da esquerda
 FAB_W, FAB_H, FAB_LIST_W = 456, 258, 176         # fabricador da base
 RECIPE_ROW_H, RECIPE_ROW_STEP = 22, 24           # linha da lista de receitas
 LOG_ROW_H, LOG_ROW_STEP = 15, 16                 # linha da aba LOGs e o passo entre elas
@@ -87,7 +85,7 @@ OK_TEXT, ALERT_TEXT = "#b6f0b0", "#ff8a7a"
 OK_BG, OK_BORDER = (127, 214, 122, 18), "#2f4a33"
 BAD_BG, BAD_BORDER = (255, 106, 85, 30), "#6a302b"
 # ícone de cada aba do fabricador (só a ativa mostra o nome: cabe nos 3 tamanhos)
-FAB_TAB_ICON = {"terraform": "o2", "energy": "solar", "automation": "drill", "storage": "chest", "light": "lamp",
+FAB_TAB_ICON = {"tools": "constructor", "terraform": "o2", "energy": "solar", "automation": "drill", "storage": "chest", "light": "lamp",
                 "suit": "o2_tank"}
 
 
@@ -272,12 +270,12 @@ def item_name(item: str) -> str:
 
 
 def submerged_notice(kinds: list[str]) -> str:
-    """v0.4 M3.4: aviso de máquina que o lago cobriu. Uma: "Aquecedor submerso · recolha [Clique direito]" (concorda
-    com o nome); várias juntas: "3 máquinas submersas · recolha [Clique direito]"."""
+    """v0.4 M3.4: aviso de máquina que o lago cobriu. Uma: "Aquecedor submerso · segure [Clique direito]" (concorda
+    com o nome); várias juntas: "3 máquinas submersas · segure [Clique direito]" (v0.5 M1: desmontar é segurar)."""
     if len(kinds) == 1:
         word = "submersa" if kinds[0] in C.MACHINE_FEMININE else "submerso"
-        return f"{item_name(kinds[0])} {word} · recolha [{C.DISMANTLE_KEY}]"
-    return f"{len(kinds)} máquinas submersas · recolha [{C.DISMANTLE_KEY}]"
+        return f"{item_name(kinds[0])} {word} · segure [{C.DISMANTLE_KEY}]"
+    return f"{len(kinds)} máquinas submersas · segure [{C.DISMANTLE_KEY}]"
 
 
 def used_in(item: str) -> list[str]:
@@ -293,7 +291,7 @@ def item_category(item: str) -> tuple[str, str]:
         return "PROJETO", "#9fd0ff"
     if item in C.EQUIP_SLOTS:
         return "TRAJE", C.C_TERMINAL
-    if item == "drone":
+    if item in ("drone", "constructor"):
         return "ITEM", C.C_TI
     return "MÁQUINA", C.C_ACCENT
 
@@ -1067,11 +1065,13 @@ class UI:
         self.fabricator_batch.clear()
 
     def draw_fabricator(self, state: GameState, menu, machine_preview, t: float, item_icon=None,
-                        mouse=(-1, -1), shift: bool = False) -> None:
+                        mouse=(-1, -1), shift: bool = False, build: bool = False) -> None:
         """Fabricador da base (`menu`: game/fabricator.FabMenu): abas com ícone (só a ativa mostra o nome),
         lista de receitas à esquerda e o detalhe da escolhida à direita. `machine_preview(kind)` = imagem da
         máquina (resolução cheia); `item_icon(item)` = ícone 32×32. Hit-test: fabricator_tabs,
-        fabricator_rows, fabricator_batch e fabricator_buttons (o FABRICAR, só se dá pra fabricar)."""
+        fabricator_rows, fabricator_batch e fabricator_buttons (o FABRICAR, só se dá pra fabricar).
+        `build` = o menu do construtor (v0.5 M1): mesmo painel, materiais só do inventário, sem lote, e o botão
+        CONSTRUIR escolhe a máquina (entra no modo de construir)."""
         item_icon = item_icon or (lambda _item: self._blank)
         self._fab_reset()
         self.header_rects.clear()
@@ -1080,14 +1080,17 @@ class UI:
         w, h = min(self.w - 8, max(FAB_W, tabs_w + 16)), min(self.h - 4, FAB_H)
         x, y = (self.w - w) // 2, (self.h - h) // 2       # no centro
         self.fabricator_panel = pygame.Rect(x, y, w, h)
-        self.window(x, y, w, h, "Fabricador", "MATERIAIS: INVENTÁRIO + BAÚS")
+        if build:
+            self.window(x, y, w, h, "Construtor", "MATERIAIS: SÓ O INVENTÁRIO")
+        else:
+            self.window(x, y, w, h, "Fabricador", "MATERIAIS: INVENTÁRIO + BAÚS")
         # abas com ícone
         tx = x + 8
-        for i, (tab_id, label) in enumerate(C.FAB_TABS):
+        for i, (tab_id, label) in enumerate(menu.tabs):
             on = i == menu.tab
             tw = 22 + (self.body.size(label)[0] + 4 if on else 0)
             rect = pygame.Rect(tx, y + 18, tw, 20)
-            unlocked = any(state.recipe_status(k) not in ("locked", "blueprint") for k in tab_kinds(tab_id))
+            unlocked = any(state.recipe_status(k) not in ("locked", "blueprint") for k in menu.kinds_of(tab_id))
             hover = not on and rect.collidepoint(mouse)
             self.round_rect(rect, B_HOVER if on or hover else B_WELL, C.C_ACCENT if on else B_LINE)
             icon = item_icon(FAB_TAB_ICON.get(tab_id, "chest"))
@@ -1099,22 +1102,28 @@ class UI:
         self.fill(B_LINE, (x + 8, y + 42, w - 16, 1))
         list_y = y + 48
         detail = pygame.Rect(x + 8 + FAB_LIST_W + 6, list_y, w - FAB_LIST_W - 22, h - 72)
-        self._recipe_list(state, menu, x + 8, list_y, FAB_LIST_W, detail.h, item_icon, mouse)
+        self._recipe_list(state, menu, x + 8, list_y, FAB_LIST_W, detail.h, item_icon, mouse, inv_only=build)
         kind = menu.current
         if kind is not None:
             batch = 5 if shift else menu.batch
             self._recipe_detail(state, kind, detail, machine_preview, item_icon, batch, mouse,
-                                max_rows=max((len(C.MACHINES[k].cost) for k in menu.kinds), default=1))
-        self.help_line(y + h - 15, [("A/D", "aba"), ("W/S", "escolhe"), ("ENTER", "fabrica"),
-                                    ("SHIFT", f"×{C.CRAFT_BATCH}"), ("E", "fecha")], center=x + w / 2)
+                                max_rows=max((len(C.MACHINES[k].cost) for k in menu.kinds), default=1),
+                                inv_only=build, build=build)
+        if build:
+            pairs = [("A/D", "aba"), ("W/S", "escolhe"), ("ENTER", "constrói"), ("E", "fecha")]
+        else:
+            pairs = [("A/D", "aba"), ("W/S", "escolhe"), ("ENTER", "fabrica"), ("SHIFT", f"×{C.CRAFT_BATCH}"),
+                     ("E", "fecha")]
+        self.help_line(y + h - 15, pairs, center=x + w / 2)
 
     def fab_tabs_width(self, menu) -> int:
         """Largura das abas com ícone (a ativa mais larga: a pior é a de nome mais comprido)."""
-        longest = max(self.body.size(label)[0] for _, label in C.FAB_TABS)
-        return 22 * len(C.FAB_TABS) + longest + 4 + 3 * (len(C.FAB_TABS) - 1)
+        tabs = menu.tabs
+        longest = max(self.body.size(label)[0] for _, label in tabs)
+        return 22 * len(tabs) + longest + 4 + 3 * (len(tabs) - 1)
 
     def _recipe_list(self, state: GameState, menu, x: int, y: int, w: int, h: int, item_icon, mouse,
-                     field: bool = False) -> None:
+                     inv_only: bool = False) -> None:
         """Lista de receitas da aba atual do `menu`: ícone, nome e o estado à direita (✓ dá pra fabricar,
         "falta" em vermelho, cadeado trancado ou sem projeto). Rola com a barra quando não cabe."""
         kinds = menu.kinds
@@ -1128,7 +1137,7 @@ class UI:
             thumb_y = track.y + round((track.h - thumb_h) * first / max(1, menu.max_first))
             self.fill(C.C_ACCENT, (track.x, thumb_y, 3, thumb_h))
         for i, kind in menu.window():
-            status = state.recipe_status(kind, field)
+            status = state.recipe_status(kind, inv_only)
             ry = y + (i - first) * RECIPE_ROW_STEP
             row = pygame.Rect(x, ry, row_w, RECIPE_ROW_H)
             on = i == selected
@@ -1164,19 +1173,21 @@ class UI:
     @staticmethod
     def detail_fit(h: int, max_rows: int) -> tuple[int, int]:
         """(lado da vitrine, passo das linhas de custo) do painel de detalhe que cabem na altura `h`:
-        o do mockup (64, 21) e, se não couber (aba Fabricar no Grande), versões mais compactas."""
+        o do mockup (64, 21) e, se não couber, versões mais compactas."""
         for pv, step in ((64, 21), (64, 19), (56, 19), (48, 19), (48, 17), (40, 17)):
             if pv + max_rows * step + 48 <= h:
                 return pv, step
         return 40, 17
 
     def _recipe_detail(self, state: GameState, kind: str, rect: pygame.Rect, machine_preview, item_icon,
-                       batch: int, mouse, max_rows: int, field: bool = False) -> None:
+                       batch: int, mouse, max_rows: int, inv_only: bool = False, build: bool = False) -> None:
         """Detalhe da receita escolhida: prévia, nome, descrição, energia, quantas já tem, uma linha por material
-        (ícone, "tem/precisa", barrinha e ✓/✗), seletor ×1/×5 e o botão FABRICAR (ou o que falta)."""
+        (ícone, "tem/precisa", barrinha e ✓/✗), seletor ×1/×5 e o botão FABRICAR (ou o que falta).
+        `build` (menu do construtor): sem o "no inventário" nem o lote; o botão CONSTRUIR (ou o que falta, que
+        também escolhe: o fantasma fica vermelho até ter o material)."""
         x, y, w, h = rect
         m = C.MACHINES[kind]
-        status = state.recipe_status(kind, field)
+        status = state.recipe_status(kind, inv_only)
         hidden = status == "blueprint"
         locked = status == "locked" or hidden
         self.round_rect(rect, B_CARD)
@@ -1217,7 +1228,7 @@ class UI:
                 self.draw_bolt(tx + 4, chip_y + 2, kw_color, shadow=False)
                 self.tx(kw, tx + 13, chip_y - 1, kw_color, self.body)
         owned = state.inventory.count(kind)
-        if pv >= 56:                                 # vitrine compacta demais: a linha não cabe
+        if pv >= 56 and not build:                   # vitrine compacta demais: a linha não cabe
             self.tx(f"x{owned} no inventário", tx, box.bottom - 22, C.C_OK if owned else B_DIM, self.body)
         # custo: uma linha por material
         cy = box.bottom + 3
@@ -1230,7 +1241,7 @@ class UI:
         else:
             for i, (res, n) in enumerate(m.cost.items()):
                 yy = cy + 11 + i * step
-                have = state.available(res, field)
+                have = state.available(res, inv_only)
                 ok = have >= n
                 if locked:
                     bg, border, num_color, bar_color = B_CARD2, B_LINE, B_DIM, B_DIM
@@ -1253,21 +1264,23 @@ class UI:
                 self.bar(x + 27, yy + row_h - 4, w - 52, min(1.0, have / n), bar_color, h=1, track="#2a2f40")
         # lote + botão
         by = y + h - 24
-        for k, amount in enumerate((1, C.CRAFT_BATCH)):
+        for k, amount in enumerate(() if build else (1, C.CRAFT_BATCH)):
             rect_b = pygame.Rect(x + 6 + k * 23, by, 21, 18)
             on = amount == batch
             hover = not on and rect_b.collidepoint(mouse)
             self.round_rect(rect_b, B_HOVER if on or hover else B_WELL, C.C_ACCENT if on else B_LINE)
             self.tx(f"×{amount}", rect_b.centerx, by + 1, B_TEXT if on else B_MUTED, self.body, "center")
             self.fabricator_batch.append((rect_b, amount))
-        button = pygame.Rect(x + 54, by, w - 60, 18)
+        button = pygame.Rect(x + 6, by, w - 12, 18) if build else pygame.Rect(x + 54, by, w - 60, 18)
         if status == "ok":
-            label, kind_b = "FABRICAR", "primary"
+            label, kind_b = ("CONSTRUIR" if build else "FABRICAR"), "primary"
             self.fabricator_buttons.append((button, kind))
         elif status == "missing":
-            res = state.missing_resource(kind, field)
-            short = m.cost[res] - state.available(res, field)
+            res = state.missing_resource(kind, inv_only)
+            short = m.cost[res] - state.available(res, inv_only)
             label, kind_b = f"FALTAM {short} {C.RESOURCE_NAME[res].upper()}", "danger"
+            if build:                                # escolhe mesmo assim: o fantasma vermelho diz o que falta
+                self.fabricator_buttons.append((button, kind))
         elif hidden:
             label, kind_b = "SEM PROJETO", "off"
         else:
@@ -1383,8 +1396,7 @@ class UI:
                        info: str | None = None, equipment=None, state: GameState | None = None,
                        held: Stack | None = None) -> None:
         """Tela do Tab (só o inventário) ou com um painel do lado: baú, drill, estação ou caixa.
-        No Tab, com `state`, ganha as abas Inventário / Fabricar / LOGs no topo (as outras abas são
-        draw_field_craft e draw_logs).
+        No Tab, com `state`, ganha as abas Inventário / LOGs no topo (a outra aba é o draw_logs).
 
         `side` = None (Tab) ou a Machine/Crate aberta. `editing` = TextField do nome do baú sendo editado
         (ou None). `status` = linha de estado da estação/drill. `held` = pilha na mão (painel de detalhe).
@@ -1582,8 +1594,8 @@ class UI:
         self.help_line(y + h + 7, pairs)
         self.notice_y = self.panel_notice_y(y, y + h + HELP_H + 2)
 
-    # ---- abas do Tab: Inventário / Fabricar / LOGs ---------------------------------
-    INV_TAB_LABELS = ("Inventário", "Fabricar", "LOGs")
+    # ---- abas do Tab: Inventário / LOGs ---------------------------------
+    INV_TAB_LABELS = ("Inventário", "LOGs")
     TAB_DOT = 5                                        # espaço do ponto laranja de LOG novo
 
     def inv_tab_labels(self, state: GameState) -> list[str]:
@@ -1599,7 +1611,7 @@ class UI:
     def inv_tabs_top(self, h: int = TAB_INV_H) -> int:
         """y do topo da janela do Tab: o mesmo nas 3 abas (sai da mais alta), pra as abas não pularem; a
         linha de ajuda da mais alta fica acima da hotbar."""
-        tallest = max(h, TAB_INV_H, self.logs_window_size()[1], self.field_window_size()[1])
+        tallest = max(h, TAB_INV_H, self.logs_window_size()[1])
         return self.window_top(tallest)
 
     def _inventory_tabs(self, x: int, y: int, w: int, active: int, state: GameState, mouse) -> None:
@@ -1628,43 +1640,6 @@ class UI:
             self.inv_tab_rects.append((rect, i))
             xx += lw
         self.header_rects.append(pygame.Rect(x, ty, w, INV_TABS_H))   # abas: o tooltip não cobre
-
-    # ---- aba Fabricar do Tab (fabricar em campo) -------------------------------------
-    FIELD_HIDDEN_LINE = "Ache o projeto num destroço do deserto"
-
-    def field_window_size(self) -> tuple[int, int]:
-        """(largura, altura) da janela da aba Fabricar: lista + detalhe. A altura é a que o detalhe pede (com o
-        maior custo do kit), limitada ao espaço acima da hotbar (no Grande o detalhe fica mais compacto)."""
-        w = min(self.w - 8, max(FIELD_W, self.inv_tabs_width() + 16))
-        rows = len(field_kinds())
-        max_rows = max(len(C.MACHINES[k].cost) for k in field_kinds())
-        want = INV_CONTENT_Y + max(rows * RECIPE_ROW_STEP, 64 + 21 * max_rows + 48) + 8
-        return w, min(want, max(INV_CONTENT_Y + rows * RECIPE_ROW_STEP + 8, self.window_room))
-
-    def draw_field_craft(self, state: GameState, menu, machine_preview, mouse, item_icon=None,
-                         shift: bool = False) -> None:
-        """Aba Fabricar do Tab: o kit de campo (C.FIELD_RECIPES) com a lista + detalhe do fabricador, mas o
-        custo conta só o inventário. `menu` = fabricator.field_menu().
-        Hit-test: fabricator_rows, fabricator_batch, fabricator_buttons e inv_tab_rects."""
-        item_icon = item_icon or (lambda _item: self._blank)
-        self._reset_panels()
-        self._fab_reset()
-        self.dim_screen()
-        w, h = self.field_window_size()
-        x = (self.w - w) // 2
-        y = self.inv_tabs_top()                        # mesmo topo das outras abas
-        self.window(x, y, w, h, "Fabricar em campo", "SÓ DO INVENTÁRIO")
-        self._inventory_tabs(x, y, w, TAB_CRAFT, state, mouse)
-        list_y = y + INV_CONTENT_Y + 2
-        detail = pygame.Rect(x + 8 + FIELD_LIST_W + 6, list_y, w - FIELD_LIST_W - 22, y + h - 6 - list_y)
-        self._recipe_list(state, menu, x + 8, list_y, FIELD_LIST_W, detail.h, item_icon, mouse, field=True)
-        if menu.current is not None:
-            self._recipe_detail(state, menu.current, detail, machine_preview, item_icon,
-                                5 if shift else menu.batch, mouse,
-                                max_rows=max(len(C.MACHINES[k].cost) for k in menu.kinds), field=True)
-        self.help_line(y + h + 7, [("W/S", "escolhe"), ("ENTER", "fabrica"), ("SHIFT", f"×{C.CRAFT_BATCH}"),
-                                   ("A/D", "aba"), ("ESC", "fecha")])
-        self.notice_y = self.panel_notice_y(y, y + h + HELP_H + 2)
 
     NEW_TAG = "NOVO"
 
@@ -2159,10 +2134,10 @@ class UI:
         ("E NA CRATERA", "Descer pra caverna (e subir pela rampa)"),
         ("SHIFT+E", "Coletar a drill sem abrir o painel"),
         ("1 A 8 · RODINHA", "Escolher slot da hotbar"),
-        ("CLIQUE · R", "Colocar a máquina da hotbar · girar"),
+        ("E · CLIQUE · R", "Construtor na mão: menu · construir · girar"),
         ("M", "Mapa (com o scanner de navegação)"),
-        ("TAB", "Inventário, fabricar em campo e LOGs (A/D: aba)"),
-        ("CLIQUE DIREITO", "Desmontar (volta pro inventário)"),
+        ("TAB", "Inventário e LOGs (A/D: aba)"),
+        ("SEGURAR DIREITO", "Desmontar (a receita volta pro inventário)"),
         ("ESC", "Cancelar / fechar / pausar"),
         ("+ / -", "Aproximar / afastar (ou Ctrl+rodinha)"),
         ("F11 · ALT+ENTER", "Tela cheia"),

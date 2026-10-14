@@ -248,7 +248,7 @@ def test_gate_melt_is_derived_and_load_rebuilds_the_blocks():
     g = game()
     set_melt(g, 0, 0.5)
     data = save.state_to_dict(g)
-    assert save.SAVE_VERSION == 7
+    assert save.SAVE_VERSION == 8                    # v8 (v0.5 M1): o formato das camadas não mudou
     for name in ("gate_ice", "gate_melt", "gate_blocks", "gate_recipes"):
         assert name not in data["layers"]["surface"]
     loaded = save.state_from_dict(json.loads(json.dumps(data)))

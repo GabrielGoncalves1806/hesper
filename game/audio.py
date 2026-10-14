@@ -35,6 +35,8 @@ PITCH_VARIANTS = {
     "mine_break": (0.96, 1.0, 1.04),
     "pickup": (0.97, 1.0, 1.03),
     "ui_click": (0.98, 1.0, 1.02),
+    "build": (0.97, 1.0, 1.03),            # v0.5 M1 (Som): construir e desmontar variam um pouco
+    "dismantle_done": (0.97, 1.0, 1.03),
 }
 VOLUME_JITTER = {"mine_hit": 0.10}   # ±10% de volume no mine_hit
 DERIVED = {"place_low": ("place", 0.8)}   # nome -> (arquivo base, fator de pitch); 0.8 = mais grave
@@ -182,7 +184,7 @@ class Audio:
             if not pygame.mixer.get_init():
                 pygame.mixer.init(44100, -16, 2, 512)
             pygame.mixer.set_num_channels(16)
-            pygame.mixer.set_reserved(12)
+            pygame.mixer.set_reserved(13)
             self.amb = [pygame.mixer.Channel(0), pygame.mixer.Channel(1)]
             self.alarm_channel = pygame.mixer.Channel(2)
             self.hum_channel = pygame.mixer.Channel(3)
@@ -200,6 +202,7 @@ class Audio:
             self._rain_name = "amb_rain"                   # variação tocando (v11: fraca, média ou forte)
             self.vent_channel = pygame.mixer.Channel(11)   # chiado da fumarola (v11): pela mais perto
             self._vent_on = [False]
+            self.charge_channel = pygame.mixer.Channel(12)   # v0.5 M1: o "carregando" do desmonte (canal único)
             self.ok = True
         except pygame.error as err:
             print(f"[audio] sem áudio ({err}). Seguindo em silêncio.")
@@ -279,19 +282,35 @@ class Audio:
         return variants[i]
 
     # ---- efeitos ---------------------------------------------------------------
-    def play(self, name: str, delay: float = 0.0, gain: float = 1.0) -> None:
-        """Toca um efeito. `gain` (0 a 1) abaixa o volume, ex.: som longe do player."""
+    def play(self, name: str, delay: float = 0.0, gain: float = 1.0, channel=None):
+        """Toca um efeito. `gain` (0 a 1) abaixa o volume, ex.: som longe do player. `channel` = toca nesse canal
+        (senão, num livre). Devolve o Channel em que tocou (None: sem áudio, sem arquivo ou com `delay`)."""
         if not self.ok or gain <= 0:
-            return
+            return None
         if delay > 0:
             self._delayed.append([delay, name])
-            return
+            return None
         sound = self._pick(name)
-        if sound:
-            volume = VOLUME.get(name, 1.0) * gain
-            jitter = VOLUME_JITTER.get(name, 0.0)
-            sound.set_volume(volume * self.sfx_gain * random.uniform(1 - jitter, 1 + jitter))
-            sound.play()
+        if not sound:
+            return None
+        volume = VOLUME.get(name, 1.0) * gain
+        jitter = VOLUME_JITTER.get(name, 0.0)
+        sound.set_volume(volume * self.sfx_gain * random.uniform(1 - jitter, 1 + jitter))
+        if channel is not None:
+            channel.play(sound)
+            return channel
+        return sound.play()
+
+    # ---- desmontar segurando (v0.5 M1) ----------------------------------------
+    def start_charge(self) -> None:
+        """Começou a encher a barrinha do desmonte: o dismantle_charge no canal dele (reinicia se já tocava)."""
+        if self.ok:
+            self.play("dismantle_charge", channel=self.charge_channel)
+
+    def stop_charge(self, fade_ms: int = C.DISMANTLE_CHARGE_FADE_MS) -> None:
+        """Soltou antes (ou tirou o mouse): o charge sai num fadeout curto, nunca num stop seco."""
+        if self.ok and self.charge_channel.get_busy():
+            self.charge_channel.fadeout(fade_ms)
 
     # ---- loops -----------------------------------------------------------------
     def set_alarm(self, on: bool) -> None:
