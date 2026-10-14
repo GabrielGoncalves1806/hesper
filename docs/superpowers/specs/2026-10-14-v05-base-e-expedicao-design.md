@@ -41,7 +41,7 @@ Pro v0.6 ("logística e fundo"): **chip num slot** de baú/máquina deixa ela vi
 
 **Desmontar**
 - Segurar o **botão direito 2 s** em cima da máquina: barrinha enchendo, o scanner varre ao contrário (de cima pra baixo) e os materiais da receita voltam pro inventário. Soltar antes cancela.
-- Não cabendo tudo no inventário, a máquina fica no lugar com o aviso de inventário cheio: nada some (mesma regra da estação de drones hoje). A estação continua devolvendo os drones e o minério dela.
+- Não cabendo tudo no inventário, a máquina fica no lugar com o aviso de inventário cheio: nada some (mesma regra da estação de drones hoje). A estação continua devolvendo os drones e o minério dela. **Baú com item dentro não desmonta** (decisão do dono): tem que esvaziar antes.
 - O clique direito rápido numa máquina não faz nada. O aviso de máquina submersa muda de "recolha [Clique direito]" pra "segure [Clique direito]".
 
 **Fabricador T1 (a cápsula)**: só itens. Construtor, drone, tanque de O₂, scanner e o **diagrama da Bancada T2**.
