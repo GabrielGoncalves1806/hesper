@@ -18,7 +18,7 @@ from game import art  # noqa: E402
 from game import config as C  # noqa: E402
 from game import settings  # noqa: E402
 from game.assets import Sprites  # noqa: E402
-from game.fabricator import t2_menu  # noqa: E402
+from game.fabricator import craft_kinds, t2_kinds, t2_menu  # noqa: E402
 from game.render import Renderer, bench_frame_index  # noqa: E402
 from game.systems import Controls, GameState, Machine  # noqa: E402
 from game.ui import UI  # noqa: E402
@@ -340,7 +340,8 @@ def icon(_item):
 
 
 @pytest.mark.parametrize("size", SIZES)
-def test_empty_t2_panel_is_clean(ui, size):
+def test_empty_t2_panel_is_clean(ui, size, monkeypatch):
+    monkeypatch.setattr(C, "T2_RECIPES", ())                           # o estado vazio (sem a mochila)
     ui.set_layout((0, 0, size[0] * 2, size[1] * 2), 2.0, size)
     s = make_state()
     give(s, diagram_workbench=1, diagram_scanner=1)
@@ -416,3 +417,12 @@ def test_bench_roundtrips_in_the_save_without_a_new_field():
     assert data == {"kind": "workbench", "tx": m.tx, "ty": m.ty, "rotation": 0}
     loaded = save.machine_from_dict(data)
     assert loaded.is_bench and loaded.work == 0 and loaded.build == 0
+
+
+def test_backpack_is_a_t2_recipe_and_not_t1():
+    s = unlocked_state()
+    m = build_now(s, "workbench", spot(s, 1))
+    give(s, iron=12, silicon=6)
+    assert not s.craft("backpack")                                    # o T1 não fabrica a mochila
+    assert s.craft("backpack", "t2", m) and s.inventory.count("backpack") == 1
+    assert "backpack" not in craft_kinds("suit") and t2_kinds("t2") == ["backpack"]

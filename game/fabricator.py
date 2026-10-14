@@ -22,8 +22,8 @@ def tab_kinds(tab_id: str) -> list[str]:
 
 
 def craft_kinds(tab_id: str) -> list[str]:
-    """Receitas do fabricador numa aba: só itens (o que não vai pro chão)."""
-    return [k for k in tab_kinds(tab_id) if not C.MACHINES[k].placeable]
+    """Receitas do fabricador numa aba: só itens (o que não vai pro chão) e não as da Bancada T2."""
+    return [k for k in tab_kinds(tab_id) if not C.MACHINES[k].placeable and k not in C.T2_RECIPES]
 
 
 def build_kinds(tab_id: str) -> list[str]:
@@ -142,7 +142,7 @@ def craft_menu() -> FabMenu:
 
 
 def t2_kinds(tab_id: str) -> list[str]:
-    """Receitas da Bancada T2 (C.T2_RECIPES); vazia no M1 (o painel mostra o estado vazio)."""
+    """Receitas da Bancada T2 (C.T2_RECIPES); vazia, o painel mostra o estado vazio."""
     return list(C.T2_RECIPES)
 
 

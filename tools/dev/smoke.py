@@ -1653,7 +1653,8 @@ def check_bench_t2(bot) -> None:
         bot.key(pygame.K_e)
         assert app.mode == "fabricator" and app.fab_bench == "t2", (app.mode, app.fab_bench)
         bot.frames(DT)
-        assert app.ui.fabricator_rows == [] and app.ui.diagram_buttons, "painel vazio com o LER do diagrama de máquina"
+        rows = [k for _, k in app.ui.fabricator_rows]
+        assert rows == list(C.T2_RECIPES) and app.ui.diagram_buttons, ("painel da T2 com as receitas dela e o LER", rows)
         bot.shot(f"bancada_t2_painel_{ui_size}.png")
         bot.key(pygame.K_e)
         assert app.mode == "play"
@@ -1809,6 +1810,67 @@ def check_inventory_logs(bot) -> None:
         bot.key(pygame.K_TAB)
         assert app.mode == "play"
     s.logs_read, s.logs_seen = read_before, seen_before
+
+
+def check_backpack(bot) -> None:
+    """v0.5 M1 B3: mochila equipada = +1 linha de 8 slots. Tab e baú aberto nos 3 tamanhos de interface, com ela;
+    tirar com a linha cheia avisa. Prints: mochila_tab_<tamanho>.png, mochila_bau_<tamanho>.png, mochila_aviso.png."""
+    from game.inventory import Stack
+    from game.systems import Machine
+    s, app = bot.state, bot.app
+    ui_before = app.settings["ui_size"]
+    inv_before = [Stack(st.item, st.count) if st else None for st in s.inventory.slots]
+    bot.teleport((96, 98))
+    s.o2 = C.O2_MAX
+    s.inventory.clear()
+    give(s, iron=30, silicon=12, ice=8, backpack=1)
+    bot.key(pygame.K_TAB)
+    i = next(k for k, st in enumerate(s.inventory.slots) if st and st.item == "backpack")
+    bot.click(slot_pos(bot, s.inventory, i))                    # clique na mochila: equipa
+    assert s.has_backpack and len(s.inventory) == C.INVENTORY_SLOTS + C.BACKPACK_SLOTS
+    s.inventory.slots[16], s.inventory.slots[18] = Stack("iron", 50), Stack("ice", 6)
+    bot.key(pygame.K_ESCAPE)
+    for ui_size in ("grande", "media", "pequena"):
+        app.set_ui_size(ui_size)
+        bot.key(pygame.K_TAB)
+        bot.mouse_to((900, 500))
+        bot.frames(0.2)
+        assert sorted(i for _, _, i in app.ui.slot_rects) == list(range(24))
+        bot.shot(f"mochila_tab_{ui_size}.png")
+        bot.key(pygame.K_ESCAPE)
+    # tirar com a linha cheia: avisa e não tira
+    bot.key(pygame.K_TAB)
+    eq = next(r for r, k in app.ui.equip_rects if k == "backpack")
+    bot.click((eq.centerx * 2, eq.centery * 2))
+    assert s.has_backpack and app.notice == "Esvazie a mochila primeiro"
+    bot.mouse_to((900, 500))
+    bot.frames(0.2)
+    bot.shot("mochila_aviso.png")
+    bot.key(pygame.K_ESCAPE)
+    # baú aberto com a mochila, nos 3 tamanhos
+    bx, by = C.BASE_TILE
+    site = next((x, y) for y in range(by + 2, by + 8) for x in range(bx - 6, bx + 6)
+                if s.world.is_floor(x, y) and not s.machine_at((x, y)) and (x, y) not in C.POD_TILES)
+    chest = Machine("chest", *site)
+    chest.storage.add("silicon", 40)
+    s.machines.append(chest)
+    s.player.x, s.player.y = (site[0] + 0.5) * C.TILE, (site[1] + 1) * C.TILE + 10
+    bot.frames(0.1)
+    bot.key(pygame.K_e)
+    assert app.mode == "chest"
+    for ui_size in ("grande", "media", "pequena"):
+        app.set_ui_size(ui_size)
+        bot.mouse_to((900, 500))
+        bot.frames(0.2)
+        assert sorted(i for _, inv, i in app.ui.slot_rects if inv is s.inventory) == list(range(24))
+        bot.shot(f"mochila_bau_{ui_size}.png")
+    bot.key(pygame.K_ESCAPE)
+    s.machines.remove(chest)
+    s.inventory.clear()
+    s.unequip("backpack")
+    s.inventory.slots[:] = inv_before[:len(s.inventory)]
+    app.set_ui_size(ui_before)
+    bot.frames(0.2)
 
 
 def check_ui_size(bot) -> None:
@@ -4169,6 +4231,7 @@ def main() -> None:
     check_shore_plants(bot)
 
     print("7) tamanho da interface")
+    check_backpack(bot)
     check_ui_size(bot)
 
     print("8) save/load e tela de título")

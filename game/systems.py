@@ -1357,6 +1357,7 @@ class GameState:
         self.equipped_ever.add(item)
         self.events.append(("equip", item))
         self._clamp_o2()
+        self.sync_backpack()
         return True
 
     def equip_item(self, item: str) -> str | None:
@@ -1365,6 +1366,7 @@ class GameState:
         self.equipped_ever.add(item)
         self.events.append(("equip", item))
         self._clamp_o2()
+        self.sync_backpack()
         return old
 
     def unequip(self, kind: str) -> bool:
@@ -1372,14 +1374,35 @@ class GameState:
         item = self.equipment.slots.get(kind)
         if item is None:
             return False
-        if not self.inventory.has_space(item):
+        if kind == "backpack":                       # só sai com a linha extra vazia (senão os itens sumiriam)
+            if not self.inventory.tail_empty(C.INVENTORY_SLOTS):
+                self.events.append(("backpack_not_empty",))
+                return False
+            base = self.inventory.copy()
+            base.resize(C.INVENTORY_SLOTS)
+            if not base.has_space(item):             # sem a mochila, os 16 slots têm que ter lugar pra ela
+                self.events.append(("inv_full",))
+                return False
+        elif not self.inventory.has_space(item):
             self.events.append(("inv_full",))
             return False
         self.equipment.unequip(kind)
+        self.sync_backpack()
         self.inventory.add(item, 1)
         self.events.append(("unequip", item))
         self._clamp_o2()
         return True
+
+    @property
+    def has_backpack(self) -> bool:
+        return self.equipment.has("backpack")
+
+    def sync_backpack(self) -> None:
+        """Deixa o inventário com 16 slots (sem mochila) ou 24 (com ela). Encolher só corta slots vazios; se a
+        linha extra tem item (save estragado), a mochila continua valendo e o inventário não encolhe."""
+        want = C.INVENTORY_SLOTS + (C.BACKPACK_SLOTS if self.has_backpack else 0)
+        if want > len(self.inventory) or self.inventory.tail_empty(want):
+            self.inventory.resize(want)
 
     def _clamp_o2(self) -> None:
         self.o2 = min(self.o2, self.o2_max)

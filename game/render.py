@@ -1495,6 +1495,8 @@ class Renderer:
                 small = self.surface("icon_scanner", art.scanner_icon)[0]
             elif item == "workbench":           # v0.5 M1 B2: icon_workbench.png (aprovado)
                 small = self.surface("icon_workbench", lambda: art.machine("workbench"))[0]
+            elif item == "backpack":
+                small = self.surface("icon_backpack", art.backpack_icon)[0]
             elif item == "constructor":          # v0.5 M1: com o icon_constructor.png no assets, ele (sem mudar código)
                 small = self.surface("icon_constructor", art.constructor_icon)[0]
             elif item in C.DIAGRAM_ITEMS:       # v0.5 M1: icon_diagram.png (aprovado); sem ele, o chip de projeto de antes
@@ -1531,7 +1533,7 @@ class Renderer:
         if kind in C.LAMP_RADIUS:
             return pygame.transform.scale_by(self.lamp_surface(kind), 2)   # 16×32 → 32×64, pixel a pixel
         if kind in C.EQUIP_SLOTS:
-            painter = art.o2_tank_icon if kind == "o2_tank" else art.scanner_icon
+            painter = {"o2_tank": art.o2_tank_icon, "scanner": art.scanner_icon, "backpack": art.backpack_icon}[kind]
             return pygame.transform.scale_by(self.surface(f"icon_{kind}", painter)[0], 3)   # 16×16 → 48×48
         if kind == "constructor":
             return pygame.transform.scale_by(self.surface("icon_constructor", art.constructor_icon)[0], 3)

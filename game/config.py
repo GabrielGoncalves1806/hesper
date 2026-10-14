@@ -466,7 +466,8 @@ VOLUME["power_low"] = 0.7       # o déficit de energia começou (toca uma vez)
 # Inventário com slots, hotbar e baú (v0.2 · bíblia §8 "Inventário com slots" e "Baú")
 # A lógica fica em game/inventory.py; aqui só os números.
 # ---------------------------------------------------------------------------
-INVENTORY_SLOTS = 16            # mochila do player: 2 linhas de 8
+INVENTORY_SLOTS = 16            # inventário do player sem a mochila: 2 linhas de 8 (a hotbar + 1 linha)
+BACKPACK_SLOTS = 8              # a mochila (equipamento do traje) acrescenta +1 linha de 8: 24 slots no total
 HOTBAR_SLOTS = 8                # a hotbar É a primeira linha da mochila (slots 0 a 7), teclas 1–8
 STACK_RESOURCE = 50             # recursos empilham até 50 por slot
 STACK_MACHINE = 5               # máquinas fabricadas viram itens e empilham até 5
@@ -594,11 +595,15 @@ MACHINES["o2_tank"] = MachineType("o2_tank", "Tanque de O₂", "O₂ dura 220 s"
                                   None, 0, 0, "icon_o2_tank", placeable=False)
 MACHINES["scanner"] = MachineType("scanner", "Scanner de navegação", "mapa [M]", {"iron": 4, "silicon": 4},
                                   None, 0, 0, "icon_scanner", placeable=False)
-MACHINE_ORDER += ["o2_tank", "scanner"]
+# v0.5 M1 B3: a mochila é equipamento do traje e dá +1 linha de BACKPACK_SLOTS no inventário (GameState.sync_backpack).
+# A receita mora na Bancada T2 (T2_RECIPES, mais abaixo): o fabricador T1 não mostra ela.
+MACHINES["backpack"] = MachineType("backpack", "Mochila", "+1 linha de slots", {"iron": 12, "silicon": 6},
+                                   None, 0, 0, "icon_backpack", placeable=False)
+MACHINE_ORDER += ["o2_tank", "scanner", "backpack"]
 FAB_TABS = FAB_TABS + (("suit", "Traje"),)
-MACHINE_CATEGORY.update({"lamp_t2": "light", "o2_tank": "suit", "scanner": "suit"})
-EQUIP_SLOTS = ("o2_tank", "scanner")          # um slot por tipo de equipamento (ordem na tela)
-EQUIP_LABEL = {"o2_tank": "TANQUE", "scanner": "SCANNER"}
+MACHINE_CATEGORY.update({"lamp_t2": "light", "o2_tank": "suit", "scanner": "suit", "backpack": "suit"})
+EQUIP_SLOTS = ("o2_tank", "scanner", "backpack")          # um slot por tipo de equipamento (ordem na tela)
+EQUIP_LABEL = {"o2_tank": "TANQUE", "scanner": "SCANNER", "backpack": "MOCHILA"}
 O2_TANK_MAX = 220.0             # O₂ máximo com o tanque equipado (sem ele: O2_MAX = 100)
 
 # Explorado (game/explore.py): o jogo registra o que o jogador viu desde o começo, em cada camada.
@@ -892,6 +897,6 @@ MACHINES["diagram_workbench"] = MachineType("diagram_workbench", "Diagrama: Banc
                                             BENCH_DIAGRAM_COST, None, 0, 0, "icon_diagram", placeable=False)
 MACHINE_ORDER.append("diagram_workbench")
 MACHINE_CATEGORY["diagram_workbench"] = "tools"
-# Receitas da Bancada T2 (itens, ids de MACHINES). Vazia no M1: os itens dela (mochila, broca nv.2) vêm depois.
-T2_RECIPES: tuple[str, ...] = ()
+# Receitas da Bancada T2 (itens, ids de MACHINES). O fabricador T1 não mostra estas (fabricator.craft_kinds).
+T2_RECIPES: tuple[str, ...] = ("backpack",)   # a mochila (B3); a broca nv.2 entra no M4
 T2_TABS = (("t2", "Itens"),)    # a Bancada T2 tem uma aba só por enquanto

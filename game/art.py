@@ -948,6 +948,19 @@ def o2_tank_icon() -> pygame.Surface:
     return s
 
 
+def backpack_icon() -> pygame.Surface:
+    """Ícone 16×16 da mochila (fallback do icon_backpack.png): corpo laranja com bolso e alça."""
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    _r(s, _OUT, 3, 1, 10, 3)
+    _r(s, "#9aa2ab", 5, 2, 6, 1)
+    _r(s, _OUT, 2, 3, 12, 13)
+    _r(s, C.C_ACCENT, 3, 4, 10, 11)
+    _r(s, "#ffd9a0", 4, 5, 8, 1)
+    _r(s, _OUT, 5, 9, 6, 5)
+    _r(s, "#a8541e", 6, 10, 4, 3)
+    return s
+
+
 def scanner_icon() -> pygame.Surface:
     """Ícone 16×16 do scanner de navegação: tela redonda com varredura verde."""
     s = pygame.Surface((16, 16), pygame.SRCALPHA)

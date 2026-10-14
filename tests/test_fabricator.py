@@ -14,7 +14,7 @@ def test_every_recipe_has_a_tab():
     assert tab_kinds("automation") == ["drill", "drone_station", "drone", "workbench"]
     assert tab_kinds("storage") == ["chest"]
     assert tab_kinds("light") == ["lamp", "lamp_t2"]
-    assert tab_kinds("suit") == ["o2_tank", "scanner"]                   # Marco 3: aba "Traje"
+    assert tab_kinds("suit") == ["o2_tank", "scanner", "backpack"]       # Marco 3: aba "Traje" (a mochila é da T2)
     assert tab_kinds("tools") == ["constructor", "diagram_workbench"]                         # v0.5 M1
 
 

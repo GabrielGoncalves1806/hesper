@@ -1473,6 +1473,8 @@ class App:
             if self.notice != "Inventário cheio" or self.notice_time < C.NOTICE_TIME - 0.5:
                 self.audio.play("inv_full")          # não repete o som no mesmo meio segundo
             self.show_notice("Inventário cheio")
+        elif kind == "backpack_not_empty":
+            self.show_notice("Esvazie a mochila primeiro")
         elif kind == "chest_not_empty":
             self.show_notice("Esvazie o baú antes de desmontar")
         elif kind == "craft":

@@ -423,7 +423,7 @@ def test_marco2_save_without_marco3_fields_loads_with_defaults(tmp_path):
         layer.pop("crates", None)
         layer.pop("explored", None)
     loaded = save.state_from_dict(save.migrate(data))
-    assert loaded.blueprints == set() and loaded.equipment.slots == {"o2_tank": None, "scanner": None}
+    assert loaded.blueprints == set() and loaded.equipment.slots == {"o2_tank": None, "scanner": None, "backpack": None}
     assert loaded.surface.explored.count == 0 and not loaded.wrecks_visited
     crate = loaded.crates[loaded.world.wrecks[0].crate]
     assert crate.storage.count("diagram_o2_tank") == 1 and not crate.opened      # caixa cheia, como num jogo novo

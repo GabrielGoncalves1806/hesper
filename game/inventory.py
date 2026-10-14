@@ -117,6 +117,19 @@ class Inventory:
             self.slots[index] = None
         return moved
 
+    def resize(self, size: int) -> None:
+        """Muda o número de slots (mochila equipada: 16 -> 24). Crescer acrescenta slots vazios no fim; encolher
+        só corta slots vazios (quem chama confere antes com `tail_empty`)."""
+        if size < len(self.slots):
+            assert self.tail_empty(size), "encolher cortaria slots com item"
+            del self.slots[size:]
+        else:
+            self.slots.extend([None] * (size - len(self.slots)))
+
+    def tail_empty(self, start: int) -> bool:
+        """Os slots de `start` pra frente estão todos vazios?"""
+        return all(s is None for s in self.slots[start:])
+
     def clear(self) -> None:
         self.slots = [None] * len(self.slots)
 
