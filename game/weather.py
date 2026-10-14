@@ -30,6 +30,7 @@ class Weather:
         self.gust = 0.0
         self.wind = (1.0, 0.0)
         self.view_tiles = C.STORM_VIEW_TILES
+        self.snow = 0.0                                   # 0 = poeira, 1 = nevasca (v0.5 M3.7): só aparência, não mexe no vento
         self._update_wind_vector()
         self._recompute(storm=1.0)
 
@@ -55,6 +56,12 @@ class Weather:
             self.gust = target
         self._recompute(storm)
         return started
+
+    def update_snow(self, dt: float, in_frost: bool) -> None:
+        """Fator da nevasca: sobe com o player na faixa gelada e desce fora, em C.STORM_SNOW_FADE_S s (linear;
+        o visual suaviza). Não toca no rng, no vento, na rajada nem na visão."""
+        step = dt / C.STORM_SNOW_FADE_S
+        self.snow = min(1.0, self.snow + step) if in_frost else max(0.0, self.snow - step)
 
     def _recompute(self, storm: float) -> None:
         """Raio de visão a partir do gust e da intensidade da tempestade."""

@@ -661,6 +661,7 @@ STORM_O2_MULT = 1.25            # O₂ gasta ×1,25 fora da base na tempestade c
 STORM_WIND_TURN = 8.0           # °/s: o vento vira no máximo isso (variação lenta)
 STORM_WIND_SWAY = 40.0          # °: quanto o vento foge da direção dominante (sorteada pela seed)
 STORM_WIND_RETARGET = (6.0, 14.0)  # s entre um novo alvo de direção e o próximo
+STORM_SNOW_FADE_S = 1.5         # s pra troca poeira <-> nevasca ao entrar/sair da faixa gelada (v0.5 M3.7)
 STORM_GUST_WARN = 0.3           # gust acima disso: aviso "RAJADA" no HUD
 VOLUME["gust"] = 0.8            # som da rajada (sem gust.wav, fica em silêncio); vezes o storm
 

@@ -396,11 +396,12 @@ class Renderer:
         if storm <= 0:
             return
         wind, gust, view_tiles = dust.weather_of(state)
+        snow = dust.snow_of(state)                      # nevasca na faixa gelada (v0.5 M3.7)
         self.storm_dust.tick(t, wind, storm, gust)
-        self.storm_particles.tick(t, wind, storm, gust)
+        self.storm_particles.tick(t, wind, storm, gust, snow)
         lights = dust.vision_lights(state, cam, view_tiles * T)
         (px, py, view_px), extra = lights[0], lights[1:]
-        self.storm_dust.apply(canvas, cam, storm, gust, view_px, extra, (px, py), self.storm_particles, wind)
+        self.storm_dust.apply(canvas, cam, storm, gust, view_px, extra, (px, py), self.storm_particles, wind, snow)
 
     def draw_rain(self, canvas, state: GameState, t: float) -> None:
         """Chuva (v0.4 M3.3, game/rain.py): véu frio + traços no ângulo do vento, por cima do clima do estágio e

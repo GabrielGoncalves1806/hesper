@@ -220,32 +220,40 @@ NOISE_FPS = 24
 NOISE_DENSITY = 0.22       # fração de pixels com ruído no amount 1
 NOISE_LIGHT, NOISE_DARK = (226, 222, 210), (14, 16, 22)
 NOISE_LINE = (64, 60, 52)  # somado (BLEND_RGB_ADD) nas linhas de interferência
+# v0.5 M3.7: na faixa gelada o chiado fica branco-azulado (mesmos 3 tons, interpolados pelo fator de neve)
+NOISE_LIGHT_SNOW, NOISE_DARK_SNOW, NOISE_LINE_SNOW = (244, 249, 252), (18, 26, 40), (56, 66, 82)
+NOISE_SNOW_STEPS = 4       # degraus de cor do chiado em cache
 _noise_tiles: dict[tuple[int, int], pygame.Surface] = {}
 
 
-def _noise_tile(level: int, frame: int) -> pygame.Surface:
-    tile = _noise_tiles.get((level, frame))
+def _noise_tile(level: int, frame: int, snow_step: int = 0) -> pygame.Surface:
+    tile = _noise_tiles.get((level, frame, snow_step))
     if tile is None:
+        k = snow_step / NOISE_SNOW_STEPS
+        light = tuple(round(a + (b - a) * k) for a, b in zip(NOISE_LIGHT, NOISE_LIGHT_SNOW))
+        dark = tuple(round(a + (b - a) * k) for a, b in zip(NOISE_DARK, NOISE_DARK_SNOW))
         rng = random.Random(level * 131 + frame * 17 + 5)
         tile = pygame.Surface((NOISE_TILE, NOISE_TILE), pygame.SRCALPHA)
         tile.fill((0, 0, 0, 0))
         for _ in range(round(NOISE_TILE * NOISE_TILE * NOISE_DENSITY * level / NOISE_LEVELS)):
-            rgb = NOISE_LIGHT if rng.random() < 0.5 else NOISE_DARK
+            rgb = light if rng.random() < 0.5 else dark
             tile.set_at((rng.randrange(NOISE_TILE), rng.randrange(NOISE_TILE)), (*rgb, rng.randrange(150, 256)))
-        _noise_tiles[(level, frame)] = tile
+        _noise_tiles[(level, frame, snow_step)] = tile
     return tile
 
 
-def static_noise(surf: pygame.Surface, amount: float, t: float) -> None:
+def static_noise(surf: pygame.Surface, amount: float, t: float, snow: float = 0.0) -> None:
     """Chiado no minimapa/mapa (in-place): pixels claros e escuros sorteados mais 1 ou 2 linhas de
     interferência, proporcional a `amount` (0..1, rajada × tempestade). Com amount 0 não toca em nada.
+    `snow` (0..1, dust.snow_of) esfria o chiado: mais branco-azulado na faixa gelada.
     Ruído em ladrilhos pré-sorteados: custa uns blits, não um laço por pixel."""
     if amount <= 0:
         return
     amount = min(1.0, amount)
     level = max(1, math.ceil(amount * NOISE_LEVELS))
     tick = int(t * NOISE_FPS)
-    tile = _noise_tile(level, tick % NOISE_FRAMES)
+    sk = round(max(0.0, min(1.0, snow)) * NOISE_SNOW_STEPS)
+    tile = _noise_tile(level, tick % NOISE_FRAMES, sk)
     rng = random.Random(tick)
     ox, oy = rng.randrange(NOISE_TILE), rng.randrange(NOISE_TILE)
     w, h = surf.get_size()
@@ -255,7 +263,7 @@ def static_noise(surf: pygame.Surface, amount: float, t: float) -> None:
     k = max(1, h // 64)                                   # espessura da linha: 1 px a cada 64 de altura
     for i in range(1 + (amount > 0.5)):
         y = int((t * (41 + 29 * i) * k + rng.random() * h) % h)
-        line = tuple(round(c * amount) for c in NOISE_LINE)
+        line = tuple(round((a + (b - a) * sk / NOISE_SNOW_STEPS) * amount) for a, b in zip(NOISE_LINE, NOISE_LINE_SNOW))
         surf.fill(line, (0, y, w, k), special_flags=pygame.BLEND_RGB_ADD)
 
 
@@ -2540,7 +2548,7 @@ class UI:
         for e in map_view.visible(map_view.map_entries(state, state.layer), ()):
             if e.category not in self.MINIMAP_SKIP:
                 map_markers.put(view, map_markers.marker(e.kind, e.color, e.direction), (e.x - ox) * k, (e.y - oy) * k)
-        static_noise(view, dust.static_amount(state), t)          # chiado da rajada (tempestade)
+        static_noise(view, dust.static_amount(state), t, dust.snow_of(state))          # chiado da rajada (tempestade)
         px = self.w - 6 - (size + 8)
         py = self.energy_bottom + 4
         self.hud_panel(px, py, size + 8, size + 8)
@@ -2649,7 +2657,7 @@ class UI:
         if self.map_hover is not None:                                 # cantoneiras laranja no marcador
             e = self.map_hover
             self._map_brackets(surf, e.x * k - off[0], e.y * k - off[1])
-        static_noise(surf, dust.static_amount(state), t)           # chiado da rajada (tempestade)
+        static_noise(surf, dust.static_amount(state), t, dust.snow_of(state))           # chiado da rajada (tempestade)
         self.native.append((surf, (area.x * 2, area.y * 2)))
         self._map_overlay(view, area, mouse)
         self._map_chips(entries, view, area, key, mouse)
