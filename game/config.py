@@ -774,7 +774,7 @@ ICE_COLLAPSE_CAVE_VOLUME = 0.5   # na caverna o desabamento sai a 0,5 (abafado p
 # muda. Tira o nome da lista pra voltar.
 SCENERY_PAUSED = frozenset({
     "decor_shards", "decor_salt_crystals", "decor_ice_chunks",        # soltos v8
-    "decor_slabs", "decor_mud_curls", "decor_salt_mound", "decor_salt_slabs",   # soltos v9
+    "decor_slabs", "decor_mud_curls", "decor_salt_mound", "decor_salt_slabs", "decor_pebbles",   # soltos v9
     "decal_gravel",                                                    # decalque v8
 })
 PERF_METER_ON = True

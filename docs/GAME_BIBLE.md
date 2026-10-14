@@ -630,7 +630,7 @@ Plano: `docs/superpowers/plans/2026-10-13-v04-marco3-gelo-agua.md`. O que o calo
 - **Sem o respiro de fumarola no chão** (decalque `fumarole` da v9, dono: "a gente já tem a fumarola pra isso"): saiu do sorteio do basalto (`v9_density.decal_mix.basalt` só com `ropy`); o PNG fica em `assets/`.
 - **Rocha pequena colide só na base do desenho** (`C.SMALL_ROCK_RECT`, 26×14 px dentro do tile), não no tile inteiro: com o tile todo sólido o player travava no ar, longe da pedra.
 - **Contador de desempenho** (F5, ligado por padrão no desenvolvimento): canto de baixo à esquerda, FPS e os ms de trabalho do quadro (média e pior de 0,5 s), verde até 10 ms, amarelo até 14, vermelho acima (`game/perf_meter.py`).
-- **Cenário pausado** (o dono marcou no catálogo `reports/design/catalogo_cenario`): `C.SCENERY_PAUSED` tira o desenho sem mudar o sorteio. Hoje: soltos v8 (lascas de basalto, cristais de sal, pedaços de gelo), soltos v9 (lajes, lama enrolada, montinho de sal, placas de sal) e o decalque cascalho (v8). Pra voltar, é tirar o nome da lista.
+- **Cenário pausado** (o dono marcou no catálogo `reports/design/catalogo_cenario`): `C.SCENERY_PAUSED` tira o desenho sem mudar o sorteio. Hoje: soltos v8 (lascas de basalto, cristais de sal, pedaços de gelo), soltos v9 (seixos, lajes, lama enrolada, montinho de sal, placas de sal) e o decalque cascalho (v8). Pra voltar, é tirar o nome da lista.
 - **Sem minério nem decoração no lago**: rocha pequena e afloramento não nascem em bacia, e a decoração solta (v8 e v9) some quando a água cobre o tile.
 
 ### Magmatita (decisão do dono · `game/magmatite.py`; números no bloco `MAGMATITE_*` do `game/config.py`)
