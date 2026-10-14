@@ -5,7 +5,7 @@ import { renderStill, selectComposition } from "@remotion/renderer";
 import fs from "node:fs";
 import path from "node:path";
 
-const DEFAULT = [9.8, 19.5, 24.6, 28.5, 42.5, 52, 57.8, 59.9, 64.4, 69, 74.6, 81.5, 87.5];
+const DEFAULT = [9.8, 19.5, 24.6, 28.5, 42.5, 52, 58.6, 60.2, 64.6, 70.8, 74.6, 81.5, 87.5];
 const secs = process.argv.length > 2 ? process.argv.slice(2).map(Number) : DEFAULT;
 const out = path.resolve("../stills");
 fs.mkdirSync(out, { recursive: true });

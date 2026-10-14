@@ -180,38 +180,49 @@
    "slot": 1,
    "at": 59,
    "dur": 1.8,
-   "from": 0.6,
-   "label": "LOG 04 · DIA 140"
+   "from": 0.4,
+   "label": "LOG 04 · DIA 140",
+   "vfocus": 0.36
   },
   {
    "id": "cena2",
    "slot": 2,
    "at": 60.8,
-   "dur": 2.4,
-   "from": 1.6
+   "dur": 1.8,
+   "from": 2.2
+  },
+  {
+   "id": "cena1_susto",
+   "slot": 0,
+   "at": 62.6,
+   "dur": 1.0,
+   "from": 0
   },
   {
    "id": "cena1b_reacao",
    "slot": 1,
-   "at": 63.2,
-   "dur": 1.8,
+   "at": 63.6,
+   "dur": 1.4,
    "from": 0,
    "quote": "\"cresce quando ninguém olha\"",
-   "quoteAt": 63.7
+   "quoteAt": 63.75,
+   "vfocus": 0.36
   },
   {
    "id": "cena3",
    "slot": 3,
    "at": 68.2,
    "dur": 1.4,
-   "from": 1.6
+   "from": 2.4
   },
   {
    "id": "cena3b",
    "slot": 4,
    "at": 69.6,
    "dur": 1.4,
-   "from": 0.4
+   "from": 0.1,
+   "vfocus": 0.62,
+   "vfit": 0.8
   },
   {
    "id": "cena5",

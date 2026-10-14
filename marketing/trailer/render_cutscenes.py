@@ -39,11 +39,14 @@ def ease_out(x: float) -> float:
 # Câmera por cena (do "motion" de cada uma): pan(t) em px do canvas (multiplicado pelo parallax de cada camada) e
 # zoom(t) com a âncora em px do canvas. t vai de 0 a 1 na duração da cena.
 CAMERA = {
-    "cena1": {"pan": lambda t: round(12 * (1 - ease_out(t / 0.85)))},                       # esquerda → direita, para em Ilves
-    "cena1b": {"zoom": lambda t: 1 + 0.06 * ease(t), "anchor": (272, 150)},                   # dentro, ancorado no olho
+    # v1.2: no plano geral ela ficou pequena -> zoom até ×2 inteiro (e segura) ancorado nela
+    "cena1": {"pan": lambda t: round(12 * (1 - ease_out(t / 0.8))), "zoom": lambda t: 1 + ease(t / 0.8), "anchor": (248, 229)},
+    "cena1_susto": {"zoom": lambda t: 2.0, "anchor": (248, 229)},                            # já no ×2: ela levanta a cabeça
+    "cena1b": {},                                                                            # meia resolução (×8), parada
+    "cena1b_reacao": {},
     "cena2": {"pan": lambda t: round(-20 * t)},                                              # o campo deriva ~12 px (×0,6)
-    "cena3": {},
-    "cena3b": {},
+    "cena3": {"zoom": lambda t: 1 + ease(t / 0.45), "anchor": (302, 223)},                    # até ×2 na Ilves e segura
+    "cena3b": {"zoom": lambda t: 1 + 0.5 * ease(t / 0.66), "anchor": (161, 89)},              # 1,0 -> 1,5 no painel, segura 1 s
     "cena4": {"pan": lambda t: round(-14 * ease(t))},                                        # pan lento pra direita
     "cena5": {"zoom": lambda t: 1 + 0.28 * ease(t), "anchor": (150, 122)},                    # até a tela
     "cena6": {"zoom": lambda t: 1 + 0.15 * ease(t), "anchor": (272, 152)},                    # na criatura

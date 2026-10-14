@@ -8,14 +8,19 @@
    "title": "Laboratório, noite · Dia 140"
   },
   {
+   "id": "cena1_susto",
+   "src": "art/cena1_susto.mp4",
+   "title": "Laboratório, noite · Dia 140"
+  },
+  {
    "id": "cena1b",
    "src": "art/cena1b.mp4",
-   "title": "Close: Ilves na ocular"
+   "title": "Close: Ilves no microscópio (retrato)"
   },
   {
    "id": "cena1b_reacao",
    "src": "art/cena1b_reacao.mp4",
-   "title": "Close: Ilves na ocular"
+   "title": "Close: Ilves no microscópio (retrato)"
   },
   {
    "id": "cena2",
@@ -30,7 +35,7 @@
   {
    "id": "cena3b",
    "src": "art/cena3b.mp4",
-   "title": "Insert: a chave girando"
+   "title": "Plano médio: a chave girando"
   },
   {
    "id": "cena4",
