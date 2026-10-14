@@ -82,7 +82,7 @@ Decisões do dono (2026-10-14). Cada item abaixo é **uma tarefa, soltas uma por
 4. **Cratera orgânica** (Dev)
    - Os **blocos mineráveis dentro da cratera** (caverna) **deixam de ser quadrados no desenho**: ganham as bordas curvas dos morros da superfície, **reaproveitando o motor dos morros** (`game/hills.py`). Sem arte nova.
    - **A geração da caverna não muda** (dono, 2026-10-14): mesmos tiles, mesma forma; só o desenho.
-5. **Fumarola garantida** (Dev)
+5. ~~**Fumarola garantida** (Dev)~~ **Adiada** (dono, 2026-10-14): o basalto não fica tão longe no mapa 256, o O₂ dá pra ir e voltar e o tanque novo vem cedo. Volta se o playtest mostrar que precisa.
    - Toda seed tem pelo menos uma fumarola (magmatita) a no máximo X tiles da cápsula. X provisório, fica pro balanceamento.
 6. **Gelo gigante com a criatura** (Dev)
    - Contrato em `reports/design/gelo_gigante/pendentes/`: pegada 7×4, rampa `ICE_DEEP`, geada. Teaser sem interação, num canto da faixa gelada.
