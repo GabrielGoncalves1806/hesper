@@ -433,7 +433,10 @@ class GameState:
         x1, y1 = int((box[0] + box[2]) // C.TILE) + 1, int((box[1] + box[3]) // C.TILE) + 1
         for ty in range(y0, y1 + 1):
             for tx in range(x0, x1 + 1):
-                if self.world.is_solid(tx, ty):
+                if self.world.get(tx, ty) in C.SMALL_ROCKS:   # rocha pequena: só a base do desenho colide
+                    rx, ry, rw, rh = C.SMALL_ROCK_RECT
+                    solids.append((tx * C.TILE + rx, ty * C.TILE + ry, rw, rh))
+                elif self.world.is_solid(tx, ty):
                     solids.append((tx * C.TILE, ty * C.TILE, C.TILE, C.TILE))
         solids += [m.rect for m in self.machines]
         solids += self.active.gate_solids                 # v0.4 M3.5: os blocos de gelo dos portões (retângulos)

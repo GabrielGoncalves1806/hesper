@@ -760,4 +760,12 @@ THAW_CRATER_NOTICE_S = 3.5        # s do aviso "O gelo da cratera está cedendo"
 VOLUME["ice_crack"] = 0.7        # gelo estalando (ice_crack.wav / ice_crack_1.wav, v11): etapas 1–3 da cratera
 VOLUME["ice_collapse"] = 0.8     # o gelo desabando (ice_collapse.wav, v11): cratera aberta (etapa 4) e gelo-portão na 3
 ICE_COLLAPSE_CAVE_VOLUME = 0.5   # na caverna o desabamento sai a 0,5 (abafado pela rocha)
+# Contador de desempenho (game/perf_meter.py): F5 liga/desliga; ligado por padrão enquanto o jogo está em desenvolvimento
+PERF_METER_ON = True
+# Colisão da rocha pequena: só a base do desenho (x, y, w, h dentro do tile), não o tile inteiro (o sprite ocupa
+# x 1–30, y 9–31; com o tile todo sólido o player travava no ar, longe da pedra · playtest do dono)
+SMALL_ROCK_RECT = (3, 16, 26, 14)
+PERF_WINDOW_S = 0.5             # janela da média e do pior quadro (s)
+FRAME_BUDGET_MS = 1000 / 60     # orçamento de um quadro a 60 FPS
+PERF_MS_LEVELS = (10.0, 14.0)   # média até 10 ms verde, até 14 amarelo, acima vermelho
 DEBUG_MELT_CRATER = True        # F4 derrete a tampa na hora (atalho de debug, no mesmo esquema do F1–F3)

@@ -2147,6 +2147,7 @@ class UI:
         ("F11 · ALT+ENTER", "Tela cheia"),
         ("ESC > OPÇÕES", "Tamanho da interface (HUD e menus)"),
         ("F1 · F2 · F3 · F4", "Debug: x10 · +10.000 Ti · rápido · gelo da cratera"),
+        ("F5", "Contador de FPS e ms do quadro"),
     ]
 
     def _pause_frame(self, x, y, w, h, title, right: str | None = "PAUSA") -> None:

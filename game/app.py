@@ -24,6 +24,7 @@ O jogo abre em "title" (tela de título, game/title.py); o save/load fica em gam
 import math
 from pathlib import Path
 import random
+import time
 
 import warnings
 
@@ -39,6 +40,7 @@ from game import settings
 from game import worlds
 from game import viewport
 from game import ice_blocks, thaw
+from game.perf_meter import PerfMeter
 from game.assets import Sprites
 from game.audio import Audio
 from game.equipment import is_equipment
@@ -114,6 +116,7 @@ class App:
         self.canvas = opaque((C.SCREEN_W, C.SCREEN_H))
         self._world_view: pygame.Surface | None = None   # onde o mundo é desenhado com zoom != 1 (mesmo formato)
         self.clock = pygame.time.Clock()
+        self.perf = PerfMeter()                          # F5: FPS e ms do quadro no canto de baixo à esquerda
 
         self.sprites = Sprites()
         self.audio = Audio()
@@ -197,12 +200,15 @@ class App:
         pygame.quit()
 
     def step(self, dt: float) -> None:
+        start = time.perf_counter()
         self.handle_events()
         self.update(dt)
         if self.mode == "title":
             self.draw_title()
         else:
             self.draw()
+        self.perf.add(dt, (time.perf_counter() - start) * 1000)   # o trabalho do quadro, sem a espera do vsync
+        self.perf.draw(self.window)
         pygame.display.flip()
 
     # ---- janela, tela cheia e zoom -----------------------------------------------
@@ -411,6 +417,8 @@ class App:
             state.toggle_fast()
         elif key == pygame.K_F4 and C.DEBUG_MELT_CRATER:   # debug (v0.4 M2): derrete o gelo da cratera na hora
             state.debug_melt_crater()
+        elif key == pygame.K_F5:                          # contador de FPS e ms do quadro
+            self.perf.toggle()
         if state.fainted:
             return
 

@@ -628,6 +628,8 @@ Plano: `docs/superpowers/plans/2026-10-13-v04-marco3-gelo-agua.md`. O que o calo
 - **Sem sal no lago**: sal dissolveria na água, então **por enquanto nenhuma formação de sal nasce** (`GEO_FORMATIONS["salt_ridge"] = (0, 0)`, `GEO_SMALL_FORMATIONS["salt_pillar"] = (0, 0)`, e nenhuma pequena em bacia). A arte (`form_salt_ridge`, `form_salt_pillar`) continua em `assets/` pra quando o salar ganhar outro papel.
 - **Sem tubo de lava colapsado** (dono: ficou feio): `GEO_SMALL_FORMATIONS["lava_tube"] = (0, 0)`; a arte fica guardada e o basalto ganha outra formação depois.
 - **Sem o respiro de fumarola no chão** (decalque `fumarole` da v9, dono: "a gente já tem a fumarola pra isso"): saiu do sorteio do basalto (`v9_density.decal_mix.basalt` só com `ropy`); o PNG fica em `assets/`.
+- **Rocha pequena colide só na base do desenho** (`C.SMALL_ROCK_RECT`, 26×14 px dentro do tile), não no tile inteiro: com o tile todo sólido o player travava no ar, longe da pedra.
+- **Contador de desempenho** (F5, ligado por padrão no desenvolvimento): canto de baixo à esquerda, FPS e os ms de trabalho do quadro (média e pior de 0,5 s), verde até 10 ms, amarelo até 14, vermelho acima (`game/perf_meter.py`).
 - **Sem minério nem decoração no lago**: rocha pequena e afloramento não nascem em bacia, e a decoração solta (v8 e v9) some quando a água cobre o tile.
 
 ### Magmatita (decisão do dono, a implementar)
