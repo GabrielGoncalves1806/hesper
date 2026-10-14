@@ -370,8 +370,19 @@ class World:
         """Planta decorativa do estágio Verde (sem colisão). Retorna 'bush', 'tree', 'flower' ou None.
         Com geo (M3.3), as plantas se juntam na beira d'água: C.PLANT_CHANCE_SHORE até C.LAKE_SHORE tiles da bacia
         e C.PLANT_CHANCE_FAR longe dela. Sem geo, C.PLANT_CHANCE em todo lugar."""
-        if not self.terraforms or not self.is_floor(tx, ty) or self.dist_from_center(tx, ty) < 7 \
-                or self.future_water(tx, ty):
+        if not self.terraforms or not self.is_floor(tx, ty):
+            return None
+        if self.geo is not None:              # com geo, o resto não muda no jogo (bacia, veio, hash): cache por tile
+            cache = self.__dict__.setdefault("_plant_cache", {})
+            key = (tx, ty)
+            if key not in cache:
+                cache[key] = self._plant_kind(tx, ty)
+            return cache[key]
+        return self._plant_kind(tx, ty)
+
+    def _plant_kind(self, tx: int, ty: int) -> str | None:
+        """A parte de `plant_at` que não depende do tile ser chão agora (o render pergunta ~600×/quadro no Verde)."""
+        if self.dist_from_center(tx, ty) < 7 or self.future_water(tx, ty):
             return None
         if (tx, ty) in self._vein_tiles:      # nem planta em cima de veio
             return None
