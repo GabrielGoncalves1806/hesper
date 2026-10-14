@@ -3466,6 +3466,96 @@ def check_cave(bot) -> None:
     bot.frames(0.2)
 
 
+def check_cave_organic(bot) -> None:
+    """v0.5 M3.4 · rocha da caverna com borda orgânica (game/cave_rocks.py): prints com a lanterna, com luminária e
+    depois de minerar um minério (só os blocos vizinhos re-assam), e o tempo de entrar na caverna e de um frame,
+    com o desenho novo × o antigo (C.ORGANIC_CAVE). Prints: caverna_organica*.png."""
+    from game import layers
+    from game.systems import Machine
+    s, app = bot.state, bot.app
+    r = app.renderer
+    zoom_before = app.zoom
+    app.set_zoom(1.0, notify=False)
+    surface_world = s.world
+    cave = s.layers["cave"].world
+    # 1) entrar na caverna: primeiro frame (assa o que aparece) com cada desenho
+    times = {}
+    for organic in (False, True):
+        C.ORGANIC_CAVE = organic
+        r._cave_rocks = None                                   # cache frio
+        s.enter_layer("cave", layers.ramp_arrival(cave))
+        bot.frames(DT)
+        times[organic] = bot.frame_times[-1]
+        s.enter_layer("surface", layers.ramp_arrival(surface_world))
+        bot.frames(DT)
+    C.ORGANIC_CAVE = True
+    print(f"  caverna: entrar (1º frame, cache frio) · antigo {times[False] * 1000:.1f} ms · orgânico {times[True] * 1000:.1f} ms")
+    s.enter_layer("cave", layers.ramp_arrival(cave))
+    bot.frames(0.2)
+    # 2) lugar longe das luminárias de antes, com minério
+    lamps = [(m.tx, m.ty) for m in s.machines if m.is_lamp]
+
+    def score(x, y):
+        return sum(cave.get(xx, yy) in C.ORE_TILES for yy in range(y - 5, y + 6) for xx in range(x - 8, x + 9))
+    spots = [(x, y) for y in range(10, cave.height - 10, 2) for x in range(10, cave.width - 10, 2)
+             if cave.is_floor(x, y) and cave.is_floor(x, y - 1) and cave.is_floor(x + 1, y)
+             and 12 <= cave.dist_from_center(x, y) <= 40
+             and all(math.hypot(x - lx, y - ly) > 14 for lx, ly in lamps)]
+    spot = max(spots, key=lambda t: score(*t))
+    ore = min(((x, y) for y in range(2, 126) for x in range(2, 126)
+               if cave.get(x, y) in C.ORE_TILES and cave.is_floor(x, y + 1) and cave.is_floor(x, y + 2)),
+              key=lambda t: math.hypot(t[0] - spot[0], t[1] - spot[1]))
+    spot = (ore[0], ore[1] + 2)
+    bot.teleport(spot)
+    s.o2 = C.O2_MAX
+    s.player.direction = "up"
+    bot.mouse_to((700, 200))
+    bot.frames(0.4)
+    bot.shot("caverna_organica_lanterna.png")
+    # 3) com uma luminária ao lado
+    lamp = open_floor_near(cave, spot, 1, min_gap=3, radius=4)[0]
+    lamp_m = Machine("lamp", *lamp)
+    s.machines.append(lamp_m)
+    bot.frames(0.4)
+    bot.shot("caverna_organica_luminaria.png")
+    s.machines.remove(lamp_m)
+    # 4) minera o minério: re-assa só os vizinhos
+    cb = r.cave_rock_blocks()
+    bot.frames(0.3)
+    before = cb.bakes
+    pos = bot.tile_on_screen(ore)
+    bot.mouse_to(pos)
+    bot.mouse_down(pos)
+    bot.frames(0.5)
+    bot.shot("caverna_organica_mineracao.png")
+    bot.frames(1.0)
+    bot.mouse_up(pos)
+    bot.frames(0.3)
+    assert cave.is_floor(*ore), "o minério devia ter quebrado"
+    rebaked = cb.bakes - before
+    assert 1 <= rebaked <= 2 + C.HILL_PREFETCH, f"minerar re-assou {rebaked} blocos (esperado 1 ou 2)"
+    bot.shot("caverna_organica_minerado.png")
+    print(f"  caverna orgânica: minerar re-assou {rebaked} bloco(s)")
+    # 5) perf de um frame andando, antigo × orgânico
+    perf = {}
+    for organic in (False, True):
+        C.ORGANIC_CAVE = organic
+        start = len(bot.frame_times)
+        for key in (pygame.K_d, pygame.K_a):
+            s.o2 = C.O2_MAX
+            bot.key(key, hold=0.75)
+        ft = bot.frame_times[start:]
+        perf[organic] = (sum(ft) / len(ft), max(ft))
+    C.ORGANIC_CAVE = True
+    print(f"  caverna frame (andando): antigo média {perf[False][0] * 1000:.1f} ms pior {perf[False][1] * 1000:.1f} · "
+          f"orgânico média {perf[True][0] * 1000:.1f} ms pior {perf[True][1] * 1000:.1f}")
+    s.enter_layer("surface", layers.ramp_arrival(surface_world))
+    app.set_zoom(zoom_before, notify=False)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+
+
 def check_map_panorama(bot) -> None:
     """Mapa aberto panorâmico (B2): superfície 1× e 2×, tooltip de destroço com distância e direção, filtro
     "Máquinas" desligado pelo chip, rodinha ancorada no mouse, arrasto e, numa janela 1920×1080, a interface
@@ -4409,6 +4499,7 @@ def main() -> None:
     check_crater(bot)
     check_gates(bot)
     check_cave(bot)
+    check_cave_organic(bot)
     check_wrecks(bot)
     check_storm(bot)
     check_veins(bot)
