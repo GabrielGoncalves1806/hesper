@@ -531,10 +531,98 @@ def fan(sc, cx, cy, z, r, f, n=3, step=30):
     sc.cyl(cx, cy, 1.2, z, z + 1.2, P_ORANGE)
 
 
-def base(sc, w, d, h=5, pal=P_METAL, bolts=ORANGE):
+def base_v10(sc, w, d, h=5, pal=P_METAL, bolts=ORANGE):
+    """A base do freela (v1.0): plinto reto com a fileira de parafusos. Fica só pra referência do antes."""
     sc.box((-w, w), (-d, d), (0, h), pal)
     for x in range(-w + 3, w - 2, 6):
         sc.dot(x, -d - 0.1, h * 0.5, bolts)
+
+
+# ---------------------------------------------------------------------------
+# v1.1 · SAPATA padrão: UMA peça só, igual em todas as máquinas. Só a meia-largura acompanha a máquina; altura,
+# profundidade, cores e detalhes são sempre os mesmos. Os corpos são assentados em cima dela (Scene.dz).
+# ---------------------------------------------------------------------------
+SAP_H = 5.0                      # altura da sapata (o corpo começa aqui)
+SAP_D = 13.0                     # meia-profundidade (1 tile)
+SAPATA = "B"                     # estilo escolhido (as opções A/B/C aparecem no report)
+P_SILVER = Pal(["#d9dde6", "#a9b0be", "#8c93a3", "#636a7a", "#414553"])     # a prata do baú azul aprovado
+P_PLATE = Pal(["#c9c4d6", "#a7a3b8", "#8a85a0", "#5e596f", "#3a3549"])       # chapa do tampo, um tom acima do METAL
+P_LED_OK = Pal([OK] * 5, emit=True, emit_tone=0)
+
+
+def _rim(sc, w, d, z):
+    """Friso prata (a prata do baú azul) só na quina da frente do tampo: 1 px claro que desenha a borda."""
+    sc.rbox((0, -d + 0.45, z), (w - 0.9, 0.45, 0.45), 0.4, P_SILVER)
+
+
+def _sap_a(sc, w):
+    """A · chanfrada: placa grossa de cantos bem arredondados, friso prata na quina e um painel escuro rebaixado
+    no meio da frente (largura fixa) com 2 respiros e o LED. Pezinhos escuros nos 4 cantos."""
+    d = SAP_D
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            sc.rbox((sx * (w - 2.4), sy * (d - 2.4), 0.5), (2.0, 2.0, 0.5), 0.4, P_DARK)
+    def paint(L, N):
+        out = np.zeros(len(L), int)
+        fr = (N[:, 1] < -0.9) & (abs(L[:, 0]) < 6.2) & (abs(L[:, 2]) < 1.3)
+        out[fr] = 1
+        out[fr & (abs(L[:, 0]) > 1.4) & (abs(L[:, 0]) < 5.0) & (abs(L[:, 2]) < 0.45)] = 2
+        return out
+    sc.rbox((0, 0, 2.95), (w, d, 2.05), 1.9, P_METAL, paint=paint, extra=(P_DARK, Pal(["#5e596f"] * 5)))
+    _rim(sc, w, d, 4.6)
+    sc.dot(-0.2, -d - 0.2, 3.0, OK, always=True)
+
+
+def _sap_b(sc, w):
+    """B · sapatas: a placa de cantos arredondados levantada em 4 sapatas laranja com solinha escura, friso prata
+    na quina e uma plaqueta prata fixa no meio da frente, com fenda escura e LED verde."""
+    d = SAP_D
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            cx, cy = sx * (w - 3.2), sy * (d - 2.8)
+            sc.rbox((cx, cy, 0.45), (3.4, 2.8, 0.45), 0.35, P_DARK)
+            sc.rbox((cx, cy, 1.5), (2.8, 2.3, 0.9), 0.6, P_ORANGE)
+    sc.rbox((0, 0, 3.55), (w, d, 1.45), 1.3, P_METAL)
+    _rim(sc, w, d, 4.65)
+    def plate(L, N):
+        return np.where((N[:, 1] < -0.9) & (L[:, 0] > -1.4) & (L[:, 0] < 3.4) & (abs(L[:, 2]) < 0.45), 1, 0)
+    sc.rbox((0, -d - 0.3, 3.4), (5.2, 0.5, 1.2), 0.4, P_SILVER, paint=plate, extra=(P_DARK,))
+    sc.dot(-3.6, -d - 1.0, 3.5, OK, always=True)
+
+
+def _sap_c(sc, w):
+    """C · degrau: soco escuro largo embaixo com listras de advertência nos cantos da frente e a placa metálica em
+    cima, recuada, com friso prata e LED no meio."""
+    d = SAP_D
+    def hz(L, N):
+        fr = N[:, 1] < -0.9
+        x = L[:, 0]
+        k = (np.floor(x + L[:, 2] + 100) % 3) < 1.5
+        return np.where(fr & (abs(x) > w - 6.5) & k, 1, 0)
+    sc.rbox((0, 0, 1.2), (w + 0.3, d + 0.3, 1.2), 0.7, P_DARK, paint=hz, extra=(P_ORANGE,))
+    sc.rbox((0, 0.6, 3.6), (w - 1.3, d - 1.0, 1.4), 1.4, P_METAL)
+    _rim(sc, w - 1.3, d - 0.4, 4.6)
+    sc.dot(0, -d - 0.6, 1.3, OK, always=True)
+
+
+SAPATAS = {"A": _sap_a, "B": _sap_b, "C": _sap_c}
+
+
+def sapata(sc, w, style=None, at=(0.0, 0.0)):
+    """A sapata padrão de TODAS as máquinas. w = meia-largura (16 no nv.1, 19 no nv.2, 12 no painel, 9 na drill).
+    at = onde fica o centro dela no chão (a drill põe ao lado do veio); a peça é sempre a mesma."""
+    keep = (sc.dx, sc.dy)
+    sc.dx, sc.dy = keep[0] + at[0], keep[1] + at[1]
+    SAPATAS[style or SAPATA](sc, w)
+    sc.dx, sc.dy = keep
+
+
+def base(sc, w, d, h=5, pal=P_METAL, bolts=ORANGE):
+    """Chamada antiga das máquinas: agora põe a sapata padrão e assenta o corpo nela (o corpo foi desenhado pra
+    começar em Z = h; o dz faz ele começar em SAP_H, então o nv.2 desce 2 px). d, pal e bolts não importam mais:
+    a sapata é sempre a mesma."""
+    sapata(sc, w)
+    sc.dz = SAP_H - h
 
 
 def front_panel(sc, x0, x1, y, z0, z1, f, leds=2):
@@ -731,39 +819,7 @@ def melter(f, tier=1):
 FILL = (48, 47, 7, 12)
 
 
-def drill(f):
-    sc = scene(64, 80, -28)
-    bob = 1.3 if f % 2 else 0
-    for (xr, yr) in (((-28, 28), (-28, -24)), ((-28, 28), (20, 24)), ((-28, -24), (-24, 20)), ((24, 28), (-24, 20))):
-        sc.box(xr, yr, (0, 4), P_METAL)
-    for (x, y) in ((-28, -28), (24, -28), (-28, 20), (24, 20)):
-        sc.box((x, x + 4), (y, y + 4), (0, 5), P_ORANGE)
-    for x in (-19, 11):                                              # colunas + travessa
-        sc.cyl(x, -2, 2, 4, 44, P_METAL)
-    sc.box((-19, 11), (-3, -1), (30, 32.5), P_METAL)
-    sc.cyl(-4, -2, 1.6, 16 + bob, 34, P_STEEL)                       # haste
-    sc.cyl(-4, -2, 3.2, 15 + bob, 18 + bob, P_ORANGE)                # colar
-    spiral = lambda t, z, c: np.where(((t / (2 * math.pi) * 3 + z * 0.32) % 1) < 0.5, 0, 1)
-    sc.cyl(-4, -2, 0.3, 2, 15 + bob, P_STEEL, r_top=5, cap=False, paint=spiral, extra=(P_METAL,),
-           spin=f * math.pi / 6)
-    sc.box((-13, 5), (-8, 6), (34 + bob, 50 + bob), P_BEIGE,      # cabeça do motor
-           paint=lambda L, face: np.where((face == 2) & (L[:, 2] > 1) & (L[:, 2] < 3.4), 1,
-                                          np.where((face == 5) & (abs(L[:, 0]) < 6) & (abs(L[:, 1]) < 2.5), 2, 0)),
-           extra=(P_ORANGE, P_DARK))
-    sc.dot(-10, -8.2, 40 + bob, OK if f < 2 else "#2f5a2c", always=True)
-    sc.dot(-8, -8.2, 40 + bob, CYAN if f % 2 == 0 else CYAN_D, always=True)
-    warn(sc, 1, -8, 38 + bob)
-    sc.box((14, 27), (-12, 1), (4, 30), P_BEIGE,                   # caçamba com o indicador
-           paint=lambda L, face: np.where((face == 2) & (L[:, 2] > 9) & (L[:, 2] < 10.6), 1, 0), extra=(P_ORANGE,))
-    for i in range(3):                                                # lascas saindo da ponta
-        a = (f * 2 + i * 3) % 7
-        sc.dot(-10 - a + i, -6, 1 + (a + i) % 3, "#c9a38a" if i % 2 else "#8e6b5c", always=True)
-        sc.dot(2 + a - i, -6, 1 + (a + i * 2) % 3, "#c9a38a" if i % 2 == 0 else "#8e6b5c", always=True)
-    cv = render(sc)
-    fx, fy, fw, fh = FILL
-    cv.rect(fx - 1, fy - 1, fw + 2, fh + 2, METAL[3])
-    cv.rect(fx, fy, fw, fh, GLASS)
-    return cv
+# (a drill de broca do freela v1.0 saiu: o PNG dela fica em reports/design/maquinas_r3d/v10/)
 
 
 # ---------------------------------------------------------------------------
@@ -774,10 +830,11 @@ P_CELL = Pal([SOLAR[1], SOLAR[2], SOLAR[2], SOLAR[3], SOLAR[4]])
 
 
 def solar(f):
-    sc = scene(32, 40, -6)
-    sc.box((-6, 6), (-6, 6), (0, 3), P_METAL)
-    sc.cyl(0, 0, 1.6, 3, 19, P_BEIGE, paint=lambda t, z, c: np.where((z > 9) & (z < 10.5) & ~c, 1, 0), extra=(P_ORANGE,))
-    sc.box((-3, 3), (-1.5, 1.5), (17, 20), P_METAL)
+    """v1.1: o pé de metal virou a sapata padrão (meia-largura 12); o mastro sai dela."""
+    sc = scene(32, 40, -SAP_D)
+    sapata(sc, 12)
+    sc.cyl(0, 0, 1.6, SAP_H, 20, P_BEIGE, paint=lambda t, z, c: np.where((z > 10) & (z < 11.5) & ~c, 1, 0), extra=(P_ORANGE,))
+    sc.box((-3, 3), (-1.5, 1.5), (18, 21), P_METAL)
     g = [-26, -10, 6, 22][f]
 
     def paint(L, face):
@@ -791,8 +848,8 @@ def solar(f):
             glint = cell & ~grid & ((x + y * 0.9 - g) > 0) & ((x + y * 0.9 - g) < 3)
             out[glint] = 3
         return out
-    sc.obox((0, 2, 21), (14, 10, 1.0), P_BEIGE, rot_x=0.12, paint=paint, extra=(P_CELL, P_DARK, P_SOLAR_HL))
-    sc.dot(1.8, -1.7, 12, OK if f < 2 else "#2f5a2c", always=True)
+    sc.obox((0, -1, 22), (14, 10, 1.0), P_BEIGE, rot_x=0.12, paint=paint, extra=(P_CELL, P_DARK, P_SOLAR_HL))
+    sc.dot(1.8, -1.7, 13, OK if f < 2 else "#2f5a2c", always=True)
     return render(sc)
 
 
@@ -1009,6 +1066,379 @@ def drone(f):
 
 
 # =====================================================================================================================
+# v1.1 · AQUECEDORES A MAGMATITA (pedido do dono): a máquina queima pedra de Magmatita (basalto com veios de lava).
+# Câmara com janela onde dá pra ver as pedras incandescentes, carga por cima e o calor saindo pelas aletas.
+# =====================================================================================================================
+BASALT = ["#6a5f72", "#4e4558", "#3a3244", "#2a2333", "#1d1726"]
+P_BASALT = Pal(BASALT)
+LAVA = ["#fff4cc", "#ffd27a", "#ff9a3d", "#e0602a", "#a8402a"]
+P_LAVA = [Pal(LAVA, emit=True, emit_tone=t) for t in range(5)]
+P_EMBER = [Pal(["#a8402a"] * 5, emit=True, emit_tone=0), Pal(["#c24e2c"] * 5, emit=True, emit_tone=0),
+           Pal(["#ff9a3d"] * 5, emit=True, emit_tone=0)]
+P_GLASS_HOT = Pal(["#ffe2b8"] * 5, emit=True, emit_tone=0)
+
+
+def _hash(*v):
+    """Pseudo-aleatório determinístico pequeno (sem random)."""
+    h = 2166136261
+    for x in v:
+        h = ((h ^ (int(x * 97) & 0xffffffff)) * 16777619) & 0xffffffff
+    return h / 0xffffffff
+
+
+def magma_rock(sc, c, r, f, k, hot=1):
+    """Pedra de Magmatita: bloco gordinho de basalto (caixa arredondada, meio torta) com veios de lava que pulsam.
+    k varia a forma e a fase do brilho; hot 0..2 deixa os veios mais claros (nv.2)."""
+    hx = r * (0.85 + 0.35 * _hash(k, 1))
+    hy = r * (0.8 + 0.3 * _hash(k, 2))
+    hz = r * (0.7 + 0.3 * _hash(k, 3))
+    a, b = 1.3 + _hash(k, 4) * 1.2, _hash(k, 5) * 6
+    tone = [2, 1, 0, 1][(f + k) % 4]
+    tone = max(0, tone - hot + 1) if hot > 1 else tone
+
+    def paint(L, N):
+        u = L[:, 0] * (a - 0.6) + L[:, 2] * 1.1 + b + 0.8 * np.sin(L[:, 1] * 1.3 + L[:, 0] * 0.9 + k)
+        per = 1.7 * r + 1.0
+        crack = np.abs(((u + 10) % per) - per / 2) < 0.55
+        under = (N[:, 2] < -0.25) | (L[:, 2] < -hz * 0.55)
+        return np.where(crack, 1, np.where(under, 2, 0))
+    sc.rbox(c, (hx, hy, hz), min(hx, hy, hz) * 0.75, P_BASALT, paint=paint,
+            extra=(P_LAVA[min(4, tone + 1)], P_LAVA[min(4, tone + 2)]))
+
+
+def _rocks_pile(sc, x0, x1, y, z0, z1, f, hot=1, seed=0, r=2.3):
+    """Pilha de pedras numa janela: fileiras de baixo pra cima, alternando o passo."""
+    k = seed
+    z = z0 + r * 0.8
+    row = 0
+    while z < z1 - r * 0.5:
+        x = x0 + r + (r * 0.9 if row % 2 else 0)
+        while x < x1 - r * 0.6:
+            magma_rock(sc, (x + (_hash(k, 9) - 0.5), y + _hash(k, 8) * 0.8, z), r, f, k, hot)
+            x += 2 * r * 0.95
+            k += 1
+        z += 2 * r * 0.78
+        row += 1
+
+
+def _shimmer2(sc, x, y, ztop, f, n=3, span=9, gold=False):
+    """Tremor de calor: fiapos subindo em zigue-zague (sem contorno)."""
+    for i in range(n):
+        for j in range(2):
+            z = ztop + 1 + ((f * 2 + i * 3 + j * 4) % span)
+            dx = (1 if ((z // 2) + i) % 2 else 0) + (i - n // 2) * 2.2
+            col = HEAT[0] if j == 0 and i % 2 == 0 else (GOLD_L if gold and j else HEAT[1] if j == 0 else HEAT[2])
+            sc.dot(x + dx, y, z, col, always=True)
+
+
+def _fins_side(sc, x0, x1, y0, y1, z0, z1, pitch=2.6, pal=None):
+    """Aletas de radiador: lâminas horizontais empilhadas na lateral."""
+    z = z0
+    while z + 1.2 <= z1:
+        sc.box((x0, x1), (y0, y1), (z, z + 1.2), pal or P_METAL)
+        z += pitch
+
+
+def _window(sc, x0, x1, z0, z1, y, f, gold=False, bars=2):
+    """Moldura da janela da câmara (metal ou dourado) + o fundo em brasa + grade vertical na frente."""
+    sc.box((x0, x1), (y - 0.6, y + 0.4), (z0, z1), P_EMBER[f % 2 + (1 if gold else 0)],
+           paint=lambda L, face: np.where(L[:, 2] < -(z1 - z0) / 2 + 2.5, 1, 0), extra=(P_EMBER[2],))
+    fr = P_METAL
+    t = 1.1
+    sc.box((x0 - t, x1 + t), (y - 1.6, y - 0.4), (z0 - t, z0), fr)
+    sc.box((x0 - t - 0.3, x1 + t + 0.3), (y - 1.9, y - 0.4), (z1, z1 + t + 0.4), P_GOLD if gold else fr)
+    sc.box((x0 - t, x0), (y - 1.6, y - 0.4), (z0, z1), fr)
+    sc.box((x1, x1 + t), (y - 1.6, y - 0.4), (z0, z1), fr)
+    for i in range(bars):
+        bx = x0 + (x1 - x0) * (i + 1) / (bars + 1)
+        sc.box((bx - 0.4, bx + 0.4), (y - 4.2, y - 3.4), (z0, z1), P_DARK)
+
+
+def _feed_hopper(sc, cx, cy, z0, r0, r1, h, f, gold=False, hot=1, n=4):
+    """Funil de carga em cima: tronco de cone, aro e as pedras aparecendo na boca."""
+    sc.cyl(cx, cy, r0, z0, z0 + h, P_METAL, r_top=r1, cap=False)
+    sc.disc(cx, cy, z0 + h - 1.2, r1 - 0.6, P_DARK)
+    sc.cyl(cx, cy, r1 + 0.5, z0 + h - 0.2, z0 + h + 0.9, P_GOLD if gold else P_ORANGE, cap=False)
+    for i in range(n):
+        a = i * 2 * math.pi / n + 0.5
+        rr = (r1 - 3.0) * (0.55 + 0.3 * _hash(i, 11)) if i else 0
+        magma_rock(sc, (cx + rr * math.cos(a), cy + rr * math.sin(a), z0 + h - 0.8), 2.4 if r1 < 10 else 2.7, f, 20 + i,
+                   hot)
+
+
+def heater_a(f, tier=1):
+    """A · fornalha de janela: caixa bege com a câmara de pedras à mostra, funil de carga em cima e aletas nas duas
+    laterais. nv.2: câmara DUPLA (duas janelas de moldura dourada), funil maior, aletas mais altas e chaminé."""
+    if tier == 1:
+        sc = scene(40, 56, -13)
+        sapata(sc, 16)
+        zb, zt = SAP_H, 31
+
+        def body(L, N):
+            fr = N[:, 1] < -0.9
+            return np.where(fr & (L[:, 2] > 8.2) & (L[:, 2] < 10.4), 1, 0)
+        sc.rbox((0, 0, (zb + zt) / 2), (11.5, 10, (zt - zb) / 2), 1.8, P_BEIGE, paint=body, extra=(P_ORANGE,))
+        _window(sc, -9.0, 4.0, 8.5, 23, -10, f, bars=1)
+        _rocks_pile(sc, -9.0, 4.0, -10.9, 8.5, 23, f, seed=1, r=3.0)
+        for sx in (-1, 1):
+            _fins_side(sc, sx * 11.2 - (3.6 if sx > 0 else 0) + (0 if sx > 0 else -0), sx * 11.2 + (3.6 if sx > 0 else 0)
+                       if sx > 0 else -11.2, -7, 7, 9, 29) if False else None
+        _fins_side(sc, -15, -11.3, -7, 7, 8.5, 29)
+        _fins_side(sc, 11.3, 15, -7, 7, 8.5, 29)
+        front_panel(sc, 6.5, 10, -10, 17, 22, f, leds=1)
+        warn(sc, 8.3, -10, 11.5)
+        _feed_hopper(sc, -1, 2, zt, 5.5, 9, 7, f)
+        _shimmer2(sc, -1, 2, zt + 8, f)
+        _shimmer2(sc, 13.2, 0, 29.5, f + 1, n=2, span=7)
+        _shimmer2(sc, -13.2, 0, 29.5, f + 3, n=2, span=7)
+        return render(sc)
+    sc = scene(40, 64, -13)
+    sapata(sc, 19)
+    zb, zt = SAP_H, 38
+
+    def body2(L, N):
+        fr = N[:, 1] < -0.9
+        out = np.zeros(len(L), int)
+        out[fr & (L[:, 2] > 12.2) & (L[:, 2] < 14.6)] = 1
+        out[fr & (L[:, 2] > -14.6) & (L[:, 2] < -13.2)] = 2
+        return out
+    sc.rbox((0, 0, (zb + zt) / 2), (13.5, 10, (zt - zb) / 2), 2.0, P_BEIGE, paint=body2, extra=(P_GOLD, P_ORANGE))
+    for x0 in (-11.0, 1.5):
+        _window(sc, x0, x0 + 9.5, 9.5, 26, -10, f, gold=True, bars=0)
+        _rocks_pile(sc, x0, x0 + 9.5, -10.9, 9.5, 26, f, hot=2, seed=int(x0 * 3) + 40, r=2.45)
+    _fins_side(sc, -18.5, -13.3, -8, 8, 8, 36, pitch=2.4)
+    _fins_side(sc, 13.3, 18.5, -8, 8, 8, 36, pitch=2.4)
+    for x in (-18.6, 18.6 - 1.2):                                     # trilho dourado amarrando as aletas
+        sc.box((x, x + 1.2), (-8.6, -7.6), (7.5, 37), P_GOLD)
+    front_panel(sc, -4, 3, -10, 30, 35, f, leds=3)
+    warn(sc, 7, -10, 31)
+    _feed_hopper(sc, -3, 2, zt, 6.5, 10.5, 7, f, gold=True, hot=2, n=5)
+    sc.cyl(9, 5, 2.4, zt, zt + 10, P_BEIGE, paint=lambda t, z, c: np.where((z > zt + 6) & (z < zt + 7.5) & ~c, 1, 0),
+           extra=(P_GOLD,))
+    _shimmer2(sc, -3, 2, zt + 8, f, gold=True)
+    _shimmer2(sc, 9, 5, zt + 10, f + 2, n=2, gold=True)
+    _shimmer2(sc, 16, 0, 36.5, f + 1, n=2, span=6)
+    _shimmer2(sc, -16, 0, 36.5, f + 3, n=2, span=6)
+    return render(sc)
+
+
+def _crown_fins(sc, cx, cy, z0, z1, r_in, r_out, n, pal=None):
+    """Coroa de aletas radiais (dissipador redondo) em volta de um cilindro."""
+    for k in range(n):
+        a = k * 2 * math.pi / n + 0.2
+        rm = (r_in + r_out) / 2
+        sc.obox((cx + rm * math.cos(a), cy + rm * math.sin(a), (z0 + z1) / 2), ((r_out - r_in) / 2, 0.55, (z1 - z0) / 2),
+                pal or P_METAL, rot_z=a)
+
+
+def _slot_paint(z0, z1, ang_half, extra_bands=(), gold_bands=()):
+    def paint(t, z, cap):
+        out = np.zeros(len(t), int)
+        for (a, b) in extra_bands:
+            out[(z > a) & (z < b) & ~cap] = 1
+        for (a, b) in gold_bands:
+            out[(z > a) & (z < b) & ~cap] = 2
+        d = ang_dist(t, FRONT)
+        out[(d < ang_half + 0.18) & (z > z0 - 1.2) & (z < z1 + 1.2) & ~cap] = 3
+        out[(d < ang_half) & (z > z0) & (z < z1) & ~cap] = 4
+        return out
+    return paint
+
+
+def heater_b(f, tier=1):
+    """B · caldeira de coluna: cilindro bege com uma janela alta na frente cheia de pedras em brasa, coroa de aletas
+    radiais em cima (o dissipador) e uma calha de carga de lado. nv.2: coluna mais larga, DUAS janelas, coroa
+    dupla com aro dourado e calha maior."""
+    big = tier == 2
+    sc = scene(40, 64 if big else 56, -13)
+    sapata(sc, 19 if big else 16)
+    R = 11.5 if big else 10.5
+    zb = SAP_H
+    zt = 40 if big else 30
+    wins = ((-0.5, 0.5),) if not big else ((-0.56, -0.09), (0.09, 0.56))
+    wz0, wz1 = (zb + 7, zt - 9) if big else (zb + 5, zt - 6)
+    # corpo: a janela é recortada pintando o corpo de brasa e pondo as pedras/barras na frente
+    def paint(t, z, cap):
+        out = np.zeros(len(t), int)
+        out[(z > zb + 1.5) & (z < zb + 3.5) & ~cap] = 2 if big else 1
+        out[(z > zt - (5.5 if big else 3.5)) & (z < zt - (3.6 if big else 1.8)) & ~cap] = 1
+        for (a0, a1) in wins:
+            d = (t - FRONT + math.pi) % (2 * math.pi) - math.pi
+            fr = (d > a0 - 0.12) & (d < a1 + 0.12) & (z > wz0 - 1.2) & (z < wz1 + (2.0 if big else 1.2)) & ~cap
+            out[fr] = 3
+            if big:                                                   # verga dourada em cima da janela (como a A nv.2)
+                out[fr & (z > wz1)] = 2
+            inn = (d > a0) & (d < a1) & (z > wz0) & (z < wz1) & ~cap
+            out[inn] = 4
+            out[inn & (z < wz0 + 2.5)] = 5
+        return out
+    sc.cyl(0, 0, R, zb, zt, P_BEIGE, paint=paint, extra=(P_ORANGE, P_GOLD, P_METAL, P_EMBER[f % 2], P_EMBER[2]))
+    k = 60
+    for (a0, a1) in wins:
+        for j, zz in enumerate(np.arange(wz0 + 2.6, wz1 - 1.5, 4.4)):
+            off = 0.13 if j % 2 else 0.0
+            for aa in np.arange(a0 + 0.2 + off, a1 - 0.12, 0.27):
+                a = FRONT + aa
+                rr = R - 2.0
+                magma_rock(sc, (rr * math.cos(a), rr * math.sin(a), zz), 2.7, f, k, 2 if big else 1)
+                k += 1
+        am = FRONT + (a0 + a1) / 2                                    # barra vertical no meio da janela
+        sc.box((R * math.cos(am) - 0.4, R * math.cos(am) + 0.4), (R * math.sin(am) - 0.9, R * math.sin(am)),
+               (wz0, wz1), P_DARK)
+    # tampa + coroa de aletas
+    sc.cyl(0, 0, R + 0.4, zt, zt + 1.6, P_GOLD if big else P_METAL)
+    _crown_fins(sc, 0, 0, zt + 1.6, zt + (8 if big else 6.5), 5.2, R + (1.6 if big else 1.2), 18 if big else 14, P_STEEL)
+    _feed_hopper(sc, 0, 0, zt + 1.6, 4.4, 6.0, (7.2 if big else 5.6), f, gold=big, hot=2 if big else 1, n=3)
+    if big:
+        sc.cyl(0, 0, R + 2.0, zt + 9, zt + 9.8, P_GOLD, cap=False)
+    if big:
+        # v1.2: o radiador da A nos dois lados (mesmas aletas), amarrado por trilho dourado, e o painel de 3 LEDs
+        for sx in (-1, 1):
+            x0, x1 = (R - 1.0, 18.6) if sx > 0 else (-18.6, -R + 1.0)
+            _fins_side(sc, x0, x1, -6, 6, zb + 3, zt - 2, pitch=2.4)
+            xr = 18.6 - 1.2 if sx > 0 else -18.6
+            sc.box((xr, xr + 1.2), (-6.6, -5.6), (zb + 2.5, zt - 1.5), P_GOLD)
+            _shimmer2(sc, sx * 16, 0, zt - 1.5, f + 1 + sx, n=2, span=6)
+        front_panel(sc, -3, 3, -R - 0.2, zb + 0.6, zb + 4.4, f, leds=3)
+    else:
+        hx, hz = 12.0, zt - 4
+        _fins_side(sc, hx, hx + 4.2, -2.5, 6.5, hz - 22, hz - 7, pitch=2.4, pal=P_METAL)
+        front_panel(sc, -R + 0.5, -R + 5, -R * 0.62, zb + 6, zb + 11, f, leds=1)
+        _shimmer2(sc, hx + 2, 2, hz - 7, f + 2, n=2, span=6)
+    _shimmer2(sc, 0, 0, zt + (9.6 if big else 7.6), f, n=4 if big else 3, gold=big)
+    return render(sc)
+
+
+# =====================================================================================================================
+# v1.1 · DRILLS A LASER (pedido do dono). 64×80 por quadro, 4 quadros a 8 fps, mesma âncora (centro da base dos 2×2).
+# O feixe é desenhado em 2D por cima do render (luz não tem contorno): núcleo claro, brilho em volta pulsando, ponto
+# de impacto incandescente no veio e faíscas voando. A drill T1 usa; a aranha e o tripé (T2/T3) estão em
+# machines_r3d_futuro.py.
+# =====================================================================================================================
+LASER_CYAN = ("#ffffff", CYAN_L, CYAN, CYAN_D)
+LASER_HOT = ("#fffbe8", HEAT[0], HEAT[1], HEAT[2])
+
+
+def _proj(sc, X, Y, Z):
+    sx, sy, _ = sc.proj(X, Y, Z)
+    return sx, sy
+
+
+def _line_pts(x0, y0, x1, y1):
+    n = int(max(abs(x1 - x0), abs(y1 - y0))) + 1
+    return [(round(x0 + (x1 - x0) * i / max(n - 1, 1) - 0.5), round(y0 + (y1 - y0) * i / max(n - 1, 1) - 0.5))
+            for i in range(n)]
+
+
+def laser(cv, p0, p1, f, pal, under=None):
+    """Feixe de p0 (boca) a p1 (impacto), coordenadas de tela. Pulsa: 3 px nos quadros pares, 5 px nos ímpares.
+    `under`: máscara (h, w) do que fica na frente do feixe (não pinta por cima)."""
+    core, lit, mid, dark = pal
+    pts = _line_pts(*p0, *p1)
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    steep = abs(dy) >= abs(dx)
+    half = 2 if f % 2 else 1
+    for i, (x, y) in enumerate(pts):
+        for k in range(-half, half + 1):
+            xx, yy = (x + k, y) if steep else (x, y + k)
+            c = core if k == 0 else lit if abs(k) == 1 else (mid if (i + f) % 3 else dark)
+            if 0 <= xx < cv.w and 0 <= yy < cv.h and (under is None or not under[yy, xx]):
+                cv.px(xx, yy, c)
+    # anéis de energia correndo pelo feixe (1 px mais largo, descendo)
+    for i in range((f * 3) % 6, len(pts), 6):
+        x, y = pts[i]
+        for k in (-half - 1, half + 1):
+            xx, yy = (x + k, y) if steep else (x, y + k)
+            if 0 <= xx < cv.w and 0 <= yy < cv.h and not cv.solid(xx, yy):
+                cv.px(xx, yy, lit)
+
+
+def impact(cv, x, y, f, pal, rx=6, ry=3):
+    """Ponto de impacto: poça elíptica incandescente (só no chão vazio), cruz de brilho e faíscas espirrando."""
+    core, lit, mid, dark = pal
+    rr = [1.0, 1.25, 1.1, 1.35][f]
+    for yy in range(int(y - ry * 1.6), int(y + ry * 1.6) + 1):
+        for xx in range(int(x - rx * 1.6), int(x + rx * 1.6) + 1):
+            d = ((xx + 0.5 - x) / (rx * rr)) ** 2 + ((yy + 0.5 - y) / (ry * rr)) ** 2
+            if d <= 1.0 and not cv.solid(xx, yy):
+                cv.px(xx, yy, HEAT[3] if d > 0.6 else (HEAT[1] if d > 0.22 else HEAT[0]))
+    xi, yi = int(x), int(y)
+    arm = 3 if f % 2 else 2
+    for k in range(-arm, arm + 1):
+        cv.px(xi + k, yi, core if abs(k) < 2 else lit)
+        cv.px(xi, yi + k, core if abs(k) < 2 else lit)
+    if f % 2:
+        for k in (-1, 1):
+            cv.px(xi + k, yi + k, lit)
+            cv.px(xi + k, yi - k, lit)
+    for i in range(7):                                         # faíscas em arco, trocando a cada quadro
+        a = math.radians(200 + i * 22 + f * 9)
+        dist = 4 + ((f * 3 + i * 5) % 7)
+        sx = int(round(x + math.cos(a) * dist * 1.3))
+        sy = int(round(y + math.sin(a) * dist * 0.8 - (dist % 3)))
+        if not cv.solid(sx, sy):
+            cv.px(sx, sy, HEAT[0] if i % 3 == 0 else (HEAT[1] if i % 3 == 1 else ORANGE))
+    for i in range(3):                                         # lascas de pedra saltando
+        a = math.radians(160 + i * 110 + f * 31)
+        dist = 6 + (f + i * 2) % 5
+        sx, sy = int(x + math.cos(a) * dist * 1.2), int(y + math.sin(a) * dist * 0.6 - 2)
+        if not cv.solid(sx, sy):
+            cv.px(sx, sy, "#8e6b5c" if i % 2 else "#c9a38a")
+
+
+def _fill_window(cv, rect):
+    fx, fy, fw, fh = rect
+    cv.rect(fx - 1, fy - 1, fw + 2, fh + 2, METAL[3])
+    cv.rect(fx, fy, fw, fh, GLASS)
+    cv.px(fx, fy, "#2c4256")
+
+
+# =====================================================================================================================
+# v1.2 · DRILL T1 a laser (o contrato `machine_drill`): poucas peças. Sapata B ao lado do veio, caixa com o indicador,
+# mastro, braço e uma cabeça de laser simples apontando pro veio. Mesmo feixe ciano, poça e faíscas da aranha.
+# (A aranha e o tripé ficaram guardados pra T2/T3 em machines_r3d_futuro.py.)
+# =====================================================================================================================
+FILL_T1 = (12, 54, 7, 10)                # indicador na frente da caixa do pé do mastro
+P_EMIT_CYAN = [Pal([c] * 5, emit=True, emit_tone=0) for c in (CYAN_L, CYAN, CYAN_L, "#ffffff")]
+
+
+def drill(f):
+    sc = scene(64, 80, -28)
+    mx, my = -17.0, -8.0                                            # pé do mastro (em cima da sapata)
+    hit = (5.0, 4.0, 0.0)
+    sapata(sc, 10, at=(mx, my))
+    zb = SAP_H
+    # caixa do pé: bege, faixa laranja, LED (o indicador entra em 2D na frente)
+    sc.rbox((mx, my - 1.5, zb + 8.5), (6.0, 5.0, 8.5), 1.4, P_BEIGE,
+            paint=lambda L, N: np.where((L[:, 2] > 5.2) & (L[:, 2] < 6.8), 1, 0), extra=(P_ORANGE,))
+    sc.dot(mx + 4.2, my - 6.8, zb + 12.5, OK if f % 2 == 0 else "#2f5a2c", always=True)
+    # mastro + junta + contrapeso laranja
+    top = 52.0
+    sc.cyl(mx, my + 1, 2.2, zb + 17, top - 1, P_STEEL,
+           paint=lambda t, z, c: np.where(((z > 34) & (z < 35.6) | (z > 38) & (z < 39.6)) & ~c, 1, 0), extra=(P_ORANGE,))
+    sc.sphere((mx, my + 1, top), 3.2, P_METAL)
+    sc.rbox((mx - 5.2, my + 1, top + 0.4), (2.4, 2.2, 2.0), 0.8, P_ORANGE)
+    # braço até a cabeça
+    head = (hit[0], hit[1], 31.0)
+    sc.tube([(mx, my + 1, top), (head[0] - 3.5, head[1], head[2] + 9.5)], 1.7, P_BEIGE,
+            paint=lambda sv, th: np.where((sv > 9) & (sv < 11), 1, 0), extra=(P_ORANGE,))
+    # cabeça de laser: caixa arredondada com faixa, colar escuro e o anel emissor ciano embaixo
+    sc.rbox((head[0], head[1], head[2] + 5), (5.0, 4.2, 5.0), 2.0, P_BEIGE,
+            paint=lambda L, N: np.where(np.abs(L[:, 2] + 1.0) < 0.9, 1, 0), extra=(P_ORANGE,))
+    sc.cyl(head[0], head[1], 3.4, head[2] - 2.0, head[2], P_DARK)
+    sc.cyl(head[0], head[1], 2.2, head[2] - 3.2, head[2] - 2.0, P_EMIT_CYAN[f], cap=False)
+    sc.dot(head[0] - 3.4, head[1] - 4.4, head[2] + 7.5, CYAN if f % 2 == 0 else CYAN_D, always=True)
+    sc.dot(head[0] - 1.6, head[1] - 4.4, head[2] + 7.5, ALERT if f < 2 else "#7a2a24", always=True)
+    cv = render(sc)
+    e = _proj(sc, head[0], head[1] - 0.5, head[2] - 3.2)
+    h_ = _proj(sc, head[0], head[1] - 0.5, 0.0)
+    laser(cv, e, h_, f, LASER_CYAN)
+    impact(cv, *h_, f, LASER_CYAN)
+    _fill_window(cv, FILL_T1)
+    return cv
+
+
+# =====================================================================================================================
 # Geração, contrato e conferência com o freela
 # =====================================================================================================================
 def _specs():
@@ -1020,7 +1450,7 @@ def _specs():
         S.append((folder, name, cv, size, src))
 
     for k in ("o2", "heater", "melter"):
-        fn = globals()[k]
+        fn = V11_FN.get(k, globals()[k])
         add("", f"machine_{k}.png", fn(0), (40, 56), f"machine_{k}.png")
         add("", f"machine_{k}_t2.png", fn(0, 2), (40, 64), f"machine_{k}_t2.png")
     add("", "machine_drill.png", anim(drill), (256, 80), "machine_drill.png")
@@ -1033,7 +1463,7 @@ def _specs():
     add("", "pod.png", pod, (64, 72), "pod.png")
     # animações que só o freela tem (o jogo ainda não recorta)
     for k in ("o2", "heater", "melter"):
-        fn = globals()[k]
+        fn = V11_FN.get(k, globals()[k])
         add("anim", f"anim_machine_{k}.png", anim(fn), (160, 56), f"propostas/anim_machine_{k}.png")
         add("anim", f"anim_machine_{k}_t2.png", anim(lambda f, fn=fn: fn(f, 2)), (160, 64),
             f"propostas/anim_machine_{k}_t2.png")
@@ -1048,6 +1478,15 @@ def _specs():
     return S
 
 
+# v1.2: o que entra no contrato e o que mudou de propósito em relação ao freela.
+# Aquecedor: nv.1 = opção A (fornalha de janela), nv.2 = opção B (caldeira de coluna) ajustada pra família da A.
+V11_FN = {"heater": lambda f, tier=1: heater_a(f) if tier == 1 else heater_b(f, 2)}
+CHANGED_V11 = {"machine_o2.png", "machine_o2_t2.png", "machine_heater.png", "machine_heater_t2.png", "machine_melter.png",
+               "machine_melter_t2.png", "machine_drill.png", "solar_panel.png", "anim/anim_machine_o2.png",
+               "anim/anim_machine_o2_t2.png", "anim/anim_machine_heater.png", "anim/anim_machine_heater_t2.png",
+               "anim/anim_machine_melter.png", "anim/anim_machine_melter_t2.png", "anim/anim_solar_panel.png"}
+
+
 def build():
     specs = _specs()
     for folder, name, cv, size, _ in specs:
@@ -1060,6 +1499,8 @@ def check(specs):
     """Compara cada PNG gerado com o do freela (pixel a pixel, RGBA). Devolve (bateu, nao_bateu)."""
     ok, bad = [], []
     for folder, name, cv, size, src in specs:
+        if f"{folder + '/' if folder else ''}{name}" in CHANGED_V11:
+            continue                                   # mudou de propósito na v1.1 (sapata, aquecedor, drill)
         a = np.array(Image.open(OUT / folder / name).convert("RGBA"))
         b = np.array(Image.open(FREELA / src).convert("RGBA"))
         if a.shape == b.shape and (a == b).all():

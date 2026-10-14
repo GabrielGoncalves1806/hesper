@@ -87,9 +87,12 @@ class Scene:
         self.parts = []                                    # (sx, sy, depth, rgb, id)
         self.nid = 0
         self.decals = []
+        self.dz = 0.0                                      # desloca em Z tudo que entra depois (v1.1 das máquinas)
+        self.dx = self.dy = 0.0                            # idem em X/Y (v1.2: a sapata fora do centro na drill)
 
     # ---- projeção
     def proj(self, X, Y, Z):
+        X, Y, Z = X + self.dx, Y + self.dy, Z + self.dz
         sx = X + self.cx
         sy = self.gy - (Y * SA + Z * CA)
         depth = Y * CA - Z * SA
@@ -267,9 +270,52 @@ class Scene:
             N = N @ R.T
         self._emit(P, N, idx, [pal, *extra])
 
+    def tube(self, pts, r, pal, paint=None, extra=(), caps=True):
+        """Cano de raio r passando pelos pontos `pts` (polilinha 3D, qualquer direção): perna, braço, cano do laser.
+        paint(s, theta) -> índice em [pal, *extra]; s = distância percorrida ao longo do cano (0 no 1º ponto).
+        caps=True fecha as juntas e as pontas com esferas (joelho redondo). Acrescentado na v1.1 das máquinas."""
+        Ps, Ns, S = [], [], []
+        acc = 0.0
+        for a, b in zip(pts[:-1], pts[1:]):
+            a, b = np.array(a, float), np.array(b, float)
+            d = b - a
+            L = float(np.linalg.norm(d))
+            if L < 1e-6:
+                continue
+            t = d / L
+            ref = np.array([0, 0, 1.0]) if abs(t[2]) < 0.9 else np.array([1.0, 0, 0])
+            u = np.cross(t, ref)
+            u /= np.linalg.norm(u)
+            v = np.cross(t, u)
+            ss = np.arange(0, L + 1e-6, STEP)
+            th = np.arange(0, 2 * math.pi, STEP / max(r, 0.5))
+            SS, TH = np.meshgrid(ss, th)
+            SS, TH = SS.ravel(), TH.ravel()
+            n = np.outer(np.cos(TH), u) + np.outer(np.sin(TH), v)
+            Ps.append(a + np.outer(SS, t) + r * n)
+            Ns.append(n)
+            S.append(acc + SS)
+            acc += L
+        if caps:
+            th = np.arange(0, 2 * math.pi, STEP / r)
+            ph = np.arange(0, math.pi, STEP / r)
+            T, F = np.meshgrid(th, ph)
+            N = np.stack([np.sin(F) * np.cos(T), np.sin(F) * np.sin(T), np.cos(F)], -1).reshape(-1, 3)
+            acc2 = 0.0
+            for i, p in enumerate(pts):
+                if i:
+                    acc2 += float(np.linalg.norm(np.array(p, float) - np.array(pts[i - 1], float)))
+                Ps.append(np.array(p, float) + r * N)
+                Ns.append(N)
+                S.append(np.full(len(N), acc2))
+        P, N, S = np.vstack(Ps), np.vstack(Ns), np.concatenate(S)
+        TH = np.arctan2(N[:, 1], N[:, 0]) % (2 * math.pi)
+        idx = np.broadcast_to(np.asarray(paint(S, TH), int), (len(P),)) if paint else np.zeros(len(P), int)
+        self._emit(P, N, idx, [pal, *extra])
+
     def dot(self, X, Y, Z, color, always=False):
         """Pixel solto num ponto 3D (LED, bolha, faísca). Só aparece se não estiver escondido."""
-        self.decals.append((X, Y, Z, color, always))
+        self.decals.append((X + self.dx, Y + self.dy, Z + self.dz, color, always))
 
     # ---- render
     def render(self, outline=True, inner=True):
@@ -314,7 +360,7 @@ class Scene:
         if outline:
             cv.outline()
         for (X, Y, Z, color, always) in self.decals:
-            sx, sy, d = self.proj(X, Y, Z)
+            sx, sy, d = self.proj(X - self.dx, Y - self.dy, Z - self.dz)   # o desloc. já entrou quando o dot foi criado
             xi, yi = int(math.floor(sx)), int(math.floor(sy))
             if 0 <= xi < W and 0 <= yi < H and (always or d <= zbuf[yi, xi] + 1.0):
                 cv.px(xi, yi, color)

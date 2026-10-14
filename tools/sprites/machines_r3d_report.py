@@ -92,15 +92,18 @@ def sheet_frame(path, n, f):
     return im.crop((f * w, 0, f * w + w, im.height))
 
 
-def base_scene(stage, new=True, frame=0):
-    """Recorte 480×270 da base: cápsula, as máquinas (nv.1 e nv.2), drill, estação com os 4 drones nos pads,
-    luminárias, baús azuis e o Explorador."""
+def base_scene(stage, new=True, frame=0, src=None):
+    """Recorte 480×270 da base: cápsula, as máquinas (nv.1 e nv.2), drill em cima de um veio de ferro, estação com os
+    4 drones nos pads, luminárias, baús azuis e o Explorador. src: pasta dos sprites (padrão: pendentes/ ou before/)."""
     bg = ground("plateau", stage, 480, 270, 21)
-    src = PEND if new else BEFORE
+    src = src or (PEND if new else BEFORE)
     o = []
 
     def S(n, fr=0, nf=1):
         return sheet_frame(src / f"{n}.png", nf, fr) if nf > 1 else load(src / f"{n}.png")
+    # veio 2×2 (64×64) embaixo da drill: a drill é ancorada no centro da base dos 2×2
+    vein = load(SPR / "vein_iron.png")
+    bg.alpha_composite(vein, (336 - 32, 226 - 64))
     put(o, S("pod"), 84, 118)
     put(o, S("machine_o2"), 150, 112)
     put(o, S("machine_heater"), 196, 112)
@@ -125,10 +128,28 @@ def base_scene(stage, new=True, frame=0):
     for i, x in enumerate((60, 96, 132)):
         put(o, chest_o if i == 1 else chest, x, 236)
     put(o, load(SPR / "player_idle_down.png").crop((0, 0, 32, 32)), 190, 246)
-    return compose(bg, o)
+    img = compose(bg, o)
+    return img
+
+
+def fill_demo(img, rect, frac=0.6, color=(0xe8, 0xa0, 0x66, 255)):
+    """Pinta o indicador como o jogo (enche de baixo pra cima, na cor do minério)."""
+    a = img.copy()
+    fx, fy, fw, fh = rect
+    lv = round(fh * frac)
+    for y in range(fy + fh - lv, fy + fh):
+        for x in range(fx, fx + fw):
+            a.putpixel((x, y), color)
+    return a
 
 
 def scenes():
+    V10 = BASE / "v10"
+    (BASE / "v11").mkdir(exist_ok=True)
+    (BASE / "v12").mkdir(exist_ok=True)
+    for st in ("arid", "green"):                      # v11/ é histórico: as cenas de lá não são refeitas
+        base_scene(st, frame=1).save(BASE / "v12" / f"cena_{st}_v12.png")
+        base_scene(st, frame=1).resize((960, 540), Image.NEAREST).save(BASE / "v12" / f"cena_{st}_v12_2x.png")
     base_scene("arid", new=False).save(BASE / "cena_base_arid_antes.png")
     base_scene("arid").save(BASE / "cena_base_arid.png")
     base_scene("green").save(BASE / "cena_base_green.png")
@@ -162,6 +183,253 @@ def real_row(names, folder):
     return " ".join(out)
 
 
+# ---- v1.1 ---------------------------------------------------------------------------------------------------------
+V11_PAIRS = [("machine_o2", "Gerador de O₂ nv.1", 1), ("machine_o2_t2", "Gerador de O₂ nv.2", 1),
+             ("machine_heater", "Aquecedor nv.1", 1), ("machine_heater_t2", "Aquecedor nv.2", 1),
+             ("machine_melter", "Derretedor nv.1", 1), ("machine_melter_t2", "Derretedor nv.2", 1),
+             ("solar_panel", "Painel solar", 1), ("machine_drill", "Drill automática", 4)]
+
+
+def v11_section():
+    V = BASE / "v11"
+    V10 = BASE / "v10"
+    # v11/ é histórico (congelado): as imagens de lá já existem e não são refeitas
+    FILL_A, FILL_B = (48, 47, 7, 12), (29, 34, 7, 10)
+    names = {"A": "A · chanfrada", "B": "B · sapatas laranja", "C": "C · degrau"}
+    desc = {"A": "placa grossa de cantos bem redondos, pezinhos escuros, friso prata na quina e painel escuro rebaixado com 2 respiros e LED",
+            "B": "a placa levantada em 4 sapatas laranja com solinha escura, friso prata na quina e plaqueta prata com fenda e LED verde",
+            "C": "soco escuro largo com listras de advertência nos cantos e a placa metálica recuada em cima, friso prata e LED"}
+    saps = []
+    for st in "ABC":
+        row = "".join(f'<figure><div class="chk"><img src="v11/sapata_{st}_{m}.png" width="{w * 5}" height="{h * 5}" alt=""></div>'
+                      f'<figcaption>{lab}</figcaption></figure>'
+                      for m, lab, w, h in (("solar", "meia-largura 12 · painel", 32, 40), ("o2", "16 · nv.1", 40, 56),
+                                           ("o2_t2", "19 · nv.2", 40, 64)))
+        real = " ".join(f'<img src="v11/sapata_{st}_{m}.png" alt="">' for m in ("solar", "o2", "o2_t2"))
+        rec = ' <b class="rec">recomendada · aplicada</b>' if st == M.SAPATA else ""
+        saps.append(f'<div class="pair"><h3>{names[st]}{rec}</h3><p>{desc[st]}.</p><div class="ab">{row}'
+                    f'<figure><div class="chk">{real}</div><figcaption>1×</figcaption></figure></div></div>')
+    applied = "".join(f'<img src="pendentes/{n}.png" width="{w * 4}" height="{h * 4}" alt=""> '
+                      for n, w, h in (("solar_panel", 32, 40), ("machine_o2", 40, 56), ("machine_heater", 40, 56),
+                                      ("machine_melter", 40, 56), ("machine_o2_t2", 40, 64), ("machine_heater_t2", 40, 64),
+                                      ("machine_melter_t2", 40, 64)))
+    heat = []
+    for k, lab, rec in (("a", "A · fornalha de janela", True), ("b", "B · caldeira de coluna", False)):
+        r = ' <b class="rec">recomendada · no contrato</b>' if rec else ""
+        heat.append(f"""<div class="pair"><h3>{lab}{r}</h3><div class="ab">
+<figure><div class="chk"><img src="v11/heater_{k}.png" width="240" height="336" alt=""></div><figcaption>nv.1 · 40×56</figcaption></figure>
+<figure><div class="chk"><img src="v11/heater_{k}_t2.png" width="240" height="384" alt=""></div><figcaption>nv.2 · 40×64</figcaption></figure>
+<figure><div class="chk">{anim_div(f"v11/heater_{k}_anim.png", 4, 40, 56, 4, NEW_FPS)}</div><figcaption>nv.1 ligado · 4 quadros</figcaption></figure>
+<figure><div class="chk">{anim_div(f"v11/heater_{k}_t2_anim.png", 4, 40, 64, 4, NEW_FPS)}</div><figcaption>nv.2 ligado</figcaption></figure>
+<figure><div class="chk"><img src="v11/heater_{k}.png" alt=""> <img src="v11/heater_{k}_t2.png" alt=""></div><figcaption>1×</figcaption></figure>
+</div></div>""")
+    drills = []
+    for k, lab, ref, rect, rec in (("a", "A · tripé (feixe laranja)", "drill_laser_tripe_dono.png", FILL_A, False),
+                                    ("b", "B · aranha (feixe ciano)", "drill_laser_aranha_dono.png", FILL_B, True)):
+        r = ' <b class="rec">recomendada · no contrato</b>' if rec else ""
+        drills.append(f"""<div class="pair"><h3>{lab}{r}</h3><div class="ab">
+<figure><div class="chk" style="background:#fff"><img src="../refs/{ref}" width="200" alt="" style="image-rendering:auto"></div><figcaption>referência do dono (só estilo)</figcaption></figure>
+<figure><div class="chk">{anim_div(f"v11/drill_{k}.png", 4, 64, 80, 4, DRILL_FPS)}</div><figcaption>trabalhando · 4 quadros · {DRILL_FPS} fps</figcaption></figure>
+<figure><div class="chk"><img src="v11/drill_{k}_fill.png" width="256" height="320" alt=""></div><figcaption>barra a 60% (ferro) · <code>{rect}</code></figcaption></figure>
+<figure><div class="chk"><img src="v11/drill_{k}_off.png" width="192" height="240" alt=""></div><figcaption>desligada (extra opcional)</figcaption></figure>
+<figure><div class="chk"><img src="v11/drill_{k}.png" alt=""></div><figcaption>tira 1×</figcaption></figure>
+</div></div>""")
+    pairs = []
+    for n, lab, nf in V11_PAIRS:
+        im = load(BASE / "v11" / f"{n}_v11.png")
+        k = 4 if im.width > 40 else 5
+        pairs.append(f"""<div class="pair"><h3>{lab} · <code>{n}.png</code></h3><div class="ab">
+<figure><div class="chk"><img src="v11/{n}_v10.png" width="{im.width * k}" height="{im.height * k}" alt=""></div><figcaption>v1.0 (freela)</figcaption></figure>
+<figure><div class="chk"><img src="v11/{n}_v11.png" width="{im.width * k}" height="{im.height * k}" alt=""></div><figcaption>v1.1</figcaption></figure>
+<figure><div class="chk"><img src="v11/{n}_v10.png" alt=""> <img src="v11/{n}_v11.png" alt=""></div><figcaption>1×</figcaption></figure>
+</div></div>""")
+    return f"""
+<div class="v2"><b>v1.1 · o que mudou (ajustes do dono em cima do freela) · HISTÓRICO: o que vale é a v1.2 acima</b><ul>
+<li><b>Sapata padrão</b> no lugar do plinto "cru" com a fileira de bolinhas: <b>uma peça só</b>
+(<code>sapata(sc, meia_largura)</code>), com altura, profundidade, cores e detalhes sempre iguais; só a largura acompanha a
+máquina. Está aplicada no O₂, no aquecedor e no derretedor (nv.1 e nv.2) e no painel solar. Três estilos pra escolher; a
+<b>B (sapatas laranja)</b> foi a aplicada.</li>
+<li><b>Aquecedor a Magmatita</b> (nv.1 e nv.2), redesenhado: câmara com janela mostrando as pedras de Magmatita
+incandescentes (basalto com veios de lava pulsando), carga por cima e calor saindo pelas aletas. Duas opções; a
+<b>A (fornalha de janela)</b> entrou no contrato.</li>
+<li><b>Drill a laser</b>: uma proposta pra cada referência do dono, A (tripé) e B (aranha). A <b>B</b> entrou no contrato
+(pede um retângulo novo pra barra, veja em "Pro Dev").</li>
+<li>Nada mais mudou: terminal, luminárias, estação, drone, cápsula e eólico continuam idênticos ao freela.</li>
+</ul></div>
+
+<h2>v1.1 · 1 · Sapata padrão: 3 opções, a mesma peça em 3 larguras</h2>
+<p>Cada linha é <b>a mesma sapata</b> em 3 máquinas de larguras diferentes (painel solar, O₂ nv.1 e O₂ nv.2). Só a
+meia-largura muda (12, 16 e 19); altura (5), profundidade (1 tile), cores, friso, plaqueta e LED são fixos. Ela casa com o
+baú azul pela <b>prata do friso</b> (a mesma da faixa do baú) e com as máquinas pelo <b>metal lilás</b> e pelo
+<b>laranja</b>. Por ser baixa (uns 6 px de frente), cada detalhe foi pensado pra ler em pouco espaço: friso de 1 px claro
+na quina, sapatas laranja embaixo e LED.</p>
+<div class="pairs">{''.join(saps)}</div>
+<h3 style="margin-top:18px">A escolhida (B) aplicada em todas que usam a base</h3>
+<div class="chk">{applied}</div>
+
+<h2>v1.1 · 2 · Aquecedor a Magmatita (nv.1 e nv.2)</h2>
+<p>Ideia do dono: o calor vem da <b>Magmatita</b>, pedra quente que nasce no basalto. Então a máquina <b>mostra as pedras
+queimando</b>: basalto escuro com veios de lava que pulsam quadro a quadro, fundo da câmara em brasa, carga de pedra por
+cima e o tremor de calor (fiapos subindo em zigue-zague) saindo pelo funil e pelas aletas. Família mantida: corpo branco
+quente, faixa laranja, metal lilás e luz em faixas. O nv.2 é a evolução: maior, com <b>câmara dupla</b>, pedras mais
+claras, verga e trilhos dourados e uma chaminé (A) ou coroa dupla com aro dourado (B).</p>
+<div class="pairs">{''.join(heat)}</div>
+<p><b>Por que a A:</b> a janela grande com a pilha de pedras lê de cara como "fornalha de pedra quente" e o funil em cima
+diz "põe pedra aqui". A B (coluna com coroa de aletas radiais) é bonita, mas a janela é estreita e a coroa branca puxa o
+olho pro topo.</p>
+
+<h2>v1.1 · 3 · Drill a laser: tripé (A) × aranha (B)</h2>
+<p>As duas mantêm o quadro (64×80), os 4 quadros a {DRILL_FPS} fps e a âncora (centro da base dos 2×2, em cima do veio).
+O feixe é <b>luz</b>: núcleo claro, brilho em volta engrossando e afinando (3 ↔ 5 px), anéis de energia descendo, poça
+incandescente no ponto de impacto, cruz de brilho, faíscas e lascas de pedra. A A usa feixe <b>laranja</b> e a B,
+<b>ciano</b> (dá pra trocar, é só a paleta).</p>
+<div class="pairs">{''.join(drills)}</div>
+<p>O que aproveitei das referências (só o estilo, desenho original): <b>A</b>: tripé articulado com joelhos redondos, a
+cabeça-canhão esférica com o "olho" de lado, o cano longo com luvas e um trilho fino paralelo apontado pro chão.
+<b>B</b>: cápsula de pé em três partes (barriga, tanque de vidro com colunas e tampa), o tanque de energia ciano e as 4
+pernas longas com joelho alto cravadas no chão. Tudo convertido pra família (branco quente, metal lilás, faixas laranja,
+contorno <code>#1b1630</code>).</p>
+<p><b>Por que a B:</b> o feixe cai reto no meio do veio, a silhueta é simétrica e leve (dá pra ver o veio entre as pernas)
+e o tanque ciano lê como "máquina de energia". A A é mais charmosa, mas é assimétrica, fica do lado esquerdo do 2×2 e
+precisa da caçamba à direita pra a barra caber no lugar de hoje.</p>
+
+<h2>v1.1 · Na base: Árido e Verde, com tudo, o baú azul e o Explorador</h2>
+<div class="grid2">
+<figure><img class="px" src="v11/cena_arid_v10.png" alt=""><figcaption><b>v1.0</b> · Árido</figcaption></figure>
+<figure><img class="px" src="v11/cena_arid_v11.png" alt=""><figcaption><b>v1.1</b> · Árido</figcaption></figure>
+<figure><img class="px" src="v11/cena_green_v10.png" alt=""><figcaption><b>v1.0</b> · Verde</figcaption></figure>
+<figure><img class="px" src="v11/cena_green_v11.png" alt=""><figcaption><b>v1.1</b> · Verde</figcaption></figure>
+</div>
+<p>Recortes 480×270 (metade da tela) só com sprites, ordenados pelo pé como o jogo desenha. A drill está em cima de um
+<code>vein_iron</code> 2×2 de verdade. Linha de cima, nv.1; de baixo, nv.2. Prévias em 2× (960×540):
+<a href="v11/cena_arid_v11_2x.png">Árido</a> · <a href="v11/cena_green_v11_2x.png">Verde</a>.</p>
+
+<h2>v1.1 · Antes (v1.0, freela) × depois (v1.1)</h2>
+<div class="pairs">{''.join(pairs)}</div>
+
+<h2>v1.1 · Pro Dev integrar</h2>
+<div class="box"><ul>
+<li><b>Tamanhos e âncoras: nenhum desvio.</b> nv.1 40×56, nv.2 40×64, painel 32×40, drill 256×80 (4×64×80). Âncora no
+centro da base do PNG, igual a hoje.</li>
+<li><b>Drill B: retângulo da barra novo.</b> <code>DRILL_FILL_RECT = {FILL_B}</code> (era <code>(48, 47, 7, 12)</code>):
+a janela fica na "barriga" da cápsula, logo acima do emissor. O jogo continua enchendo de baixo pra cima na cor do minério.
+<b>Se o dono preferir a A</b>, o retângulo de hoje serve sem mudar nada.</li>
+<li><b>Laser no quadro 0:</b> o contrato só tem quadros "trabalhando", então o quadro 0 (usado quando a drill está cheia,
+submersa, no fantasma e no contorno do E) <b>mostra o feixe ligado</b>. Proposta opcional, sem mudar o contrato agora:
+um quadro <code>drill_b_off.png</code> 64×80 (em <code>v11/</code>) pra usar quando ela está parada. Se o dono topar, vira
+<code>machine_drill_off.png</code> na bíblia §6.</li>
+<li><b>Aquecedor:</b> drop-in (mesmos nomes e tamanhos). As tiras ligadas ficam em <code>pendentes/anim/anim_machine_heater(_t2).png</code>
+(4 quadros, sugestão de {NEW_FPS} fps). A Magmatita aqui é só visual; a regra de jogo (combustível, basalto) é com a
+bíblia.</li>
+<li><b>Sapata:</b> no gerador, <code>sapata(sc, meia_largura)</code> é a única base. O corpo de cada máquina é assentado em cima
+dela pelo <code>Scene.dz</code> novo do motor, então o nv.2, que tinha base de 7, desce 2 px dentro do PNG (o PNG não muda de
+tamanho). O pé da sapata fica na penúltima linha do PNG, como antes.</li>
+<li><b>Ordem de desenho:</b> sem mudança (pelo pé). O feixe e a poça de impacto estão dentro do PNG da drill, então caem por
+cima do veio sozinhos.</li>
+<li><b>Promoção:</b> só <code>pendentes/*.png</code> pro <code>assets/sprites/</code> (e, se for ligar as animações,
+<code>pendentes/anim/</code>). As opções ficam em <code>v11/</code> e <b>não</b> vão pro jogo.</li>
+<li><b>Regerar:</b> <code>python3 tools/sprites/machines_r3d.py</code> (determinístico, mesmo md5 rodando duas vezes) e
+<code>python3 tools/sprites/machines_r3d_report.py</code>. O <code>--check</code> agora compara com o freela só os sprites
+que não mudaram de propósito (12 de 12 idênticos).</li>
+</ul></div>
+<hr style="border-color:#3a2c25;margin:48px 0 8px">
+<div class="eyebrow">daqui pra baixo: o report v1.0 (o porte do freela), com os sprites de agora</div>
+"""
+
+
+# ---- v1.2 ---------------------------------------------------------------------------------------------------------
+def v12_section():
+    import machines_r3d_futuro as F
+    V = BASE / "v12"
+    V.mkdir(exist_ok=True)
+    for n, nf in (("machine_heater", 1), ("machine_heater_t2", 1), ("machine_drill", 4)):
+        first_frame(load(PEND / f"{n}.png"), nf).save(V / f"{n}_v12.png")
+    for n in ("machine_heater_t2", "machine_drill"):      # o que a v1.1 tinha no contrato
+        src = {"machine_heater_t2": BASE / "v11" / "heater_a_t2.png", "machine_drill": BASE / "v11" / "drill_b.png"}[n]
+        first_frame(load(src), 4 if n == "machine_drill" else 1).save(V / f"{n}_v11.png")
+    fill_demo(first_frame(load(PEND / "machine_drill.png"), 4), M.FILL_T1).save(V / "drill_t1_fill.png")
+    pairs = []
+    for n, lab, w, h in (("machine_heater_t2", "Aquecedor nv.2", 40, 64), ("machine_drill", "Drill (T1)", 64, 80)):
+        k = 5 if w <= 40 else 4
+        pairs.append(f"""<div class="pair"><h3>{lab} · <code>{n}.png</code></h3><div class="ab">
+<figure><div class="chk"><img src="v12/{n}_v11.png" width="{w * k}" height="{h * k}" alt=""></div><figcaption>v1.1</figcaption></figure>
+<figure><div class="chk"><img src="v12/{n}_v12.png" width="{w * k}" height="{h * k}" alt=""></div><figcaption>v1.2</figcaption></figure>
+<figure><div class="chk"><img src="v12/{n}_v11.png" alt=""> <img src="v12/{n}_v12.png" alt=""></div><figcaption>1×</figcaption></figure>
+</div></div>""")
+    return f"""
+<div class="v2"><b>v1.2 · o que mudou (decisões do dono)</b><ul>
+<li><b>Sapata B aprovada</b> e mantida em todas (O₂, aquecedor, derretedor, painel solar e agora também a drill).</li>
+<li><b>Aquecedor:</b> nv.1 = <b>opção A</b> (fornalha com janela de Magmatita); nv.2 = <b>opção B</b> (caldeira de
+coluna) <b>ajustada pra ler como evolução da A</b>: as janelas ganharam a mesma moldura de metal da A com verga dourada, a
+mesma faixa laranja em cima, as mesmas aletas de radiador nos dois lados (com trilho dourado) e o painel de 3 LEDs; saíram
+o bloco solto e o cano da direita. Magmatita à mostra nas duas.</li>
+<li><b>Drill T1 nova</b>, mais simples e com a mesma ideia de laser: sapata B ao lado do veio, caixa com o indicador,
+mastro, braço com contrapeso e uma cabeça de laser apontando pro veio. Mesmo feixe ciano pulsando, poça incandescente e
+faíscas. Indicador em <code>{M.FILL_T1}</code>.</li>
+<li><b>Aranha e tripé guardados</b> pra T2/T3 em <code>futuro/</code> (fora do contrato), idênticos ao que foi mostrado
+na v1.1.</li>
+<li>Sem quadro desligado, como o dono pediu.</li>
+</ul></div>
+
+<h2>v1.2 · Aquecedor: nv.1 (A) × nv.2 (B ajustada)</h2>
+<div class="anim">
+<figure><div class="chk"><img src="pendentes/machine_heater.png" width="240" height="336" alt=""></div><figcaption>nv.1 · <code>machine_heater.png</code> 40×56</figcaption></figure>
+<figure><div class="chk"><img src="pendentes/machine_heater_t2.png" width="240" height="384" alt=""></div><figcaption>nv.2 · <code>machine_heater_t2.png</code> 40×64</figcaption></figure>
+<figure><div class="chk">{anim_div("pendentes/anim/anim_machine_heater.png", 4, 40, 56, 5, NEW_FPS)}</div><figcaption>nv.1 ligado · {NEW_FPS} fps</figcaption></figure>
+<figure><div class="chk">{anim_div("pendentes/anim/anim_machine_heater_t2.png", 4, 40, 64, 5, NEW_FPS)}</div><figcaption>nv.2 ligado</figcaption></figure>
+<figure><div class="chk"><img src="pendentes/machine_heater.png" alt=""> <img src="pendentes/machine_heater_t2.png" alt=""></div><figcaption>1×</figcaption></figure>
+</div>
+<p>O que amarra os dois: a janela com moldura de metal e as pedras de Magmatita em brasa, a faixa laranja em cima da janela,
+as aletas cinza nas laterais, a carga de pedra por cima e a sapata B. O que diz "nv.2": maior, câmara dupla, verga e
+trilhos dourados, coroa de aletas brancas com aro dourado e pedras mais claras.</p>
+
+<h2>v1.2 · Drill T1 a laser (<code>machine_drill</code>)</h2>
+<div class="anim">
+<figure><div class="chk">{anim_div("pendentes/machine_drill.png", 4, 64, 80, 4, DRILL_FPS)}</div><figcaption>trabalhando · 4 quadros · {DRILL_FPS} fps</figcaption></figure>
+<figure><div class="chk"><img src="v12/drill_t1_fill.png" width="256" height="320" alt=""></div><figcaption>barra a 60% (ferro) · <code>{M.FILL_T1}</code></figcaption></figure>
+<figure><div class="chk"><img src="pendentes/machine_drill.png" alt=""></div><figcaption>tira 1× · 256×80</figcaption></figure>
+</div>
+<p>Menos peças que a aranha e o tripé: um mastro só. A sapata é <b>a mesma B</b> das outras máquinas (meia-largura 10),
+posta no canto da frente-esquerda dos 2×2 pra não cobrir o veio. A cabeça fica em cima do veio e o feixe desce até ele.</p>
+
+<h2>v1.2 · Guardadas pro futuro (T2/T3, fora do contrato)</h2>
+<div class="anim">
+<figure><div class="chk">{anim_div("futuro/drill_tripod.png", 4, 64, 80, 3, DRILL_FPS)}</div><figcaption><code>futuro/drill_tripod.png</code> · tripé · indicador <code>{F.FILL_TRIPOD}</code></figcaption></figure>
+<figure><div class="chk">{anim_div("futuro/drill_spider.png", 4, 64, 80, 3, DRILL_FPS)}</div><figcaption><code>futuro/drill_spider.png</code> · aranha · indicador <code>{F.FILL_SPIDER}</code></figcaption></figure>
+</div>
+<p>Código em <code>tools/sprites/machines_r3d_futuro.py</code> (<code>drill_tripod</code> e <code>drill_spider</code>), que
+gera em <code>futuro/</code>. Quando virarem máquina, o nome (<code>machine_drill_t2</code>…) e o retângulo entram na bíblia
+§6 antes.</p>
+
+<h2>v1.2 · Na base: Árido e Verde</h2>
+<div class="grid2">
+<figure><img class="px" src="v12/cena_arid_v12.png" alt=""><figcaption><b>v1.2</b> · Árido</figcaption></figure>
+<figure><img class="px" src="v12/cena_green_v12.png" alt=""><figcaption><b>v1.2</b> · Verde</figcaption></figure>
+</div>
+<p>Só sprites, ordenados pelo pé; drill em cima de um <code>vein_iron</code> 2×2, baú azul e Explorador. Prévias 2×
+(960×540): <a href="v12/cena_arid_v12_2x.png">Árido</a> · <a href="v12/cena_green_v12_2x.png">Verde</a>.</p>
+
+<h2>v1.2 · Antes (v1.1) × depois (v1.2)</h2>
+<div class="pairs">{''.join(pairs)}</div>
+
+<h2>v1.2 · Pro Dev integrar</h2>
+<div class="box"><ul>
+<li><b>Tamanhos e âncoras: nenhum desvio.</b> Os 14 PNGs de <code>pendentes/</code> têm o nome e o tamanho do contrato,
+com âncora no centro da base. Em <code>pendentes/</code> está só o que vai pro jogo (mais <code>anim/</code> e
+<code>eolico/</code>, que já eram separados).</li>
+<li><b>Único ajuste de código:</b> <code>DRILL_FILL_RECT = {M.FILL_T1}</code> (era <code>(48, 47, 7, 12)</code>). A janela
+fica na frente da caixa do pé do mastro, e o jogo enche de baixo pra cima, como hoje.</li>
+<li><b>Quadro 0 da drill:</b> com o laser ligado (o dono aprovou assim).</li>
+<li><b>Aquecedor:</b> drop-in. Tiras ligadas em <code>pendentes/anim/anim_machine_heater(_t2).png</code>.</li>
+<li><b>Ordem de desenho:</b> sem mudança (pelo pé). Feixe e poça estão dentro do PNG da drill, então caem por cima do veio.</li>
+<li><b>Regerar:</b> <code>python3 tools/sprites/machines_r3d.py</code>, <code>python3 tools/sprites/machines_r3d_futuro.py</code> e
+<code>python3 tools/sprites/machines_r3d_report.py</code> (determinístico).</li>
+</ul></div>
+<hr style="border-color:#3a2c25;margin:48px 0 8px">
+<div class="eyebrow">daqui pra baixo: a v1.1 (histórico)</div>
+"""
+
+
 def build():
     specs = M.build()
     ok, bad = M.check(specs)
@@ -169,6 +437,8 @@ def build():
     for n, _, _ in ITEMS:
         shutil.copy(SPR / f"{n}.png", BEFORE / f"{n}.png")
     scenes()
+    v11 = v11_section()
+    v12 = v12_section()
 
     # --- antes × depois
     pairs = []
@@ -185,7 +455,7 @@ def build():
         fb.save(VIEW / f"{n}_depois.png")
         pairs.append(f"""<div class="pair"><h3>{label} · <code>{n}.png</code> · {wb}×{hb}{extra}</h3><div class="ab">
 <figure><div class="chk"><img src="view/{n}_antes.png" width="{fa.width * k}" height="{fa.height * k}" alt=""></div><figcaption>hoje no jogo</figcaption></figure>
-<figure><div class="chk"><img src="view/{n}_depois.png" width="{fb.width * k}" height="{fb.height * k}" alt=""></div><figcaption>freela (agora)</figcaption></figure>
+<figure><div class="chk"><img src="view/{n}_depois.png" width="{fb.width * k}" height="{fb.height * k}" alt=""></div><figcaption>proposta (agora, v1.1)</figcaption></figure>
 <figure><div class="chk"><img src="view/{n}_antes.png" width="{fa.width}" height="{fa.height}" alt=""> <img src="view/{n}_depois.png" width="{fb.width}" height="{fb.height}" alt=""></div><figcaption>tamanho real (1×): hoje · freela</figcaption></figure>
 </div></div>""")
         ba, bb_ = bbox(fa), bbox(fb)
@@ -229,7 +499,7 @@ def build():
 
     html = f"""<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Hesper · Máquinas r3d (o freela) · v1.0</title>
+<title>Hesper · Máquinas r3d (o freela) · v1.2</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;600&family=Pixelify+Sans:wght@600&family=Silkscreen&display=swap" rel="stylesheet">
 <style>
 :root{{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;--bad:#ff6a55;color-scheme:dark}}
@@ -253,11 +523,12 @@ img.px{{width:100%;height:auto;border:1px solid var(--line);display:block}}
 .anim{{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end}}
 .sp{{background-repeat:no-repeat}}
 table{{border-collapse:collapse;width:100%;font-size:13px}}th,td{{border:1px solid var(--line);padding:5px 8px;text-align:left;color:var(--muted)}}th{{background:#241b17;color:var(--fg)}}
-td.ok,li.okl{{color:var(--ok)}}td.bad,li.bad{{color:var(--bad)}}
+td.ok,li.okl{{color:var(--ok)}}b.rec{{font:12px "Silkscreen",monospace;color:var(--ok);margin-left:8px}}td.bad,li.bad{{color:var(--bad)}}
 ul.cols{{columns:3;list-style:none;padding:0;font-size:13px}}
 {ks}</style></head><body><div class="wrap">
-<div class="eyebrow">Hesper · Designer · v1.0 · M4 do v0.4 · máquinas do "freela" trazidas iguais (espera o ok do dono)</div>
+<div class="eyebrow">Hesper · Designer · v1.2 · máquinas do "freela" + decisões do dono (sapata B, aquecedor A/B, drill T1 a laser) · espera o ok do dono</div>
 <h1>Máquinas r3d · o freela no jogo</h1>
+{v12}{v11}
 <div class="v2"><b>v1.0 · o que mudou</b><ul>
 <li><b>Não é redesenho.</b> O dono aprovou as máquinas da sessão experimental como estão. O código foi <b>portado</b> pra
 <code>tools/sprites/machines_r3d.py</code> (autocontido, depende só do <code>r3d.py</code> do repo) e gera
@@ -350,7 +621,7 @@ chão, o jogo põe).</li>
 </ul></div>
 
 <h2>Conferência pixel a pixel com o freela</h2>
-<p><b>{len(ok)} de {len(ok) + len(bad)}</b> bateram (RGBA idêntico). {'Nenhum diferente.' if not bad else 'Diferentes marcados em vermelho.'}</p>
+<p>Só os sprites que a v1.1 não mexeu de propósito: <b>{len(ok)} de {len(ok) + len(bad)}</b> bateram (RGBA idêntico). {'Nenhum diferente.' if not bad else 'Diferentes marcados em vermelho.'}</p>
 <ul class="cols">{px_rows}</ul>
 </div></body></html>
 """

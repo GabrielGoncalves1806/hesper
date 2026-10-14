@@ -174,14 +174,19 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 | `wall_face_{stage}.png` | 32×24 | face frontal alta. Quando o tile abaixo é chão, o tile da parede mostra os 8 px de cima do `wall_{stage}_N` + essa face de 24 px |
 | `water_{stage}.png` | 32×32 | |
 | `water_auto_{mist,green}.png` | 64×96 | autotile da água no layout A2 (minitiles 16×16): (0,0)–(32,32) poça isolada, (32,0)–(64,32) cantos internos, (0,32)–(64,96) lago 2×2 com cantos externos, bordas e miolo. Fora da margem é transparente (o chão aparece). Sem ele, o jogo gera o atlas por código a partir do `water_{stage}` (`game/autotile.py`) |
-| `ore_iron.png` `ore_silicon.png` `ore_ice.png` | 32×32 | overlay transparente por cima da parede |
-| `icon_iron.png` `icon_silicon.png` `icon_ice.png` | 16×16 | ícones do inventário/HUD |
-| `pod.png` | 64×72 | cápsula/base |
-| `machine_o2.png` `machine_heater.png` `machine_melter.png` | até 40×56 | nível 1 |
-| `machine_o2_t2.png` `machine_heater_t2.png` `machine_melter_t2.png` | até 40×64 | nível 2 |
-| `terminal.png` | 32×32 | terminal de parede |
-| `vein_iron.png` `vein_silicon.png` `vein_ice.png` | 64×64 | veio 2×2 no chão. Overlay transparente que funciona sobre o chão dos 3 estágios |
-| `machine_drill.png` | 256×80 | drill automática: 4 quadros de 64×80 (broca girando), ocupa 2×2 tiles, ancorada no centro da base dos 2×2 |
+| `ore_iron.png` `ore_silicon.png` `ore_ice.png` | 32×32 | overlay transparente por cima da parede. **Freela, aprovado pelo dono** (minério bruto chunky: pepitas cor de cobre, lascas grossas de silício, cubos de gelo) |
+| `icon_iron.png` `icon_silicon.png` `icon_ice.png` | 16×16 | ícones do inventário/HUD. **Freela, aprovado pelo dono** |
+| `pickup_iron.png` `pickup_silicon.png` `pickup_ice.png` | 16×16 | **Freela, aprovado pelo dono** (arquivos copiados junto com o minério; continuam fora do jogo, como antes) |
+| `rock_small_{iron,silicon,ice}_{0,1}.png` | 32×32 | rocha com veio (minério bruto), 2 variações por minério. **Freela, aprovado pelo dono.** A variação sai por hash do tile; o Dev integra |
+| `pod.png` | 64×72 | cápsula/base. **Freela r3d v1.2, sapata B, aprovado pelo dono** |
+| `machine_o2.png` `machine_heater.png` `machine_melter.png` | até 40×56 | nível 1. **Freela r3d v1.2, sapata B, aprovado pelo dono** |
+| `machine_o2_t2.png` `machine_heater_t2.png` `machine_melter_t2.png` | até 40×64 | nível 2. **Freela r3d v1.2, sapata B, aprovado pelo dono** |
+| `terminal.png` | 32×32 | terminal de parede. **Freela r3d v1.2, sapata B, aprovado pelo dono** |
+| `vein_iron.png` `vein_silicon.png` `vein_ice.png` | 64×64 | veio 2×2 no chão. Overlay transparente que funciona sobre o chão dos 3 estágios. **Freela, aprovado pelo dono: veio orgânico** (placas achatadas e angulosas encravadas no chão, com pepitas por cima; é o `vein_linha_*` do freela, copiado sem o sufixo) |
+| `machine_drill.png` | 256×80 | drill automática: 4 quadros de 64×80 (broca girando), ocupa 2×2 tiles, ancorada no centro da base dos 2×2. **Freela r3d v1.2, sapata B, aprovado pelo dono.** `DRILL_FILL_RECT` novo = `(12, 54, 7, 10)` (o Dev aplica; o atual `(48, 47, 7, 12)` sai) |
+| `anim/anim_{machine_o2,machine_heater,machine_melter}{,_t2}.png` | 160×56 / 160×64 | tiras de animação das máquinas (4 quadros de 40 px, na horizontal). **Ainda não ligadas**: o jogo não usa; o Dev liga depois |
+| `anim/anim_solar_panel.png` `anim/anim_terminal.png` | 128×40 / 128×32 | tiras de animação (4 quadros). **Ainda não ligadas** |
+| `anim/anim_pod.png` `anim/anim_drone_station.png` | 256×72 | tiras de animação (4 quadros de 64 px). **Ainda não ligadas** |
 | `icon_drill.png` | 16×16 | ícone (estoque de máquinas e fabricador) |
 | `plant_bush.png` `plant_tree.png` `plant_flower.png` | até 32×40 | estágio verde |
 
@@ -412,7 +417,7 @@ Entregues em `_pending/` até o dono aprovar. Os morros usam a arte de parede qu
 | Sprite | Tamanho | Observação |
 |---|---|---|
 | `sand_{stage}_{0..3}.png` | 32×32 | chão da superfície, 4 variações. `dead` = areia avermelhada (o planeta morto); `mist` = terra marrom úmida; `green` = grama de verdade (a terraformação transforma o deserto) |
-| `rock_small.png` | 32×32 | rocha pequena no chão (1 tile, quebrável), contorno `#1b1630`, funciona nos 3 chãos |
+| `rock_small.png` | 32×32 | rocha pequena no chão (1 tile, quebrável), contorno `#1b1630`, funciona nos 3 chãos. **Freela, aprovado pelo dono** (rocha sem veio) |
 | ~~`pickup_iron.png` `pickup_silicon.png` `pickup_ice.png`~~ | 16×16 | recurso solto no chão. **Fora do jogo** (os soltos saíram); os arquivos ficaram nos assets |
 | `crater.png` | 96×96 | cratera 3×3 fechada (Marco 1), escura no centro, borda de rocha |
 | `crater_ramp.png` | 96×96 | a mesma cratera com a rampa de descida aberta (usada no Marco 2) |

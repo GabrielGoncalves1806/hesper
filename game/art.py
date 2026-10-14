@@ -627,7 +627,7 @@ def vein(resource: str) -> pygame.Surface:
     return s
 
 
-DRILL_FILL_RECT = (48, 47, 7, 12)   # indicador de enchimento dentro do quadro (spec da Designer)
+DRILL_FILL_RECT = (12, 54, 7, 10)   # indicador de enchimento dentro do quadro (drill T1 laser, freela r3d v1.2)
 
 
 def drill_machine() -> pygame.Surface:
