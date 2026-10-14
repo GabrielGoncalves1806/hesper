@@ -114,6 +114,11 @@ SUBSCRIPTS = {
           5: ["## ", "  #", " # ", "#  ", "###"]},
 }
 
+# Marcas desenhadas em pixels (a fonte não tem o glifo): o "✓" do "Vedado ✓" do Dispersor (v0.5 M2). 5×5, no tamanho
+# das maiúsculas, 1 px de margem à direita.
+MARKS = {"✓": ["    #", "   # ", "#  # ", " ##  ", "  #  "]}
+MARK_ADVANCE = 7
+
 
 class PixelFont:
     """Uma fonte do jogo com os pedaços que ela desenha mal trocados por pixels desenhados à mão.
@@ -141,6 +146,8 @@ class PixelFont:
         self.sub_advance = 3 * self.sub_scale + 1
 
     def _kind(self, ch: str) -> str:
+        if ch in MARKS:
+            return "mark"
         if ch in SUBSCRIPTS:
             return "sub"
         if self.digits and ch in DIGITS:          # "₂".isdigit() é True: por isso a lista, não isdigit()
@@ -163,6 +170,8 @@ class PixelFont:
             return DIGIT_ADVANCE * len(run)
         if kind == "sub":
             return self.sub_advance * len(run)
+        if kind == "mark":
+            return MARK_ADVANCE * len(run)
         return self.font.size(run)[0]
 
     def size(self, text: str) -> tuple[int, int]:
@@ -189,6 +198,9 @@ class PixelFont:
                 if kind == "digit":
                     glyph, top, s = DIGITS[ch], self.digit_top, 1
                     ox = x + 1
+                elif kind == "mark":
+                    glyph, top, s = MARKS[ch], self.digit_top + 1, 1
+                    ox = x + 1
                 else:
                     glyph, top, s = SUBSCRIPTS[ch][self.sub_rows], self.sub_top, self.sub_scale
                     ox = x
@@ -196,7 +208,7 @@ class PixelFont:
                     for dx, cell in enumerate(row):
                         if cell == "#":
                             surf.fill(color, (ox + dx * s, top + dy * s, s, s))
-                x += DIGIT_ADVANCE if kind == "digit" else self.sub_advance
+                x += DIGIT_ADVANCE if kind == "digit" else MARK_ADVANCE if kind == "mark" else self.sub_advance
         return surf
 
 
@@ -1650,6 +1662,8 @@ class UI:
             side_h = 100 + LOGI_H + 14
         elif side.is_drill or side.is_melter:
             side_h = 92 + LOGI_H - LOGI_ROW + 10
+        elif side.is_dispenser:
+            side_h = 98
         else:
             side_h = 164
         hb = C.HOTBAR_SLOTS
@@ -1682,6 +1696,9 @@ class UI:
             pairs = [("CLIQUE", "tira a pilha"), ("DIR", "1"), ("ESC", "fecha")]
         elif side.is_melter:
             self._melter_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, mid)
+            pairs = [("CLIQUE", "pilha"), ("DIR", "1"), ("SHIFT+CLIQUE", "tudo"), ("ESC", "fecha")]
+        elif side.is_dispenser:
+            self._dispenser_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, info, mid)
             pairs = [("CLIQUE", "pilha"), ("DIR", "1"), ("SHIFT+CLIQUE", "tudo"), ("ESC", "fecha")]
         else:
             self._station_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, info, mid)
@@ -1913,6 +1930,23 @@ class UI:
         self._button(mid, "<<\nPEGAR\nTUDO", "take_melter", mouse, not melter.storage.is_empty(), "ghost")
         self.draw_logistics(gx, y + 92, GRID_W, melter, item_icon, mouse)
 
+    def _dispenser_panel(self, m, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str, info: str | None,
+                         mid: pygame.Rect) -> None:
+        """Dispersor de O₂ (v0.5 M2): o slot da cápsula de água, a barra da cápsula que está sendo gasta, o estado
+        (Vedado ✓ / Vazamento / Sem água / Sem energia), a explicação do estado e "<< PEGAR" no meio."""
+        self.window(cx, y, pw, h, "Dispersor de O₂", f"{m.capsules} cáps.", C.C_O2)
+        gx = cx + 8
+        self._section_label("CÁPSULA", gx, y + 16, C.C_O2)
+        self._grid(m.storage, [C.DISPENSER_CAPSULE_SLOT], gx, y + SIDE_GRID_Y, item_icon, mouse)
+        bx = gx + SLOT_STEP + 10
+        bw = GRID_W - (bx - gx)
+        self.bar(bx, y + SIDE_GRID_Y + 3, bw, m.burn / C.DISPENSER_CAPSULE_TIME, C.C_O2, h=4)
+        ok = status.startswith("VEDADO")
+        self.tx(self.fit(status, bw), bx, y + SIDE_GRID_Y + 7, "#7fd67a" if ok else C.C_ALERT)
+        for k, line in enumerate(wrap(self.body, info or "", GRID_W)[:3]):
+            self.tx(line, gx, y + SIDE_GRID_Y + 26 + k * 12, B_MUTED, self.body)
+        self._button(mid, "<<\nPEGAR\nTUDO", "take_dispenser", mouse, not m.storage.is_empty(), "ghost")
+
     def _station_panel(self, machine, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str,
                        info: str | None, mid: pygame.Rect) -> None:
         """Estação: os 4 slots de drone (travados em voo), o buffer como slots (só tirar) e o estado."""
@@ -2098,6 +2132,30 @@ class UI:
                 else:
                     self.tx(value, px, y + 1, B_TEXT, self.body)
                 px += pw + (gaps[n] if n < len(gaps) else 0)
+
+    def draw_dispenser_labels(self, labels, cam: tuple[int, int], zoom: float) -> None:
+        """O estado de cada Dispersor escrito em cima dele ("Vedado ✓", "Vazamento", "Sem água", "Sem energia"): preso
+        no mundo (acompanha o zoom), letra de tamanho fixo, com a bolinha da cor do estado."""
+        for m, state in labels:
+            text = C.STATE_LABEL[state]
+            w = self.body.size(text)[0] + 16
+            ax, ay = m.anchor
+            sx, sy = self.world_to_ui((ax, ay - C.DISPENSER_SPRITE_SIZE[1] - 2), cam, zoom)
+            x, y = int(sx - w / 2), int(sy - 15)
+            if not (-w < x < self.w and -14 < y < self.h):
+                continue
+            self.panel(x, y, w, 14, (15, 17, 25, 220))
+            self.native.append((self._dot_icon(C.STATE_COLOR[state]), ((x + 4) * 2, (y + 5) * 2)))
+            self.tx(text, x + 12, y + 1, B_TEXT, self.body)
+
+    def _dot_icon(self, color: str) -> pygame.Surface:
+        """Bolinha 3×3 (resolução cheia: 6×6) da cor do estado, no cache."""
+        cache = self.__dict__.setdefault("_dots", {})
+        if color not in cache:
+            dot = pygame.Surface((6, 6), pygame.SRCALPHA)
+            pygame.draw.rect(dot, color, (0, 0, 6, 6), border_radius=2)
+            cache[color] = dot
+        return cache[color]
 
     def draw_held_and_tooltip(self, held: Stack | None, label: str | None, mouse, item_icon) -> None:
         """Por cima de tudo: a pilha presa no cursor ou, sem nada na mão, o texto do slot debaixo do

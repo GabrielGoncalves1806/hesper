@@ -50,7 +50,8 @@ SHORT_NAMES = {"o2": ("gerador de O₂", "geradores de O₂"), "o2_t2": ("gerado
                "melter": ("derretedor", "derretedores"), "melter_t2": ("derretedor nv.2", "derretedores nv.2"),
                "heater": ("aquecedor", "aquecedores"), "heater_t2": ("aquecedor nv.2", "aquecedores nv.2"),
                "drill": ("drill", "drills"), "solar": ("painel solar", "painéis solares"),
-               "drone_station": ("estação de drones", "estações de drones")}
+               "drone_station": ("estação de drones", "estações de drones"),
+               "o2_dispenser": ("dispersor de O₂", "dispersores de O₂")}
 FACING = {"up": "olhando ao norte", "down": "olhando ao sul", "left": "olhando a oeste", "right": "olhando a leste"}
 
 

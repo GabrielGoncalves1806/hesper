@@ -64,8 +64,8 @@ MOVE_KEYS = {
     pygame.K_s: (0, 1), pygame.K_DOWN: (0, 1),
 }
 NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8]
-INVENTORY_MODES = ("inventory", "chest", "drill", "melter", "station", "crate")
-PANEL_MODES = ("chest", "drill", "melter", "station", "crate")          # dois painéis: clique transfere pro outro lado (Planet Crafter)
+INVENTORY_MODES = ("inventory", "chest", "drill", "melter", "dispenser", "station", "crate")
+PANEL_MODES = ("chest", "drill", "melter", "dispenser", "station", "crate")          # dois painéis: clique transfere pro outro lado (Planet Crafter)
 ZOOM_IN_KEYS = (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS)     # "=" é a tecla do "+" sem Shift
 ZOOM_OUT_KEYS = (pygame.K_MINUS, pygame.K_KP_MINUS)
 BANNER_TIME = 3.5          # banner de estágio: entra em 0,4 s, fica, sai em 0,8 s
@@ -142,6 +142,8 @@ class App:
         self.open_station = None                          # estação aberta (Machine), no modo "station"
         self.open_drill = None                            # drill aberta (Machine), no modo "drill"
         self.open_melter = None                           # derretedor aberto (Machine), no modo "melter" (v0.5 M2)
+        self.open_dispenser = None                        # Dispersor de O₂ aberto (Machine), no modo "dispenser" (v0.5 M2)
+        self.dry_fade_t = 0.0                             # s desde o dispenser_dry: o zumbido sai em 0,3 s em vez de 0,8
         self.open_crate = None                            # caixa de saque aberta (Crate), no modo "crate"
         self.after_terminal = None                        # registro de bordo lido ao abrir a caixa: depois abre ela
         self.blueprint_notice: str | None = None          # diagrama do aviso "DIAGRAMA: ..." (Marco 3)
@@ -501,6 +503,10 @@ class App:
                     self.open_melter = target[1]
                     self.placing = None
                     self.set_mode("melter")
+                elif target and target[0] == "dispenser":
+                    self.open_dispenser = target[1]
+                    self.placing = None
+                    self.set_mode("dispenser")
                 elif target and target[0] == "bench":              # Bancada T2: o painel do fabricador, receitas dela
                     self.open_bench = target[1]
                     self.fab_bench = "t2"
@@ -808,7 +814,7 @@ class App:
 
     def other_side(self, inv):
         """Shift+clique: o inventário do outro lado (player <-> baú/drill). None se só o Tab estiver aberto."""
-        side = self.open_chest or self.open_drill or self.open_melter
+        side = self.open_chest or self.open_drill or self.open_melter or self.open_dispenser
         if side is None:
             return None
         return side.storage if inv is self.state.inventory else self.state.inventory
@@ -959,6 +965,20 @@ class App:
             if moved:
                 self.audio.play("inv_move")
             return
+        if self.open_dispenser is not None:              # só entra cápsula de água; a que está no slot volta pro player
+            dispenser = self.open_dispenser
+            if inv is dispenser.storage:
+                moved = state.melter_take(dispenser, i, amount)
+            elif item != "water_capsule":
+                self.show_notice("O Dispersor só aceita cápsula de água")
+                return
+            else:
+                moved = state.dispenser_put(dispenser, i, amount)
+                if not moved:
+                    self.show_notice("Slot de cápsula cheio")
+            if moved:
+                self.audio.play("inv_move")
+            return
         if self.open_station is not None:                # só do inventário pra estação, e só drone
             if item != "drone":
                 self.show_notice("Só drones vão na estação")
@@ -992,6 +1012,8 @@ class App:
             moved = state.collect(self.open_drill)
         elif action == "take_melter" and self.open_melter is not None:
             moved = state.melter_take(self.open_melter)
+        elif action == "take_dispenser" and self.open_dispenser is not None:
+            moved = state.melter_take(self.open_dispenser)
         elif action == "take_buffer" and self.open_station is not None:
             moved = state.collect_station(self.open_station)
         elif action == "take_crate" and self.open_crate is not None:
@@ -1120,6 +1142,34 @@ class App:
         if self.state.power.deficit:
             text += f" · RITMO {self.power_percent()}%"
         return text
+
+    def dispenser_status(self) -> str:
+        """Linha de estado no painel do Dispersor: "VEDADO ✓", "VAZAMENTO", "SEM ÁGUA", "SEM ENERGIA"..."""
+        return C.STATE_LABEL[self.state.dispenser_state(self.open_dispenser)].upper()
+
+    def dispenser_info(self) -> str:
+        """A explicação do estado no painel do Dispersor."""
+        m = self.open_dispenser
+        seal = self.state.seal_of(m)
+        state = self.state.dispenser_state(m)
+        n = len(seal.floor)
+        return {
+            "sealed": f"Base vedada: {n} tiles de chão, {seal.doors} porta(s). Gasta 1 cápsula a cada "
+                      f"{C.DISPENSER_CAPSULE_TIME / 60:g} min.",
+            "leak": "Tem um furo na parede: o tile pisca no mundo. Feche com parede ou porta.",
+            "small": f"Base pequena: precisa de {C.BASE_MIN_FLOOR}+ tiles de chão ({n} agora).",
+            "nodoor": "A base precisa de pelo menos 1 porta.",
+            "big": f"Base grande demais (no máximo {C.BASE_MAX_FLOOR} tiles de chão).",
+            "nofloor": "Ponha chão da base debaixo do Dispersor.",
+            "dry": "Ponha uma cápsula de água no slot (o derretedor faz).",
+            "nopower": f"Falta energia na rede ({energy.machine_use(m.kind):g} kW).",
+        }[state]
+
+    def dispenser_labels(self) -> list:
+        """(Dispersor, estado) dos Dispersores da camada: o estado vai escrito em cima de cada um."""
+        factor = self.state.power.factor
+        return [(m, self.state.dispenser_state(m, factor)) for m in self.state.machines
+                if m.is_dispenser and m.build <= 0 and not m.submerged]
 
     def labeled_chests(self) -> list:
         """Baús que mostram o rótulo flutuante (↓recebe ↑envia Nome): só o que está debaixo do mouse."""
@@ -1328,7 +1378,7 @@ class App:
         if self.mode in INVENTORY_MODES and mode != self.mode:
             self.finish_name_edit(confirm=True)
             self.stash_held()            # devolve a pilha da mão (se não couber, ela espera o próximo Tab)
-            self.open_station = self.open_drill = self.open_melter = None
+            self.open_station = self.open_drill = self.open_melter = self.open_dispenser = None
             if self.mode == "crate":     # fechou a caixa de saque: o som do baú fechando
                 self.audio.play("chest_close")
                 self.open_crate = None
@@ -1342,7 +1392,8 @@ class App:
                 self.mouse_held = False
                 return
         if mode != self.mode:
-            self.audio.play("ui_open" if mode in ("fabricator", "build", "pause", "inventory", "station", "drill", "melter")
+            self.audio.play("ui_open" if mode in ("fabricator", "build", "pause", "inventory", "station", "drill", "melter",
+                                                  "dispenser")
                             else "ui_close")
         self.mode = mode
         self.mouse_held = False
@@ -1371,7 +1422,7 @@ class App:
         mx = sum(MOVE_KEYS[k][0] for k in self.keys_down if k in MOVE_KEYS)
         my = sum(MOVE_KEYS[k][1] for k in self.keys_down if k in MOVE_KEYS)
         mine = self.mouse_tile() if self.mouse_held and not self.placing else None
-        dismantle = self.hovered_machine() if self.right_held and not self.placing else None
+        dismantle = (self.hovered_machine() or self.hovered_block()) if self.right_held and not self.placing else None
         return Controls(max(-1, min(1, mx)), max(-1, min(1, my)), mine, dismantle=dismantle)
 
     # ---- update ---------------------------------------------------------------
@@ -1462,9 +1513,19 @@ class App:
             _, _, tile = event
             self.renderer.spawn_chips(tile, "#9a9086", 14)       # poeirinha
             self.renderer.spawn_chips(tile, "#c8c0b4", 8)
-            self.renderer.start_blink(tile, self.t)              # o holograma dela pisca e some
+            if event[1] not in C.BASE_KINDS:
+                self.renderer.start_blink(tile, self.t)          # o holograma dela pisca e some (bloco da base não tem)
             # v0.5 M1: o dismantle_done (Som) entra no mesmo frame, sem cortar o charge; sem o arquivo, o place_low
             self.audio.play("dismantle_done" if self.audio.has("dismantle_done") else "place_low")
+        elif kind == "door":                  # v0.5 M2: a porta começou a abrir / fechou de vez (Som: pitch variado)
+            self.audio.play("door_open" if event[1] == "open" else "door_close", gain=self.sound_gain_at(event[2], *C.DOOR_VOLUME_RANGE))
+        elif kind == "base_sealed":           # a base virou vedada (nunca no load; cooldown de 3 s no state)
+            self.audio.play("base_sealed", gain=self.sound_gain_at(event[1], 6, 20))
+        elif kind == "leak_alert":            # a cada 4 s enquanto vaza, com o player por perto
+            self.audio.play("leak_alert")
+        elif kind == "dispenser_dry":         # acabou a última cápsula: uma vez; o zumbido sai em 0,3 s
+            self.dry_fade_t = 1.0
+            self.audio.play("dispenser_dry", gain=self.sound_gain_at(event[1], 6, 20))
         elif kind == "dismantle_charge":      # começou a encher a barrinha do desmonte
             self.audio.start_charge()
         elif kind == "dismantle_cancel":      # soltou antes (ou tirou o mouse): o charge sai em fadeout curto
@@ -1563,6 +1624,11 @@ class App:
         else:
             self.audio.play("ice_crack")
 
+    def sound_gain_at(self, pos, full_until: float, silent_from: float) -> float:
+        """Volume de um som que veio de `pos` (px do mundo): inteiro até `full_until` tiles do player, some em `silent_from`."""
+        p = self.state.player
+        return sound.fade_by_distance(math.hypot(pos[0] - p.x, pos[1] - p.y) / C.TILE, full_until, silent_from)
+
     def update_ambient_sounds(self, dt: float) -> None:
         state, audio = self.state, self.audio
         # alarme com histerese: liga abaixo de 25%, desliga em 27% (ou desmaiado)
@@ -1571,7 +1637,11 @@ class App:
         # zumbido pela máquina mais próxima
         nearest = min((math.hypot((m.tx + 0.5) * C.TILE - state.player.x, (m.ty + 1) * C.TILE - state.player.y) / C.TILE
                        for m in state.machines if m.type.index is not None), default=None)
-        audio.set_hum(sound.hum_volume(nearest))
+        in_sealed = state.in_sealed_base()
+        audio.set_hum(0.0 if in_sealed else sound.hum_volume(nearest))   # dentro da base vedada, o hum do Dispersor entra no lugar
+        self.dry_fade_t = max(0.0, self.dry_fade_t - dt)
+        audio.set_dispenser_hum(C.VOLUME["dispenser_hum"] if in_sealed else 0.0,
+                                C.DISPENSER_HUM_DRY_FADE_MS if self.dry_fade_t > 0 else C.DISPENSER_HUM_FADE_MS)
         self.update_drills_feedback(dt)
         # drones: loop pelos 2 voando mais perto · painel solar: zumbido pelo mais perto
         flying = sorted(math.hypot(d.x - state.player.x, d.y - state.player.y) / C.TILE
@@ -1663,6 +1733,10 @@ class App:
     def hovered_machine(self):
         return self.state.machine_at_point(*self.mouse_world())
 
+    def hovered_block(self):
+        """Bloco da base (chão, parede, porta) debaixo do mouse; a máquina em cima do chão tem prioridade (hovered_machine)."""
+        return self.state.block_at_point(*self.mouse_world())
+
     def e_target(self) -> tuple[str, object] | None:
         """O que o E abre agora: o interagível debaixo do mouse, se estiver no alcance; senão o mais
         perto do player (None = nada; aí, na base, o E abre o fabricador)."""
@@ -1739,6 +1813,10 @@ class App:
         if machine and machine.is_melter:                  # v0.5 M2: gelo dentro, cápsulas prontas
             content = f"{C.MACHINES[machine.kind].name}: {machine.ice} gelo · {machine.capsules} cápsula(s)"
             return content + (" · [E] abrir" if target and target[1] is machine else other)
+        if machine and machine.is_dispenser:               # v0.5 M2: estado da vedação e da água
+            content = f"Dispersor de O₂: {C.STATE_LABEL[state.dispenser_state(machine)]}"
+            return content + (" · [E] abrir" if target and target[1] is machine else other) + (
+                f" · segure [{C.DISMANTLE_KEY}] desmontar" if state.can_dismantle(machine) else "")
         if machine and machine.is_station:
             st = machine.station
             text = f"Estação: {len(st.drones)}/{C.STATION_DRONE_SLOTS} drones"
@@ -1762,6 +1840,11 @@ class App:
                         else f"{rhythm} (falta energia)")
             return (f"Segure [{C.DISMANTLE_KEY}] para desmontar" if state.can_dismantle(machine)
                     else "Chegue mais perto pra desmontar")
+        block = self.hovered_block()                        # v0.5 M2: chão, parede ou porta da base
+        if block:
+            name = C.MACHINES[block.kind].name
+            return f"{name} · " + (f"segure [{C.DISMANTLE_KEY}] desmontar" if state.can_dismantle(block)
+                                   else "chegue mais perto pra desmontar")
         vein = state.world.vein_at(*self.mouse_tile())     # mouse em cima de um veio livre
         if vein:
             name = C.RESOURCE_NAME[vein.resource]
@@ -1859,6 +1942,8 @@ class App:
             return "[E] Abrir baú" if name == C.CHEST_DEFAULT_NAME else f"[E] Abrir baú: {name}"
         if kind == "bench":
             return "[E] Bancada T2"
+        if kind == "dispenser":
+            return "[E] Abrir Dispersor de O₂"
         if kind == "melter":
             return "[E] Abrir derretedor"
         if kind == "station":
@@ -1878,7 +1963,8 @@ class App:
         if self.placing and self.mode == "play":
             target = self.place_target()
             tile = target if target is not None else self.mouse_tile()
-            ghost = (self.placing, tile, self.rotation, target is not None and state.can_build(self.placing, tile))
+            ghost = (self.placing, tile, self.rotation,
+                     target is not None and state.can_build(self.placing, tile, self.rotation))
         if self.zoom == 1.0:
             self.renderer.draw(canvas, state, cam, self.t, ghost)
         else:   # o mundo vai numa visão de 960×540/zoom e é esticado sem suavizar (pixel art continua pixel)
@@ -1903,6 +1989,7 @@ class App:
         if self.mode == "play":
             ui.draw_chest_labels(self.labeled_chests(), cam, self.zoom, icons)
             labels = ui.chest_label_rects
+            ui.draw_dispenser_labels(self.dispenser_labels(), cam, self.zoom)
         if critical:
             ui.draw_o2_critical(state, self.t, cam)
         ui.draw_hud(state, self.t, self.hint() if self.mode == "play" else None, icons, self.renderer.item_icon)
@@ -1948,11 +2035,14 @@ class App:
         elif self.mode == "inventory" and self.inv_tab == TAB_LOGS:
             ui.draw_logs(state, self.log_selected, self.log_first, mouse_ui)
         elif self.mode in INVENTORY_MODES:
-            side = self.open_chest or self.open_drill or self.open_melter or self.open_station or self.open_crate
+            side = (self.open_chest or self.open_drill or self.open_melter or self.open_dispenser or self.open_station
+                    or self.open_crate)
             status = (self.station_status() if self.open_station is not None
                       else self.drill_status() if self.open_drill is not None
-                      else self.melter_status() if self.open_melter is not None else "")
-            station_info = self.hovered_slot_label(mouse_ui) if self.open_station is not None else None
+                      else self.melter_status() if self.open_melter is not None
+                      else self.dispenser_status() if self.open_dispenser is not None else "")
+            station_info = (self.hovered_slot_label(mouse_ui) if self.open_station is not None
+                            else self.dispenser_info() if self.open_dispenser is not None else None)
             ui.draw_inventory(state.inventory, side, self.hotbar_selected, self.renderer.item_icon, mouse_ui,
                               self.t, self.name_edit, status, station_info,
                               equipment=state.equipment if self.mode == "inventory" else None,
@@ -2070,6 +2160,7 @@ class App:
         self.hotbar_selected, self.held, self.notice_time = 0, None, 0.0
         self.open_chest = self.renderer.open_chest = None
         self.open_station, self.open_drill, self.open_melter, self.name_edit = None, None, None, None
+        self.open_dispenser = None
         self.open_crate = self.after_terminal = None
         self.renderer.minimap.reset()
         self.blueprint_notice, self.blueprint_notice_time, self.blueprint_duck = None, 0.0, 0.0

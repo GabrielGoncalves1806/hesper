@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 
 from game import config as C
 from game import drones
+from game.base import BaseBlock, BaseGrid, Seal
+from game.base import H as ORIENT_H, V as ORIENT_V
 from game import explore
 from game import layers
 from game import magmatite
@@ -67,6 +69,16 @@ class Machine:
     build: float = field(default=0.0, compare=False)
     # v0.5 M1 B2: só a Bancada T2. Segundos que faltam da animação de "fabricando" (C.BENCH_WORK_TIME ao fabricar).
     work: float = field(default=0.0, compare=False)
+    # v0.5 M2: só o Dispersor de O₂ (storage = 1 slot de cápsula). `burn` = segundos que faltam da cápsula que está
+    # sendo gasta (vai no save). O resto é derivado ou de som: `seal`/`seal_version` (cache da vedação), `sealed_prev`
+    # (None = ainda não olhou: o load nunca soa), `sealed_once` (já esteve vedada: só aí o furo é "vazamento" com alerta),
+    # `leak_t` (relógio do leak_alert).
+    burn: float = field(default=0.0, compare=False)
+    seal: Seal | None = field(default=None, compare=False, repr=False)
+    seal_version: int = field(default=-1, compare=False, repr=False)
+    sealed_prev: bool | None = field(default=None, compare=False, repr=False)
+    sealed_once: bool = field(default=False, compare=False)
+    leak_t: float = field(default=0.0, compare=False, repr=False)
 
     def __post_init__(self, stored_init: int = 0) -> None:
         if self.storage is None and self.is_drill:
@@ -75,6 +87,8 @@ class Machine:
             self.storage = Inventory(C.CHEST_SLOTS)
         elif self.storage is None and self.is_melter:
             self.storage = Inventory(C.MELTER_SLOTS)
+        elif self.storage is None and self.is_dispenser:
+            self.storage = Inventory(C.DISPENSER_SLOTS)
         if stored_init:
             self.stored = stored_init
 
@@ -94,6 +108,11 @@ class Machine:
     def is_melter(self) -> bool:
         """Derretedor (nv.1 ou nv.2): terraforma e, de brinde, faz cápsula de água do gelo do inventário dele."""
         return self.kind in C.MELTER_KINDS
+
+    @property
+    def is_dispenser(self) -> bool:
+        """Dispersor de O₂ (v0.5 M2): 1 slot de cápsula de água, vedação da base e O₂ lá dentro."""
+        return self.kind == C.DISPENSER
 
     @property
     def is_chest(self) -> bool:
@@ -123,8 +142,8 @@ class Machine:
 
     @property
     def capsules(self) -> int:
-        """Derretedor: cápsulas de água na saída."""
-        return self.storage.count("water_capsule") if self.is_melter else 0
+        """Derretedor: cápsulas de água na saída. Dispersor: as que estão no slot (fora a que está queimando)."""
+        return self.storage.count("water_capsule") if self.is_melter or self.is_dispenser else 0
 
     @property
     def ice(self) -> int:
@@ -189,6 +208,8 @@ class Machine:
             w, h = C.DRONE_STATION_SPRITE_SIZE
         elif self.is_bench:
             w, h = C.BENCH_SPRITE_SIZE
+        elif self.is_dispenser:
+            w, h = C.DISPENSER_SPRITE_SIZE
         elif self.is_lamp:
             w, h = C.LAMP_SPRITE_SIZE
         else:
@@ -341,6 +362,7 @@ class GameState:
         self.dismantle_t = 0.0                         # s segurando nela
         self._dismantle_lock: Machine | None = None    # já tentou: só carrega de novo depois de soltar
         self.events: list[tuple] = []
+        self._seal_sound_t = -99.0                     # play_time do último base_sealed (cooldown C.SEAL_SOUND_COOLDOWN)
 
     # ---- camadas --------------------------------------------------------------
     @property
@@ -358,6 +380,11 @@ class GameState:
     @world.setter
     def world(self, value: World) -> None:
         self.active.world = value
+
+    @property
+    def base(self) -> BaseGrid:
+        """Os blocos da base (chão, parede, porta) da camada ativa."""
+        return self.active.base
 
     @property
     def machines(self) -> list:
@@ -493,6 +520,8 @@ class GameState:
                 elif self.world.is_solid(tx, ty):
                     solids.append((tx * C.TILE, ty * C.TILE, C.TILE, C.TILE))
         solids += [m.rect for m in self.machines]
+        if self.active.base.blocks:                       # v0.5 M2: parede e porta da base
+            solids += self.active.base.solids_in(x0, y0, x1, y1)
         solids += self.active.gate_solids                 # v0.4 M3.5: os blocos de gelo dos portões (retângulos)
         if self.active.has_base:
             solids.append(POD_RECT)
@@ -525,6 +554,8 @@ class GameState:
             self._update_mining(dt, controls.mine_tile)
             self._update_o2(sim_dt)
         self._update_building(dt)
+        self._update_doors(dt)
+        self._update_base_events(dt)
         self._update_machines(sim_dt)
         self._update_storm(dt)
         self._update_rocks(sim_dt)
@@ -572,7 +603,7 @@ class GameState:
 
     # ---- oxigênio -----------------------------------------------------------
     def _update_o2(self, dt: float) -> None:
-        inside = self.in_base_zone()
+        inside = self.in_base_zone() or self.in_sealed_base()
         if inside:
             if not self.was_in_base and self.o2 < self.o2_max:
                 self.events.append(("refill",))
@@ -702,13 +733,15 @@ class GameState:
     def has_constructor(self) -> bool:
         return self.inventory.count("constructor") > 0
 
-    def can_place(self, kind: str, tile: tuple[int, int]) -> bool:
+    def can_place(self, kind: str, tile: tuple[int, int], rotation: int = 0) -> bool:
         """O LUGAR serve? Máquina comum: 1 tile de chão livre fora de veio. Drill: `tile` tem que ser o canto
         de cima à esquerda de um veio livre (o App "gruda" o fantasma no veio debaixo do mouse).
         Não olha material nem construtor (isso é o `can_build`)."""
         tx, ty = tile
         if not C.MACHINES[kind].placeable:      # item (drone, construtor, equipamento) não vai pro chão
             return False
+        if kind in C.BASE_KINDS:                # v0.5 M2: bloco da base (chão, parede, porta)
+            return self._can_place_base(kind, tile, rotation)
         if kind == "drone_station" and not self.active.has_base:   # drones só atendem a superfície (v0.3)
             return False
         machine = Machine(kind, tx, ty)
@@ -720,7 +753,7 @@ class GameState:
             return False
         pod = C.POD_TILES if self.active.has_base else ()
         for t in machine.tiles:
-            if not self.world.is_floor(*t) or t in pod or self.machine_at(t):
+            if not self.world.is_floor(*t) or t in pod or self.machine_at(t) or self.base.is_barrier(t):
                 return False
             if self.world.is_water(*t, self.stage):     # v0.4 M3.4: não constrói na água (com geo, o estágio não entra)
                 return False
@@ -742,16 +775,18 @@ class GameState:
             return "no_constructor"
         return self.recipe_status(kind, inv_only=True)
 
-    def can_build(self, kind: str, tile: tuple[int, int]) -> bool:
+    def can_build(self, kind: str, tile: tuple[int, int], rotation: int = 0) -> bool:
         """Construtor no inventário, receita liberada, material no inventário e o lugar serve."""
-        return self.build_status(kind) == "ok" and self.can_place(kind, tile)
+        return self.build_status(kind) == "ok" and self.can_place(kind, tile, rotation)
 
     def build(self, kind: str, tile: tuple[int, int], rotation: int = 0) -> bool:
         """Constrói a máquina no lugar (v0.5 M1, o único jeito de pôr máquina no chão): gasta a receita SÓ do
         inventário e ela nasce "se construindo" por C.BUILD_TIME s (parada, o scanner varre de baixo pra cima)."""
-        if not self.can_build(kind, tile):
+        if not self.can_build(kind, tile, rotation):
             return False
         self._spend(C.MACHINES[kind].cost, inv_only=True)
+        if kind in C.BASE_KINDS:
+            return self._build_base(kind, tile, rotation)
         machine = Machine(kind, tile[0], tile[1], rotation)
         machine.build = C.BUILD_TIME
         if machine.is_drill:                                   # vem com Envia/Recebe vazios: o player configura
@@ -763,6 +798,8 @@ class GameState:
             machine.station = drones.new_station(machine)      # vem vazia: os drones vão pelo painel (E)
         if machine.is_lamp:
             self.lamps_placed += 1
+        if machine.is_dispenser:
+            machine.sealed_prev = False                        # recém-construído: vedar a base depois soa o base_sealed
         self.machines.append(machine)
         if self.active.has_base:                               # a caverna não muda com o Ti
             self.transition_sources.add(tuple(tile))
@@ -779,6 +816,189 @@ class GameState:
                 m.work = max(0.0, m.work - dt)
 
     # ---- drill automática ---------------------------------------------------
+    # ---- base respirável (v0.5 M2 · game/base.py) -----------------------------------------------------
+    @staticmethod
+    def base_tiles(kind: str, tile: tuple[int, int], rotation: int = 0) -> list[tuple[int, int]]:
+        """Tiles que o bloco ocupa se for posto em `tile`. A porta dupla: rotação par = 2 lado a lado (h), ímpar = um
+        em cima do outro (v); `tile` é a metade de oeste/norte."""
+        tx, ty = tile
+        if kind == C.BASE_DOOR2:
+            return [(tx, ty), (tx + 1, ty)] if rotation % 2 == 0 else [(tx, ty), (tx, ty + 1)]
+        return [(tx, ty)]
+
+    def _can_place_base(self, kind: str, tile: tuple[int, int], rotation: int = 0) -> bool:
+        """Chão: tile livre de bloco (aceita máquina em cima). Parede e portas: também sem máquina e sem prender o
+        player. Todos: chão do mundo, fora da água, da cápsula, de veio e do gelo-portão, ao alcance."""
+        tiles = self.base_tiles(kind, tile, rotation)
+        pod = C.POD_TILES if self.active.has_base else ()
+        ice = self.active.gate_solids
+        for t in tiles:
+            if not self.world.is_floor(*t) or t in pod or self.base.get(t) or self.world.vein_at(*t):
+                return False
+            if self.world.is_water(*t, self.stage):
+                return False
+            if kind != C.BASE_FLOOR and self.machine_at(t):
+                return False
+            if any(overlaps((t[0] * C.TILE, t[1] * C.TILE, C.TILE, C.TILE), r) for r in ice):
+                return False
+            if kind != C.BASE_FLOOR and overlaps(self.player.box, (t[0] * C.TILE, t[1] * C.TILE, C.TILE, C.TILE)):
+                return False
+        px, py = self.player.tile
+        return min(max(abs(x - px), abs(y - py)) for x, y in tiles) <= C.PLACE_REACH
+
+    def _build_base(self, kind: str, tile: tuple[int, int], rotation: int) -> bool:
+        orient = ORIENT_H if rotation % 2 == 0 else ORIENT_V
+        self.base.add(BaseBlock(kind, tile[0], tile[1], orient if kind == C.BASE_DOOR2 else ORIENT_H))
+        self.crafted[kind] += 1
+        self.events.append(("build", kind, tile))
+        return True
+
+    def block_at_point(self, px: float, py: float) -> BaseBlock | None:
+        """Bloco da base desenhado no pixel (px, py): o do tile, ou o da parede/porta de baixo cujo topo (24 px
+        acima do tile dela) cobre esse pixel. O chão só vale se não tem parede/porta cobrindo."""
+        grid = self.base
+        if not grid.blocks:
+            return None
+        tx, ty = int(px // C.TILE), int(py // C.TILE)
+        below = grid.get((tx, ty + 1))
+        if below is not None and not below.is_floor and py % C.TILE >= C.TILE - C.BASE_WALL_LIFT + C.BASE_FACE_Y:
+            return below
+        return grid.get((tx, ty))
+
+    def _update_doors(self, dt: float) -> None:
+        """As portas abrem sozinhas com o player a até DOOR_OPEN_RANGE de qualquer tile delas (0 -> 3 a DOOR_FPS) e
+        fecham quando ele sai. Eventos: ("door", "open"|"close", centro em px) quando começa a abrir da fechada e
+        quando fecha de vez."""
+        doors = self.base.door_list
+        if not doors:
+            return
+        p = self.player
+        cx, cy = p.x, p.y - 12
+        step = C.DOOR_FPS * dt
+        top = C.DOOR_FRAMES - 1
+        for d in doors:
+            near = any(math.hypot(cx - (x + 0.5) * C.TILE, cy - (y + 0.5) * C.TILE) <= C.DOOR_OPEN_RANGE
+                       for x, y in d.tiles) and not self.fainted
+            if near:
+                if not d.opening:
+                    d.opening = True
+                    if d.frame <= 0:
+                        self.events.append(("door", "open", self._door_center(d)))
+                d.frame = min(top, d.frame + step)
+            else:
+                d.opening = False
+                if d.frame > 0:
+                    d.frame = max(0.0, d.frame - step)
+                    if d.frame <= 0:
+                        self.events.append(("door", "close", self._door_center(d)))
+
+    @staticmethod
+    def _door_center(door: BaseBlock) -> tuple[float, float]:
+        xs = [(x + 0.5) * C.TILE for x, _ in door.tiles]
+        ys = [(y + 0.5) * C.TILE for _, y in door.tiles]
+        return sum(xs) / len(xs), sum(ys) / len(ys)
+
+    def _layer_of(self, machine: Machine) -> Layer:
+        if any(m is machine for m in self.active.machines):
+            return self.active
+        return next((layer for layer in self.layers.values() if any(m is machine for m in layer.machines)), self.active)
+
+    def seal_of(self, machine: Machine, layer: Layer | None = None) -> Seal:
+        """A vedação da base do Dispersor (cache: só recalcula quando um bloco mudou perto, ver BaseGrid.changed_near)."""
+        grid = (layer or self._layer_of(machine)).base
+        if machine.seal is None or (machine.seal_version != grid.version
+                                    and grid.changed_near(machine.seal_version, machine.seal.watch)):
+            machine.seal = grid.seal_from((machine.tx, machine.ty))
+        machine.seal_version = grid.version
+        return machine.seal
+
+    def dispenser_state(self, machine: Machine, factor: float | None = None) -> str:
+        """Estado do Dispersor: "nopower" > geometria ("leak", "small", "nodoor", "big", "nofloor") > "dry" > "sealed"."""
+        factor = self.power.factor if factor is None else factor
+        if factor <= 0:
+            return "nopower"
+        seal = self.seal_of(machine)
+        if not seal.ok:
+            return seal.reason
+        if machine.burn <= 0 and machine.capsules <= 0:
+            return "dry"
+        return "sealed"
+
+    def air_ok(self, machine: Machine, factor: float | None = None) -> bool:
+        """O Dispersor está soprando (ligado, base vedada, com água)?"""
+        return (machine.is_dispenser and not machine.submerged and machine.build <= 0
+                and self.dispenser_state(machine, factor) == "sealed")
+
+    def in_sealed_base(self) -> bool:
+        """O player está dentro de uma base vedada com o Dispersor soprando? (aí o O₂ recarrega como na cápsula)"""
+        return self.breathing_dispenser() is not None
+
+    def breathing_dispenser(self) -> Machine | None:
+        dispensers = [m for m in self.machines if m.is_dispenser]
+        if not dispensers:
+            return None
+        factor = self.power.factor
+        tile = self.player.tile
+        for m in dispensers:
+            if self.air_ok(m, factor) and tile in self.seal_of(m, self.active).inside:
+                return m
+        return None
+
+    def _update_base_events(self, dt: float) -> None:
+        """Tempo real: a transição pra "vedada" (base_sealed, com cooldown; o load nunca soa) e o leak_alert a cada
+        LEAK_ALERT_EVERY s enquanto vaza com o player por perto (só vazamento de base que já esteve vedada)."""
+        for key, layer in self.layers.items():
+            for m in layer.machines:
+                if not m.is_dispenser or m.submerged or m.build > 0:
+                    continue
+                seal = self.seal_of(m, layer)
+                if m.sealed_prev is None:
+                    m.sealed_prev = seal.ok
+                elif seal.ok != m.sealed_prev:
+                    m.sealed_prev = seal.ok
+                    if seal.ok and self.play_time - self._seal_sound_t >= C.SEAL_SOUND_COOLDOWN:
+                        self._seal_sound_t = self.play_time
+                        self.events.append(("base_sealed", m.anchor))
+                if seal.ok:
+                    m.sealed_once = True
+                if key == self.layer and not seal.ok and m.sealed_once and seal.reason in ("leak", "nofloor"):
+                    if self.leak_distance(m) <= C.LEAK_ALERT_RANGE * C.TILE:
+                        m.leak_t -= dt
+                        if m.leak_t <= 0:
+                            m.leak_t = C.LEAK_ALERT_EVERY
+                            self.events.append(("leak_alert", m.anchor))
+                else:
+                    m.leak_t = 0.0
+
+    def leak_distance(self, m: Machine) -> float:
+        """px do player até o Dispersor ou o tile furado (o que estiver mais perto)."""
+        p = self.player
+        points = [m.anchor]
+        leak = m.seal.leak if m.seal is not None else None
+        if leak is not None:
+            points.append(((leak[0] + 0.5) * C.TILE, (leak[1] + 0.5) * C.TILE))
+        return min(math.hypot(p.x - x, p.y - y) for x, y in points)
+
+    def _burn_capsules(self, machine: Machine, layer: Layer, dt: float) -> None:
+        """Gasta a água do Dispersor: com a base vedada e ligado, 1 cápsula dura C.DISPENSER_CAPSULE_TIME s. A cápsula
+        sai do slot quando começa a queimar; acabou a última, solta ("dispenser_dry", posição) uma vez."""
+        if not self.seal_of(machine, layer).ok:
+            return
+        while dt > 1e-9:
+            if machine.burn <= 0:
+                if machine.capsules <= 0:
+                    return
+                machine.storage.remove("water_capsule", 1)
+                machine.burn = C.DISPENSER_CAPSULE_TIME
+            used = min(dt, machine.burn)
+            machine.burn -= used
+            dt -= used
+            if machine.burn <= 1e-9:
+                machine.burn = 0.0
+                if machine.capsules <= 0:
+                    self.events.append(("dispenser_dry", machine.anchor))
+                    return
+
     def drill_distance(self, drill: Machine) -> float:
         """Distância (px) dos pés do player até a base da drill."""
         ax, ay = drill.anchor
@@ -802,6 +1022,12 @@ class GameState:
     def nearby_melter(self) -> Machine | None:
         """Derretedor ao alcance do E (o mais perto)."""
         near = [m for m in self.machines if m.is_melter and m.build <= 0 and self.drill_distance(m) <= C.MELTER_REACH]
+        return min(near, key=self.drill_distance, default=None)
+
+    def nearby_dispenser(self) -> Machine | None:
+        """Dispersor de O₂ ao alcance do E (o mais perto)."""
+        near = [m for m in self.machines if m.is_dispenser and m.build <= 0
+                and self.drill_distance(m) <= C.DISPENSER_REACH]
         return min(near, key=self.drill_distance, default=None)
 
     def nearby_drill(self) -> Machine | None:
@@ -835,7 +1061,8 @@ class GameState:
         if machine is not None:
             for kind, flag in (("drill", machine.is_drill), ("chest", machine.is_chest),
                                ("station", machine.is_station), ("bench", machine.is_bench),
-                               ("melter", machine.is_melter and machine.build <= 0)):
+                               ("melter", machine.is_melter and machine.build <= 0),
+                               ("dispenser", machine.is_dispenser and machine.build <= 0)):
                 if flag:
                     return kind, machine
             return None                                  # O2, aquecedor...: o E não abre nada
@@ -870,7 +1097,7 @@ class GameState:
         if kind == "container":
             return tuple(target) in self.world.containers and self.container_distance(target) <= C.CONTAINER_REACH
         reach = {"drill": C.DRILL_REACH, "chest": C.CHEST_REACH, "station": C.STATION_REACH,
-                 "bench": C.BENCH_REACH, "melter": C.MELTER_REACH}[kind]
+                 "bench": C.BENCH_REACH, "melter": C.MELTER_REACH, "dispenser": C.DISPENSER_REACH}[kind]
         return any(m is target for m in self.machines) and self.drill_distance(target) <= reach
 
     def interaction(self, hover: tuple[str, object] | None = None) -> tuple[str, object] | None:
@@ -898,6 +1125,9 @@ class GameState:
         melter = self.nearby_melter()
         if melter is not None:
             options.append((self.drill_distance(melter), "melter", melter))
+        dispenser = self.nearby_dispenser()
+        if dispenser is not None:
+            options.append((self.drill_distance(dispenser), "dispenser", dispenser))
         crate = self.nearby_crate()
         if crate is not None:
             options.append((self.crate_distance(crate), "crate", crate))
@@ -955,6 +1185,25 @@ class GameState:
             return 0
         if have is None:
             melter.storage.slots[slot] = Stack("ice", moved)
+        else:
+            have.count += moved
+        self.inventory.remove_from_slot(index, moved)
+        return moved
+
+    def dispenser_put(self, dispenser: Machine, index: int, amount: int | None = None) -> int:
+        """Põe cápsulas de água do slot `index` do inventário do player no slot do Dispersor (`amount` None = a pilha
+        inteira, 1 = clique direito). Só entra cápsula, e só até a pilha encher. Devolve quanto entrou."""
+        stack = self.inventory.slots[index]
+        if stack is None or stack.item != "water_capsule":
+            return 0
+        slot = C.DISPENSER_CAPSULE_SLOT
+        have = dispenser.storage.slots[slot]
+        room = stack.max - (have.count if have else 0)
+        moved = min(room, stack.count if amount is None else min(amount, stack.count))
+        if moved <= 0:
+            return 0
+        if have is None:
+            dispenser.storage.slots[slot] = Stack("water_capsule", moved)
         else:
             have.count += moved
         self.inventory.remove_from_slot(index, moved)
@@ -1081,8 +1330,11 @@ class GameState:
         hits = [m for m in self.machines if overlaps(m.sprite_rect, (px, py, 1, 1))]
         return max(hits, key=lambda m: m.ty, default=None)
 
-    def can_dismantle(self, machine: Machine) -> bool:
+    def can_dismantle(self, machine) -> bool:
         px, py = self.player.tile
+        if isinstance(machine, BaseBlock):              # v0.5 M2: bloco da base (a dupla: qualquer metade serve)
+            return machine in self.base.blocks and min(
+                max(abs(x - px), abs(y - py)) for x, y in machine.tiles) <= C.PLACE_REACH
         return machine in self.machines and max(abs(machine.tx - px), abs(machine.ty - py)) <= C.PLACE_REACH
 
     def dismantle_returns(self, machine: Machine) -> dict[str, int]:
@@ -1091,7 +1343,7 @@ class GameState:
         out = dict(machine.type.cost)
         if machine.is_drill and machine.stored:
             out[machine.resource] = out.get(machine.resource, 0) + machine.stored
-        if machine.is_melter:                                  # v0.5 M2: o gelo e as cápsulas que ficaram dentro
+        if machine.is_melter or machine.is_dispenser:          # v0.5 M2: o gelo e as cápsulas que ficaram dentro
             for item, n in machine.storage.counts().items():
                 out[item] = out.get(item, 0) + n
         if machine.is_station:
@@ -1107,6 +1359,8 @@ class GameState:
         O baú só desmonta vazio. A cápsula não é uma Machine, então nunca entra aqui."""
         if not self.can_dismantle(machine):
             return False
+        if isinstance(machine, BaseBlock):
+            return self._dismantle_block(machine)
         if machine.is_chest and not machine.storage.is_empty():
             self.events.append(("chest_not_empty",))
             return False
@@ -1123,6 +1377,19 @@ class GameState:
             self.inventory.add(item, n)
         self.machines.remove(machine)
         self.events.append(("dismantle", machine.kind, (machine.tx, machine.ty)))
+        return True
+
+    def _dismantle_block(self, block: BaseBlock) -> bool:
+        """Tira o bloco da base e devolve 1 receita (a dupla: qualquer metade tira as duas e devolve 1)."""
+        returns = dict(block.type.cost)
+        trial = self.inventory.copy()
+        if any(trial.add(item, n) for item, n in returns.items()):
+            self.events.append(("inv_full",))
+            return False
+        for item, n in returns.items():
+            self.inventory.add(item, n)
+        self.base.remove(block)
+        self.events.append(("dismantle", block.kind, (block.tx, block.ty)))
         return True
 
     def _update_dismantle(self, target: Machine | None, dt: float) -> None:
@@ -1173,6 +1440,11 @@ class GameState:
                 self.indices[m.type.index] += m.type.rate * work_dt
             if m.is_melter:
                 self._update_melter(m, work_dt)
+        if power.factor > 0:                 # v0.5 M2: o Dispersor gasta a cápsula (só vedado e ligado)
+            for layer in self.layers.values():
+                for m in layer.machines:
+                    if m.is_dispenser and not m.submerged and m.build <= 0:
+                        self._burn_capsules(m, layer, work_dt)
         stations = [m for m in self.surface.machines if m.is_station and m.build <= 0]
         if stations:                         # drones (game/drones.py): só na superfície; no déficit voam mais devagar
             self.drone_deliveries += drones.update_stations(stations, self.drone_logistics(), work_dt, self.events)

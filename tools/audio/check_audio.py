@@ -42,6 +42,9 @@ CONTRACT = {
     "amb_rain": True, "amb_rain_light": True, "amb_rain_heavy": True, "vent_hiss": True,
     # v0.5 Marco 1 · construtor (v12, aprovados pelo dono)
     "build": False, "dismantle_charge": False, "dismantle_done": False, "diagram_read": False,
+    # v0.5 Marco 2 · base respirável (v13.1, aprovados pelo dono)
+    "door_open": False, "door_close": False, "base_sealed": False, "dispenser_hum": True,
+    "leak_alert": False, "dispenser_dry": False,
 }
 # entregues em _pending/ até o dono aprovar
 PENDING: dict = {}

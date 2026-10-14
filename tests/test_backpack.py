@@ -166,7 +166,7 @@ def test_save_without_backpack_has_16_slots_and_v8_loads():
     g = GameState(rng=random.Random(3))
     give(g, iron=5)
     data = save.state_to_dict(g)
-    assert data["version"] == 8 and len(data["inventory"]["slots"]) == BASE
+    assert data["version"] == save.SAVE_VERSION and len(data["inventory"]["slots"]) == BASE
     data["progress"]["equipment"].pop("backpack", None)       # v8 de antes da mochila não tinha a chave
     loaded = save.state_from_dict(save.migrate(data))
     assert not loaded.has_backpack and len(loaded.inventory) == BASE and loaded.inventory.count("iron") == 5
