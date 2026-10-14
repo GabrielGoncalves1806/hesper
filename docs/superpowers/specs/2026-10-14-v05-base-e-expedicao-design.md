@@ -86,6 +86,10 @@ Decisões do dono (2026-10-14). Cada item abaixo é **uma tarefa, soltas uma por
 6. **Gelo gigante com a criatura** (Dev)
    - Contrato em `reports/design/gelo_gigante/pendentes/`: pegada 7×4, rampa `ICE_DEEP`, geada. Teaser sem interação, num canto da faixa gelada.
    - Sprite **Larva em C ou Casulo, sorteado pela seed** (mesma seed, mesma criatura). Não existe "tipo de mundo" no jogo; se um dia existir, a criatura passa a seguir ele.
+7. **Nevasca na faixa gelada** (Dev, cor proposta pela Designer)
+   - Na Tempestade, com o player na faixa gelada, a camada da tempestade (`game/dust.py`) troca a "skin": nuvem branco-azulada no lugar do ocre, faixas brancas e mais finas, e **flocos** (um pouco maiores, mais lentos, com zigue-zague) no lugar dos grãos. Vento, rajada e raio de visão não mudam.
+   - A troca segue **a posição do player**, com transição suave de 1–2 s. A versão por pixel (poeira de um lado, neve do outro na borda) fica pra depois, se a troca ficar artificial no playtest.
+   - O som do vento continua o mesmo.
 
 ### Marco 4 · Expedição e loot
 
