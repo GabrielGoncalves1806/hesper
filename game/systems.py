@@ -23,6 +23,7 @@ from game import thaw
 from game.equipment import Equipment, is_equipment
 from game.inventory import Inventory, Stack, max_stack
 from game.energy import PowerAlert, PowerReport, power_report
+from game.geo import FROST
 from game.layers import CAVE, SURFACE, Layer
 from game.player import Player, Rect, overlaps
 from game.rain import Rain
@@ -536,6 +537,9 @@ class GameState:
         storm = storm_level(self)
         if self.weather.update(dt, storm):
             self.events.append(("gust", storm))
+        geo = self.surface.geo                         # v0.5 M3.7: nevasca na faixa gelada (só o visual da tempestade)
+        self.weather.update_snow(dt, self.layer != CAVE and geo is not None
+                                 and geo.region_at(*self.player.tile) == FROST)
         if self.rain.update(dt, self.stage):           # pancada de chuva começou (só a partir da Névoa)
             self.events.append(("rain", True))
 

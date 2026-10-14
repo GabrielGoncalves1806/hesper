@@ -13,7 +13,7 @@ import pytest
 from game import config as C
 from game import dust
 from game.dust import DustLayer, DustParticles
-from game.systems import GameState, Machine
+from game.systems import Controls, GameState, Machine
 from game.ui import static_noise
 
 pygame.init()
@@ -246,3 +246,65 @@ def test_static_amount_needs_storm_and_gust():
     assert dust.static_amount(s) == 1.0
     s.weather.gust = 0.0
     assert dust.static_amount(s) == 0.0
+
+
+# ---- nevasca na faixa gelada (v0.5 M3.7) ------------------------------------------------------------
+def _put_player_on(s, region):
+    """Põe o player num tile da região pedida (FROST ou outra) e devolve o state."""
+    import numpy as np
+    ys, xs = np.nonzero(s.surface.geo.region == region)
+    s.player.x, s.player.y = float(xs[len(xs) // 2]) * C.TILE + 8, float(ys[len(ys) // 2]) * C.TILE + 8
+    return s
+
+
+def test_snow_rises_in_frost_and_falls_outside_in_the_fade_time():
+    from game.geo import FROST, PLATEAU
+    s = _put_player_on(GameState(), FROST)
+    s.storm = 1.0
+    dt = C.MAX_DT
+    for _ in range(round(C.STORM_SNOW_FADE_S / dt / 2)):          # metade do tempo: metade da neve
+        s.update(dt, Controls())
+    assert 0.4 < s.weather.snow < 0.6
+    for _ in range(round(C.STORM_SNOW_FADE_S / dt)):
+        s.update(dt, Controls())
+    assert s.weather.snow == 1.0 and dust.snow_of(s) == 1.0
+    _put_player_on(s, PLATEAU)
+    for _ in range(round(C.STORM_SNOW_FADE_S / dt) + 1):
+        s.update(dt, Controls())
+    assert s.weather.snow == 0.0
+    s.weather.snow = 1.0
+    s.enter_layer("cave")
+    assert dust.snow_of(s) == 0.0                                  # caverna: sem tempestade, sem neve
+
+
+def test_snow_colors_interpolate_between_dust_and_snow():
+    d0, d1 = dust.noise_tile("add", 0), dust.noise_tile("add", dust.SNOW_STEPS)
+    mid = dust.noise_tile("add", dust.SNOW_STEPS // 2)
+    # o ruído base é o mesmo: o canal azul da nuvem (que a neve eleva) fica entre o da poeira e o da neve
+    ch = lambda t: sum(t.get_at((x, y)).b for x in range(0, 256, 16) for y in range(0, 256, 16))
+    assert ch(d0) < ch(mid) < ch(d1)
+    p = DustParticles(seed=1)
+    a, b = p.streak(0, 0, 100, 0), p.streak(0, 0, 100, dust.SNOW_STEPS)
+    peak = lambda t: max(t.get_at((x, y))[:3] for x in range(t.get_width()) for y in range(t.get_height()) if t.get_at((x, y)).a)
+    assert peak(b)[2] > peak(a)[2]                                 # faixa branco-azulada
+    layer = DustLayer()
+    top = lambda sn: layer.render(VIEW, 1.0, 0.0, 70.0, [], MID, snow=sn).get_at((5, 5))
+    assert top(0.0).b < top(0.5).b < top(1.0).b                    # fundo da nuvem esfria
+
+
+def test_snow_does_not_change_wind_gust_or_view():
+    s = GameState()
+    s.storm = 1.0
+    s.weather.gust = 0.6
+    before = (tuple(s.weather.wind), s.weather.gust, s.weather.view_tiles, s.weather.angle)
+    s.weather.snow = 1.0
+    assert dust.weather_of(s) == (before[0], before[1], before[2])
+    s.weather.update_snow(0.5, False)
+    assert (tuple(s.weather.wind), s.weather.gust, s.weather.view_tiles, s.weather.angle) == before
+    # as partículas contam igual e os grãos andam na mesma direção; só a velocidade do floco muda
+    assert DustParticles.counts(1.0, 0.6) == DustParticles.counts(1.0, 0.6)
+    a, b = DustParticles(seed=3), DustParticles(seed=3)
+    a.update(0.1, (1.0, 0.0), 1.0, 0.6, 0.0)
+    b.update(0.1, (1.0, 0.0), 1.0, 0.6, 1.0)
+    assert all(fa[0] > fb[0] for fa, fb in zip(a.grains, b.grains))   # flocos andam mais devagar
+    assert [st[:2] for st in a.streaks] == [st[:2] for st in b.streaks]  # faixas não mudam de ritmo

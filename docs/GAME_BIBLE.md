@@ -587,6 +587,7 @@ Spec: `docs/superpowers/specs/2026-10-13-v04-mundo-vivo-design.md`. Plano do Mar
 - **O₂**: fora da base gasta **×1,25** com a tempestade cheia, interpolando com a intensidade (`1 + 0,25 × storm`). Na zona da base, a recarga não muda; na caverna, o gasto é o normal.
 - **Aviso no HUD**: enquanto a rajada está forte (`gust > 0,3`), uma pílula **"RAJADA"** no estilo B2 (barra laranja à esquerda, ícone de vento com 3 traços correndo) logo abaixo da coluna do O₂/objetivo. Some quando a rajada baixa.
 - **Som**: `gust` (0,7 no `VOLUME`) no começo de cada rajada, com o volume proporcional à intensidade. Sem `gust.wav`, fica em silêncio.
+- **Nevasca na faixa gelada (v0.5 M3.7)**: com o player num tile `frost`, a camada da tempestade vira neve (só aparência; vento, rajada, visão e som iguais). Detalhes na nota M3.7 da §13.
 
 ## 11. v0.4 · Marco 2: Geografia nova
 Plano: `docs/superpowers/plans/2026-10-13-v04-marco2-geografia.md`. Referência visual aprovada: `reports/design/regioes/index.html` (v8.0) e o mapa `mapa_regioes.png`. Cada trilha escreve a sua parte aqui.
@@ -780,3 +781,11 @@ Design completo em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-desig
 - **Evento**: `("giant_gate_thaw", etapa)` (1 = começou, 3 = fresta aberta), em vez do `gate_thaw` com índice. O App, na abertura, só repinta o mapa do scanner e toca o som de gelo quebrando; **sem aviso novo** (a 6.4 pendura nele a mensagem especial e o fim da névoa).
 - **Dica e mapa**: com o mouse no gelo, **"Grande gelo · a passagem abre com ~N pK (agora X)"** (ou "· a passagem já abriu"); marcador "Grande gelo" no mapa (fechado / "derretendo · N%" / "aberto · passagem livre"). A geada de chão dos portões não vale pro grande.
 - Testes: `tests/test_giant_gate.py` (receita, fechado bloqueia o interior, ordem depois dos outros, o player passa pela fresta, evento, dica e marcador). Print avulso: `uv run python tools/dev/shot_portao_grande.py` → `reports/dev/portao_grande.png`.
+
+### M3.7 · Nevasca na faixa gelada (`game/dust.py`, `game/weather.py`, `game/ui.py`; números no topo do `dust.py` e `C.STORM_SNOW_FADE_S`)
+- **Gatilho**: o tile do player é `frost` (`geo.region_at`) na superfície. `state.weather.snow` (0 poeira .. 1 neve) sobe/desce linear em **1,5 s** (`STORM_SNOW_FADE_S`) e só a aparência usa; vento, rajada, raio de visão, empurrão, O₂ e som do vento não mudam. Na caverna não tem tempestade, então não tem nevasca (`dust.snow_of` = 0).
+- **Skin**: fundo da nuvem `#a9bec0` (média de `#99b6b7`/`#b9c6bf`, rampa `ICE.frost.storm`), nuvem clareia `+(30,32,36)` e escurece `-(38,34,28)` (chega perto de `#d3cec2` e `#7ca0a8` da mesma rampa), faixas `#e6f0f4` com alfa ×0,7 (mais ralas), grãos `#ddeaee/#f7fcfe/#7ca0a8`. Cores interpolam com o fator.
+- **Flocos**: cada grão tem um limiar sorteado; passou do fator, vira floco (+1 px, 55% da velocidade, zigue-zague de 24 px/s com harmônico). A troca é grão a grão, sem pulo. Contagens e faixas iguais.
+- **Custo**: o ruído fbm continua gerado uma vez; as texturas tingidas (add/sub/detail e faixas) ficam em cache por degrau de neve (12), construídas na 1ª vez que o degrau aparece. Frame da tempestade (`draw_storm`, 960×540 sem janela): ~0,53 ms na poeira, ~0,66 ms na neve cheia.
+- **Chiado**: `ui.static_noise(..., snow)` esfria o chiado do mapa/minimapa (branco-azulado), mesmo fator, 4 degraus de cor em cache.
+- Testes em `tests/test_dust.py`. Print avulso: `uv run python tools/dev/shot_nevasca.py` → `reports/dev/nevasca.png`.

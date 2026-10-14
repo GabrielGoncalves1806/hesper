@@ -25,6 +25,13 @@ ORDEM (Renderer.draw, superfície)
     mundo -> luz/clima do estágio -> POEIRA + faixas + grãos -> indicadores das máquinas -> HUD (ui.py).
 
 CORES: proposta B · Ocre da Designer (assets/sprites/_pending/storm/storm_palettes.json), pendente do dono.
+
+NEVASCA (v0.5 M3.7): com o player na faixa gelada (`geo.region == frost`), a camada troca de "skin": nuvem
+    branco-azulada, faixas brancas mais finas, grãos viram flocos (maiores, mais lentos, zigue-zague). Só
+    aparência: vento, rajada e visão são os mesmos. O fator `snow` (0 poeira .. 1 neve) vive em
+    `state.weather.snow` (sobe/desce em C.STORM_SNOW_FADE_S s) e interpola cores e mistura grãos/flocos.
+    As texturas de ruído tingidas são pré-calculadas por degrau de `snow` (SNOW_STEPS), em cache: o ruído
+    fbm nunca é regerado, e o frame só escolhe o degrau.
 """
 
 from __future__ import annotations
@@ -47,6 +54,22 @@ CLOUD_LIGHT = (32, 28, 20)                      # quanto a nuvem densa clareia (
 CLOUD_DARK = (46, 40, 30)                       # quanto a faixa escura escurece (#ad875f -> ~#836343)
 GRAIN_TONES = ((0xD8, 0xB5, 0x85), (0xF3, 0xE0, 0xB6), (0x74, 0x55, 0x3A))
 STREAK_COLOR = (0xE4, 0xC7, 0x97)
+
+# ---- cores da nevasca (v0.5 M3.7) -------------------------------------------------------------------
+# Saem da neve do chão: assets/sprites/regions/regions_palettes.json, rampas ICE.frost.storm e BASE.frost.storm
+# do estágio Tempestade (#99b6b7 #b9c6bf #d3cec2 ...). O verde-creme da rampa foi puxado pro azul/branco pra
+# ler como nuvem de neve em cima do chão.
+SNOW_COLOR = (0xA9, 0xBE, 0xC0)                 # fundo da nuvem: média de #99b6b7 e #b9c6bf, um tico mais azul
+SNOW_CLOUD_LIGHT = (30, 32, 36)                 # nuvem densa clareia (#a9bec0 -> ~#c7dee0, perto do #d3cec2 da rampa)
+SNOW_CLOUD_DARK = (38, 34, 28)                  # faixa escura escurece (-> ~#819ca4, perto do #7ca0a8 da rampa)
+SNOW_DETAIL_DARK = (22, 24, 30)
+SNOW_STREAK_COLOR = (0xE6, 0xF0, 0xF4)          # #d3cec2 (topo da rampa) clareado e esfriado
+SNOW_GRAIN_TONES = ((0xDD, 0xEA, 0xEE), (0xF7, 0xFC, 0xFE), (0x7C, 0xA0, 0xA8))   # flocos: #7ca0a8 é o tom escuro
+SNOW_STREAK_ALPHA = 0.7                         # faixas da neve: alfa × isso (mais finas/ralas que as de poeira)
+SNOW_STEPS = 12                                 # degraus do fator de neve nas texturas em cache
+FLAKE_SPEED = 0.55                              # flocos andam nessa fração da velocidade do grão
+FLAKE_ZIGZAG = 24.0                             # px/s de balanço lateral do floco (o grão tem 9)
+FLAKE_SIZE = 1                                  # pixels a mais no lado do floco
 
 # ---- densidade -------------------------------------------------------------------------------------
 CELL = 4                       # px do mundo por célula da camada
@@ -85,6 +108,21 @@ STREAK_SPEED = (190.0, 260.0)  # px/s das faixas (bem mais rápidas que as nuven
 STREAK_LEN = (80, 250)
 STREAK_ANGLES = 32             # direções da faixa em cache
 STREAK_SHAPES = 6              # comprimentos/curvas diferentes
+
+
+def _mix(a, b, k: float) -> tuple[int, ...]:
+    """Interpola cor a→b (k 0..1)."""
+    return tuple(round(x + (y - x) * k) for x, y in zip(a, b))
+
+
+def snow_step(snow: float) -> int:
+    """Degrau (0..SNOW_STEPS) do fator de neve: chave das texturas em cache."""
+    return round(max(0.0, min(1.0, snow)) * SNOW_STEPS)
+
+
+def snow_of(state) -> float:
+    """Fator da nevasca (0 poeira .. 1 neve) pro visual: o do state.weather. Sem tempestade não tem o que mostrar."""
+    return max(0.0, min(1.0, state.weather.snow)) if storm_of(state) > 0 else 0.0
 
 
 # ---- leitura do estado ------------------------------------------------------------------------------
@@ -162,13 +200,18 @@ def _contrast(v: float) -> float:
 _NOISE_CACHE: dict[tuple, pygame.Surface] = {}
 
 
-def noise_tile(kind: str) -> pygame.Surface:
+def noise_tile(kind: str, step: int = 0) -> pygame.Surface:
     """Ladrilho SRCALPHA (NOISE_SIZE de lado) de uma camada. Em cache no módulo.
     kind: "add" (nuvem densa: alfa + clareia), "sub" (véu ralo: alfa − escurece), "detail" (manchas finas,
-    só escurece) e "edge" (ruído da máscara)."""
-    tile = _NOISE_CACHE.get(kind)
+    só escurece) e "edge" (ruído da máscara). `step` (0..SNOW_STEPS) é o degrau de neve: só muda a COR
+    (poeira -> neve); o ruído base é o mesmo e nunca é regerado."""
+    key = kind if kind == "edge" or step <= 0 else (kind, step)
+    tile = _NOISE_CACHE.get(key)
     if tile is not None:
         return tile
+    k = step / SNOW_STEPS
+    light, dark, det = _mix(CLOUD_LIGHT, SNOW_CLOUD_LIGHT, k), _mix(CLOUD_DARK, SNOW_CLOUD_DARK, k), \
+        _mix(DETAIL_DARK, SNOW_DETAIL_DARK, k)
     if "noise" not in _NOISE_CACHE:
         field = fbm_noise()
         base = pygame.Surface((NOISE_SIZE, NOISE_SIZE), pygame.SRCALPHA)
@@ -179,20 +222,20 @@ def noise_tile(kind: str) -> pygame.Surface:
         _NOISE_CACHE["noise"] = base
     base = _NOISE_CACHE["noise"]
     if kind == "add":         # as SMEAR cópias somam: cada uma leva 1/SMEAR (cor e alfa)
-        src, rgb, amp = base, tuple(round(c / SMEAR) for c in CLOUD_LIGHT), CLOUD_AMP / SMEAR
+        src, rgb, amp = base, tuple(round(c / SMEAR) for c in light), CLOUD_AMP / SMEAR
     elif kind == "sub":       # outra parte do mesmo ruído: virado e transposto (continua ladrilhável)
         src = pygame.transform.flip(pygame.transform.rotate(base, 90), True, False)
-        rgb, amp = tuple(round(c / SMEAR) for c in CLOUD_DARK), CLOUD_THIN / SMEAR
+        rgb, amp = tuple(round(c / SMEAR) for c in dark), CLOUD_THIN / SMEAR
     elif kind == "detail":  # metade do tamanho = o dobro da frequência (continua ladrilhável); alfa 0: só escurece
         half = pygame.transform.scale(pygame.transform.flip(base, True, False), (NOISE_SIZE // 2, NOISE_SIZE // 2))
-        src, rgb, amp = half, DETAIL_DARK, 0.0
+        src, rgb, amp = half, det, 0.0
     else:
         src, rgb, amp = pygame.transform.flip(base, True, True), (0, 0, 0), EDGE_AMP
     tile = pygame.Surface(src.get_size(), pygame.SRCALPHA)
     # canal a canal: cor = ruído × rgb/255, alfa = ruído × amp
     tile.fill((*rgb, round(255 * amp)))
     tile.blit(src, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-    _NOISE_CACHE[kind] = tile
+    _NOISE_CACHE[key] = tile
     return tile
 
 
@@ -280,9 +323,10 @@ class DustLayer:
     # -- montagem --
     def render(self, view_size: tuple[int, int], storm: float, gust: float, view_px: float, lights,
                player: tuple[float, float], cam: tuple[float, float] = (0, 0),
-               wind=(1.0, 0.0)) -> pygame.Surface | None:
+               wind=(1.0, 0.0), snow: float = 0.0) -> pygame.Surface | None:
         """Superfície SRCALPHA da poeira (já esticada) ou None sem tempestade. `player`, `lights`
-        [(x, y, raio)] e `view_px` em px da visão. Vai no target em `self.origin`."""
+        [(x, y, raio)] e `view_px` em px da visão. `snow` (0..1) é a nevasca: troca as cores, nada mais.
+        Vai no target em `self.origin`."""
         if storm <= 0:
             return None
         storm = min(1.0, storm)
@@ -299,17 +343,19 @@ class DustLayer:
         gx0, gy0 = math.floor(cam[0] / cell), math.floor(cam[1] / cell)    # célula do mundo no canto
 
         # 1. densidade: fundo + nuvem densa (soma) + véu ralo (subtrai), borrados ao longo do vento
-        small.fill((*DUST_COLOR, round(255 * (DENSITY_BASE + DENSITY_GUST * gust))))
+        step = snow_step(snow)
+        base_rgb = DUST_COLOR if step == 0 else _mix(DUST_COLOR, SNOW_COLOR, step / SNOW_STEPS)
+        small.fill((*base_rgb, round(255 * (DENSITY_BASE + DENSITY_GUST * gust))))
         if self.noise:
             sx, sy = wind[0] * SMEAR_STEP, wind[1] * SMEAR_STEP
-            add, sub = noise_tile("add"), noise_tile("sub")
+            add, sub = noise_tile("add", step), noise_tile("sub", step)
             ax, ay = gx0 - self.scroll_a[0] / cell, gy0 - self.scroll_a[1] / cell
             bx, by = gx0 - self.scroll_b[0] / cell, gy0 - self.scroll_b[1] / cell
             for k in range(SMEAR):
                 _blit_tiled(small, add, (ax + k * sx, ay + k * sy), pygame.BLEND_RGBA_ADD)
                 _blit_tiled(small, sub, (bx + k * sx + 61, by + k * sy + 37), pygame.BLEND_RGBA_SUB)
             dx, dy = gx0 - self.scroll_a[0] * 1.4 / cell, gy0 - self.scroll_a[1] * 1.4 / cell   # anda mais rápido
-            _blit_tiled(small, noise_tile("detail"), (dx + 13, dy + 5), pygame.BLEND_RGBA_SUB)
+            _blit_tiled(small, noise_tile("detail", step), (dx + 13, dy + 5), pygame.BLEND_RGBA_SUB)
 
         # 2. visibilidade: máscara branca, os pontos de vista tiram um degradê, o ruído bagunça a borda
         mask.fill((255, 255, 255, 255))
@@ -339,13 +385,13 @@ class DustLayer:
         return big
 
     def apply(self, target: pygame.Surface, cam, storm: float, gust: float, view_px: float, lights,
-              player, particles: DustParticles | None = None, wind=(1.0, 0.0)) -> None:
+              player, particles: DustParticles | None = None, wind=(1.0, 0.0), snow: float = 0.0) -> None:
         """Desenha a poeira (e as partículas, se vierem) em `target`. Sem tempestade não faz nada."""
-        surf = self.render(target.get_size(), storm, gust, view_px, lights, player, cam, wind)
+        surf = self.render(target.get_size(), storm, gust, view_px, lights, player, cam, wind, snow)
         if surf is None:
             return
         if particles is not None:
-            particles.draw(surf, cam, self.origin, wind, storm, gust)
+            particles.draw(surf, cam, self.origin, wind, storm, gust, snow)
         target.blit(surf, self.origin)
 
 
@@ -357,9 +403,10 @@ class DustParticles:
     def __init__(self, seed: int = 0):
         rng = random.Random(seed)
         span = 4096.0
-        # grão: [x, y, fator de velocidade, tom, tamanho, fase do balanço]
+        # grão: [x, y, fator de velocidade, tom, tamanho, fase do balanço, limiar de floco]
+        # (o grão vira floco quando o fator de neve passa do limiar: a troca é gradual, grão a grão)
         self.grains = [[rng.random() * span, rng.random() * span, rng.uniform(0.6, 1.3), rng.choice((0, 0, 1, 2)),
-                        1 + (rng.random() < 0.25), rng.random() * math.tau] for _ in range(MAX_GRAINS)]
+                        1 + (rng.random() < 0.25), rng.random() * math.tau, rng.random()] for _ in range(MAX_GRAINS)]
         # faixa: [x, y, fator de velocidade, forma, alfa]
         self.streaks = [[rng.random() * span, rng.random() * span, rng.uniform(0.75, 1.25),
                          rng.randrange(STREAK_SHAPES), rng.randrange(50, 105)] for _ in range(MAX_STREAKS)]
@@ -379,13 +426,13 @@ class DustParticles:
         """Quantas partículas (grãos + faixas) aparecem com essa tempestade e rajada (≤ MAX_PARTICLES)."""
         return sum(self.counts(storm, gust))
 
-    def tick(self, t: float, wind, storm: float, gust: float) -> None:
+    def tick(self, t: float, wind, storm: float, gust: float, snow: float = 0.0) -> None:
         """Avança pelo relógio do frame (o Renderer só tem o `t`): dt = diferença, travado em 0,1 s."""
         dt = 0.0 if self._last_t is None else max(0.0, min(0.1, t - self._last_t))
         self._last_t = t
-        self.update(dt, wind, storm, gust)
+        self.update(dt, wind, storm, gust, snow)
 
-    def update(self, dt: float, wind, storm: float, gust: float) -> None:
+    def update(self, dt: float, wind, storm: float, gust: float, snow: float = 0.0) -> None:
         if storm <= 0 or dt <= 0:
             return
         self.time += dt
@@ -396,8 +443,12 @@ class DustParticles:
         px, py = -wy, wx                               # perpendicular: o balanço dos grãos
         tm = self.time
         for gr in self.grains:
-            v = speed * gr[2] * dt
-            wob = math.sin(tm * 3.1 + gr[5]) * 9 * dt
+            if gr[6] < snow:                           # floco: mais lento e com zigue-zague (seno + harmônico)
+                v = speed * gr[2] * FLAKE_SPEED * dt
+                wob = (math.sin(tm * 2.3 + gr[5]) + 0.5 * math.sin(tm * 5.3 + gr[5] * 2)) * FLAKE_ZIGZAG * dt
+            else:
+                v = speed * gr[2] * dt
+                wob = math.sin(tm * 3.1 + gr[5]) * 9 * dt
             gr[0] += wx * v + px * wob
             gr[1] += wy * v + py * wob
         v = (STREAK_SPEED[0] + STREAK_SPEED[1] * g) * s * dt
@@ -405,12 +456,16 @@ class DustParticles:
             st[0] += wx * v * st[2]
             st[1] += wy * v * st[2]
 
-    def streak(self, angle_step: int, shape: int, alpha: int) -> pygame.Surface:
-        """Faixa longa e fina, levemente curva, que acende e apaga nas pontas. Em cache por direção."""
-        key = (angle_step, shape, alpha // 20)
+    def streak(self, angle_step: int, shape: int, alpha: int, step: int = 0) -> pygame.Surface:
+        """Faixa longa e fina, levemente curva, que acende e apaga nas pontas. Em cache por direção e por degrau
+        de neve (`step`: a cor vai do ocre ao branco e o alfa afina)."""
+        key = (angle_step, shape, alpha // 20, step)
         tex = self._streak_tex.get(key)
         if tex is not None:
             return tex
+        k = step / SNOW_STEPS
+        color = STREAK_COLOR if step == 0 else _mix(STREAK_COLOR, SNOW_STREAK_COLOR, k)
+        thin = 1.0 + (SNOW_STREAK_ALPHA - 1.0) * k
         rng = random.Random(shape * 977 + 3)
         length = rng.uniform(*STREAK_LEN)
         bow = rng.uniform(0.04, 0.09) * length * (1 if shape % 2 else -1)
@@ -426,16 +481,16 @@ class DustParticles:
         x0, y0 = min(xs) - 1, min(ys) - 1
         tex = pygame.Surface((int(max(xs) - x0) + 3, int(max(ys) - y0) + 3), pygame.SRCALPHA)
         tex.fill((0, 0, 0, 0))                       # preto transparente: no MAX não mexe na poeira em volta
-        peak = (alpha // 20) * 20 + 10
+        peak = ((alpha // 20) * 20 + 10) * thin
         for i in range(n):
             u = (i + 0.5) / n
             k = math.sin(math.pi * u) ** 1.5
             (ax, ay), (bx, by) = pts[i], pts[i + 1]
-            pygame.draw.line(tex, (*STREAK_COLOR, round(peak * k)), (ax - x0, ay - y0), (bx - x0, by - y0))
+            pygame.draw.line(tex, (*color, round(peak * k)), (ax - x0, ay - y0), (bx - x0, by - y0))
         self._streak_tex[key] = tex
         return tex
 
-    def draw(self, surf: pygame.Surface, cam, origin, wind, storm: float, gust: float) -> None:
+    def draw(self, surf: pygame.Surface, cam, origin, wind, storm: float, gust: float, snow: float = 0.0) -> None:
         """Desenha na camada de poeira `surf` (que vai no target em `origin`). Faixas com BLEND_RGBA_MAX
         (clareiam e nunca diminuem o alfa da poeira); grãos opacos por cima."""
         n_grains, n_streaks = self.counts(storm, gust)
@@ -445,16 +500,22 @@ class DustParticles:
         cx, cy = cam[0] + origin[0], cam[1] + origin[1]   # canto da camada no mundo
         if n_streaks:
             step = round(math.atan2(wind[1], wind[0]) / math.tau * STREAK_ANGLES) % STREAK_ANGLES
+            sstep = snow_step(snow)
+            if len(self._streak_tex) > 600:           # vento girando × degraus de neve: não deixa crescer sem fim
+                self._streak_tex.clear()
             blit = surf.blit
             mx = pygame.BLEND_RGBA_MAX
             pad = STREAK_LEN[1]
             for x, y, _, shape, alpha in self.streaks[:n_streaks]:
-                tex = self.streak(step, shape, alpha)
+                tex = self.streak(step, shape, alpha, sstep)
                 px = (x - cx) % (w + 2 * pad) - pad
                 py = (y - cy) % (h + 2 * pad) - pad
                 blit(tex, (int(px) - tex.get_width() // 2, int(py) - tex.get_height() // 2), special_flags=mx)
         a = round(150 + 90 * min(1.0, storm))
-        tones = [(*c, a) for c in GRAIN_TONES]
+        k = snow_step(snow) / SNOW_STEPS
+        tones = [(*_mix(c, s, k), a) for c, s in zip(GRAIN_TONES, SNOW_GRAIN_TONES)]
         fill = surf.fill
-        for x, y, _, tone, size, _ in self.grains[:n_grains]:
+        for x, y, _, tone, size, _, thr in self.grains[:n_grains]:
+            if thr < snow:
+                size += FLAKE_SIZE                      # floco: um pixel maior
             fill(tones[tone], (int((x - cx) % w), int((y - cy) % h), size, size))
