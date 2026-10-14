@@ -1648,7 +1648,7 @@ class UI:
             side_h = 100
         elif side.is_chest:
             side_h = 100 + LOGI_H + 14
-        elif side.is_drill:
+        elif side.is_drill or side.is_melter:
             side_h = 92 + LOGI_H - LOGI_ROW + 10
         else:
             side_h = 164
@@ -1680,6 +1680,9 @@ class UI:
         elif side.is_drill:
             self._drill_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, mid)
             pairs = [("CLIQUE", "tira a pilha"), ("DIR", "1"), ("ESC", "fecha")]
+        elif side.is_melter:
+            self._melter_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, mid)
+            pairs = [("CLIQUE", "pilha"), ("DIR", "1"), ("SHIFT+CLIQUE", "tudo"), ("ESC", "fecha")]
         else:
             self._station_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, info, mid)
             pairs = [("CLIQUE", "pilha/drone"), ("DIR", "1"), ("ESC", "fecha")]
@@ -1887,6 +1890,29 @@ class UI:
         self._button(mid, "<<\nPEGAR\nTUDO", "take_drill", mouse, drill.stored > 0, "ghost")
         self.draw_logistics(cx + 8, y + 92, GRID_W, drill, item_icon, mouse)
 
+    def _melter_panel(self, melter, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str,
+                      mid: pygame.Rect) -> None:
+        """Derretedor (v0.5 M2): entrada de gelo e saída de cápsulas de água, a barra da próxima cápsula, o estado,
+        "<< PEGAR TUDO" no meio e a seção DRONES (só Envia: os drones tiram as cápsulas)."""
+        t2 = melter.kind.endswith("_t2")
+        self.window(cx, y, pw, h, "Derretedor nv.2" if t2 else "Derretedor", f"{melter.capsules} cáps.", C.C_O2)
+        gx = cx + 8
+        self._section_label("GELO", gx, y + 16)
+        self._section_label("CÁPSULA", gx + SLOT_STEP + 18, y + 16, C.C_O2)
+        self._grid(melter.storage, [C.MELTER_ICE_SLOT], gx, y + SIDE_GRID_Y, item_icon, mouse)
+        self.tx(">", gx + SLOT + 6, y + SIDE_GRID_Y + 3, B_MUTED)
+        self._grid(melter.storage, [C.MELTER_CAPSULE_SLOT], gx + SLOT_STEP + 18, y + SIDE_GRID_Y, item_icon, mouse)
+        bx = gx + 2 * SLOT_STEP + 26
+        bw = GRID_W - (bx - gx)
+        working = melter.ice >= C.MELTER_ICE_PER_CAPSULE and melter.capsule_room > 0
+        fill = melter.timer / C.MELTER_CAPSULE_TIME[melter.kind] if working else 0.0
+        self.bar(bx, y + SIDE_GRID_Y + 3, bw, fill, "#7ad46a" if melter.capsules_full else C.C_O2, h=4)
+        self.tx(self.fit(status, bw), bx, y + SIDE_GRID_Y + 7, C.C_ALERT if melter.capsules_full else B_MUTED)
+        for k, line in enumerate(wrap(self.body, "Clique no gelo pra pôr. Drones levam as cápsulas.", GRID_W)[:2]):
+            self.tx(line, gx, y + SIDE_GRID_Y + 22 + k * 12, B_MUTED, self.body)
+        self._button(mid, "<<\nPEGAR\nTUDO", "take_melter", mouse, not melter.storage.is_empty(), "ghost")
+        self.draw_logistics(gx, y + 92, GRID_W, melter, item_icon, mouse)
+
     def _station_panel(self, machine, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str,
                        info: str | None, mid: pygame.Rect) -> None:
         """Estação: os 4 slots de drone (travados em voo), o buffer como slots (só tirar) e o estado."""
@@ -1995,7 +2021,7 @@ class UI:
         col = x + LOGI_COL
         ry = y + 14
         rows = [("Envia", "send", machine.sends, C.C_ACCENT, drones.can_send)]
-        if not machine.is_drill:
+        if not machine.is_producer:
             rows.append(("Recebe", "recv", machine.receives, C.C_O2, drones.can_receive))
         for label, kind, chosen, color, allowed in rows:
             self.tx(label, x, ry + 2, B_MUTED, self.body)

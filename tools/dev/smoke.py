@@ -1009,6 +1009,57 @@ def check_drill_feature(bot) -> None:
     bot.frames(0.1)
 
 
+def check_melter(bot) -> None:
+    """v0.5 M2: derretedor com inventário. Constrói, E abre o painel, põe gelo (clique no inventário), espera a
+    cápsula, liga o Envia e tira as cápsulas. Prints: derretedor_painel, derretedor_cheio."""
+    s, app = bot.state, bot.app
+    bot.teleport((96, 97))
+    s.o2 = C.O2_MAX
+    bot.frames(0.1)
+    give(s, iron=30, ice=60)
+    site = next((t for t in ((100, 98), (101, 99), (99, 100), (102, 97), (98, 101))
+                 if s.can_place("melter", t)), None)
+    assert site, "sem lugar pro derretedor"
+    melter = build_at(s, "melter", site)
+    bot.teleport((site[0], site[1] + 1))
+    bot.frames(0.2)
+    assert s.interaction() == ("melter", melter) and app.hint() == "[E] Abrir derretedor", app.hint()
+    bot.key(pygame.K_e)
+    assert app.mode == "melter" and app.open_melter is melter
+    bot.frames(DT)
+    assert [v for _, v in app.ui.logistics_buttons if v[0] == "recv"] == []     # ele só envia
+    ice_slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "ice")
+    iron_slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "iron")
+    bot.click(slot_pos(bot, s.inventory, iron_slot))
+    assert app.notice == "O derretedor só aceita gelo" and melter.ice == 0
+    bot.click(slot_pos(bot, s.inventory, ice_slot))
+    assert melter.ice > 0
+    send = next(r for r, v in app.ui.logistics_buttons if v == ("send", "water_capsule"))
+    bot.click((send.centerx * 2, send.centery * 2))
+    assert melter.sends == {"water_capsule"}
+    s._update_melter(melter, C.MELTER_CAPSULE_TIME["melter"] * 3)
+    assert melter.capsules == 3
+    bot.frames(0.2)
+    bot.shot("derretedor_painel.png")
+    s._update_melter(melter, C.MELTER_CAPSULE_TIME["melter"] * 5)
+    assert melter.capsules_full
+    bot.frames(0.2)
+    bot.shot("derretedor_cheio.png")
+    right_click(bot, slot_pos(bot, melter.storage, C.MELTER_CAPSULE_SLOT))      # direito: tira 1
+    assert melter.capsules == max_stack_capsule() - 1 and s.inventory.count("water_capsule") == 1
+    app.on_panel_button("take_melter")
+    assert melter.capsules == 0 and s.inventory.count("water_capsule") == max_stack_capsule()
+    bot.key(pygame.K_ESCAPE)
+    assert app.mode == "play"
+    bot.teleport((96, 97))
+    bot.frames(0.1)
+
+
+def max_stack_capsule() -> int:
+    from game.inventory import max_stack
+    return max_stack("water_capsule")
+
+
 def zoom_crop(bot, world_xy, w: int = 240, h: int = 135, k: int = 2) -> pygame.Surface:
     """Recorte w×h da tela em volta de um ponto do mundo, ampliado k× (sem salvar)."""
     cx, cy = bot.app.cam
@@ -3022,7 +3073,6 @@ def check_crater(bot) -> None:
     bot.frames(0.3)
     assert s.ramp is not None
     bot.shot("cratera_descendo.png")
-    pygame.event.post(pygame.event.Event(pygame.KEYUP, key=pygame.K_e, mod=0, unicode="", scancode=0))
     bot.frames(C.RAMP_DURATION)
     assert s.layer == "cave"
     s.enter_layer("surface", layers.ramp_arrival(w))     # volta: o check_cave refaz a descida inteira
@@ -3068,7 +3118,6 @@ def check_cave(bot) -> None:
     bot.frames(0.42)
     assert s.ramp is not None and s.layer == "surface"
     bot.shot("caverna_transicao.png")
-    pygame.event.post(pygame.event.Event(pygame.KEYUP, key=pygame.K_e, mod=0, unicode="", scancode=0))
     bot.frames(C.RAMP_DURATION)
     cave = s.world
     assert s.layer == "cave" and s.ramp is None and (s.player.x, s.player.y) == layers.ramp_arrival(cave)
@@ -4211,6 +4260,7 @@ def main() -> None:
     bot.key(pygame.K_ESCAPE)
     bot.frames(3.0)                           # deixa o banner do estágio 2 sumir
     check_drill_feature(bot)
+    check_melter(bot)
     check_drones(bot)
     check_logistics(bot)
     check_polish(bot)
