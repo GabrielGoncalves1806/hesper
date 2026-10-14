@@ -1554,10 +1554,12 @@ class App:
                 self.show_toast(C.THAW_GATE_NOTICE, C.THAW_GATE_NOTICE_TIME)
                 self.play_ice_break(collapse=True)
         elif kind == "giant_gate_thaw":       # v0.5 M3.6.3: o portão grande começou a derreter (1) ou abriu a fresta (3)
-            if event[1] >= 3:                     # sem aviso novo por enquanto (a 6.4 põe a mensagem especial e o fim da névoa)
-                geo = self.state.surface.geo
-                for tile in ice_blocks.gate_tiles(geo, ice_blocks.gate_count(geo) - 1):
+            if event[1] >= 3:                     # v0.5 M3.6.4: abriu. O mapa mostra o interior e o gelo gigante, a névoa
+                geo = self.state.surface.geo      # se dissipa (renderer, pocket_fog) e sai a mensagem (a pílula da cratera)
+                for tile in [*ice_blocks.gate_tiles(geo, ice_blocks.gate_count(geo) - 1), *geo.giant.interior,
+                             *geo.giant.giant.tiles]:
                     self.renderer.minimap.repaint(self.state, tile, "surface")
+                self.show_thaw_notice(C.GIANT_OPEN_NOTICE)
                 self.play_ice_break(collapse=True)
         elif kind == "gust":                  # rajada começou (tempestade): volume pelo storm, sem gust.wav fica mudo
             self.audio.play("gust", gain=sound.gust_gain(event[1]))

@@ -26,6 +26,7 @@ TILE_COLORS = {
 }
 VEIN_COLORS = {"iron": (232, 160, 102), "silicon": (195, 209, 226), "ice": (166, 236, 255)}
 UNSEEN = (0, 0, 0)
+FOG_COLOR = (150, 176, 196)             # v0.5 M3.6.4: mancha de névoa no interior fechado do bolsão da criatura
 WATER_COLOR = (63, 118, 144)            # v0.4 M3.3: lago nas bacias (a água da Névoa, PALETTES["mist"]["water"])
 
 
@@ -50,7 +51,10 @@ def _region_colors() -> tuple[tuple, tuple]:
 REGION_COLORS, REGION_ROCK_COLORS = _region_colors()   # índice = região (geo.PLATEAU, SALAR, BASALT, FROST)
 
 
-def tile_color(world, x: int, y: int) -> tuple[int, int, int]:
+def tile_color(world, x: int, y: int, reveal: bool = False) -> tuple[int, int, int]:
+    """Cor do tile no mapa. `reveal` (o F3) ignora o que está escondido (a névoa do bolsão fechado)."""
+    if not reveal and (x, y) in world.hidden_tiles:         # v0.5 M3.6.4: dentro do bolsão fechado, só névoa
+        return FOG_COLOR
     vein = world.vein_at(x, y)
     if vein is not None:
         return VEIN_COLORS[vein.resource]
@@ -122,7 +126,7 @@ class Minimap:
             surf = opaque((world.width, world.height))
             for y in range(world.height):
                 for x in range(world.width):
-                    surf.set_at((x, y), tile_color(world, x, y))
+                    surf.set_at((x, y), tile_color(world, x, y, True))
             self._full[key] = (id(world), surf)
             self._full_water[key] = level
             return surf
@@ -131,7 +135,7 @@ class Minimap:
             self._full_water[key] = level
             ys, xs = (world.geo.basin >= 0).nonzero()
             for x, y in zip(xs.tolist(), ys.tolist()):
-                surf.set_at((x, y), tile_color(world, x, y))
+                surf.set_at((x, y), tile_color(world, x, y, True))
         return surf
 
     def repaint(self, state, tile: tuple[int, int], key: str | None = None) -> None:
@@ -142,7 +146,7 @@ class Minimap:
             return
         full = self._full.get(key)                               # a textura do F3 (se já foi pedida) acompanha também
         if full is not None and full[0] == id(layer.world):
-            full[1].set_at(tile, tile_color(layer.world, *tile))
+            full[1].set_at(tile, tile_color(layer.world, *tile, True))
         cached = self._tex.get(key)
         if cached is None or cached[0] != id(layer.world):
             return

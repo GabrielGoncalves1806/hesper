@@ -14,7 +14,7 @@ C_O2, C_ACCENT = "#59d0e6", "#e2733a"
 # cor de cada marcador (o veio sai na cor do minério)
 COLORS = {"you": "#ffd84a", "base": C_O2, "crater": "#ffffff", "ramp_up": "#7fd6a0", "wreck": "#f2a33a",
           "wreck_empty": "#7a6c62", "terminal": "#7fd6a0", "machine": "#d9dde6", "chest": "#d8b27a",
-          "formation": "#cbb79a", "container": "#efe5da"}
+          "formation": "#cbb79a", "container": "#efe5da", "unknown": "#d6e6f2"}
 VEIN_COLORS = {"iron": "#e8a066", "silicon": "#c3d1e2", "ice": "#a6ecff"}
 RING = "#ffd84a"                 # anel em volta de "você" (alfa 130)
 
@@ -39,6 +39,8 @@ CHEST = ["ooooooooo", "o#######o", "o-------o", "o###d###o", "o#######o", "ooooo
 FORMATION = ["...o...", "..o+o..", ".o#+-o.", ".o##-o.", "o###--o", "ooooooo"]
 # contêiner lacrado (v0.4 Marco 3 · M3.2): caixa industrial com a faixa laranja e o lacre no meio
 CONTAINER = ["ooooooooo", "o#######o", "o-------o", "osssdssso", "o###d###o", "ooooooooo"]
+# desconhecido (v0.5 M3.6.4): o "?" na névoa do bolsão da criatura, até o portão grande abrir
+UNKNOWN = [".ooooo.", "o#####o", "o#ooo#o", "ooooo#o", "..o##o.", "..o#oo.", "..ooo..", "..o#o..", "..ooo.."]
 ROTATION = {"up": 0, "left": 90, "down": 180, "right": 270}   # graus anti-horário (a seta desenhada aponta pra cima)
 
 _cache: dict[tuple, pygame.Surface] = {}
@@ -87,6 +89,8 @@ def _draw(kind: str, color, direction: str) -> pygame.Surface:
         return _pix(CHEST, cm)
     if kind == "formation":
         return _pix(FORMATION, cm)
+    if kind == "unknown":
+        return _pix(UNKNOWN, cm)
     if kind == "container":
         cm["s"] = C_ACCENT
         return _pix(CONTAINER, cm)

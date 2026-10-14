@@ -593,7 +593,8 @@ def test_minimap_paints_the_ground_by_region():
     seen = set()
     for y in range(0, world.height, 3):
         for x in range(0, world.width, 3):
-            if world.get(x, y) == C.SAND and world.vein_at(x, y) is None and (x, y) not in world.closed_gate_tiles:   # (o portão fechado pinta como pegada)
+            if world.get(x, y) == C.SAND and world.vein_at(x, y) is None and (x, y) not in world.closed_gate_tiles \
+                    and (x, y) not in world.hidden_tiles:   # (o portão fechado pinta como pegada, o bolsão fechado como névoa)
                 assert minimap.tile_color(world, x, y) == minimap.REGION_COLORS[geo.region[y, x]]
                 seen.add(int(geo.region[y, x]))
     assert seen == {0, 1, 2, 3}

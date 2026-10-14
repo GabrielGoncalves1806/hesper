@@ -37,6 +37,7 @@ from game import ground
 from game import hills
 from game import ice_blocks
 from game import ice_giant
+from game.pocket_fog import PocketFog
 from game import lake
 from game import layers
 from game import smoke
@@ -237,6 +238,7 @@ class Renderer:
         self.frost_field = hills.FrostRing("frost_field.png")  # geada grande do gelo gigante (v0.5 M3.6.2)
         self.giant_breath = ice_giant.Breath(C.WORLD_SEED)   # a respirada do gelo gigante (refeita a cada seed)
         self.giant_shards: list = []                          # estilhaços dele (IceBlock sem colisão), cache por seed
+        self.pocket_fog = PocketFog()                         # névoa do bolsão da criatura (M3.6.4)
         self.anim_t = 0.0                                     # relógio do último draw (a animação da respirada)
         # v0.4 M3.1: fumaça das fumarolas acordadas (game/smoke.py), partícula; relógio próprio pelo `t` do draw
         self.vent_smoke = smoke.VentSmoke(seed=C.WORLD_SEED)
@@ -360,6 +362,7 @@ class Renderer:
         self.draw_particles(canvas, cam)
         if not cave:
             self.draw_vent_smoke(canvas, state, cam, t)
+            self.draw_pocket_fog(canvas, state, cam, t)
         if cave:
             self.draw_cave_darkness(canvas, state, cam, t)
             # rachaduras e fantasma por cima do escuro: o jogador precisa ver onde está mexendo
@@ -388,6 +391,7 @@ class Renderer:
         self._vents_seen = None
         self.giant_breath = ice_giant.Breath(seed)
         self.giant_shards = []
+        self.pocket_fog = PocketFog()
 
     def draw_storm(self, canvas, state: GameState, cam, t: float) -> None:
         """Tempestade de poeira (game/dust.py): poeira com a visão recortada + grãos e faixas de vento.
@@ -402,6 +406,15 @@ class Renderer:
         lights = dust.vision_lights(state, cam, view_tiles * T)
         (px, py, view_px), extra = lights[0], lights[1:]
         self.storm_dust.apply(canvas, cam, storm, gust, view_px, extra, (px, py), self.storm_particles, wind, snow)
+
+    def draw_pocket_fog(self, canvas, state: GameState, cam, t: float) -> None:
+        """Névoa fria do bolsão da criatura (v0.5 M3.6.4, game/pocket_fog.py): por cima das formações e dos estilhaços,
+        antes da luz (a noite escurece a névoa junto) e da HUD. Sem bolsão grande, ou depois de dissipada: nada."""
+        geo = state.active.geo
+        if geo is None or getattr(geo, "giant", None) is None:
+            return
+        alpha = self.pocket_fog.update(state.active, t)
+        self.pocket_fog.draw(canvas, geo, cam, t, alpha)
 
     def draw_rain(self, canvas, state: GameState, t: float) -> None:
         """Chuva (v0.4 M3.3, game/rain.py): véu frio + traços no ângulo do vento, por cima do clima do estágio e
