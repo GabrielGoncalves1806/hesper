@@ -56,7 +56,7 @@ class PerfMeter:
         box = pygame.Surface((label.get_width() + 2 * pad, label.get_height() + 2 * pad), pygame.SRCALPHA)
         box.fill((10, 8, 20, 170))
         box.blit(label, (pad, pad))
-        window.blit(box, (8, window.get_height() - box.get_height() - 8))
+        window.blit(box, (16, window.get_height() - box.get_height() - 16))   # longe da borda (o canto da janela corta)
 
     def _load_font(self) -> bool:
         from game.assets import load_font

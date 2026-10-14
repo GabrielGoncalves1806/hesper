@@ -705,7 +705,7 @@ GROUND_DECOR_P = 0.035           # chance de decoração solta (lasca, cristal, 
 # Cobertura do estágio por cima do chão assado (v0.4 Marco 3 · porte do `Scene.cover_layer` da Designer · bíblia §11)
 GROUND_COVER_CELL = 5.0          # tiles: tamanho da célula do ruído das manchas (fbm de 3 oitavas, domínio deformado)
 GROUND_COVER_SEED = 313          # seed do ruído das manchas (soma a seed do mundo)
-GROUND_GRASS_THR = (0.47, 0.70, 0.58, 0.48, 0.40)   # limiar da grama por classe: planalto, salar, basalto, gelada, leito
+GROUND_GRASS_THR = (0.45, 0.70, 0.58, 0.48, 0.40)   # limiar da grama por classe: planalto, salar, basalto, gelada, leito (planalto 0,47 → 0,45: o dono quis mais grama no Verde, ~58% → ~65%)
 GROUND_GRASS_NEAR = 0.12         # perto da bacia o limiar cai isso (mais grama na beira)
 GROUND_MIST_THR = 0.56           # Névoa: acima disso o chão fica úmido
 GROUND_MIST_DAMP = (0.80, 0.84, 0.90)   # Névoa: multiplicador RGB do chão úmido

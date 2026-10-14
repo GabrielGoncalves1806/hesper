@@ -73,7 +73,7 @@ def test_cover_does_not_depend_on_strip_size(geo, art, monkeypatch):
 
 
 def test_green_plateau_is_a_reasonable_share_grass(geo, art):
-    """No design as manchas cobrem 40–60% do planalto; aqui o planalto (fora do leito) dá ~58%."""
+    """No design as manchas cobrem 40–60% do planalto; o dono pediu mais grama no Verde: ~65% (limiar 0,45)."""
     ctx = G.BakeContext(geo)
     grass = total = 0
     for key in blocks_where(geo, geo.region == PLATEAU, 24, 0.6):
@@ -82,7 +82,7 @@ def test_green_plateau_is_a_reasonable_share_grass(geo, art):
         grass += ((cover & 15) > 0)[m].sum()
         total += m.sum()
     assert total > 2_000_000
-    assert 0.40 <= grass / total <= 0.65, grass / total
+    assert 0.55 <= grass / total <= 0.78, grass / total
 
 
 def test_arid_has_no_grass_and_mist_has_no_grass(geo, art):
