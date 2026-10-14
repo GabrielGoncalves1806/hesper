@@ -424,7 +424,7 @@ def test_map_layout_fits_every_interface_size(app, ui_size, window):
         for axis in (0, 1):
             vis = view.visible_tiles()[axis]
             o = view.origin()[axis]
-            assert (o == pytest.approx(0)) if vis < 192 else (o == pytest.approx(96 - vis / 2)), (axis, o, vis)
+            assert (o == pytest.approx(0)) if vis < C.SURFACE_W else (o == pytest.approx(C.SURFACE_W / 2 - vis / 2)), (axis, o, vis)
         view.pan(100_000, 100_000)
     s.surface.machines[:] = [m for m in s.surface.machines if m.kind not in ("o2", "chest")]
     app.close_map()

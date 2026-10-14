@@ -68,7 +68,7 @@ def test_minimap_texture_is_incremental(monkeypatch):
     mm = minimap.Minimap()
     tex = mm.texture(g)
     tx, ty = g.player.tile
-    assert tex.get_size() == (192, 192)
+    assert tex.get_size() == (C.SURFACE_W, C.SURFACE_H)
     assert tex.get_at((tx, ty))[:3] != minimap.UNSEEN and tex.get_at((tx + 40, ty))[:3] == minimap.UNSEEN
     painted = []
     monkeypatch.setattr(minimap, "tile_color", lambda w, x, y: painted.append((x, y)) or (1, 2, 3))

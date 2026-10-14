@@ -9,7 +9,7 @@ Telas (`self.screen`):
                 e VOLTAR. Enquanto o formulário está aberto a digitação do SDL fica ligada (quem liga e
                 desliga é o App, olhando `wants_text`).
 
-Save de uma versão antiga no saves/slot1.json (v1–v6, que o v0.4 não carrega e não migra): "Continuar"
+Save de uma versão antiga no saves/slot1.json (v1–v9, que o jogo não carrega nem migra): "Continuar"
 aparece apagado e embaixo do menu vem o aviso "Save de uma versão antiga · comece um novo mundo".
 
 O App (app.py) repassa teclado/mouse/texto pra cá e recebe de volta uma ação:

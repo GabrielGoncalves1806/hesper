@@ -178,7 +178,7 @@ def run_worker(driver: str, out: Path) -> None:
     bot.capture("inventario")
     bot.key(pygame.K_TAB)
 
-    bot.teleport((96, 97))
+    bot.teleport(smoke.t192(96, 97))
     bot.frames(0.2)
     bot.key(pygame.K_e)
     assert app.mode == "fabricator"
@@ -186,7 +186,7 @@ def run_worker(driver: str, out: Path) -> None:
     bot.capture("fabricador")
     bot.key(pygame.K_ESCAPE)
 
-    spot = next(t for t in ((96, 100), (94, 100), (98, 100), (93, 98), (99, 98)) if s.can_place("chest", t))
+    spot = next(t for t in map(lambda p: smoke.t192(*p), ((96, 100), (94, 100), (98, 100), (93, 98), (99, 98))) if s.can_place("chest", t))
     s.inventory.add("constructor", 1)                    # v0.5 M1: máquina só pelo construtor
     s.inventory.add("iron", C.MACHINES["chest"].cost["iron"])
     assert s.build("chest", spot)
@@ -195,7 +195,7 @@ def run_worker(driver: str, out: Path) -> None:
     # a luz de scanner (v0.5 M1) na janela de verdade: uma máquina no meio da construção
     s.inventory.add("iron", 1)
     s.inventory.add("silicon", 1)
-    lamp_spot = next(t for t in ((95, 100), (97, 100), (94, 99), (98, 99)) if s.can_place("lamp", t))
+    lamp_spot = next(t for t in map(lambda p: smoke.t192(*p), ((95, 100), (97, 100), (94, 99), (98, 99))) if s.can_place("lamp", t))
     assert s.build("lamp", lamp_spot)
     bot.frames(C.BUILD_TIME / 2)
     bot.capture("construindo")

@@ -233,7 +233,7 @@ def _region_px(region: np.ndarray, seed: int, px, py):
 def generate_geo(seed: int, w: int, h: int, base: tuple[int, int]) -> Geo:
     rng = np.random.default_rng([seed & 0xFFFFFFFF, 2026, 13])
     s = (seed & 0xFFFF) * 16                      # desloca as sementes do ruído pela seed do mundo
-    sx, sy = w / 192, h / 192                     # os números do config são pra um deserto 192×192
+    sx, sy = w / C.GEO_REF_SIZE, h / C.GEO_REF_SIZE   # os números GEO_* do config são pra um deserto de GEO_REF_SIZE; as regiões acompanham o mapa
     bx, by = base
     ys, xs = np.mgrid[0:h, 0:w].astype(float)
 

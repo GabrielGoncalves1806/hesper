@@ -1,6 +1,6 @@
 """Gerador da SUPERFÍCIE (bíblia §9 e §11 · v0.4 Marco 2, "Geografia nova").
 
-Monta um `World` de 192×192 com a mesma interface do mapa antigo, então todo o resto do jogo
+Monta um `World` do tamanho da superfície (SURFACE_W×SURFACE_H) com a mesma interface do mapa antigo, então todo o resto do jogo
 (colisão, mineração, render, transição de estágio, água e plantas) funciona igual. Ordem:
 
     geografia (game/geo.py: relevo, regiões, bacias, formações, bolsões)  →  areia + lowness
@@ -205,7 +205,8 @@ def _hills(world: World, rng: random.Random) -> None:
     lo, hi = C.HILLS
     geo = world.geo
     hrng = random.Random(world.seed * 104729 + 7)
-    target = rng.randint(lo, hi)
+    area = (world.width * world.height) / C.GEO_REF_SIZE ** 2   # v0.5 M3.1: a contagem acompanha a área (C.HILLS é pro de GEO_REF_SIZE)
+    target = round(rng.randint(lo, hi) * area)
     placed, tries = 0, 0
     cx0, cy0 = world.center
     top = max(C.HILL_REGION_WEIGHT.values())
@@ -214,7 +215,7 @@ def _hills(world: World, rng: random.Random) -> None:
         taken |= set(f.box) if f.small else _ring(f.box, C.FORMATION_HILL_GAP - 2)
     for p in geo.pockets:
         taken |= set(p.ring) | set(p.apron) | set(p.interior)
-    while placed < target and tries < 4000:
+    while placed < target and tries < round(4000 * area):
         tries += 1
         size = hrng.randint(*C.HILL_SIZE)
         x0 = hrng.randint(5, world.width - 6 - size)
@@ -363,7 +364,7 @@ def _veins(world: World, rng: random.Random) -> None:
     rng.shuffle(resources)
     resources += [rng.choice(C.VEIN_RESOURCES) for _ in range(count - len(resources))]
     cx, cy = world.center
-    max_dist = min(world.width, world.height) / 2 - 8
+    max_dist = min(min(world.width, world.height) / 2 - 8, C.SURFACE_VEIN_MAX_DIST)
     crater = world.crater
 
     def ok(tx, ty):

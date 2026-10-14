@@ -10,7 +10,7 @@ from game import save
 from game import surface_gen
 from game.objectives import OBJECTIVES, MAGMATITE_HINT, ObjectiveTracker, current_index
 from game.systems import GameState, Machine
-from tests.helpers import give
+from tests.helpers import from_192, give
 
 SEEDS = (1, 7, 42)
 
@@ -211,7 +211,7 @@ def _state_at_magmatite_objective() -> GameState:
     g.mined_total.update(iron=10, silicon=4)
     g.fabricator_opened = True
     g.crafted.update(constructor=1, o2=1, chest=1, melter=1)
-    g.surface.machines.append(Machine("o2", 93, 98))
+    g.surface.machines.append(Machine("o2", *from_192(93, 98)))
     g.indices["o2"] = 500
     return g
 
@@ -247,11 +247,10 @@ def test_save_round_trip_keeps_magmatite():
     assert back.surface.rocks.vent_timers == [3.0, 50.0]
 
 
-def test_old_v7_save_without_magmatite_loads():
+def test_old_save_without_magmatite_fields_loads():
     g = GameState(7)
     give(g, iron=5)
     data = json.loads(json.dumps(save.state_to_dict(g)))
-    data["version"] = 7                                                   # um save v7 (o v8 é do v0.5 M1)
     del data["progress"]["mined_total"]["magmatite"]
     del data["progress"]["drill_collected"]["magmatite"]
     del data["layers"]["surface"]["rocks"]["vents"]

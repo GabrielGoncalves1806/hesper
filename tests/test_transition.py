@@ -5,9 +5,9 @@ import random
 from game import config as C
 from game.systems import GameState
 from game.transition import BASE_SOURCE, StageMap, front_distance, tile_stage, window_progress
-from tests.helpers import build_now
+from tests.helpers import build_now, from_192
 
-SOURCES = [BASE_SOURCE, (93, 98), (99, 98)]
+SOURCES = [BASE_SOURCE, from_192(93, 98), from_192(99, 98)]
 TILES = [(x, y) for x in range(0, C.SURFACE_W, 5) for y in range(0, C.SURFACE_H, 5)]
 
 
@@ -52,7 +52,7 @@ def test_spot_starts_near_the_base_and_reaches_the_edges():
 
 
 def test_machines_are_sources_too():
-    far = (100, 100)
+    far = from_192(100, 100)
     ti = ti_at(1, 0.25)
     assert tile_stage(*far, ti, [BASE_SOURCE]) == 1
     assert tile_stage(*far, ti, [BASE_SOURCE, far]) == 2
@@ -98,7 +98,7 @@ def test_stage_map_only_rebuilds_on_new_step_or_new_source():
     m = StageMap()
     ti = ti_at(1, 0.505)              # meio do degrau 50 (longe da borda do degrau)
     m.update(ti, SOURCES)
-    m.stage_at(96, 96)
+    m.stage_at(*C.BASE_TILE)
     assert m._stages
     m.update(ti + 1, SOURCES)                        # mesmo degrau: cache continua
     assert m._stages
@@ -111,7 +111,7 @@ def test_stage_map_only_rebuilds_on_new_step_or_new_source():
 def test_placed_machines_stay_as_sources_forever():
     game = GameState(rng=random.Random(1))
     game.player.x, game.player.y = C.SPAWN_POS
-    assert build_now(game, "o2", (93, 98))
-    assert (93, 98) in game.transition_sources
+    assert build_now(game, "o2", from_192(93, 98))
+    assert from_192(93, 98) in game.transition_sources
     game.machines.clear()                            # "desmontar" (outro branch): a marca fica
-    assert (93, 98) in game.transition_sources
+    assert from_192(93, 98) in game.transition_sources

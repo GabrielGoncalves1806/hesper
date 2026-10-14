@@ -2,7 +2,7 @@
 
 É incremental: na primeira vez que uma camada é pedida, pinta tudo que o `Explored` dela já marcou; depois,
 a cada frame, só os tiles novos (`Explored.take_fresh`) e os que mudaram (mineração: `repaint`). Nunca
-redesenha 192×192 por frame. Minimapa e mapa grande (game/ui.py) recortam/esticam essa textura e põem os
+redesenha a superfície inteira por frame. Minimapa e mapa grande (game/ui.py) recortam/esticam essa textura e põem os
 marcadores por cima.
 """
 
@@ -69,15 +69,21 @@ class Minimap:
     def __init__(self):
         self._tex: dict[str, tuple[int, pygame.Surface]] = {}   # camada -> (id do mundo, textura)
         self._water: dict[str, float] = {}                       # camada -> nível d'água com que foi pintada
+        self._full: dict[str, tuple[int, pygame.Surface]] = {}   # F3: camada -> (id do mundo, textura da camada inteira)
+        self._full_water: dict[str, float] = {}
 
     def reset(self) -> None:
         """Jogo novo/carregado: esquece as texturas (o App chama no start_game)."""
         self._tex.clear()
+        self._full.clear()
+        self._full_water.clear()
 
     def texture(self, state, key: str | None = None) -> pygame.Surface:
         """Textura atualizada da camada `key` (padrão: a ativa)."""
         key = key or state.layer
         layer = state.layers[key]
+        if state.fast:                                          # F3: o mapa inteiro, sem tocar no explorado
+            return self._full_texture(layer, key)
         world, explored = layer.world, layer.explored
         cached = self._tex.get(key)
         if cached is None or cached[0] != id(world):            # jogo novo/carregado: pinta do zero (com a água)
@@ -106,12 +112,39 @@ class Minimap:
             surf.set_at((x, y), tile_color(world, x, y))
         return surf
 
+    def _full_texture(self, layer, key: str) -> pygame.Surface:
+        """Textura da camada inteira (F3 revela o mapa): pinta tudo na primeira vez e guarda; depois só o lago
+        (se subiu) e o que a mineração mudar (`repaint`). Não usa nem altera o `Explored`."""
+        world = layer.world
+        cached = self._full.get(key)
+        level = getattr(world, "water_level", -1.0)
+        if cached is None or cached[0] != id(world):
+            surf = opaque((world.width, world.height))
+            for y in range(world.height):
+                for x in range(world.width):
+                    surf.set_at((x, y), tile_color(world, x, y))
+            self._full[key] = (id(world), surf)
+            self._full_water[key] = level
+            return surf
+        surf = cached[1]
+        if level != self._full_water.get(key) and world.geo is not None:
+            self._full_water[key] = level
+            ys, xs = (world.geo.basin >= 0).nonzero()
+            for x, y in zip(xs.tolist(), ys.tolist()):
+                surf.set_at((x, y), tile_color(world, x, y))
+        return surf
+
     def repaint(self, state, tile: tuple[int, int], key: str | None = None) -> None:
         """Um tile mudou (minerado): se já foi pintado, pinta de novo."""
         key = key or state.layer
-        cached = self._tex.get(key)
         layer = state.layers.get(key)
-        if cached is None or layer is None or cached[0] != id(layer.world):
+        if layer is None:
+            return
+        full = self._full.get(key)                               # a textura do F3 (se já foi pedida) acompanha também
+        if full is not None and full[0] == id(layer.world):
+            full[1].set_at(tile, tile_color(layer.world, *tile))
+        cached = self._tex.get(key)
+        if cached is None or cached[0] != id(layer.world):
             return
         if layer.explored.seen(*tile):
             cached[1].set_at(tile, tile_color(layer.world, *tile))

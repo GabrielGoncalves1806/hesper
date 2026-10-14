@@ -2089,7 +2089,7 @@ class App:
         saved = None
         if slot is not None and world_list[slot - 1].playable:
             saved = worlds.load(slot)[1]
-        old = saved is None and worlds.legacy_status() == "old"   # slot1.json v1–v6: avisa "save antigo"
+        old = saved is None and worlds.legacy_status() == "old"   # slot1.json v1–v9: avisa "save antigo"
         if saved is None and slot is not None and world_list[slot - 1].status == "old":
             old = True
         self.title.open(saved, old=old, world_list=world_list, slot=slot if saved else None)

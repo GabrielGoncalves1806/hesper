@@ -20,7 +20,7 @@ def pocket_rock(w) -> set:
 
 
 def test_size_seed_and_copy():
-    assert (W.width, W.height) == (192, 192) and W.floor_kind == C.SAND
+    assert (W.width, W.height) == (C.SURFACE_W, C.SURFACE_H) and W.floor_kind == C.SAND
     assert W.center == C.BASE_TILE
     assert generate_surface(C.WORLD_SEED).tiles == W.tiles
     assert generate_surface(C.WORLD_SEED + 1).tiles != W.tiles
@@ -31,14 +31,15 @@ def test_size_seed_and_copy():
 
 
 def test_border_is_bedrock_2_to_3_thick():
-    for i in range(192):
-        for x, y in ((i, 0), (i, 1), (0, i), (1, i), (i, 191), (i, 190), (191, i), (190, i)):
+    n = C.SURFACE_W
+    for i in range(n):
+        for x, y in ((i, 0), (i, 1), (0, i), (1, i), (i, n - 1), (i, n - 2), (n - 1, i), (n - 2, i)):
             assert W.get(x, y) == C.BEDROCK
     assert not W.is_minable(0, 50)
     rings = pocket_rock(W)                                      # Marco 2: a cordilheira desce nos bolsões
-    assert all(W.get(x, y) != C.BEDROCK for y in range(3, 189) for x in range(3, 189) if (x, y) not in rings)
-    thick3 = sum(W.get(2, y) == C.BEDROCK for y in range(3, 189))
-    assert 0 < thick3 < 186                                     # a espessura varia (2 ou 3)
+    assert all(W.get(x, y) != C.BEDROCK for y in range(3, n - 3) for x in range(3, n - 3) if (x, y) not in rings)
+    thick3 = sum(W.get(2, y) == C.BEDROCK for y in range(3, n - 3))
+    assert 0 < thick3 < n - 6                                     # a espessura varia (2 ou 3)
 
 
 def test_base_area_is_clear_sand():
@@ -132,7 +133,7 @@ def test_sand_variants_follow_the_designer_distribution():
 
 
 def _hill_walls(w):
-    return {(x, y) for y in range(3, 189) for x in range(3, 189) if w.get(x, y) in HILL_TILES}
+    return {(x, y) for y in range(3, w.height - 3) for x in range(3, w.width - 3) if w.get(x, y) in HILL_TILES}
 
 
 def test_hills_have_no_loose_diagonals_or_spurs():
@@ -152,7 +153,7 @@ def test_hills_have_no_loose_diagonals_or_spurs():
 def test_hill_count_and_mass_stay_close():
     """A forma nova não muda o tamanho do deserto: 26–34 morros (v0.4 Marco 2: bacia e salar sem morro, então
     o alvo subiu de 24–32 pra manter a massa) e ~500–850 tiles de rocha."""
-    lo, hi = C.HILLS
+    lo, hi = (round(v * C.SURFACE_AREA_SCALE) for v in C.HILLS)   # v0.5 M3.1: a contagem acompanha a área do mapa
     for seed in (1, 2, 3, C.WORLD_SEED):
         walls = _hill_walls(generate_surface(seed))
         seen, hills = set(), 0
@@ -168,7 +169,7 @@ def test_hill_count_and_mass_stay_close():
                 seen.add(t)
                 stack += [(t[0] + 1, t[1]), (t[0] - 1, t[1]), (t[0], t[1] + 1), (t[0], t[1] - 1)]
         assert lo - 2 <= hills <= hi, (seed, hills)
-        assert 500 <= len(walls) <= 850, (seed, len(walls))
+        assert 500 * C.SURFACE_AREA_SCALE <= len(walls) <= 850 * C.SURFACE_AREA_SCALE, (seed, len(walls))
 
 
 # ---------------------------------------------------------------------------------------------------------------

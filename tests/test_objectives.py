@@ -7,7 +7,7 @@ import pytest
 from game import config as C
 from game.objectives import FLASH_TIME, OBJECTIVES, ObjectiveTracker, current_index
 from game.systems import GameState, Machine
-from tests.helpers import build_now, give
+from tests.helpers import build_now, from_192, give
 
 
 @pytest.fixture
@@ -57,7 +57,7 @@ def test_normal_sequence_walks_every_objective(game):
     craft_free(game, "constructor"); step()     # v0.5 M1: o construtor é a 1ª receita
     game.mined_total["silicon"] = 4; step()
     craft_free(game, "o2"); step()
-    place_at(game, "o2", (93, 98)); step()
+    place_at(game, "o2", from_192(93, 98)); step()
     craft_free(game, "chest"); step()
     craft_free(game, "melter"); step()          # v0.4 M3: o trio do aquecedor vem antes da cratera (dono)
     game.indices["o2"] = 500; step()
@@ -126,10 +126,10 @@ def test_generator_far_from_base_does_not_count(game):
     game.fabricator_opened = True
     craft_free(game, "constructor")
     craft_free(game, "o2")
-    place_at(game, "o2", (96, 122))              # bem longe da cápsula
+    place_at(game, "o2", from_192(96, 122))              # bem longe da cápsula
     assert current_text(game) == "Construa o gerador perto da base"
     craft_free(game, "o2")
-    place_at(game, "o2", (98, 98))
+    place_at(game, "o2", from_192(98, 98))
     assert current_text(game) == "Construa um baú"
 
 
@@ -207,7 +207,7 @@ def test_everything_done_list_disappears(game):
     game.fabricator_opened = True
     for kind in ("constructor", "o2", "chest", "melter", "heater", "solar", "o2_t2", "drone_station"):
         craft_free(game, kind)
-    place_at(game, "o2", (93, 98))
+    place_at(game, "o2", from_192(93, 98))
     game.read_terminal(0)
     game.enter_layer("cave")
     game.enter_layer("surface")
