@@ -1566,7 +1566,7 @@ def ui_to_window(app, rect) -> tuple[int, int]:
 def check_build_menu(bot) -> None:
     """v0.5 M1 · menu do construtor nos 3 tamanhos de interface (janela 1920×1080): construtor na mão, E (com o
     mouse no nada) abre o menu com as abas de categoria; clique na aba Luz e na linha da luminária; o detalhe conta só
-    o inventário (a luminária forte "???" sem projeto); na Pequena, clica em CONSTRUIR e confere o modo de construir.
+    o inventário (a luminária forte "???" sem diagrama); na Pequena, clica em CONSTRUIR e confere o modo de construir.
     A aba Fabricar do Tab saiu. Prints: construtor_menu_<tamanho>.png."""
     s, app = bot.state, bot.app
     slots_before = [Stack(st.item, st.count) if st else None for st in s.inventory.slots]
@@ -1798,12 +1798,12 @@ def check_ui_size(bot) -> None:
         right = app.ui.ti_panel_x + TI_PANEL_W
         assert round(right * k) == 1920 - round(6 * k), (ui_size, right, k)
         bot.shot(f"hud_{ui_size}.png")
-        # aviso de projeto com o ícone, no projeto de nome mais comprido (cabe entre O₂ e Ti nos 3 tamanhos)
+        # aviso de diagrama com o ícone, no diagrama de nome mais comprido (cabe entre O₂ e Ti nos 3 tamanhos)
         app.blueprint_notice, app.blueprint_notice_time = "scanner", C.BLUEPRINT_NOTICE_TIME
         bot.frames(0.1)
         rect, icon = app.ui.blueprint_notice_layout("scanner")
         assert rect.y == 6 and app.ui.BANNER_GAP[0] < rect.left and rect.right < app.ui.BANNER_GAP[1], rect
-        bot.shot(f"projeto_{ui_size}.png")
+        bot.shot(f"diagrama_{ui_size}.png")
         app.blueprint_notice_time = 0.0
         # floaters subindo pra dentro do painel do Ti/energia e do de O₂: somem antes de entrar embaixo
         ui = app.ui
@@ -3139,7 +3139,7 @@ def check_map_panorama(bot) -> None:
 
 
 def check_wrecks(bot) -> None:
-    """v0.3 Marco 3 · destroços, caixa, projeto, fabricador trancado, equipamento, tanque, minimapa e mapas."""
+    """v0.3 Marco 3 · destroços, caixa, diagrama (achar, ler na bancada), fabricador trancado, equipamento, tanque, minimapa e mapas."""
     from game import layers
     from game.systems import Machine
     s, app = bot.state, bot.app
@@ -3160,26 +3160,27 @@ def check_wrecks(bot) -> None:
     assert app.hint().startswith("Nave de carga · destroço"), app.hint()
     bot.shot("destrocos_deserto.png")
     assert 0 in s.wrecks_visited
-    # 2) E na caixa: 1ª vez = registro de bordo (LOG 04), projeto do tanque já liberado
+    # 2) E na caixa: 1ª vez = registro de bordo (LOG 04); o diagrama fica na caixa (não libera nada)
     bot.mouse_to(bot.tile_on_screen(cargo.crate))
     bot.frames(0.1)
     assert app.hint() == "[E] Abrir caixa de saque", app.hint()
     assert s.recipe_status("o2_tank") == "blueprint"
     bot.key(pygame.K_e)
-    assert app.mode == "terminal" and app.terminal_index == 3 and "o2_tank" in s.blueprints
+    assert app.mode == "terminal" and app.terminal_index == 3 and "o2_tank" not in s.blueprints
     bot.frames(0.3)
     bot.shot("registro_bordo.png")
     bot.key(pygame.K_e)                         # continua: abre a caixa
     assert app.mode == "crate" and app.open_crate is crate
     bot.mouse_to((480, 420))
     bot.frames(0.3)
-    bot.shot("projeto_encontrado.png")
+    bot.shot("diagrama_encontrado.png")
     bot.frames(C.BLUEPRINT_NOTICE_TIME)
     bot.shot("destroco_caixa.png")
     take = next(r for r, a in app.ui.panel_buttons if a == "take_crate")
     before = s.inventory.count("iron")
     bot.click((take.centerx * 2, take.centery * 2))
     assert crate.empty and s.inventory.count("iron") > before
+    assert s.inventory.count("diagram_o2_tank") == 1 and "o2_tank" not in s.blueprints   # item no inventário
     bot.frames(0.2)
     bot.shot("destroco_caixa_vazia.png")
     bot.key(pygame.K_ESCAPE)
@@ -3199,7 +3200,7 @@ def check_wrecks(bot) -> None:
     bot.key(pygame.K_e)
     assert app.mode == "terminal" and app.terminal_index == 4
     bot.key(pygame.K_e)
-    # 4) fabricador: o tanque liberado, o scanner ainda "???"
+    # 4) fabricador: tanque e scanner "???" até ler o diagrama; a área Diagramas lista o do tanque + um do scanner
     bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
     s.o2 = C.O2_MAX
     give(s, iron=30, silicon=20, ice=10)
@@ -3208,8 +3209,25 @@ def check_wrecks(bot) -> None:
     app.fab.set_tab([t for t, _ in C.CRAFT_TABS].index("suit"))
     bot.mouse_to((900, 500))
     bot.frames(0.2)
-    assert s.recipe_status("scanner") == "blueprint" and s.recipe_status("o2_tank") == "ok"
-    bot.shot("fabricador_projeto_trancado.png")
+    assert s.recipe_status("scanner") == "blueprint" and s.recipe_status("o2_tank") == "blueprint"
+    s.inventory.add("diagram_scanner", 1)
+    bot.shot("fabricador_diagrama_trancado.png")
+    for ui_size in ("grande", "media", "pequena"):             # a área Diagramas (2 diagramas) nos 3 tamanhos
+        app.set_ui_size(ui_size)
+        bot.frames(0.2)
+        assert [d for _, d in app.ui.diagram_buttons] == ["o2_tank", "scanner"], app.ui.diagram_buttons
+        bot.shot(f"fabricador_diagramas_{ui_size}.png")
+    app.set_ui_size("grande")
+    bot.frames(0.2)
+    s.inventory.remove("diagram_scanner", 1)
+    s.blueprints.discard("scanner")
+    bot.frames(0.2)
+    read = next(r for r, d in app.ui.diagram_buttons if d == "o2_tank")
+    bot.click((read.centerx * 2, read.centery * 2))            # LER: gasta o diagrama, libera a receita
+    assert "o2_tank" in s.blueprints and s.inventory.count("diagram_o2_tank") == 0
+    assert s.recipe_status("o2_tank") == "ok" and s.recipe_status("scanner") == "blueprint"
+    bot.frames(0.2)
+    bot.shot("fabricador_diagrama_lido.png")
     bot.key(pygame.K_RETURN)                    # crafta o tanque (é a receita selecionada)
     assert s.inventory.count("o2_tank") == 1 and app.mode == "play"
     app.fab.set_tab(0)                          # o resto do smoke espera a 1ª aba
@@ -3228,8 +3246,8 @@ def check_wrecks(bot) -> None:
     bot.teleport((C.BASE_TILE[0] + 12, C.BASE_TILE[1] + 4))
     bot.frames(0.3)
     bot.shot("o2_tanque_hud.png")
-    # 7) scanner: projeto (direto no estado), fabrica, equipa; anda um pouco; minimapa
-    s.learn("scanner")
+    # 7) scanner: diagrama (direto no estado), fabrica, equipa; anda um pouco; minimapa
+    s.blueprints.add("scanner")
     give(s, iron=10, silicon=10)
     s.inventory.add("scanner", 1)
     s.equip_from(next(k for k, st in enumerate(s.inventory.slots) if st and st.item == "scanner"))

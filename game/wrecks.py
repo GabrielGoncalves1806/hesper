@@ -4,7 +4,7 @@ Duas partes:
     - GEOMETRIA (fixa, sai da seed): `place_wrecks(world, rng)` sorteia 6 a 8 destroços a distâncias
       crescentes da base e carimba no mapa: os tiles do destroço viram `WRECK` (sólido baixo, o sprite é
       desenhado como objeto) e a caixa vira `LOOT_CRATE`. Cada `Wreck` sabe onde fica a caixa, o terminal
-      (só o módulo tem), qual LOG ele guarda e qual projeto vem na caixa.
+      (só o módulo tem), qual LOG ele guarda e qual diagrama vem na caixa.
     - ESTADO (muda jogando): `make_crates(world, seed)` cria uma `Crate` por destroço, com o saque sorteado
       pela seed (fixo, não reabastece). Quem guarda é a camada (`Layer.crates`).
 
@@ -13,7 +13,7 @@ nave (luminária forte), sonda (LOGS[5]), [nave, sonda extras quando há 7 ou 8]
 O número que o jogador vê ("LOG 05") é a posição na cronologia (config.LOG_ORDER), não o índice.
 
 v0.4 Marco 3 · M3.2: atrás de cada gelo-portão vai um destroço RICO (`pocket_wrecks`, `rich=True`, depois dos de fora
-na lista `world.wrecks`), com a tabela C.WRECK_RICH_LOOT e, se faltar algum, um projeto que não caiu lá fora.
+na lista `world.wrecks`), com a tabela C.WRECK_RICH_LOOT e, se faltar algum, um diagrama que não caiu lá fora.
 
 Python puro (sem pygame), testado em tests/test_wrecks.py e tests/test_pockets.py.
 """
@@ -112,7 +112,7 @@ def kinds_for(n: int) -> list[str]:
 
 
 def extras_for(rank: int, n: int) -> tuple[int | None, str | None]:
-    """(LOG, projeto) do destroço de posição `rank` (de n)."""
+    """(LOG, diagrama) do destroço de posição `rank` (de n)."""
     if rank == 0:
         return 3, "o2_tank"            # VÉSPER-7 (exibido LOG 05) · o primeiro grande achado
     if rank == 2:
@@ -186,14 +186,14 @@ def place_wrecks(world, rng: random.Random) -> list[Wreck]:
 
 
 def missing_blueprints(wrecks: list[Wreck]) -> list[str]:
-    """Projetos de C.BLUEPRINTS que nenhum desses destroços traz (na ordem do config)."""
+    """Diagramas de C.BLUEPRINTS que nenhum desses destroços traz (na ordem do config)."""
     have = {w.blueprint for w in wrecks}
     return [bp for bp in C.BLUEPRINTS if bp not in have]
 
 
 def pocket_wrecks(pockets, outside: list[Wreck]) -> list[Wreck]:
     """v0.4 Marco 3 · M3.2: um destroço rico (C.WRECK_RICH_KIND) no wreck_spot de cada bolsão de gelo-portão, com
-    rank depois dos de fora. Se algum projeto não caiu nos destroços de fora, cada rico traz um dos que faltam."""
+    rank depois dos de fora. Se algum diagrama não caiu nos destroços de fora, cada rico traz um dos que faltam."""
     missing = missing_blueprints(outside)
     out = []
     for i, p in enumerate(pockets):
@@ -219,7 +219,7 @@ def keep_free(wrecks: list[Wreck]) -> set[tuple[int, int]]:
 class Crate:
     wreck: Wreck
     storage: Inventory
-    opened: bool = False          # já foi aberta (o registro de bordo já apareceu, o projeto já saiu)
+    opened: bool = False          # já foi aberta (o registro de bordo já apareceu, o projeto já deu o aviso)
 
     @property
     def tile(self) -> tuple[int, int]:
@@ -236,11 +236,11 @@ class Crate:
 
 
 def crate_loot(wreck: Wreck, seed: int) -> list[tuple[str, int]]:
-    """Saque da caixa: o projeto (se tiver) primeiro, depois os recursos pelo tamanho do destroço."""
+    """Saque da caixa: o diagrama (se tiver) primeiro, depois os recursos pelo tamanho do destroço."""
     rng = random.Random(seed * 1009 + wreck.rank * 7919 + wreck.tx * 31 + wreck.ty)
     items = []
     if wreck.blueprint:
-        items.append((f"bp_{wreck.blueprint}", 1))
+        items.append((f"diagram_{wreck.blueprint}", 1))
     for resource, (lo, hi) in (C.WRECK_RICH_LOOT if wreck.rich else wreck.spec.loot).items():
         n = rng.randint(lo, hi)
         if n > 0:

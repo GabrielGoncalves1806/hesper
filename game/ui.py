@@ -260,12 +260,17 @@ def zoom_label(zoom: float) -> str:
     return f"{zoom:g}".replace(".", ",") + "×"
 
 
+def bench_short(bench: str) -> str:
+    """"t2" -> "T2" (o botão apagado do diagrama que se lê em outra bancada)."""
+    return bench.upper()
+
+
 def item_name(item: str) -> str:
     """Nome de um item do inventário pra mostrar ao jogador ('Ferro', 'Gerador de O₂', 'Baú')."""
     if item in C.RESOURCE_NAME:
         return C.RESOURCE_NAME[item].capitalize()
-    if item in C.BLUEPRINT_ITEMS:
-        return f"Projeto: {C.BLUEPRINTS[C.BLUEPRINT_ITEMS[item]]}"
+    if item in C.DIAGRAM_ITEMS:
+        return f"Diagrama: {C.BLUEPRINTS[C.DIAGRAM_ITEMS[item]]}"
     return C.MACHINES[item].name
 
 
@@ -287,8 +292,8 @@ def item_category(item: str) -> tuple[str, str]:
     """(rótulo, cor) da categoria do item no painel de detalhe do inventário."""
     if item in C.RESOURCES:
         return "RECURSO", C.C_O2
-    if item in C.BLUEPRINT_ITEMS:
-        return "PROJETO", "#9fd0ff"
+    if item in C.DIAGRAM_ITEMS:
+        return "DIAGRAMA", "#9fd0ff"
     if item in C.EQUIP_SLOTS:
         return "TRAJE", C.C_TERMINAL
     if item in ("drone", "constructor"):
@@ -368,6 +373,8 @@ class UI:
         self.fabricator_rows: list[tuple[pygame.Rect, str]] = []
         self.fabricator_tabs: list[tuple[pygame.Rect, int]] = []      # abas: (retângulo, índice da aba)
         self.fabricator_batch: list[tuple[pygame.Rect, int]] = []     # seletor do lote: (retângulo, 1 ou 5)
+        self.diagram_buttons: list[tuple[pygame.Rect, str]] = []      # LER (só dos que a bancada lê): (retângulo, id)
+        self.diagram_rows: list[tuple[pygame.Rect, str]] = []         # linhas da área "Diagramas"
         self.fabricator_panel: pygame.Rect | None = None              # janela do fabricador (a última desenhada)
         self.craft_label = ""                                          # o que o botão principal diz ("FALTAM 2 SILÍCIO")
         self.pause_items: list[pygame.Rect] = []      # linhas clicáveis do menu de pausa (coord. da UI)
@@ -887,7 +894,7 @@ class UI:
     # ---- objetivos (tutorial leve, lógica em objectives.py) -------------------
     OBJECTIVE_W = 132                           # cartão do objetivo no Grande (o da pílula do O₂)
     OBJECTIVE_W_MAX = 220
-    TOP_GAP_MIN = 196                           # vão do topo que o banner/aviso de projeto precisam
+    TOP_GAP_MIN = 196                           # vão do topo que o banner/aviso de diagrama precisam
 
     @property
     def objective_w(self) -> int:
@@ -1063,15 +1070,19 @@ class UI:
         self.fabricator_rows.clear()
         self.fabricator_tabs.clear()
         self.fabricator_batch.clear()
+        self.diagram_buttons.clear()
+        self.diagram_rows.clear()
 
     def draw_fabricator(self, state: GameState, menu, machine_preview, t: float, item_icon=None,
-                        mouse=(-1, -1), shift: bool = False, build: bool = False) -> None:
+                        mouse=(-1, -1), shift: bool = False, build: bool = False,
+                        bench: str = "t1") -> None:
         """Fabricador da base (`menu`: game/fabricator.FabMenu): abas com ícone (só a ativa mostra o nome),
         lista de receitas à esquerda e o detalhe da escolhida à direita. `machine_preview(kind)` = imagem da
         máquina (resolução cheia); `item_icon(item)` = ícone 32×32. Hit-test: fabricator_tabs,
         fabricator_rows, fabricator_batch e fabricator_buttons (o FABRICAR, só se dá pra fabricar).
         `build` = o menu do construtor (v0.5 M1): mesmo painel, materiais só do inventário, sem lote, e o botão
-        CONSTRUIR escolhe a máquina (entra no modo de construir)."""
+        CONSTRUIR escolhe a máquina (entra no modo de construir). `bench` = a bancada deste painel ("t1"/"t2"):
+        a área "Diagramas" (só no fabricador) lista os diagramas do inventário, com o LER nos que ela lê."""
         item_icon = item_icon or (lambda _item: self._blank)
         self._fab_reset()
         self.header_rects.clear()
@@ -1103,6 +1114,9 @@ class UI:
         list_y = y + 48
         detail = pygame.Rect(x + 8 + FAB_LIST_W + 6, list_y, w - FAB_LIST_W - 22, h - 72)
         self._recipe_list(state, menu, x + 8, list_y, FAB_LIST_W, detail.h, item_icon, mouse, inv_only=build)
+        if not build:
+            top = list_y + menu.visible * RECIPE_ROW_STEP + 2
+            self._diagram_area(state, menu, x + 8, top, FAB_LIST_W, list_y + detail.h - top, item_icon, mouse, bench)
         kind = menu.current
         if kind is not None:
             batch = 5 if shift else menu.batch
@@ -1112,9 +1126,41 @@ class UI:
         if build:
             pairs = [("A/D", "aba"), ("W/S", "escolhe"), ("ENTER", "constrói"), ("E", "fecha")]
         else:
-            pairs = [("A/D", "aba"), ("W/S", "escolhe"), ("ENTER", "fabrica"), ("SHIFT", f"×{C.CRAFT_BATCH}"),
+            pairs = [("A/D", "aba"), ("W/S", "escolhe"),
+                     ("ENTER", "lê" if menu.diag is not None else "fabrica"), ("SHIFT", f"×{C.CRAFT_BATCH}"),
                      ("E", "fecha")]
         self.help_line(y + h - 15, pairs, center=x + w / 2)
+
+    def _diagram_area(self, state: GameState, menu, x: int, y: int, w: int, h: int, item_icon, mouse,
+                      bench: str) -> None:
+        """Área "Diagramas" embaixo da lista do fabricador: um cartão por diagrama do inventário (ícone, nome, ×n e o
+        botão LER). Bancada errada ou receita já liberada: o botão fica apagado e diz por quê (nada é gasto).
+        Teclado: `menu.diag` é o diagrama com foco (borda laranja)."""
+        self.tx("DIAGRAMAS", x, y, B_MUTED)
+        held = state.diagrams_held()
+        y += 11
+        if not held:
+            self.tx("nenhum no inventário", x + 2, y + 2, B_DIM, self.body)
+            return
+        for i, (diagram, count) in enumerate(held[:max(1, (h - 11 + 2) // RECIPE_ROW_STEP)]):
+            ry = y + i * RECIPE_ROW_STEP
+            row = pygame.Rect(x, ry, w, RECIPE_ROW_H)
+            focus = menu.diag == i
+            self.round_rect(row, B_HOVER if focus else B_CARD, C.C_ACCENT if focus else None)
+            self.native.append((item_icon(f"diagram_{diagram}"), ((x + 3) * 2, (ry + 3) * 2)))
+            if not state.bench_reads(diagram, bench):
+                label, ok = f"NA {bench_short(C.DIAGRAM_BENCH[diagram])}", False
+            elif diagram in state.blueprints:
+                label, ok = "JÁ LIDO", False
+            else:
+                label, ok = "LER", True
+            button = pygame.Rect(row.right - 44, ry + 3, 40, 16)
+            name = C.BLUEPRINTS[diagram] + (f" x{count}" if count > 1 else "")
+            self.tx(self.fit(name, button.x - 3 - (x + 22)), x + 22, ry + 2, B_TEXT if ok else B_DIM, self.body)
+            self.button(button, label, "primary" if ok else "off", hover=ok and button.collidepoint(mouse))
+            self.diagram_rows.append((row, diagram))
+            if ok:
+                self.diagram_buttons.append((button, diagram))
 
     def fab_tabs_width(self, menu) -> int:
         """Largura das abas com ícone (a ativa mais larga: a pior é a de nome mais comprido)."""
@@ -1125,7 +1171,7 @@ class UI:
     def _recipe_list(self, state: GameState, menu, x: int, y: int, w: int, h: int, item_icon, mouse,
                      inv_only: bool = False) -> None:
         """Lista de receitas da aba atual do `menu`: ícone, nome e o estado à direita (✓ dá pra fabricar,
-        "falta" em vermelho, cadeado trancado ou sem projeto). Rola com a barra quando não cabe."""
+        "falta" em vermelho, cadeado trancado ou sem diagrama). Rola com a barra quando não cabe."""
         kinds = menu.kinds
         selected, first = menu.selected[menu.tab], menu.first[menu.tab]
         scroll = len(kinds) > menu.visible
@@ -1145,7 +1191,7 @@ class UI:
             self.round_rect(row, B_HOVER if on or hover else B_CARD, C.C_ACCENT if on else None)
             hidden = status == "blueprint"
             locked = status == "locked" or hidden
-            icon = item_icon(f"bp_{C.RECIPE_BLUEPRINT[kind]}") if hidden else item_icon(kind)
+            icon = item_icon(f"diagram_{C.RECIPE_BLUEPRINT[kind]}") if hidden else item_icon(kind)
             self.native.append((self.dark_icon(icon, 80) if locked else icon, ((x + 3) * 2, (ry + 3) * 2)))
             name = "???" if hidden else C.MACHINES[kind].name
             right = row.right - 6
@@ -1214,7 +1260,7 @@ class UI:
         text_w = x + w - 6 - tx
         if hidden:
             self.tx("???", tx, y + 4, B_TEXT, self.body)
-            self.tx("projeto não encontrado", tx, y + 15, B_MUTED, self.body)
+            self.tx("precisa do diagrama", tx, y + 15, B_MUTED, self.body)
         else:
             self.tx(self.fit(m.name, text_w), tx, y + 4, B_TEXT, self.body)
             self.tx(self.fit(m.desc, text_w), tx, y + 15, C.C_TI, self.body)
@@ -1236,7 +1282,7 @@ class UI:
         self.tx("TEM / PRECISA", x + w - 6, cy, B_DIM, align="right")
         row_h = step - 1
         if hidden:
-            for k, line in enumerate(wrap(self.body, "Ache o projeto num destroço do deserto", w - 12)[:3]):
+            for k, line in enumerate(wrap(self.body, "Ache o diagrama num destroço do deserto e leia no fabricador", w - 12)[:3]):
                 self.tx(line, x + 6, cy + 11 + k * 12, B_MUTED, self.body)
         else:
             for i, (res, n) in enumerate(m.cost.items()):
@@ -1282,7 +1328,7 @@ class UI:
             if build:                                # escolhe mesmo assim: o fantasma vermelho diz o que falta
                 self.fabricator_buttons.append((button, kind))
         elif hidden:
-            label, kind_b = "SEM PROJETO", "off"
+            label, kind_b = "SEM DIAGRAMA", "off"
         else:
             label, kind_b = f"LIBERA EM TI {fmt(m.unlock_ti)}", "off"
         self.button(button, label, kind_b, hover=kind_b == "primary" and button.collidepoint(mouse))
@@ -1457,7 +1503,7 @@ class UI:
     def _item_detail(self, item: str | None, count: int, rect: pygame.Rect, item_icon,
                      state: GameState | None) -> None:
         """Detalhe do item: ícone 2×, nome, categoria, "pilha / máximo" e "USADO EM" (as receitas que gastam
-        o item, achadas pelos custos; as de projeto ainda não encontrado ficam de fora)."""
+        o item, achadas pelos custos; as de diagrama ainda não lido ficam de fora)."""
         x, y, w, h = rect
         self.round_rect(rect, B_CARD)
         self.detail_item, self.detail_uses = item, []
@@ -2303,15 +2349,15 @@ class UI:
                 self.key_cap(kx, back.y + 4, "A/D")
                 self.tx("página", prev.x - 8, back.y + 2, B_MUTED, self.body, "right")
 
-    # ---- projeto encontrado (Marco 3) -----------------------------------------------
+    # ---- diagrama encontrado (Marco 3, v0.5 M1: "leia no fabricador") -----------------------------------------------
     # Aviso em 2 linhas, igual nos 3 tamanhos: rótulo pequeno em cima e o nome do item embaixo, com o
-    # ícone do projeto (icon_blueprint, o mesmo da caixa e do inventário) à esquerda.
-    BLUEPRINT_LABEL = "PROJETO · RECEITA LIBERADA"
+    # ícone do diagrama (icon_diagram, o mesmo da caixa e do inventário) à esquerda.
+    BLUEPRINT_LABEL = "DIAGRAMA · LEIA NA BANCADA"
     BLUEPRINT_PAD, BLUEPRINT_ICON = 6, 16            # margem e ícone (px da UI); 5 px entre ícone e texto
 
     def blueprint_notice_layout(self, blueprint: str) -> tuple[pygame.Rect, pygame.Rect]:
         """(aviso, ícone) em px da UI: no vão do topo entre o painel de O₂ e o do Ti, sem encostar neles.
-        Só se nem assim couber (não acontece com os projetos de hoje), desce pro meio da tela, abaixo do HUD."""
+        Só se nem assim couber (não acontece com os diagramas de hoje), desce pro meio da tela, abaixo do HUD."""
         text_w = max(self.font.size(self.BLUEPRINT_LABEL)[0], self.body.size(C.BLUEPRINTS[blueprint])[0])
         pad, icon = self.BLUEPRINT_PAD, self.BLUEPRINT_ICON
         w, h = pad + icon + 5 + text_w + pad, 30
@@ -2323,14 +2369,14 @@ class UI:
         return rect, pygame.Rect(rect.x + pad, rect.y + (h - icon) // 2, icon, icon)
 
     def draw_blueprint_notice(self, blueprint: str, alpha: float, icon: pygame.Surface) -> None:
-        """Aviso de projeto encontrado no topo do centro: ícone do projeto + "PROJETO · RECEITA LIBERADA" +
-        o nome do que ele libera. `icon`: o ícone 32×32 (resolução cheia) do item do projeto."""
+        """Aviso de diagrama encontrado no topo do centro: ícone do diagrama + "DIAGRAMA · LEIA NA BANCADA" +
+        o nome do que ele libera. `icon`: o ícone 32×32 (resolução cheia) do item do diagrama."""
         rect, icon_rect = self.blueprint_notice_layout(blueprint)
         tx = icon_rect.right - rect.x + 5
         layer = pygame.Surface(rect.size, pygame.SRCALPHA)
         self.card(0, 0, rect.w, rect.h, (12, 18, 30, 240), "#2c4a6a", shadow=False, target=layer)
         layer.fill(pygame.Color("#9fd0ff"), (2, 1, rect.w - 4, 1))
-        # fundinho escuro atrás do ícone: o projeto é azul e sumia no azul do aviso
+        # fundinho escuro atrás do ícone: o diagrama é azul e sumia no azul do aviso
         back = icon_rect.move(-rect.x, -rect.y).inflate(2, 2)
         self.round_rect(back, (4, 8, 14, 255), "#2c4a6a", target=layer)
         self.text(self.BLUEPRINT_LABEL, tx, 2, "#9fd0ff", target=layer, shadow=False)

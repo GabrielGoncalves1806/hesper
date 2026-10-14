@@ -415,7 +415,7 @@ def test_marco1_save_without_lamps_loads_with_zero(tmp_path):
 
 
 def test_marco2_save_without_marco3_fields_loads_with_defaults(tmp_path):
-    """Save v6 do Marco 1/2: sem caixas, explorado, projetos e equipamento. Carrega com o padrão."""
+    """Save v6 do Marco 1/2: sem caixas, explorado, receitas e equipamento. Carrega com o padrão."""
     data = save.state_to_dict(rich_state())
     for key in ("blueprints", "equipment", "equipped_ever", "wrecks_visited"):
         del data["progress"][key]
@@ -426,7 +426,7 @@ def test_marco2_save_without_marco3_fields_loads_with_defaults(tmp_path):
     assert loaded.blueprints == set() and loaded.equipment.slots == {"o2_tank": None, "scanner": None}
     assert loaded.surface.explored.count == 0 and not loaded.wrecks_visited
     crate = loaded.crates[loaded.world.wrecks[0].crate]
-    assert crate.storage.count("bp_o2_tank") == 1 and not crate.opened      # caixa cheia, como num jogo novo
+    assert crate.storage.count("diagram_o2_tank") == 1 and not crate.opened      # caixa cheia, como num jogo novo
     assert loaded.o2 <= loaded.o2_max
 
 
@@ -495,3 +495,20 @@ def test_title_without_save_shows_worlds_and_quit():
     title, _ = title_screen()
     title.open(None)
     assert [a for a, _ in title.options()] == ["worlds", "quit"] and title.selected == 0
+
+
+def test_load_converts_bp_items_to_diagram_items():
+    """Save com projetos antigos (bp_*) no inventário, hotbar e baú: tudo vira diagram_*; receitas iguais."""
+    state = rich_state()
+    state.blueprints = {"scanner"}
+    data = save.state_to_dict(state)
+    data["inventory"]["slots"][0] = ["bp_o2_tank", 2]
+    data["inventory"]["slots"][12] = ["bp_scanner", 1]
+    chest = next(m for layer in data["layers"].values() for m in layer["machines"] if m["kind"] == "chest")
+    chest["storage"][0] = ["bp_lamp_t2", 1]
+    loaded = save.state_from_dict(save.migrate(data))
+    assert loaded.inventory.count("diagram_o2_tank") == 2 and loaded.inventory.count("diagram_scanner") == 1
+    assert loaded.inventory.count("bp_o2_tank") == 0
+    assert loaded.blueprints == {"scanner"}
+    loaded_chest = next(m for m in loaded.machines if m.kind == "chest")
+    assert loaded_chest.storage.count("diagram_lamp_t2") == 1

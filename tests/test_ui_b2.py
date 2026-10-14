@@ -428,3 +428,98 @@ def test_map_surface_is_opaque_even_when_the_texture_has_an_alpha_channel(ui):
     surf, _k, _off = ui._map_surface(tex, view, area)
     assert surf.get_masks()[3] == 0 and surf.get_flags() & pygame.SRCALPHA == 0
     assert surf.get_at((surf.get_width() // 2, surf.get_height() // 2))[:3] == (138, 106, 78)
+
+
+# ---- Diagramas no fabricador (v0.5 M1) ---------------------------------------------------------
+@pytest.mark.parametrize("size", SIZES)
+def test_diagram_area_fits_and_has_read_buttons(ui, size):
+    """Área "Diagramas" embaixo da lista: uma linha por diagrama do inventário com LER, dentro do painel e sem
+    cobrir a lista de receitas, nos 3 tamanhos de interface."""
+    from game.fabricator import craft_menu
+    ui.set_layout((0, 0, size[0] * 2, size[1] * 2), 2.0, size)
+    s = GameState(rng=random.Random(1))
+    give(s, diagram_o2_tank=2, diagram_scanner=1, diagram_lamp_t2=1)
+    ui.begin()
+    menu = craft_menu()
+    ui.draw_fabricator(s, menu, lambda kind: art.icon("iron"), 0.0)
+    assert [d for _, d in ui.diagram_rows] == ["o2_tank", "scanner", "lamp_t2"]
+    assert [d for _, d in ui.diagram_buttons] == ["o2_tank", "scanner", "lamp_t2"]
+    panel = ui.fabricator_panel
+    last_recipe = max(r.bottom for r, _ in ui.fabricator_rows)
+    for row, _ in ui.diagram_rows:
+        assert panel.contains(row) and row.top > last_recipe, (size, row)
+    for btn, _ in ui.diagram_buttons:
+        assert any(row.contains(btn) for row, _ in ui.diagram_rows)
+    s.blueprints.add("scanner")                        # já liberada: o botão apaga (não gasta)
+    ui.begin()
+    ui.draw_fabricator(s, menu, lambda kind: art.icon("iron"), 0.0)
+    assert "scanner" not in [d for _, d in ui.diagram_buttons]
+    ui.begin()
+    ui.draw_fabricator(s, menu, lambda kind: art.icon("iron"), 0.0, bench="t2")   # o tanque é da T1: sem LER na T2
+    assert [d for _, d in ui.diagram_buttons] == ["lamp_t2"]
+
+
+def test_diagram_area_empty_and_hidden_in_build_menu(ui):
+    from game.fabricator import build_menu, craft_menu
+    ui.set_layout((0, 0, 960, 540), 2.0, (480, 270))
+    s = GameState(rng=random.Random(1))
+    ui.begin()
+    ui.draw_fabricator(s, craft_menu(), lambda kind: art.icon("iron"), 0.0)
+    assert ui.diagram_rows == [] and ui.diagram_buttons == []
+    give(s, diagram_scanner=1)
+    ui.begin()
+    ui.draw_fabricator(s, build_menu(), lambda kind: art.icon("iron"), 0.0, build=True)
+    assert ui.diagram_rows == []
+
+
+def test_locked_recipe_says_diagram(ui):
+    ui.set_layout((0, 0, 960, 540), 2.0, (480, 270))
+    from game.fabricator import craft_menu
+    s = GameState(rng=random.Random(1))
+    ui.begin()
+    menu = craft_menu()
+    menu.set_tab([t for t, _ in C.CRAFT_TABS].index("suit"))
+    ui.draw_fabricator(s, menu, lambda kind: art.icon("iron"), 0.0)
+    assert ui.craft_label == "SEM DIAGRAMA"
+
+
+def test_click_read_spends_diagram_and_unlocks(app):
+    s = reset(app)
+    give(s, diagram_o2_tank=1)
+    s.blueprints.discard("o2_tank")
+    app.fab.diag = None
+    app.mode = "fabricator"
+    app.draw()
+    button = next(r for r, d in app.ui.diagram_buttons if d == "o2_tank")
+    click(app, button)
+    assert "o2_tank" in s.blueprints and s.inventory.count("diagram_o2_tank") == 0
+    app.draw()
+    assert app.ui.diagram_rows == []
+    app.mode = "play"
+
+
+def test_keyboard_reads_diagram_from_the_list(app):
+    s = reset(app)
+    give(s, diagram_scanner=1)
+    s.blueprints.discard("scanner")
+    app.fab.diag = None
+    app.fab.tab = 0
+    app.mode = "fabricator"
+    last = len(app.fab.kinds) - 1
+    app.fab.selected[0] = last
+    app.on_key(pygame.K_s)                              # fim da lista -> foco no 1º diagrama
+    assert app.fab.diag == 0
+    app.on_key(pygame.K_RETURN)
+    assert "scanner" in s.blueprints and s.inventory.count("diagram_scanner") == 0
+    assert app.fab.diag is None                         # acabaram os diagramas: o foco volta pra lista
+    app.mode = "play"
+
+
+def test_read_repeated_in_app_keeps_diagram(app):
+    s = reset(app)
+    give(s, diagram_scanner=1)
+    s.blueprints.add("scanner")
+    app.mode = "fabricator"
+    app.read_diagram("scanner")
+    assert s.inventory.count("diagram_scanner") == 1
+    app.mode = "play"

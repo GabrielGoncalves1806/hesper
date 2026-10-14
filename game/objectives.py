@@ -90,9 +90,9 @@ OBJECTIVES = [
     Objective("Derreta o gelo da cratera", crater_open),
     Objective("Desça na caverna pela cratera [E]", visited_cave),
     Objective("Construa uma luminária", lambda s: s.lamps_placed >= 1),
-    # v0.3 Marco 3: os destroços do deserto (o mais perto, a ~30 tiles, tem o projeto do tanque de O₂)
+    # v0.3 Marco 3: os destroços do deserto (o mais perto, a ~30 tiles, tem o diagrama do tanque de O₂)
     Objective("Ache um destroço", lambda s: len(s.wrecks_visited) >= 1),
-    Objective("Ache o projeto do tanque de O₂", lambda s: "o2_tank" in s.blueprints),
+    Objective("Ache e leia o diagrama do tanque de O₂", lambda s: "o2_tank" in s.blueprints),
     Objective("Fabrique e equipe o tanque de O₂", lambda s: "o2_tank" in s.equipped_ever),
     # energia (bíblia §8): o aquecedor é o ponto em que os 5 kW da cápsula começam a apertar
     Objective("Construa um painel solar", lambda s: crafted(s, "solar") >= 1),

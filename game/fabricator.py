@@ -3,6 +3,8 @@ testado em tests/test_fabricator.py; quem desenha é o ui.draw_fabricator e quem
 
 Controles: A/D, ←/→ ou Tab trocam de aba (E não: E fecha o menu) · W/S ou ↑/↓ escolhem dentro da aba
 (a lista rola junto) · a rodinha rola a lista sem mexer na seleção · clique na aba ou na receita.
+No fabricador, abaixo da lista fica a área "Diagramas" (os diagramas do inventário, cada um com o LER). Pelo teclado,
+S passa do fim da lista pros diagramas (W volta), Enter lê o escolhido (`diag`: None = o foco está na lista).
 Cada aba lembra a sua seleção e a sua rolagem. O lote (`batch`, ×1 ou ×5) vale pro menu todo: o seletor do
 painel de detalhe escolhe, e o Shift segurado fabrica até 5 em qualquer caso.
 
@@ -37,6 +39,7 @@ class FabMenu:
         self.tab = 0
         self.selected = [0] * len(tabs)          # seleção de cada aba
         self.first = [0] * len(tabs)             # primeira linha visível de cada aba
+        self.diag: int | None = None             # diagrama com o foco do teclado (None = a lista de receitas)
         self.batch = 1                           # lote do botão FABRICAR: 1 ou C.CRAFT_BATCH (seletor ×1/×5)
 
     # ---- leitura
@@ -69,12 +72,41 @@ class FabMenu:
     def switch_tab(self, step: int) -> None:
         self.set_tab(self.tab + step)
 
-    def move(self, step: int) -> None:
-        """W/S: anda na lista (dá a volta) e rola pra seleção ficar à vista."""
+    def move(self, step: int, diagrams: int = 0) -> None:
+        """W/S: anda na lista (dá a volta) e rola pra seleção ficar à vista. Com `diagrams` > 0, o S no fim da
+        lista entra nos diagramas, o W no 1º volta pra lista, e o W no topo da lista vai pro último diagrama."""
         n = len(self.kinds)
+        if self.diag is not None:
+            self.clamp_diag(diagrams)
+        if self.diag is not None:
+            nxt = self.diag + step
+            if nxt < 0:
+                self.diag = None
+            elif nxt >= diagrams:
+                self.diag = None
+                self.selected[self.tab] = 0
+                self._follow()
+            else:
+                self.diag = nxt
+            return
+        if diagrams and n:
+            sel = self.selected[self.tab]
+            if step > 0 and sel == n - 1:
+                self.diag = 0
+                return
+            if step < 0 and sel == 0:
+                self.diag = diagrams - 1
+                return
         if n:
             self.selected[self.tab] = (self.selected[self.tab] + step) % n
             self._follow()
+
+    def clamp_diag(self, diagrams: int) -> None:
+        """Depois de ler (a lista de diagramas encolheu): o foco não fica fora dela."""
+        if self.diag is not None and diagrams <= 0:
+            self.diag = None
+        elif self.diag is not None:
+            self.diag = min(self.diag, diagrams - 1)
 
     def scroll(self, step: int) -> None:
         """Rodinha: rola a lista (sem passar das pontas). A seleção não muda."""
@@ -105,8 +137,8 @@ class FabMenu:
 
 
 def craft_menu() -> FabMenu:
-    """Menu do fabricador da cápsula: só itens."""
-    return FabMenu(tabs=C.CRAFT_TABS, kinds_of=craft_kinds)
+    """Menu do fabricador da cápsula: só itens (e, embaixo, os diagramas)."""
+    return FabMenu(visible=C.CRAFT_VISIBLE_ROWS, tabs=C.CRAFT_TABS, kinds_of=craft_kinds)
 
 
 def build_menu() -> FabMenu:

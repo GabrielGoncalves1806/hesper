@@ -207,13 +207,16 @@ def player_from_dict(state: GameState, data: dict) -> None:
 
 
 def _known_item(item) -> bool:
-    return item in C.RESOURCES or item in C.MACHINES or item in C.BLUEPRINT_ITEMS
+    return item in C.RESOURCES or item in C.MACHINES or item in C.DIAGRAM_ITEMS
 
 
 def slots_from_data(data: list, size: int) -> Inventory:
     """Lista de slots do save -> Inventory do tamanho certo. Item que o jogo não conhece mais
     (removido do config) vira slot vazio, em vez de quebrar o load."""
-    clean = [[d[0], int(d[1])] if d and _known_item(d[0]) and int(d[1]) > 0 else None for d in data[:size]]
+    clean = []
+    for d in data[:size]:
+        item = C.LEGACY_DIAGRAM_ITEMS.get(d[0], d[0]) if d else None     # projeto antigo (bp_*) vira diagrama
+        clean.append([item, int(d[1])] if item is not None and _known_item(item) and int(d[1]) > 0 else None)
     return Inventory.from_data(clean + [None] * (size - len(clean)))
 
 
@@ -333,7 +336,7 @@ def progress_from_dict(state: GameState, data: dict) -> None:
     seen = data.get("logs_seen")
     state.logs_seen = set(state.logs_read) if seen is None else {int(i) for i in seen if int(i) in state.logs_read}
     state.transition_sources = {(int(x), int(y)) for x, y in data["transition_sources"]}
-    # Marco 3 (save do Marco 1/2 não tem: começa sem projeto, sem equipamento, nenhum destroço visitado)
+    # Marco 3 (save do Marco 1/2 não tem: começa sem diagrama lido, sem equipamento, nenhum destroço visitado)
     state.blueprints = {b for b in data.get("blueprints", []) if b in C.BLUEPRINTS}
     state.equipment = Equipment.from_data(data.get("equipment"))
     state.equipped_ever = {e for e in data.get("equipped_ever", []) if e in C.EQUIP_SLOTS}
@@ -426,7 +429,7 @@ def _machine_items_to_resources(containers: list[Inventory]) -> None:
 def migrate_v7(data: dict) -> dict:
     """v7 -> v8 (v0.5 M1, construtor): máquina deixou de ser item. As que estavam guardadas como item (inventário,
     hotbar e baús) viram os recursos da receita (`_machine_items_to_resources`). As do chão ficam iguais.
-    Os projetos (bp_*) não mudam aqui."""
+    Os projetos (bp_*) viram diagram_* no load (slots_from_data), sem versão nova."""
     inv = slots_from_data(data["inventory"]["slots"], C.INVENTORY_SLOTS)
     chests = [m for layer in data.get("layers", {}).values() for m in layer.get("machines", [])
               if m.get("kind") == "chest"]

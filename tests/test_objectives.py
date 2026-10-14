@@ -68,7 +68,7 @@ def test_normal_sequence_walks_every_objective(game):
     game.lamps_placed = 1; step()               # colocou uma luminária (lá embaixo ou em qualquer lugar)
     game.enter_layer("surface")
     game.wrecks_visited.add(0); step()          # Marco 3: chegou perto de um destroço
-    game.blueprints.add("o2_tank"); step()      # abriu a caixa da nave: projeto do tanque
+    game.blueprints.add("o2_tank"); step()      # leu o diagrama do tanque
     game.equipped_ever.add("o2_tank"); step()   # fabricou e equipou
     craft_free(game, "solar"); step()
     game.read_terminal(0); step()               # terminal da caverna
@@ -103,7 +103,7 @@ def test_normal_sequence_walks_every_objective(game):
         "Desça na caverna pela cratera [E]",
         "Construa uma luminária",
         "Ache um destroço",
-        "Ache o projeto do tanque de O₂",
+        "Ache e leia o diagrama do tanque de O₂",
         "Fabrique e equipe o tanque de O₂",
         "Construa um painel solar",
         "Leia um terminal",

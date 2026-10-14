@@ -135,11 +135,11 @@ def test_build_needs_the_constructor():
     assert s.build("o2", spot(s)) and s.has_constructor          # o construtor não gasta
 
 
-def test_lamp_t2_locked_without_blueprint():
+def test_lamp_t2_locked_without_diagram():
     s = make_state()
     give(s, constructor=1, iron=10, silicon=10, ice=10)
     assert s.build_status("lamp_t2") == "blueprint" and not s.build("lamp_t2", spot(s))
-    s.learn("lamp_t2")
+    s.blueprints.add("lamp_t2")
     assert s.build("lamp_t2", spot(s))
 
 

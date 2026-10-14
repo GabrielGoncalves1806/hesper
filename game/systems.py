@@ -285,7 +285,7 @@ class GameState:
         self.power_alert = PowerAlert()                # quando tocar o power_low (game/energy.py)
         self.ramp: RampTrip | None = None              # descendo/subindo pela rampa (o fade está rolando)
         self.lamps_placed = 0                          # luminárias já colocadas (só cresce, pros objetivos)
-        # Marco 3: projetos achados (liberam receitas), equipamento do traje, destroços visitados e explorado
+        # Marco 3: receitas liberadas por diagrama lido, equipamento do traje, destroços visitados e explorado
         self.blueprints: set[str] = set()
         self.equipment = Equipment()
         self.equipped_ever: set[str] = set()           # equipamento que já foi encaixado alguma vez (objetivos)
@@ -582,7 +582,7 @@ class GameState:
         return self.inventory.count(resource) + sum(c.storage.count(resource) for c in self.craft_sources(inv_only))
 
     def recipe_status(self, kind: str, inv_only: bool = False) -> str:
-        """'blueprint' (projeto não encontrado), 'locked' (Ti insuficiente), 'missing' (falta recurso) ou 'ok'.
+        """'blueprint' (diagrama não lido), 'locked' (Ti insuficiente), 'missing' (falta recurso) ou 'ok'.
         `inv_only`: conta só o inventário (o construtor, v0.5 M1)."""
         machine = C.MACHINES[kind]
         blueprint = C.RECIPE_BLUEPRINT.get(kind)
@@ -1234,44 +1234,50 @@ class GameState:
         near = [t for t in self.world.containers if self.container_distance(t) <= C.CONTAINER_REACH]
         return min(near, key=self.container_distance, default=None)
 
-    def learn(self, blueprint: str) -> bool:
-        """Projeto encontrado: libera a receita na hora. False se já tinha."""
-        if blueprint in self.blueprints:
-            return False
-        self.blueprints.add(blueprint)
-        self.events.append(("blueprint", blueprint))
-        return True
-
     def open_crate(self, crate: Crate) -> list[str]:
-        """E na caixa: abre (som) e o projeto que estiver dentro sai sozinho (libera a receita e some).
-        Devolve os projetos novos."""
+        """E na caixa: abre (som). Diagrama que estiver dentro NÃO é lido sozinho: fica na caixa como item, o player
+        pega e lê na bancada. Dá o aviso "diagrama encontrado" (evento) e devolve os diagramas que a caixa tem."""
         crate.opened = True
         self.events.append(("crate_open", crate.empty))
-        found = []
-        for i, stack in enumerate(crate.storage.slots):
-            if stack is not None and stack.item in C.BLUEPRINT_ITEMS:
-                crate.storage.slots[i] = None
-                if self.learn(C.BLUEPRINT_ITEMS[stack.item]):
-                    found.append(C.BLUEPRINT_ITEMS[stack.item])
-        if found:                                    # o resto do saque encosta no começo (sem buraco no 1º slot)
-            left = [st for st in crate.storage.slots if st is not None]
-            crate.storage.slots = left + [None] * (len(crate.storage) - len(left))
+        found = [C.DIAGRAM_ITEMS[st.item] for st in crate.storage.slots if st is not None and st.item in C.DIAGRAM_ITEMS]
+        for diagram in found:
+            self.events.append(("diagram_found", diagram))
         return found
+
+    # ---- diagramas (v0.5 M1): item no inventário, lido na bancada ----------------------
+    def diagrams_held(self) -> list[tuple[str, int]]:
+        """Diagramas no inventário (mochila + hotbar): [(id da receita, quantos)], na ordem do config."""
+        return [(d, n) for item, d in C.DIAGRAM_ITEMS.items() if (n := self.inventory.count(item)) > 0]
+
+    @staticmethod
+    def bench_reads(diagram: str, bench: str) -> bool:
+        """A `bench` ("t1"/"t2") lê esse diagrama? Os de máquina (placeable) leem em qualquer bancada."""
+        machine = C.MACHINES.get(C.RECIPE_BLUEPRINT.get(diagram, ""))
+        return bool(machine and machine.placeable) or C.DIAGRAM_BENCH.get(diagram) == bench
+
+    def read_diagram(self, item: str, bench: str) -> str:
+        """Ler o diagrama `item` ("diagram_<id>") na `bench`. 'ok' (gastou 1 e liberou a receita pra sempre),
+        'wrong_bench', 'known' (a receita já estava liberada: não gasta) ou 'none' (não tem / item inválido)."""
+        diagram = C.DIAGRAM_ITEMS.get(item)
+        if diagram is None or self.inventory.count(item) <= 0:
+            return "none"
+        if not self.bench_reads(diagram, bench):
+            return "wrong_bench"
+        if diagram in self.blueprints:
+            return "known"
+        self.inventory.remove(item, 1)
+        self.blueprints.add(diagram)
+        self.events.append(("diagram_read", diagram))
+        return "ok"
 
     def crate_take(self, crate: Crate, index: int | None = None, amount: int | None = None) -> int:
         """Tira da caixa pro inventário: tudo (`index` None) ou o slot `index` (`amount` None = a pilha,
-        1 = clique direito). Projeto não ocupa espaço: vira receita. Devolve quantas unidades saíram."""
+        1 = clique direito). Diagrama é item como os outros (ocupa slot). Devolve quantas unidades saíram."""
         indexes = range(len(crate.storage)) if index is None else [index]
         moved = want = 0
         for i in indexes:
             stack = crate.storage.slots[i]
             if stack is None:
-                continue
-            if stack.item in C.BLUEPRINT_ITEMS:
-                crate.storage.slots[i] = None
-                self.learn(C.BLUEPRINT_ITEMS[stack.item])
-                moved += 1
-                want += 1
                 continue
             n = stack.count if amount is None else min(amount, stack.count)
             item = stack.item

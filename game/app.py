@@ -143,9 +143,9 @@ class App:
         self.open_drill = None                            # drill aberta (Machine), no modo "drill"
         self.open_crate = None                            # caixa de saque aberta (Crate), no modo "crate"
         self.after_terminal = None                        # registro de bordo lido ao abrir a caixa: depois abre ela
-        self.blueprint_notice: str | None = None          # projeto do aviso "PROJETO: ..." (Marco 3)
+        self.blueprint_notice: str | None = None          # diagrama do aviso "DIAGRAMA: ..." (Marco 3)
         self.blueprint_notice_time = 0.0
-        self.blueprint_duck = 0.0                         # s com o ambiente abaixado (projeto encontrado)
+        self.blueprint_duck = 0.0                         # s com o ambiente abaixado (diagrama encontrado)
         self.crate_open_t = -10.0                         # quando tocou o crate_open (o blueprint_found vem 0,4 s depois)
         self.map_sound_t = -10.0                          # M: no máximo 1 som de abrir a cada 0,3 s
         # mapa aberto (M): câmera, camada e filtros. Zoom e filtros vêm do settings.json (preferência do jogador)
@@ -154,6 +154,7 @@ class App:
         self.notice: str | None = None                    # aviso curto ("Inventário cheio")
         self.notice_time = 0.0
         self.rotation = 0
+        self.fab_bench = "t1"           # bancada do painel de fabricar aberto ("t2" = a Bancada T2): qual diagrama ela lê
         self.fab = craft_menu()         # aba, seleção e rolagem do fabricador (só itens · game/fabricator.py)
         self.build_menu = build_menu()  # v0.5 M1: menu do construtor (E com ele na mão): as máquinas
         self.terminal_index = 0
@@ -434,8 +435,12 @@ class App:
             if key in (pygame.K_e, pygame.K_ESCAPE):
                 self.set_mode("play")
             elif key in (pygame.K_w, pygame.K_UP, pygame.K_s, pygame.K_DOWN):
-                menu.move(-1 if key in (pygame.K_w, pygame.K_UP) else 1)
+                menu.move(-1 if key in (pygame.K_w, pygame.K_UP) else 1, self.diagram_count())
                 self.audio.play("ui_click")
+            elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE) and menu.diag is not None:
+                held = self.state.diagrams_held()
+                if menu.diag < len(held):
+                    self.read_diagram(held[menu.diag][0])
             elif key in (pygame.K_a, pygame.K_LEFT, pygame.K_d, pygame.K_RIGHT, pygame.K_TAB):
                 menu.switch_tab(-1 if key in (pygame.K_a, pygame.K_LEFT) else 1)   # Tab: próxima aba
                 self.audio.play("ui_click")
@@ -501,6 +506,7 @@ class App:
                     self.audio.play("chest_open")
                 elif state.in_base_zone():
                     self.placing = None
+                    self.fab.diag = None
                     self.set_mode("fabricator")
                     state.fabricator_opened = True
             elif key == pygame.K_ESCAPE and self.placing:
@@ -547,7 +553,7 @@ class App:
 
     def choose_build(self, kind: str) -> None:
         """Escolheu a máquina no menu: fecha e entra no modo de construir (o fantasma; o clique constrói). Trancada
-        (Ti ou projeto) não entra; sem material entra (o fantasma fica vermelho e a dica diz o que falta)."""
+        (Ti ou diagrama) não entra; sem material entra (o fantasma fica vermelho e a dica diz o que falta)."""
         if self.state.build_status(kind) in ("locked", "blueprint", "no_constructor"):
             return
         self.set_mode("play")
@@ -580,7 +586,7 @@ class App:
             self.set_mode("play")
 
     def open_loot(self, crate) -> None:
-        """E na caixa: abre (o projeto sai sozinho). Nave e sonda: na 1ª vez, o registro de bordo aparece
+        """E na caixa: abre (o diagrama fica na caixa pra pegar). Nave e sonda: na 1ª vez, o registro de bordo aparece
         antes (a nave e a sonda não têm terminal; o LOG vem com a caixa)."""
         first = not crate.opened
         self.state.open_crate(crate)
@@ -615,6 +621,20 @@ class App:
             self.scroll_logs(0)
         self.audio.play("ui_click")
 
+    def diagram_count(self) -> int:
+        """Quantos diagramas a área "Diagramas" mostra (só no fabricador; o construtor não tem a área)."""
+        return len(self.state.diagrams_held()) if self.mode == "fabricator" else 0
+
+    def read_diagram(self, diagram: str) -> None:
+        """LER: gasta 1 diagrama e libera a receita (o som e o aviso saem pelo evento diagram_read). Bancada errada
+        ou receita já liberada: avisa e não gasta."""
+        result = self.state.read_diagram(f"diagram_{diagram}", self.fab_bench)
+        if result == "wrong_bench":
+            self.show_notice(f"Esse diagrama se lê na {C.BENCH_LABEL[C.DIAGRAM_BENCH[diagram]].title()}")
+        elif result == "known":
+            self.show_notice("Receita já liberada")
+        self.fab.clamp_diag(self.diagram_count())
+
     def craft_batch(self, menu: FabMenu) -> bool:
         """Fabrica em lote (até C.CRAFT_BATCH)? Sim com o seletor em ×5 ou com o Shift segurado."""
         return menu.batch > 1 or self.shift_held()
@@ -623,6 +643,10 @@ class App:
         """Clique na lista + detalhe (fabricador ou construtor): FABRICAR fabrica (×5 ou Shift: até 5), CONSTRUIR
         escolhe a máquina, ×1/×5 trocam o lote e a linha escolhe a receita. True se usou o clique."""
         ui = self.ui
+        diagram = next((d for rect, d in ui.diagram_buttons if rect.collidepoint(pos)), None)
+        if diagram is not None:
+            self.read_diagram(diagram)
+            return True
         kind = next((k for rect, k in ui.fabricator_buttons if rect.collidepoint(pos)), None)
         if kind is not None:
             if menu is self.build_menu:
@@ -697,7 +721,7 @@ class App:
             if "scanner" in self.state.blueprints:
                 self.show_notice("Fabrique e equipe o scanner de navegação [Tab]")
             else:
-                self.show_notice("Sem scanner de navegação: o projeto está num destroço")
+                self.show_notice("Sem scanner de navegação: o diagrama está num destroço")
             return
         self.placing = None
         if self.t - self.map_sound_t >= C.MAP_OPEN_COOLDOWN:
@@ -1391,7 +1415,10 @@ class App:
         elif kind == "crate_open":            # caixa de saque (vazia: mais baixo, dica do Som)
             self.audio.play("crate_open", gain=0.67 if event[1] else 1.0)
             self.crate_open_t = self.t
-        elif kind == "blueprint":             # projeto: aviso, jingle 0,4 s depois do crate_open, ambiente a 60%
+        elif kind == "diagram_read":          # lido na bancada: som calmo e o aviso
+            self.audio.play("diagram_read")
+            self.show_notice(f"Receita liberada: {C.BLUEPRINTS[event[1]]}")
+        elif kind == "diagram_found":         # diagrama achado: aviso, jingle 0,4 s depois do crate_open, ambiente a 60%
             self.blueprint_notice, self.blueprint_notice_time = event[1], C.BLUEPRINT_NOTICE_TIME
             delay = max(0.0, C.BLUEPRINT_SOUND_DELAY - (self.t - self.crate_open_t))
             self.audio.play("blueprint_found", delay=delay)
@@ -1718,7 +1745,7 @@ class App:
         if status == "locked":
             return f"Libera em Ti {fmt(C.MACHINES[kind].unlock_ti)}"
         if status == "blueprint":
-            return "Projeto não encontrado"
+            return "Precisa do diagrama"
         if status == "no_constructor":
             return "Sem o construtor"
         return None
@@ -1838,7 +1865,7 @@ class App:
         if self.mode in ("fabricator", "build"):
             preview = self.renderer.machine_preview
             ui.draw_fabricator(state, self.menu_of_mode(), preview, self.t, self.renderer.item_icon, mouse_ui,
-                               self.shift_held(), build=self.mode == "build")
+                               self.shift_held(), build=self.mode == "build", bench=self.fab_bench)
         elif self.mode == "terminal":
             ui.draw_terminal(self.terminal_index, self.t)
         elif self.mode == "map":
@@ -1881,11 +1908,11 @@ class App:
         ui.draw_cursor(*mouse_ui)
         ui.finish(window)
 
-        # camada 4: "PROJETO: ..." por cima de tudo (até dos ícones dos painéis)
+        # camada 4: "DIAGRAMA: ..." por cima de tudo (até dos ícones dos painéis)
         if self.blueprint_notice_time > 0 and self.blueprint_notice:
             ui.begin()
             ui.draw_blueprint_notice(self.blueprint_notice, min(1.0, self.blueprint_notice_time / 0.5),
-                                     self.renderer.item_icon(f"bp_{self.blueprint_notice}"))
+                                     self.renderer.item_icon(f"diagram_{self.blueprint_notice}"))
             ui.finish(window)
 
     def screenshot(self, path: str) -> None:

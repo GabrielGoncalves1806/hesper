@@ -298,7 +298,7 @@ def test_marker_pictograms_draw_their_color(ui):
 
 @pytest.mark.parametrize("size", [(480, 270), (640, 360), (960, 540)])
 def test_blueprint_notice_fits_the_top_gap(ui, size):
-    """Aviso de projeto: no vão do topo (entre O₂ e Ti), sem cobrir os painéis do HUD, em todo tamanho, e
+    """Aviso de diagrama: no vão do topo (entre O₂ e Ti), sem cobrir os painéis do HUD, em todo tamanho, e
     sempre com o ícone (antes o Grande tirava o ícone pra caber) dentro do aviso, sem encostar no texto."""
     ui.set_layout((0, 0, size[0] * 2, size[1] * 2), 2.0, size)
     left, right = ui.BANNER_GAP

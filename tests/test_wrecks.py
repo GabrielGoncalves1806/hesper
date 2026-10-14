@@ -85,7 +85,7 @@ def test_loot_is_fixed_by_seed_and_scales_with_size():
     assert min(total["cargo"]) > max(total["module"]) > 0
     assert min(total["module"]) > max(total["probe"]) > 0
     first = crates[world.wrecks[0].crate]
-    assert first.storage.count("bp_o2_tank") == 1
+    assert first.storage.count("diagram_o2_tank") == 1
 
 
 def test_specs_match_sprite_contract():
@@ -100,7 +100,7 @@ def test_specs_match_sprite_contract():
 
 
 # ---------------------------------------------------------------------------
-# Caixa de saque e projetos no GameState
+# Caixa de saque e diagramas no GameState
 # ---------------------------------------------------------------------------
 from game.systems import GameState  # noqa: E402
 from tests.helpers import give  # noqa: E402
@@ -120,7 +120,7 @@ def first_crate(g):
     return g.crates[g.world.wrecks[0].crate]
 
 
-def test_recipe_locked_until_blueprint():
+def test_recipe_locked_until_diagram_is_read():
     g = GameState(7)
     give(g, iron=50, silicon=50, ice=50)
     assert g.recipe_status("o2_tank") == "blueprint" and not g.craft("o2_tank")
@@ -130,16 +130,20 @@ def test_recipe_locked_until_blueprint():
     assert g.inventory.count("o2_tank") == 1
 
 
-def test_open_crate_learns_blueprint_and_it_vanishes():
+def test_open_crate_announces_diagram_and_keeps_it_as_item():
     g = GameState(7)
     crate = first_crate(g)
     stand_at_crate(g, crate)
     assert g.interaction() == ("crate", crate)
     found = g.open_crate(crate)
-    assert found == ["o2_tank"] and "o2_tank" in g.blueprints
-    assert crate.storage.count("bp_o2_tank") == 0 and g.inventory.count("bp_o2_tank") == 0
+    assert found == ["o2_tank"] and "o2_tank" not in g.blueprints         # achar não libera a receita
+    assert crate.storage.count("diagram_o2_tank") == 1                    # fica na caixa, é item
     events = g.pop_events()
-    assert ("crate_open", False) in events and ("blueprint", "o2_tank") in events
+    assert ("crate_open", False) in events and ("diagram_found", "o2_tank") in events
+    assert g.recipe_status("o2_tank") == "blueprint"
+    # pegar da caixa põe o diagrama no inventário (item normal), ainda sem receita
+    g.crate_take(crate)
+    assert g.inventory.count("diagram_o2_tank") == 1 and "o2_tank" not in g.blueprints
     assert crate.opened
     # abrir de novo não acha nada de novo
     assert g.open_crate(crate) == []
@@ -163,8 +167,8 @@ def test_full_inventory_keeps_loot_in_crate():
     for k in range(C.INVENTORY_SLOTS):
         g.inventory.add("chest", 5)
     crate = first_crate(g)
-    g.open_crate(crate)                         # o projeto entra mesmo sem espaço (ele some na hora)
-    assert "o2_tank" in g.blueprints
+    g.open_crate(crate)                         # o diagrama é item: sem espaço, fica na caixa como o resto
+    assert "o2_tank" not in g.blueprints
     before = crate.storage.to_data()
     assert g.crate_take(crate) == 0 and crate.storage.to_data() == before
     assert ("inv_full",) in g.pop_events()
@@ -191,3 +195,52 @@ def test_visiting_a_wreck_counts():
     g.player.x, g.player.y = (w.crate[0] + 0.5) * C.TILE, (w.crate[1] + 2) * C.TILE
     g.update(0.25, __import__("game.systems", fromlist=["Controls"]).Controls())
     assert 0 in g.wrecks_visited
+
+
+# ---------------------------------------------------------------------------
+# Diagrama (v0.5 M1): item no inventário, lido na bancada
+# ---------------------------------------------------------------------------
+def test_read_diagram_spends_one_and_unlocks_forever():
+    g = GameState(7)
+    give(g, diagram_o2_tank=2)
+    assert g.read_diagram("diagram_o2_tank", "t1") == "ok"
+    assert g.inventory.count("diagram_o2_tank") == 1 and "o2_tank" in g.blueprints
+    assert ("diagram_read", "o2_tank") in g.pop_events()
+    give(g, iron=50, silicon=50, ice=50)
+    assert g.recipe_status("o2_tank") == "ok"
+
+
+def test_read_repeated_diagram_does_not_spend():
+    g = GameState(7)
+    g.blueprints.add("scanner")
+    give(g, diagram_scanner=1)
+    assert g.read_diagram("diagram_scanner", "t1") == "known"
+    assert g.inventory.count("diagram_scanner") == 1 and not g.pop_events()
+
+
+def test_read_diagram_on_wrong_bench_or_without_it():
+    g = GameState(7)
+    give(g, diagram_o2_tank=1)
+    assert g.read_diagram("diagram_o2_tank", "t2") == "wrong_bench"      # o tanque é da T1 (item)
+    assert g.inventory.count("diagram_o2_tank") == 1 and "o2_tank" not in g.blueprints
+    assert g.read_diagram("diagram_scanner", "t1") == "none"             # não tem
+    assert g.read_diagram("iron", "t1") == "none"                        # nem é diagrama
+
+
+def test_machine_diagram_reads_on_any_bench():
+    g = GameState(7)
+    give(g, diagram_lamp_t2=1)
+    assert g.read_diagram("diagram_lamp_t2", "t2") == "ok" and "lamp_t2" in g.blueprints
+
+
+def test_diagrams_held_lists_inventory_diagrams():
+    g = GameState(7)
+    assert g.diagrams_held() == []
+    give(g, diagram_scanner=2, diagram_o2_tank=1)
+    assert g.diagrams_held() == [("o2_tank", 1), ("scanner", 2)]
+
+
+def test_diagram_names():
+    from game.ui import item_name
+    assert item_name("diagram_o2_tank") == "Diagrama: Tanque de O₂"
+    assert all(f"diagram_{k}" in C.DIAGRAM_ITEMS for k in C.BLUEPRINTS)
