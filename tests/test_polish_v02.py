@@ -16,33 +16,33 @@ def game() -> GameState:
     return GameState(rng=random.Random(3))
 
 
-# ---------------------------------------------------------------- fabricar em lote
+# ---------------------------------------------------------------- fabricar em lote (v0.5 M1: só itens; o construtor)
 def test_craft_many_makes_up_to_five(game):
-    give(game, iron=100, silicon=100)
-    assert game.craft_many("o2") == C.CRAFT_BATCH == 5
-    assert game.inventory.count("o2") == 5
-    assert game.inventory.count("iron") == 100 - 5 * C.MACHINES["o2"].cost["iron"]
+    give(game, iron=100)
+    assert game.craft_many("constructor") == C.CRAFT_BATCH == 5
+    assert game.inventory.count("constructor") == 5
+    assert game.inventory.count("iron") == 100 - 5 * C.MACHINES["constructor"].cost["iron"]
 
 
 def test_craft_many_stops_when_resources_run_out(game):
-    cost = C.MACHINES["o2"].cost
+    cost = C.MACHINES["constructor"].cost
     give(game, **{r: n * 3 + 1 for r, n in cost.items()})   # dá pra 3 e sobra 1 de cada
-    assert game.craft_many("o2") == 3
-    assert game.inventory.count("o2") == 3
+    assert game.craft_many("constructor") == 3
+    assert game.inventory.count("constructor") == 3
     assert all(game.inventory.count(r) == 1 for r in cost)
 
 
 def test_craft_many_emits_a_single_craft_event(game):
-    give(game, iron=100, silicon=100)
+    give(game, iron=100)
     game.pop_events()
-    game.craft_many("o2")
+    game.craft_many("constructor")
     crafts = [e for e in game.pop_events() if e[0] == "craft"]
-    assert crafts == [("craft", "o2", 5)]                     # um som só, com a quantidade
-    assert game.crafted["o2"] == 5
+    assert crafts == [("craft", "constructor", 5)]                     # um som só, com a quantidade
+    assert game.crafted["constructor"] == 5
 
 
 def test_craft_many_without_resources(game):
-    assert game.craft_many("o2") == 0
+    assert game.craft_many("constructor") == 0
     assert not [e for e in game.pop_events() if e[0] == "craft"]
 
 

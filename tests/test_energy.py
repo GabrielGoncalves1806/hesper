@@ -139,16 +139,17 @@ def test_solar_panel_recipe():
     assert "solar" in C.MACHINE_ORDER
 
 
-def test_solar_panel_craft_place_dismantle(game):
-    give(game, iron=8, silicon=6)
-    assert game.recipe_status("solar") == "ok"
-    assert game.craft("solar")
+def test_solar_panel_build_and_dismantle(game):
+    give(game, constructor=1, iron=8, silicon=6)
+    assert game.build_status("solar") == "ok"
     px, py = game.player.tile
-    assert game.place("solar", (px + 2, py))
+    assert game.build("solar", (px + 2, py))
+    assert game.power.production == 5                   # v0.5 M1: se construindo, ainda não gera
+    game.machine_at((px + 2, py)).build = 0
     assert game.power.production == 9
     ti = game.ti
     game._update_machines(30)
     assert game.ti == ti                                # painel não soma Ti
     panel = game.machine_at((px + 2, py))
     assert game.dismantle(panel)
-    assert game.inventory.count("solar") == 1 and game.power.production == 5
+    assert game.inventory.count("iron") == 8 and game.power.production == 5      # a receita volta

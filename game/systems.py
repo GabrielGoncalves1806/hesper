@@ -36,6 +36,7 @@ class Controls:
     move_y: float = 0.0
     mine_tile: tuple[int, int] | None = None   # tile mirado enquanto segura o clique
     in_menu: bool = False                      # tela aberta (inventário, fabricador, mapa...): sem empurrão do vento
+    dismantle: "Machine | None" = None         # v0.5 M1: máquina debaixo do mouse com o botão direito segurado
 
 
 @dataclass
@@ -61,6 +62,9 @@ class Machine:
     # v0.4 M3.4: o lago subiu por cima dela (GameState._thaw_submerged). Derivado: não vai no save, o load refaz.
     # Parada: não soma índice, não gera nem gasta energia, a drill não cava e a estação não manda drone.
     submerged: bool = field(default=False, compare=False)
+    # v0.5 M1: segundos que faltam pra terminar de se construir (o scanner varrendo). Enquanto > 0 ela não funciona
+    # (não soma Ti, não gera nem gasta energia). Não vai no save: carregou, já está pronta.
+    build: float = field(default=0.0, compare=False)
 
     def __post_init__(self, stored_init: int = 0) -> None:
         if self.storage is None and self.is_drill:
@@ -289,6 +293,10 @@ class GameState:
         self.explore_timer = 0.0                       # o explorado atualiza a cada EXPLORE_INTERVAL
         self.weather = Weather(seed)                   # tempestade (v0.4): vento, rajadas e raio de visão
         self.rain = Rain(seed)                         # chuva (v0.4 M3.3): pancadas na Névoa e no Verde
+        # v0.5 M1: desmontar segurando o botão direito (`_update_dismantle`)
+        self.dismantling: Machine | None = None        # máquina com a barrinha enchendo
+        self.dismantle_t = 0.0                         # s segurando nela
+        self._dismantle_lock: Machine | None = None    # já tentou: só carrega de novo depois de soltar
         self.events: list[tuple] = []
 
     # ---- camadas --------------------------------------------------------------
@@ -384,8 +392,9 @@ class GameState:
 
     @property
     def working_machines(self) -> list:
-        """As máquinas das duas camadas que estão funcionando (a submersa parou: v0.4 M3.4)."""
-        return [m for m in self.all_machines if not m.submerged]
+        """As máquinas das duas camadas que estão funcionando (a submersa parou: v0.4 M3.4; a que ainda está se
+        construindo também não conta: v0.5 M1)."""
+        return [m for m in self.all_machines if not m.submerged and m.build <= 0]
 
     @property
     def ti_rate(self) -> float:
@@ -457,6 +466,8 @@ class GameState:
         if self.rain.update(dt, self.stage):           # pancada de chuva começou (só a partir da Névoa)
             self.events.append(("rain", True))
 
+        if self.fainted or self.ramp is not None:   # desmaiado ou na rampa: solta o desmonte que estava segurando
+            self._update_dismantle(None, dt)
         if self.fainted:
             self.ramp = None                  # desmaiou no meio do fade: acorda na cápsula, sem viagem
             self._update_faint(dt)
@@ -464,11 +475,13 @@ class GameState:
             self._update_ramp(dt)
             self._update_o2(sim_dt)
         else:
+            self._update_dismantle(controls.dismantle, dt)
             self.player.move(controls.move_x, controls.move_y, dt, self.solids_near, self.player_speed)
             if not controls.in_menu:          # rajada: o vento empurra (parado, desliza; contra, anda mais devagar)
                 self.player.drift(*self.weather.push(storm), dt, self.solids_near)
             self._update_mining(dt, controls.mine_tile)
             self._update_o2(sim_dt)
+        self._update_building(dt)
         self._update_machines(sim_dt)
         self._update_storm(dt)
         self._update_rocks(sim_dt)
@@ -560,70 +573,69 @@ class GameState:
         return [c for c in self.surface.machines if c.is_chest
                 and math.hypot(c.anchor[0] - C.BASE_CENTER[0], c.anchor[1] - C.BASE_CENTER[1]) <= C.BASE_RADIUS]
 
-    def craft_sources(self, field: bool = False) -> list[Machine]:
-        """Baús que entram na conta de uma receita: os da base no fabricador; nenhum em campo (aba Fabricar do Tab)."""
-        return [] if field else self.base_chests()
+    def craft_sources(self, inv_only: bool = False) -> list[Machine]:
+        """Baús que entram na conta de uma receita: os da base no fabricador; nenhum no construtor (só o inventário)."""
+        return [] if inv_only else self.base_chests()
 
-    def available(self, resource: str, field: bool = False) -> int:
-        """Quanto dá pra gastar desse recurso: inventário + baús da base (fabricador) ou só o inventário (em campo)."""
-        return self.inventory.count(resource) + sum(c.storage.count(resource) for c in self.craft_sources(field))
+    def available(self, resource: str, inv_only: bool = False) -> int:
+        """Quanto dá pra gastar desse recurso: inventário + baús da base (fabricador) ou só o inventário (construtor)."""
+        return self.inventory.count(resource) + sum(c.storage.count(resource) for c in self.craft_sources(inv_only))
 
-    def recipe_status(self, kind: str, field: bool = False) -> str:
+    def recipe_status(self, kind: str, inv_only: bool = False) -> str:
         """'blueprint' (projeto não encontrado), 'locked' (Ti insuficiente), 'missing' (falta recurso) ou 'ok'.
-        `field`: fabricar em campo (conta só o inventário)."""
+        `inv_only`: conta só o inventário (o construtor, v0.5 M1)."""
         machine = C.MACHINES[kind]
         blueprint = C.RECIPE_BLUEPRINT.get(kind)
         if blueprint is not None and blueprint not in self.blueprints:
             return "blueprint"
         if self.ti < machine.unlock_ti:
             return "locked"
-        if any(self.available(r, field) < n for r, n in machine.cost.items()):
+        if any(self.available(r, inv_only) < n for r, n in machine.cost.items()):
             return "missing"
         return "ok"
 
-    def missing_resource(self, kind: str, field: bool = False) -> str | None:
+    def missing_resource(self, kind: str, inv_only: bool = False) -> str | None:
         for r, n in C.MACHINES[kind].cost.items():
-            if self.available(r, field) < n:
+            if self.available(r, inv_only) < n:
                 return r
         return None
 
-    def craft(self, kind: str, field: bool = False) -> bool:
-        """Fabrica 1 máquina: gasta primeiro o que está no inventário, depois o dos baús da base.
-        A máquina vira um item no inventário (falha com aviso se não couber).
-        `field` = fabricar em campo (aba Fabricar do Tab): em qualquer lugar, só as receitas do kit de campo
-        (C.FIELD_RECIPES) e só com o que está no inventário."""
-        if field:
-            if kind not in C.FIELD_RECIPES:
-                return False
-        elif not self.in_base_zone():
+    def _spend(self, cost: dict, inv_only: bool = False) -> None:
+        """Gasta a receita: primeiro o inventário, depois os baús da base (se valer). Quem chama já conferiu."""
+        for r, n in cost.items():
+            left = n - self.inventory.remove(r, n)
+            for chest in self.craft_sources(inv_only):
+                if left <= 0:
+                    break
+                left -= chest.storage.remove(r, left)
+
+    def craft(self, kind: str) -> bool:
+        """Fabrica 1 item no fabricador da base (v0.5 M1: só itens; máquina vem do construtor). Gasta primeiro o
+        inventário, depois os baús da base. O item vai pro inventário (falha com aviso se não couber)."""
+        if C.MACHINES[kind].placeable or not self.in_base_zone():
             return False
-        if self.recipe_status(kind, field) != "ok":
+        if self.recipe_status(kind) != "ok":
             return False
         cost = C.MACHINES[kind].cost
-        # "e se eu gastar o que vem do inventário, sobra lugar pra máquina?" (testa numa cópia)
+        # "e se eu gastar o que vem do inventário, sobra lugar pro item?" (testa numa cópia)
         trial = self.inventory.copy()
         for r, n in cost.items():
             trial.remove(r, n)
         if not trial.has_space(kind):
             self.events.append(("inv_full",))
             return False
-        for r, n in cost.items():
-            left = n - self.inventory.remove(r, n)
-            for chest in self.craft_sources(field):
-                if left <= 0:
-                    break
-                left -= chest.storage.remove(r, left)
+        self._spend(cost)
         self.inventory.add(kind, 1)
         self.crafted[kind] += 1
         self.events.append(("craft", kind))
         return True
 
-    def craft_many(self, kind: str, limit: int = C.CRAFT_BATCH, field: bool = False) -> int:
+    def craft_many(self, kind: str, limit: int = C.CRAFT_BATCH) -> int:
         """Fabrica até `limit` de uma vez (Shift no fabricador). Para no primeiro que falhar (faltou
         recurso ou não cabe no inventário). Devolve quantas fabricou; o evento "craft" sai uma vez só
         (um som), com a quantidade."""
         made = 0
-        while made < limit and self.craft(kind, field):
+        while made < limit and self.craft(kind):
             made += 1
         if made > 1:
             crafts = [e for e in self.events if e[0] == "craft" and e[1] == kind]
@@ -632,15 +644,19 @@ class GameState:
             self.events[self.events.index(crafts[-1])] = ("craft", kind, made)
         return made
 
+    # ---- construtor (v0.5 M1) -------------------------------------------------
+    @property
+    def has_constructor(self) -> bool:
+        return self.inventory.count("constructor") > 0
+
     def can_place(self, kind: str, tile: tuple[int, int]) -> bool:
-        """Máquina comum: 1 tile de chão livre fora de veio. Drill: `tile` tem que ser o canto
-        de cima à esquerda de um veio livre (o App "gruda" o fantasma no veio debaixo do mouse)."""
+        """O LUGAR serve? Máquina comum: 1 tile de chão livre fora de veio. Drill: `tile` tem que ser o canto
+        de cima à esquerda de um veio livre (o App "gruda" o fantasma no veio debaixo do mouse).
+        Não olha material nem construtor (isso é o `can_build`)."""
         tx, ty = tile
-        if not C.MACHINES[kind].placeable:      # o drone é item, mas vai na estação, não no chão
+        if not C.MACHINES[kind].placeable:      # item (drone, construtor, equipamento) não vai pro chão
             return False
         if kind == "drone_station" and not self.active.has_base:   # drones só atendem a superfície (v0.3)
-            return False
-        if self.inventory.count(kind) <= 0:     # precisa ter a máquina (item) no inventário
             return False
         machine = Machine(kind, tx, ty)
         vein = self.world.vein_at(tx, ty)
@@ -666,15 +682,25 @@ class GameState:
         # não pode prender o player dentro da máquina
         return not overlaps(self.player.box, machine.rect)
 
-    def place(self, kind: str, tile: tuple[int, int], rotation: int = 0, slot: int | None = None) -> bool:
-        """Coloca a máquina e gasta 1 item dela. `slot` = de qual slot sai (o da hotbar selecionado);
-        sem `slot`, sai de qualquer pilha dessa máquina."""
-        if not self.can_place(kind, tile):
+    def build_status(self, kind: str) -> str:
+        """Dá pra construir essa máquina agora (fora o lugar)? 'no_constructor', o recipe_status contando só o
+        inventário ('blueprint', 'locked', 'missing') ou 'ok'."""
+        if not self.has_constructor:
+            return "no_constructor"
+        return self.recipe_status(kind, inv_only=True)
+
+    def can_build(self, kind: str, tile: tuple[int, int]) -> bool:
+        """Construtor no inventário, receita liberada, material no inventário e o lugar serve."""
+        return self.build_status(kind) == "ok" and self.can_place(kind, tile)
+
+    def build(self, kind: str, tile: tuple[int, int], rotation: int = 0) -> bool:
+        """Constrói a máquina no lugar (v0.5 M1, o único jeito de pôr máquina no chão): gasta a receita SÓ do
+        inventário e ela nasce "se construindo" por C.BUILD_TIME s (parada, o scanner varre de baixo pra cima)."""
+        if not self.can_build(kind, tile):
             return False
-        stack = self.inventory.slots[slot] if slot is not None else None
-        if slot is not None and (stack is None or stack.item != kind):
-            return False
+        self._spend(C.MACHINES[kind].cost, inv_only=True)
         machine = Machine(kind, tile[0], tile[1], rotation)
+        machine.build = C.BUILD_TIME
         if machine.is_drill:                                   # vem com Envia/Recebe vazios: o player configura
             machine.resource = self.world.vein_at(*tile).resource
             self.drills_placed += 1
@@ -687,12 +713,15 @@ class GameState:
         self.machines.append(machine)
         if self.active.has_base:                               # a caverna não muda com o Ti
             self.transition_sources.add(tuple(tile))
-        if slot is not None:
-            self.inventory.remove_from_slot(slot, 1)
-        else:
-            self.inventory.remove(kind, 1)
-        self.events.append(("place", kind, tile))
+        self.crafted[kind] += 1                                # "já fez uma dessas" (objetivos): construir conta
+        self.events.append(("build", kind, tile))
         return True
+
+    def _update_building(self, dt: float) -> None:
+        """O relógio das máquinas se construindo (tempo real, o F1 não acelera a animação)."""
+        for m in self.all_machines:
+            if m.build > 0:
+                m.build = max(0.0, m.build - dt)
 
     # ---- drill automática ---------------------------------------------------
     def drill_distance(self, drill: Machine) -> float:
@@ -929,49 +958,78 @@ class GameState:
         px, py = self.player.tile
         return machine in self.machines and max(abs(machine.tx - px), abs(machine.ty - py)) <= C.PLACE_REACH
 
+    def dismantle_returns(self, machine: Machine) -> dict[str, int]:
+        """O que volta pro inventário desmontando: os materiais da receita (v0.5 M1: a máquina não é item), mais o
+        que a drill guardou e, na estação, as sobras do buffer, a carga e os próprios drones."""
+        out = dict(machine.type.cost)
+        if machine.is_drill and machine.stored:
+            out[machine.resource] = out.get(machine.resource, 0) + machine.stored
+        if machine.is_station:
+            for r, n in drones.recall_cargo(machine.station).items():
+                out[r] = out.get(r, 0) + n
+            if machine.station.drones:
+                out["drone"] = len(machine.station.drones)
+        return out
+
     def dismantle(self, machine: Machine) -> bool:
-        """Tira a máquina do mapa e devolve ela como item pro inventário.
-        Não desmonta (e avisa) se: o baú tem coisa dentro, ou não cabe no inventário.
-        Drill: o que ela guardou vai antes pro inventário; se não couber tudo, o resto fica nela
-        e ela continua no lugar. A cápsula não é uma Machine, então nunca entra aqui."""
+        """Desmonta na hora (quem chama é o segurar do botão direito, `_update_dismantle`): tira a máquina do mapa
+        e devolve `dismantle_returns` pro inventário. Ou cabe tudo, ou nada muda (aviso de inventário cheio).
+        O baú só desmonta vazio. A cápsula não é uma Machine, então nunca entra aqui."""
         if not self.can_dismantle(machine):
             return False
         if machine.is_chest and not machine.storage.is_empty():
             self.events.append(("chest_not_empty",))
             return False
-        if machine.is_station:                       # buffer + carga dos drones: ou cabe tudo, ou nada muda
-            return self._dismantle_station(machine)
-        if machine.is_drill and machine.stored:      # o que a drill guardou vai pro inventário
-            self.collect(machine)
-            if machine.stored:                       # não coube tudo: a drill fica (o collect já avisou)
-                return False
-        if not self.inventory.has_space(machine.kind):
+        returns = self.dismantle_returns(machine)
+        trial = self.inventory.copy()
+        if any(trial.add(item, n) for item, n in returns.items()):
             self.events.append(("inv_full",))
             return False
+        if machine.is_drill and machine.stored:
+            self.drill_collected[machine.resource] += machine.stored
+        if machine.is_station:
+            machine.station.drones.clear()                 # quem estava voando some junto (sem carga perdida)
+        for item, n in returns.items():
+            self.inventory.add(item, n)
         self.machines.remove(machine)
-        self.inventory.add(machine.kind, 1)
         self.events.append(("dismantle", machine.kind, (machine.tx, machine.ty)))
         return True
 
-    def _dismantle_station(self, machine: Machine) -> bool:
-        """Estação: o buffer, a carga dos drones e os próprios drones (até os que estão voando: a viagem
-        é cancelada) vão pro inventário junto com a estação. Se não couber tudo, ela fica no lugar
-        (com o aviso de inventário cheio), sem perder nada."""
-        contents = drones.recall_cargo(machine.station)
-        n_drones = len(machine.station.drones)
-        if n_drones:
-            contents["drone"] = n_drones
-        trial = self.inventory.copy()
-        if any(trial.add(r, n) for r, n in contents.items()) or not trial.has_space(machine.kind):
-            self.events.append(("inv_full",))
-            return False
-        for r, n in contents.items():
-            self.inventory.add(r, n)
-        machine.station.drones.clear()                 # quem estava voando some junto (sem carga perdida)
-        self.machines.remove(machine)
-        self.inventory.add(machine.kind, 1)
-        self.events.append(("dismantle", machine.kind, (machine.tx, machine.ty)))
-        return True
+    def _update_dismantle(self, target: Machine | None, dt: float) -> None:
+        """Desmontar segurando (v0.5 M1): o botão direito segurado em cima de uma máquina no alcance enche
+        `dismantle_t` até C.DISMANTLE_HOLD e aí desmonta. Soltar, tirar o mouse ou sair do alcance cancela. Eventos:
+        ("dismantle_charge",) quando começa a encher e ("dismantle_cancel",) quando para sem completar. Depois de
+        uma tentativa (completa ou não: inventário cheio, baú com coisa) a mesma máquina só carrega de novo soltando."""
+        if target is None:
+            self._dismantle_lock = None
+        if target is not None and (target is self._dismantle_lock or not self.can_dismantle(target)):
+            target = None
+        if target is not self.dismantling:
+            if self.dismantling is not None:
+                self.events.append(("dismantle_cancel",))
+            self.dismantling, self.dismantle_t = None, 0.0
+            if target is None:
+                return
+            if target.is_chest and not target.storage.is_empty():   # nem começa: já avisa
+                self.events.append(("chest_not_empty",))
+                self._dismantle_lock = target
+                return
+            self.dismantling = target
+            self.events.append(("dismantle_charge",))
+        if self.dismantling is None:
+            return
+        self.dismantle_t += dt
+        if self.dismantle_t >= C.DISMANTLE_HOLD:
+            machine = self.dismantling
+            self.dismantling, self.dismantle_t = None, 0.0
+            self._dismantle_lock = machine
+            if not self.dismantle(machine):                  # não coube: a máquina fica e o charge para
+                self.events.append(("dismantle_cancel",))
+
+    @property
+    def dismantle_progress(self) -> float:
+        """0..1 do desmonte segurado agora (0 sem nenhum)."""
+        return min(1.0, self.dismantle_t / C.DISMANTLE_HOLD) if self.dismantling is not None else 0.0
 
     def _update_machines(self, dt: float) -> None:
         power = self.power
@@ -983,7 +1041,7 @@ class GameState:
                 self._update_drill(m, work_dt)
             elif m.type.index is not None:   # painel solar, baú e estação não somam Ti
                 self.indices[m.type.index] += m.type.rate * work_dt
-        stations = [m for m in self.surface.machines if m.is_station]
+        stations = [m for m in self.surface.machines if m.is_station and m.build <= 0]
         if stations:                         # drones (game/drones.py): só na superfície; no déficit voam mais devagar
             self.drone_deliveries += drones.update_stations(stations, self.drone_logistics(), work_dt, self.events)
         self._check_stage()

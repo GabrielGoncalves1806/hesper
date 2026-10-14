@@ -7,7 +7,7 @@ import pytest
 from game import config as C
 from game.objectives import FLASH_TIME, OBJECTIVES, ObjectiveTracker, current_index
 from game.systems import GameState, Machine
-from tests.helpers import give
+from tests.helpers import build_now, give
 
 
 @pytest.fixture
@@ -21,13 +21,14 @@ def current_text(game: GameState) -> str | None:
 
 
 def craft_free(game: GameState, kind: str) -> None:
-    """Fabrica sem gastar recurso (o teste é dos objetivos, não do fabricador)."""
+    """Fabrica (item) ou constrói (máquina, só conta) sem gastar recurso: o teste é dos objetivos. v0.5 M1: máquina
+    não vira item."""
     game.crafted[kind] += 1
-    give(game, **{kind: 1})
+    if not C.MACHINES[kind].placeable:
+        give(game, **{kind: 1})
 
 
 def place_at(game: GameState, kind: str, tile: tuple[int, int]) -> None:
-    game.inventory.remove(kind, 1)
     game.machines.append(Machine(kind, *tile))
 
 
@@ -52,8 +53,9 @@ def test_normal_sequence_walks_every_objective(game):
         seen.append(current_text(game))
 
     game.mined_total["iron"] = 10; step()
-    game.mined_total["silicon"] = 4; step()
     game.fabricator_opened = True; step()
+    craft_free(game, "constructor"); step()     # v0.5 M1: o construtor é a 1ª receita
+    game.mined_total["silicon"] = 4; step()
     craft_free(game, "o2"); step()
     place_at(game, "o2", (93, 98)); step()
     craft_free(game, "chest"); step()
@@ -74,8 +76,7 @@ def test_normal_sequence_walks_every_objective(game):
     game.debug_add_ti(); step()                 # -> Névoa
     vein = game.world.veins[0]                  # drill de verdade num veio de verdade
     game.player.x, game.player.y = (vein.tx + 0.5) * C.TILE, (vein.ty + 3) * C.TILE - 4
-    craft_free(game, "drill")
-    assert game.place("drill", (vein.tx, vein.ty)); step()
+    assert build_now(game, "drill", (vein.tx, vein.ty)); step()
     drill = game.drills[0]
     drill.stored = 3
     assert game.collect(drill) == 3; step()
@@ -88,32 +89,33 @@ def test_normal_sequence_walks_every_objective(game):
 
     assert seen == [
         "Minere ferro (0/10)",
-        "Minere silício (0/4)",
         "Abra o fabricador na base [E]",
-        "Fabrique um Gerador de O₂",
-        "Coloque o gerador perto da base",
-        "Fabrique um baú",
-        "Minere gelo e fabrique um Derretedor",
+        "Fabrique o construtor",
+        "Minere silício (0/4)",
+        "Construa um Gerador de O₂ [E com o construtor]",
+        "Construa o gerador perto da base",
+        "Construa um baú",
+        "Minere gelo e construa um Derretedor",
         "Chegue a Ti 500",
         "Encontre magmatita no basalto (oeste)",
-        "Fabrique um Aquecedor",
+        "Construa um Aquecedor",
         "Derreta o gelo da cratera",
         "Desça na caverna pela cratera [E]",
-        "Coloque uma luminária",
+        "Construa uma luminária",
         "Ache um destroço",
         "Ache o projeto do tanque de O₂",
         "Fabrique e equipe o tanque de O₂",
-        "Fabrique um painel solar",
+        "Construa um painel solar",
         "Leia um terminal",
         "Limpe o céu (Árido)",
         "Chegue ao estágio Névoa",
-        "Coloque uma drill num veio",
+        "Construa uma drill num veio",
         "Colete minério de uma drill",
-        "Fabrique uma estação de drones",
+        "Construa uma estação de drones",
         "Fabrique um drone",
         "Coloque o drone na estação [E]",
         "Receba uma entrega de drone",
-        "Fabrique uma máquina nv.2",
+        "Construa uma máquina nv.2",
         "Deixe o planeta verde",
         None,
     ]
@@ -122,12 +124,13 @@ def test_normal_sequence_walks_every_objective(game):
 def test_generator_far_from_base_does_not_count(game):
     game.mined_total.update(iron=10, silicon=4)
     game.fabricator_opened = True
+    craft_free(game, "constructor")
     craft_free(game, "o2")
     place_at(game, "o2", (96, 122))              # bem longe da cápsula
-    assert current_text(game) == "Coloque o gerador perto da base"
+    assert current_text(game) == "Construa o gerador perto da base"
     craft_free(game, "o2")
     place_at(game, "o2", (98, 98))
-    assert current_text(game) == "Fabrique um baú"
+    assert current_text(game) == "Construa um baú"
 
 
 # ---------------------------------------------------------------- contadores
@@ -161,7 +164,9 @@ def test_out_of_order_skips_what_is_done(game):
     game.mined_total.update(iron=12, silicon=5)
     assert current_text(game) == "Abra o fabricador na base [E]"
     game.fabricator_opened = True
-    assert current_text(game) == "Coloque o gerador perto da base"
+    assert current_text(game) == "Fabrique o construtor"
+    craft_free(game, "constructor")
+    assert current_text(game) == "Construa o gerador perto da base"
 
 
 def test_next_line_skips_done_objectives(game):
@@ -191,7 +196,7 @@ def test_tracker_flashes_completed_objective(game):
     lines = tracker.lines(game)
     assert [(l.text, l.style) for l in lines] == [
         ("Minere ferro (10/10)", "done"),
-        ("Minere silício (0/4)", "current"),
+        ("Abra o fabricador na base [E]", "current"),
     ]
     tracker.update(game, FLASH_TIME)            # passou o tempo do feedback
     assert [l.style for l in tracker.lines(game)] == ["current", "next"]
@@ -200,7 +205,7 @@ def test_tracker_flashes_completed_objective(game):
 def test_everything_done_list_disappears(game):
     game.mined_total.update(iron=10, silicon=4, ice=10)
     game.fabricator_opened = True
-    for kind in ("o2", "chest", "melter", "heater", "solar", "o2_t2", "drone_station"):
+    for kind in ("constructor", "o2", "chest", "melter", "heater", "solar", "o2_t2", "drone_station"):
         craft_free(game, kind)
     place_at(game, "o2", (93, 98))
     game.read_terminal(0)
@@ -226,11 +231,9 @@ def test_everything_done_list_disappears(game):
     assert tracker.lines(game) == []
 
 
-def test_crafted_counter_does_not_go_back_when_placed_or_dismantled(game):
-    give(game, iron=100, silicon=100)
-    assert game.craft("chest")
+def test_crafted_counter_does_not_go_back_when_dismantled(game):
     px, py = game.player.tile
-    assert game.place("chest", (px + 2, py))
+    assert build_now(game, "chest", (px + 2, py))
     assert game.crafted["chest"] == 1 and game.inventory.count("chest") == 0
     assert game.dismantle(game.chests[0])
     assert game.crafted["chest"] == 1
@@ -240,7 +243,7 @@ def test_terminal_objective_needs_reading_one(game):
     """Marco 2: a caverna sempre abre pela rampa, então "Leia um terminal" não pula mais."""
     game.mined_total.update(iron=10, silicon=4)
     game.fabricator_opened = True
-    for kind in ("o2", "chest", "melter", "heater", "solar"):
+    for kind in ("constructor", "o2", "chest", "melter", "heater", "solar"):
         craft_free(game, kind)
     place_at(game, "o2", (C.BASE_TILE[0] - 2, C.BASE_TILE[1] + 1))
     game.enter_layer("cave")

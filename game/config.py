@@ -240,7 +240,7 @@ MACHINES["drill"] = MachineType("drill", "Drill automática", "+ minério", DRIL
 MACHINE_ORDER = list(MACHINES)   # ordem no fabricador e nas teclas 1–7
 # v0.4 M3.4: máquinas de nome feminino (o aviso "Luminária submersa" / "Aquecedor submerso" concorda)
 MACHINE_FEMININE = {"drill", "drone_station", "lamp", "lamp_t2"}
-DISMANTLE_KEY = "Clique direito"   # o verbo de desmontar que o jogo já usa (dica do canto e aviso de submersa)
+DISMANTLE_KEY = "Clique direito"   # o botão de desmontar (segurar): dica do canto e aviso de submersa
 MACHINE_SPRITE_SIZE = {1: (40, 56), 2: (40, 64)}   # tamanho do sprite por nível (usado pro mouse "acertar" a máquina)
 DRILL_SPRITE_SIZE = (64, 80)     # 1 quadro do machine_drill.png (4 quadros na horizontal)
 PLACE_REACH = 4                  # alcance pra colocar máquina (tiles)
@@ -605,12 +605,6 @@ BLUEPRINT_SOUND_DELAY = 0.4     # s depois do crate_open (dica do Som)
 BLUEPRINT_DUCK = (0.6, 2.0)     # ambiente a 60% por 2 s quando acha um projeto
 VOLUME.update({"crate_open": 0.9, "blueprint_found": 1.0, "equip": 0.7, "map_open": 0.6})
 
-# ---------------------------------------------------------------------------
-# Fabricar em campo (kit de campo · bíblia §9): aba "Fabricar" do Tab, longe da base. Mesmas receitas, custo e
-# travas (Ti e projeto) do fabricador, mas gasta SÓ do inventário (não puxa dos baús da base). Terraformação,
-# energia, drones e equipamentos ficam só no fabricador: é o motivo de ainda voltar pra base.
-# ---------------------------------------------------------------------------
-FIELD_RECIPES = ("drill", "lamp", "lamp_t2", "chest")
 
 # ---------------------------------------------------------------------------
 # Tempestade de poeira (v0.4 Marco 1 · bíblia, seção da tempestade): o clima mora em game/weather.py.
@@ -822,3 +816,46 @@ THAW_FUMAROLE_HEAT = (THAW_CRATER_HEAT[0], THAW_CRATER_HEAT[-1])   # era (40, 22
 THAW_GATE_HEAT = ((2800, 4300, 5800), (5800, 8000, 10200), (14000, 18000, 22000))   # era ((1500, 2500, 3500), (3500, 5000, 6500), (6000, 8000, 10000))
 LAKE_WATER = (2500, 7000, 15000)   # era (3000, 15000, 40000): L1 junto com a Névoa, L2 no meio do jogo (era ~32 min), L3 antes do Verde (o 40.000 nunca chegava)
 # Mantidos de propósito: STAGES Névoa 10.000 e Verde 100.000, RAIN_* (o dono aprovou a chuva no playtest), O₂, receitas.
+
+# ---------------------------------------------------------------------------
+# v0.5 Marco 1 · Construtor e desmontar (spec docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-design.md).
+# Máquina não é mais item: o CONSTRUTOR (item da hotbar, 1ª receita do fabricador) é o único jeito de pôr máquina no
+# chão. Com ele na mão, E abre o menu de construção (abas FAB_TABS); clique esquerdo constrói gastando a receita SÓ do
+# inventário (travas de Ti e projeto iguais). O fabricador da cápsula fica só com itens (o que não é `placeable`).
+# A aba "Fabricar" do Tab (fabricar em campo, FIELD_RECIPES) saiu: as receitas dela eram todas máquinas.
+# ---------------------------------------------------------------------------
+MACHINES["constructor"] = MachineType("constructor", "Construtor", "constrói máquinas [E]", {"iron": 5}, None, 0, 0,
+                                      "icon_constructor", placeable=False)
+MACHINE_ORDER.insert(0, "constructor")      # 1ª receita do fabricador
+MACHINE_CATEGORY["constructor"] = "tools"
+# Abas do fabricador (só itens). As do construtor são as FAB_TABS sem a "Traje" (equipamento não vai pro chão).
+CRAFT_TABS = (("tools", "Ferramentas"), ("automation", "Automação"), ("suit", "Traje"))
+FAB_TABS = tuple(t for t in FAB_TABS if t[0] != "suit")
+BUILD_TIME = 1.35               # s da máquina "se construindo" (scanner de baixo pra cima): parada, sem Ti nem energia.
+                                # 1,35 = o clack do build.wav (Som): ela fica pronta junto com ele
+DISMANTLE_HOLD = 2.0            # s segurando o botão direito em cima da máquina pra desmontar
+# Luz de scanner (procedural no render: Renderer.draw_scan). Números de partida da Designer (reports/design/
+# v05_m1_construtor, "Pro Dev integrar"; referência tools/sprites/v05_m1_construtor.py · scan_frame), ainda sem o ok
+# do dono. Regra única nos dois sentidos: abaixo da faixa, a máquina; acima, o holograma (o contorno do sprite em
+# SCAN_GHOST). Construir: a faixa sobe; desmontar: desce.
+SCAN_FPS = 12                   # passos por segundo (a faixa anda em pixel inteiro, um passo por vez)
+SCAN_CORE = "#ffffff"           # núcleo da faixa (1 px), só sobre a silhueta
+SCAN_EDGE = "#c8f6ff"           # 1 px de cada lado do núcleo, sobre a silhueta
+SCAN_PULSE = "#59d0e6"          # +1 px de cada lado nos passos ímpares (a faixa alterna 3 ↔ 5 px)
+SCAN_PLANE = "#59d0e6"          # na linha do núcleo, SCAN_PLANE_OUT px pra fora da silhueta de cada lado...
+SCAN_NODE = "#ffffff"           # ...com 1 px desse na ponta (o emissor)
+SCAN_PLANE_OUT = 2
+SCAN_GHOST = "#2b8fb3"          # holograma: o contorno (SCAN_OUTLINE) da parte ainda não construída
+SCAN_OUTLINE = "#1b1630"        # a cor do contorno dos sprites (o que vira holograma)
+SCAN_FRESH_ADD = (24, 56, 64)   # soma RGB (BLEND_RGB_ADD) nas linhas recém-reveladas logo abaixo da faixa...
+SCAN_FRESH_ROWS = 2             # ...nessas 2 linhas
+SCAN_SPARKS = 2                 # faíscas por passo (1 px, alternando núcleo/borda), só em pixel vazio
+SCAN_SPARK_UP = (2, 5)          # de 2 a 5 px acima do núcleo
+SCAN_FLASH_STEPS = 1            # fim da construção: 1 passo com a máquina inteira + SCAN_FRESH_ADD (dentro do BUILD_TIME)
+SCAN_BLINK_STEPS = 3            # fim do desmonte: holograma apagado, aceso, apagado (e some)
+DISMANTLE_BAR = (22, 3)         # barrinha do desmonte em cima da máquina (largura, altura em px do mundo)
+# Sons do construtor (Som, aprovados pelo dono): o charge toca num canal só, começa junto com a barrinha e sai em
+# fadeout curto se soltar; o dismantle_done (no lugar do place_low) entra no mesmo frame do desmonte completo.
+VOLUME.update({"build": 0.55, "dismantle_charge": 0.45, "dismantle_done": 0.6,
+               "diagram_read": 0.6})   # diagram_read: do Dev B (ler diagrama na bancada), só o volume
+DISMANTLE_CHARGE_FADE_MS = 60   # soltou antes de completar: o charge sai em 60 ms (nunca um stop seco)

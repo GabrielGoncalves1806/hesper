@@ -947,6 +947,22 @@ def scanner_icon() -> pygame.Surface:
     return s
 
 
+def constructor_icon() -> pygame.Surface:
+    """Ícone 16×16 do construtor (placeholder até o icon_constructor.png da Designer): ferramenta de mão de perfil,
+    corpo branco com faixa laranja, cabo inclinado e a lente ciano do scanner na frente."""
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    _r(s, _OUT, 0, 3, 11, 7)
+    _r(s, "#e1e5ea", 1, 4, 9, 5)
+    _r(s, C.C_ACCENT, 1, 6, 9, 1)
+    _r(s, _OUT, 10, 2, 5, 9)
+    _r(s, "#6b717a", 11, 3, 3, 7)
+    _r(s, C.C_O2, 12, 4, 2, 5)
+    _r(s, "#ffffff", 12, 4, 1, 1)
+    _r(s, _OUT, 2, 9, 4, 6)
+    _r(s, C.C_ACCENT, 3, 9, 2, 5)
+    return s
+
+
 def lamp_strong() -> pygame.Surface:
     """Luminária forte (16×32, fallback do lamp_t2.png): poste mais alto, cúpula branca-fria maior."""
     s = pygame.Surface(C.LAMP_SPRITE_SIZE, pygame.SRCALPHA)

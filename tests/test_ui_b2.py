@@ -218,45 +218,41 @@ def test_batch_selector_crafts_five_without_shift(app):
     """Fabricador: ×5 faz o FABRICAR (e o Enter) fazer até 5 sem segurar Shift; ×1 volta a fazer 1."""
     s = reset(app)
     s.player.x, s.player.y = C.BASE_CENTER[0], C.BASE_CENTER[1] + 40
-    give(s, iron=100, silicon=40)
+    give(s, iron=100)
+    app.hotbar_selected = 7                               # a mão vazia (o E não abre o construtor)
     app.mode = "play"
     app.on_key(pygame.K_e)
     assert app.mode == "fabricator"
-    app.fab.select("o2")
+    app.fab.select("constructor")
     app.draw()
     assert [n for _, n in app.ui.fabricator_batch] == [1, C.CRAFT_BATCH]
     click(app, next(r for r, n in app.ui.fabricator_batch if n == C.CRAFT_BATCH))
     assert app.fab.batch == C.CRAFT_BATCH
     app.draw()
-    click(app, next(r for r, k in app.ui.fabricator_buttons if k == "o2"))
-    assert s.inventory.count("o2") == 5 and app.mode == "play"
-    app.placing = None
+    click(app, next(r for r, k in app.ui.fabricator_buttons if k == "constructor"))
+    assert s.inventory.count("constructor") == 5 and app.mode == "play"
+    app.hotbar_selected = 7
     app.on_key(pygame.K_e)
     app.draw()
     click(app, next(r for r, n in app.ui.fabricator_batch if n == 1))
     assert app.fab.batch == 1
     app.on_key(pygame.K_RETURN)
-    assert s.inventory.count("o2") == 6
-    app.placing = None
+    assert s.inventory.count("constructor") == 6
     app.set_mode("play")
 
 
-def test_field_tab_batch_selector(app):
-    from game.ui import TAB_CRAFT
+def test_build_menu_has_no_batch_selector(app):
+    """v0.5 M1: o menu do construtor reaproveita o painel, mas sem ×1/×5 (constrói um por clique no mundo)."""
     s = reset(app)
     s.player.x, s.player.y = 40.0 * C.TILE, 40.0 * C.TILE
-    give(s, iron=20, silicon=20)
-    app.on_key(pygame.K_TAB)
-    app.switch_inv_tab(TAB_CRAFT)
-    app.field.select("lamp")
+    give(s, constructor=1, iron=20, silicon=20)
+    app.hotbar_selected = 0
+    app.mouse = (0, 0)
+    app.on_key(pygame.K_e)
+    assert app.mode == "build"
+    app.build_menu.select("lamp")
     app.draw()
-    click(app, next(r for r, n in app.ui.fabricator_batch if n == C.CRAFT_BATCH))
-    assert app.field.batch == C.CRAFT_BATCH and app.mode == "inventory"
-    app.draw()
-    click(app, next(r for r, k in app.ui.fabricator_buttons if k == "lamp"))
-    assert s.inventory.count("lamp") == 5
-    app.field.set_batch(1)
-    app.placing = None
+    assert app.ui.fabricator_batch == [] and app.ui.craft_label == "CONSTRUIR"
     app.set_mode("play")
 
 
@@ -266,18 +262,31 @@ def test_missing_button_says_what_is_missing(app):
     for k in s.indices:
         s.indices[k] = 0
     s.indices["o2"] = 600                                 # aquecedor liberado (Ti 500)
-    give(s, iron=30, silicon=6)
     for chest in list(s.base_chests()):
         s.surface.machines.remove(chest)
+    give(s, iron=3)                                       # fabricador: o construtor custa 5
+    app.hotbar_selected = 7
     app.on_key(pygame.K_e)
-    app.fab.select("heater")
+    assert app.mode == "fabricator"
+    app.fab.select("constructor")
     app.draw()
     assert app.ui.fabricator_buttons == []               # falta: não tem FABRICAR clicável
-    assert app.ui.craft_label == "FALTAM 2 SILÍCIO"      # 8 de silício, tem 6
-    app.fab.select("o2")
+    assert app.ui.craft_label == "FALTAM 2 FERRO"
+    app.set_mode("play")
+    reset(app)
+    give(s, constructor=1, iron=30, silicon=6, magmatite=3)
+    app.hotbar_selected = 0
+    app.mouse = (0, 0)
+    app.on_key(pygame.K_e)
+    assert app.mode == "build"
+    app.build_menu.select("heater")
     app.draw()
-    assert app.ui.craft_label == "FABRICAR" and [k for _, k in app.ui.fabricator_buttons] == ["o2"]
-    app.fab.select("o2_t2")
+    assert app.ui.craft_label == "FALTAM 2 SILÍCIO"      # 8 de silício, tem 6
+    assert [k for _, k in app.ui.fabricator_buttons] == ["heater"]   # no construtor escolhe mesmo assim
+    app.build_menu.select("o2")
+    app.draw()
+    assert app.ui.craft_label == "CONSTRUIR" and [k for _, k in app.ui.fabricator_buttons] == ["o2"]
+    app.build_menu.select("o2_t2")
     app.draw()
     assert app.ui.craft_label == "LIBERA EM TI 10.000" and app.ui.fabricator_buttons == []
     app.set_mode("play")

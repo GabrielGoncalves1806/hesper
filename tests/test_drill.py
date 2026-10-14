@@ -7,7 +7,7 @@ import pytest
 from game import config as C
 from game.systems import Controls, GameState
 from game.world import World
-from tests.helpers import give
+from tests.helpers import build_now, give
 
 DT = 1 / 60
 
@@ -87,23 +87,21 @@ def test_drill_unlocks_in_mist():
 
 def test_drill_only_on_free_vein_origin():
     game = mist_game()
-    assert game.craft("drill")
+    give(game, constructor=1)
     vein = game.world.veins[0]
     stand_below(game, vein)
     assert not game.can_place("drill", (vein.tx + 1, vein.ty))     # tile do veio, mas não o canto
     assert not game.can_place("drill", (vein.tx, vein.ty + 2))     # chão comum
     assert game.can_place("drill", (vein.tx, vein.ty))
-    assert game.place("drill", (vein.tx, vein.ty))
+    assert game.build("drill", (vein.tx, vein.ty))
     drill = game.drills[0]
     assert drill.resource == vein.resource and set(drill.tiles) == set(vein.tiles)
     assert all(game.machine_at(t) is drill for t in vein.tiles)    # ocupa os 2×2
-    give(game, drill=1)                                            # mais uma no inventário
     assert not game.can_place("drill", (vein.tx, vein.ty))         # veio ocupado
 
 
 def test_regular_machines_cannot_sit_on_veins():
     game = mist_game()
-    game.craft("o2")
     vein = game.world.veins[0]
     stand_below(game, vein)
     assert not any(game.can_place("o2", t) for t in vein.tiles)
@@ -111,9 +109,8 @@ def test_regular_machines_cannot_sit_on_veins():
 
 def place_drill(game):
     vein = game.world.veins[0]
-    game.craft("drill")
     stand_below(game, vein)
-    assert game.place("drill", (vein.tx, vein.ty))
+    assert build_now(game, "drill", (vein.tx, vein.ty))
     return game.drills[0]
 
 
@@ -176,16 +173,16 @@ def test_interaction_prefers_the_closest_between_terminal_and_drill():
     assert game.interaction() == ("drill", drill)
 
 
-def test_dismantle_returns_drill_and_content():
+def test_dismantle_returns_recipe_and_content():
     game = mist_game()
     drill = place_drill(game)
     drill.stored = 7
     before = game.inventory.count(drill.resource)
     assert game.dismantle(drill)
-    assert game.inventory.count("drill") == 1 and not game.drills
-    assert game.inventory.count(drill.resource) == before + 7
+    assert game.inventory.count("drill") == 0 and not game.drills
+    assert game.inventory.count(drill.resource) == before + 7 + C.MACHINES["drill"].cost.get(drill.resource, 0)
     vein = game.world.veins[0]
-    assert game.place("drill", (vein.tx, vein.ty))                 # recoloca no mesmo veio
+    assert game.build("drill", (vein.tx, vein.ty))                 # constrói de novo no mesmo veio
     assert game.drills[0].stored == 0
 
 

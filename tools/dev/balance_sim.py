@@ -19,7 +19,7 @@ mapa de mineração vira a caverna e a base é um índice virtual ligado à cheg
 As drills vão nos veios da caverna e ele busca à mão (drones só atendem a superfície: sem estação).
 
 Real (vem do jogo): o mapa (`GameState(seed).world`, a superfície), o inventário, os drops (`GameState._break_tile`,
-com o `rng` do estado), `can_mine` (alcance), `craft`/`can_place`/`place`, a produção das máquinas
+com o `rng` do estado), `can_mine` (alcance), `craft`/`can_place`/`build` (v0.5: o construtor), a produção das máquinas
 (`GameState._update_machines`), os estágios (`stage_for_ti`), o desmaio (`_faint` + `_update_faint` frame a frame) e
 todos os números do `game/config.py` (velocidade, tempos de mineração, O₂, receitas, taxas, limiares).
 
@@ -649,13 +649,13 @@ class Sim:
     def craft_and_place_drill(self):
         self._set_player(self.home)
         vein = self.free_vein()
-        if vein is None or not self.gs.craft("drill"):
+        if vein is None or not self._ready("drill"):
             return False
         self._visit_vein(vein, lambda: self._place_drill(vein))
         return True
 
     def _place_drill(self, vein):
-        ok = self.gs.place("drill", (vein.tx, vein.ty))
+        ok = self._build("drill", (vein.tx, vein.ty))
         assert ok, f"não conseguiu colocar a drill no veio {vein}"
         drill = self.gs.machine_at((vein.tx, vein.ty))
         drones.toggle_send(drill, drill.resource)        # o jogador marca Envia = o minério dela no painel
@@ -699,12 +699,31 @@ class Sim:
         return docked < self.s.drones and any(m.station.free_slots() for m in self.gs.stations)
 
     def cost(self, kind) -> dict:
-        """Receita que o jogador junta antes de ir fabricar. A estação vem junto com os drones dela."""
+        """Receita que o jogador junta antes de ir fabricar. A estação vem junto com os drones dela. Máquina sem o
+        construtor no inventário (v0.5 M1): soma a receita dele (o 1º build fabrica ele antes)."""
         cost = dict(C.MACHINES[kind].cost)
+        if C.MACHINES[kind].placeable and "constructor" in C.MACHINES and not self.gs.has_constructor:
+            for r, n in C.MACHINES["constructor"].cost.items():
+                cost[r] = cost.get(r, 0) + n
         if kind == "drone_station" and "drone" in C.MACHINES:
             for r, n in C.MACHINES["drone"].cost.items():
                 cost[r] = cost.get(r, 0) + n * self.s.drones
         return cost
+
+    def _ready(self, kind) -> bool:
+        """v0.5 M1: máquina vem do construtor. Na base, fabrica o construtor se ainda não tem e diz se dá pra
+        construir `kind` com o que está no inventário (o construtor gasta só dele)."""
+        if not self.gs.has_constructor and not self.gs.craft("constructor"):
+            return False
+        return self.gs.build_status(kind) == "ok"
+
+    def _build(self, kind, tile) -> bool:
+        """Constrói pela regra real (state.build). A animação de construir (C.BUILD_TIME) não entra: o sim anda
+        o relógio pelo _advance, então a máquina já sai pronta."""
+        if not self.gs.build(kind, tile):
+            return False
+        self.gs.machines[-1].build = 0.0
+        return True
 
     def craft_and_dock_drone(self) -> bool:
         """Fabrica 1 drone e põe no primeiro slot livre da estação (regra real: station_dock)."""
@@ -724,7 +743,7 @@ class Sim:
                 if not self._base_free(stand):
                     continue
                 self.gs.player.x, self.gs.player.y = self._tile_pos(*stand)
-                if self.gs.place(kind, (tx, ty)):
+                if self._build(kind, (tx, ty)):
                     self._set_player(self.home)
                     self._advance(self.s.craft_overhead)
                     return True
@@ -746,7 +765,7 @@ class Sim:
     def craft_and_place_chest(self) -> bool:
         """Baú dentro da zona de O₂ (o fabricador enxerga ele), num lugar com espaço pra estação do lado."""
         self._set_player(self.home)
-        if not self.gs.craft("chest"):
+        if not self._ready("chest"):
             return False
         bx, by = C.BASE_CENTER
         cand = sorted((math.hypot((x + 0.5) * C.TILE - bx, (y + 1) * C.TILE - by), (x, y))
@@ -763,7 +782,7 @@ class Sim:
         """Fabrica a estação e coloca num 2×2 livre a até 3 tiles do baú da base."""
         self._set_player(self.home)
         chests = self.gs.base_chests()
-        if not chests or not self.gs.craft("drone_station"):
+        if not chests or not self._ready("drone_station"):
             return False
         if not self._place_near("drone_station", self._station_spots((chests[0].tx, chests[0].ty))):
             raise AssertionError("não achou lugar pra estação perto do baú da base")
@@ -866,11 +885,11 @@ class Sim:
 
     def craft_and_place(self, kind) -> bool:
         self._set_player(self.home)
-        if not self.gs.craft(kind):
+        if not self._ready(kind):
             return False
         sx, sy = self._next_site()
         self.gs.player.x, self.gs.player.y = self._tile_pos(sx + 1, sy)
-        ok = self.gs.place(kind, (sx, sy))
+        ok = self._build(kind, (sx, sy))
         assert ok, f"não conseguiu colocar {kind} em {(sx, sy)}"
         self._set_player(self.home)
         self._advance(self.s.craft_overhead)

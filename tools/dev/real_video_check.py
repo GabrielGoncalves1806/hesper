@@ -187,8 +187,18 @@ def run_worker(driver: str, out: Path) -> None:
     bot.key(pygame.K_ESCAPE)
 
     spot = next(t for t in ((96, 100), (94, 100), (98, 100), (93, 98), (99, 98)) if s.can_place("chest", t))
-    assert s.place("chest", spot)
+    s.inventory.add("constructor", 1)                    # v0.5 M1: máquina só pelo construtor
+    s.inventory.add("iron", C.MACHINES["chest"].cost["iron"])
+    assert s.build("chest", spot)
     chest = s.chests[0]
+    chest.build = 0.0                                     # pula a animação de construir
+    # a luz de scanner (v0.5 M1) na janela de verdade: uma máquina no meio da construção
+    s.inventory.add("iron", 1)
+    s.inventory.add("silicon", 1)
+    lamp_spot = next(t for t in ((95, 100), (97, 100), (94, 99), (98, 99)) if s.can_place("lamp", t))
+    assert s.build("lamp", lamp_spot)
+    bot.frames(C.BUILD_TIME / 2)
+    bot.capture("construindo")
     chest.storage.add("iron", 20)
     chest.storage.add("ice", 7)
     s.player.x, s.player.y = chest.anchor[0], chest.anchor[1] + 10

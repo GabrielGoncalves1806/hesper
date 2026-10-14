@@ -1,29 +1,36 @@
-"""Estado do menu do fabricador: aba aberta, receita selecionada e rolagem (Python puro, testado em
-tests/test_fabricator.py; quem desenha é o ui.draw_fabricator e quem lê as teclas é o App).
+"""Estado do menu do fabricador e do menu de construção: aba aberta, receita selecionada e rolagem (Python puro,
+testado em tests/test_fabricator.py; quem desenha é o ui.draw_fabricator e quem lê as teclas é o App).
 
 Controles: A/D, ←/→ ou Tab trocam de aba (E não: E fecha o menu) · W/S ou ↑/↓ escolhem dentro da aba
 (a lista rola junto) · a rodinha rola a lista sem mexer na seleção · clique na aba ou na receita.
 Cada aba lembra a sua seleção e a sua rolagem. O lote (`batch`, ×1 ou ×5) vale pro menu todo: o seletor do
 painel de detalhe escolhe, e o Shift segurado fabrica até 5 em qualquer caso.
 
-A aba Fabricar do Tab (fabricar em campo) usa o mesmo FabMenu, com uma aba só: o kit de campo (field_menu).
+v0.5 M1: o mesmo FabMenu serve os dois menus. O fabricador (`craft_menu`) só tem itens (o que não vai pro chão:
+construtor, drone, equipamento), nas abas C.CRAFT_TABS. O menu do construtor (`build_menu`) tem as máquinas, nas
+abas C.FAB_TABS.
 """
 
 from game import config as C
 
 
 def tab_kinds(tab_id: str) -> list[str]:
-    """Receitas de uma aba, na ordem do MACHINE_ORDER."""
+    """Receitas de uma aba (máquinas e itens), na ordem do MACHINE_ORDER."""
     return [k for k in C.MACHINE_ORDER if C.MACHINE_CATEGORY.get(k) == tab_id]
 
 
-def field_kinds(_tab_id: str = "field") -> list[str]:
-    """Receitas do kit de campo (aba Fabricar do Tab), na ordem do C.FIELD_RECIPES."""
-    return list(C.FIELD_RECIPES)
+def craft_kinds(tab_id: str) -> list[str]:
+    """Receitas do fabricador numa aba: só itens (o que não vai pro chão)."""
+    return [k for k in tab_kinds(tab_id) if not C.MACHINES[k].placeable]
+
+
+def build_kinds(tab_id: str) -> list[str]:
+    """Máquinas do construtor numa aba: só o que vai pro chão."""
+    return [k for k in tab_kinds(tab_id) if C.MACHINES[k].placeable]
 
 
 class FabMenu:
-    def __init__(self, visible: int = C.FAB_VISIBLE_ROWS, tabs=C.FAB_TABS, kinds_of=tab_kinds):
+    def __init__(self, visible: int = C.FAB_VISIBLE_ROWS, tabs=C.CRAFT_TABS, kinds_of=craft_kinds):
         self.visible = visible
         self.tabs = tabs                         # ((id, rótulo), ...)
         self.kinds_of = kinds_of                 # id da aba -> receitas dela
@@ -97,6 +104,11 @@ class FabMenu:
         self.first[self.tab] = max(0, min(self.max_first, f))
 
 
-def field_menu() -> FabMenu:
-    """Menu da aba Fabricar do Tab: uma aba só, com o kit de campo inteiro à vista (sem rolagem)."""
-    return FabMenu(visible=len(C.FIELD_RECIPES), tabs=(("field", "Fabricar"),), kinds_of=field_kinds)
+def craft_menu() -> FabMenu:
+    """Menu do fabricador da cápsula: só itens."""
+    return FabMenu(tabs=C.CRAFT_TABS, kinds_of=craft_kinds)
+
+
+def build_menu() -> FabMenu:
+    """Menu do construtor (E com ele na mão): as máquinas, nas abas de categoria."""
+    return FabMenu(tabs=C.FAB_TABS, kinds_of=build_kinds)

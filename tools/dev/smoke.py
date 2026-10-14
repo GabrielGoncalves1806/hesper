@@ -27,7 +27,8 @@ from game import save  # noqa: E402
 from game import settings  # noqa: E402
 from game import worlds  # noqa: E402
 from game.app import CRATER_ICE_HINT, NUMBER_KEYS, App  # noqa: E402
-from game.ui import TAB_CRAFT, TAB_INVENTORY, TAB_LOGS, TI_PANEL_W  # noqa: E402
+from game.inventory import Stack  # noqa: E402
+from game.ui import TAB_INVENTORY, TAB_LOGS, TI_PANEL_W  # noqa: E402
 
 # o smoke mexe nos volumes: grava num arquivo temporário, nunca no settings.json de verdade
 import tempfile  # noqa: E402
@@ -153,6 +154,52 @@ def give(state, **amounts) -> None:
         assert state.inventory.add(item, n) == 0, f"não coube {n} {item} no inventário"
 
 
+def build_at(state, kind, tile, rotation=0, finish=True):
+    """v0.5 M1: constrói `kind` pelo construtor (dá o construtor e a receita que faltar). `finish` pula a animação
+    de construir (a máquina já sai funcionando)."""
+    if not state.has_constructor:
+        state.inventory.add("constructor", 1)
+    for r, n in C.MACHINES[kind].cost.items():
+        short = n - state.inventory.count(r)
+        if short > 0:
+            state.inventory.add(r, short)
+    assert state.build(kind, tile, rotation), f"não construiu {kind} em {tile}"
+    machine = state.machine_at(tile)
+    if finish:
+        machine.build = 0.0
+    return machine
+
+
+CONSTRUCTOR_SLOT = C.HOTBAR_SLOTS - 1   # o smoke deixa o construtor no último slot da hotbar
+
+
+def hold_constructor(bot, kind=None) -> None:
+    """Construtor na mão (último slot da hotbar). Com `kind`: abre o menu de construção, escolhe a máquina e entra
+    no modo de construir (o E de verdade é testado no check_build_menu)."""
+    s, app = bot.state, bot.app
+    inv = s.inventory
+    held = inv.slots[CONSTRUCTOR_SLOT]
+    if held is None or held.item != "constructor":
+        inv.remove("constructor", inv.count("constructor"))
+        inv.slots[CONSTRUCTOR_SLOT] = Stack("constructor", 1)
+        if held is not None:
+            inv.add(held.item, held.count)
+    bot.key(NUMBER_KEYS[CONSTRUCTOR_SLOT])
+    if kind is None:
+        return
+    app.open_build_menu()
+    app.build_menu.select(kind)
+    bot.key(pygame.K_RETURN)
+    assert app.mode == "play" and app.placing == kind, (app.mode, app.placing)
+
+
+def release_constructor(bot) -> None:
+    """Sai do modo de construir e volta a mão pro slot 1 (o E volta a abrir o fabricador na base)."""
+    if bot.app.placing:
+        bot.key(pygame.K_ESCAPE)
+    bot.app.hotbar_selected = 0
+
+
 def hotbar_key(bot, kind) -> int:
     """Tecla (1–8) do slot da hotbar que tem essa máquina."""
     slots = bot.state.inventory.slots[:C.HOTBAR_SLOTS]
@@ -263,11 +310,8 @@ def check_walls_and_hover(bot) -> None:
     bot.teleport((96, 98))
     bot.frames(0.1)
     give(s, iron=60, silicon=30, ice=40)
-    s.craft("melter")
-    s.place("melter", (94, 99))
-    s.craft("melter")
-    bot.key(hotbar_key(bot, "melter"))
-    assert bot.app.placing == "melter"
+    build_at(s, "melter", (94, 99))
+    hold_constructor(bot, "melter")
     bot.mouse_to(bot.tile_on_screen((94, 99)))          # fantasma em cima da máquina colocada (inválido)
     bot.frames(0.2)
     shot_hover = pygame.Surface((240, 120))
@@ -275,11 +319,10 @@ def check_walls_and_hover(bot) -> None:
     shot_hover.blit(bot.app.frame, (0, 0), (cxp - 60, cyp - 80, 120, 120))
     bot.mouse_to(bot.tile_on_screen((92, 99)))          # fantasma num lugar válido, ao lado
     bot.frames(0.2)
-    bot.app.placing = None
+    release_constructor(bot)
     shot_hover.blit(bot.app.frame, (120, 0), (cxp - 100, cyp - 80, 120, 120))
     pygame.image.save(pygame.transform.scale_by(shot_hover, 3), str(OUT / "hover_maquina.png"))
     print("  screenshot: reports/dev/hover_maquina.png  (esquerda: fantasma sobre máquina · direita: fantasma ao lado)")
-    s.inventory.remove("melter", 99)
 
 
 def check_storm_gust(bot) -> None:
@@ -411,13 +454,11 @@ def check_pause(bot) -> None:
     app.settings = dict(settings.DEFAULTS)
     app.audio.set_mix(**settings.mix(app.settings))
     settings.SETTINGS_PATH.unlink(missing_ok=True)
-    # Esc com máquina na mão só cancela (não pausa)
-    s.inventory.add("o2", 1)
-    bot.key(hotbar_key(bot, "o2"))
-    assert app.placing == "o2"
+    # Esc construindo só cancela (não pausa)
+    hold_constructor(bot, "o2")
     bot.key(pygame.K_ESCAPE)
     assert app.placing is None and app.mode == "play"
-    s.inventory.remove("o2", 1)
+    release_constructor(bot)
 
 
 def check_zoom_and_fullscreen(bot) -> None:
@@ -480,9 +521,7 @@ def check_zoom_and_fullscreen(bot) -> None:
     hover_machine_check()
     tile_check((95, 96))
     # fantasma de colocação no tile certo com zoom
-    s.inventory.add("o2", 1)
-    bot.key(hotbar_key(bot, "o2"))
-    assert app.placing == "o2"
+    hold_constructor(bot, "o2")
     target = (97, 96)
     bot.mouse_to(bot.tile_on_screen(target))
     assert app.place_target() == target
@@ -491,7 +530,7 @@ def check_zoom_and_fullscreen(bot) -> None:
     bot.shot("zoom_in.png")
     bot.key(pygame.K_ESCAPE)
     assert app.placing is None
-    s.inventory.remove("o2", 1)
+    release_constructor(bot)
     # o HUD não muda de tamanho: a hotbar fica no mesmo lugar em qualquer zoom (compara a faixa de baixo)
     hud_zoom = app.frame.subsurface((0, C.SCREEN_H - 60, C.SCREEN_W, 60)).copy()
     bot.key(pygame.K_KP_MINUS)
@@ -547,35 +586,65 @@ def check_zoom_and_fullscreen(bot) -> None:
 
 
 def check_dismantle(bot) -> None:
-    """Clique direito numa máquina: volta pro estoque, para de somar; dica com o mouse em cima."""
+    """v0.5 M1: construir pelo construtor (a luz de scanner subindo, parada até terminar) e desmontar segurando o
+    botão direito 2 s (barrinha, scanner descendo, a receita volta); o clique rápido não faz nada; soltar cancela.
+    Prints: construindo, desmontar, desmontar_segurando, desmontar_depois."""
     s, app = bot.state, bot.app
     bot.teleport((96, 98))
     bot.frames(0.1)
-    give(s, iron=60, silicon=30, ice=40)
+    give(s, iron=60, silicon=30, ice=40, magmatite=10)
     kind = "heater" if s.recipe_status("heater") == "ok" else "o2"   # aquecedor só libera com Ti 500
-    s.craft(kind)
-    s.place(kind, (98, 98))
+    hold_constructor(bot, kind)
+    bot.mouse_to(bot.tile_on_screen((98, 98)))
+    bot.frames(0.1)
+    rate = s.ti_rate
+    bot.click(bot.tile_on_screen((98, 98)))
     m = s.machine_at((98, 98))
+    assert m is not None and m.kind == kind and m.build > 0 and app.placing == kind   # continua construindo
+    assert s.ti_rate == rate                                    # se construindo: ainda não soma
+    release_constructor(bot)                                    # sem o fantasma por cima, pro print
+    bot.mouse_to((40, 40))
+    bot.frames(C.BUILD_TIME * 0.45)
+    shot_zoom(bot, "construindo.png", (m.anchor[0], m.anchor[1] - 26), w=120, h=90, k=4)
+    bot.shot("construindo_tela.png")
+    bot.frames(C.BUILD_TIME)
+    assert m.build == 0 and s.ti_rate == rate + C.MACHINES[kind].rate
     camx, camy = app.cam
     body = (int((m.tx + 0.5) * C.TILE - camx), int((m.ty + 1) * C.TILE - 40 - camy))   # no corpo, acima do tile
     bot.mouse_to(body)
     bot.frames(0.1)
-    assert app.hint() == "[Clique direito] desmontar", app.hint()
+    assert app.hint() == f"Segure [{C.DISMANTLE_KEY}] para desmontar", app.hint()
     bot.shot("desmontar.png")
-    owned = s.inventory.count(kind)
-    rate = s.ti_rate
+    # clique rápido: nada
+    right_click(bot, body)
+    assert m in s.machines and s.dismantling is None
+    # segura 1 s e solta: cancela
     pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=body, button=3))
-    bot.frames(0.15)
-    assert m not in s.machines and s.inventory.count(kind) == owned + 1
-    assert s.ti_rate == rate - C.MACHINES[kind].rate
+    bot.frames(1.0)
+    assert s.dismantling is m and 0.4 < s.dismantle_progress < 0.6
+    shot_zoom(bot, "desmontar_segurando.png", (m.anchor[0], m.anchor[1] - 26), w=120, h=90, k=4)
+    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONUP, pos=body, button=3))
+    bot.frames(0.1)
+    assert m in s.machines and s.dismantling is None
+    # segura 2 s: desmonta e a receita volta
+    iron = s.inventory.count("iron")
+    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=body, button=3))
+    bot.frames(C.DISMANTLE_HOLD + 0.1)
+    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONUP, pos=body, button=3))
+    bot.frames(DT)
+    assert m not in s.machines and s.inventory.count("iron") == iron + C.MACHINES[kind].cost["iron"]
+    assert s.inventory.count(kind) == 0 and s.ti_rate == rate
+    bot.frames(0.1)
     bot.shot("desmontar_depois.png")
     # a cápsula não desmonta
     pod = (C.POD_ANCHOR[0] - camx, C.POD_ANCHOR[1] - 30 - camy)
     n = len(s.machines)
     pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=pod, button=3))
-    bot.frames(0.1)
+    bot.frames(C.DISMANTLE_HOLD + 0.1)
+    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONUP, pos=pod, button=3))
+    bot.frames(DT)
     assert len(s.machines) == n
-    s.place(kind, (98, 98))      # devolve a máquina pro resto do smoke
+    build_at(s, kind, (98, 98))      # devolve a máquina pro resto do smoke
 
 
 def check_inventory_and_chest(bot) -> None:
@@ -584,12 +653,10 @@ def check_inventory_and_chest(bot) -> None:
     bot.teleport((96, 98))
     s.o2 = C.O2_MAX
     s.inventory.clear()
-    give(s, iron=80, silicon=30, ice=24)                # ferro em 2 pilhas (50 + 30)
-    s.inventory.add("o2", 2)
-    assert s.craft("chest")
-    # hotbar: tecla do baú seleciona o slot e já entra no modo de colocar
-    bot.key(hotbar_key(bot, "chest"))
-    assert app.placing == "chest"
+    give(s, iron=86, silicon=30, ice=24)                # ferro em 2 pilhas (50 + 36): o baú gasta 6
+    s.inventory.add("drone", 2)
+    # construtor na mão: o menu escolhe o baú e o clique constrói (gasta do inventário)
+    hold_constructor(bot, "chest")
     site = (95, 99)                                     # dentro da zona de O₂ da base
     assert s.world.is_floor(*site) and s.machine_at(site) is None
     bot.mouse_to(bot.tile_on_screen(site))
@@ -598,7 +665,8 @@ def check_inventory_and_chest(bot) -> None:
     bot.click(bot.tile_on_screen(site))
     chest = s.machine_at(site)
     assert chest is not None and chest.is_chest and s.inventory.count("chest") == 0
-    assert app.placing is None                          # a pilha do slot acabou
+    assert app.placing == "chest" and s.inventory.count("iron") == 80   # continua construindo; 6 de ferro
+    release_constructor(bot)
     assert chest in s.base_chests()
 
     # abre com E (parado logo abaixo do baú)
@@ -606,7 +674,7 @@ def check_inventory_and_chest(bot) -> None:
     bot.frames(0.1)
     assert s.interaction() == ("chest", chest) and app.hint() == "[E] Abrir baú", app.hint()
     chest.storage.add("ice", 37)
-    chest.storage.add("melter", 1)
+    chest.storage.add("scanner", 1)
     bot.key(pygame.K_e)
     assert app.mode == "chest"
     bot.frames(DT)
@@ -630,14 +698,14 @@ def check_inventory_and_chest(bot) -> None:
     bot.mouse_to(slot_pos(bot, box, 0))
     bot.frames(0.1)
     bot.shot("bau.png")
-    # Pegar tudo e Guardar recursos (só ferro/silício/gelo: os geradores ficam no inventário)
+    # Pegar tudo e Guardar recursos (só ferro/silício/gelo: os itens ficam no inventário)
     button = {a: r for r, a in app.ui.panel_buttons}
     bot.click((button["take_all"].centerx * 2, button["take_all"].centery * 2))
-    assert box.is_empty() and inv.count("iron") == 74 and inv.count("melter") == 1
+    assert box.is_empty() and inv.count("iron") == 80 and inv.count("scanner") == 1
     button = {a: r for r, a in app.ui.panel_buttons}
     bot.click((button["store_all"].centerx * 2, button["store_all"].centery * 2))
-    assert inv.counts() == {"o2": 2, "melter": 1}
-    assert box.counts() == {"iron": 74, "silicon": 30, "ice": 61}
+    assert inv.counts() == {"drone": 2, "scanner": 1, "constructor": 1}
+    assert box.counts() == {"iron": 80, "silicon": 30, "ice": 61}
 
     # nome do baú: clique no nome, apaga, digita (E, 1 e WASD viram texto, não ação), Enter confirma
     rect = app.ui.name_rect
@@ -665,7 +733,7 @@ def check_inventory_and_chest(bot) -> None:
     bot.key(pygame.K_ESCAPE)
     assert app.name_edit is None and chest.name == "Minérios da base" and app.mode == "chest"
     bot.key(pygame.K_ESCAPE)                            # agora fecha
-    assert app.mode == "play" and app.held is None and inv.count("o2") == 2
+    assert app.mode == "play" and app.held is None and inv.count("drone") == 2
     # no mundo: o nome flutua em cima do baú só com o mouse em cima dele
     bot.mouse_to((40, 40))
     bot.frames(0.2)
@@ -684,8 +752,9 @@ def check_inventory_and_chest(bot) -> None:
     bot.shot("bau_nome_zoom.png")
     bot.key(pygame.K_MINUS)
 
-    # o fabricador enxerga o baú da base: os 74 ferro (80 - 6 do baú) e os 30 silício estão no baú
-    assert s.available("iron") == 74 and s.available("silicon") == 30
+    # o fabricador enxerga o baú da base: os 80 ferro (86 - 6 do baú) e os 30 silício estão no baú
+    assert s.available("iron") == 80 and s.available("silicon") == 30
+    assert s.available("iron", inv_only=True) == 0             # o construtor não (só o inventário)
 
     # Tab: inventário sozinho, com tooltip
     bot.key(pygame.K_TAB)
@@ -697,18 +766,21 @@ def check_inventory_and_chest(bot) -> None:
     bot.key(pygame.K_TAB)
     assert app.mode == "play"
 
-    # baú com coisa dentro não desmonta (aviso)
+    # baú com coisa dentro não desmonta (aviso já no começo do segurar)
     camx, camy = app.cam
     body = (int((site[0] + 0.5) * C.TILE - camx), int((site[1] + 1) * C.TILE - 20 - camy))
+    bot.mouse_to(body)
     pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=body, button=3))
     bot.frames(0.1)
+    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONUP, pos=body, button=3))
+    bot.frames(DT)
     assert chest in s.machines and app.notice == "Esvazie o baú antes de desmontar"
 
     # inventário cheio: o tile quebra, o minério não entra, aparece o aviso
     s.inventory.clear()
     give(s, iron=200, silicon=150, ice=350)            # 4 + 3 + 7 slots
-    s.inventory.add("o2", 1)
-    s.inventory.add("melter", 1)
+    s.inventory.add("drone", 1)
+    s.inventory.add("scanner", 1)
     assert None not in s.inventory.slots
     bot.teleport((96, 98))
     ore = (96, 100)
@@ -735,13 +807,13 @@ def check_energy(bot) -> None:
     bot.teleport((96, 98))
     bot.frames(0.1)
     give(s, iron=max(8, s.inventory.count("iron")), silicon=max(6, s.inventory.count("silicon")))
-    assert s.craft("solar")
-    bot.key(hotbar_key(bot, "solar"))
-    assert app.placing == "solar"
+    hold_constructor(bot, "solar")
     spot = next(t for t in [(94, 99), (93, 100), (95, 100), (92, 99), (98, 100)] if s.can_place("solar", t))
     bot.click(bot.tile_on_screen(spot))
     panel = s.machine_at(spot)
-    assert panel is not None and panel.kind == "solar", "o painel devia ter sido colocado"
+    assert panel is not None and panel.kind == "solar", "o painel devia ter sido construído"
+    release_constructor(bot)
+    bot.frames(C.BUILD_TIME + 0.1)                      # termina de se construir: aí gera
     assert s.power.production == C.POD_POWER + C.POWER_GEN["solar"] and not s.power.deficit
     bot.mouse_to(bot.tile_on_screen((96, 101)))
     bot.frames(0.5)
@@ -769,13 +841,13 @@ def check_energy(bot) -> None:
 
 
 def check_objectives_midway(bot) -> None:
-    """Objetivos no meio do caminho: com ferro e silício 'minerados', o atual vira "Fabrique um baú"."""
+    """Objetivos no meio do caminho: com ferro e silício 'minerados', o atual vira "Construa um baú"."""
     s = bot.state
     s.mined_total.update(iron=10, silicon=4)     # o bot pôs recurso direto no inventário, sem minerar
     bot.frames(1.6)                              # deixa passar o ✓ verde do objetivo concluído
     assert s.ti < 500 and s.fabricator_opened
     shown = bot.app.objectives.lines(s)
-    assert shown[0].text == "Fabrique um baú", shown
+    assert shown[0].text == "Construa um baú", shown
     bot.shot("objetivos_meio.png")
 
 
@@ -860,15 +932,11 @@ def check_drill_feature(bot) -> None:
     give(s, iron=60, silicon=40)
     bot.teleport((96, 97))
     bot.frames(0.1)
-    s.craft("drill")
-    s.craft("drill")
-    assert s.inventory.count("drill") == 2
     cx, cy = C.BASE_TILE
     vein = min(s.world.veins, key=lambda v: math.hypot(v.tx - cx, v.ty - cy))
     bot.teleport((vein.tx, vein.ty + 2))          # logo abaixo do veio
     bot.frames(0.1)
-    bot.key(hotbar_key(bot, "drill"))
-    assert app.placing == "drill"
+    hold_constructor(bot, "drill")
     # fora de veio: dica e fantasma vermelho
     bot.mouse_to(bot.tile_on_screen((vein.tx + 3, vein.ty + 3)))
     assert app.place_target() is None and app.hint() == "Coloque a drill em cima de um veio"
@@ -880,7 +948,7 @@ def check_drill_feature(bot) -> None:
     bot.click(bot.tile_on_screen((vein.tx + 1, vein.ty + 1)))
     drill = s.machine_at((vein.tx, vein.ty))
     assert drill is not None and drill.is_drill
-    bot.key(pygame.K_ESCAPE)                      # larga a segunda drill da mão
+    release_constructor(bot)                      # sai do modo de construir
     # deixa trabalhar um pouco (F1 acelera ×10)
     bot.key(pygame.K_F1)
     bot.key(pygame.K_F3)                          # F3: modo rápido (player ×2, broca ×5), junto com o F1 no topo
@@ -971,7 +1039,6 @@ def check_drones(bot) -> None:
     s.o2 = C.O2_MAX
     bot.frames(0.1)
     give(s, iron=60, silicon=40, ice=20)
-    assert s.craft("drone_station")
     chest = s.chests[0]
     # canto 2×2 livre perto do baú (até 3 tiles: o alcance é o mapa todo, mas fica bonito junto), player logo abaixo
     site = None
@@ -986,10 +1053,11 @@ def check_drones(bot) -> None:
             break
     assert site, "sem lugar pra estação perto do baú"
     bot.frames(0.1)
-    bot.key(hotbar_key(bot, "drone_station"))
-    assert app.placing == "drone_station"
+    hold_constructor(bot, "drone_station")
     bot.click(bot.tile_on_screen(site))
+    release_constructor(bot)
     station = s.machine_at(site)
+    bot.frames(C.BUILD_TIME + 0.1)                        # termina de se construir
     assert station is not None and station.is_station and station.station.drones == []   # vem vazia
     for r in C.RESOURCES:                                 # o baú da base recebe tudo (config. pelo painel no check_logistics)
         drones.toggle_receive(chest, r)
@@ -1433,37 +1501,41 @@ def check_polish(bot) -> None:
     assert app.mode == "fabricator"
     app.fab.set_tab(0)
     bot.key(pygame.K_d)
-    bot.key(pygame.K_d)
     assert app.fab.tab_id == "automation"
     bot.mouse_to((40, 40))
     bot.frames(0.1)
     bot.shot("fabricador_abas.png")
     tab = next(r for r, i in app.ui.fabricator_tabs if i == 0)
-    bot.click((tab.centerx * 2, tab.centery * 2))            # clique na aba Terraformação
-    assert app.fab.tab_id == "terraform"
-    # no redesign B2 cabem as 6 receitas da aba (C.FAB_VISIBLE_ROWS): pra ver a rolagem e a barra, o smoke
-    # encolhe a lista pra 4 linhas só neste trecho
-    app.fab.visible = 4
-    pygame.event.post(pygame.event.Event(pygame.MOUSEWHEEL, x=0, y=-1, flipped=False))
-    bot.frames(DT)
-    assert app.fab.first[0] == 1, "a rodinha devia rolar a lista"
-    app.fab.select("o2")                                     # do topo, 5× S: 6ª receita (a lista rola)
-    for _ in range(5):
-        bot.key(pygame.K_s)
-    assert app.fab.current == "heater_t2" and app.fab.first[0] == 2
-    bot.frames(0.1)
-    bot.shot("fabricador_scroll.png")
-    app.fab.visible = C.FAB_VISIBLE_ROWS
-    app.fab.first[0] = 0
-    app.fab.select("o2")
-    before = s.inventory.count("o2")
-    shift_key(bot, pygame.K_RETURN)
-    assert s.inventory.count("o2") == before + 5, s.inventory.counts()
-    assert app.toast == "Gerador de O₂ x5", app.toast
+    bot.click((tab.centerx * 2, tab.centery * 2))            # clique na aba Ferramentas
+    assert app.fab.tab_id == "tools" and app.fab.current == "constructor"
+    s.inventory.remove("constructor", s.inventory.count("constructor"))
+    shift_key(bot, pygame.K_RETURN)                          # Shift+Enter: até 5 construtores
+    assert s.inventory.count("constructor") == 5, s.inventory.counts()
+    assert app.toast == "Construtor x5", app.toast
     bot.frames(0.1)
     bot.shot("fabricar_lote.png")
-    app.placing = None
-    s.inventory.remove("o2", 5)
+    s.inventory.remove("constructor", 4)
+    # rolagem: no menu do construtor (a aba Terraformação tem 6 máquinas). No redesign B2 cabem as 6
+    # (C.FAB_VISIBLE_ROWS): pra ver a rolagem e a barra, o smoke encolhe a lista pra 4 linhas só neste trecho
+    hold_constructor(bot)
+    app.open_build_menu()
+    menu = app.build_menu
+    menu.set_tab(0)
+    menu.visible = 4
+    pygame.event.post(pygame.event.Event(pygame.MOUSEWHEEL, x=0, y=-1, flipped=False))
+    bot.frames(DT)
+    assert menu.first[0] == 1, "a rodinha devia rolar a lista"
+    menu.select("o2")                                        # do topo, 5× S: 6ª receita (a lista rola)
+    for _ in range(5):
+        bot.key(pygame.K_s)
+    assert menu.current == "heater_t2" and menu.first[0] == 2
+    bot.frames(0.1)
+    bot.shot("fabricador_scroll.png")
+    menu.visible = C.FAB_VISIBLE_ROWS
+    menu.first[0] = 0
+    menu.select("o2")
+    bot.key(pygame.K_ESCAPE)
+    release_constructor(bot)
 
     zoom = app.zoom
     # decolagem: drone a 30%/100% da subida, lado a lado com um pousado (sombra colada -> afastada)
@@ -1491,12 +1563,11 @@ def ui_to_window(app, rect) -> tuple[int, int]:
     return round(x + rect.centerx * k), round(y + rect.centery * k)
 
 
-def check_field_craft(bot) -> None:
-    """Tab > aba Fabricar (fabricar em campo) nos 3 tamanhos de interface (janela 1920×1080): o kit de campo
-    (drill, luminária, luminária forte "???" sem projeto, baú), custo só do inventário (falta em vermelho),
-    clique na aba pela posição na janela; na Pequena, clica em CRAFTAR da luminária e confere o modo de colocar.
-    Prints: inventario_fabricar_<tamanho>.png."""
-    from game.inventory import Stack
+def check_build_menu(bot) -> None:
+    """v0.5 M1 · menu do construtor nos 3 tamanhos de interface (janela 1920×1080): construtor na mão, E (com o
+    mouse no nada) abre o menu com as abas de categoria; clique na aba Luz e na linha da luminária; o detalhe conta só
+    o inventário (a luminária forte "???" sem projeto); na Pequena, clica em CONSTRUIR e confere o modo de construir.
+    A aba Fabricar do Tab saiu. Prints: construtor_menu_<tamanho>.png."""
     s, app = bot.state, bot.app
     slots_before = [Stack(st.item, st.count) if st else None for st in s.inventory.slots]
     blueprints_before = set(s.blueprints)
@@ -1509,25 +1580,33 @@ def check_field_craft(bot) -> None:
         bot.key(pygame.K_TAB)
         assert app.mode == "inventory" and app.inv_tab == TAB_INVENTORY
         bot.frames(DT)
-        tab = next(r for r, i in app.ui.inv_tab_rects if i == TAB_CRAFT)
-        bot.click(ui_to_window(app, tab))
-        assert app.inv_tab == TAB_CRAFT, f"clique na aba Fabricar ({ui_size})"
+        assert [i for _, i in app.ui.inv_tab_rects] == [TAB_INVENTORY, TAB_LOGS]   # sem a aba Fabricar
+        bot.key(pygame.K_TAB)
+        hold_constructor(bot)
+        bot.mouse_to(ui_to_window(app, pygame.Rect(app.ui.w - 30, app.ui.h // 2, 1, 1)))
+        assert not app.hover_in_reach()
+        bot.key(pygame.K_e)
+        assert app.mode == "build", app.mode
         bot.frames(DT)
-        assert [k for _, k in app.ui.fabricator_rows] == list(C.FIELD_RECIPES)
-        # lista + detalhe: clique na linha da luminária escolhe; aí o FABRICAR (dela) aparece
+        light = [t for t, _ in C.FAB_TABS].index("light")
+        bot.click(ui_to_window(app, next(r for r, i in app.ui.fabricator_tabs if i == light)))
+        assert app.build_menu.tab_id == "light"
+        bot.frames(DT)
         bot.click(ui_to_window(app, next(r for r, k in app.ui.fabricator_rows if k == "lamp")))
-        assert app.field.current == "lamp"
+        assert app.build_menu.current == "lamp"
         bot.frames(DT)
-        assert "lamp" in [k for _, k in app.ui.fabricator_buttons] and s.recipe_status("lamp_t2", True) == "blueprint"
-        bot.shot(f"inventario_fabricar_{ui_size}.png")
+        assert "lamp" in [k for _, k in app.ui.fabricator_buttons] and app.ui.craft_label == "CONSTRUIR"
+        assert s.build_status("lamp_t2") == "blueprint" and app.ui.fabricator_batch == []
+        bot.shot(f"construtor_menu_{ui_size}.png")
         if ui_size == "pequena":
             button = next(r for r, k in app.ui.fabricator_buttons if k == "lamp")
             bot.click(ui_to_window(app, button))
             bot.frames(DT)
-            assert app.mode == "play" and app.placing == "lamp" and s.inventory.count("lamp") == 1
-            app.placing = None
+            assert app.mode == "play" and app.placing == "lamp"
+            release_constructor(bot)
         else:
-            bot.key(pygame.K_TAB)
+            bot.key(pygame.K_e)
+            release_constructor(bot)
         assert app.mode == "play"
     s.inventory.slots[:] = slots_before
     s.blueprints = blueprints_before
@@ -1543,7 +1622,7 @@ def check_b2_screens(bot) -> None:
     equip_before = dict(s.equipment.slots)
     zoom_before = app.zoom
     s.inventory.slots[:] = [None] * len(s.inventory)
-    for item, n in [("iron", 42), ("silicon", 6), ("ice", 25), ("o2", 2), ("chest", 1), ("lamp", 3)]:
+    for item, n in [("iron", 42), ("silicon", 6), ("ice", 25), ("drone", 2), ("scanner", 1), ("constructor", 1)]:
         s.inventory.add(item, n)
     s.inventory.slots[8], s.inventory.slots[9] = Stack("iron", 50), Stack("ice", 18)
     s.equipment.slots["o2_tank"], s.equipment.slots["scanner"] = "o2_tank", "scanner"
@@ -1564,11 +1643,11 @@ def check_b2_screens(bot) -> None:
         assert app.ui.detail_item == "ice" and app.ui.detail_uses, app.ui.detail_uses
         bot.shot(f"b2_inventario_{ui_size}.png")
         bot.key(pygame.K_TAB)
-        # fabricador: aquecedor (falta silício), ×5 e ×1 pelo clique
+        # fabricador: o construtor, ×5 e ×1 pelo clique
         bot.key(pygame.K_e)
         assert app.mode == "fabricator"
         app.fab.set_tab(0)
-        app.fab.select("heater")
+        app.fab.select("constructor")
         bot.frames(DT)
         five = next(r for r, n in app.ui.fabricator_batch if n == C.CRAFT_BATCH)
         bot.click(ui_to_window(app, five))
@@ -1808,7 +1887,7 @@ def check_ui_size(bot) -> None:
     assert app.mode == "play"
 
     check_inventory_logs(bot)
-    check_field_craft(bot)
+    check_build_menu(bot)
     check_b2_screens(bot)
 
     # volta pro tamanho do resto do smoke
@@ -2273,15 +2352,14 @@ def check_hills(bot) -> None:
     shot_zoom(bot, "morros_minerado.png", ((target[0] + 0.5) * C.TILE, (target[1] + 0.2) * C.TILE), w=200, h=120)
     print(f"  minerou {target}: re-assou {rebaked} bloco")
     # 3) o fantasma de colocar uma máquina encostada no morro
-    give(s, chest=1)
-    bot.key(hotbar_key(bot, "chest"))
-    assert app.placing == "chest"
+    give(s, iron=max(6, s.inventory.count("iron")))
+    hold_constructor(bot, "chest")
     bot.mouse_to(bot.tile_on_screen((target[0], target[1] + 1)))
     bot.frames(0.2)
     shot_zoom(bot, "morros_fantasma.png", ((target[0] + 0.5) * C.TILE, (target[1] + 0.5) * C.TILE), w=200, h=120)
     bot.key(pygame.K_ESCAPE)
     assert app.placing is None
-    give(s, chest=0)
+    release_constructor(bot)
     # 4) desempenho: o mesmo passeio no basalto (mais morro), com e sem o morro orgânico, zoom 0,75
     app.set_zoom(0.75, notify=False)
     spot = hill_spot(geo, w, 2)
@@ -2838,16 +2916,18 @@ def check_cave(bot) -> None:
     app.set_zoom(1.0, notify=False)
     w = s.world
     tx, ty = w.crater
-    # 0) a luminária no fabricador, aba "Luz" (1 Fe + 1 Si, liberada desde o começo)
+    # 0) a luminária no menu do construtor, aba "Luz" (1 Fe + 1 Si, liberada desde o começo)
     bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
-    bot.key(pygame.K_e)
-    assert app.mode == "fabricator"
-    app.fab.set_tab([t for t, _ in C.FAB_TABS].index("light"))
+    hold_constructor(bot)
+    app.open_build_menu()
+    assert app.mode == "build"
+    app.build_menu.set_tab([t for t, _ in C.FAB_TABS].index("light"))
     bot.frames(0.1)
-    assert app.fab.current == "lamp"
+    assert app.build_menu.current == "lamp"
     bot.shot("fabricador_luz.png")
-    app.fab.set_tab(0)
+    app.build_menu.set_tab(0)
     bot.key(pygame.K_ESCAPE)
+    release_constructor(bot)
     # 1) mouse na cratera, no alcance: a dica e o contorno
     bot.teleport((tx + 1, ty + 3))
     s.o2 = C.O2_MAX
@@ -2876,9 +2956,8 @@ def check_cave(bot) -> None:
     s.o2 = C.O2_MAX
     lamps = open_floor_near(cave, spot, 6, min_gap=4, radius=11)
     first = lamps[0]
-    give(s, lamp=6)
-    bot.key(hotbar_key(bot, "lamp"))
-    assert app.placing == "lamp"
+    give(s, iron=max(6, s.inventory.count("iron")), silicon=max(6, s.inventory.count("silicon")))
+    hold_constructor(bot, "lamp")
     s.player.x, s.player.y = (first[0] + 0.5) * C.TILE, (first[1] + 3) * C.TILE - 2    # perto (alcance 4)
     if not cave.is_floor(*s.player.tile):
         s.player.x, s.player.y = (spot[0] + 0.5) * C.TILE, (spot[1] + 1) * C.TILE - 2
@@ -2886,7 +2965,8 @@ def check_cave(bot) -> None:
     assert any(m.is_lamp for m in s.machines), "a luminária devia ter sido colocada pelo clique"
     for t in lamps[1:]:
         s.machines.append(Machine("lamp", *t))
-    bot.key(pygame.K_ESCAPE)
+    release_constructor(bot)
+    bot.frames(C.BUILD_TIME + 0.1)                       # a luminária construída só acende pronta
     bot.teleport(spot)
     s.player.direction = "right"
     bot.mouse_to((760, 260))
@@ -3125,14 +3205,14 @@ def check_wrecks(bot) -> None:
     give(s, iron=30, silicon=20, ice=10)
     bot.key(pygame.K_e)
     assert app.mode == "fabricator"
-    app.fab.set_tab([t for t, _ in C.FAB_TABS].index("suit"))
+    app.fab.set_tab([t for t, _ in C.CRAFT_TABS].index("suit"))
     bot.mouse_to((900, 500))
     bot.frames(0.2)
     assert s.recipe_status("scanner") == "blueprint" and s.recipe_status("o2_tank") == "ok"
     bot.shot("fabricador_projeto_trancado.png")
     bot.key(pygame.K_RETURN)                    # crafta o tanque (é a receita selecionada)
     assert s.inventory.count("o2_tank") == 1 and app.mode == "play"
-    app.fab.set_tab(0)                          # o resto do smoke espera a aba de terraformação
+    app.fab.set_tab(0)                          # o resto do smoke espera a 1ª aba
     # 5) Tab: clique no tanque equipa (som equip)
     bot.key(pygame.K_TAB)
     i = next(k for k, st in enumerate(s.inventory.slots) if st and st.item == "o2_tank")
@@ -3490,16 +3570,12 @@ def check_submerged(bot) -> None:
     # fantasma de colocar na água: vermelho
     s.machines.remove(wet_m)
     s.machines.remove(dry_m)
-    give(s, o2=1)
-    bot.key(hotbar_key(bot, "o2"))
-    assert app.placing == "o2", app.placing
+    hold_constructor(bot, "o2")
     bot.mouse_to(bot.tile_on_screen((x, y)))
     bot.frames(0.2)
     assert not s.can_place("o2", (x, y)) and s.can_place("o2", (x + k, y))
     shot_zoom(bot, "m34_fantasma_agua.png", ((x + 0.5 + k / 2) * C.TILE, y * C.TILE), w=240, h=150, k=3)
-    bot.key(pygame.K_ESCAPE)
-    app.placing = None
-    give(s, o2=0)
+    release_constructor(bot)
     app.thaw_notice_time = 0.0
     s.player.x, s.player.y = back
     app.set_zoom(zoom_before, notify=False)
@@ -3803,7 +3879,8 @@ def check_magmatite(bot) -> None:
     progress = (dict(s.mined_total), s.fabricator_opened, dict(s.crafted), list(layer.machines))
     s.mined_total.update(iron=10, silicon=4)
     s.fabricator_opened = True
-    s.crafted.update(o2=max(1, s.crafted["o2"]), chest=max(1, s.crafted["chest"]), melter=max(1, s.crafted["melter"]))
+    s.crafted.update(constructor=max(1, s.crafted["constructor"]), o2=max(1, s.crafted["o2"]),
+                     chest=max(1, s.crafted["chest"]), melter=max(1, s.crafted["melter"]))
     layer.machines.append(Machine("o2", 93, 98))
     app.set_zoom(1.0, notify=False)
     bot.teleport((96, 97))
@@ -3813,21 +3890,24 @@ def check_magmatite(bot) -> None:
     assert shown[0].text == "Encontre magmatita no basalto (oeste)", shown
     assert app.objective_hint == MAGMATITE_HINT and app.objective_hint_time > 0
     bot.shot("magmatita_objetivo.png")
-    # fabricador: a receita do Aquecedor com a magmatita
+    # menu do construtor (v0.5 M1): a receita do Aquecedor com a magmatita
     inv_before = s.inventory.to_data()
     give(s, iron=40, silicon=20, magmatite=2)
     app.objective_hint_time = 0.0
-    bot.key(pygame.K_e)
+    hold_constructor(bot)
+    app.open_build_menu()
+    app.build_menu.set_tab(0)
     bot.frames(0.2)
-    assert app.mode == "fabricator"
+    assert app.mode == "build"
     bot.click(ui_to_window(app, next(rect for rect, k in app.ui.fabricator_rows if k == "heater")))
     bot.frames(0.2)
-    assert s.recipe_status("heater") == "missing"         # 2 de 3 magmatitas: falta 1
+    assert s.build_status("heater") == "missing"          # 2 de 3 magmatitas: falta 1
     bot.shot("magmatita_fabricador.png")
     bot.click(ui_to_window(app, next(rect for rect, k in app.ui.fabricator_rows if k == "o2")))   # volta a seleção
     bot.key(pygame.K_ESCAPE)
     bot.frames(0.1)
     assert app.mode == "play"
+    release_constructor(bot)
     # volta o progresso
     s.inventory = type(s.inventory).from_data(inv_before)
     s.mined_total.clear()
@@ -3900,9 +3980,18 @@ def main() -> None:
     assert bot.app.mode == "fabricator"
     bot.mouse_to((560, 150))
     bot.shot("crafting.png")
+    button = next(rect for rect, kind in bot.app.ui.fabricator_buttons if kind == "constructor")
+    bot.click((button.centerx * 2, button.centery * 2))
+    assert bot.app.constructor_selected(), "o construtor fabricado devia ir pra mão"
+    bot.mouse_to(bot.tile_on_screen((93, 98)))
+    bot.key(pygame.K_e)                                  # v0.5 M1: construtor na mão, E abre o menu de construção
+    assert bot.app.mode == "build"
+    bot.app.build_menu.select("o2")
+    bot.frames(0.1)
+    bot.shot("construtor_menu.png")
     button = next(rect for rect, kind in bot.app.ui.fabricator_buttons if kind == "o2")
     bot.click((button.centerx * 2, button.centery * 2))
-    assert bot.app.placing == "o2", "craftar devia entrar no modo de colocar"
+    assert bot.app.placing == "o2", "CONSTRUIR devia entrar no modo de construir"
     bot.mouse_to(bot.tile_on_screen((93, 98)))
     bot.frames(0.3)
     bot.shot("placing.png")

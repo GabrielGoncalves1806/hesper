@@ -8,7 +8,7 @@ from game import config as C
 from game.systems import Controls, GameState, stage_for_ti
 from game.layers import CAVE
 from game.world import World
-from tests.helpers import give
+from tests.helpers import build_now, give
 
 DT = 1 / 60
 
@@ -151,7 +151,7 @@ def test_o2_refills_inside_base(game):
 
 
 def test_faint_and_respawn_keeps_inventory(game):
-    give(game, iron=7, o2=1)
+    give(game, iron=7, constructor=1)
     teleport_outside_base(game)
     game.o2 = 0.5
     run(game, 0.6)
@@ -161,29 +161,45 @@ def test_faint_and_respawn_keeps_inventory(game):
     assert game.o2 == C.O2_MAX
     run(game, C.FAINT_DURATION)
     assert not game.fainted
-    assert game.inventory.count("iron") == 7 and game.inventory.count("o2") == 1
+    assert game.inventory.count("iron") == 7 and game.inventory.count("constructor") == 1
 
 
-# ---------------------------------------------------------------- fabricador
+# ---------------------------------------------------------------- fabricador (v0.5 M1: só itens) e construtor
 def test_craft_consumes_resources(game):
     give(game, iron=12, silicon=5)
-    assert game.recipe_status("o2") == "ok"
-    assert game.craft("o2")
-    assert game.inventory.counts() == {"iron": 2, "silicon": 1, "o2": 1}
+    assert game.recipe_status("constructor") == "ok"
+    assert game.craft("constructor")
+    assert game.inventory.counts() == {"iron": 7, "silicon": 5, "constructor": 1}
 
 
 def test_craft_fails_without_resources(game):
-    give(game, iron=6, ice=9)
-    assert game.recipe_status("melter") == "missing"
-    assert game.missing_resource("melter") == "ice"
-    assert not game.craft("melter")
+    give(game, iron=4)
+    assert game.recipe_status("drone") == "missing" or game.recipe_status("drone") == "locked"
+    assert not game.craft("drone")
+    assert game.inventory.count("iron") == 4
+
+
+def test_build_consumes_resources(game):
+    give(game, constructor=1, iron=12, silicon=5)
+    px, py = game.player.tile
+    assert game.build("o2", (px + 2, py))
+    assert game.inventory.counts() == {"constructor": 1, "iron": 2, "silicon": 1}
+
+
+def test_build_fails_without_resources(game):
+    give(game, constructor=1, iron=6, ice=9)
+    assert game.build_status("melter") == "missing"
+    assert game.missing_resource("melter", inv_only=True) == "ice"
+    px, py = game.player.tile
+    assert not game.build("melter", (px + 2, py))
     assert game.inventory.count("iron") == 6
 
 
 def test_recipes_locked_by_ti(game):
-    give(game, iron=100, silicon=100, ice=100, magmatite=20)
+    give(game, constructor=1, iron=100, silicon=100, ice=100, magmatite=20)
     assert game.recipe_status("heater") == "locked"
-    assert not game.craft("heater")
+    px, py = game.player.tile
+    assert not game.build("heater", (px + 2, py))
     game.indices["o2"] = 500
     assert game.recipe_status("heater") == "ok"
     assert game.recipe_status("o2_t2") == "locked"
@@ -194,28 +210,24 @@ def test_recipes_locked_by_ti(game):
 def test_craft_only_in_base(game):
     give(game, iron=50, silicon=50)
     teleport_outside_base(game)
-    assert not game.craft("o2")
+    assert not game.craft("constructor")
 
 
 def test_place_machine(game):
-    give(game, iron=10, silicon=4)
-    game.craft("o2")
+    give(game, constructor=1, iron=10, silicon=4)
     px, py = game.player.tile
     assert not game.can_place("o2", (px, py))            # em cima do player, não
     assert not game.can_place("o2", C.POD_TILES[0])      # em cima da cápsula, não
     assert not game.can_place("o2", (px + 10, py))       # longe demais, não
-    assert game.place("o2", (px + 2, py))
-    assert game.inventory.count("o2") == 0
-    assert not game.place("o2", (px - 2, py))            # acabou o estoque
+    assert game.build("o2", (px + 2, py))
+    assert not game.build("o2", (px - 2, py))            # acabou o material
 
 
 # ---------------------------------------------------------------- Ti e estágios
 def test_machines_raise_their_index(game):
-    give(game, iron=100, silicon=100, ice=100)
     px, py = game.player.tile
     for kind, dx in [("o2", 2), ("melter", -2)]:
-        game.craft(kind)
-        game.place(kind, (px + dx, py))
+        build_now(game, kind, (px + dx, py))
     run(game, 10)
     assert game.indices["o2"] == pytest.approx(30, abs=0.2)
     assert game.indices["water"] == pytest.approx(20, abs=0.2)
@@ -224,10 +236,8 @@ def test_machines_raise_their_index(game):
 
 
 def test_time_scale_speeds_up_machines(game):
-    give(game, iron=10, silicon=4)
-    game.craft("o2")
     px, py = game.player.tile
-    game.place("o2", (px + 2, py))
+    build_now(game, "o2", (px + 2, py))
     game.toggle_time_scale()
     run(game, 1)
     assert game.indices["o2"] == pytest.approx(30, abs=0.2)
@@ -337,26 +347,24 @@ def test_no_water_in_stage1_but_water_later():
 
 # ---------------------------------------------------------------- desmontar
 def placed(game, kind="o2", dx=2):
-    give(game, iron=100, silicon=100, ice=100)
-    game.craft(kind)
     px, py = game.player.tile
-    game.place(kind, (px + dx, py))
-    return game.machines[-1]
+    return build_now(game, kind, (px + dx, py))
 
 
-def test_dismantle_returns_machine_to_stock_and_stops_index(game):
+def test_dismantle_returns_the_recipe_and_stops_index(game):
     m = placed(game)
-    assert game.inventory.count("o2") == 0
+    assert game.inventory.count("iron") == 0
     run(game, 1)
     o2_before = game.indices["o2"]
     assert game.dismantle(m)
-    assert m not in game.machines and game.inventory.count("o2") == 1
+    assert m not in game.machines and game.inventory.count("o2") == 0
+    assert game.inventory.count("iron") == 10 and game.inventory.count("silicon") == 4   # v0.5 M1: a receita
     assert ("dismantle", "o2", (m.tx, m.ty)) in game.pop_events()
     run(game, 2)
     assert game.indices["o2"] == o2_before        # parou de somar
     assert game.ti_rate == 0
     px, py = game.player.tile
-    assert game.place("o2", (px - 2, py))         # dá pra recolocar
+    assert game.build("o2", (px - 2, py))         # dá pra construir de novo com o que voltou
 
 
 def test_dismantle_needs_reach(game):

@@ -12,7 +12,7 @@ from game import drones, save
 from game.drones import CARRYING, COLLECTING, DROPPING, LANDED, OUTBOUND, RETURNING
 from game.inventory import Stack
 from game.systems import GameState, Machine
-from tests.helpers import give
+from tests.helpers import build_now, give
 
 ST = (60, 70)            # canto da estação nos testes de lógica (não precisa ser chão: a lógica não olha o mapa)
 
@@ -205,10 +205,9 @@ def free_station_tile(game) -> tuple[int, int]:
     raise AssertionError("sem lugar pra estação perto da base")
 
 
-def test_place_station_from_the_inventory(game):
-    give(game, drone_station=1)
+def test_build_station_with_the_constructor(game):
     tile = free_station_tile(game)
-    assert game.place("drone_station", tile)
+    assert build_now(game, "drone_station", tile)
     st = game.stations[0]
     assert st.station is not None and st.station.drones == []           # vem vazia
     assert game.inventory.count("drone_station") == 0
@@ -216,7 +215,6 @@ def test_place_station_from_the_inventory(game):
 
 
 def test_station_cannot_go_on_a_vein(game):
-    give(game, drone_station=1)
     vein = game.world.veins[0]
     for corner in [(vein.tx, vein.ty), (vein.tx - 1, vein.ty - 1), (vein.tx + 1, vein.ty)]:
         game.player.x, game.player.y = (corner[0] + 1) * C.TILE, (corner[1] + 3) * C.TILE + 8
@@ -224,9 +222,9 @@ def test_station_cannot_go_on_a_vein(game):
 
 
 def test_e_opens_the_station_and_takes_the_leftover_buffer(game):
-    give(game, drone_station=1)
     tile = free_station_tile(game)
-    game.place("drone_station", tile)
+    build_now(game, "drone_station", tile)
+    game.inventory.clear()
     st = game.stations[0]
     ax, ay = st.anchor
     game.player.x, game.player.y = ax, ay + 10                   # logo abaixo da estação
@@ -247,10 +245,11 @@ def test_e_with_full_inventory_keeps_the_rest(game):
     assert ("inv_full",) in game.pop_events()
 
 
-def test_dismantle_returns_buffer_cargo_and_station(game):
-    give(game, drone_station=1, drone=2)
+def test_dismantle_returns_buffer_cargo_drones_and_recipe(game):
     tile = free_station_tile(game)
-    game.place("drone_station", tile)
+    build_now(game, "drone_station", tile)
+    game.inventory.clear()
+    give(game, drone=2)
     st = game.stations[0]
     assert game.station_dock(st, game.inventory.slots.index(next(s for s in game.inventory.slots if s and s.item == "drone"))) == 2
     st.station.buffer = {"iron": 30}
@@ -258,15 +257,16 @@ def test_dismantle_returns_buffer_cargo_and_station(game):
     st.station.drones[1].state = RETURNING
     assert game.dismantle(st)
     assert st not in game.machines
-    assert game.inventory.count("iron") == 30 and game.inventory.count("ice") == 8
-    assert game.inventory.count("drone_station") == 1
+    cost = C.MACHINES["drone_station"].cost                          # v0.5 M1: a receita volta, não a estação
+    assert game.inventory.count("iron") == 30 + cost["iron"] and game.inventory.count("ice") == 8 + cost["ice"]
+    assert game.inventory.count("silicon") == cost["silicon"]
+    assert game.inventory.count("drone_station") == 0
     assert game.inventory.count("drone") == 2                       # os 2, até o que estava voando
 
 
 def test_dismantle_refuses_when_it_does_not_fit(game):
-    give(game, drone_station=1)
     tile = free_station_tile(game)
-    game.place("drone_station", tile)
+    build_now(game, "drone_station", tile)
     st = game.stations[0]
     st.station.buffer = {"iron": 30}
     for i in range(C.INVENTORY_SLOTS):
@@ -282,9 +282,9 @@ def test_dismantle_refuses_when_it_does_not_fit(game):
 def drone_state() -> GameState:
     state = save.new_state()
     state.debug_add_ti()
-    give(state, drone_station=1, chest=1)
+    give(state, drone=1)                                # um item qualquer no inventário (vai no save)
     tile = free_station_tile(state)
-    assert state.place("drone_station", tile)
+    assert build_now(state, "drone_station", tile)
     st = state.stations[0]
     drones.dock(st, st.station, 0)
     drones.dock(st, st.station, 2)                      # slot 2 (o 3º): o save guarda o slot de cada um

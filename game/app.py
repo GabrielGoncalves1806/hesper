@@ -11,8 +11,8 @@ sobra tarja preta se o monitor não for 16:9). A UI (HUD e menus) é desenhada d
 janela, no tamanho escolhido em Opções > Interface (Grande/Média/Pequena): ela não muda com o zoom
 e o mundo não muda com ela. F11 ou Alt+Enter alternam a tela cheia; +/- ou Ctrl+rodinha mudam o zoom.
 
-Modos de tela: "play" (jogando), "fabricator" (menu de receitas),
-"terminal" (lendo um log), "inventory" (Tab: abas Inventário, Fabricar em campo e LOGs), "chest" (baú aberto com E), "drill" (drill aberta com E;
+Modos de tela: "play" (jogando), "fabricator" (menu de receitas), "build" (menu do construtor, v0.5 M1),
+"terminal" (lendo um log), "inventory" (Tab: abas Inventário e LOGs), "chest" (baú aberto com E), "drill" (drill aberta com E;
 Shift+E coleta direto), "station" (estação com E),
 "crate" (caixa de saque de um destroço, só tirar), "map" (mapa grande do scanner, M),
 "pause" (menu do Esc) e "end" (tela de fim do MVP).
@@ -44,7 +44,7 @@ from game.perf_meter import PerfMeter
 from game.assets import Sprites
 from game.audio import Audio
 from game.equipment import is_equipment
-from game.fabricator import FabMenu, field_menu
+from game.fabricator import FabMenu, build_menu, craft_menu
 from game.inventory import Stack
 from game.map_view import MapView
 from game.objectives import ObjectiveTracker
@@ -55,7 +55,7 @@ from game.systems import Controls, GameState
 from game.textedit import TextField
 from game.ui import fmt, item_name, submerged_notice
 from game.title import TitleScreen, draw_saved_notice
-from game.ui import TAB_CRAFT, TAB_INVENTORY, TAB_LOGS, UI, FloatingTexts
+from game.ui import TAB_INVENTORY, TAB_LOGS, UI, FloatingTexts
 
 MOVE_KEYS = {
     pygame.K_a: (-1, 0), pygame.K_LEFT: (-1, 0),
@@ -134,7 +134,8 @@ class App:
         self.mouse = (C.SCREEN_W // 2, C.SCREEN_H // 2)   # em pixels da tela interna (960×540): mundo
         self.mouse_window = (self.window.get_width() // 2, self.window.get_height() // 2)   # px da janela
         self.mouse_held = False
-        self.placing: str | None = None                   # máquina sendo posicionada (a do slot selecionado)
+        self.placing: str | None = None                   # máquina escolhida no menu do construtor (modo de construir)
+        self.right_held = False                           # botão direito segurado (v0.5 M1: desmontar segurando)
         self.hotbar_selected = 0                          # slot da hotbar escolhido (0 a 7, teclas 1–8)
         self.held: Stack | None = None                    # pilha presa no cursor na tela de inventário
         self.open_chest = None                            # baú aberto (Machine), no modo "chest"
@@ -153,10 +154,10 @@ class App:
         self.notice: str | None = None                    # aviso curto ("Inventário cheio")
         self.notice_time = 0.0
         self.rotation = 0
-        self.fab = FabMenu()            # aba, seleção e rolagem do fabricador (game/fabricator.py)
+        self.fab = craft_menu()         # aba, seleção e rolagem do fabricador (só itens · game/fabricator.py)
+        self.build_menu = build_menu()  # v0.5 M1: menu do construtor (E com ele na mão): as máquinas
         self.terminal_index = 0
-        self.inv_tab = TAB_INVENTORY    # Tab: Inventário / Fabricar (em campo) / LOGs
-        self.field = field_menu()       # aba Fabricar do Tab: seleção do kit de campo (C.FIELD_RECIPES)
+        self.inv_tab = TAB_INVENTORY    # Tab: Inventário / LOGs (a aba Fabricar saiu no v0.5 M1)
         self.log_selected = 0           # aba LOGs: linha escolhida (posição na cronologia) e a 1ª visível
         self.log_first = 0
         self.banner_stage = 1
@@ -370,12 +371,14 @@ class App:
                 self.zoom_step(1 if event.y > 0 else -1)        # Ctrl+rodinha pra cima = aproxima
             elif event.type == pygame.MOUSEWHEEL and self.mode == "inventory" and self.inv_tab == TAB_LOGS:
                 self.scroll_logs(-1 if event.y > 0 else 1)      # rodinha rola a aba LOGs (se não couber)
-            elif event.type == pygame.MOUSEWHEEL and self.mode == "fabricator":
-                self.fab.scroll(-1 if event.y > 0 else 1)       # rodinha rola a lista de receitas
+            elif event.type == pygame.MOUSEWHEEL and self.mode in ("fabricator", "build"):
+                self.menu_of_mode().scroll(-1 if event.y > 0 else 1)   # rodinha rola a lista de receitas
             elif event.type == pygame.MOUSEWHEEL and self.mode == "play" and not self.state.fainted \
                     and self.name_edit is None:
                 # rodinha pra baixo = próximo slot (y < 0), pra cima = anterior
                 self.select_hotbar((self.hotbar_selected + (1 if event.y < 0 else -1)) % C.HOTBAR_SLOTS)
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == 3:
+                self.right_held = False                         # soltou: o desmonte segurado cancela
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 self.mouse_held = False
                 self.map_view.end_drag()
@@ -426,17 +429,21 @@ class App:
 
         if self.mode == "pause":
             self.on_pause_key(key)
-        elif self.mode == "fabricator":
+        elif self.mode in ("fabricator", "build"):
+            menu = self.menu_of_mode()
             if key in (pygame.K_e, pygame.K_ESCAPE):
                 self.set_mode("play")
             elif key in (pygame.K_w, pygame.K_UP, pygame.K_s, pygame.K_DOWN):
-                self.fab.move(-1 if key in (pygame.K_w, pygame.K_UP) else 1)
+                menu.move(-1 if key in (pygame.K_w, pygame.K_UP) else 1)
                 self.audio.play("ui_click")
             elif key in (pygame.K_a, pygame.K_LEFT, pygame.K_d, pygame.K_RIGHT, pygame.K_TAB):
-                self.fab.switch_tab(-1 if key in (pygame.K_a, pygame.K_LEFT) else 1)   # Tab: próxima aba
+                menu.switch_tab(-1 if key in (pygame.K_a, pygame.K_LEFT) else 1)   # Tab: próxima aba
                 self.audio.play("ui_click")
-            elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE) and self.fab.current:
-                self.try_craft(self.fab.current, batch=self.craft_batch(self.fab))   # ×5 ou Shift: até 5
+            elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE) and menu.current:
+                if self.mode == "build":
+                    self.choose_build(menu.current)
+                else:
+                    self.try_craft(menu.current, batch=self.craft_batch(menu))   # ×5 ou Shift: até 5
         elif self.mode == "terminal":
             if key in (pygame.K_e, pygame.K_ESCAPE, pygame.K_RETURN):
                 self.close_terminal()
@@ -456,13 +463,13 @@ class App:
                 self.switch_inv_tab((self.inv_tab + step) % len(UI.INV_TAB_LABELS))   # dá a volta
             elif self.mode == "inventory" and self.inv_tab == TAB_LOGS:
                 self.on_logs_key(key)
-            elif self.mode == "inventory" and self.inv_tab == TAB_CRAFT:
-                self.on_field_key(key)
         elif self.mode == "end":
             if key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_ESCAPE):
                 self.set_mode("play")
         else:  # play
-            if key == pygame.K_e:
+            if key == pygame.K_e and self.constructor_selected() and not self.hover_in_reach():
+                self.open_build_menu()            # v0.5 M1: construtor na mão abre o menu de construção
+            elif key == pygame.K_e:
                 target = self.e_target()          # o do mouse (no alcance) ou o mais perto
                 if target and target[0] == "ramp":
                     state.start_ramp()                    # cratera/rampa: desce ou sobe (fade)
@@ -514,12 +521,41 @@ class App:
 
     # ---- hotbar e inventário ----------------------------------------------------
     def select_hotbar(self, index: int) -> None:
-        """Escolhe o slot da hotbar. Se tiver máquina nele, já entra no modo de colocar."""
+        """Escolhe o slot da hotbar. Trocar de slot sai do modo de construir (v0.5 M1: máquina não é item; quem
+        constrói é o construtor, pelo menu do E)."""
+        if index != self.hotbar_selected:
+            self.placing = None
         self.hotbar_selected = index
-        stack = self.state.inventory.slots[index]
-        placeable = stack and stack.item in C.MACHINES and C.MACHINES[stack.item].placeable
-        self.placing = stack.item if placeable else None      # o drone é item, mas não vai pro chão
         self.audio.play("ui_click")
+
+    # ---- construtor (v0.5 M1) -----------------------------------------------------
+    def constructor_selected(self) -> bool:
+        stack = self.state.inventory.slots[self.hotbar_selected]
+        return stack is not None and stack.item == "constructor"
+
+    def hover_in_reach(self) -> bool:
+        """Tem algo do E debaixo do mouse e no alcance? (com o construtor na mão, o E abre o que está apontado;
+        apontando pro nada, abre o menu de construção)"""
+        hover = self.state.interactable_at(*self.mouse_world())
+        return hover is not None and self.state.in_reach(*hover)
+
+    def open_build_menu(self) -> None:
+        if self.placing:                          # já construindo: o menu abre na máquina da mão
+            self.build_menu.select(self.placing)
+        self.placing = None
+        self.set_mode("build")
+
+    def choose_build(self, kind: str) -> None:
+        """Escolheu a máquina no menu: fecha e entra no modo de construir (o fantasma; o clique constrói). Trancada
+        (Ti ou projeto) não entra; sem material entra (o fantasma fica vermelho e a dica diz o que falta)."""
+        if self.state.build_status(kind) in ("locked", "blueprint", "no_constructor"):
+            return
+        self.set_mode("play")
+        self.placing = kind
+        self.rotation = 0
+
+    def menu_of_mode(self) -> FabMenu:
+        return self.build_menu if self.mode == "build" else self.fab
 
     # ---- destroços e scanner (Marco 3) --------------------------------------------
     def show_log(self, log: int, after=None) -> None:
@@ -562,7 +598,7 @@ class App:
 
     # ---- abas do Tab: Fabricar (em campo) e LOGs ---------------------------------------
     def switch_inv_tab(self, tab: int) -> None:
-        """Troca a aba do Tab. Saindo do Inventário (Fabricar ou LOGs, sem slots), a pilha da mão volta pro
+        """Troca a aba do Tab. Saindo do Inventário (LOGs, sem slots), a pilha da mão volta pro
         inventário antes (sem lugar: não troca e avisa)."""
         if tab == self.inv_tab:
             return
@@ -579,25 +615,20 @@ class App:
             self.scroll_logs(0)
         self.audio.play("ui_click")
 
-    def on_field_key(self, key: int) -> None:
-        """Aba Fabricar: W/S escolhem a receita, Enter/Espaço fabricam (Shift: até 5), igual ao fabricador."""
-        if key in (pygame.K_w, pygame.K_UP, pygame.K_s, pygame.K_DOWN):
-            self.field.move(-1 if key in (pygame.K_w, pygame.K_UP) else 1)
-            self.audio.play("ui_click")
-        elif key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE) and self.field.current:
-            self.try_craft(self.field.current, batch=self.craft_batch(self.field), field=True)
-
     def craft_batch(self, menu: FabMenu) -> bool:
         """Fabrica em lote (até C.CRAFT_BATCH)? Sim com o seletor em ×5 ou com o Shift segurado."""
         return menu.batch > 1 or self.shift_held()
 
-    def on_craft_click(self, pos, menu: FabMenu, field: bool = False) -> bool:
-        """Clique na lista + detalhe (fabricador ou aba Fabricar): FABRICAR fabrica (×5 ou Shift: até 5), ×1/×5
-        trocam o lote e a linha escolhe a receita. True se usou o clique."""
+    def on_craft_click(self, pos, menu: FabMenu) -> bool:
+        """Clique na lista + detalhe (fabricador ou construtor): FABRICAR fabrica (×5 ou Shift: até 5), CONSTRUIR
+        escolhe a máquina, ×1/×5 trocam o lote e a linha escolhe a receita. True se usou o clique."""
         ui = self.ui
         kind = next((k for rect, k in ui.fabricator_buttons if rect.collidepoint(pos)), None)
         if kind is not None:
-            self.try_craft(kind, batch=self.craft_batch(menu), field=field)
+            if menu is self.build_menu:
+                self.choose_build(kind)
+            else:
+                self.try_craft(kind, batch=self.craft_batch(menu))
             return True
         amount = next((n for rect, n in ui.fabricator_batch if rect.collidepoint(pos)), None)
         if amount is not None:
@@ -611,10 +642,6 @@ class App:
             menu.select(kind)
             return True
         return False
-
-    def on_field_click(self, pos) -> None:
-        """Clique na aba Fabricar: igual ao fabricador (lista, ×1/×5 e FABRICAR), só com o inventário."""
-        self.on_craft_click(pos, self.field, field=True)
 
     def on_logs_key(self, key: int) -> None:
         """W/S escolhem a linha (pulando os não achados), Enter/Espaço leem de novo."""
@@ -653,13 +680,10 @@ class App:
         self.mouse_held = False
 
     def on_logs_click(self, pos) -> bool:
-        """Clique nas abas do Tab, na aba Fabricar ou numa linha da aba LOGs. Devolve True se usou o clique."""
+        """Clique nas abas do Tab ou numa linha da aba LOGs. Devolve True se usou o clique."""
         tab = next((i for rect, i in self.ui.inv_tab_rects if rect.collidepoint(pos)), None)
         if tab is not None:
             self.switch_inv_tab(tab)
-            return True
-        if self.inv_tab == TAB_CRAFT:
-            self.on_field_click(pos)
             return True
         if self.inv_tab != TAB_LOGS:
             return False
@@ -760,7 +784,7 @@ class App:
             return
         if self.mode == "inventory" and button == 1 and self.on_logs_click((ux, uy)):
             return
-        if self.mode == "inventory" and self.inv_tab != TAB_INVENTORY:   # Fabricar e LOGs: sem slots
+        if self.mode == "inventory" and self.inv_tab != TAB_INVENTORY:   # LOGs: sem slots
             return
         if self.mode == "inventory" and self.on_equip_click(button, (ux, uy)):
             return
@@ -1198,28 +1222,26 @@ class App:
         if button == 3 and self.placing:   # botão direito também cancela
             self.placing = None
             return
-        if button == 3 and self.mode == "play":   # botão direito numa máquina: desmonta
-            machine = self.hovered_machine()
-            if machine:
-                self.state.dismantle(machine)
+        if button == 3 and self.mode == "play":   # v0.5 M1: o clique rápido não faz nada; segurar desmonta
+            self.right_held = True                # (quem enche a barrinha é o state, pelo Controls.dismantle)
             return
         if button != 1:
             return
-        if self.mode == "fabricator":
+        if self.mode in ("fabricator", "build"):
+            menu = self.menu_of_mode()
             ux, uy = self.mouse_ui
             for rect, index in self.ui.fabricator_tabs:
                 if rect.collidepoint(ux, uy):
-                    if index != self.fab.tab:
-                        self.fab.set_tab(index)
+                    if index != menu.tab:
+                        menu.set_tab(index)
                         self.audio.play("ui_click")
                     return
-            self.on_craft_click((ux, uy), self.fab)        # a lista pode estar rolada: acha pelo tipo
+            self.on_craft_click((ux, uy), menu)            # a lista pode estar rolada: acha pelo tipo
         elif self.mode == "play":
-            if self.placing:
+            if self.placing:                      # constrói e continua no modo (sem material: fantasma vermelho)
                 tile = self.place_target()
-                if tile is not None and self.state.place(self.placing, tile, self.rotation, self.hotbar_selected):
-                    if self.state.inventory.slots[self.hotbar_selected] is None:   # acabou a pilha do slot
-                        self.placing = None
+                if tile is not None:
+                    self.state.build(self.placing, tile, self.rotation)
             else:
                 self.mouse_held = True
 
@@ -1241,22 +1263,22 @@ class App:
                 self.mouse_held = False
                 return
         if mode != self.mode:
-            self.audio.play("ui_open" if mode in ("fabricator", "pause", "inventory", "station", "drill") else "ui_close")
+            self.audio.play("ui_open" if mode in ("fabricator", "build", "pause", "inventory", "station", "drill")
+                            else "ui_close")
         self.mode = mode
         self.mouse_held = False
+        if mode != "play":
+            self.right_held = False
 
-    def try_craft(self, kind: str, batch: bool = False, field: bool = False) -> None:
+    def try_craft(self, kind: str, batch: bool = False) -> None:
         """Fabrica 1 (ou, com Shift, até C.CRAFT_BATCH: para quando faltar recurso). O lote mostra "Drone x5".
-        `field` = aba Fabricar do Tab (kit de campo, só do inventário). Fabricou: fecha o menu e, se a máquina
-        caiu na hotbar, já entra no modo de colocar (nos dois casos)."""
-        made = (self.state.craft_many(kind, field=field) if batch
-                else int(self.state.craft(kind, field=field)))
+        Fabricou: fecha o menu e, se o item caiu na hotbar, seleciona o slot (o construtor já fica na mão)."""
+        made = self.state.craft_many(kind) if batch else int(self.state.craft(kind))
         if batch and made:
             self.show_toast(f"{item_name(kind)} x{made}")
         if made:
             self.rotation = 0
             self.set_mode("play")
-            # fabricou: se a máquina caiu na hotbar, seleciona o slot e já entra no modo de colocar
             slots = self.state.inventory.slots[:C.HOTBAR_SLOTS]
             index = next((i for i, st in enumerate(slots) if st and st.item == kind), None)
             if index is not None:
@@ -1268,7 +1290,8 @@ class App:
         mx = sum(MOVE_KEYS[k][0] for k in self.keys_down if k in MOVE_KEYS)
         my = sum(MOVE_KEYS[k][1] for k in self.keys_down if k in MOVE_KEYS)
         mine = self.mouse_tile() if self.mouse_held and not self.placing else None
-        return Controls(max(-1, min(1, mx)), max(-1, min(1, my)), mine)
+        dismantle = self.hovered_machine() if self.right_held and not self.placing else None
+        return Controls(max(-1, min(1, mx)), max(-1, min(1, my)), mine, dismantle=dismantle)
 
     # ---- update ---------------------------------------------------------------
     def update(self, dt: float) -> None:
@@ -1288,9 +1311,8 @@ class App:
             my = max(-1, min(1, sum(MOVE_KEYS[k][1] for k in self.keys_down if k in MOVE_KEYS)))
             if mx or my:
                 self.map_view.key_pan(mx, my, dt)
-        # a máquina na mão tem que continuar no slot selecionado (pode ter sido movida no Tab)
-        stack = self.state.inventory.slots[self.hotbar_selected]
-        if self.placing and (stack is None or stack.item != self.placing):
+        # construindo: o construtor tem que continuar no slot selecionado (pode ter sido movido no Tab)
+        if self.placing and not self.constructor_selected():
             self.placing = None
         self.notice_time = max(0.0, self.notice_time - dt)
         self.toast_time = max(0.0, self.toast_time - dt)
@@ -1359,7 +1381,13 @@ class App:
             _, _, tile = event
             self.renderer.spawn_chips(tile, "#9a9086", 14)       # poeirinha
             self.renderer.spawn_chips(tile, "#c8c0b4", 8)
-            self.audio.play("place_low")
+            self.renderer.start_blink(tile, self.t)              # o holograma dela pisca e some
+            # v0.5 M1: o dismantle_done (Som) entra no mesmo frame, sem cortar o charge; sem o arquivo, o place_low
+            self.audio.play("dismantle_done" if self.audio.has("dismantle_done") else "place_low")
+        elif kind == "dismantle_charge":      # começou a encher a barrinha do desmonte
+            self.audio.start_charge()
+        elif kind == "dismantle_cancel":      # soltou antes (ou tirou o mouse): o charge sai em fadeout curto
+            self.audio.stop_charge()
         elif kind == "crate_open":            # caixa de saque (vazia: mais baixo, dica do Som)
             self.audio.play("crate_open", gain=0.67 if event[1] else 1.0)
             self.crate_open_t = self.t
@@ -1410,9 +1438,11 @@ class App:
             self.audio.play("craft")
         elif kind == "power_low":             # o déficit de energia começou (sem o arquivo, fica em silêncio)
             self.audio.play("power_low")
-        elif kind == "place":
-            # luminária: o som próprio dela no lugar do place (sem o arquivo, o place de sempre)
-            self.audio.play("lamp_place" if event[1] == "lamp" and self.audio.has("lamp_place") else "place")
+        elif kind == "build":                 # v0.5 M1: construiu (o scanner começa); sem o build.wav, o place de sempre
+            if self.audio.has("build"):
+                self.audio.play("build")
+            else:
+                self.audio.play("lamp_place" if event[1] == "lamp" and self.audio.has("lamp_place") else "place")
         elif kind == "ramp":                  # começou a descer/subir: passos na rampa (sem arquivo, silêncio)
             self.audio.play("ramp_down" if event[1] == "cave" else "ramp_up")
             self.mouse_held = False
@@ -1594,19 +1624,25 @@ class App:
             return "Não dá pra construir na água · Esc cancela"
         if self.placing == "drone_station" and not state.active.has_base:
             return "Drones só funcionam na superfície · Esc cancela"
-        if self.placing == "drone_station":
-            return "Clique para colocar · drones atendem o mapa todo · Esc cancela"
         if self.placing:
-            return "Clique para colocar · R gira · Esc cancela"
+            missing = self.build_missing(self.placing)
+            if missing:                                    # v0.5 M1: sem material, o fantasma fica vermelho
+                return f"{missing} · Esc cancela"
+        if self.placing == "drone_station":
+            return "Clique para construir · drones atendem o mapa todo · Esc cancela"
+        if self.placing:
+            return "Clique para construir · R gira · [E] outra máquina · Esc cancela"
         machine = self.hovered_machine()
         target = self.e_target()
         # mouse numa máquina que o E não vai abrir (longe, ou outra está no alcance): diz qual ele abre
         other = f" · {self.e_label(target)}" if target and target[1] is not machine else ""
         if machine and machine.submerged:                  # v0.4 M3.4: parada debaixo d'água
             if target and target[1] is machine:
-                return self.e_label(target) + f" · [{C.DISMANTLE_KEY}] recolher"
-            return (f"Submersa · [{C.DISMANTLE_KEY}] recolher" if state.can_dismantle(machine)
+                return self.e_label(target) + f" · segure [{C.DISMANTLE_KEY}] recolher"
+            return (f"Submersa · segure [{C.DISMANTLE_KEY}] recolher" if state.can_dismantle(machine)
                     else "Submersa · chegue mais perto pra recolher")
+        if machine and machine.build > 0:                  # v0.5 M1: ainda se construindo
+            return f"{C.MACHINES[machine.kind].name} · construindo..."
         if machine and machine.is_drill:
             label = C.RESOURCE_NAME[machine.resource]
             content = (f"Drill cheia: {machine.stored} {label}" if machine.full
@@ -1629,9 +1665,10 @@ class App:
         if machine:
             if state.power.deficit and energy.machine_use(machine.kind) > 0:     # no déficit: mostra o ritmo
                 rhythm = f"Ritmo {self.power_percent()}%"
-                return (f"{rhythm} · [Clique direito] desmontar" if state.can_dismantle(machine)
+                return (f"{rhythm} · segure [{C.DISMANTLE_KEY}] desmontar" if state.can_dismantle(machine)
                         else f"{rhythm} (falta energia)")
-            return "[Clique direito] desmontar" if state.can_dismantle(machine) else "Chegue mais perto pra desmontar"
+            return (f"Segure [{C.DISMANTLE_KEY}] para desmontar" if state.can_dismantle(machine)
+                    else "Chegue mais perto pra desmontar")
         vein = state.world.vein_at(*self.mouse_tile())     # mouse em cima de um veio livre
         if vein:
             name = C.RESOURCE_NAME[vein.resource]
@@ -1658,6 +1695,8 @@ class App:
                 return self.crater_ice_hint()
             return ("Cratera · chegue mais perto pra descer" if state.active.has_base
                     else "Rampa · chegue mais perto pra subir")
+        if self.constructor_selected():                    # v0.5 M1: construtor na mão, apontando pro nada
+            return "[E] Construir"
         if state.in_base_zone():
             return "[E] Fabricador" if self.t > 6 else "As rochas pequenas do deserto têm minério"
         if state.world.is_minable(*tile):
@@ -1666,6 +1705,22 @@ class App:
                 return (f"Rocha com {name} · segure o clique para quebrar" if state.can_mine(tile)
                         else f"Rocha com {name} · chegue mais perto")
             return "Segure o clique para minerar" if state.can_mine(tile) else "Chegue mais perto pra minerar"
+        return None
+
+    def build_missing(self, kind: str) -> str | None:
+        """Por que não dá pra construir essa máquina agora (fora o lugar): "Falta 3 ferro", ou None se dá."""
+        state = self.state
+        status = state.build_status(kind)
+        if status == "missing":
+            res = state.missing_resource(kind, inv_only=True)
+            short = C.MACHINES[kind].cost[res] - state.available(res, inv_only=True)
+            return f"Falta {short} {C.RESOURCE_NAME[res]} no inventário"
+        if status == "locked":
+            return f"Libera em Ti {fmt(C.MACHINES[kind].unlock_ti)}"
+        if status == "blueprint":
+            return "Projeto não encontrado"
+        if status == "no_constructor":
+            return "Sem o construtor"
         return None
 
     def highlight_target(self):
@@ -1726,7 +1781,7 @@ class App:
         if self.placing and self.mode == "play":
             target = self.place_target()
             tile = target if target is not None else self.mouse_tile()
-            ghost = (self.placing, tile, self.rotation, target is not None and state.can_place(self.placing, tile))
+            ghost = (self.placing, tile, self.rotation, target is not None and state.can_build(self.placing, tile))
         if self.zoom == 1.0:
             self.renderer.draw(canvas, state, cam, self.t, ghost)
         else:   # o mundo vai numa visão de 960×540/zoom e é esticado sem suavizar (pixel art continua pixel)
@@ -1780,9 +1835,10 @@ class App:
         # camada 2: menus e telas por cima do HUD
         mouse_ui = self.mouse_ui
         ui.begin()
-        if self.mode == "fabricator":
+        if self.mode in ("fabricator", "build"):
             preview = self.renderer.machine_preview
-            ui.draw_fabricator(state, self.fab, preview, self.t, self.renderer.item_icon, mouse_ui, self.shift_held())
+            ui.draw_fabricator(state, self.menu_of_mode(), preview, self.t, self.renderer.item_icon, mouse_ui,
+                               self.shift_held(), build=self.mode == "build")
         elif self.mode == "terminal":
             ui.draw_terminal(self.terminal_index, self.t)
         elif self.mode == "map":
@@ -1794,9 +1850,6 @@ class App:
                           viewport.UI_SIZE_LABEL[self.settings["ui_size"]], self.controls_page)
         elif self.mode == "inventory" and self.inv_tab == TAB_LOGS:
             ui.draw_logs(state, self.log_selected, self.log_first, mouse_ui)
-        elif self.mode == "inventory" and self.inv_tab == TAB_CRAFT:
-            ui.draw_field_craft(state, self.field, self.renderer.machine_preview, mouse_ui, self.renderer.item_icon,
-                                self.shift_held())
         elif self.mode in INVENTORY_MODES:
             side = self.open_chest or self.open_drill or self.open_station or self.open_crate
             status = (self.station_status() if self.open_station is not None

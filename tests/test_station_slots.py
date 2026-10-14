@@ -128,7 +128,9 @@ def test_dismantle_returns_station_flying_drones_and_all_ore(game):
     game.player.x, game.player.y = (ST[0] + 1) * C.TILE, (ST[1] + 3) * C.TILE
     assert game.dismantle(st)
     assert st not in game.machines
-    assert game.inventory.counts() == {"drone": 3, "silicon": 11, "iron": 9, "drone_station": 1}
+    cost = C.MACHINES["drone_station"].cost                          # v0.5 M1: a receita, não a estação
+    assert game.inventory.counts() == {"drone": 3, "silicon": 11 + cost["silicon"], "iron": 9 + cost["iron"],
+                                       "ice": cost["ice"]}
 
 
 def test_dismantle_refuses_if_drones_do_not_fit(game):

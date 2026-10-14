@@ -6,7 +6,7 @@ import pytest
 
 from game import config as C
 from game.systems import Controls, GameState, eta_label, format_eta, smooth_rate, stage_progress
-from tests.helpers import give
+from tests.helpers import build_now
 
 
 def test_progress_stage1_goes_from_0_to_arid():
@@ -65,10 +65,8 @@ def test_smoothed_rate_does_not_jump_and_converges():
 
 def test_game_rate_counts_time_scale():
     game = GameState(rng=random.Random(1))
-    give(game, iron=10, silicon=4)
-    game.craft("o2")
     px, py = game.player.tile
-    game.place("o2", (px + 2, py))
+    build_now(game, "o2", (px + 2, py))
     game.toggle_time_scale()                 # F1: ×10
     for _ in range(60 * 20):
         game.update(1 / 60, Controls())

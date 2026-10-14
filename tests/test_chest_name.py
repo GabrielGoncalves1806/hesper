@@ -6,7 +6,7 @@ from game import config as C
 from game import save
 from game.systems import GameState, Machine, clean_chest_name
 from game.textedit import TextField
-from tests.helpers import give
+from tests.helpers import build_now
 
 
 def test_textfield_typing_backspace_and_limit():
@@ -38,9 +38,8 @@ def test_clean_name_rules():
 
 
 def placed_chest(state: GameState) -> Machine:
-    give(state, chest=1)
     state.player.x, state.player.y = 94.5 * C.TILE, 102 * C.TILE
-    assert state.place("chest", (94, 100))
+    assert build_now(state, "chest", (94, 100))
     return state.chests[0]
 
 

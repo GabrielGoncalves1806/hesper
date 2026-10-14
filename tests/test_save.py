@@ -12,7 +12,7 @@ from game import save
 from game.objectives import current_index
 from game.inventory import Stack
 from game.systems import GameState, Machine
-from tests.helpers import give
+from tests.helpers import build_now, give
 
 
 def rich_state() -> GameState:
@@ -42,28 +42,27 @@ def rich_state() -> GameState:
     state.read_terminal(1)
     state.lamps_placed = 3
     give(state, iron=17, silicon=9, ice=33)
-    # máquinas colocadas (uma girada) e uma drill com conteúdo e tempo acumulado
-    give(state, o2=1, heater=1, drill=1, chest=1)
+    # máquinas construídas (uma girada) e uma drill com conteúdo e tempo acumulado (v0.5 M1: pelo construtor)
     state.player.x, state.player.y = 96 * C.TILE, 98 * C.TILE
-    assert state.place("o2", (93, 98), rotation=2)
-    assert state.place("heater", (99, 98))
+    assert build_now(state, "o2", (93, 98), rotation=2)
+    assert build_now(state, "heater", (99, 98))
     vein = min(world.veins, key=lambda v: abs(v.tx - 96) + abs(v.ty - 96))
     state.player.x, state.player.y = (vein.tx + 1) * C.TILE, (vein.ty + 4) * C.TILE
-    assert state.place("drill", (vein.tx, vein.ty), rotation=1)
+    assert build_now(state, "drill", (vein.tx, vein.ty), rotation=1)
     drill = state.drills[0]
     drill.stored, drill.timer = 7, 4.75
     state.drill_collected["ice"] = 20
     # baú na base com itens espalhados (slot 0, 5 e o último)
     state.player.x, state.player.y = 96 * C.TILE, 98 * C.TILE
-    assert state.place("chest", (94, 100))
+    assert build_now(state, "chest", (94, 100))
     chest = state.chests[0]
     chest.storage.slots[0] = Stack("iron", 50)
-    chest.storage.slots[5] = Stack("solar", 2)
+    chest.storage.slots[5] = Stack("drone", 2)
     chest.storage.slots[23] = Stack("ice", 3)
-    # hotbar com máquinas em slots escolhidos (a ordem dos slots tem que voltar igual)
-    give(state, melter=2)                                 # fabricadas e ainda no inventário
-    state.inventory.move(state.inventory.slots.index(Stack("melter", 2)), 6)
-    state.inventory.slots[12] = Stack("o2_t2", 1)         # na mochila
+    # hotbar com itens em slots escolhidos (a ordem dos slots tem que voltar igual)
+    give(state, drone=2)                                  # fabricados e ainda no inventário
+    state.inventory.move(state.inventory.slots.index(Stack("drone", 2)), 6)
+    state.inventory.slots[12] = Stack("scanner", 1)       # na mochila
     state.crafted.update(o2=2, heater=1, drill=1, melter=2, chest=1, o2_t2=1)
     # Marco 3: caixa da nave saqueada (projeto + um pouco de ferro), tanque equipado, explorado, registro da VÉSPER-7
     crate = state.crates[state.world.wrecks[0].crate]
@@ -140,7 +139,7 @@ def test_loaded_game_keeps_running(tmp_path):
 def test_save_only_stores_what_changed(tmp_path):
     state = rich_state()
     data = save.state_to_dict(state)
-    assert data["version"] == save.SAVE_VERSION == 7
+    assert data["version"] == save.SAVE_VERSION == 8
     assert set(data) == {"version", "seed", "layer", "layers", "player", "inventory", "progress", "world"}
     assert set(data["layers"]) == {"surface"} and data["layer"] == "surface"
     assert len(data["layers"]["surface"]["changed_tiles"]) == 6   # 5 minérios + 1 cavado na marra
@@ -235,10 +234,65 @@ def test_migration_hook_runs(tmp_path, monkeypatch):
         d["progress"]["play_time"] = 99.0
         return d
 
-    monkeypatch.setattr(save, "SAVE_VERSION", 8)
-    monkeypatch.setattr(save, "MIGRATIONS", {7: old_to_new})
+    monkeypatch.setattr(save, "SAVE_VERSION", 9)
+    monkeypatch.setattr(save, "MIGRATIONS", {8: old_to_new})
     migrated = save.migrate(data)
-    assert migrated["version"] == 8 and migrated["progress"]["play_time"] == 99.0
+    assert migrated["version"] == 9 and migrated["progress"]["play_time"] == 99.0
+
+
+# ---------------------------------------------------------------- v7 -> v8 (v0.5 M1: máquina não é mais item)
+def v7_save(state: GameState) -> dict:
+    data = save.state_to_dict(state)
+    data["version"] = 7
+    return data
+
+
+def test_v7_machine_items_become_their_recipe():
+    state = rich_state()
+    data = v7_save(state)
+    slots = data["inventory"]["slots"]
+    slots[1] = ["o2", 2]                                     # 2 geradores: 20 ferro + 8 silício
+    slots[14] = ["lamp", 1]                                  # 1 ferro + 1 silício
+    chest = next(m for m in data["layers"]["surface"]["machines"] if m["kind"] == "chest")
+    chest["storage"][7] = ["heater", 1]                      # 12 ferro + 8 silício + 3 magmatita
+    before = save.state_from_dict(save.migrate(v7_save(state)))
+    loaded = save.state_from_dict(save.migrate(data))
+    inv = loaded.inventory
+    assert not any(s and C.MACHINES.get(s.item) and C.MACHINES[s.item].placeable for s in inv.slots)
+    gained = {r: inv.count(r) + loaded.chests[0].storage.count(r)
+              - before.inventory.count(r) - before.chests[0].storage.count(r) for r in C.RESOURCES}
+    # o slot 1 (ferro) e o 14 já tinham coisa no rich_state; o que somou é exatamente a receita das máquinas
+    lost_slot1 = before.inventory.slots[1]
+    lost_slot14 = before.inventory.slots[14]
+    for lost in (lost_slot1, lost_slot14):
+        if lost is not None and lost.item in gained:
+            gained[lost.item] += lost.count
+    assert gained["iron"] == 20 + 1 + 12 and gained["silicon"] == 8 + 1 + 8 and gained["magmatite"] == 3
+    assert loaded.chests[0].storage.count("magmatite") == 3   # a receita do aquecedor ficou no baú dele
+
+
+def test_v7_overflow_goes_to_the_other_inventories():
+    state = save.new_state()
+    data = v7_save(state)
+    data["inventory"]["slots"] = [["o2_t2", 5]] + [["ice", 50]] * (C.INVENTORY_SLOTS - 1)   # inventário lotado
+    chest = {"kind": "chest", "tx": 94, "ty": 100, "rotation": 0, "name": "Baú", "storage": [],
+             "sends": [], "receives": [], "batch": 10}
+    data["layers"]["surface"]["machines"].append(chest)
+    loaded = save.state_from_dict(save.migrate(data))
+    cost = C.MACHINES["o2_t2"].cost
+    total = {r: loaded.inventory.count(r) + loaded.chests[0].storage.count(r) for r in cost}
+    assert total["iron"] == cost["iron"] * 5 and total["silicon"] == cost["silicon"] * 5
+    assert total["ice"] == cost["ice"] * 5 + 50 * (C.INVENTORY_SLOTS - 1)
+    assert loaded.chests[0].storage.count("iron") > 0      # o que não coube no inventário foi pro baú
+
+
+def test_v7_with_nowhere_to_put_keeps_what_fits(capsys):
+    state = save.new_state()
+    data = v7_save(state)
+    data["inventory"]["slots"] = [["chest", 1]] + [["ice", 50]] * (C.INVENTORY_SLOTS - 1)
+    loaded = save.state_from_dict(save.migrate(data))
+    assert loaded.inventory.count("iron") == C.MACHINES["chest"].cost["iron"]   # o slot do baú vira o ferro
+    assert loaded.inventory.count("chest") == 0
 
 
 def test_atomic_write_keeps_old_save_on_crash(tmp_path, monkeypatch):
@@ -329,7 +383,7 @@ def test_save_with_old_pickups_field_still_loads(tmp_path):
     surface["pickups"] = {"items": [["iron", 2, 3200.5, 3300.0], ["ice", 1, 100.0, 200.0]], "timer": 3.5}
     path = tmp_path / "slot1.json"
     path.write_text(json.dumps(data), encoding="utf-8")
-    assert data["version"] == save.SAVE_VERSION == 7
+    assert data["version"] == save.SAVE_VERSION == 8
     status, loaded = save.probe(path)
     assert status == "ok" and loaded.surface.rocks.timer == 0.0
     assert not hasattr(loaded.surface, "pickups")

@@ -173,6 +173,10 @@ class Renderer:
         self.machine_t = 0.0
         self.clock = 0.0
         self.powered = True
+        # v0.5 M1: luz de scanner. O último desmonte desenhado (pro holograma piscar depois que a máquina sai) e os
+        # holograma piscando agora: [(dados do scan, âncora no mundo, t do começo)].
+        self._unbuilding = None
+        self.blinks: list[tuple[dict, tuple[float, float], float]] = []
 
         # Superfícies de efeito pré-calculadas (fazer isso a cada frame seria lento).
         self.shadow_top = self._alpha_strips(T, [(10, 84), (6, 40)])   # sombra que a parede joga no chão
@@ -904,9 +908,20 @@ class Renderer:
             x, y = (tx * T + T // 2 - w // 2) - cam_x, (ty + 1) * T - h - cam_y
             if -w < x < self.view_w and -h < y < self.view_h:
                 items.append(((ty + 1) * T, lambda t=(tx, ty), x=x, y=y: self.draw_container(canvas, t, x, y)))
+        self.blinks = [b for b in self.blinks if (t - b[2]) * C.SCAN_FPS < C.SCAN_BLINK_STEPS]
+        for info, (bx, by), t0 in self.blinks:                 # v0.5 M1: o holograma piscando depois do desmonte
+            step = int((t - t0) * C.SCAN_FPS)
+            if step == 1:                                      # apagado, ACESO, apagado (C.SCAN_BLINK_STEPS)
+                items.append((by, lambda i=info, x=bx - cam_x, y=by - cam_y: self._blit_anchored(
+                    canvas, i["ghost"], x, y)))
         for m in state.machines:
             mx, my = m.anchor                                  # centro da base (drill: centro dos 2×2)
             if -64 < mx - cam_x < self.view_w + 64 and -80 < my - cam_y < self.view_h + 80:
+                scan = self.machine_scan(m, state)             # v0.5 M1: se construindo ou desmontando
+                if scan is not None:
+                    items.append((my, lambda m=m, mx=mx, my=my, sc=scan: self.draw_scan(
+                        canvas, self.scan_info(m), sc[0], sc[1], mx - cam_x, my - cam_y)))
+                    continue
                 if m.submerged:                                # v0.4 M3.4: só da metade pra cima, parada
                     items.append((my, lambda m=m, mx=mx, my=my: self._blit_anchored(
                         canvas, self.submerged_surface(m), mx - cam_x, my - cam_y)))
@@ -1119,6 +1134,129 @@ class Renderer:
             opened = machine is self.open_chest
             return self.outline_of(("chest", opened), self.chest_surface(opened))
         return self.outline_of("station", self.station_surface())
+
+    # ---- luz de scanner: construir e desmontar (v0.5 M1) -----------------------------------
+    # Referência da Designer: tools/sprites/v05_m1_construtor.py · scan_frame (o mesmo algoritmo, em pygame).
+    @staticmethod
+    def build_scan(build_left: float) -> tuple[float, int] | None:
+        """(p, passo) da construção com `build_left` s faltando. p = 1 no(s) passo(s) do flash (no fim do
+        BUILD_TIME). None = pronta."""
+        if build_left <= 0:
+            return None
+        total = max(1, round(C.BUILD_TIME * C.SCAN_FPS))
+        scan_steps = max(1, total - C.SCAN_FLASH_STEPS)
+        step = int((C.BUILD_TIME - build_left) * C.SCAN_FPS)
+        if step >= scan_steps:
+            return 1.0, -1                                    # -1 = flash
+        return step / scan_steps, step
+
+    @staticmethod
+    def unbuild_scan(held: float) -> tuple[float, int]:
+        """(p, passo) do desmonte com `held` s segurando: a faixa desce, p = 1 − passo/N."""
+        n = max(1, round(C.DISMANTLE_HOLD * C.SCAN_FPS))
+        step = min(n, int(held * C.SCAN_FPS))
+        return 1 - step / n, step
+
+    def machine_scan(self, m, state: GameState) -> tuple[float, int] | None:
+        if m.build > 0:
+            return self.build_scan(m.build)
+        if m is state.dismantling:
+            self._unbuilding = m
+            return self.unbuild_scan(state.dismantle_t)
+        return None
+
+    def start_blink(self, tile: tuple[int, int], t: float) -> None:
+        """A máquina desmontada saiu: o holograma dela pisca (apagado, aceso, apagado) e some."""
+        m = self._unbuilding
+        if m is not None and (m.tx, m.ty) == tuple(tile):
+            self.blinks.append((self.scan_info(m), m.anchor, t))
+        self._unbuilding = None
+
+    def scan_info(self, machine) -> dict:
+        """Tudo que o scan precisa do sprite parado da máquina, no cache por tipo e espelho: o sprite, a caixa da
+        silhueta, o holograma (contorno em SCAN_GHOST), a silhueta pintada de cada cor da faixa, a máquina inteira
+        no flash e as pontas da silhueta por linha (pro plano do emissor)."""
+        sprite, flip = self.machine_still(machine)
+        key = ("scan", machine.kind, flip, id(sprite))
+        if key in self._fx:
+            return self._fx[key]
+        if flip:
+            sprite = pygame.transform.flip(sprite, True, False)
+        w, h = sprite.get_size()
+        sil = pygame.mask.from_surface(sprite, 1)
+        box = sil.get_bounding_rects()
+        x0 = min((r.left for r in box), default=0)
+        y0 = min((r.top for r in box), default=0)
+        x1 = max((r.right for r in box), default=w) - 1
+        y1 = max((r.bottom for r in box), default=h) - 1
+        outline = pygame.mask.from_threshold(sprite, pygame.Color(C.SCAN_OUTLINE), (1, 1, 1, 255))
+        ghost = outline.to_surface(setcolor=pygame.Color(C.SCAN_GHOST), unsetcolor=(0, 0, 0, 0))
+        paint = {c: sil.to_surface(setcolor=pygame.Color(c), unsetcolor=(0, 0, 0, 0))
+                 for c in (C.SCAN_CORE, C.SCAN_EDGE, C.SCAN_PULSE)}
+        flash = sprite.copy()
+        flash.fill(C.SCAN_FRESH_ADD, special_flags=pygame.BLEND_RGB_ADD)
+        spans = {}
+        for y in range(h):
+            xs = [x for x in range(w) if sil.get_at((x, y))]
+            if xs:
+                spans[y] = (xs[0], xs[-1])
+        info = {"sprite": sprite, "box": (x0, y0, x1, y1), "ghost": ghost, "paint": paint, "flash": flash,
+                "spans": spans, "outline": outline}
+        self._fx[key] = info
+        return info
+
+    @staticmethod
+    def _scan_hash(*k: int) -> int:
+        h = 2166136261
+        for v in k:
+            h = ((h ^ (v & 0xFFFFFFFF)) * 16777619) & 0xFFFFFFFF
+        return h
+
+    def draw_scan(self, canvas, info: dict, p: float, step: int, ax: float, ay: float) -> None:
+        """Um quadro da luz de scanner na âncora (ax, ay) da tela. Abaixo da faixa, a máquina (as 2 primeiras linhas
+        mais claras); acima, o holograma; a faixa só sobre a silhueta, pulsando 3 ↔ 5 px, com o plano do emissor
+        pra fora e as faíscas acima. `step` -1 = o flash do fim da construção."""
+        sprite = info["sprite"]
+        w, h = sprite.get_size()
+        X, Y = round(ax) - w // 2, round(ay) - h
+        if step < 0:
+            canvas.blit(info["flash"], (X, Y))
+            return
+        x0, y0, x1, y1 = info["box"]
+        ys = int(round(y1 + 1 - p * (y1 - y0 + 2)))
+        if ys + 1 < h:                                          # a parte construída
+            top = max(0, ys + 1)
+            canvas.blit(sprite, (X, Y + top), (0, top, w, h - top))
+            fresh_h = min(C.SCAN_FRESH_ROWS, h - top)
+            if fresh_h > 0:
+                fresh = sprite.subsurface((0, top, w, fresh_h)).copy()
+                fresh.fill(C.SCAN_FRESH_ADD, special_flags=pygame.BLEND_RGB_ADD)
+                canvas.blit(fresh, (X, Y + top))
+        if ys > 0:                                              # o holograma acima da faixa
+            canvas.blit(info["ghost"], (X, Y), (0, 0, w, min(h, ys)))
+        half = 2 if step % 2 else 1
+        for k in range(-half, half + 1):                        # a faixa, só sobre a silhueta
+            y = ys + k
+            if 0 <= y < h:
+                color = C.SCAN_CORE if k == 0 else C.SCAN_EDGE if abs(k) == 1 else C.SCAN_PULSE
+                canvas.blit(info["paint"][color], (X, Y + y), (0, y, w, 1))
+        span = info["spans"].get(ys)
+        if span is not None:                                    # o plano do emissor pra fora da silhueta
+            a, b = span
+            out = C.SCAN_PLANE_OUT
+            canvas.fill(C.SCAN_PLANE, (X + a - out, Y + ys, out, 1))
+            canvas.fill(C.SCAN_PLANE, (X + b + 1, Y + ys, out, 1))
+            canvas.fill(C.SCAN_NODE, (X + a - out - 1, Y + ys, 1, 1))
+            canvas.fill(C.SCAN_NODE, (X + b + out + 1, Y + ys, 1, 1))
+        if 0 < p < 1:                                           # faíscas: só em pixel vazio da máquina
+            lo, hi = C.SCAN_SPARK_UP
+            outline = info["outline"]                           # acima da faixa só o holograma (o contorno) ocupa
+            for i in range(C.SCAN_SPARKS):
+                hh = self._scan_hash(step, i, 77)
+                x = x0 + hh % (x1 - x0 + 1)
+                y = ys - lo - (hh >> 8) % (hi - lo + 1)
+                if 0 <= x < w and -6 <= y < h and (y < 0 or not outline.get_at((x, y))):
+                    canvas.fill(C.SCAN_CORE if (step + i) % 2 == 0 else C.SCAN_EDGE, (X + x, Y + y, 1, 1))
 
     # ---- máquina submersa (v0.4 M3.4) ---------------------------------------------
     SUBMERGED_TINT = 3      # px: quantas linhas acima da linha d'água ganham o tom da água
@@ -1342,6 +1480,8 @@ class Renderer:
                 small = self.surface("icon_o2_tank", art.o2_tank_icon)[0]
             elif item == "scanner":
                 small = self.surface("icon_scanner", art.scanner_icon)[0]
+            elif item == "constructor":          # v0.5 M1: com o icon_constructor.png no assets, ele (sem mudar código)
+                small = self.surface("icon_constructor", art.constructor_icon)[0]
             elif item in C.BLUEPRINT_ITEMS:
                 small = self.surface("icon_blueprint", art.blueprint_icon)[0]
             elif item == "solar" and self.sprites.get("icon_solar"):
@@ -1376,6 +1516,8 @@ class Renderer:
         if kind in C.EQUIP_SLOTS:
             painter = art.o2_tank_icon if kind == "o2_tank" else art.scanner_icon
             return pygame.transform.scale_by(self.surface(f"icon_{kind}", painter)[0], 3)   # 16×16 → 48×48
+        if kind == "constructor":
+            return pygame.transform.scale_by(self.surface("icon_constructor", art.constructor_icon)[0], 3)
         if kind == "drill":
             icon = self.sprites.get("icon_drill")
             if icon:
@@ -1575,7 +1717,11 @@ class Renderer:
             if not (-64 < x < self.view_w + 64 and -100 < y < self.view_h + 100):
                 continue
             top = y - round(m.sprite_rect[3])
-            if m.submerged:                       # parada: sem barra e sem raio (não gasta energia)
+            if m is state.dismantling:            # v0.5 M1: a barrinha do desmonte enchendo
+                bw, bh = C.DISMANTLE_BAR
+                self.draw_drill_bar(canvas, x, top - bh - 2, state.dismantle_progress, C.C_O2, False, w=bw, h=bh)
+                continue
+            if m.submerged or m.build > 0:        # parada (ou se construindo): sem barra e sem raio
                 continue
             if m.is_drill:
                 top -= 2
@@ -1585,8 +1731,9 @@ class Renderer:
             if blink and energy.starved(m.kind, factor):
                 self.draw_bolt(canvas, x - 3, top - 10, self.NO_POWER)
 
-    def draw_drill_bar(self, canvas, cx: int, y: int, fill: float, color, full: bool) -> None:
-        w, h = self.DRILL_BAR_W, self.DRILL_BAR_H
+    def draw_drill_bar(self, canvas, cx: int, y: int, fill: float, color, full: bool, w: int | None = None,
+                       h: int | None = None) -> None:
+        w, h = w or self.DRILL_BAR_W, h or self.DRILL_BAR_H
         x = cx - w // 2
         canvas.fill((20, 14, 12), (x, y, w, h))
         canvas.fill((52, 40, 34), (x + 1, y + 1, w - 2, h - 2))
@@ -1644,7 +1791,7 @@ class Renderer:
         # no déficit de energia o brilho das máquinas fica mais fraco (metade com fator 0)
         dim = 0.5 + 0.5 * state.power.factor
         for m in state.machines:
-            if m.submerged:  # v0.4 M3.4: debaixo d'água não acende
+            if m.submerged or m.build > 0:  # v0.4 M3.4: debaixo d'água não acende (v0.5: nem se construindo)
                 continue
             if m.is_drill:   # luzinha quente na cabeça da drill, só enquanto ela trabalha
                 if m.full:

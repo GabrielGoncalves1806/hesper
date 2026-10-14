@@ -22,7 +22,8 @@ FLASH_TIME = 1.4            # segundos que o objetivo concluído fica na tela (v
 
 
 def crafted(state: GameState, kind: str) -> int:
-    """Quantas máquinas desse tipo o jogador já fabricou (só cresce: desmontar/colocar não desconta)."""
+    """Quantas desse tipo o jogador já fabricou (item) ou construiu (máquina, v0.5 M1). Só cresce: desmontar não
+    desconta."""
     return state.crafted[kind]
 
 
@@ -69,44 +70,46 @@ class Objective:
 
 OBJECTIVES = [
     Objective("Minere ferro", lambda s: s.mined_total["iron"] >= 10, ("iron", 10)),
-    Objective("Minere silício", lambda s: s.mined_total["silicon"] >= 4, ("silicon", 4)),
     Objective("Abra o fabricador na base [E]", lambda s: s.fabricator_opened),
-    Objective("Fabrique um Gerador de O₂", lambda s: crafted(s, "o2") >= 1),
-    Objective("Coloque o gerador perto da base", lambda s: placed_near_base(s, "o2")),
-    Objective("Fabrique um baú", lambda s: crafted(s, "chest") >= 1),
+    # v0.5 M1: máquina só sai do construtor (item da hotbar, 1ª receita do fabricador)
+    Objective("Fabrique o construtor", lambda s: crafted(s, "constructor") >= 1 or s.has_constructor),
+    Objective("Minere silício", lambda s: s.mined_total["silicon"] >= 4, ("silicon", 4)),
+    Objective("Construa um Gerador de O₂ [E com o construtor]", lambda s: crafted(s, "o2") >= 1),
+    Objective("Construa o gerador perto da base", lambda s: placed_near_base(s, "o2")),
+    Objective("Construa um baú", lambda s: crafted(s, "chest") >= 1),
     # v0.4 Marco 3 (ordem decidida pelo dono): o calor só sai do aquecedor, que libera no Ti 500. Então o trio
     # Derretedor -> Ti 500 -> Aquecedor vem antes da cratera.
-    Objective("Minere gelo e fabrique um Derretedor", lambda s: crafted(s, "melter") >= 1),
+    Objective("Minere gelo e construa um Derretedor", lambda s: crafted(s, "melter") >= 1),
     Objective("Chegue a Ti 500", lambda s: s.ti >= 500),
     # v0.4 (bíblia §12 "Magmatita"): o Aquecedor custa magmatita, que só nasce em volta das fumarolas do basalto.
     # Quem já fabricou um Aquecedor (save de antes dela) não volta pra cá.
     Objective("Encontre magmatita no basalto (oeste)", found_magmatite, hint=MAGMATITE_HINT),
-    Objective("Fabrique um Aquecedor", lambda s: crafted(s, "heater") >= 1),
+    Objective("Construa um Aquecedor", lambda s: crafted(s, "heater") >= 1),
     # v0.3 Marco 2: a caverna é onde se minera de verdade (escura: lanterna + luminárias)
     # v0.4 Marco 3: a cratera nasce coberta de gelo e derrete com o calor (game/thaw.py, marcos THAW_CRATER_HEAT)
     Objective("Derreta o gelo da cratera", crater_open),
     Objective("Desça na caverna pela cratera [E]", visited_cave),
-    Objective("Coloque uma luminária", lambda s: s.lamps_placed >= 1),
+    Objective("Construa uma luminária", lambda s: s.lamps_placed >= 1),
     # v0.3 Marco 3: os destroços do deserto (o mais perto, a ~30 tiles, tem o projeto do tanque de O₂)
     Objective("Ache um destroço", lambda s: len(s.wrecks_visited) >= 1),
     Objective("Ache o projeto do tanque de O₂", lambda s: "o2_tank" in s.blueprints),
     Objective("Fabrique e equipe o tanque de O₂", lambda s: "o2_tank" in s.equipped_ever),
     # energia (bíblia §8): o aquecedor é o ponto em que os 5 kW da cápsula começam a apertar
-    Objective("Fabrique um painel solar", lambda s: crafted(s, "solar") >= 1),
+    Objective("Construa um painel solar", lambda s: crafted(s, "solar") >= 1),
     # v0.3: os terminais ficam na caverna (a 19, 31 e 45 tiles da rampa)
     Objective("Leia um terminal", lambda s: len(s.logs_read) >= 1),
     # v0.4 Marco 1: o jogo começa na tempestade de poeira; o Árido é o céu limpando
     Objective("Limpe o céu (Árido)", lambda s: s.stage >= C.ARID_STAGE),
     Objective("Chegue ao estágio Névoa", lambda s: s.stage >= C.MIST_STAGE),
-    Objective("Coloque uma drill num veio", lambda s: s.drills_placed >= 1),
+    Objective("Construa uma drill num veio", lambda s: s.drills_placed >= 1),
     Objective("Colete minério de uma drill", lambda s: sum(s.drill_collected.values()) >= 1),
     # drones (bíblia §8, Marco 3): a estação busca o minério das drills sozinha
-    Objective("Fabrique uma estação de drones", lambda s: crafted(s, "drone_station") >= 1),
+    Objective("Construa uma estação de drones", lambda s: crafted(s, "drone_station") >= 1),
     # a estação vem vazia: o drone é um item fabricado à parte e colocado pelo painel dela (E)
     Objective("Fabrique um drone", lambda s: crafted(s, "drone") >= 1 or s.drones_docked >= 1),
     Objective("Coloque o drone na estação [E]", lambda s: s.drones_docked >= 1),
     Objective("Receba uma entrega de drone", lambda s: s.drone_deliveries >= 1),
-    Objective("Fabrique uma máquina nv.2", lambda s: any(crafted(s, k) >= 1 for k in ("o2_t2", "melter_t2", "heater_t2"))),
+    Objective("Construa uma máquina nv.2", lambda s: any(crafted(s, k) >= 1 for k in ("o2_t2", "melter_t2", "heater_t2"))),
     Objective("Deixe o planeta verde", lambda s: s.stage >= C.GREEN_STAGE),
 ]
 

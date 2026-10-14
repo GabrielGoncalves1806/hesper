@@ -5,7 +5,7 @@ import random
 from game import config as C
 from game.systems import GameState
 from game.transition import BASE_SOURCE, StageMap, front_distance, tile_stage, window_progress
-from tests.helpers import give
+from tests.helpers import build_now
 
 SOURCES = [BASE_SOURCE, (93, 98), (99, 98)]
 TILES = [(x, y) for x in range(0, C.SURFACE_W, 5) for y in range(0, C.SURFACE_H, 5)]
@@ -110,9 +110,8 @@ def test_stage_map_only_rebuilds_on_new_step_or_new_source():
 
 def test_placed_machines_stay_as_sources_forever():
     game = GameState(rng=random.Random(1))
-    give(game, iron=60, silicon=30, ice=20)
-    game.craft("o2")
-    assert game.place("o2", (93, 98))
+    game.player.x, game.player.y = C.SPAWN_POS
+    assert build_now(game, "o2", (93, 98))
     assert (93, 98) in game.transition_sources
     game.machines.clear()                            # "desmontar" (outro branch): a marca fica
     assert (93, 98) in game.transition_sources
