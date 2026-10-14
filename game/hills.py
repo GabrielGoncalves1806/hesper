@@ -268,7 +268,7 @@ def window_bounds(bx: int, by: int, block: int = C.HILL_BLOCK) -> tuple[int, int
 
 
 def bake_block(kinds: np.ndarray, regions: np.ndarray, bx: int, by: int, top_tex: np.ndarray,
-               face_tex: np.ndarray, noise: np.ndarray, block: int = C.HILL_BLOCK) -> dict:
+               face_tex: np.ndarray, noise: np.ndarray, block: int = C.HILL_BLOCK, height: int | None = None) -> dict:
     """Geometria de um bloco (sem pygame, sem cor).
 
     kinds/regions: tipos e regiões dos tiles da `window_bounds` do bloco (mesma forma).
@@ -278,7 +278,9 @@ def bake_block(kinds: np.ndarray, regions: np.ndarray, bx: int, by: int, top_tex
         row    linha de tiles dona do pixel (-1 = não é deste bloco)
         top    True no topo (False na face)
         col    coluna de tiles do pixel
-    e `ore`: [(recurso, x, y)] dos minérios a desenhar (px relativos ao retângulo)."""
+    e `ore`: [(recurso, x, y)] dos minérios a desenhar (px relativos ao retângulo).
+    `height`: linhas do mapa. O topo é erguido 24 px, então os 24 px de baixo do mapa são da "linha `height`"
+    (fora do mapa, sem bloco): sem ela viravam buraco. Com `height`, esses px ficam com a última linha."""
     i0, i1, j0, j1 = window_bounds(bx, by, block)
     x0, y0, w, h = block_pixels(bx, by, block)
     # 1 px de folga em volta pros testes de vizinho (borda de cima, de lado)
@@ -322,6 +324,8 @@ def bake_block(kinds: np.ndarray, regions: np.ndarray, bx: int, by: int, top_tex
     # a face fica com a linha do pixel de topo de onde ela pende
     row_last = np.take_along_axis(row_top, np.clip(last, 0, len(ys) - 1), axis=0)
     row = np.where(M, row_top, np.where(F, row_last, -1))
+    if height is not None:
+        row = np.where(row >= height, height - 1, row)     # a linha de fora do mapa vira a última do mapa
     tcol = np.broadcast_to((xs // T)[None, :], M.shape)
     # índices: textura do topo e da face, contorno e brilho (receita do regions_scene.hill_layers)
     top = top_tex[((ys + LIFT) % TEX)[:, None], (xs % TEX)[None, :]].copy()
@@ -461,7 +465,7 @@ class HillBlocks:
             i0, i1, j0, j1 = window_bounds(bx, by)
             kinds = np.frombuffer(sig, np.uint8).reshape(j1 - j0, i1 - i0)
             entry = {"sig": sig, "geo": bake_block(kinds, regions(i0, i1, j0, j1), bx, by, self.top_tex,
-                                                    self.face_tex, edge_noise()),
+                                                    self.face_tex, edge_noise(), height=world.height),
                      "stage": None, "strips": {}}
             self.blocks[key] = entry
             self.bakes += 1

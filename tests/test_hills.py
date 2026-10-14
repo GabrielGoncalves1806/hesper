@@ -47,11 +47,12 @@ def test_every_stage_and_region_has_a_hill_ramp():
         assert lut is not None and lut.shape == (80, 3)
 
 
-def geometry(world, bx, by):
+def geometry(world, bx, by, with_height=False):
     i0, i1, j0, j1 = H.window_bounds(bx, by)
     kinds = H.tile_window(world.tiles, world.width, world.height, i0, i1, j0, j1)
     return H.bake_block(kinds, plateau(i0, i1, j0, j1), bx, by, H.load_indexed("hill_top.png"),
-                        H.load_indexed("hill_face.png"), H.edge_noise())
+                        H.load_indexed("hill_face.png"), H.edge_noise(),
+                        height=world.height if with_height else None)
 
 
 def px(blk, x, y):
@@ -88,6 +89,37 @@ def test_each_row_owns_only_its_pixels():
     for r in range(10, 15):                                        # cada linha perto do lugar dela (± o ruído)
         ys = np.nonzero((rows == r).any(axis=1))[0] + blk["y0"]
         assert ys.min() >= r * T - C.WALL_LIFT - H.MARGIN and ys.max() < (r + 1) * T + H.MARGIN
+
+
+def test_bottom_edge_has_no_hole_below_the_last_row():
+    """O topo é erguido 24 px: os 24 px de baixo do mapa são da "linha de fora" e não podem sair transparentes
+    (virava buraco na rocha, com o chão aparecendo por baixo)."""
+    w = flat_world([(x, y) for x in range(0, 64) for y in (62, 63)])      # cordilheira na borda de baixo
+    bottom = 64 * T                                                        # 1º px de fora do mapa
+    for bx in range(64 // B):
+        blk = geometry(w, bx, 64 // B - 1, with_height=True)
+        x_lo, x_hi = max(0, blk["x0"]), min(64 * T, blk["x0"] + blk["idx"].shape[1])
+        for y in range(bottom - C.WALL_LIFT - 2, bottom):
+            line = blk["idx"][y - blk["y0"], x_lo - blk["x0"]:x_hi - blk["x0"]]
+            assert (line != H.TRANSPARENT).all(), (bx, y)
+            assert (blk["row"][y - blk["y0"], x_lo - blk["x0"]:x_hi - blk["x0"]] == 63).all()
+    # sem `height` o buraco existe (a linha 64 não é de nenhum bloco): o teste pega a regressão
+    blk = geometry(w, 1, 64 // B - 1)
+    assert (blk["idx"][bottom - 1 - blk["y0"]] == H.TRANSPARENT).any()
+
+
+def test_other_edges_have_no_hole():
+    """Topo, esquerda e direita: a cordilheira cobre até o limite do mapa, sem frestas dentro dele."""
+    w = flat_world([(x, y) for x in range(64) for y in range(64) if x < 2 or x >= 62 or y < 2 or y >= 62])
+    for bx, by in ((0, 0), (7, 0), (0, 7), (7, 7), (3, 0), (0, 3), (7, 3)):
+        blk = geometry(w, bx, by, with_height=True)
+        ys = np.arange(blk["y0"], blk["y0"] + blk["idx"].shape[0])[:, None]
+        xs = np.arange(blk["x0"], blk["x0"] + blk["idx"].shape[1])[None, :]
+        dentro = (xs >= 0) & (xs < 64 * T) & (ys >= 0) & (ys < 64 * T)
+        # px dentro do mapa e dentro das linhas do bloco (±o que o ruído empurra): tudo coberto na última fileira de tiles da borda
+        faixa = dentro & ((xs < T) | (xs >= 63 * T) | (ys < T) | (ys >= 63 * T))
+        faixa &= (xs >= bx * B * T) & (xs < (bx + 1) * B * T) & (ys >= by * B * T) & (ys < (by + 1) * B * T - C.WALL_LIFT)   # os 24 de baixo são do bloco de baixo
+        assert (blk["idx"][faixa] != H.TRANSPARENT).all(), (bx, by)
 
 
 def test_lone_tile_becomes_a_boulder_not_a_square():
