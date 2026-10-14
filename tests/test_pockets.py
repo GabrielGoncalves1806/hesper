@@ -154,7 +154,8 @@ def test_closed_at_0_gap_opens_before_1_and_nothing_left_at_1(seed):
     ainda fechado logo antes da fresta, aberto nela (com gelo sobrando) e sem colisão nenhuma em p = 1."""
     g = game(seed)
     w, geo = g.surface.world, g.surface.geo
-    assert g.surface.gate_melt == [0.0] * len(geo.pockets) and g.surface.gate_ice == [0] * len(geo.pockets)
+    n = len(geo.pockets)                                                       # (o portão grande, o último, é do test_giant_gate)
+    assert g.surface.gate_melt[:n] == [0.0] * n and g.surface.gate_ice[:n] == [0] * n
     p0 = geo.pockets[0]
     assert not any(w.get(*t) == C.FORMATION for t in p0.gate.tiles)           # sem pegada em tiles
     assert g.surface.gate_solids                                                 # bate pelos retângulos
@@ -238,8 +239,8 @@ def test_third_gate_only_counts_when_it_exists():
             g = game(seed)
             g.indices["heat"] = float(C.THAW_GATE_HEAT[2][-1])
             g._apply_thaw()
-            assert g.surface.gate_ice == [3, 3, 3] and g.surface.gate_melt == [1.0] * 3
-            assert g.surface.gate_blocks == []
+            assert g.surface.gate_ice[:3] == [3, 3, 3] and g.surface.gate_melt[:3] == [1.0] * 3
+            assert [b for b in g.surface.gate_blocks if b.gate < 3] == []      # (só sobra o portão grande, M3.6.3)
             return
     pytest.skip("nenhuma seed com 3 bolsões")
 
@@ -274,7 +275,7 @@ def test_blocks_are_deterministic_by_seed(seed):
     for g in (a, b):
         set_melt(g, 0, 0.45)
     assert a.surface.gate_recipes == b.surface.gate_recipes
-    assert a.surface.gate_recipes == [ice_blocks.recipe_for(seed, i) for i in range(len(a.surface.geo.pockets))]
+    assert a.surface.gate_recipes == [ice_blocks.recipe_for(seed, i) for i in range(len(a.surface.geo.pockets))] + ["G"]
     assert a.surface.gate_blocks == b.surface.gate_blocks
 
 

@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 
 from game import config as C
 from game import explore
+from game import ice_blocks
 from game.geo import REGION_LABELS
 
 ZOOMS = (1, 2, 3, 4)
@@ -181,6 +182,11 @@ def map_entries(state, key: str) -> list[Entry]:
         if seen_any(f.tiles) and not f.small:              # as pequenas da v9 são miúdas: sem marcador
             what = REGION_LABELS[f.region] if f.kind != "ice_gate" else _gate_state(layer, gates.get(id(f)))
             entries.append(Entry("formation", "formation", *f.center, f.name, what))
+    giant = getattr(geo, "giant", None)
+    if giant is not None and seen_any(giant.entry):          # v0.5 M3.6.3: o portão grande da entrada do bolsão da criatura
+        ex, ey, ew, eh = giant.entry_rect
+        entries.append(Entry("formation", "formation", ex + ew / 2, ey + eh / 2, "Grande gelo",
+                             _gate_state(layer, ice_blocks.gate_count(geo) - 1)))
     for tx, ty in getattr(world, "containers", ()):          # v0.4 M3.2: contêiner lacrado (sem filtro)
         if explored.seen(tx, ty):
             entries.append(Entry("container", "container", tx + 0.5, ty + 0.5, "Contêiner", "lacrado"))

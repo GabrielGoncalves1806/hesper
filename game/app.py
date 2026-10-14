@@ -1553,6 +1553,12 @@ class App:
             if stage >= 3:
                 self.show_toast(C.THAW_GATE_NOTICE, C.THAW_GATE_NOTICE_TIME)
                 self.play_ice_break(collapse=True)
+        elif kind == "giant_gate_thaw":       # v0.5 M3.6.3: o portão grande começou a derreter (1) ou abriu a fresta (3)
+            if event[1] >= 3:                     # sem aviso novo por enquanto (a 6.4 põe a mensagem especial e o fim da névoa)
+                geo = self.state.surface.geo
+                for tile in ice_blocks.gate_tiles(geo, ice_blocks.gate_count(geo) - 1):
+                    self.renderer.minimap.repaint(self.state, tile, "surface")
+                self.play_ice_break(collapse=True)
         elif kind == "gust":                  # rajada começou (tempestade): volume pelo storm, sem gust.wav fica mudo
             self.audio.play("gust", gain=sound.gust_gain(event[1]))
         elif kind == "crater_thaw":           # v0.4 M3.1: a tampa baixou uma etapa (etapa 4 = a cratera abriu)
@@ -1756,11 +1762,12 @@ class App:
             return None
         mx, my = self.mouse_world()
         T = C.TILE
-        for i, pocket in enumerate(geo.pockets):
+        for i in range(ice_blocks.gate_count(geo)):          # os dos bolsões e, por último, o grande (M3.6.3)
             if not any(b.gate == i for b in layer.gate_blocks):
                 continue
-            xs = [x for x, _ in pocket.gate.tiles]
-            ys = [y for _, y in pocket.gate.tiles]
+            tiles = ice_blocks.gate_tiles(geo, i)
+            xs = [x for x, _ in tiles]
+            ys = [y for _, y in tiles]
             x0, x1, y1 = min(xs) * T, (max(xs) + 1) * T, (max(ys) + 1) * T
             if x0 <= mx < x1 and y1 - C.GATE_HINT_HEIGHT_TILES * T <= my < y1:
                 return i
@@ -1769,11 +1776,13 @@ class App:
     def gate_ice_hint(self, i: int) -> str:
         """Gelo-portão: o calor em que a fresta abre (o p da receita no calor do portão) e o calor de agora."""
         layer, heat = self.state.active, self.state.indices["heat"]
+        giant = ice_blocks.is_giant_gate(layer.geo, i)     # M3.6.3: o portão grande tem nome e marcos próprios
+        name = "Grande gelo" if giant else "Gelo-portão"
         if i < len(layer.gate_ice) and layer.gate_ice[i] >= thaw.GATE_OPEN:
-            return "Gelo-portão · a passagem já abriu"
-        marks = C.THAW_GATE_HEAT[min(i, len(C.THAW_GATE_HEAT) - 1)]
+            return f"{name} · a passagem já abriu"
+        marks = C.THAW_GIANT_HEAT if giant else C.THAW_GATE_HEAT[min(i, len(C.THAW_GATE_HEAT) - 1)]
         need = marks[0] + ice_blocks.opens_at(layer.gate_recipes[i]) * (marks[-1] - marks[0])
-        return f"Gelo-portão · a passagem abre com ~{fmt(need)} pK (agora {fmt(heat)})"
+        return f"{name} · a passagem abre com ~{fmt(need)} pK (agora {fmt(heat)})"
 
     def hint(self) -> str | None:
         state = self.state

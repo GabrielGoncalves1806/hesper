@@ -35,6 +35,7 @@ from game import dust
 from game import energy
 from game import ground
 from game import hills
+from game import ice_blocks
 from game import ice_giant
 from game import lake
 from game import layers
@@ -856,7 +857,10 @@ class Renderer:
                 if visible(surf, x, y):
                     out.append((b, surf, x, y))
         for b in state.active.gate_blocks:
-            stage = self.stage_map.stage_at(*hills.foot_tile(geo.pockets[b.gate].gate))
+            if ice_blocks.is_giant_gate(geo, b.gate):                    # M3.6.3: o portão grande: o tile do meio da entrada
+                stage = self.stage_map.stage_at(*geo.giant.entry[len(geo.giant.entry) // 2])
+            else:
+                stage = self.stage_map.stage_at(*hills.foot_tile(geo.pockets[b.gate].gate))
             surf, x, y = self.ice_block_sprites.placement(b, stage)
             if visible(surf, x, y):
                 out.append((b, surf, x, y))

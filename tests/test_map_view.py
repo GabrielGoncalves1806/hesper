@@ -574,7 +574,8 @@ def test_formations_are_fixed_landmarks_without_filter():
     entries = MV.map_entries(g, "surface")
     forms = [e for e in entries if e.category == "formation"]
     big = [f for f in g.surface.geo.formations if not f.small and not f.kind.startswith("vent_")]   # pequenas e fumarolas: sem marcador
-    assert len(forms) == len(big) and len(big) < len(g.surface.geo.formations)
+    assert len(forms) == len(big) + 1 and len(big) < len(g.surface.geo.formations)   # + o Grande gelo (M3.6.3)
+    assert [e.title for e in forms].count("Grande gelo") == 1
     assert "formation" not in MV.categories(entries) and "formation" not in MV.FILTERS
     assert len([e for e in MV.visible(entries, set(MV.FILTERS)) if e.category == "formation"]) == len(forms)
     arch = next(e for e in forms if e.title == "Arco de pedra")
@@ -592,7 +593,7 @@ def test_minimap_paints_the_ground_by_region():
     seen = set()
     for y in range(0, world.height, 3):
         for x in range(0, world.width, 3):
-            if world.get(x, y) == C.SAND and world.vein_at(x, y) is None:
+            if world.get(x, y) == C.SAND and world.vein_at(x, y) is None and (x, y) not in world.closed_gate_tiles:   # (o portão fechado pinta como pegada)
                 assert minimap.tile_color(world, x, y) == minimap.REGION_COLORS[geo.region[y, x]]
                 seen.add(int(geo.region[y, x]))
     assert seen == {0, 1, 2, 3}

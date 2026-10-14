@@ -868,6 +868,12 @@ THAW_FUMAROLE_HEAT = (THAW_CRATER_HEAT[0], THAW_CRATER_HEAT[-1])   # era (40, 22
 # Gelos-portão (feedback do dono: abriam rápido demais): recompensa de meio pro fim. O 1º abre no meio da partida (~45%),
 # o 2º por volta de 65% e o último (precisa de Aquecedor nv.2) perto do Verde (~80%).
 THAW_GATE_HEAT = ((2800, 4300, 5800), (5800, 8000, 10200), (14000, 18000, 22000))   # era ((1500, 2500, 3500), (3500, 5000, 6500), (6000, 8000, 10000))
+# v0.5 M3.6.3 · portão grande (entrada do bolsão da criatura): o ÚLTIMO a derreter. Começa onde o 3º portão termina
+# (22.000), então só abre depois de todos os outros. O calor que o jogo alcança até o Verde (balance_sim, 6 partidas
+# casual/guloso/variado) fica entre ~28.000 e ~52.000 pK (casual: 28.000–31.500); a fresta abre com p ~0,57 (~25.400 pK,
+# ~94% da partida do casual) e o gelo some em 28.000: perto do fim, nunca "nunca".
+# Provisório, balancear depois (a passada única de números).
+THAW_GIANT_HEAT = (22000, 25000, 28000)
 LAKE_WATER = (2500, 7000, 15000)   # era (3000, 15000, 40000): L1 junto com a Névoa, L2 no meio do jogo (era ~32 min), L3 antes do Verde (o 40.000 nunca chegava)
 # Mantidos de propósito: STAGES Névoa 10.000 e Verde 100.000, RAIN_* (o dono aprovou a chuva no playtest), O₂, receitas.
 
