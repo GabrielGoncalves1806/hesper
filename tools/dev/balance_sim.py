@@ -83,6 +83,8 @@ if str(ROOT) not in sys.path:
 from game import config as C  # noqa: E402
 from game import drones  # noqa: E402
 from game import layers  # noqa: E402
+from game import surface_gen  # noqa: E402
+from game import thaw  # noqa: E402
 from game.layers import CAVE, SURFACE  # noqa: E402
 from game.systems import GameState  # noqa: E402
 
@@ -117,6 +119,7 @@ def patched_config(overrides: dict | None):
     """
     overrides = overrides or {}
     saved = {}
+    surface_gen._cache.clear()      # v0.4 M4: o mapa é cacheado por seed; override de geração (SMALL_ROCK_CHANCE...) tem que refazer
     try:
         for key, value in overrides.items():
             if not hasattr(C, key):
@@ -139,6 +142,7 @@ def patched_config(overrides: dict | None):
     finally:
         for key, value in saved.items():
             setattr(C, key, value)
+        surface_gen._cache.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -265,6 +269,11 @@ class Result:
     loot_units: int = 0                              # Marco 3: recursos tirados da caixa do destroço
     crater_at: float | None = None                   # v0.4 M3.1: quando o calor abriu a cratera (só informa)
     magma_trips: int = 0                             # v0.4: idas da caverna até as fumarolas buscar magmatita
+    gate_at: dict = field(default_factory=dict)      # v0.4 M4: portão i -> quando a fresta abriu (só lê os eventos)
+    final_indices: dict = field(default_factory=dict)   # v0.4 M4: o2/heat/water no fim (só leitura)
+    lake_at: dict = field(default_factory=dict)      # v0.4 M4: lago k (0..2 = L1..L3) -> quando a água bateu a marca
+    magma_at: float | None = None                    # v0.4 M4: quando minerou a 1ª magmatita (o que o inventário já viu)
+    heater_at: float | None = None                   # v0.4 M4: quando o 1º aquecedor entrou no mapa
 
 
 # ---------------------------------------------------------------------------
@@ -504,6 +513,15 @@ class Sim:
             heat_rate = sum(m.type.rate for m in self.gs.all_machines if m.type.index == "heat") * self.gs.power.factor
             over = self.gs.indices["heat"] - C.THAW_CRATER_HEAT[-1]
             self.res.crater_at = self.t + dt - (over / heat_rate if heat_rate > 0 else 0.0)
+        if self.res.magma_at is None and self.gs.mined_total.get("magmatite", 0) > 0:
+            self.res.magma_at = self.t
+        if self.res.heater_at is None and any(m.type.index == "heat" for m in self.gs.all_machines):
+            self.res.heater_at = self.t
+        for ev in self.gs.events:              # v0.4 M4: só lê o estado (portão aberto, lago subindo), não muda o jogo
+            if ev[0] == "gate_thaw" and ev[2] == thaw.GATE_OPEN:
+                self.res.gate_at.setdefault(ev[1], self.t + dt)
+            elif ev[0] == "lake_rise":
+                self.res.lake_at.setdefault(ev[1], self.t + dt)
         self.gs.events.clear()                 # os eventos (degelo etc.) são do App: aqui só iam acumular
         for x, y in self.gs._update_rocks(dt):  # regra real: rocha nova fora da vista e longe da base
             if not self.cave:                  # a estratégia "caverna" não minera na superfície
@@ -1043,6 +1061,7 @@ class Sim:
                 self._update_pace(trip_t0, trip_units)
                 trip_t0, trip_units = self.t, 0
         self.res.total = self.t
+        self.res.final_indices = {k: round(v) for k, v in self.gs.indices.items()}
         self.res.units = self._units() + sum(
             sum(C.MACHINES[m.kind].cost.values()) for m in self.gs.all_machines)
         self.res.machines = {k: sum(1 for m in self.gs.all_machines if m.kind == k) for k in C.MACHINES}
@@ -1076,14 +1095,16 @@ def table(title, results, markdown=False):
     marks = ["Ti 500"] + [s.name.capitalize() for s in C.STAGES[1:]]
     kinds = list(C.MACHINES)
     head = ["estratégia", "seed", *marks, "total", "espera total", "maior espera", "desm.", "drill un.",
-            "drone un.", "déficit", "tanque", "saque", "cratera", "máquinas (" + "/".join(kinds) + ")"]
+            "drone un.", "déficit", "tanque", "saque", "magmat.", "aquec.", "cratera", "portão 1", "portão 2", "portão 3", "L1", "L2", "L3",
+            "máquinas (" + "/".join(kinds) + ")"]
     rows = []
     for r in results:
         rows.append([r.strategy, str(r.seed), *[fmt(r.milestones.get(m)) for m in marks],
                      fmt(r.total) + ("" if r.finished else " (não acabou)"),
                      fmt(r.idle_total), fmt(r.idle_longest), str(r.faints), str(r.drill_units),
                      str(r.drone_units), fmt(r.deficit_time), fmt(r.tank_at), str(r.loot_units),
-                     fmt(r.crater_at), "/".join(str(r.machines[k]) for k in kinds)])
+                     fmt(r.magma_at), fmt(r.heater_at), fmt(r.crater_at), *[fmt(r.gate_at.get(i)) for i in range(3)],
+                     *[fmt(r.lake_at.get(k)) for k in range(3)], "/".join(str(r.machines[k]) for k in kinds)])
     out = [f"\n{'### ' if markdown else '== '}{title}\n"]
     if markdown:
         out.append("| " + " | ".join(head) + " |")

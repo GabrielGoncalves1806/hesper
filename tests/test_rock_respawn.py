@@ -25,7 +25,7 @@ def spawn(world, seconds, player=C.SPAWN_POS, machines=(), seed=1, rocks=None):
 
 def test_start_count_matches_the_generator():
     n = count(W0)
-    assert 400 <= n <= 470                          # ~430: as ~357 de antes + ~70 no lugar dos soltos
+    assert 540 <= n <= 680                          # ~600 (v0.4 M4: SMALL_ROCK_CHANCE 0,019; era ~430 com 0,013)
     assert n < C.ROCK_MAX
 
 

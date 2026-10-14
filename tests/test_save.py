@@ -152,6 +152,8 @@ def test_geo_is_not_saved_and_comes_back_from_the_seed(tmp_path):
     """v7: a geografia (regiões, altura, bacias, formações) sai da seed; o save não guarda nada dela."""
     import numpy as np
     state = rich_state()
+    state.indices["heat"] = float(C.THAW_GATE_HEAT[0][-1])      # M4: o calor do rich_state é incidental; abre o 1º portão de vez
+    state._apply_thaw()
     path = tmp_path / "slot1.json"
     save.write_save(state, path)
     text = path.read_text(encoding="utf-8")
@@ -161,7 +163,7 @@ def test_geo_is_not_saved_and_comes_back_from_the_seed(tmp_path):
     assert a is not None and loaded.layers["surface"].geo is b
     assert np.array_equal(a.region, b.region) and np.array_equal(a.basin, b.basin)
     assert [(f.kind, f.tx, f.ty) for f in a.formations] == [(f.kind, f.tx, f.ty) for f in b.formations]
-    # v0.4 M3.2: o calor do rich_state já abriu o 1º gelo-portão; a pegada atual (derivada) volta igual no load
+    # v0.4 M3.2: o calor (acima) já abriu o 1º gelo-portão; a pegada atual (derivada) volta igual no load
     assert loaded.surface.gate_ice == state.surface.gate_ice and loaded.surface.gate_ice[0] == 3
     assert all(loaded.world.get(*t) == C.FORMATION for f in layers.current_formations(loaded.surface)
                for t in f.tiles)

@@ -5,6 +5,7 @@ Os valores vêm do docs/GAME_BIBLE.md (§3 paletas, §4 escopo do MVP, §6 asset
 """
 
 from dataclasses import dataclass
+from dataclasses import replace as _replace
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -800,3 +801,24 @@ MAGMATITE_DORMANT_RESPAWN = 120.0  # ...uma a cada 120 s
 MAGMATITE_AWAKE_MAX = 6            # acordada: expele até 6 em volta...
 MAGMATITE_AWAKE_RESPAWN = 20.0     # ...uma a cada 20 s
 OBJECTIVE_HINT_TIME = 9.0          # s da dica do objetivo ("Os sensores detectaram calor a oeste..."), embaixo dele
+
+# ---------------------------------------------------------------------------
+# v0.4 M4 balanceamento: a rodada de tudo do v0.4 num bloco só (relatório: reports/dev/balanceamento_v04.md).
+# Estes valores valem POR CIMA das definições acima, que guardam os números de partida do M1–M3 (o "era" de cada linha).
+# Medido no tools/dev/balance_sim.py (5 seeds, 5 estratégias; casual = o jogador de referência), já com a magmatita.
+# Ordem de jogo que sai daí, no casual: Ti 500 ~2 min · 1º aquecedor ~4 min · cratera ~8 min · Árido ~8m30s · Névoa +
+# 1º lago ~10 min · portões ~16 / 22 / 28 min · lago médio ~16 min · lago cheio ~27 min · Verde ~35 min.
+# ---------------------------------------------------------------------------
+SMALL_ROCK_CHANCE = 0.019       # era 0,013 (~430 rochas no mapa, agora ~600): a bacia sem rocha e a ida à magmatita deixaram o casual em ~41 min; agora ~35
+ROCK_MAX = 700                  # era 520: com ~600 rochas na partida o teto de 520 desligaria o reaparecimento (folga de ~100, como antes)
+STAGES = [_replace(_s, ti=7_000) if _s.key == "arid" else _s for _s in STAGES]   # Árido: era 6.500 (com as rochas a mais o casual chegava em ~7m45s; a meta é 8–12 min, agora ~8m30s)
+# Cratera (feedback do dono: abria rápido demais, ~55 s depois do 1º aquecedor): agora ~4 min de 1 aquecedor (4 pK/s),
+# ~2 min com 2. As fumarolas seguem a mesma faixa (acordam uma a uma entre 1 e 4 min de aquecimento): a magmatita
+# acordada (1 a cada 20 s) está lá bem antes do Aquecedor nv.2 (10 magmatita, Ti 10.000 ~ 10 min).
+THAW_CRATER_HEAT = (200, 450, 750, 1000)   # era (40, 90, 150, 220)
+THAW_FUMAROLE_HEAT = (THAW_CRATER_HEAT[0], THAW_CRATER_HEAT[-1])   # era (40, 220): continua atrelado à cratera
+# Gelos-portão (feedback do dono: abriam rápido demais): recompensa de meio pro fim. O 1º abre no meio da partida (~45%),
+# o 2º por volta de 65% e o último (precisa de Aquecedor nv.2) perto do Verde (~80%).
+THAW_GATE_HEAT = ((2800, 4300, 5800), (5800, 8000, 10200), (14000, 18000, 22000))   # era ((1500, 2500, 3500), (3500, 5000, 6500), (6000, 8000, 10000))
+LAKE_WATER = (2500, 7000, 15000)   # era (3000, 15000, 40000): L1 junto com a Névoa, L2 no meio do jogo (era ~32 min), L3 antes do Verde (o 40.000 nunca chegava)
+# Mantidos de propósito: STAGES Névoa 10.000 e Verde 100.000, RAIN_* (o dono aprovou a chuva no playtest), O₂, receitas.
