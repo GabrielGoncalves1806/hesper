@@ -624,6 +624,13 @@ Plano: `docs/superpowers/plans/2026-10-13-v04-marco3-gelo-agua.md`. O que o calo
 - **Sem o respiro de fumarola no chão** (decalque `fumarole` da v9, dono: "a gente já tem a fumarola pra isso"): saiu do sorteio do basalto (`v9_density.decal_mix.basalt` só com `ropy`); o PNG fica em `assets/`.
 - **Sem minério nem decoração no lago**: rocha pequena e afloramento não nascem em bacia, e a decoração solta (v8 e v9) some quando a água cobre o tile.
 
+### Magmatita (decisão do dono, a implementar)
+- **O que é**: mineral novo, uma pedra quente de basalto com fissuras de lava. É o que faz as **primeiras máquinas de calor**: entra como **ingrediente na receita do Aquecedor** (nv.1 e nv.2). Depois de colocado, o aquecedor roda sozinho como hoje (não é combustível).
+- **Onde nasce**: **só perto das fumarolas**, como se elas expelissem a pedra do fundo da terra. Por enquanto **escassa**, só como rochas soltas que reaparecem em volta delas, sem veio.
+- **Depois (gancho)**: uma **drill nv.2 colocada na fumarola** pra extrair magmatita direto.
+- **Arte**: o aquecedor redesenhado (Marco 4) mostra as pedras de magmatita incandescentes numa câmara com janela. O minério (`ore`/`pickup`/`icon`) é proposto pela Designer.
+- **Consequência**: o Aquecedor passa a exigir uma ida ao basalto antes da cratera. Isso entra no balanceamento (ordem dos objetivos e tempo até a cratera).
+
 ### Derretimento da cratera e fumarolas (M3.1 · `game/thaw.py`, `game/smoke.py`; números no bloco `THAW_CRATER_*` / `THAW_FUMAROLE_*`)
 - **Cratera**: `thaw.crater_stage(calor)` dá a etapa da tampa (0..4) pelos marcos **40, 90, 150 e 220 pK** de calor (`THAW_CRATER_HEAT`, ~1 min de um aquecedor de 4 pK/s). O `_thaw_crater` sobe `layer.crater_ice` até ela e solta um `("crater_thaw", etapa)` por etapa. **Nunca desce**: o F4 (debug) e um save com etapa maior que o calor continuam valendo. Na etapa 4 o `ramp_blocked` libera e o objetivo "Derreta o gelo da cratera" completa sozinho. O F2 (+3.333 de calor) também abre.
 - **Aviso**: no `crater_thaw`, uma pílula no estilo da "RAJADA", só que neutra (barra e cristal de gelo em azul-gelo, texto claro), logo abaixo da coluna do O₂/objetivo (e abaixo da RAJADA se ela estiver na tela), por 3,5 s: **"O gelo da cratera está cedendo"** nas etapas 1–3 e **"A cratera abriu · desça [E]"** na 4. Som `ice_crack` (0,8; sem o arquivo, silêncio).

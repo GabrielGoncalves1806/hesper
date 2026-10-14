@@ -50,6 +50,7 @@ Design em `docs/superpowers/specs/2026-10-13-v04-mundo-vivo-design.md`. Novo jog
 - [x] Marco 1: Tempestade (4 estágios: Tempestade → Árido → Névoa → Verde; poeira, rajadas com empurrão, O₂ ×1,25)
 - [x] Marco 2: geografia nova (relevo, 3 regiões, formações fixas com afloramentos, decoração que quebra a grade) + mundos com nome e seed (3 espaços)
 - [ ] Marco 3: elementos v9 das regiões, gelo (cratera congelada + gelos-portão), fumarolas do basalto acordando com o calor (esboço do dono em `reports/design/refs/fumarolas_esboco_dono.png`) e água (chuva, lagos enchendo as depressões, máquina submersa)
+- [ ] **Magmatita** (decisão do dono, bíblia §12): mineral quente que nasce escasso em volta das fumarolas e entra na receita do Aquecedor; gancho: drill nv.2 na fumarola
 - [ ] Marco 4: polimento + playtest do dono + **rodada de sons** (o dono achou o gelo da v11 meio "osso", estilo esqueleto do Minecraft; refatorar os sons depois) + **tela de créditos** se for publicar (o IR da reverb do gelo é CC BY 4.0) + **re-skin das máquinas** com o motor 3D da sessão experimental (`~/Desktop/hesper_sprites_experimento/gerador/r3d.py` + `machines3d.py`: família branco/laranja/metal com animação; a Designer porta pro `tools/sprites/` e o dono aprova o report antes)
 
 ## v0.5 · Fundo
