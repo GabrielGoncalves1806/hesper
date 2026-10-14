@@ -179,18 +179,25 @@
    "id": "cena1b",
    "slot": 1,
    "at": 59,
-   "dur": 2.0,
+   "dur": 1.8,
    "from": 0.6,
    "label": "LOG 04 · DIA 140"
   },
   {
    "id": "cena2",
    "slot": 2,
-   "at": 61.0,
-   "dur": 4.0,
+   "at": 60.8,
+   "dur": 2.4,
+   "from": 1.6
+  },
+  {
+   "id": "cena1b_reacao",
+   "slot": 1,
+   "at": 63.2,
+   "dur": 1.8,
    "from": 0,
    "quote": "\"cresce quando ninguém olha\"",
-   "quoteAt": 61.6
+   "quoteAt": 63.7
   },
   {
    "id": "cena3",

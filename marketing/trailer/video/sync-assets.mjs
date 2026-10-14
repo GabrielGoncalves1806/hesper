@@ -84,8 +84,12 @@ if (layered.length) {
     const out = path.join(PUB, "art", `${sc.id}.mp4`);
     return [cj, script, ...sc.layers.map((l) => path.join(ART, l.file))].some((src) => fs.existsSync(src) && newer(src, out));
   });
-  if (stale.length) execFileSync("python3", [script, ...stale.map((sc) => sc.id)], { stdio: "inherit" });
-  for (const sc of layered) found.push({ id: sc.id, file: null, title: sc.title ?? null });
+  // camada com "replaces" = variante da cena (ex.: cena1b_reacao), montada junto pelo render_cutscenes.py
+  const ids = (sc) => [sc.id, ...sc.layers.filter((l) => l.replaces).map((l) => `${sc.id}_${l.name.split("_").pop()}`)];
+  const missing = layered.filter((sc) => ids(sc).some((id) => !fs.existsSync(path.join(PUB, "art", `${id}.mp4`))));
+  const todo = [...new Set([...stale, ...missing])].flatMap(ids);
+  if (todo.length) execFileSync("python3", [script, ...todo], { stdio: "inherit" });
+  for (const sc of layered) for (const id of ids(sc)) found.push({ id, file: null, title: sc.title ?? null });
 } else if (fs.existsSync(cj)) {
   const raw = JSON.parse(fs.readFileSync(cj, "utf8"));
   const list = Array.isArray(raw) ? raw : raw.cenas ?? raw.scenes ?? Object.entries(raw).map(([id, v]) => ({ id, ...(typeof v === "object" ? v : { file: v }) }));

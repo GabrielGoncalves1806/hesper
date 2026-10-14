@@ -295,3 +295,114 @@ def light_bands(cv, lights, x0=0, y0=0, levels=(0.16, 0.32, 0.5), dither=True, m
     out = cv.copy()
     out.set_arr(a)
     return out
+
+
+# =================================================================================================================
+# v2: curvas orgânicas (Catmull-Rom), sombreamento que segue a forma, antialias manual de contorno
+# =================================================================================================================
+def _cr(p0, p1, p2, p3, t):
+    t2, t3 = t * t, t * t * t
+    return tuple(0.5 * ((2 * p1[i]) + (-p0[i] + p2[i]) * t + (2 * p0[i] - 5 * p1[i] + 4 * p2[i] - p3[i]) * t2 +
+                        (-p0[i] + 3 * p1[i] - 3 * p2[i] + p3[i]) * t3) for i in range(2))
+
+
+def cr_closed(pts, n=8):
+    out = []
+    m = len(pts)
+    for i in range(m):
+        p0, p1, p2, p3 = pts[i - 1], pts[i], pts[(i + 1) % m], pts[(i + 2) % m]
+        for k in range(n):
+            out.append(_cr(p0, p1, p2, p3, k / n))
+    return out
+
+
+def cr_open(pts, n=8):
+    if len(pts) < 3:
+        return list(pts)
+    ext = [pts[0]] + list(pts) + [pts[-1]]
+    out = []
+    for i in range(1, len(ext) - 2):
+        for k in range(n):
+            out.append(_cr(ext[i - 1], ext[i], ext[i + 1], ext[i + 2], k / n))
+    out.append(pts[-1])
+    return out
+
+
+def blob(c, pts, col, n=8):
+    c.poly(cr_closed(pts, n), col)
+
+
+def stroke(c, pts, col, n=8, w=1):
+    c.line(cr_open(pts, n), col, w)
+
+
+def tube(c, pts, ws, col, n=8, caps=True):
+    """Membro: linha central suave + largura variável (ws, uma por ponto de controle)."""
+    cl = cr_open(pts, n)
+    m = len(cl)
+    wi = np.interp(np.linspace(0, len(ws) - 1, m), np.arange(len(ws)), ws)
+    L, R = [], []
+    for i in range(m):
+        a = cl[max(0, i - 1)]
+        b = cl[min(m - 1, i + 1)]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        d = math.hypot(dx, dy) or 1
+        nx, ny = -dy / d, dx / d
+        L.append((cl[i][0] + nx * wi[i] / 2, cl[i][1] + ny * wi[i] / 2))
+        R.append((cl[i][0] - nx * wi[i] / 2, cl[i][1] - ny * wi[i] / 2))
+    c.poly(L + R[::-1], col)
+    if caps:
+        for (x, y), w in ((cl[0], wi[0]), (cl[-1], wi[-1])):
+            r = w / 2
+            c.ell(round(x - r), round(y - r), round(x + r - 1), round(y + r - 1), col)
+
+
+def form_shade(cv, ramp, light=(-1, -1), hi=1, sh=3, deep=1, mask=None):
+    """Pinta o que está opaco em `cv` com a rampa [luz, base, sombra, sombra funda], seguindo a FORMA: faixa de luz
+    na borda virada pra luz, sombra na borda oposta. Assim o volume acompanha a curva (nada de bloco chapado)."""
+    a = cv.arr()
+    m = a[:, :, 3] == 255 if mask is None else mask
+    lx, ly = light
+    lit = np.zeros_like(m)
+    for k in range(1, hi + 1):
+        lit |= m & ~shift(m, -lx * k, -ly * k)
+    shd = np.zeros_like(m)
+    for k in range(1, sh + 1):
+        shd |= m & ~shift(m, lx * k, ly * k)
+    dp = np.zeros_like(m)
+    for k in range(1, deep + 1):
+        dp |= m & ~shift(m, lx * k, ly * k)
+    cols = [np.array(rgb(c), np.uint8) for c in ramp]
+    a[m] = cols[1]
+    a[shd] = cols[2]
+    if len(cols) > 3:
+        a[dp] = cols[3]
+    a[lit & ~shd] = cols[0]
+    cv.set_arr(a)
+    return cv
+
+
+def aa_outline(cv, t=0.5, c=OUTLINE):
+    """Antialias manual: o pixel de dentro que fica no canto de uma escadinha do contorno (contorno em 2 lados
+    perpendiculares) vira meio-tom entre a cor dele e o contorno. Partes finas (contorno em lados opostos) ficam."""
+    a = cv.arr()
+    o = rgb(c)
+    isO = (a[:, :, 0] == o[0]) & (a[:, :, 1] == o[1]) & (a[:, :, 2] == o[2]) & (a[:, :, 3] == 255)
+    body = (a[:, :, 3] == 255) & ~isO
+    N, S, W, E = shift(isO, 0, 1), shift(isO, 0, -1), shift(isO, 1, 0), shift(isO, -1, 0)
+    corner = body & ((N & W) | (N & E) | (S & W) | (S & E)) & ~(N & S) & ~(W & E)
+    af = a.astype(float)
+    af[corner, :3] = np.round(af[corner, :3] + (np.array(o[:3], float) - af[corner, :3]) * t)
+    cv.set_arr(af)
+    return cv
+
+
+def ease(x):
+    """ease-in-out (começa devagar, acelera, desacelera)."""
+    x = min(1.0, max(0.0, x))
+    return x * x * (3 - 2 * x)
+
+
+def breath(phase, lag=0.0):
+    """0..1..0 suave ao longo do ciclo (phase 0..1); lag atrasa (movimento secundário)."""
+    return (1 - math.cos(2 * math.pi * (phase - lag))) / 2

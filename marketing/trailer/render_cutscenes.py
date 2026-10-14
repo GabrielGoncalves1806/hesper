@@ -152,10 +152,34 @@ def render(scene: dict) -> None:
     print(f"  {scene['id']}: {n} quadros ({dur:g} s) -> {out.relative_to(HERE)}")
 
 
+def variant_id(scene_id: str, alt: dict) -> str:
+    """Camada alternativa ("replaces"): vira a cena <id>_<sufixo do nome> (ilves_reacao -> cena1b_reacao)."""
+    return f"{scene_id}_{alt['name'].split('_')[-1]}"
+
+
+def expand(scene: dict) -> list[dict]:
+    """A cena base (sem as camadas alternativas) e uma variante por camada com "replaces": a alternativa entra no
+    lugar da camada que ela substitui (na ordem draw_at_order). A câmera da variante é a mesma da base."""
+    alts = [l for l in scene["layers"] if l.get("replaces")]
+    base = dict(scene, layers=[l for l in scene["layers"] if not l.get("replaces")])
+    out = [base]
+    for alt in alts:
+        layers = [alt if l["name"] == alt["replaces"] else l for l in base["layers"]]
+        vid = variant_id(scene["id"], alt)
+        CAMERA.setdefault(vid, CAMERA.get(scene["id"], {}))
+        out.append(dict(scene, id=vid, layers=layers))
+    return out
+
+
 def main(names: list[str]) -> None:
     data = json.loads((ART / "cenas.json").read_text())
-    scenes = {s["id"]: s for s in data["scenes"]}
-    order = data.get("order") or list(scenes)
+    scenes = {}
+    for sc in data["scenes"]:
+        for v in expand(sc):
+            scenes[v["id"]] = v
+    order = []
+    for sid in data.get("order") or [sc["id"] for sc in data["scenes"]]:
+        order += [k for k in scenes if k == sid or k.startswith(sid + "_")]
     for sid in names or order:
         if sid in scenes and scenes[sid].get("layers"):
             render(scenes[sid])
