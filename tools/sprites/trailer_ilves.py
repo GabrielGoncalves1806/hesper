@@ -57,8 +57,14 @@ NIGHT_TINT = (0.42, 0.46, 0.66)
 # registro de camadas
 # =================================================================================================================
 class Scene:
-    def __init__(self, key, slug, title, motion, base_fps=8, duration=""):
+    def __init__(self, key, slug, title, motion, base_fps=8, duration="", half=False):
+        """half=True: cena em MEIA resolução (canvas 256×144, visível 240×135, o vídeo amplia ×8). Usado nos closes
+        da Ilves (v1.2): o retrato/personagem fica grande na tela sem misturar tamanho de pixel."""
         self.key, self.slug, self.title, self.motion = key, slug, title, motion
+        if half:
+            self.cw, self.ch, self.vis, self.scale = 256, 144, (8, 4, 240, 135), 8
+        else:
+            self.cw, self.ch, self.vis, self.scale = CW, CH, (VX, VY, VW, VH), 4
         self.base_fps = base_fps
         self.duration = duration
         self.layers = []
@@ -82,7 +88,7 @@ class Scene:
 
     def compose(self, t, alt=False):
         """Quadro t (no fps base) do canvas inteiro 512×288. alt=True troca a camada pela alternativa dela."""
-        out = Image.new("RGBA", (CW, CH), (0, 0, 0, 255))
+        out = Image.new("RGBA", (self.cw, self.ch), (0, 0, 0, 255))
         alts = {L["replaces"]: L for L in self.layers if "replaces" in L} if alt else {}
         for L in self.layers:
             if "replaces" in L:
@@ -98,7 +104,7 @@ class Scene:
 
     def meta(self):
         return dict(id=self.key, slug=self.slug, title=self.title, motion=self.motion, duration=self.duration,
-                    canvas=[CW, CH], visible=[VX, VY, VW, VH],
+                    canvas=[self.cw, self.ch], visible=list(self.vis), scale=self.scale,
                     layers=[{k: v for k, v in L.items() if not k.startswith("_")} for L in self.layers])
 
 
@@ -115,6 +121,13 @@ def sprite(name):
     c.w, c.h = c.im.size
     from PIL import ImageDraw
     c.d = ImageDraw.Draw(c.im)
+    return c
+
+
+def pxs(sprite):
+    """Sprite de mapa de pixels (trailer_ilves_char) → Cv."""
+    c = Cv(sprite.w, sprite.h)
+    c.set_arr(sprite.a.copy())
     return c
 
 
@@ -164,11 +177,11 @@ def particles(w, h, n, seed, t, frames, speed=(0.3, 1.0), drift=0.2, cols=("#d6e
 # =================================================================================================================
 WIN = (36, 44, 150, 112)       # janela (x, y, w, h) no canvas
 FLOOR_Y = 252
-SIT_X, SIT_Y = 212, FLOOR_Y - C.SIT_FOOT       # a pose sentada (o pé do banco na linha SIT_FOOT da pose)
+SIT_X, SIT_Y = 226, FLOOR_Y - C.SIT_FOOT       # a pose sentada (o pé do banco na linha SIT_FOOT da pose)
 BENCH_Y = SIT_Y + C.SIT_BENCH                  # tampo da bancada: os antebraços dela apoiam aqui
-_EYE, _LENS = C.sit_eye(0.0)
-LENS = (round(SIT_X + _LENS[0]), round(SIT_Y + _LENS[1]))   # a lente dos óculos dela (a ocular encosta aqui)
-SCOPE_X = LENS[0] - 1          # microscópio
+_LENS = C.SIT_EYE
+LENS = (SIT_X + _LENS[0], SIT_Y + _LENS[1])     # na frente do olho dela (a ocular encosta aqui)
+SCOPE_X = LENS[0] - 1          # microscópio (mapa de pixels; a ocular é o canto de cima-esquerda)
 
 
 def sky(w, h, seed=3, moon=(118, 30)):
@@ -199,7 +212,7 @@ def ridge(w, h, top, ramp, seed, rough=18, scale=40):
 
 def scene1():
     S = Scene("cena1", "laboratorio", "Laboratório, noite · Dia 140",
-              "Pan lento da esquerda pra direita (camadas com parallax), terminando parado em Ilves. Neve na janela "
+              "Pan lento da esquerda pra direita (camadas com parallax) e zoom até ×2 (inteiro) parando em Ilves. Neve na janela "
               "em loop. A luz do microscópio pulsa de leve. No fim, corte seco pro close (cena 1b).",
               duration="6 s")
     wx, wy, ww, wh = WIN
@@ -316,7 +329,7 @@ def scene1():
     for x in range(0, CW, 22):
         room.line([(x, FLOOR_Y + 1), (x - 12, CH)], NIGHT[0])
     # bancada
-    bx0, bx1 = 252, 500
+    bx0, bx1 = SIT_X + 22, 500
 
     def bench(c):
         c.rect(bx0, BENCH_Y, bx1 - bx0, 6, "#3a3a5c")
@@ -336,39 +349,23 @@ def scene1():
     # microscópio
     sx = SCOPE_X
 
-    def scope(c):
-        B = BENCH_Y
-        ex, ey = LENS
-        c.rect(sx - 2, B - 3, 24, 3, METAL[2])                      # pé
-        c.hline(sx - 2, B - 3, 24, METAL[1])
-        c.poly([(sx + 14, B - 3), (sx + 20, B - 3), (sx + 20, B - 26), (sx + 16, B - 31), (sx + 9, B - 31),
-                (sx + 9, B - 27), (sx + 14, B - 25)], WHITE[2])     # braço em C
-        c.line([(sx + 15, B - 4), (sx + 15, B - 25)], WHITE[1])
-        c.hline(sx + 10, B - 30, 6, WHITE[1])
-        c.rect(sx + 15, B - 17, 5, 2, ORANGE[2])
-        c.rect(sx + 19, B - 12, 3, 3, METAL[1])                     # botão de foco
-        c.rect(sx + 1, B - 10, 16, 2, METAL[1])                     # platina
-        c.hline(sx + 1, B - 10, 16, METAL[0])
-        c.rect(sx + 6, B - 26, 5, 12, WHITE[2])                     # canhão
-        c.vline(sx + 6, B - 26, 12, WHITE[1])
-        c.rect(sx + 7, B - 14, 3, 3, METAL[2])                      # objetiva
-        c.poly([(sx + 6, B - 26), (sx + 10, B - 26), (ex + 5, ey + 1), (ex + 3, ey - 2)], WHITE[2])  # ocular
-        c.rect(ex + 1, ey - 2, 3, 4, METAL[3])
-    part(room, scope)
+    sy0 = BENCH_Y - len(C.SCOPE) + 1
+    room.paste(pxs(C.Sprite(len(C.SCOPE[0]), len(C.SCOPE)).put(C.SCOPE)), sx, sy0)
+
     # pote de gelo com a coisa escura dentro (camada própria pra animar)
     # monitor
-    mx, my = 398, BENCH_Y - 52
+    mx, my = 392, BENCH_Y - 30
 
     def monitor(c):
-        c.rect(mx + 22, my + 40, 8, 12, METAL[3])
-        c.rect(mx + 12, BENCH_Y - 3, 28, 3, METAL[2])
-        c.rect(mx, my, 52, 40, "#2a2840")
-        c.hline(mx, my, 52, "#3e3b5a")
-        c.rect(mx + 3, my + 3, 46, 32, "#0b1612")
-        c.rect(mx + 3, my + 36, 4, 2, ORANGE[1])
+        c.rect(mx + 15, my + 26, 6, 4, METAL[3])
+        c.rect(mx + 9, BENCH_Y - 2, 18, 2, METAL[2])
+        c.rect(mx, my, 36, 26, "#2a2840")
+        c.hline(mx, my, 36, "#3e3b5a")
+        c.rect(mx + 3, my + 3, 30, 18, "#0b1612")
+        c.rect(mx + 3, my + 22, 3, 2, ORANGE[1])
     part(room, monitor)
     # cabo do microscópio até o monitor
-    room.line([(sx + 20, BENCH_Y - 1), (mx + 10, BENCH_Y - 1)], "#16152c")
+    room.line([(sx + 14, BENCH_Y - 1), (mx + 9, BENCH_Y - 1)], "#16152c")
     # caneca, bloco, lápis (vida na bancada)
     part(room, lambda c: (c.rect(470, BENCH_Y - 9, 8, 9, WHITE[3]), c.vline(478, BENCH_Y - 7, 4, WHITE[3]),
                           c.hline(470, BENCH_Y - 9, 8, WHITE[2])))
@@ -381,8 +378,8 @@ def scene1():
     # luzes: janela (lua), microscópio (ciano), monitor (verde)
     lights = [
         (wx + ww / 2, wy + wh / 2 + 30, 120, 110, "#7f93d6", 0.55),
-        (sx + 6, BENCH_Y - 14, 64, 52, COLD, 1.0),
-        (mx + 26, my + 20, 70, 60, "#7fd6a8", 0.7),
+        (sx + 6, BENCH_Y - 6, 44, 34, COLD, 0.8),
+        (mx + 18, my + 12, 54, 46, "#7fd6a8", 0.7),
     ]
     room = light_bands(room, lights, levels=(0.12, 0.24, 0.38))
     # luz da lua no chão (paralelogramo em faixa)
@@ -400,61 +397,41 @@ def scene1():
     # ---- 3: tela do monitor (tira 8 q.: a onda corre e um pico aparece)
     frames = []
     for t in range(8):
-        c = Cv(46, 32)
-        c.rect(0, 0, 46, 32, "#0b1612")
-        for gy in range(4, 32, 7):
-            c.hline(0, gy, 46, "#12261c")
-        for gx in range(5, 46, 9):
-            c.vline(gx, 0, 32, "#12261c")
+        c = Cv(30, 18)
+        c.rect(0, 0, 30, 18, "#0b1612")
+        for gy in range(3, 18, 5):
+            c.hline(0, gy, 30, "#12261c")
+        for gx in range(4, 30, 7):
+            c.vline(gx, 0, 18, "#12261c")
         pts = []
-        for x in range(46):
-            ph = (x + t * 6) / 46 * math.pi * 4
-            y = 16 + math.sin(ph) * 4 + (8 * math.exp(-((x - (t * 6) % 46) ** 2) / 6) if t in (3, 4, 5) else 0)
+        for x in range(30):
+            ph = (x + t * 4) / 30 * math.pi * 4
+            y = 9 + math.sin(ph) * 3 + (5 * math.exp(-((x - (t * 4) % 30) ** 2) / 4) if t in (3, 4, 5) else 0)
             pts.append((x, y))
         c.line(pts, GREEN[1])
-        c.hline(2, 2, 14, GREEN[2])
-        c.hline(2, 28, 8 + (t % 2) * 6, GREEN[2])
-        c.px(42, 2, GREEN[0] if t % 2 else GREEN[3])
+        c.hline(1, 1, 9, GREEN[2])
+        c.px(27, 1, GREEN[0] if t % 2 else GREEN[3])
         frames.append(c)
     S.add("monitor_tela", frames, mx + 3, my + 3, fps=6, parallax=1.0, desc="osciloscópio verde: onda + pico (3..5)")
 
-    # ---- 4: pote de gelo (tira 6 q.: a mancha escura muda de lugar só um pouquinho)
-    frames = []
-    jx, jy = sx + 30, BENCH_Y
-    for t in range(6):
-        c = Cv(18, 24)
-        c.rect(2, 4, 14, 20, "#5f86b0")                      # vidro
-        c.rect(1, 1, 16, 4, METAL[1])                        # tampa
-        c.hline(1, 1, 16, METAL[0])
-        c.rect(4, 9, 10, 13, "#a6ecff")                      # gelo
-        c.rect(4, 9, 10, 2, "#eef6ff")
-        c.rect(11, 11, 3, 11, "#59b8d6")
-        c.hline(4, 21, 10, "#4fb3d6")
-        dx = [0, 0, 1, 1, 0, -1][t]
-        dy = [0, 0, 0, -1, -1, 0][t]
-        c.rect(7 + dx, 14 + dy, 3, 3, "#1b2a44")             # a coisa dentro
-        c.px(6 + dx, 15 + dy, "#2e4766")
-        c.px(10 + dx, 16 + dy + (t % 2), "#2e4766")
-        c.vline(3, 6, 16, "#c9e8ff")                         # reflexo do vidro
-        c.outline()
-        frames.append(c)
-    S.add("pote_gelo", frames, jx, jy - 24, fps=3, parallax=1.0,
-          desc="pote de amostra: gelo com a mancha escura que se mexe um pixel (vê quem olha fixo)")
+    # ---- 4: pote de gelo (mapa de pixels, 6 q.: a mancha escura muda de lugar 1 px de vez em quando)
+    jx, jy = sx + 18, BENCH_Y
+    S.add("pote_gelo", [pxs(C.Sprite(10, 11).put(C.JAR[i])) for i in (0, 0, 1, 1, 2, 0)], jx, jy - 10, fps=3,
+          parallax=1.0, desc="pote de amostra: gelo com a mancha escura que se mexe um pixel (vê quem olha fixo)")
 
-    # ---- 5: Ilves (tira 12 q.: respira no ombro e nas costas, chega o rosto na ocular com easing, a mão gira o
-    #      foco, o coque/mecha/barra do jaleco atrasam, pisca nos q. 8-10). O rosto ganha a luz forte da lâmina.
-    frames = []
+    # ---- 5: Ilves (mapa de pixels, 8 q.: respira no ombro, gira o foco, o rabo de cavalo atrasa, pisca no q. 6)
     lx, ly = _LENS
-    for v in C.sit_cycle(12, light=(1, 0)):
-        v = night(v, (0.56, 0.58, 0.76))
-        v = light_bands(v, [(lx + 2, ly + 5, 12, 12, "#e6f4f8", 1.0), (lx + 6, ly + 14, 34, 30, COLD, 0.6)],
-                        x0=SIT_X, y0=SIT_Y, levels=(0.12, 0.26, 0.42), dw=0.05)
+
+    def light_sit(v):
+        v = night(pxs(v), (0.56, 0.58, 0.76))
+        v = light_bands(v, [(lx + 1, ly + 3, 8, 8, "#f0e4d8", 1.0), (lx + 4, ly + 10, 22, 18, COLD, 0.5)],
+                        x0=SIT_X, y0=SIT_Y, levels=(0.08, 0.16, 0.26), dw=0.05)
         near = np.zeros((v.h, v.w), bool)
-        near[0:56, 44:] = True
-        v = rim_mix(v, (1, 0), COLD, 0.6, depth=1, only=near)
-        frames.append(v)
-    S.add("ilves", frames, SIT_X, SIT_Y, fps=6, parallax=1.0,
-          desc="Ilves curvada na ocular: loop de 12 q. (2 s) com respiração, easing, coque/jaleco atrasando, piscada")
+        near[0:30, 24:] = True
+        return rim_mix(v, (1, 0), COLD, 0.55, depth=1, only=near)
+    S.add("ilves", [light_sit(v) for v in C.sit_frames(C.SIT_LOOP)], SIT_X, SIT_Y, fps=6, parallax=1.0,
+          desc="Ilves curvada na ocular: loop de 8 q. (respira, gira o foco, rabo de cavalo atrasa, pisca no q. 6)")
+    susto = [light_sit(v) for v in C.sit_frames(C.SIT_STARTLE)]
 
     # ---- 6: brilho da lâmina do microscópio (tira 4 q.: pulsa)
     frames = []
@@ -465,7 +442,8 @@ def scene1():
         c.ell(10 - r, 3, 10 + r, 5, COLD)
         c.hline(9, 4, 3, "#eef6ff")
         frames.append(c)
-    S.add("lamina_brilho", frames, sx - 1, BENCH_Y - 14, fps=4, parallax=1.0, desc="a lâmina acesa pulsa")
+    S.add("lamina_brilho", frames, sx + C.SCOPE_STAGE[0] - 9, sy0 + C.SCOPE_STAGE[1] - 4, fps=4, parallax=1.0,
+          desc="a lâmina acesa pulsa")
 
     # ---- 7: primeiro plano (silhueta de equipamento à esquerda e cabos pendurados)
     fg = Cv(CW, CH)
@@ -475,6 +453,9 @@ def scene1():
     fg.line([(480, 0), (488, 40), (486, 90)], NIGHT[0], 2)
     fg.line([(500, 0), (497, 70), (505, 120)], NIGHT[0], 2)
     S.add("primeiro_plano", fg, parallax=1.4, desc="silhuetas escuras na frente: mexem mais rápido no pan")
+    S.add("ilves_susto", susto, SIT_X, SIT_Y, fps=6, loop=False, parallax=1.0, alt="ilves",
+          desc="ALTERNATIVA da 05 (mesma posição/ordem): ela tira o olho da ocular e levanta a cabeça assustada; "
+               "o rabo de cavalo chega depois (6 q., sem loop)")
     return S
 
 
@@ -482,75 +463,70 @@ def scene1():
 # CENA 1b · Close: o rosto dela na ocular, iluminado de baixo pela lâmina
 # =================================================================================================================
 def scene1b():
-    S = Scene("cena1b", "close_rosto", "Close: Ilves na ocular",
-              "Zoom bem lento pra dentro (1.00 → 1.06) ancorado no olho dela. Ela pisca uma vez no meio. A poeira "
-              "flutua no feixe de luz. O fundo fica parado (ou com parallax mínimo).", duration="3 s")
-    bx, by = 130, 90                      # posição do busto (200×200)
-    _e = C.rot([(33.6, -10.4)], 0.2, *C.BH)[0]
-    eye = (round(bx + _e[0]), round(by + _e[1]))
+    S = Scene("cena1b", "close_rosto", "Close: Ilves no microscópio (retrato)",
+              "Cena em meia resolução (amplia ×8). Câmera parada ou zoom mínimo. Loop de concentração (respira, "
+              "pisca). Depois da cena 2, troca a camada 01 pela 04 (reação de medo, sem loop) e segura o último "
+              "quadro.", duration="3 s", half=True)
+    W, H = S.cw, S.ch
+    bx, by = 70, 58                       # retrato 64×64 (o jaleco é estendido até a borda de baixo)
+    eye = (bx + 27, by + 26)
 
-    # ---- 0: fundo fora de foco (manchas de luz grandes e chapadas)
-    bg = Cv(CW, CH, NIGHT[1])
-    bands_rect(bg, 0, 0, CW, CH, [NIGHT[0], NIGHT[1], NIGHT[1], NIGHT[2]])
-    # formas fora de foco: potes na prateleira, o monitor verde, a janela
-    for (x, y, w, h, col) in [(20, 96, 22, 40, "#22305a"), (50, 104, 16, 32, "#1f2a4c"), (76, 92, 26, 44, "#243460"),
-                              (420, 40, 70, 54, "#173a2c"), (300, 20, 40, 60, "#1b2140"), (120, 100, 18, 36, "#1f2a4c")]:
+    # ---- 0: fundo fora de foco (formas chapadas, meia resolução)
+    bg = Cv(W, H, NIGHT[1])
+    bands_rect(bg, 0, 0, W, H, [NIGHT[0], NIGHT[1], NIGHT[1], NIGHT[2]])
+    for (x, y, w, h, col) in [(10, 48, 11, 20, "#22305a"), (25, 52, 8, 16, "#1f2a4c"), (38, 46, 13, 22, "#243460"),
+                              (200, 20, 35, 27, "#173a2c"), (150, 10, 20, 30, "#1b2140")]:
         col = mix(NIGHT[1], col, 0.7)
-        bg.rect(x + 3, y, w - 6, h, col)
-        bg.rect(x, y + 3, w, h - 6, col)
-        bg.rect(x + 4, y + 4, w - 8, 3, mix(col, "#7f93d6", 0.12))
-    # prateleira borrada (faixas horizontais)
-    bg.rect(0, 150, CW, 6, "#1e1d38")
-    bg.rect(0, 156, CW, 3, NIGHT[0])
-    bg = light_bands(bg, [(eye[0] + 40, eye[1] + 50, 200, 150, COLD, 0.6)], levels=(0.06, 0.12, 0.2), dw=0.08)
-    S.add("fundo", bg, parallax=0.4, desc="laboratório fora de foco: manchas de luz chapadas")
+        bg.rect(x + 1, y, w - 2, h, col)
+        bg.rect(x, y + 1, w, h - 2, col)
+        bg.rect(x + 2, y + 2, w - 4, 1, mix(col, "#7f93d6", 0.12))
+    bg.rect(0, 75, W, 3, "#1e1d38")
+    bg.rect(0, 78, W, 1, NIGHT[0])
+    bg = light_bands(bg, [(eye[0] + 60, eye[1] + 40, 110, 80, COLD, 0.6)], levels=(0.06, 0.12, 0.2), dw=0.08)
+    S.add("fundo", bg, parallax=0.4, desc="laboratório fora de foco (meia resolução)")
 
-    # ---- 1: Ilves busto (tira 12 q.: concentração. Respira no ombro, chega na ocular com easing, micro-sacada,
-    #      piscada natural nos q. 7-9; o coque e a mecha atrasam)
-    def light_bust(v):
-        v = night(v, (0.52, 0.52, 0.7))
-        v = light_bands(v, [(150, 100, 120, 90, COLD, 1.0)], x0=bx, y0=by, levels=(0.12, 0.24, 0.36), dw=0.1)
-        near = np.zeros((v.h, v.w), bool)
-        near[10:150, 100:] = True
-        v = rim_mix(v, (1, 0), COLD, 0.65, depth=2, only=near)
-        return rim_mix(v, (0, 1), CYAN, 0.35, depth=1, only=near)
-    S.add("ilves_busto", [light_bust(v) for v in C.bust_cycle(12)], bx, by, fps=6, parallax=1.0,
-          desc="busto de perfil, concentrada: loop de 12 q. (2 s), respiração, piscada nos q. 7-9")
-    reacao = [light_bust(v) for v in C.bust_reaction(10)]
+    def portrait_cv(sp):
+        a = sp.a
+        last = max(i for i in range(a.shape[0]) if (a[i, :, 3] == 255).any())
+        a = a[:last + 1]
+        ext = np.concatenate([a, np.repeat(a[-1:], 94 - a.shape[0], axis=0)])   # o jaleco desce até a borda
+        c = Cv(64, ext.shape[0])
+        c.set_arr(ext)
+        c = night(c, (0.56, 0.56, 0.74))
+        c = light_bands(c, [(80, 34, 70, 60, "#f0e4d8", 0.8), (70, 70, 70, 50, COLD, 0.6)], x0=bx, y0=by,
+                        levels=(0.08, 0.16, 0.24), dw=0.04)
+        near = np.zeros((c.h, c.w), bool)
+        near[0:60, 34:] = True
+        return rim_mix(c, (1, 0), COLD, 0.55, depth=1, only=near)
 
-    # ---- 2: poeira no feixe (tira 8 q.)
+    # ---- 1: retrato, concentrada (8 q. loop)
+    S.add("ilves_busto", [portrait_cv(f) for f in C.portrait_frames(C.PORTRAIT_LOOP)], bx, by, fps=6,
+          desc="retrato 3/4 (64×64, estilo diálogo de RPG), concentrada: respira, a cabeça acompanha, pisca (q. 5-7)")
+    reacao = [portrait_cv(f) for f in C.portrait_frames(C.PORTRAIT_FEAR)]
+
+    # ---- 2: poeira na luz
     def in_beam(x, y):
-        return (x - 70) ** 2 / 90 ** 2 + (y - 60) ** 2 / 60 ** 2 < 1
-    fr = [particles(160, 120, 24, 77, t, 8, drift=-0.1, cols=(COLD, "#8fb6d6"), big=0.0, mask=in_beam)
+        return (x - 50) ** 2 / 50 ** 2 + (y - 40) ** 2 / 36 ** 2 < 1
+    fr = [particles(100, 80, 14, 77, t, 8, drift=-0.1, cols=(COLD, "#8fb6d6"), big=0.0, mask=in_beam)
           for t in range(8)]
-    S.add("poeira_feixe", fr, eye[0] - 20, eye[1] - 20, fps=4, parallax=1.1, desc="poeira flutuando na luz fria")
+    S.add("poeira_feixe", fr, eye[0] + 10, eye[1] - 20, fps=4, parallax=1.1, desc="poeira flutuando na luz fria")
 
-    # ---- 3: a ocular entrando pela direita, em primeiro plano
-    fg = Cv(CW, CH)
-    ex, ey = eye[0] + 30, eye[1] + 4
+    # ---- 3: o microscópio em primeiro plano, à direita (silhueta com a luz da lâmina)
+    fg = Cv(W, H)
+    fg.poly([(176, 144), (184, 96), (196, 84), (214, 80), (226, 84), (232, 144)], "#232238")
+    fg.poly([(196, 84), (214, 80), (226, 84), (222, 88), (200, 90)], "#3a3d64")
+    fg.rect(186, 112, 40, 4, "#3a3d64")                                # platina
+    fg.hline(186, 112, 40, "#5a5f8c")
+    fg.rect(196, 116, 10, 2, COLD)                                     # a lâmina acesa
+    fg.hline(198, 117, 6, "#eef6ff")
+    fg.rect(210, 96, 6, 3, ORANGE[2])
+    fg.outline()
+    S.add("ocular", fg, parallax=1.3, desc="o microscópio em primeiro plano, à direita (lâmina acesa)")
 
-    def tube(c):
-        c.poly([(ex, ey - 12), (ex + 20, ey - 14), (ex + 120, ey + 60), (ex + 100, ey + 92), (ex + 8, ey + 22),
-                (ex, ey + 18)], WHITE[2])
-        c.poly([(ex + 8, ey + 22), (ex + 100, ey + 92), (ex + 120, ey + 60), (ex + 112, ey + 70), (ex + 14, ey + 14)],
-               WHITE[3])
-        c.line([(ex + 20, ey - 12), (ex + 118, ey + 58)], WHITE[1])
-        c.poly([(ex + 40, ey + 2), (ex + 52, ey + 4), (ex + 50, ey + 30), (ex + 34, ey + 26)], ORANGE[2])
-        c.rect(ex - 6, ey - 14, 8, 34, METAL[3])                      # borracha da ocular
-        c.vline(ex - 6, ey - 14, 34, METAL[2])
-        c.rect(ex + 120, ey + 60, 60, 120, "#232238")                 # corpo do microscópio
-    part(fg, tube)
-    fg = night(fg, (0.5, 0.55, 0.75))
-    fg = light_bands(fg, [(ex, ey + 30, 60, 60, COLD, 1.0)], levels=(0.15, 0.3), dw=0.12)
-    # anel de luz que sai da ocular no olho dela
-    for i, col in enumerate([CYAN, COLD]):
-        fg.vline(ex - 7 - i, ey - 6 + i * 2, 18 - i * 4, col)
-    S.add("ocular", fg, parallax=1.3, desc="a ocular do microscópio em primeiro plano (sai pela direita)")
-
-    # ---- 4: alternativa da camada 01 · medo contido (10 q., sem loop): usar DEPOIS da cena 2, no lugar da 01
-    S.add("ilves_reacao", reacao, bx, by, fps=6, loop=False, parallax=1.0, alt="ilves_busto",
-          desc="ALTERNATIVA da 01 (desenha na mesma posição/ordem dela): ela afasta o rosto devagar, os olhos "
-               "abrem, a sobrancelha sobe, a boca entreabre; coque e mecha chegam atrasados. Para no último q.")
+    # ---- 4: alternativa da 01: medo contido (6 q., sem loop)
+    S.add("ilves_reacao", reacao, bx, by, fps=6, loop=False, alt="ilves_busto",
+          desc="ALTERNATIVA da 01 (mesma posição/ordem): pisca de susto, arregala, recua a cabeça, a boca "
+               "entreabre; para no último quadro")
     return S
 
 
@@ -779,7 +755,7 @@ def scene2():
 # =================================================================================================================
 # CENA 3 · Ilves trancando o laboratório (de costas, corredor escuro) + 3b insert da chave
 # =================================================================================================================
-DOOR = (238, 100, 72, 152)      # x, y, w, h (pé em FLOOR_Y)
+DOOR = (238, 172, 60, 80)       # x, y, w, h (pé em FLOOR_Y) · na escala da Ilves v1.2 (60 px)
 LOCK_Y = FLOOR_Y - C.BACK_FOOT + C.BACK_HAND[1]   # altura da fechadura = altura da mão dela
 
 
@@ -791,7 +767,7 @@ def corridor_lamp(cv, x, y, on=True):
 
 def scene3():
     S = Scene("cena3", "trancando", "Ilves tranca o laboratório · Dia 140, noite",
-              "Plano parado e longo. A lâmpada do corredor mais perto pisca. Ela gira a chave (o LED do painel vai "
+              "Plano parado e longo (ou zoom lento até ×2 inteiro na Ilves). A lâmpada do corredor mais perto pisca. Ela gira a chave (o LED do painel vai "
               "de verde pra vermelho: usar a tira sem loop). Corte pro insert 3b (a mão e a chave) e volta. "
               "Opcional: pan lento pra esquerda revelando o corredor escuro.", duration="5 s")
     dx, dy, dw, dh = DOOR
@@ -821,16 +797,16 @@ def scene3():
     room.vline(dx + dw // 2 + 1, dy, dh, "#33365a")
     for k in (0, 1):
         x0 = dx + k * (dw // 2)
-        room.rect(x0 + 6, dy + 8, dw // 2 - 12, 30, NIGHT[0])           # janelinha (o brilho entra em camada)
-        room.rect(x0 + 4, dy + 48, dw // 2 - 8, 4, "#3a3d64")           # faixa
-        room.rect(x0 + 4, dy + 54, dw // 2 - 8, 3, ORANGE[2])
-        for yy in range(dy + 66, dy + dh - 6, 10):
+        room.rect(x0 + 6, dy + 6, dw // 2 - 12, 16, NIGHT[0])           # janelinha (o brilho entra em camada)
+        room.rect(x0 + 4, dy + 28, dw // 2 - 8, 3, "#3a3d64")           # faixa
+        room.rect(x0 + 4, dy + 32, dw // 2 - 8, 2, ORANGE[2])
+        for yy in range(dy + 42, dy + dh - 4, 8):
             room.hline(x0 + 4, yy, dw // 2 - 8, "#222340")
     # placa em cima da porta
-    room.rect(dx + 6, dy - 30, dw - 12, 14, NIGHT[0])
-    room.rect(dx + 7, dy - 29, dw - 14, 12, "#1c2a3e")
-    text(room, dx + 12, dy - 28, "LAB 2 ·", "#7fd0ea")
-    text(room, dx + 12 + 34, dy - 28, "CRIO", ORANGE[1])
+    room.rect(dx - 6, dy - 26, dw + 12, 14, NIGHT[0])
+    room.rect(dx - 5, dy - 25, dw + 10, 12, "#1c2a3e")
+    text(room, dx - 1, dy - 24, "LAB 2 ·", "#7fd0ea")
+    text(room, dx - 1 + 34, dy - 24, "CRIO", ORANGE[1])
     # aviso de risco ao lado
     part(room, lambda c: (c.poly([(380, 120), (396, 148), (364, 148)], ORANGE[1]),
                           c.poly([(380, 126), (391, 145), (369, 145)], "#2a1a20"),
@@ -872,16 +848,16 @@ def scene3():
     # ---- 1: brilho da janelinha (o microscópio ficou ligado lá dentro) · tira 4 q.
     frames = []
     for t in range(4):
-        c = Cv(dw, 32)
+        c = Cv(dw, 16)
         for k in (0, 1):
             x0 = k * (dw // 2) + 6
-            c.rect(x0, 0, dw // 2 - 12, 30, "#1c4462")
-            c.rect(x0, 18, dw // 2 - 12, 12, "#2f6f96")
-            c.rect(x0 + 2 + k * 4, 22 - (t % 2), 8, 8 + (t % 2), CYAN if t != 2 else "#4fb3d6")
+            c.rect(x0, 0, dw // 2 - 12, 16, "#1c4462")
+            c.rect(x0, 9, dw // 2 - 12, 7, "#2f6f96")
+            c.rect(x0 + 2 + k * 3, 11 - (t % 2), 5, 5 + (t % 2), CYAN if t != 2 else "#4fb3d6")
             c.hline(x0, 0, dw // 2 - 12, "#0f2236")
-            c.line([(x0 + 2, 2), (x0 + 8, 8)], "#4f7fa6")                # reflexo do vidro
+            c.line([(x0 + 2, 2), (x0 + 5, 5)], "#4f7fa6")                # reflexo do vidro
         frames.append(c)
-    S.add("janelinha_brilho", frames, dx, dy + 8, fps=3, desc="luz fria lá dentro, tremendo")
+    S.add("janelinha_brilho", frames, dx, dy + 6, fps=3, desc="luz fria lá dentro, tremendo")
 
     # ---- 2: lâmpada que pisca (tira 8 q.)
     frames = []
@@ -906,20 +882,17 @@ def scene3():
     S.add("lampada_pisca", frames, 380, 32, fps=6,
           desc="a lâmpada sobre a porta falha (cone de luz chapado quando acesa)")
 
-    # ---- 3: Ilves de costas (tira 12 q.: respira no ombro, a cabeça pesa e baixa um pouco com easing, o coque e a
-    #      barra do jaleco atrasam)
-    frames = []
-    for v in C.back_cycle(12):
-        v = night(v, (0.42, 0.46, 0.66))
+    # ---- 3: Ilves de costas (mapa de pixels, 6 q.: respira, mão na chave)
+    def light_back(v):
+        v = night(pxs(v), (0.42, 0.46, 0.66))
         top = np.zeros((v.h, v.w), bool)
-        top[:50, :] = True
+        top[:24, :] = True
         v = rim_mix(v, (0, -1), CYAN, 0.45, depth=1, only=top)
-        v = rim_mix(v, (-1, 0), CYAN, 0.35, depth=1)
-        v = rim_mix(v, (1, 0), "#b8c8ee", 0.3, depth=1)
-        frames.append(v)
+        v = rim_mix(v, (-1, 0), CYAN, 0.3, depth=1)
+        return rim_mix(v, (1, 0), "#b8c8ee", 0.3, depth=1)
     ix, iy = dx + dw + 16 - C.BACK_HAND[0], FLOOR_Y - C.BACK_FOOT
-    S.add("ilves_costas", frames, ix, iy, fps=6,
-          desc="Ilves de costas com a mão na fechadura: loop de 12 q. (2 s), respiração e a cabeça pesando")
+    S.add("ilves_costas", [light_back(v) for v in C.back_frames(C.BACK_IDLE)], ix, iy, fps=4,
+          desc="Ilves de costas (30×60) com a mão na fechadura; respira (6 q.)")
 
     # ---- 4: LED da fechadura (tira 6 q., SEM loop: verde → âmbar → vermelho)
     frames = []
@@ -942,114 +915,71 @@ def scene3():
 
 
 def scene3b():
-    S = Scene("cena3b", "chave", "Insert: a chave girando",
-              "Câmera parada, bem perto. A mão gira a chave em 4 quadros (sem loop) e o LED vai pro vermelho com "
-              "\"TRAVADO\". Segura 1 s no último quadro. Sem música, só o clique.", duration="2 s")
-    bg = Cv(CW, CH, "#22243f")
-    # chapa da porta: faixas horizontais e rebites
-    for y in range(0, CH, 36):
-        bg.hline(0, y, CW, NIGHT[0])
-        bg.hline(0, y + 1, CW, "#2c2f52")
-    for x in range(20, CW, 60):
-        for y in range(8, CH, 36):
-            bg.rect(x, y, 3, 3, "#2c2f52")
+    S = Scene("cena3b", "chave", "Plano médio: a chave girando",
+              "Meia resolução (amplia ×8). Ilves de costas, corpo inteiro, gira a chave em 4 quadros (sem loop); o "
+              "destaque é o painel: o LED vai de ABERTO (verde) pra TRAVADO (vermelho). Zoom lento na fechadura "
+              "(1.0 → 1.5, ancorado no painel) e segura 1 s no último quadro. Sem música, só o clique.",
+              duration="3 s", half=True)
+    W, H = S.cw, S.ch
+    FY = 140
+    sx, sy = 92, FY - C.BACK_FOOT - 1
+    kx, ky = sx + C.BACK_HAND[0], sy + C.BACK_HAND[1]          # a fechadura
+    bg = Cv(W, H, "#20223c")
+    # parede de chapas (sem juntas verticais regulares demais: chapas largas e rebites)
+    for y in range(0, H, 24):
+        bg.hline(0, y, W, NIGHT[0])
+        bg.hline(0, y + 1, W, "#2a2d50")
+    for x in range(12, W, 44):
+        for y in range(6, H, 24):
             bg.px(x, y, "#3a3d64")
-    # painel grande
-    px0, py0, pw, ph = 220, 50, 150, 200
-    part(bg, lambda c: (c.rect(px0, py0, pw, ph, "#31345a"), c.hline(px0, py0, pw, "#454a78"),
-                        c.rect(px0 + 10, py0 + 10, pw - 20, 26, "#151428"),
-                        c.rect(px0 + 30, py0 + 44, 90, 90, "#1c1d36"),
-                        c.ell(px0 + 45, py0 + 59, px0 + 105, py0 + 119, "#2a2c4c"),
-                        c.ell(px0 + 50, py0 + 64, px0 + 100, py0 + 114, "#3a3d64")))
-    cx, cy = px0 + 75, py0 + 89
-    bg.rect(cx - 3, cy - 12, 6, 24, "#05050a")                          # buraco da fechadura (vertical)
-    for i in range(4):
-        bg.rect(px0 + 16 + i * 32, py0 + ph - 26, 22, 12, "#26294a")
-        bg.hline(px0 + 16 + i * 32, py0 + ph - 26, 22, "#3a3d64")
-    bg = light_bands(bg, [(cx, cy, 200, 160, "#7f93d6", 0.6)], levels=(0.06, 0.12, 0.18), dw=0.1)
-    S.add("painel", bg, desc="chapa da porta e o painel da fechadura, de perto")
+    # porta do LAB 2 (à esquerda, atrás dela)
+    part(bg, lambda c: (c.rect(26, 50, 70, 92, NIGHT[3]), c.hline(26, 50, 70, NIGHT[5]),
+                        c.rect(30, 54, 62, 88, "#2a2c4c"), c.vline(61, 54, 88, NIGHT[0]),
+                        c.rect(35, 60, 21, 16, NIGHT[0]), c.rect(66, 60, 21, 16, NIGHT[0]),
+                        c.rect(34, 84, 24, 3, "#3a3d64"), c.rect(65, 84, 24, 3, "#3a3d64"),
+                        c.rect(34, 88, 24, 2, ORANGE[2]), c.rect(65, 88, 24, 2, ORANGE[2])))
+    bg.rect(36, 61, 19, 14, "#1c4462")
+    bg.rect(67, 61, 19, 14, "#1c4462")
+    bg.rect(39, 68, 8, 7, "#2f6f96")
+    bg.rect(71, 66, 7, 9, "#2f6f96")
+    bg.rect(41, 70, 4, 5, CYAN)
+    bg.rect(26, 36, 70, 11, NIGHT[0])
+    text(bg, 29, 37, "LAB 2 · CRIO", "#7fd0ea")
+    # painel da fechadura (o destaque): caixa grande à direita, fechadura na altura da mão dela
+    px0, py0, pw, ph = kx - 8, ky - 34, 88, 52
+    part(bg, lambda c: (c.rect(px0, py0, pw, ph, "#31345a"), c.hline(px0, py0, pw, "#4a4f80"),
+                        c.rect(px0 + 18, py0 + 6, pw - 24, 16, "#151428"),
+                        c.rect(px0 + 3, ky - 6, 12, 12, "#1c1d36")))
+    bg.rect(kx - 1, ky - 3, 2, 6, "#05050a")                            # o buraco da fechadura
+    text(bg, px0 + 18, py0 + 26, "LAB 2", "#5c6084")
+    for i in range(3):
+        bg.rect(px0 + 22 + i * 14, py0 + 40, 10, 6, "#26294a")
+    bg.rect(0, FY, W, H - FY, NIGHT[0])
+    bg.hline(0, FY, W, NIGHT[3])
+    bg = light_bands(bg, [(61, 72, 50, 50, CYAN, 0.6), (px0 + 40, py0 + 14, 60, 40, "#7f93d6", 0.5)],
+                     levels=(0.06, 0.12, 0.2), dw=0.08)
+    S.add("painel", bg, desc="parede, a porta do LAB 2 e o painel grande da fechadura (meia resolução)")
 
-    # ---- o giro: 12 q. sem loop, com antecipação (a mão aperta e volta um tiquinho), aceleração, desaceleração e um
-    #      assentamento no fim. A manga atrasa ~1 quadro. O LED acompanha (fica âmbar no meio do giro).
-    N = 12
-    ANG = [0.0, 0.0, 0.03, 0.0, -0.08, -0.24, -0.48, -0.72, -0.9, -0.99, -1.03, -1.0]   # × 60°
-    PRESS = [0, 0.5, 1, 1, 1, 1, 1, 1, 1, 0.8, 0.5, 0.3]                                # o polegar aperta
-    th = [a * math.pi / 3 for a in ANG]
-
+    # LED + texto (4 q., sem loop, junto com o giro)
     frames = []
-    for t in range(N):
-        c = Cv(pw - 20, 26)
-        c.rect(0, 0, pw - 20, 26, "#151428")
-        st = 0 if ANG[t] > -0.3 else (1 if ANG[t] > -0.95 else 2)
-        col = ["#7fd67a", "#f2c46d", "#ff6a55"][st]
-        c.rect(6, 8, 10, 10, col)
-        c.rect(8, 10, 3, 3, mix(col, "#ffffff", 0.5))
-        text(c, 24, 9, ["ABERTO", "...", "TRAVADO"][st], col)
+    for st in range(4):
+        c = Cv(pw - 24, 16)
+        c.rect(0, 0, pw - 24, 16, "#151428")
+        col = ["#7fd67a", "#7fd67a", "#f2c46d", "#ff6a55"][st]
+        c.rect(3, 4, 7, 7, col)
+        c.rect(4, 5, 2, 2, mix(col, "#ffffff", 0.5))
+        text(c, 13, 4, ["ABERTO", "ABERTO", "...", "TRAVADO"][st], col)
         frames.append(c)
-    S.add("led_texto", frames, px0 + 10, py0 + 10, fps=8, loop=False,
-          desc="ABERTO → ... → TRAVADO, sincronizado com o giro da chave (para no vermelho)")
+    S.add("led_texto", frames, px0 + 18, py0 + 6, fps=3, loop=False,
+          desc="ABERTO → ... → TRAVADO, junto com o giro (para no vermelho)")
 
-    GOLD = ["#fff4cc", "#f2c46d", "#c98a3c", "#8a5a2a"]
-    SK = [C.SKIN[0], C.SKIN[1], C.SKIN[2], C.SKIN[3]]
-    K = 1.6                                                              # escala do insert
-    frames = []
-    for t in range(N):
-        a0 = th[t] * 0.75                                                # 45° de giro
-        a_lag = (th[max(0, t - 1)] * 0.6 + th[t] * 0.4) * 0.75           # a manga chega atrasada
-        p = PRESS[t]
-        R = lambda pts, a=a0: C.rot(pts, a, cx, cy, K)  # noqa: E731
-        W = lambda ws: [K * w for w in ws]  # noqa: E731
-        c = Cv(CW, CH)
-        L = (-1, -1)
-        # indicador dobrado POR TRÁS do anel: a lateral dele aparece embaixo/à esquerda (o anel fica preso entre ele e
-        # o polegar)
-        C.piece(c, lambda k: tube(k, R([(-34, -10), (-28, 8), (-14, 21), (4, 22)]), W([14, 13, 12, 11]), "#ffffff"),
-                SK, L, hi=1, sh=3, deep=1, details=lambda d: stroke(d, R([(-22, 12), (-18, 20)]), SK[2], 4))
-        # a chave: anel gordinho com furo
-        C.piece(c, lambda k: blob(k, R([(-21, -2), (-16, -17), (0, -23), (16, -17), (21, -2), (16, 13), (0, 19),
-                                        (-16, 13)]), "#ffffff", 6), GOLD, L, hi=2, sh=3, deep=1, details=lambda d: (
-            blob(d, R([(-5, -12), (5, -12), (5, -4), (-5, -4)]), "#26171e", 3),
-            stroke(d, R([(-8, 9), (8, 9)]), GOLD[2], 4),
-            stroke(d, R([(-14, -12), (-6, -18)]), GOLD[0], 4)))
-        # punho fechado: dedos médio/anelar/mínimo dobrados (vincos), nós dos dedos, dorso até o pulso
-        fist = [(-46, -22), (-34, -18), (-30, -4), (-32, 12), (-26, 26), (-32, 36), (-46, 40), (-62, 40), (-78, 34),
-                (-82, 14), (-72, -6), (-60, -18)]
-        C.piece(c, lambda k: blob(k, R(fist), "#ffffff", 6), SK, L, hi=2, sh=4, deep=2, details=lambda d: (
-            stroke(d, R([(-44, 4), (-36, 12), (-33, 22)]), SK[2], 6),          # vincos dos dedos dobrados
-            stroke(d, R([(-50, 16), (-42, 26), (-38, 34)]), SK[2], 6),
-            stroke(d, R([(-60, 24), (-54, 32), (-50, 38)]), SK[2], 6),
-            stroke(d, R([(-70, -2), (-54, -10), (-44, -14)]), SK[2], 6),       # tendão
-            [d.px(*map(round, R([(x, y)])[0]), SK[0]) for x, y in ((-44, -18), (-40, 0), (-44, 14), (-52, 26))]))
-        # polegar por cima do anel, apertando (a ponta afunda quando aperta)
-        tip = (2 - p * 1.4, -4 + p * 0.6)
-        C.piece(c, lambda k: tube(k, R([(-60, -10), (-40, -12), (-18, -9), tip]), W([19, 16.6, 14.4, 12.4]),
-                                  "#ffffff"), SK, L, hi=2, sh=3, deep=1, details=lambda d: (
-            blob(d, R([(tip[0] - 9, tip[1] - 6), (tip[0] - 1, tip[1] - 6.4), (tip[0] + 3, tip[1] - 2),
-                       (tip[0] - 1, tip[1] + 1.4), (tip[0] - 9, tip[1] + 0.8)]), "#f9e2d0", 4),   # unha
-            stroke(d, R([(tip[0] - 9, tip[1] - 6), (tip[0] - 9, tip[1] + 0.8)]), SK[2], 4),
-            stroke(d, R([(-32, -16), (-28, -8)]), SK[2], 4)))                                    # dobra da junta
-        # punho laranja + manga (atrasada), saindo pela esquerda-embaixo com largura constante
-        w1 = C.rot([(-80, 24)], a_lag, cx, cy, K)[0]
-        A = (cx - 300, CH + 60)
-        ddx, ddy = A[0] - w1[0], A[1] - w1[1]
-        Ln = math.hypot(ddx, ddy)
-        ux, uy = ddx / Ln, ddy / Ln
-        qx, qy = -uy, ux
-
-        def P(base, along, side):
-            return (base[0] + ux * along + qx * side, base[1] + uy * along + qy * side)
-        C.piece(c, lambda k: blob(k, [P(w1, 4, 40), P(w1, 120, 50), P(A, 0, 58), P(A, 0, -58), P(w1, 120, -50),
-                                      P(w1, 4, -40)], "#ffffff", 4), C.COAT, L, hi=2, sh=6, deep=2,
-                details=lambda d: (stroke(d, [P(w1, 40, 14), P(w1, 110, 24), P(w1, 180, 18)], C.COAT[2], 6),
-                                   stroke(d, [P(w1, 70, -26), P(w1, 140, -32)], C.COAT[2], 6)))
-        C.piece(c, lambda k: blob(k, [P(w1, -8, 36), P(w1, 16, 41), P(w1, 16, -41), P(w1, -8, -36)], "#ffffff", 4),
-                C.ACC, L, hi=1, sh=2, deep=1)
-        aa_outline(c)
-        c = night(c, (0.6, 0.62, 0.8))
-        c = rim_mix(c, (0, -1), "#b8c8ee", 0.35, depth=2)
-        frames.append(c)
-    S.add("mao_chave", frames, fps=8, loop=False,
-          desc="a mão gira a chave 45° em 12 q. (1,5 s): aperta, antecipa, acelera, desacelera e assenta; para no fim")
+    # Ilves de costas girando a chave (4 q., sem loop). Nome mantido: mao_chave.
+    def light_back(v):
+        v = night(pxs(v), (0.46, 0.5, 0.7))
+        v = rim_mix(v, (-1, 0), CYAN, 0.4, depth=1)
+        return rim_mix(v, (1, 0), "#b8c8ee", 0.35, depth=1)
+    S.add("mao_chave", [light_back(v) for v in C.back_frames(C.BACK_TURN)], sx, sy, fps=3, loop=False,
+          desc="Ilves de costas (30×60), o pulso gira a chave 90° em 4 q. (sem loop)")
     return S
 
 
@@ -1558,18 +1488,23 @@ def scene6b():
 def character_sheet():
     d = OUT / "personagem"
     d.mkdir(parents=True, exist_ok=True)
+    for f in d.glob("*.png"):
+        f.unlink()
+    cvs = lambda frames: [pxs(f) for f in frames]  # noqa: E731
     items = [
-        ("ilves_perfil", C.stand_cycle(12),
-         "em pé de perfil (64×120, pé na linha 117): 12 q., respira no ombro, pisca nos q. 7-9"),
-        ("ilves_sentada_microscopio", C.sit_cycle(12, light=(-1, -1)),
-         "sentada e curvada na ocular (84×96, chão na linha 93): 12 q., respiração, rosto chegando na ocular, "
-         "mão girando o foco, coque/jaleco atrasando, piscada"),
-        ("ilves_costas_fechadura", C.back_cycle(12, light=(-1, -1)),
-         "de costas com a mão na fechadura (72×120, pé na linha 117): 12 q., respiração e a cabeça pesando"),
-        ("ilves_busto", C.bust_cycle(12, light=(-1, -1)),
-         "busto de perfil pros closes (200×200), concentrada: 12 q., respiração, micro-sacada, piscada nos q. 7-9"),
-        ("ilves_busto_reacao", C.bust_reaction(10, light=(-1, -1)),
-         "busto · medo contido (10 q., sem loop): afasta da ocular, olhos abrem, sobrancelha sobe, boca entreabre"),
+        ("ilves_sentada_microscopio", cvs(C.sit_frames(C.SIT_LOOP)),
+         "sentada e curvada na ocular (44×48, chão na linha 47): 8 q., respira, gira o foco, rabo de cavalo atrasa, "
+         "pisca no q. 6"),
+        ("ilves_susto", cvs(C.sit_frames(C.SIT_STARTLE)),
+         "susto (6 q., sem loop): tira o olho da ocular e levanta a cabeça; o rabo de cavalo chega depois"),
+        ("ilves_costas", cvs(C.back_frames(C.BACK_IDLE)),
+         "de costas, em pé (30×60, pé na linha 59), mão na fechadura: 6 q. respirando"),
+        ("ilves_costas_chave", cvs(C.back_frames(C.BACK_TURN)),
+         "de costas girando a chave (4 q., sem loop)"),
+        ("ilves_retrato", cvs(C.portrait_frames(C.PORTRAIT_LOOP)),
+         "retrato 3/4 64×64 (diálogo de RPG), concentrada: 8 q., respira, pisca nos q. 5-7"),
+        ("ilves_retrato_medo", cvs(C.portrait_frames(C.PORTRAIT_FEAR)),
+         "retrato · medo contido (6 q., sem loop): pisca de susto, arregala, recua, boca entreabre"),
     ]
     meta = []
     for name, frames, desc in items:
@@ -1577,16 +1512,25 @@ def character_sheet():
         save(strip(frames).im, d / f"{name}_anim.png")
         meta.append(dict(name=name, file=f"personagem/{name}.png", anim=f"personagem/{name}_anim.png",
                          w=frames[0].w, h=frames[0].h, frames=len(frames), desc=desc))
-    # folha: as 4 poses lado a lado sobre o fundo da noite
-    sheet = Cv(480, 210, NIGHT[1])
-    x = 8
-    for name, frames, desc in items[:3]:
-        sheet.paste(frames[0], x, 210 - frames[0].h - 6)
-        x += frames[0].w + 4
-    sheet.paste(items[3][1][0], 480 - 200, 10)
-    text(sheet, 10, 8, "DRA. ILVES", "#e0e4f4")
-    text(sheet, 10, 20, "CIENTISTA · COLONIA HESPER", "#7fd0ea")
+    # folha nativa 300×100 (o report mostra ×4): poses de corpo inteiro + retrato em 3 expressões
+    sheet = Cv(300, 100, NIGHT[1])
+    sheet.paste(items[0][1][0], 2, 100 - 48 - 2)
+    sheet.paste(items[1][1][-1], 44, 100 - 48 - 2)
+    sheet.paste(items[2][1][0], 88, 100 - 60 - 2)
+    sheet.paste(items[3][1][-1], 118, 100 - 60 - 2)
+    sheet.paste(items[4][1][0], 162, 34)
+    sheet.paste(items[5][1][-1], 232, 34)
+    text(sheet, 2, 2, "DRA. ILVES", "#e0e4f4")
+    text(sheet, 2, 12, "COLONIA HESPER", "#7fd0ea")
     save(sheet.im, d / "folha_ilves.png")
+    big = Cv(1200, 400)
+    big.im = sheet.im.resize((1200, 400), Image.NEAREST)
+    save(big.im, d / "folha_ilves_x4.png")
+    # as 3 expressões lado a lado
+    ex = Cv(200, 64, NIGHT[1])
+    for i, f in enumerate([C.portrait(), C.portrait(eyes="fechado"), C.portrait_frames(C.PORTRAIT_FEAR)[-1]]):
+        ex.paste(pxs(f), i * 68, 0)
+    save(ex.im, d / "expressoes.png")
     return meta
 
 
@@ -1637,7 +1581,7 @@ def html_report(doc):
 </section>""")
     chars = []
     for c in doc["character"]:
-        sc_ = 1 if c["w"] > 100 else 3
+        sc_ = 4
         chars.append(f"<div class='card'>{sprite_html(c['anim'], c['w'], c['h'], c['frames'], 3, sc_)}"
                      f"<p><code>{c['file']}</code><br><small>{esc(c['desc'])}</small></p></div>")
     nav = " · ".join(f"<a href='#{sc['id']}'>{sc['id']}</a>" for sc in doc["scenes"])
@@ -1659,7 +1603,20 @@ table{{border-collapse:collapse;width:100%;margin-top:8px}} td,th{{border-bottom
 {''.join(css_anims)}
 </style></head><body>
 <h1>Hesper · trailer 1:30 · cutscenes da Dra. Ilves</h1>
-<div class="note"><b>v1.1 · a Dra. Ilves mais humana</b> (feedback do dono). Personagem refeita do zero
+<div class="note"><b>v1.2 · a Dra. Ilves desenhada à mão, pixel a pixel</b> (feedback do dono: a v1.1 ainda parecia
+massinha). Troquei a abordagem: nada de curvas/formas geométricas na personagem. Ela agora é feita de <b>mapas de
+pixels</b> (listas de strings, um caractere por cor) montados como rig, igual ao Explorador
+(<code>tools/sprites/trailer_ilves_char.py</code>). Paleta curta: pele 3, cabelo 3, jaleco 3, uniforme 2, contorno.
+<b>Escala de jogo:</b> sentada 44×48, em pé 30×60, e um <b>retrato 3/4 de 64×64</b> no estilo diálogo de RPG (olhos
+com brilho, boca de 1-2 px). <b>Visual novo</b> (inspiração de personalidade, sem copiar): cientista intensa e meio
+desleixada, alta e esguia, curvada e curiosa, <b>rabo de cavalo alto e bagunçado</b> com mechas caindo no rosto e
+<b>goggles</b> empurrados na testa. <b>Animação</b> em poucos quadros bem desenhados: 8 q. no microscópio (respira, gira
+o foco, rabo de cavalo atrasa, pisca), <b>susto</b> de 6 q. (levanta a cabeça), retrato com <b>concentração</b> (8 q.)
+e <b>medo contido</b> (6 q.), e a chave em <b>4 q.</b> A cena 3b virou <b>plano médio</b>: ela de costas, corpo
+inteiro, e o destaque é o painel ABERTO → TRAVADO. Os closes (1b e 3b) agora são em <b>meia resolução</b> (canvas
+256×144, o vídeo amplia ×8) pra ela ficar grande sem misturar tamanho de pixel. Nenhum asset de terceiros
+(ver <code>CREDITS.md</code>). <a href="#antes12">antes (v1.1) × depois (v1.2)</a></div>
+<div class="note"><b>v1.1 · a Dra. Ilves mais humana</b> (substituída pela v1.2). Personagem refeita do zero
 (<code>tools/sprites/trailer_ilves_char.py</code>): silhueta de <b>curvas</b> (Catmull-Rom) em vez de blocos, ombros
 caídos, costas arqueando no microscópio, caimento do jaleco; proporção humana (cabeça ~1/7 da altura, pescoço que não
 é caixa); sombreamento que <b>segue a forma</b>; <b>antialias manual</b> nos cantos do contorno. Animação: <b>12
@@ -1680,7 +1637,18 @@ ainda não escolheu; pra trocar: <code>HESPER_CRIATURA=larva python3 tools/sprit
 (ou <code>embryo</code>, <code>fetal</code>). O close 6b é desenho próprio da criatura em C, feito pra combinar com
 qualquer uma das formas.</div>
 <p>{nav} · <a href="#ilves">a Dra. Ilves</a> · <a href="#editor">pro editor do vídeo</a></p>
-<section id="antes"><h2>Antes × depois (v1.0 → v1.1)</h2>
+<section id="antes12"><h2>Antes (v1.1) × depois (v1.2)</h2>
+<table class="ba"><tr><th>antes (v1.1)</th><th>depois (v1.2)</th></tr>
+<tr><td><img src="before_v11/folha_ilves.png" width="480"></td><td><img src="personagem/folha_ilves_x4.png" width="480"><br>
+<img src="personagem/expressoes.png" width="480"><br><small>retrato: concentrada · piscando · medo contido</small></td></tr>
+<tr><td><img src="before_v11/cena1.gif" width="480"></td><td><img src="preview/cena1.gif" width="480"><br>
+<img src="preview/cena1_alt.gif" width="480"><br><small>nova: o susto (camada 08, no lugar da 05)</small></td></tr>
+<tr><td><img src="before_v11/cena1b.gif" width="480"><br><img src="before_v11/cena1b_alt.gif" width="480"></td>
+<td><img src="preview/cena1b.gif" width="480"><br><img src="preview/cena1b_alt.gif" width="480"></td></tr>
+<tr><td><img src="before_v11/cena3.gif" width="480"></td><td><img src="preview/cena3.gif" width="480"></td></tr>
+<tr><td><img src="before_v11/cena3b.gif" width="480"></td><td><img src="preview/cena3b.gif" width="480"></td></tr>
+</table></section>
+<section id="antes"><h2>Histórico: v1.0 → v1.1</h2>
 <table class="ba"><tr><th>antes (v1.0)</th><th>depois (v1.1)</th></tr>
 <tr><td><img src="before/folha_ilves.png" width="480"></td><td><img src="personagem/folha_ilves.png" width="480"></td></tr>
 <tr><td><img src="before/cena1.gif" width="480"></td><td><img src="preview/cena1.gif" width="480"></td></tr>
@@ -1691,12 +1659,12 @@ qualquer uma das formas.</div>
 </table></section>
 {''.join(sec)}
 <section id="ilves"><h2>A Dra. Ilves</h2>
-<p>Cientista da colônia: cabelo escuro num coque com prendedor laranja, óculos de aro fino (o reflexo das lentes é o
-"olho" dela nas cenas escuras), jaleco branco aberto por cima do macacão azul-acinzentado da colônia, gola e punhos
-laranja <code>#e2733a</code>, crachá com LED ciano, botas escuras. Mesma família do Explorador (cabeça grande,
-contorno por peça, sombreamento em faixas), mas sem capacete: é a única pessoa de rosto à mostra no jogo.
+<p>v1.2: cientista da colônia, alta e esguia, sempre meio curvada e curiosa. Cabelo castanho num rabo de cavalo alto
+e bagunçado (elástico laranja) com mechas caindo no rosto, goggles de laboratório empurrados na testa, jaleco branco
+aberto por cima do uniforme azul-acinzentado da Colônia Hesper, gola laranja <code>#e2733a</code>, crachá com LED
+ciano, botas escuras. Desenhada pixel a pixel em mapas de caracteres (contorno <code>#1b1630</code> desenhado à mão).
 Aqui na luz neutra; em cada cena ela é re-iluminada (tinta da noite + luz de recorte da fonte da cena).</p>
-<img src="personagem/folha_ilves.png" width="960" style="max-width:100%;height:auto">
+<img src="personagem/folha_ilves_x4.png" width="1200" style="max-width:100%;height:auto">
 <div class="cards">{''.join(chars)}</div></section>
 <section id="editor"><h2>Pro editor do vídeo</h2>
 <ul>
@@ -1709,9 +1677,15 @@ pan e parallax sem mostrar borda. Amplie ×4 com <b>nearest neighbor</b> (480×2
 <li><b>Parallax</b>: 1.0 anda junto com o cenário; &lt;1 fica pra trás (céu, serra), &gt;1 é primeiro plano.</li>
 <li>Pra não borrar o pixel art: mexa as camadas em <b>pixel inteiro do canvas</b> (= passos de 4 px no 1080p). Zoom
 lento: o ideal é fazer no 1080p já ampliado.</li>
-<li><b>Camada alternativa</b> (<code>replaces</code> no json): a <code>04_ilves_reacao</code> da cena 1b entra
-no lugar da <code>01_ilves_busto</code> (mesma posição, desenha na ordem 1, embaixo da ocular). Prévia em
-<code>preview/cena1b_alt.gif</code>.</li>
+<li><b>Cenas em meia resolução</b> (v1.2): <code>cena1b</code> e <code>cena3b</code> têm canvas 256×144, visível
+<code>(8, 4, 240, 135)</code> e <code>scale: 8</code> no json (240×135 ×8 = 1920×1080). As outras seguem 512×288 ×4.</li>
+<li><b>Camadas alternativas</b> (<code>replaces</code> no json): <code>cena1/08_ilves_susto</code> entra no lugar da
+<code>05_ilves</code>; <code>cena1b/04_ilves_reacao</code> no lugar da <code>01_ilves_busto</code> (mesma posição,
+desenha na ordem da original). Prévias em <code>preview/*_alt.gif</code>.</li>
+<li><b>Mudou no v1.2</b> (cenas 1, 1b, 3, 3b): mesmos nomes de arquivo; tamanhos, quadros, fps e posições novos
+(json). Na cena 1 a bancada, o microscópio, o pote e o monitor encolheram pra escala dela; na 3 a porta encolheu
+e a fechadura desceu pra altura da mão; a 3b virou plano médio (a camada <code>02_mao_chave</code> agora é ela de
+costas girando a chave). Sugestão: zoom inteiro (×2) nos planos gerais 1 e 3 pra ela aparecer.</li>
 <li><b>Mudou no v1.1</b> (cenas 1, 1b, 3, 3b): mesmos nomes de arquivo; número de quadros, fps, posições e tamanhos
 das camadas da Ilves mudaram (está tudo no <code>cenas.json</code>). A cena 3 ganhou porta mais alta e a fechadura
 subiu pra altura da mão dela; na 3b o buraco da fechadura subiu 26 px.</li>
@@ -1729,12 +1703,13 @@ SCENES = [scene1, scene1b, scene2, scene3, scene3b, scene4, scene5, scene6, scen
 def preview(S, n=16, alt=False):
     if not alt and any("replaces" in L for L in S.layers):
         preview(S, n, alt=True)
-    frames = [S.compose(t, alt).crop((VX, VY, VX + VW, VY + VH)).convert("RGB") for t in range(n)]
+    vx, vy, vw, vh = S.vis
+    frames = [S.compose(t, alt).crop((vx, vy, vx + vw, vy + vh)).convert("RGB") for t in range(n)]
     pdir = OUT / "preview"
     pdir.mkdir(parents=True, exist_ok=True)
     key = S.key + ("_alt" if alt else "")
     frames[0].save(pdir / f"{key}.png", optimize=True)
-    big = [f.resize((VW * 2, VH * 2), Image.NEAREST).quantize(255, method=Image.Quantize.MEDIANCUT, dither=0)
+    big = [f.resize((960, 540), Image.NEAREST).quantize(255, method=Image.Quantize.MEDIANCUT, dither=0)
            for f in frames]
     big[0].save(pdir / f"{key}.gif", save_all=True, append_images=big[1:], duration=1000 // S.base_fps, loop=0,
                 optimize=False, disposal=1)

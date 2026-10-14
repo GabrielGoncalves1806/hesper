@@ -32,7 +32,7 @@
    "id": "cena1",
    "slug": "laboratorio",
    "title": "Laboratório, noite · Dia 140",
-   "motion": "Pan lento da esquerda pra direita (camadas com parallax), terminando parado em Ilves. Neve na janela em loop. A luz do microscópio pulsa de leve. No fim, corte seco pro close (cena 1b).",
+   "motion": "Pan lento da esquerda pra direita (camadas com parallax) e zoom até ×2 (inteiro) parando em Ilves. Neve na janela em loop. A luz do microscópio pulsa de leve. No fim, corte seco pro close (cena 1b).",
    "duration": "6 s",
    "canvas": [
     512,
@@ -44,6 +44,7 @@
     480,
     270
    ],
+   "scale": 4,
    "layers": [
     {
      "order": 0,
@@ -94,10 +95,10 @@
      "order": 3,
      "name": "monitor_tela",
      "file": "cena1_laboratorio/03_monitor_tela.png",
-     "x": 401,
-     "y": 157,
-     "w": 46,
-     "h": 32,
+     "x": 395,
+     "y": 204,
+     "w": 30,
+     "h": 18,
      "frames": 8,
      "fps": 6,
      "loop": true,
@@ -109,10 +110,10 @@
      "order": 4,
      "name": "pote_gelo",
      "file": "cena1_laboratorio/04_pote_gelo.png",
-     "x": 298,
-     "y": 182,
-     "w": 18,
-     "h": 24,
+     "x": 275,
+     "y": 221,
+     "w": 10,
+     "h": 11,
      "frames": 6,
      "fps": 3,
      "loop": true,
@@ -124,23 +125,23 @@
      "order": 5,
      "name": "ilves",
      "file": "cena1_laboratorio/05_ilves.png",
-     "x": 212,
-     "y": 159,
-     "w": 84,
-     "h": 96,
-     "frames": 12,
+     "x": 226,
+     "y": 205,
+     "w": 44,
+     "h": 48,
+     "frames": 8,
      "fps": 6,
      "loop": true,
      "parallax": 1.0,
      "move": "",
-     "desc": "Ilves curvada na ocular: loop de 12 q. (2 s) com respiração, easing, coque/jaleco atrasando, piscada"
+     "desc": "Ilves curvada na ocular: loop de 8 q. (respira, gira o foco, rabo de cavalo atrasa, pisca no q. 6)"
     },
     {
      "order": 6,
      "name": "lamina_brilho",
      "file": "cena1_laboratorio/06_lamina_brilho.png",
-     "x": 267,
-     "y": 192,
+     "x": 253,
+     "y": 223,
      "w": 20,
      "h": 8,
      "frames": 4,
@@ -164,25 +165,43 @@
      "parallax": 1.4,
      "move": "",
      "desc": "silhuetas escuras na frente: mexem mais rápido no pan"
+    },
+    {
+     "order": 8,
+     "name": "ilves_susto",
+     "file": "cena1_laboratorio/08_ilves_susto.png",
+     "x": 226,
+     "y": 205,
+     "w": 44,
+     "h": 48,
+     "frames": 6,
+     "fps": 6,
+     "loop": false,
+     "parallax": 1.0,
+     "move": "",
+     "desc": "ALTERNATIVA da 05 (mesma posição/ordem): ela tira o olho da ocular e levanta a cabeça assustada; o rabo de cavalo chega depois (6 q., sem loop)",
+     "replaces": "ilves",
+     "draw_at_order": 5
     }
    ]
   },
   {
    "id": "cena1b",
    "slug": "close_rosto",
-   "title": "Close: Ilves na ocular",
-   "motion": "Zoom bem lento pra dentro (1.00 → 1.06) ancorado no olho dela. Ela pisca uma vez no meio. A poeira flutua no feixe de luz. O fundo fica parado (ou com parallax mínimo).",
+   "title": "Close: Ilves no microscópio (retrato)",
+   "motion": "Cena em meia resolução (amplia ×8). Câmera parada ou zoom mínimo. Loop de concentração (respira, pisca). Depois da cena 2, troca a camada 01 pela 04 (reação de medo, sem loop) e segura o último quadro.",
    "duration": "3 s",
    "canvas": [
-    512,
-    288
+    256,
+    144
    ],
    "visible": [
-    16,
-    9,
-    480,
-    270
+    8,
+    4,
+    240,
+    135
    ],
+   "scale": 8,
    "layers": [
     {
      "order": 0,
@@ -190,38 +209,38 @@
      "file": "cena1b_close_rosto/00_fundo.png",
      "x": 0,
      "y": 0,
-     "w": 512,
-     "h": 288,
+     "w": 256,
+     "h": 144,
      "frames": 1,
      "fps": 0,
      "loop": true,
      "parallax": 0.4,
      "move": "",
-     "desc": "laboratório fora de foco: manchas de luz chapadas"
+     "desc": "laboratório fora de foco (meia resolução)"
     },
     {
      "order": 1,
      "name": "ilves_busto",
      "file": "cena1b_close_rosto/01_ilves_busto.png",
-     "x": 130,
-     "y": 90,
-     "w": 200,
-     "h": 200,
-     "frames": 12,
+     "x": 70,
+     "y": 58,
+     "w": 64,
+     "h": 94,
+     "frames": 8,
      "fps": 6,
      "loop": true,
      "parallax": 1.0,
      "move": "",
-     "desc": "busto de perfil, concentrada: loop de 12 q. (2 s), respiração, piscada nos q. 7-9"
+     "desc": "retrato 3/4 (64×64, estilo diálogo de RPG), concentrada: respira, a cabeça acompanha, pisca (q. 5-7)"
     },
     {
      "order": 2,
      "name": "poeira_feixe",
      "file": "cena1b_close_rosto/02_poeira_feixe.png",
-     "x": 241,
-     "y": 148,
-     "w": 160,
-     "h": 120,
+     "x": 107,
+     "y": 64,
+     "w": 100,
+     "h": 80,
      "frames": 8,
      "fps": 4,
      "loop": true,
@@ -235,29 +254,29 @@
      "file": "cena1b_close_rosto/03_ocular.png",
      "x": 0,
      "y": 0,
-     "w": 512,
-     "h": 288,
+     "w": 256,
+     "h": 144,
      "frames": 1,
      "fps": 0,
      "loop": true,
      "parallax": 1.3,
      "move": "",
-     "desc": "a ocular do microscópio em primeiro plano (sai pela direita)"
+     "desc": "o microscópio em primeiro plano, à direita (lâmina acesa)"
     },
     {
      "order": 4,
      "name": "ilves_reacao",
      "file": "cena1b_close_rosto/04_ilves_reacao.png",
-     "x": 130,
-     "y": 90,
-     "w": 200,
-     "h": 200,
-     "frames": 10,
+     "x": 70,
+     "y": 58,
+     "w": 64,
+     "h": 94,
+     "frames": 6,
      "fps": 6,
      "loop": false,
      "parallax": 1.0,
      "move": "",
-     "desc": "ALTERNATIVA da 01 (desenha na mesma posição/ordem dela): ela afasta o rosto devagar, os olhos abrem, a sobrancelha sobe, a boca entreabre; coque e mecha chegam atrasados. Para no último q.",
+     "desc": "ALTERNATIVA da 01 (mesma posição/ordem): pisca de susto, arregala, recua a cabeça, a boca entreabre; para no último quadro",
      "replaces": "ilves_busto",
      "draw_at_order": 1
     }
@@ -279,6 +298,7 @@
     480,
     270
    ],
+   "scale": 4,
    "layers": [
     {
      "order": 0,
@@ -346,7 +366,7 @@
    "id": "cena3",
    "slug": "trancando",
    "title": "Ilves tranca o laboratório · Dia 140, noite",
-   "motion": "Plano parado e longo. A lâmpada do corredor mais perto pisca. Ela gira a chave (o LED do painel vai de verde pra vermelho: usar a tira sem loop). Corte pro insert 3b (a mão e a chave) e volta. Opcional: pan lento pra esquerda revelando o corredor escuro.",
+   "motion": "Plano parado e longo (ou zoom lento até ×2 inteiro na Ilves). A lâmpada do corredor mais perto pisca. Ela gira a chave (o LED do painel vai de verde pra vermelho: usar a tira sem loop). Corte pro insert 3b (a mão e a chave) e volta. Opcional: pan lento pra esquerda revelando o corredor escuro.",
    "duration": "5 s",
    "canvas": [
     512,
@@ -358,6 +378,7 @@
     480,
     270
    ],
+   "scale": 4,
    "layers": [
     {
      "order": 0,
@@ -379,9 +400,9 @@
      "name": "janelinha_brilho",
      "file": "cena3_trancando/01_janelinha_brilho.png",
      "x": 238,
-     "y": 108,
-     "w": 72,
-     "h": 32,
+     "y": 178,
+     "w": 60,
+     "h": 16,
      "frames": 4,
      "fps": 3,
      "loop": true,
@@ -408,23 +429,23 @@
      "order": 3,
      "name": "ilves_costas",
      "file": "cena3_trancando/03_ilves_costas.png",
-     "x": 266,
-     "y": 135,
-     "w": 72,
-     "h": 120,
-     "frames": 12,
-     "fps": 6,
+     "x": 287,
+     "y": 193,
+     "w": 30,
+     "h": 60,
+     "frames": 6,
+     "fps": 4,
      "loop": true,
      "parallax": 1.0,
      "move": "",
-     "desc": "Ilves de costas com a mão na fechadura: loop de 12 q. (2 s), respiração e a cabeça pesando"
+     "desc": "Ilves de costas (30×60) com a mão na fechadura; respira (6 q.)"
     },
     {
      "order": 4,
      "name": "led_trava",
      "file": "cena3_trancando/04_led_trava.png",
-     "x": 323,
-     "y": 174,
+     "x": 311,
+     "y": 214,
      "w": 8,
      "h": 4,
      "frames": 6,
@@ -454,19 +475,20 @@
   {
    "id": "cena3b",
    "slug": "chave",
-   "title": "Insert: a chave girando",
-   "motion": "Câmera parada, bem perto. A mão gira a chave em 4 quadros (sem loop) e o LED vai pro vermelho com \"TRAVADO\". Segura 1 s no último quadro. Sem música, só o clique.",
-   "duration": "2 s",
+   "title": "Plano médio: a chave girando",
+   "motion": "Meia resolução (amplia ×8). Ilves de costas, corpo inteiro, gira a chave em 4 quadros (sem loop); o destaque é o painel: o LED vai de ABERTO (verde) pra TRAVADO (vermelho). Zoom lento na fechadura (1.0 → 1.5, ancorado no painel) e segura 1 s no último quadro. Sem música, só o clique.",
+   "duration": "3 s",
    "canvas": [
-    512,
-    288
+    256,
+    144
    ],
    "visible": [
-    16,
-    9,
-    480,
-    270
+    8,
+    4,
+    240,
+    135
    ],
+   "scale": 8,
    "layers": [
     {
      "order": 0,
@@ -474,44 +496,44 @@
      "file": "cena3b_chave/00_painel.png",
      "x": 0,
      "y": 0,
-     "w": 512,
-     "h": 288,
+     "w": 256,
+     "h": 144,
      "frames": 1,
      "fps": 0,
      "loop": true,
      "parallax": 1.0,
      "move": "",
-     "desc": "chapa da porta e o painel da fechadura, de perto"
+     "desc": "parede, a porta do LAB 2 e o painel grande da fechadura (meia resolução)"
     },
     {
      "order": 1,
      "name": "led_texto",
      "file": "cena3b_chave/01_led_texto.png",
-     "x": 230,
-     "y": 60,
-     "w": 130,
-     "h": 26,
-     "frames": 12,
-     "fps": 8,
+     "x": 129,
+     "y": 81,
+     "w": 64,
+     "h": 16,
+     "frames": 4,
+     "fps": 3,
      "loop": false,
      "parallax": 1.0,
      "move": "",
-     "desc": "ABERTO → ... → TRAVADO, sincronizado com o giro da chave (para no vermelho)"
+     "desc": "ABERTO → ... → TRAVADO, junto com o giro (para no vermelho)"
     },
     {
      "order": 2,
      "name": "mao_chave",
      "file": "cena3b_chave/02_mao_chave.png",
-     "x": 0,
-     "y": 0,
-     "w": 512,
-     "h": 288,
-     "frames": 12,
-     "fps": 8,
+     "x": 92,
+     "y": 80,
+     "w": 30,
+     "h": 60,
+     "frames": 4,
+     "fps": 3,
      "loop": false,
      "parallax": 1.0,
      "move": "",
-     "desc": "a mão gira a chave 45° em 12 q. (1,5 s): aperta, antecipa, acelera, desacelera e assenta; para no fim"
+     "desc": "Ilves de costas (30×60), o pulso gira a chave 90° em 4 q. (sem loop)"
     }
    ]
   },
@@ -531,6 +553,7 @@
     480,
     270
    ],
+   "scale": 4,
    "layers": [
     {
      "order": 0,
@@ -730,6 +753,7 @@
     480,
     270
    ],
+   "scale": 4,
    "layers": [
     {
      "order": 0,
@@ -1214,6 +1238,7 @@
     480,
     270
    ],
+   "scale": 4,
    "layers": [
     {
      "order": 0,
@@ -1309,6 +1334,7 @@
     480,
     270
    ],
+   "scale": 4,
    "layers": [
     {
      "order": 0,
@@ -1375,49 +1401,58 @@
  ],
  "character": [
   {
-   "name": "ilves_perfil",
-   "file": "personagem/ilves_perfil.png",
-   "anim": "personagem/ilves_perfil_anim.png",
-   "w": 64,
-   "h": 120,
-   "frames": 12,
-   "desc": "em pé de perfil (64×120, pé na linha 117): 12 q., respira no ombro, pisca nos q. 7-9"
-  },
-  {
    "name": "ilves_sentada_microscopio",
    "file": "personagem/ilves_sentada_microscopio.png",
    "anim": "personagem/ilves_sentada_microscopio_anim.png",
-   "w": 84,
-   "h": 96,
-   "frames": 12,
-   "desc": "sentada e curvada na ocular (84×96, chão na linha 93): 12 q., respiração, rosto chegando na ocular, mão girando o foco, coque/jaleco atrasando, piscada"
+   "w": 44,
+   "h": 48,
+   "frames": 8,
+   "desc": "sentada e curvada na ocular (44×48, chão na linha 47): 8 q., respira, gira o foco, rabo de cavalo atrasa, pisca no q. 6"
   },
   {
-   "name": "ilves_costas_fechadura",
-   "file": "personagem/ilves_costas_fechadura.png",
-   "anim": "personagem/ilves_costas_fechadura_anim.png",
-   "w": 72,
-   "h": 120,
-   "frames": 12,
-   "desc": "de costas com a mão na fechadura (72×120, pé na linha 117): 12 q., respiração e a cabeça pesando"
+   "name": "ilves_susto",
+   "file": "personagem/ilves_susto.png",
+   "anim": "personagem/ilves_susto_anim.png",
+   "w": 44,
+   "h": 48,
+   "frames": 6,
+   "desc": "susto (6 q., sem loop): tira o olho da ocular e levanta a cabeça; o rabo de cavalo chega depois"
   },
   {
-   "name": "ilves_busto",
-   "file": "personagem/ilves_busto.png",
-   "anim": "personagem/ilves_busto_anim.png",
-   "w": 200,
-   "h": 200,
-   "frames": 12,
-   "desc": "busto de perfil pros closes (200×200), concentrada: 12 q., respiração, micro-sacada, piscada nos q. 7-9"
+   "name": "ilves_costas",
+   "file": "personagem/ilves_costas.png",
+   "anim": "personagem/ilves_costas_anim.png",
+   "w": 30,
+   "h": 60,
+   "frames": 6,
+   "desc": "de costas, em pé (30×60, pé na linha 59), mão na fechadura: 6 q. respirando"
   },
   {
-   "name": "ilves_busto_reacao",
-   "file": "personagem/ilves_busto_reacao.png",
-   "anim": "personagem/ilves_busto_reacao_anim.png",
-   "w": 200,
-   "h": 200,
-   "frames": 10,
-   "desc": "busto · medo contido (10 q., sem loop): afasta da ocular, olhos abrem, sobrancelha sobe, boca entreabre"
+   "name": "ilves_costas_chave",
+   "file": "personagem/ilves_costas_chave.png",
+   "anim": "personagem/ilves_costas_chave_anim.png",
+   "w": 30,
+   "h": 60,
+   "frames": 4,
+   "desc": "de costas girando a chave (4 q., sem loop)"
+  },
+  {
+   "name": "ilves_retrato",
+   "file": "personagem/ilves_retrato.png",
+   "anim": "personagem/ilves_retrato_anim.png",
+   "w": 64,
+   "h": 64,
+   "frames": 8,
+   "desc": "retrato 3/4 64×64 (diálogo de RPG), concentrada: 8 q., respira, pisca nos q. 5-7"
+  },
+  {
+   "name": "ilves_retrato_medo",
+   "file": "personagem/ilves_retrato_medo.png",
+   "anim": "personagem/ilves_retrato_medo_anim.png",
+   "w": 64,
+   "h": 64,
+   "frames": 6,
+   "desc": "retrato · medo contido (6 q., sem loop): pisca de susto, arregala, recua, boca entreabre"
   }
  ]
 }
