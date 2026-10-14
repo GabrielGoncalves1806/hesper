@@ -49,9 +49,11 @@ Design em `docs/superpowers/specs/2026-10-13-v04-mundo-vivo-design.md`. Novo jog
 
 - [x] Marco 1: Tempestade (4 estágios: Tempestade → Árido → Névoa → Verde; poeira, rajadas com empurrão, O₂ ×1,25)
 - [x] Marco 2: geografia nova (relevo, 3 regiões, formações fixas com afloramentos, decoração que quebra a grade) + mundos com nome e seed (3 espaços)
-- [ ] Marco 3: elementos v9 das regiões, gelo (cratera congelada + gelos-portão), fumarolas do basalto acordando com o calor (esboço do dono em `reports/design/refs/fumarolas_esboco_dono.png`) e água (chuva, lagos enchendo as depressões, máquina submersa)
-- [ ] **Magmatita** (decisão do dono, bíblia §12): mineral quente que nasce escasso em volta das fumarolas e entra na receita do Aquecedor; gancho: drill nv.2 na fumarola
-- [ ] Marco 4: polimento + playtest do dono + **rodada de sons** (o dono achou o gelo da v11 meio "osso", estilo esqueleto do Minecraft; refatorar os sons depois) + **tela de créditos** se for publicar (o IR da reverb do gelo é CC BY 4.0) + **re-skin das máquinas** com o motor 3D da sessão experimental (`~/Desktop/hesper_sprites_experimento/gerador/r3d.py` + `machines3d.py`: família branco/laranja/metal com animação; a Designer porta pro `tools/sprites/` e o dono aprova o report antes)
+- [x] Marco 3: elementos v9 das regiões, cratera derretendo pelo calor, fumarolas acordando (com fumaça), gelos-portão em blocos (fresta, destroço rico, contêiner lacrado), chuva e lagos nas bacias (margem orgânica), máquina submersa, grama do Verde, sons v11 (gelo, chuva, fumarola), caixas azuis r3d
+- [x] Magmatita: pedra quente em volta das fumarolas (pouca na dormente, mais na acordada), receita do Aquecedor, objetivo "calor a oeste"
+- [x] Marco 4: máquinas do freela (sapata B, aquecedor de magmatita, drill T1 a laser, animações), minério do freela com rochas de veio e veio orgânico, cenário pausado pelo dono, contador de FPS (F5), Hesper.app, balanceamento final (cratera 1.000 pK, portões no meio/fim, lagos L1–L3, partida casual ~35 min)
+
+**v0.4 fechado em 2026-10-14.** Ficou pra depois (ver "Futuro"): rodada de sons e tela de créditos (o IR da reverb do gelo é CC BY 4.0), eólico no jogo (sprite pronto), drills T2/T3 (aranha e tripé guardados em `reports/design/maquinas_r3d/futuro/`), drill nv.2 na fumarola, formação nova pro basalto, papel do salar sem sal, lingotes/wafers redesenhados, marca de queimado no veio minerado.
 
 ## v0.5 · Fundo
 Biomas de caverna, mochila, broca nv.2 (perfuratriz térmica, que também minera a rocha dura dos anéis dos bolsões), peças raras (o contêiner lacrado do v0.4), elevador de carga (drones atendem a caverna). Ganchos: basalto → vulcão, espécie nativa nas cavernas.
