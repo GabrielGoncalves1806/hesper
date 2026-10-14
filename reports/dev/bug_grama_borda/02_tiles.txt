@@ -1,0 +1,19 @@
+seed 598929664 stage 4 mapa 256x256
+bloco (16,31) pixels x0=4096 y0=7904 w=256 h=296
+y=8136 owners={255: 256} transparentes=0/256
+y=8140 owners={255: 256} transparentes=0/256
+y=8144 owners={255: 256} transparentes=0/256
+y=8148 owners={255: 256} transparentes=0/256
+y=8152 owners={255: 256} transparentes=0/256
+y=8156 owners={255: 256} transparentes=0/256
+y=8160 owners={255: 256} transparentes=0/256
+y=8164 owners={255: 256} transparentes=0/256
+y=8168 owners={-1: 256} transparentes=256/256
+y=8172 owners={-1: 256} transparentes=256/256
+y=8176 owners={-1: 256} transparentes=256/256
+y=8180 owners={-1: 256} transparentes=256/256
+y=8184 owners={-1: 256} transparentes=256/256
+y=8188 owners={-1: 256} transparentes=256/256
+y=8192 owners={-1: 256} transparentes=256/256
+y=8196 owners={-1: 256} transparentes=256/256
+espessura do fundo por coluna: {5: 5, 2: 136, 3: 115}
