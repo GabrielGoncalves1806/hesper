@@ -148,7 +148,7 @@ def test_mist_damp_darkens_the_ground_by_the_designer_factors(geo, art):
     out = bake(geo, art, key)
     cover = out[2]
     share = ((cover & G.MIST_DAMP) > 0).mean()
-    assert 0.15 < share < 0.55, share
+    assert 0.10 < share < 0.55, share     # v0.5 M3.6.1: a faixa gelada maior mudou qual é o 1º bloco de planalto (0,13 vs 0,15+)
     plain = colorize(geo, art, key, (out[0], out[1], np.zeros_like(cover)), MIST).transpose(1, 0, 2)
     damp = colorize(geo, art, key, out, MIST).transpose(1, 0, 2)
     d = (cover & G.MIST_DAMP) > 0

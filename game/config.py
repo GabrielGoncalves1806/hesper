@@ -682,7 +682,7 @@ GEO_BASINS = (((-18, 18), 6.0), ((28, -26), 6.0), ((4, 46), 8.5))
 GEO_BASIN_JITTER = 4
 GEO_BASALT_X = (40, 48)             # basalto: x < ~44 (com ruído), alargando pro sudoeste a partir de y ~120...
 GEO_BASALT_Y = (40, 48)             # ...e y > ~44
-GEO_FROST_Y = (22, 26)              # faixa gelada: y < ~24 (com ruído) na borda norte
+GEO_FROST_Y = (38, 45)              # faixa gelada: y < ~41 (com ruído) na borda norte; no mapa 256 (×sy) a borda cai a ~50–60 tiles. v0.5 M3.6.1: era (22, 26), uns 29–35
 
 # Formações fixas (marcos). Pegada, âncora e região de cada uma vêm do regions_palettes.json da Designer.
 GEO_FORMATIONS = {"monolith": (2, 3), "arch": (1, 2), "salt_ridge": (0, 0), "basalt_spires": (2, 3), "cone": (1, 1)}

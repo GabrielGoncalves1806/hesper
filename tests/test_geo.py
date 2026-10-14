@@ -42,7 +42,21 @@ def test_base_in_plateau_and_all_regions_present(seed):
     ys, xs = np.nonzero(g.region == BASALT)
     assert xs.mean() < bx - 30
     ys, xs = np.nonzero(g.region == FROST)
-    assert ys.max() < 40 and ys.mean() < 20
+    assert ys.max() < 72 and ys.mean() < 38       # v0.5 M3.6.1: faixa gelada do dobro (era 40 e 20)
+
+
+@pytest.mark.parametrize("seed", (1, 7, 42, 99, 123, 598929664))
+def test_frost_band_reaches_the_new_depth(seed):
+    """v0.5 M3.6.1: a faixa gelada tem o dobro da altura: a borda dela (olhando a fatia do meio do mapa, onde o ruído
+    da borda não puxa pra um lado só) cai entre y ~45 e ~65, e o raio de planalto em volta da base segue seco e planalto."""
+    g = geo(seed)
+    bx, by = C.BASE_TILE
+    mid = g.region[:, bx - 28:bx + 28] == FROST
+    edge = int(np.nonzero(mid.mean(axis=1) > 0.5)[0].max())
+    assert 45 <= edge <= 65, edge
+    yy, xx = np.mgrid[0:g.region.shape[0], 0:g.region.shape[1]]
+    core = np.hypot(xx + 0.5 - bx, yy + 0.5 - by) < C.GEO_PLATEAU_CORE
+    assert (g.region[core] == PLATEAU).all() and (g.basin[core] < 0).all()
 
 
 def _components(mask: np.ndarray) -> list[set]:
