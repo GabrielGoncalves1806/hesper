@@ -177,7 +177,7 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 | `ore_iron.png` `ore_silicon.png` `ore_ice.png` | 32×32 | overlay transparente por cima da parede. **Freela, aprovado pelo dono** (minério bruto chunky: pepitas cor de cobre, lascas grossas de silício, cubos de gelo) |
 | `icon_iron.png` `icon_silicon.png` `icon_ice.png` | 16×16 | ícones do inventário/HUD. **Freela, aprovado pelo dono** |
 | `pickup_iron.png` `pickup_silicon.png` `pickup_ice.png` | 16×16 | **Freela, aprovado pelo dono** (arquivos copiados junto com o minério; continuam fora do jogo, como antes) |
-| `rock_small_{iron,silicon,ice}_{0,1}.png` | 32×32 | rocha com veio (minério bruto), 2 variações por minério. **Freela, aprovado pelo dono.** A variação sai por hash do tile; o Dev integra |
+| `rock_small_{iron,silicon,ice}_{0,1}.png` | 32×32 | rocha com veio (minério bruto), 2 variações por minério. **Freela, aprovado pelo dono.** A variação sai por hash do tile (`(tx·73856093 ^ ty·19349663) & 1`), sem o cristalzinho do `art.ore_fleck()`; sem o PNG cai no jeito antigo (rock_small + fleck). **Ligadas** na superfície e na caverna |
 | `{ore,icon,pickup,vein}_magmatite.png`, `rock_small_magmatite_{0,1}.png` | os mesmos tamanhos das outras famílias | **Magmatita** (bíblia §12): basalto escuro com lava só nas fissuras, no visual das pedras do aquecedor. O veio 64×64 tem a lava irradiando de uma poça central. **Aprovado pelo dono.** Tiras de 4 quadros com a lava pulsando em `anim/{ore,vein}_magmatite_anim.png` e `anim/rock_small_magmatite_{0,1}_anim.png` (opcionais, pensadas pra caverna) |
 | `pod.png` | 64×72 | cápsula/base. **Freela r3d v1.2, sapata B, aprovado pelo dono** |
 | `machine_o2.png` `machine_heater.png` `machine_melter.png` | até 40×56 | nível 1. **Freela r3d v1.2, sapata B, aprovado pelo dono** |
@@ -185,9 +185,9 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 | `terminal.png` | 32×32 | terminal de parede. **Freela r3d v1.2, sapata B, aprovado pelo dono** |
 | `vein_iron.png` `vein_silicon.png` `vein_ice.png` | 64×64 | veio 2×2 no chão. Overlay transparente que funciona sobre o chão dos 3 estágios. **Freela, aprovado pelo dono: veio orgânico** (placas achatadas e angulosas encravadas no chão, com pepitas por cima; é o `vein_linha_*` do freela, copiado sem o sufixo) |
 | `machine_drill.png` | 256×80 | drill automática: 4 quadros de 64×80 (broca girando), ocupa 2×2 tiles, ancorada no centro da base dos 2×2. **Freela r3d v1.2, sapata B, aprovado pelo dono.** `DRILL_FILL_RECT` novo = `(12, 54, 7, 10)` (o Dev aplica; o atual `(48, 47, 7, 12)` sai) |
-| `anim/anim_{machine_o2,machine_heater,machine_melter}{,_t2}.png` | 160×56 / 160×64 | tiras de animação das máquinas (4 quadros de 40 px, na horizontal). **Ainda não ligadas**: o jogo não usa; o Dev liga depois |
-| `anim/anim_solar_panel.png` `anim/anim_terminal.png` | 128×40 / 128×32 | tiras de animação (4 quadros). **Ainda não ligadas** |
-| `anim/anim_pod.png` `anim/anim_drone_station.png` | 256×72 | tiras de animação (4 quadros de 64 px). **Ainda não ligadas** |
+| `anim/anim_{machine_o2,machine_heater,machine_melter}{,_t2}.png` | 160×56 / 160×64 | tiras de animação das máquinas (4 quadros de 40 px, na horizontal). **Ligadas**: a máquina trabalhando anima a ~5 fps com fase por tile (hash); parada no quadro 0 se submersa ou sem energia nenhuma; no déficit anda mais devagar (× `power.factor`). Fantasma de colocar e ícones ficam no parado; sem a tira, usa o parado |
+| `anim/anim_solar_panel.png` `anim/anim_terminal.png` | 128×40 / 128×32 | tiras de animação (4 quadros). **Ligadas**: o painel solar anima sempre que está em pé (não há noite no jogo); o terminal anima sempre |
+| `anim/anim_pod.png` `anim/anim_drone_station.png` | 256×72 | tiras de animação (4 quadros de 64 px). **Ligadas**: a cápsula anima sempre; a estação anima só com drone dentro (e energia) |
 | `icon_drill.png` | 16×16 | ícone (estoque de máquinas e fabricador) |
 | `plant_bush.png` `plant_tree.png` `plant_flower.png` | até 32×40 | estágio verde |
 

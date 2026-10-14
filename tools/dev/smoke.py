@@ -3678,6 +3678,68 @@ def check_gates(bot) -> None:
     bot.frames(0.2)
 
 
+def check_machine_anim(bot) -> None:
+    """Máquinas ligadas perto da base em 4 momentos (0,2 s = 1 quadro a 5 fps): print maquinas_animadas.png.
+    As máquinas têm fase própria (hash do tile), então não piscam em sincronia."""
+    from game import drones
+    from game.systems import Machine
+    s, app = bot.state, bot.app
+    old = s.machines
+    bx, by = C.BASE_TILE
+    row1 = [("o2", -6), ("o2_t2", -4), ("heater", -2), ("heater_t2", 0), ("melter", 2), ("melter_t2", 4)]
+    ms = [Machine(kind, bx + dx, by + 3) for kind, dx in row1]
+    ms += [Machine("solar", bx - 6, by + 6), Machine("solar", bx - 4, by + 6), Machine("solar", bx - 2, by + 6)]
+    station = Machine("drone_station", bx + 1, by + 6)
+    station.station = drones.new_station(station, 2)
+    ms.append(station)
+    s.machines = ms
+    set_weather(s, 0.0)
+    bot.teleport((bx, by + 5))
+    bot.frames(0.3)
+    crops = []
+    for _ in range(4):
+        crop = pygame.Surface((560, 330))
+        crop.blit(app.frame, (0, 0), (150, 50, 560, 330))
+        crops.append(crop)
+        bot.frames(0.2)
+    sheet = pygame.Surface((560 * 2 + 4, 330 * 2 + 4))
+    sheet.fill((255, 255, 255))
+    for i, c in enumerate(crops):
+        sheet.blit(c, ((i % 2) * 564, (i // 2) * 334))
+    pygame.image.save(sheet, str(OUT / "maquinas_animadas.png"))
+    print("  screenshot: reports/dev/maquinas_animadas.png  (4 capturas a cada 0,2 s)")
+    s.machines = old
+    bot.teleport((96, 97))
+    bot.frames(0.1)
+
+
+def check_rock_veins(bot) -> None:
+    """Rochas pequenas com veio: 2 variações por minério (hash do tile). Print rochas_veio.png."""
+    s, app = bot.state, bot.app
+    w = s.world
+    bx, by = C.BASE_TILE
+    tiles = [(C.SMALL_IRON, "iron"), (C.SMALL_SILICON, "silicon"), (C.SMALL_ICE, "ice")]
+    placed = []
+    for row, (kind, _) in enumerate(tiles):
+        for col in range(8):
+            tile = (bx - 4 + col, by + 4 + row * 2)
+            carve(s, [tile, (tile[0], tile[1] + 1)])
+            w.set(*tile, kind)
+            placed.append(tile)
+    bot.teleport((bx, by + 9))
+    bot.frames(0.3)
+    cx, cy = app.cam
+    z = app.zoom
+    x0, y0 = round(((bx - 5) * C.TILE - cx) * z), round(((by + 3) * C.TILE - cy) * z)
+    crop = app.frame.subsurface((x0, y0, round(10 * C.TILE * z), round(7 * C.TILE * z))).copy()
+    pygame.image.save(pygame.transform.scale_by(crop, 3), str(OUT / "rochas_veio.png"))
+    print("  screenshot: reports/dev/rochas_veio.png  (ferro, silício, gelo; 8 tiles cada)")
+    for tile in placed:
+        w.set(*tile, C.SAND)
+    bot.teleport((96, 97))
+    bot.frames(0.1)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     bot = Bot()
@@ -3702,6 +3764,8 @@ def main() -> None:
     check_wrecks(bot)
     check_storm(bot)
     check_veins(bot)
+    check_machine_anim(bot)
+    check_rock_veins(bot)
 
     print("2) mineração")
     ore = find_ore_with_floor_below(s)
