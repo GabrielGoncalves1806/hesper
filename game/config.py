@@ -702,6 +702,16 @@ GROUND_PREFETCH_PX = 320         # assa antes os blocos até essa distância da 
 GROUND_DECAL_MARGIN = 128        # px: um decalque pode invadir o bloco vizinho até aqui (o maior tem 224×96)
 GROUND_BASE_CLEAR = 6            # tiles: sem decalque nem decoração solta em volta da base
 GROUND_DECOR_P = 0.035           # chance de decoração solta (lasca, cristal, gelo) por tile de basalto/salar/gelo
+# Cobertura do estágio por cima do chão assado (v0.4 Marco 3 · porte do `Scene.cover_layer` da Designer · bíblia §11)
+GROUND_COVER_CELL = 5.0          # tiles: tamanho da célula do ruído das manchas (fbm de 3 oitavas, domínio deformado)
+GROUND_COVER_SEED = 313          # seed do ruído das manchas (soma a seed do mundo)
+GROUND_GRASS_THR = (0.47, 0.70, 0.58, 0.48, 0.40)   # limiar da grama por classe: planalto, salar, basalto, gelada, leito
+GROUND_GRASS_NEAR = 0.12         # perto da bacia o limiar cai isso (mais grama na beira)
+GROUND_MIST_THR = 0.56           # Névoa: acima disso o chão fica úmido
+GROUND_MIST_DAMP = (0.80, 0.84, 0.90)   # Névoa: multiplicador RGB do chão úmido
+GROUND_MIST_EDGE = 0.90          # Névoa: a borda de cima da mancha escurece mais isso
+GROUND_GRASS = ("#2f5a2a", "#3f6e30", "#4d7a39", "#5f9442", "#79b04f", "#9ccc62")   # rampa da grama (0 sem uso)
+GROUND_MOSS = ("#22331f", "#2c4127", "#38502e", "#466338", "#5c7d45", "#75985a")    # rampa do musgo (basalto)
 
 # ---------------------------------------------------------------------------
 # Morros orgânicos da superfície (v0.4 Marco 2 · trilha C · bíblia §11): game/hills.py. A caverna fica igual.

@@ -51,18 +51,18 @@ def test_indexed_png_keeps_the_index(art):
 
 def test_bake_is_deterministic_and_strip_size_does_not_matter(geo, art, monkeypatch):
     key = block_with(geo, PLATEAU, SALAR)
-    code, wt = bake(geo, art, key)
-    code2, wt2 = bake(geo, art, key)
+    code, wt, _ = bake(geo, art, key)
+    code2, wt2, _ = bake(geo, art, key)
     assert np.array_equal(code, code2) and np.array_equal(wt, wt2)
     monkeypatch.setattr(C, "GROUND_BAKE_ROWS", 64)
-    code3, _ = bake(geo, art, key)
+    code3, _, _ = bake(geo, art, key)
     assert np.array_equal(code, code3)
 
 
 def test_region_border_follows_region_px(geo, art):
     """A classe de cada pixel é a do geo.region_px (borda orgânica), não a do tile."""
     bx, by = key = block_with(geo, PLATEAU, SALAR)
-    code, _ = bake(geo, art, key)
+    code, _, _ = bake(geo, art, key)
     cls = code // 16
     ys, xs = np.mgrid[by * BP:(by + 1) * BP, bx * BP:(bx + 1) * BP]
     want = geo.region_px(xs, ys)
@@ -77,7 +77,7 @@ def test_bed_and_water_marks_inside_basins(geo, art):
     ys, xs = np.nonzero((geo.basin >= 0) & (geo.region == PLATEAU))
     tx, ty = int(xs[0]), int(ys[0])
     key = (tx // G.BT, ty // G.BT)
-    code, _ = bake(geo, art, key)
+    code, _, _ = bake(geo, art, key)
     cls = code // 16
     assert (cls == G.BED).any(), "planalto em bacia devia virar leito seco"
     assert ((code == G.PALE) | (code == G.PALE2)).any(), "devia ter marca d'água seca"

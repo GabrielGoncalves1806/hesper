@@ -66,6 +66,9 @@ PALE, PALE2 = FIXED * 16, FIXED * 16 + 1
 FIXED_COLORS = {PALE: (0xDC, 0xD0, 0xBB), PALE2: (0xC4, 0xB5, 0x9C)}
 OUTLINE = (0x1B, 0x16, 0x30)
 NEW = 128                             # código + 128 = o mesmo pixel no estágio novo (transição)
+COVER_BASE = 81                       # códigos 82..92 = cores da cobertura do Verde (grama 1..5, musgo 7..11)
+COVER_STEP = 4                        # o ruído das manchas é calculado a cada 4 px e interpolado
+MIST_DAMP, MIST_EDGE = 16, 32         # bits do mapa de cobertura: mancha de umidade da Névoa e a borda dela
 WT_SIDE = BT + 2                      # tile local do warp: -1..16 -> 0..17
 PAD = 2                               # px a mais em volta de cada faixa (bordas e anéis olham o vizinho)
 DECOR = {BASALT: "shards", SALAR: "salt_crystals", FROST: "ice_chunks"}   # decoração solta por região
@@ -250,6 +253,10 @@ class RegionArt:
             out[c * 16:c * 16 + len(cols)] = cols
         for code, col in FIXED_COLORS.items():
             out[code] = col
+        if stage == "green":                           # cobertura: grama (1..5) e musgo do basalto (7..11)
+            for i in range(1, 6):
+                out[COVER_BASE + i] = _hex(C.GROUND_GRASS[i])
+                out[COVER_BASE + 6 + i] = _hex(C.GROUND_MOSS[i])
         return out
 
 
@@ -266,7 +273,7 @@ def _sh(a, dy, dx, fill):
 
 
 def bake_strip(geo, art: RegionArt, bx: int, by: int, y0: int, y1: int, depth=None):
-    """Códigos (y1-y0, 512) e o tile local do warp (pra transição) das linhas y0..y1 do bloco (bx, by)."""
+    """Códigos (y1-y0, 512), o tile local do warp (pra transição) e o mapa de cobertura das linhas y0..y1 do bloco."""
     H, W = geo.region.shape
     ox, oy = bx * BP, by * BP
     ys, xs = np.mgrid[oy + y0 - PAD:oy + y1 + PAD, ox - PAD:ox + BP + PAD]
@@ -306,7 +313,118 @@ def bake_strip(geo, art: RegionArt, bx: int, by: int, y0: int, y1: int, depth=No
     code = np.where(m != 255, m, code)
     wt = (np.clip(tj[crop] - by * BT + 1, 0, WT_SIDE - 1) * WT_SIDE
           + np.clip(ti[crop] - bx * BT + 1, 0, WT_SIDE - 1)).astype(np.uint16)
-    return code, wt[::2, ::2]
+    cover = cover_strip(geo, depth if depth is not None else depth_field(geo.basin), xs, ys, cls, d)[crop]
+    return code, wt[::2, ::2], cover
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Cobertura do estágio (porte do `Scene.cover_layer` da Designer): umidade na Névoa, grama/musgo no Verde
+# ---------------------------------------------------------------------------------------------------------------
+# O chão assado não tem cor nem estágio, então a cobertura é assada num MAPA À PARTE (1 byte por pixel), igual em
+# todos os estágios: bits 0..3 = a grama (0 nada, 1..5 = índice da rampa, +6 no musgo do basalto), bit 4 = mancha de
+# umidade da Névoa, bit 5 = a borda de cima dela. Quem decide o que aparece é o `_colorize`, pelo estágio de cada pixel.
+_TN: list = []
+
+
+def _pvnoise(xs, ys, cell: float, seed: int, period: int) -> np.ndarray:
+    """Value noise que emenda a cada `period` células (o `vnoise` da Designer com `period`)."""
+    fx, fy = np.asarray(xs, float) / cell, np.asarray(ys, float) / cell
+    ix, iy = np.floor(fx).astype(np.int64), np.floor(fy).astype(np.int64)
+    tx, ty = _smooth(fx - ix), _smooth(fy - iy)
+    a, b = hash2(ix % period, iy % period, seed), hash2((ix + 1) % period, iy % period, seed)
+    c, d = hash2(ix % period, (iy + 1) % period, seed), hash2((ix + 1) % period, (iy + 1) % period, seed)
+    return a + (b - a) * tx + (c - a) * ty + (a - b - c + d) * tx * ty
+
+
+def _pfbm(xs, ys, cell: float, seed: int, octaves: int, period: int) -> np.ndarray:
+    tot, amp, norm = 0.0, 1.0, 0.0
+    for o in range(octaves):
+        tot = tot + amp * _pvnoise(xs, ys, cell / (2 ** o), seed + 101 * o, period * (2 ** o))
+        norm += amp
+        amp *= 0.5
+    return tot / norm
+
+
+def grass_levels() -> np.ndarray:
+    """Tabela 256×256 (que emenda) do nível da grama 1..4: o `R.organic(x % 256, y % 256, 256, 16, 333)` da Designer."""
+    if not _TN:
+        p, cells, seed = 256, 16, 333
+        ys, xs = np.mgrid[0:p, 0:p]
+        warp = p / cells * 0.9
+        wx = (xs + warp * (_pfbm(xs, ys, p / (cells * 2), seed + 31, 2, cells * 2) - 0.5)) % p
+        wy = (ys + warp * (_pfbm(xs, ys, p / (cells * 2), seed + 37, 2, cells * 2) - 0.5)) % p
+        tn = _pfbm(wx, wy, p / cells, seed, 3, cells)
+        _TN.append(np.clip((tn * 5).astype(np.int64), 1, 4).astype(np.uint8))
+    return _TN[0]
+
+
+def near_basin(geo, depth: np.ndarray, x0: int, y0: int, h: int, w: int):
+    """Máscara (h, w) dos px de mundo [x0, x0+w) × [y0, y0+h) que estão a até ~14 px da bacia (a água do Verde, o
+    nível máximo L3 = `d > 0.5`), ou None se não tem bacia por perto. A Designer dilata a água com 4 deslocamentos
+    (2, 5, 9, 14 px) nas 4 direções; aqui é a mesma ideia a cada 2 px (1, 2, 4, 7 amostras = 2, 4, 8, 14 px).
+    Usa a BACIA, não o `water_level`: a cobertura não depende de o lago já ter subido e nada é reassado quando sobe."""
+    H, W = geo.basin.shape
+    m = 16 + C.GEO_WARP + 2
+    ty0, ty1 = max(0, (y0 - m) // T), min(H - 1, (y0 + h + m) // T)
+    tx0, tx1 = max(0, (x0 - m) // T), min(W - 1, (x0 + w + m) // T)
+    if not (geo.basin[ty0:ty1 + 1, tx0:tx1 + 1] >= 0).any():
+        return None
+    pad = 16
+    cy, cx = np.mgrid[y0 - pad:y0 + h + pad + 1:2, x0 - pad:x0 + w + pad + 1:2]
+    dx, dy = geo.warp(cx, cy)
+    d = smooth_sample(depth, (cx + dx) / T - 0.5, (cy + dy) / T - 0.5)
+    wet = d > 0.5
+    near = np.zeros_like(wet)
+    for k in (1, 2, 4, 7):
+        near |= _sh(wet, k, 0, False) | _sh(wet, -k, 0, False) | _sh(wet, 0, k, False) | _sh(wet, 0, -k, False)
+    near = near[pad // 2:pad // 2 + h // 2, pad // 2:pad // 2 + w // 2]
+    return np.repeat(np.repeat(near, 2, 0), 2, 1)
+
+
+def _upn(a: np.ndarray, k: int) -> np.ndarray:
+    """Amostras a cada k px ((h/k+1)×(w/k+1)) -> grade cheia h×w, bilinear."""
+    h, w = (a.shape[0] - 1) * k, (a.shape[1] - 1) * k
+    fy, fx = np.arange(h) / k, np.arange(w) / k
+    i, j = fy.astype(np.int64), fx.astype(np.int64)
+    ty, tx = (fy - i)[:, None], (fx - j)[None, :]
+    i1, j1 = np.minimum(i + 1, a.shape[0] - 1), np.minimum(j + 1, a.shape[1] - 1)
+    top = a[i][:, j] * (1 - tx) + a[i][:, j1] * tx
+    bot = a[i1][:, j] * (1 - tx) + a[i1][:, j1] * tx
+    return top * (1 - ty) + bot * ty
+
+
+def cover_strip(geo, depth: np.ndarray, xs: np.ndarray, ys: np.ndarray, cls: np.ndarray, d: np.ndarray) -> np.ndarray:
+    """Mapa de cobertura (uint8, ver acima) dos px `xs`/`ys` (mgrid com PAD em volta, começa em px par, lados pares),
+    com `cls` a classe de cada px e `d` a profundidade de bacia suavizada (as mesmas do `bake_strip`).
+
+    Porte do `Scene.cover_layer`: o ruído n é um fbm (célula de 5 tiles) com o domínio deformado por OUTRO warp
+    (as coordenadas deslocadas de +3000/+1700, como a Designer), calculado a cada 4 px e interpolado (as feições têm 40 px ou mais)."""
+    salt = seed_salt(geo.seed)
+    h, w = xs.shape
+    x0, y0 = int(xs[0, 0]), int(ys[0, 0])
+    cy, cx = np.mgrid[y0:y0 + h + 1:COVER_STEP, x0:x0 + w + 1:COVER_STEP]
+    dx, dy = geo.warp(cx + 3000, cy + 1700)
+    n = _upn(geo_mod.fbm((cx + dx) / T, (cy + dy) / T, C.GROUND_COVER_CELL, C.GROUND_COVER_SEED + salt, 3), COVER_STEP)
+    # Verde: grama em manchas; o limiar depende da classe e cai perto da bacia; nunca na água (a bacia inteira)
+    thr = np.array(C.GROUND_GRASS_THR)[cls]
+    near = near_basin(geo, depth, x0, y0, h, w)
+    if near is not None:
+        thr = np.where(near, thr - C.GROUND_GRASS_NEAR, thr)
+    g = (n > thr) & (d <= 0.5)
+    edge = g & ~(_sh(g, 1, 0, True) & _sh(g, -1, 0, True) & _sh(g, 0, 1, True) & _sh(g, 0, -1, True))
+    cand = _sh(edge, 1, 0, False) & ~g                                           # folhinhas de 1×2 px saindo da borda
+    tuft = np.zeros_like(g)
+    tuft[cand] = hash2(xs[cand], ys[cand], 337 + salt) < 0.35
+    lvl = grass_levels()[ys % 256, xs % 256]
+    blade = np.zeros_like(g)
+    blade[g] = hash2(xs[g], ys[g] // 2, 335 + salt) < 0.05
+    idx = np.where(edge, 1, np.where(blade, 5, lvl)).astype(np.uint8)
+    grass = np.where(g, idx, np.where(tuft, 3, 0)).astype(np.uint8)
+    grass[(grass > 0) & (cls == BASALT)] += 6                                    # no basalto é musgo
+    # Névoa: mancha de umidade (fora da água do nível L2) e a borda de cima dela
+    m = (n > C.GROUND_MIST_THR) & (d <= 1.5)
+    top = m & ~_sh(m, 1, 0, True)
+    return (grass + m * MIST_DAMP + top * MIST_EDGE).astype(np.uint8)
 
 
 def decal_skip_tiles(geo) -> set[tuple[int, int]]:
@@ -429,18 +547,20 @@ def paste_decals(code: np.ndarray, decals, bx: int, by: int) -> None:
 
 
 def bake_block_codes(geo, art: RegionArt, bx: int, by: int, ctx=None):
-    """Gerador: assa o bloco faixa por faixa (cada `next` faz uma) e no fim devolve (código, warp). Puro numpy."""
+    """Gerador: assa o bloco faixa por faixa (cada `next` faz uma) e no fim devolve (código, warp, cobertura)."""
     ctx = ctx or BakeContext(geo)
     code = np.zeros((BP, BP), np.uint8)
     wt = np.zeros((BP // 2, BP // 2), np.uint16)
+    cover = np.zeros((BP, BP), np.uint8)
     rows = C.GROUND_BAKE_ROWS
     for y0 in range(0, BP, rows):
-        c, w = bake_strip(geo, art, bx, by, y0, y0 + rows, ctx.depth)
+        c, w, cv = bake_strip(geo, art, bx, by, y0, y0 + rows, ctx.depth)
         code[y0:y0 + rows] = c
         wt[y0 // 2:(y0 + rows) // 2] = w
+        cover[y0:y0 + rows] = cv
         yield None
     paste_decals(code, decals_for_block(geo, art, bx, by, ctx.tcls, ctx.skip), bx, by)
-    yield code, wt
+    yield code, wt, cover
 
 
 class BakeContext:
@@ -544,7 +664,7 @@ class Ground:
         self._art: RegionArt | None = None
         self._geo = None
         self.ctx: BakeContext | None = None
-        self._index: OrderedDict = OrderedDict()   # (bx, by) -> (código, warp)    (o caro, sem estágio)
+        self._index: OrderedDict = OrderedDict()   # (bx, by) -> (código, warp, cobertura)    (o caro, sem estágio)
         self._color: dict = {}                      # (bx, by) -> (variante, Surface opaca)
         self._jobs: dict = {}                       # (bx, by) -> gerador do assado em andamento
         self._grid_memo: dict = {}                  # estágios dos tiles de um bloco na transição
@@ -644,22 +764,45 @@ class Ground:
                 return False
 
     def _colorize(self, key, want) -> pygame.Surface:
-        code, wt = self._index[key]
+        code, wt, cover = self._index[key]
+        gc = cover & 15
         if want[0] == "u":
-            pal = self.lut(stage_key(want[1]))
-            codes = code
+            keys = (stage_key(want[1]),)
+            pal = self.lut(keys[0])
             pal = np.concatenate([pal, pal])
+            codes, newer = code, None
+            green = (keys[0] == "green") or None
+            mist = (keys[0] == "mist") or None
         else:
             _, lo, hi, grid = want
+            keys = (stage_key(lo), stage_key(hi))
             g = np.frombuffer(grid, np.uint8)
             newer = np.repeat(np.repeat((g[wt] != lo).astype(np.uint8), 2, 0), 2, 1)
             codes = code | (newer << 7)
-            pal = np.concatenate([self.lut(stage_key(lo)), self.lut(stage_key(hi))])
-        surf8 = pygame.Surface((BP, BP), 0, 8)
-        surf8.set_palette([tuple(int(v) for v in c) for c in pal])
-        pygame.surfarray.blit_array(surf8, codes.T)
-        out = opaque((BP, BP))
-        out.blit(surf8, (0, 0))
+            pal = np.concatenate([self.lut(keys[0]), self.lut(keys[1])])
+            nb = newer.astype(bool)
+            green = nb if keys[1] == "green" else (~nb if keys[0] == "green" else None)
+            mist = nb if keys[1] == "mist" else (~nb if keys[0] == "mist" else None)
+        if green is not None:                       # grama: códigos próprios da paleta do Verde
+            sel = (gc > 0) if green is True else ((gc > 0) & green)
+            cov_code = COVER_BASE + gc
+            if newer is not None:
+                cov_code = cov_code | (newer << 7)
+            codes = np.where(sel, cov_code, codes).astype(np.uint8)
+        if mist is None:
+            surf8 = pygame.Surface((BP, BP), 0, 8)
+            surf8.set_palette([tuple(int(v) for v in c) for c in pal])
+            pygame.surfarray.blit_array(surf8, codes.T)
+            out = opaque((BP, BP))
+            out.blit(surf8, (0, 0))
+        else:                                       # umidade da Névoa: escurece a cor que já está no pixel
+            rgb = pal[codes]
+            damp = ((cover & MIST_DAMP) > 0) & mist
+            rgb[damp] = (rgb[damp].astype(int) * np.array(C.GROUND_MIST_DAMP)).astype(np.uint8)
+            top = ((cover & MIST_EDGE) > 0) & mist
+            rgb[top] = (rgb[top] * C.GROUND_MIST_EDGE).astype(np.uint8)
+            out = opaque((BP, BP))
+            pygame.surfarray.blit_array(out, rgb.transpose(1, 0, 2))
         self._color[key] = (want, out)
         return out
 
