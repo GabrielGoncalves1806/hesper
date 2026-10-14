@@ -78,7 +78,7 @@ Referência obrigatória: `reports/mockups/mockups.html` (abre no navegador).
 | Zoom do mundo | + / - (ou = e o teclado numérico) · Ctrl+rodinha (Cmd no Mac) · níveis 0,75× · 1× · 1,5× · 2× (padrão 1×). Só o mundo aproxima: HUD e menus ficam do mesmo tamanho |
 | Tela cheia | F11 ou Alt+Enter · também em Pausa > Opções. Usa a resolução do monitor mantendo 16:9 (tarja preta se sobrar) |
 | Tamanho da interface | Pausa > Opções > **Interface: Grande / Média / Pequena** (padrão **Média**, salvo em `settings.json`). Muda só HUD, menus, inventários, fabricador, título, terminal, avisos e tooltips; o mundo continua no zoom escolhido. Grande = a UI de sempre (480×270 esticada pra tela); Média ≈ 75% disso; Pequena ≈ 50%. Em Média/Pequena a escala é inteira (letra pixel art limpa) e nunca menor que 1 px de imagem por px de tela: em 1920×1080 dá 4 / 3 / 2 px por px da UI; numa janela de 960×540 os três ficam iguais. Os painéis se ancoram nos cantos/centro. Textos presos no mundo (+15 FERRO, nome do baú) acompanham o mundo na posição e a interface no tamanho da letra |
-| Debug (dev) | F1 acelera o tempo ×10 · F2 +10.000 Ti · F3 liga/desliga o modo rápido: player ×2 e broca ×5 (`DEBUG_SPEED`/`DEBUG_MINE`). F1 e F3 mostram "DEBUG · ..." no topo da tela |
+| Debug (dev) | F1 acelera o tempo ×10 · F2 +10.000 Ti · F3 liga/desliga o modo rápido: player ×2 e broca ×5 (`DEBUG_SPEED`/`DEBUG_MINE`) e, a partir do v0.5 M3, mapa e minimapa inteiros sem explorar (ainda pedem o scanner; só exibe, não grava como explorado). F1 e F3 mostram "DEBUG · ..." no topo da tela |
 
 ### Mineração
 | Tile | Tempo pra quebrar | Drop |
@@ -723,7 +723,7 @@ Design completo em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-desig
 - **Mochila**: equipamento, +1 linha de slots.
 - **Base respirável**: chão, parede e porta; base fechada (≥ 9 tiles de chão, ≥ 1 porta) com **Dispersor de O₂** dentro, gastando **cápsula de água** (sai do derretedor).
 - Itens novos (lingote de ferro, cápsula de água, wafer, circuito, chip, fios, diagrama); fora a cápsula, só loot no v0.5.
-- Mapa ~256, faixa gelada, cratera orgânica, criatura no gelo gigante (Larva em C ou Casulo por mapa), broca de mão nv.1/nv.2.
+- Mapa **256×256** (save v10, novo jogo obrigatório), faixa gelada como região de verdade (chão de neve azul, minério de gelo facetado, veio de gelo só no gelo), blocos orgânicos dentro da cratera (motor dos morros), fumarola garantida perto da cápsula, criatura no gelo gigante (Larva em C ou Casulo, sorteado pela seed), broca de mão nv.1/nv.2.
 
 ### Marco 2 · Base respirável (`game/base.py`, `game/systems.py`; números provisórios no bloco `BASE_*` / `DISPENSER_*` do `game/config.py`)
 - **Blocos do construtor** (aba "Base" do menu, receitas baratas em `BASE_COST`): `base_floor` (chão, 1 ferro), `base_wall`, `base_door` (solo) e `base_door2` (dupla: **1 item que ocupa 2 tiles**, o R gira h ↔ v, a âncora é a metade de oeste/norte; desmontar qualquer metade tira as duas e devolve 1 receita). Moram no `Layer.base` (`BaseGrid`), não na lista de máquinas; 1 bloco por tile. Constroem na hora (sem scanner), e desmontar segue o fluxo do M1 (segurar o botão direito 2 s, devolve a receita; a máquina em cima do chão tem prioridade no mouse).

@@ -20,9 +20,9 @@ Hoje o ciclo é minerar, fabricar, colocar e esperar o número, e explorar dá r
 | Dispersor de O₂ | **Obrigatório** pra base respirar. Gasta **cápsula de água** devagar |
 | Cápsula de água | Sai do **Derretedor**, que ganha inventário (entra gelo, sai cápsula). Drones só **tiram** as cápsulas prontas (opção A); abastecer máquina fica pro v0.6 |
 | Itens novos | Lingote de ferro, cápsula de água, wafer de silício, circuito, chip, fios, diagrama. Fora a cápsula, no v0.5 são **só loot** (destroços, gelos-portão, contêiner lacrado) |
-| Mapa | 192 → **~256 tiles**, faixa gelada como região de verdade, fumarola (magmatita) a uma distância razoável da cápsula |
-| Cratera | Blocos mineráveis orgânicos, como os da superfície |
-| Criatura no gelo | Teaser sem interação num canto da faixa gelada. **Mesma criatura**, sprite muda por mapa: **Larva em C** ou **Casulo** (as duas aprovadas, `reports/design/gelo_gigante/`) |
+| Mapa | 192 → **256 tiles** (512 fica pra depois), faixa gelada como região de verdade com arte de neve, veio de gelo só no gelo, fumarola (magmatita) a uma distância razoável da cápsula |
+| Cratera | Blocos mineráveis dentro da cratera com forma orgânica, pelo motor dos morros da superfície |
+| Criatura no gelo | Teaser sem interação num canto da faixa gelada. **Mesma criatura**, sprite sorteado pela seed: **Larva em C** ou **Casulo** (as duas aprovadas, `reports/design/gelo_gigante/`) |
 | Broca de mão | Item da hotbar com nível: **nv.1** (a mineração de hoje) e **nv.2** (fura o anel de `BEDROCK` dos bolsões) |
 
 Pro v0.6 ("logística e fundo"): **chip num slot** de baú/máquina deixa ela visível pros drones e libera o menu "Drone" nela; drones abastecendo máquinas; elevador de carga; biomas de caverna; ganchos do vulcão e da espécie nativa. Futuro: fornalha (magmatita como combustível → lingote), cobre → fios.
@@ -66,9 +66,26 @@ Pro v0.6 ("logística e fundo"): **chip num slot** de baú/máquina deixa ela vi
 
 ### Marco 3 · Mundo
 
-- Mapa ~256×256, faixa gelada como região de verdade, cratera com blocos orgânicos, garantia de fumarola a uma distância máxima da cápsula.
-- Gelo gigante com a criatura (contrato em `reports/design/gelo_gigante/pendentes/`): pegada 7×4, rampa `ICE_DEEP`, geada; sprite Larva em C ou Casulo sorteado pela seed (ou pelo tipo de mundo, a decidir no plano).
-- Novo jogo obrigatório (save novo).
+Decisões do dono (2026-10-14). Cada item abaixo é **uma tarefa, soltas uma por vez**, na ordem:
+
+1. **Mapa 256 + F3 revela o mapa** (Dev)
+   - Superfície de **192 → 256×256** (`SURFACE_W/H`). O 512 foi avaliado e **fica pra depois**, quando houver conteúdo pra encher (hoje o conteúdo mora perto da base e o mapa ficaria vazio; tem loops em Python puro varrendo o mapa todo).
+   - Código pronto pra crescer de novo: nenhum `192` cravado. O que depende do tamanho é derivado dele (ex.: `TRANSITION_FRONT_FAR`, pra mancha chegar nas bordas). As distâncias a partir da base continuam absolutas, de propósito: cresce a borda, não o miolo.
+   - **Save v10, novo jogo obrigatório** (a mesma seed gera outro mundo). Save v9 não carrega: aviso de save antigo + backup, como nas versões anteriores.
+   - **F3** (modo rápido de debug) passa a mostrar o **mapa e o minimapa inteiros, sem precisar explorar**. Continua dependendo do scanner (o M só abre com ele). Só exibe: não grava nada como explorado, então desligar o F3 volta a névoa como estava.
+2. **Arte da faixa gelada** (Designer, report pro dono aprovar)
+   - Chão **azul-neve**, não cinza; **sem rachaduras** (sai o `decal_icepoly`, entra coisa de neve: montinhos, sastrugi, brilho); **mais variações** de chão.
+   - **Minério de gelo** com a **mesma silhueta** de hoje, mas **facetado como cristal de gelo** (hoje parece prata).
+3. **Faixa gelada como região de verdade** (Dev, depois da arte aprovada)
+   - Região maior e marcada no mapa 256, com a arte nova integrada.
+   - **Veio de gelo (2×2, da drill) só nasce na faixa gelada.** Ferro e silício continuam como hoje.
+4. **Cratera orgânica** (Dev)
+   - Os **blocos mineráveis dentro da cratera** (caverna) ganham o formato orgânico dos morros da superfície, **reaproveitando o motor dos morros** (`game/hills.py`). Sem arte nova.
+5. **Fumarola garantida** (Dev)
+   - Toda seed tem pelo menos uma fumarola (magmatita) a no máximo X tiles da cápsula. X provisório, fica pro balanceamento.
+6. **Gelo gigante com a criatura** (Dev)
+   - Contrato em `reports/design/gelo_gigante/pendentes/`: pegada 7×4, rampa `ICE_DEEP`, geada. Teaser sem interação, num canto da faixa gelada.
+   - Sprite **Larva em C ou Casulo, sorteado pela seed** (mesma seed, mesma criatura). Não existe "tipo de mundo" no jogo; se um dia existir, a criatura passa a seguir ele.
 
 ### Marco 4 · Expedição e loot
 
