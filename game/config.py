@@ -708,9 +708,10 @@ POCKET_WALL = 2                     # espessura do anel de rocha
 POCKET_SPACING = 26                 # tiles entre os centros de dois bolsões
 
 # v0.5 M3.6.2: bolsão grande da criatura (1 por mundo, lugar sorteado pela seed dentro da faixa gelada). Anel de BEDROCK
-# de POCKET_WALL tiles, interior GIANT_POCKET_SIZE com o gelo gigante (pegada 7×3) no meio e 4 tiles de corredor em cada
-# lado, e uma entrada GIANT_ENTRY_W de largura no muro de baixo (virada pra fora da cordilheira do norte), aberta até a 6.3.
-GIANT_POCKET_SIZE = (15, 11)        # interior (largura, altura) em tiles
+# de POCKET_WALL tiles, de forma orgânica (como os morros) em volta de um interior de até GIANT_POCKET_SIZE com o gelo
+# gigante (pegada 7×3) no meio e >= 3 tiles de corredor em volta, e uma entrada GIANT_ENTRY_W de largura reta no fundo
+# (virada pra fora da cordilheira do norte), aberta até a 6.3.
+GIANT_POCKET_SIZE = (17, 13)        # caixa do interior (a forma orgânica cabe nela; o gelo + 3 tiles de corredor sempre dentro)
 GIANT_ENTRY_W = 8                   # largura da entrada no muro de baixo (onde o portão grande entra na 6.3)
 GIANT_APRON = (4, 2)                # folga livre na frente da entrada: (linhas, colunas de cada lado)
 GIANT_GAP = 3                       # tiles entre o bolsão grande e os outros bolsões / formações

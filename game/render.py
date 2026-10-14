@@ -368,7 +368,7 @@ class Renderer:
                 self.draw_ghost(canvas, cam, *ghost, t)
         else:
             self.draw_lighting(canvas, state, cam, stage, t)
-            self.draw_atmosphere(canvas, stage, t)
+            self.draw_atmosphere(canvas, stage, t, cam, getattr(state.active, "geo", None))
             self.draw_rain(canvas, state, t)
             self.draw_storm(canvas, state, cam, t)
         # 6. indicadores por cima da luz (no escuro da caverna eles têm que aparecer): barrinha das
@@ -2167,15 +2167,16 @@ class Renderer:
         return cached[1]
 
     # ---- clima por estágio ----------------------------------------------------
-    def draw_atmosphere(self, canvas, stage: str, t: float) -> None:
-        """Clima do estágio. Na transição, o do estágio atual vai saindo e o do próximo entrando."""
+    def draw_atmosphere(self, canvas, stage: str, t: float, cam=(0, 0), geo=None) -> None:
+        """Clima do estágio. Na transição, o do estágio atual vai saindo e o do próximo entrando. `cam` e `geo` servem
+        pras borboletas do Verde não voarem sobre a neve da faixa gelada (dono, v0.5 M3.6.2)."""
         fade = self.transition_fade()
-        self._draw_weather(canvas, stage, t, 1.0 - fade)
+        self._draw_weather(canvas, stage, t, 1.0 - fade, cam, geo)
         if fade > 0:
-            self._draw_weather(canvas, art_key(self.stage_map.next_stage), t, fade)
+            self._draw_weather(canvas, art_key(self.stage_map.next_stage), t, fade, cam, geo)
         canvas.blit(self.view_fx("vignette"), (0, 0))
 
-    def _draw_weather(self, canvas, stage: str, t: float, amount: float = 1.0) -> None:
+    def _draw_weather(self, canvas, stage: str, t: float, amount: float = 1.0, cam=(0, 0), geo=None) -> None:
         """Clima de um estágio com intensidade `amount` (0 a 1): menos partículas e véus mais fracos."""
         W, H = self.view_w, self.view_h
         if stage == "dead":           # poeira laranja no ar
@@ -2203,6 +2204,8 @@ class Renderer:
             for i in range(round(6 * amount)):
                 x = round((hash01(i, 11, 7) * W + t * 22 + math.sin(t * 2.7 + i) * 16) % W)
                 y = round(hash01(i, 12, 7) * H * 0.8 + 40 + math.sin(t * 4.5 + i * 2) * 12)
+                if geo is not None and geo.region_px(cam[0] + x, cam[1] + y) == FROST:
+                    continue                     # na neve não tem borboleta (era a "florzinha rosa" da faixa gelada)
                 col = "#f5d36b" if i % 2 else "#f2a3c8"
                 canvas.fill(col, (x, y, 2, 3))
                 if (t * 9) % 4 < 2:
