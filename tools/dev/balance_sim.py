@@ -54,7 +54,7 @@ Aproximado (o simulador decide no lugar do jogador):
 
 v0.3 Marco 3: a estratégia "destrocos" é a "caverna" que, logo no começo, vai a pé até a nave de carga mais
 perto (caminho real na superfície, ida e volta, com O₂), abre a caixa (regra real: `open_crate` + `crate_take`,
-o projeto do tanque sai sozinho), volta, fabrica o tanque de O₂ e equipa (`equip_from`). Daí em diante o O₂ máximo
+o diagrama do tanque vem no saque), volta, lê o diagrama, fabrica o tanque de O₂ e equipa (`equip_from`). Daí em diante o O₂ máximo
 é o do tanque (`GameState.o2_max`, 220 s), o que deixa cada descida na caverna render mais.
 
 Tempo morto: o jogador só fica parado quando não existe nada útil: (a) a próxima máquina não ficaria pronta antes
@@ -175,7 +175,7 @@ STRATEGIES = {
     # sem as rochas da superfície). As drills vão nos veios da caverna e ele busca à mão (os drones só atendem a superfície).
     "caverna": Strategy("caverna", pick="balanced", walk_factor=1.3, o2_margin=12.0, craft_overhead=6.0,
                         mine_overhead=0.3, stations=0, cave=True),
-    # v0.3 Marco 3: o casual da caverna que antes vai à nave de carga mais perto, pega o saque e o projeto do
+    # v0.3 Marco 3: o casual da caverna que antes vai à nave de carga mais perto, pega o saque e o diagrama do
     # tanque, fabrica e equipa (O₂ de 100 -> 220 s pra minerar lá embaixo)
     "destrocos": Strategy("destrocos", pick="balanced", walk_factor=1.3, o2_margin=12.0, craft_overhead=6.0,
                           mine_overhead=0.3, stations=0, cave=True, wrecks=True),
@@ -815,8 +815,8 @@ class Sim:
 
     # ---- destroços (Marco 3) ----
     def loot_trip(self):
-        """Vai a pé até a caixa da nave de carga mais perto, saqueia (o projeto do tanque sai sozinho), volta,
-        fabrica o tanque de O₂ e equipa. Caminho real na superfície (ida e volta), com O₂ caindo."""
+        """Vai a pé até a caixa da nave de carga mais perto, saqueia (o diagrama do tanque vem no saque), volta,
+        lê o diagrama no fabricador, fabrica o tanque de O₂ e equipa. Caminho real na superfície (ida e volta), com O₂ caindo."""
         w = self.base_world
         wreck = w.wrecks[0]
         cx, cy = wreck.crate
@@ -832,6 +832,7 @@ class Sim:
         self._advance(walk, outside=True, what="andar")
         self._set_player(self.home)
         self._advance((self.gs.o2_max - self.gs.o2) / C.O2_REFILL)
+        self.gs.read_diagram("diagram_o2_tank", "t1")
         if self.gs.craft("o2_tank"):
             index = next(i for i, st in enumerate(self.gs.inventory.slots) if st and st.item == "o2_tank")
             self.gs.equip_from(index)

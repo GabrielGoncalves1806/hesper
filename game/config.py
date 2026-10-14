@@ -540,6 +540,7 @@ MACHINE_CATEGORY = {
     "chest": "storage",
     "lamp": "light",
 }
+CRAFT_VISIBLE_ROWS = 4          # fabricador (só itens): 4 linhas, o resto da coluna é a área "Diagramas" (v0.5 M1)
 FAB_VISIBLE_ROWS = 6            # receitas que cabem de uma vez na aba (lista do redesign B2); com mais, rola
 
 # ---------------------------------------------------------------------------
@@ -569,12 +570,18 @@ CRATE_REACH = 48                # px dos pés até a base da caixa (igual ao ba�
 WRECK_VISIT_DIST = 6            # tiles: chegou "perto" de um destroço (objetivo "Ache um destroço")
 LOOT_CRATE_SIZE = (32, 32)
 
-# Projetos (chips de blueprint): item "bp_<id>" que, ao sair da caixa, libera a receita e some.
+# Diagramas (v0.5 M1, antes "projetos"): item "diagram_<id>" que fica no inventário como item normal. Ler na bancada
+# (GameState.read_diagram) gasta 1 e libera a receita pra sempre (state.blueprints). O save antigo tinha "bp_<id>".
 BLUEPRINTS = {"o2_tank": "Tanque de O₂", "scanner": "Scanner de navegação", "lamp_t2": "Luminária forte"}
-BLUEPRINT_ITEMS = {f"bp_{k}": k for k in BLUEPRINTS}
-RECIPE_BLUEPRINT = {"o2_tank": "o2_tank", "scanner": "scanner", "lamp_t2": "lamp_t2"}   # receita -> projeto
+DIAGRAM_ITEMS = {f"diagram_{k}": k for k in BLUEPRINTS}
+LEGACY_DIAGRAM_ITEMS = {f"bp_{k}": f"diagram_{k}" for k in BLUEPRINTS}   # item do save antigo -> item de hoje
+RECIPE_BLUEPRINT = {"o2_tank": "o2_tank", "scanner": "scanner", "lamp_t2": "lamp_t2"}   # receita -> diagrama
+# Bancada que lê cada diagrama ("t1" = o fabricador da cápsula, "t2" = a Bancada T2 do Dev B2). Diagrama de máquina
+# (placeable) é lido em qualquer bancada (spec); os de item só na bancada daqui.
+DIAGRAM_BENCH = {"o2_tank": "t1", "scanner": "t1", "lamp_t2": "t1"}
+BENCH_LABEL = {"t1": "FABRICADOR", "t2": "BANCADA T2"}
 
-# Luminária forte (projeto): raio 7 tiles. A luminária comum tem 5.
+# Luminária forte (diagrama): raio 7 tiles. A luminária comum tem 5.
 LAMP_RADIUS = {"lamp": 5, "lamp_t2": 7}
 MACHINES["lamp_t2"] = MachineType("lamp_t2", "Luminária forte", "luz maior", {"iron": 2, "silicon": 2, "ice": 1},
                                   None, 0, 0, "lamp_t2")
@@ -600,9 +607,9 @@ EXPLORE_TERMINAL = 2
 EXPLORE_MACHINE = 1.8
 MINIMAP_TILES = 64              # o minimapa mostra 64×64 tiles em volta do player (2 px nativos por tile)
 MAP_OPEN_COOLDOWN = 0.3         # M: no máximo 1 som de abrir a cada 0,3 s
-BLUEPRINT_NOTICE_TIME = 3.5     # s do aviso "PROJETO: ..."
+BLUEPRINT_NOTICE_TIME = 3.5     # s do aviso "DIAGRAMA: ..."
 BLUEPRINT_SOUND_DELAY = 0.4     # s depois do crate_open (dica do Som)
-BLUEPRINT_DUCK = (0.6, 2.0)     # ambiente a 60% por 2 s quando acha um projeto
+BLUEPRINT_DUCK = (0.6, 2.0)     # ambiente a 60% por 2 s quando acha um diagrama
 VOLUME.update({"crate_open": 0.9, "blueprint_found": 1.0, "equip": 0.7, "map_open": 0.6})
 
 
@@ -821,7 +828,7 @@ LAKE_WATER = (2500, 7000, 15000)   # era (3000, 15000, 40000): L1 junto com a N�
 # v0.5 Marco 1 · Construtor e desmontar (spec docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-design.md).
 # Máquina não é mais item: o CONSTRUTOR (item da hotbar, 1ª receita do fabricador) é o único jeito de pôr máquina no
 # chão. Com ele na mão, E abre o menu de construção (abas FAB_TABS); clique esquerdo constrói gastando a receita SÓ do
-# inventário (travas de Ti e projeto iguais). O fabricador da cápsula fica só com itens (o que não é `placeable`).
+# inventário (travas de Ti e diagrama iguais). O fabricador da cápsula fica só com itens (o que não é `placeable`).
 # A aba "Fabricar" do Tab (fabricar em campo, FIELD_RECIPES) saiu: as receitas dela eram todas máquinas.
 # ---------------------------------------------------------------------------
 MACHINES["constructor"] = MachineType("constructor", "Construtor", "constrói máquinas [E]", {"iron": 5}, None, 0, 0,

@@ -378,13 +378,13 @@ def test_rich_loot_beats_the_normal_cargo_and_is_fixed_by_seed():
 
 
 def test_rich_wreck_brings_a_missing_blueprint():
-    """Se algum projeto não caiu nos destroços de fora, o 1º destroço rico traz ele."""
+    """Se algum diagrama não caiu nos destroços de fora, o 1º destroço rico traz ele."""
     w = generate_surface(7)
     normal = [x for x in w.wrecks if not x.rich]
     assert wrecks.missing_blueprints(normal) == []                  # no mundo normal os 3 já caem
     rich = wrecks.pocket_wrecks(w.geo.pockets, [x for x in normal if x.blueprint != "lamp_t2"])
     assert rich[0].blueprint == "lamp_t2" and all(x.blueprint is None for x in rich[1:])
-    assert ("bp_lamp_t2", 1) in wrecks.crate_loot(rich[0], 7)
+    assert ("diagram_lamp_t2", 1) in wrecks.crate_loot(rich[0], 7)
     assert all(x.blueprint is None for x in w.wrecks if x.rich)
 
 

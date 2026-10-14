@@ -1482,8 +1482,8 @@ class Renderer:
                 small = self.surface("icon_scanner", art.scanner_icon)[0]
             elif item == "constructor":          # v0.5 M1: com o icon_constructor.png no assets, ele (sem mudar código)
                 small = self.surface("icon_constructor", art.constructor_icon)[0]
-            elif item in C.BLUEPRINT_ITEMS:
-                small = self.surface("icon_blueprint", art.blueprint_icon)[0]
+            elif item in C.DIAGRAM_ITEMS:       # v0.5 M1: icon_diagram.png (aprovado); sem ele, o chip de projeto de antes
+                small = self.surface("icon_diagram", art.blueprint_icon)[0]
             elif item == "solar" and self.sprites.get("icon_solar"):
                 small = self.sprites.get("icon_solar")
             else:   # máquina sem ícone próprio: o sprite dela encolhido pra caber (sem suavizar)
