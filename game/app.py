@@ -64,8 +64,8 @@ MOVE_KEYS = {
     pygame.K_s: (0, 1), pygame.K_DOWN: (0, 1),
 }
 NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8]
-INVENTORY_MODES = ("inventory", "chest", "drill", "station", "crate")
-PANEL_MODES = ("chest", "drill", "station", "crate")          # dois painéis: clique transfere pro outro lado (Planet Crafter)
+INVENTORY_MODES = ("inventory", "chest", "drill", "melter", "station", "crate")
+PANEL_MODES = ("chest", "drill", "melter", "station", "crate")          # dois painéis: clique transfere pro outro lado (Planet Crafter)
 ZOOM_IN_KEYS = (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS)     # "=" é a tecla do "+" sem Shift
 ZOOM_OUT_KEYS = (pygame.K_MINUS, pygame.K_KP_MINUS)
 BANNER_TIME = 3.5          # banner de estágio: entra em 0,4 s, fica, sai em 0,8 s
@@ -141,6 +141,7 @@ class App:
         self.open_chest = None                            # baú aberto (Machine), no modo "chest"
         self.open_station = None                          # estação aberta (Machine), no modo "station"
         self.open_drill = None                            # drill aberta (Machine), no modo "drill"
+        self.open_melter = None                           # derretedor aberto (Machine), no modo "melter" (v0.5 M2)
         self.open_crate = None                            # caixa de saque aberta (Crate), no modo "crate"
         self.after_terminal = None                        # registro de bordo lido ao abrir a caixa: depois abre ela
         self.blueprint_notice: str | None = None          # diagrama do aviso "DIAGRAMA: ..." (Marco 3)
@@ -496,6 +497,10 @@ class App:
                     self.open_drill = target[1]
                     self.placing = None
                     self.set_mode("drill")
+                elif target and target[0] == "melter":
+                    self.open_melter = target[1]
+                    self.placing = None
+                    self.set_mode("melter")
                 elif target and target[0] == "bench":              # Bancada T2: o painel do fabricador, receitas dela
                     self.open_bench = target[1]
                     self.fab_bench = "t2"
@@ -803,7 +808,7 @@ class App:
 
     def other_side(self, inv):
         """Shift+clique: o inventário do outro lado (player <-> baú/drill). None se só o Tab estiver aberto."""
-        side = self.open_chest or self.open_drill
+        side = self.open_chest or self.open_drill or self.open_melter
         if side is None:
             return None
         return side.storage if inv is self.state.inventory else self.state.inventory
@@ -931,6 +936,29 @@ class App:
             else:
                 self.show_notice("A drill só produz: não guarda nada")
             return
+        if self.open_melter is not None:                 # gelo entra na entrada, a cápsula (e o gelo) sai
+            melter = self.open_melter
+            if inv is melter.storage:
+                if button == 1 and self.shift_held():
+                    moved = state.melter_take(melter)
+                else:
+                    moved = state.melter_take(melter, i, amount)
+            elif item != "ice":
+                self.show_notice("O derretedor só aceita gelo")
+                return
+            else:
+                moved = 0
+                if button == 1 and self.shift_held():    # todas as pilhas de gelo
+                    for j, st in enumerate(inv.slots):
+                        if st is not None and st.item == "ice":
+                            moved += state.melter_put(melter, j)
+                else:
+                    moved = state.melter_put(melter, i, amount)
+                if not moved:
+                    self.show_notice("Entrada de gelo cheia")
+            if moved:
+                self.audio.play("inv_move")
+            return
         if self.open_station is not None:                # só do inventário pra estação, e só drone
             if item != "drone":
                 self.show_notice("Só drones vão na estação")
@@ -962,6 +990,8 @@ class App:
                 self.show_notice("Baú cheio")
         elif action == "take_drill" and self.open_drill is not None:
             moved = state.collect(self.open_drill)
+        elif action == "take_melter" and self.open_melter is not None:
+            moved = state.melter_take(self.open_melter)
         elif action == "take_buffer" and self.open_station is not None:
             moved = state.collect_station(self.open_station)
         elif action == "take_crate" and self.open_crate is not None:
@@ -1031,7 +1061,8 @@ class App:
             if res is not None:
                 return f"{item_name(res)} · {st.buffer.get(res, 0)} (sobras)"
         # seção DRONES só existe no baú/drill (na estação a lista podia vir do painel aberto antes)
-        hit = ui.logistics_at(mouse_ui) if (self.open_chest or self.open_drill) is not None else None
+        hit = (ui.logistics_at(mouse_ui)
+               if (self.open_chest or self.open_drill or self.open_melter) is not None else None)
         if hit is not None:
             kind, value = hit
             if kind == "batch":
@@ -1054,7 +1085,7 @@ class App:
         """Clique na seção DRONES do baú/drill aberto: liga/desliga Envia e Recebe, ou troca o lote.
         True se acertou um botão."""
         hit = self.ui.logistics_at(pos)
-        side = self.open_chest or self.open_drill
+        side = self.open_chest or self.open_drill or self.open_melter
         if hit is None or side is None:
             return False
         kind, value = hit
@@ -1074,6 +1105,18 @@ class App:
         if drill.full:
             return "CHEIA · PAROU"
         text = f"1 A CADA {C.DRILL_INTERVAL:g} S"
+        if self.state.power.deficit:
+            text += f" · RITMO {self.power_percent()}%"
+        return text
+
+    def melter_status(self) -> str:
+        """Linha de estado no painel do derretedor: "1 A CADA 20 S", "SEM GELO", "SAÍDA CHEIA"."""
+        melter = self.open_melter
+        if melter.capsules_full:
+            return "SAÍDA CHEIA"
+        if melter.ice < C.MELTER_ICE_PER_CAPSULE:
+            return "SEM GELO"
+        text = f"1 A CADA {C.MELTER_CAPSULE_TIME[melter.kind]:g} S"
         if self.state.power.deficit:
             text += f" · RITMO {self.power_percent()}%"
         return text
@@ -1285,7 +1328,7 @@ class App:
         if self.mode in INVENTORY_MODES and mode != self.mode:
             self.finish_name_edit(confirm=True)
             self.stash_held()            # devolve a pilha da mão (se não couber, ela espera o próximo Tab)
-            self.open_station = self.open_drill = None
+            self.open_station = self.open_drill = self.open_melter = None
             if self.mode == "crate":     # fechou a caixa de saque: o som do baú fechando
                 self.audio.play("chest_close")
                 self.open_crate = None
@@ -1299,7 +1342,7 @@ class App:
                 self.mouse_held = False
                 return
         if mode != self.mode:
-            self.audio.play("ui_open" if mode in ("fabricator", "build", "pause", "inventory", "station", "drill")
+            self.audio.play("ui_open" if mode in ("fabricator", "build", "pause", "inventory", "station", "drill", "melter")
                             else "ui_close")
         self.mode = mode
         self.mouse_held = False
@@ -1693,6 +1736,9 @@ class App:
             if state.power.deficit and not machine.full:
                 content += f" · ritmo {self.power_percent()}%"
             return content + (" · [E] abrir · [Shift+E] coletar" if target and target[1] is machine else other)
+        if machine and machine.is_melter:                  # v0.5 M2: gelo dentro, cápsulas prontas
+            content = f"{C.MACHINES[machine.kind].name}: {machine.ice} gelo · {machine.capsules} cápsula(s)"
+            return content + (" · [E] abrir" if target and target[1] is machine else other)
         if machine and machine.is_station:
             st = machine.station
             text = f"Estação: {len(st.drones)}/{C.STATION_DRONE_SLOTS} drones"
@@ -1813,6 +1859,8 @@ class App:
             return "[E] Abrir baú" if name == C.CHEST_DEFAULT_NAME else f"[E] Abrir baú: {name}"
         if kind == "bench":
             return "[E] Bancada T2"
+        if kind == "melter":
+            return "[E] Abrir derretedor"
         if kind == "station":
             return "[E] Estação de drones" if obj.station.drones else "[E] Estação: coloque drones"
         return (f"[E] Drill · [Shift+E] coletar {obj.stored} {C.RESOURCE_NAME[obj.resource]}" if obj.stored
@@ -1900,9 +1948,10 @@ class App:
         elif self.mode == "inventory" and self.inv_tab == TAB_LOGS:
             ui.draw_logs(state, self.log_selected, self.log_first, mouse_ui)
         elif self.mode in INVENTORY_MODES:
-            side = self.open_chest or self.open_drill or self.open_station or self.open_crate
+            side = self.open_chest or self.open_drill or self.open_melter or self.open_station or self.open_crate
             status = (self.station_status() if self.open_station is not None
-                      else self.drill_status() if self.open_drill is not None else "")
+                      else self.drill_status() if self.open_drill is not None
+                      else self.melter_status() if self.open_melter is not None else "")
             station_info = self.hovered_slot_label(mouse_ui) if self.open_station is not None else None
             ui.draw_inventory(state.inventory, side, self.hotbar_selected, self.renderer.item_icon, mouse_ui,
                               self.t, self.name_edit, status, station_info,
@@ -2020,7 +2069,7 @@ class App:
         self.placing, self.rotation, self.mouse_held = None, 0, False
         self.hotbar_selected, self.held, self.notice_time = 0, None, 0.0
         self.open_chest = self.renderer.open_chest = None
-        self.open_station, self.open_drill, self.name_edit = None, None, None
+        self.open_station, self.open_drill, self.open_melter, self.name_edit = None, None, None, None
         self.open_crate = self.after_terminal = None
         self.renderer.minimap.reset()
         self.blueprint_notice, self.blueprint_notice_time, self.blueprint_duck = None, 0.0, 0.0

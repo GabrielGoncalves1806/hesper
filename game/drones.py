@@ -215,18 +215,23 @@ def center(machine) -> tuple[float, float]:
 
 # ---------------------------------------------------------------- configuração (Envia / Recebe / Lote)
 def is_logistic(machine) -> bool:
-    """Baú e drill têm inventário que os drones atendem."""
-    return machine.is_chest or machine.is_drill
+    """Baú, drill e derretedor têm inventário que os drones atendem."""
+    return machine.is_logistic
 
 
 def can_send(machine, item: str) -> bool:
-    """A drill só tem o minério dela pra enviar; o baú, qualquer item logístico."""
-    return item in C.LOGISTIC_ITEMS and (not machine.is_drill or item == machine.resource)
+    """A drill só tem o minério dela pra enviar, o derretedor só a cápsula (o gelo da entrada é dele); o baú,
+    qualquer item logístico."""
+    if item not in C.LOGISTIC_ITEMS:
+        return False
+    if machine.is_melter:
+        return item == "water_capsule"
+    return not machine.is_drill or item == machine.resource
 
 
 def can_receive(machine, item: str) -> bool:
-    """A drill não recebe (ela só produz: receber travaria a extração)."""
-    return item in C.LOGISTIC_ITEMS and not machine.is_drill
+    """Drill e derretedor não recebem (só produzem: abastecer o derretedor de gelo é do v0.6)."""
+    return item in C.LOGISTIC_ITEMS and not machine.is_producer
 
 
 def toggle_send(machine, item: str) -> bool:

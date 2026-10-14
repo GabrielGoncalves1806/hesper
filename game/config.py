@@ -169,7 +169,9 @@ RESOURCES = ("iron", "silicon", "ice", "magmatite")
 # §12) é só rocha solta em volta das fumarolas: fica fora daqui pra não mexer no sorteio dos veios.
 VEIN_RESOURCES = ("iron", "silicon", "ice")
 RESOURCE_LABEL = {"iron": "FERRO", "silicon": "SILICIO", "ice": "GELO", "magmatite": "MAGMATITA"}   # HUD (Silkscreen)
-RESOURCE_NAME = {"iron": "ferro", "silicon": "silício", "ice": "gelo", "magmatite": "magmatita"}   # em frases (Pixelify)
+RESOURCE_NAME = {"iron": "ferro", "silicon": "silício", "ice": "gelo", "magmatite": "magmatita",
+                 "water_capsule": "cápsula de água"}   # em frases (Pixelify); a cápsula (v0.5 M2) só entra por nome
+RESOURCE_LABEL["water_capsule"] = "CÁPSULA"   # (idem: não é recurso, RESOURCES não tem ela)
 
 # ---------------------------------------------------------------------------
 # Sobrevivência (§4 Sobrevivência)
@@ -237,7 +239,24 @@ VEINS_FAR_RANGE = (24, 58)      # distância dos veios "de longe" (tiles)
 MACHINES["drill"] = MachineType("drill", "Drill automática", "+ minério", DRILL_COST, None, 0,
                                 DRILL_UNLOCK_TI, "machine_drill", size=2)
 
+# ---------------------------------------------------------------------------
+# v0.5 Marco 2: cápsula de água e o inventário do derretedor
+# ---------------------------------------------------------------------------
+# A cápsula é um item (empilha como máquina, STACK_MACHINE) que só sai do derretedor: não tem receita nem categoria
+# (registrada DEPOIS do MACHINE_ORDER, que fica sem ela), então nenhum menu de fabricar mostra. O Dispersor de O₂ (Dev C) vai gastar.
+# Derretedor (nv.1 e nv.2): inventário de 2 slots, [0] entrada de gelo e [1] saída de cápsulas. Terraforma como
+# sempre; em paralelo gasta MELTER_ICE_PER_CAPSULE de gelo a cada MELTER_CAPSULE_TIME s e põe 1 cápsula na saída.
+# Saída cheia (1 pilha): não faz cápsula e NÃO gasta gelo; a terraformação segue igual. Números provisórios (balanceamento depois).
+MELTER_KINDS = ("melter", "melter_t2")
+MELTER_ICE_SLOT, MELTER_CAPSULE_SLOT = 0, 1
+MELTER_SLOTS = 2
+MELTER_ICE_PER_CAPSULE = 2
+MELTER_CAPSULE_TIME = {"melter": 20.0, "melter_t2": 10.0}   # segundos por cápsula (× fator da energia)
+MELTER_REACH = 56               # px entre os pés do player e a base do derretedor pro E (igual à drill)
+
 MACHINE_ORDER = list(MACHINES)   # ordem no fabricador e nas teclas 1–7
+MACHINES["water_capsule"] = MachineType("water_capsule", "Cápsula de água", "água pro Dispersor", {}, None, 0, 0,
+                                        "icon_water_capsule", placeable=False)
 # v0.4 M3.4: máquinas de nome feminino (o aviso "Luminária submersa" / "Aquecedor submerso" concorda)
 MACHINE_FEMININE = {"drill", "drone_station", "lamp", "lamp_t2", "workbench"}
 DISMANTLE_KEY = "Clique direito"   # o botão de desmontar (segurar): dica do canto e aviso de submersa
@@ -401,6 +420,7 @@ ORE_COLORS = {  # cor, sombra
     "silicon": ("#c3d1e2", "#7d8ca3"),
     "ice": ("#a6ecff", "#4fb3d6"),
     "magmatite": ("#ff7a2e", "#a8361a"),   # laranja-lava (a fissura da pedra), sombra de brasa
+    "water_capsule": ("#59d0e6", "#2a7f96"),   # v0.5 M2: só pra pepita do drone e aviso flutuante (não é minério)
 }
 
 # UI
@@ -503,7 +523,7 @@ DRONE_PICKUP_TIME = 0.8         # segundos parado em cima da origem "pegando"
 DRONE_DROP_TIME = 0.6           # segundos parado em cima do destino "soltando"
 DRONE_IDLE_RETRY = 0.5          # drone pousado sem tarefa procura de novo a cada 0,5 s
 # Logística (baú e drill): o que os drones tiram (Envia) e trazem (Recebe), e o lote por viagem.
-LOGISTIC_ITEMS = RESOURCES      # itens com toggle no painel (conjunto de ids: dá pra crescer depois)
+LOGISTIC_ITEMS = RESOURCES + ("water_capsule",)   # itens com toggle no painel (v0.5 M2: a cápsula de água entra aqui)
 DRONE_BATCH_OPTIONS = (1, 5, 10, 20)
 DRONE_BATCH_DEFAULT = 10
 STATION_BUFFER = 50             # legado (save ≤ v4): o buffer não recebe mais nada, só dá pra tirar as sobras

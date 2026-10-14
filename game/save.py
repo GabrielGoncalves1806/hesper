@@ -37,6 +37,9 @@ Baú: {"kind": "chest", ..., "storage": [...], "name": "Minério",
       "sends": ["ice"], "receives": ["iron", "silicon"], "batch": 10}
 Drill: {"kind": "drill", ..., "resource": "iron", "timer": 3.2, "storage": [["iron", 12]],
         "sends": ["iron"], "receives": [], "batch": 10}
+Derretedor (v0.5 M2, ainda v8): {"kind": "melter", ..., "timer": 4.0, "storage": [["ice", 12], ["water_capsule", 2]],
+        "sends": ["water_capsule"], "receives": [], "batch": 10}. Slot 0 = gelo, slot 1 = cápsulas. Sem "storage"
+        (derretedor de antes) carrega vazio: não precisou subir a versão.
 Estação: {"kind": "drone_station", ..., "buffer": {"iron": 12}, "drones": [["ice", 8], [None, 0], None, None]}
 "drones" são os 4 slots: null = vazio; [minério, carga] = tem drone. Os drones nascem pousados nos pads.
 
@@ -67,7 +70,7 @@ from game import drones
 from game import layers
 from game.equipment import Equipment
 from game.explore import Explored
-from game.inventory import Inventory
+from game.inventory import Inventory, Stack, max_stack
 from game.rock_respawn import RockRespawn
 from game.surface_gen import pristine_tiles as surface_pristine
 from game.systems import GameState, Machine, clean_chest_name
@@ -231,10 +234,22 @@ def inventory_from_dict(state: GameState, data: dict) -> None:
     state.inventory = slots_from_data(data["slots"], size)
 
 
+def melter_storage(data: list) -> Inventory:
+    """Inventário do derretedor do save: slot 0 só gelo, slot 1 só cápsula (outra coisa vira vazio)."""
+    inv = Inventory(C.MELTER_SLOTS)
+    for slot, item in ((C.MELTER_ICE_SLOT, "ice"), (C.MELTER_CAPSULE_SLOT, "water_capsule")):
+        d = data[slot] if slot < len(data) else None
+        if d and d[0] == item and int(d[1]) > 0:
+            inv.slots[slot] = Stack(item, min(int(d[1]), max_stack(item)))
+    return inv
+
+
 def machine_to_dict(m: Machine) -> dict:
     data = {"kind": m.kind, "tx": m.tx, "ty": m.ty, "rotation": m.rotation}
     if m.is_drill:
         data.update(resource=m.resource, timer=m.timer)
+    if m.is_melter:
+        data["timer"] = m.timer          # v0.5 M2: progresso da cápsula (o inventário vai com o resto do logístico)
     if m.is_chest:
         data["name"] = m.name or C.CHEST_DEFAULT_NAME
     if m.is_logistic:
@@ -266,6 +281,10 @@ def machine_from_dict(data: dict) -> Machine:
         # a drill só guarda o minério dela, até a capacidade
         amount = sum(int(d[1]) for d in data.get("storage", []) if d and d[0] == machine.resource)
         machine.stored = min(amount, C.DRILL_CAPACITY)
+    if machine.is_melter:
+        # v0.5 M2: [0] gelo, [1] cápsulas. Save de antes do Marco 2 não tem "storage": carrega vazio (sem migração)
+        machine.storage = melter_storage(data.get("storage", []))
+        machine.timer = min(max(machine.timer, 0.0), C.MELTER_CAPSULE_TIME[kind])
     if machine.is_logistic:
         # o que não pode (item desconhecido, a drill recebendo, o mesmo item dos dois lados) é ignorado
         machine.sends = {i for i in data.get("sends", []) if drones.can_send(machine, i)}

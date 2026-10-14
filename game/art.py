@@ -961,6 +961,18 @@ def backpack_icon() -> pygame.Surface:
     return s
 
 
+def water_capsule_icon() -> pygame.Surface:
+    """Ícone 16×16 da cápsula de água (fallback do icon_water_capsule.png): frasco azul com tampa cinza."""
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    _r(s, _OUT, 5, 0, 6, 3)
+    _r(s, "#9aa2ab", 6, 1, 4, 1)
+    _r(s, _OUT, 3, 2, 10, 14)
+    _r(s, "#2a7f96", 4, 3, 8, 12)
+    _r(s, C.C_O2, 4, 5, 8, 9)
+    _r(s, "#bdf2ff", 5, 6, 2, 5)
+    return s
+
+
 def scanner_icon() -> pygame.Surface:
     """Ícone 16×16 do scanner de navegação: tela redonda com varredura verde."""
     s = pygame.Surface((16, 16), pygame.SRCALPHA)

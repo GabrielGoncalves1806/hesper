@@ -18,7 +18,7 @@ from game import layers
 from game import magmatite
 from game import thaw
 from game.equipment import Equipment, is_equipment
-from game.inventory import Inventory
+from game.inventory import Inventory, Stack, max_stack
 from game.energy import PowerAlert, PowerReport, power_report
 from game.layers import CAVE, SURFACE, Layer
 from game.player import Player, Rect, overlaps
@@ -73,6 +73,8 @@ class Machine:
             self.storage = Inventory(C.DRILL_SLOTS)
         elif self.storage is None and self.is_chest:
             self.storage = Inventory(C.CHEST_SLOTS)
+        elif self.storage is None and self.is_melter:
+            self.storage = Inventory(C.MELTER_SLOTS)
         if stored_init:
             self.stored = stored_init
 
@@ -87,6 +89,11 @@ class Machine:
     @property
     def is_drill(self) -> bool:
         return self.kind == "drill"
+
+    @property
+    def is_melter(self) -> bool:
+        """Derretedor (nv.1 ou nv.2): terraforma e, de brinde, faz cápsula de água do gelo do inventário dele."""
+        return self.kind in C.MELTER_KINDS
 
     @property
     def is_chest(self) -> bool:
@@ -106,8 +113,36 @@ class Machine:
 
     @property
     def is_logistic(self) -> bool:
-        """Baú e drill: têm inventário que os drones atendem (Envia/Recebe/Lote)."""
-        return self.is_chest or self.is_drill
+        """Baú, drill e derretedor: têm inventário que os drones atendem (Envia/Recebe/Lote)."""
+        return self.is_chest or self.is_drill or self.is_melter
+
+    @property
+    def is_producer(self) -> bool:
+        """Drill e derretedor só produzem pros drones tirarem: não recebem nada deles."""
+        return self.is_drill or self.is_melter
+
+    @property
+    def capsules(self) -> int:
+        """Derretedor: cápsulas de água na saída."""
+        return self.storage.count("water_capsule") if self.is_melter else 0
+
+    @property
+    def ice(self) -> int:
+        """Derretedor: gelo na entrada."""
+        return self.storage.count("ice") if self.is_melter else 0
+
+    @property
+    def capsules_full(self) -> bool:
+        """Derretedor com a saída cheia (não faz mais cápsula até alguém tirar)."""
+        return self.is_melter and self.capsule_room <= 0
+
+    @property
+    def capsule_room(self) -> int:
+        """Derretedor: quantas cápsulas ainda cabem na saída (o slot [1] guarda só cápsula)."""
+        if not self.is_melter:
+            return 0
+        stack = self.storage.slots[C.MELTER_CAPSULE_SLOT]
+        return stack.room if stack else max_stack("water_capsule")
 
     @property
     def stored(self) -> int:
@@ -764,6 +799,11 @@ class GameState:
             best = d if best is None else min(best, d)
         return best
 
+    def nearby_melter(self) -> Machine | None:
+        """Derretedor ao alcance do E (o mais perto)."""
+        near = [m for m in self.machines if m.is_melter and m.build <= 0 and self.drill_distance(m) <= C.MELTER_REACH]
+        return min(near, key=self.drill_distance, default=None)
+
     def nearby_drill(self) -> Machine | None:
         """Drill ao alcance do E (a mais perto)."""
         near = [d for d in self.drills if self.drill_distance(d) <= C.DRILL_REACH]
@@ -794,7 +834,8 @@ class GameState:
         machine = self.machine_at_point(px, py)
         if machine is not None:
             for kind, flag in (("drill", machine.is_drill), ("chest", machine.is_chest),
-                               ("station", machine.is_station), ("bench", machine.is_bench)):
+                               ("station", machine.is_station), ("bench", machine.is_bench),
+                               ("melter", machine.is_melter and machine.build <= 0)):
                 if flag:
                     return kind, machine
             return None                                  # O2, aquecedor...: o E não abre nada
@@ -829,7 +870,7 @@ class GameState:
         if kind == "container":
             return tuple(target) in self.world.containers and self.container_distance(target) <= C.CONTAINER_REACH
         reach = {"drill": C.DRILL_REACH, "chest": C.CHEST_REACH, "station": C.STATION_REACH,
-                 "bench": C.BENCH_REACH}[kind]
+                 "bench": C.BENCH_REACH, "melter": C.MELTER_REACH}[kind]
         return any(m is target for m in self.machines) and self.drill_distance(target) <= reach
 
     def interaction(self, hover: tuple[str, object] | None = None) -> tuple[str, object] | None:
@@ -854,6 +895,9 @@ class GameState:
         bench = self.nearby_bench()
         if bench is not None:
             options.append((self.drill_distance(bench), "bench", bench))
+        melter = self.nearby_melter()
+        if melter is not None:
+            options.append((self.drill_distance(melter), "melter", melter))
         crate = self.nearby_crate()
         if crate is not None:
             options.append((self.crate_distance(crate), "crate", crate))
@@ -895,6 +939,41 @@ class GameState:
             return 0
         self.drill_collected[resource] += moved
         self.events.append(("drill_collect", resource, moved, drill.anchor))
+        return moved
+
+    def melter_put(self, melter: Machine, index: int, amount: int | None = None) -> int:
+        """Põe gelo do slot `index` do inventário do player na entrada do derretedor (`amount` None = a pilha
+        inteira, 1 = clique direito). Só entra gelo, e só até a pilha encher. Devolve quanto entrou."""
+        stack = self.inventory.slots[index]
+        if stack is None or stack.item != "ice":
+            return 0
+        slot = C.MELTER_ICE_SLOT
+        have = melter.storage.slots[slot]
+        room = stack.max - (have.count if have else 0)
+        moved = min(room, stack.count if amount is None else min(amount, stack.count))
+        if moved <= 0:
+            return 0
+        if have is None:
+            melter.storage.slots[slot] = Stack("ice", moved)
+        else:
+            have.count += moved
+        self.inventory.remove_from_slot(index, moved)
+        return moved
+
+    def melter_take(self, melter: Machine, index: int | None = None, amount: int | None = None) -> int:
+        """Tira do inventário do derretedor pro do player: tudo (`index` None) ou o slot `index` (`amount` None
+        = a pilha inteira). O que não couber fica lá (e avisa de inventário cheio). Devolve quanto saiu."""
+        before = sum(melter.storage.counts().values())
+        if index is None:
+            melter.storage.transfer_all(self.inventory)
+            want = before
+        else:
+            stack = melter.storage.slots[index]
+            want = 0 if stack is None else stack.count if amount is None else min(amount, stack.count)
+            melter.storage.transfer(index, self.inventory, amount)
+        moved = before - sum(melter.storage.counts().values())
+        if moved < want:
+            self.events.append(("inv_full",))
         return moved
 
     def collect_station(self, machine: Machine) -> int:
@@ -967,6 +1046,25 @@ class GameState:
             self.events.append(("inv_full",))
         return moved
 
+    def _update_melter(self, melter: Machine, dt: float) -> None:
+        """Cápsulas de água (v0.5 M2): a cada MELTER_CAPSULE_TIME s gasta MELTER_ICE_PER_CAPSULE de gelo da entrada
+        e põe 1 cápsula na saída. Sem gelo ou com a saída cheia, para (o progresso fica guardado) e não gasta gelo.
+        A terraformação não passa por aqui: segue em _update_machines como sempre."""
+        need_time = C.MELTER_CAPSULE_TIME[melter.kind]
+        while dt > 0 and melter.ice >= C.MELTER_ICE_PER_CAPSULE and melter.capsule_room > 0:
+            left = need_time - melter.timer
+            if dt < left:
+                melter.timer += dt
+                return
+            dt -= left
+            melter.timer = 0.0
+            melter.storage.remove("ice", C.MELTER_ICE_PER_CAPSULE)
+            stack = melter.storage.slots[C.MELTER_CAPSULE_SLOT]
+            if stack is None:
+                melter.storage.slots[C.MELTER_CAPSULE_SLOT] = Stack("water_capsule", 1)
+            else:
+                stack.count += 1
+
     def _update_drill(self, drill: Machine, dt: float) -> None:
         if drill.full:
             return
@@ -993,6 +1091,9 @@ class GameState:
         out = dict(machine.type.cost)
         if machine.is_drill and machine.stored:
             out[machine.resource] = out.get(machine.resource, 0) + machine.stored
+        if machine.is_melter:                                  # v0.5 M2: o gelo e as cápsulas que ficaram dentro
+            for item, n in machine.storage.counts().items():
+                out[item] = out.get(item, 0) + n
         if machine.is_station:
             for r, n in drones.recall_cargo(machine.station).items():
                 out[r] = out.get(r, 0) + n
@@ -1070,6 +1171,8 @@ class GameState:
                 self._update_drill(m, work_dt)
             elif m.type.index is not None:   # painel solar, baú e estação não somam Ti
                 self.indices[m.type.index] += m.type.rate * work_dt
+            if m.is_melter:
+                self._update_melter(m, work_dt)
         stations = [m for m in self.surface.machines if m.is_station and m.build <= 0]
         if stations:                         # drones (game/drones.py): só na superfície; no déficit voam mais devagar
             self.drone_deliveries += drones.update_stations(stations, self.drone_logistics(), work_dt, self.events)
