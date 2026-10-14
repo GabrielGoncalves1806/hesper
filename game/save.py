@@ -3,15 +3,15 @@
 Python puro (nada de pygame), testado em tests/test_save.py.
 
 Ideia central: **salvar só o que muda**. O mapa de cada camada sai sempre igual da seed (o deserto do
-surface_gen.py, a caverna do world.py), então o save não guarda as 192×192 casas: guarda a seed e só os
+surface_gen.py, a caverna do world.py), então o save não guarda as casas da superfície: guarda a seed e só os
 tiles que ficaram diferentes do mapa gerado (paredes mineradas, rochas pequenas quebradas ou reaparecidas). Pra carregar,
 gera o mapa da seed de novo e aplica as diferenças.
 
-Formato do arquivo (JSON, v9 · v0.5 Marco 2, base respirável; o v8 é igual sem os blocos da base; o v7 do v0.4 tinha
-o mesmo formato, com máquina como item):
+Formato do arquivo (JSON, v10 · v0.5 M3.1, mapa 256; igual ao v9 do M2, mas a mesma seed gera outro mundo, então o
+v9 e os anteriores não carregam):
 
     {
-      "version": 9,
+      "version": 10,
       "seed": 7,
       "layer": "surface",          # camada em que o player está
       "layers": {                  # uma entrada por camada que já existe ("surface", e "cave" no Marco 2)
@@ -86,8 +86,8 @@ from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 from game.wrecks import crate_loot
 
-SAVE_VERSION = 9   # v9 (v0.5 Marco 2): blocos da base e Dispersor · o v8 migra (migrate_v8: sem base) · v8: máquina não é item (migrate_v7)
-FIRST_VERSION = 7  # saves com versão menor que essa são de outra época do jogo: "save antigo" (v1–v6)
+SAVE_VERSION = 10  # v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
+FIRST_VERSION = 10  # saves com versão menor que essa são de outra época do jogo: "save antigo" (v1–v9, não migram)
 # Numeração dos estágios dentro do "progress": 2 = v0.4 (Tempestade, Árido, Névoa, Verde). O 1 (os 3 estágios do
 # v0.3) só existia no save v6, que não carrega mais.
 STAGE_SCHEME = 2
@@ -476,48 +476,7 @@ def state_from_dict(data: dict) -> GameState:
 # um save da versão N pra N+1 (ela recebe o dict e devolve o dict atualizado).
 # As migrações v1 -> v5 (v0.1/v0.2) saíram no v0.3: o mundo mudou inteiro (deserto + camadas) e o dono
 # decidiu que o v0.3 começa do zero. Ver o histórico do git (game/save.py até o commit ec889a6).
-def _machine_items_to_resources(containers: list[Inventory]) -> None:
-    """Em cada inventário (na ordem), as pilhas de máquina (o que vai pro chão) viram os recursos da receita delas.
-    O recurso entra primeiro no mesmo inventário de onde a máquina saiu; o que não couber tenta os outros, na ordem
-    (o do player é o 1º). Só some o que não cabe em lugar nenhum."""
-    owed: list[tuple[int, str, int]] = []
-    for i, inv in enumerate(containers):
-        for k, stack in enumerate(inv.slots):
-            if stack is not None and stack.item in C.MACHINES and C.MACHINES[stack.item].placeable:
-                inv.slots[k] = None
-                for r, n in C.MACHINES[stack.item].cost.items():
-                    owed.append((i, r, n * stack.count))
-    for i, r, n in owed:
-        for inv in [containers[i]] + containers[:i] + containers[i + 1:]:
-            n = inv.add(r, n)
-            if n <= 0:
-                break
-        if n > 0:
-            print(f"[save] v7 -> v8: sem lugar pra {n} {r} (a receita de uma máquina guardada)")
-
-
-def migrate_v7(data: dict) -> dict:
-    """v7 -> v8 (v0.5 M1, construtor): máquina deixou de ser item. As que estavam guardadas como item (inventário,
-    hotbar e baús) viram os recursos da receita (`_machine_items_to_resources`). As do chão ficam iguais.
-    Os projetos (bp_*) viram diagram_* no load (slots_from_data), sem versão nova."""
-    inv = slots_from_data(data["inventory"]["slots"], C.INVENTORY_SLOTS)
-    chests = [m for layer in data.get("layers", {}).values() for m in layer.get("machines", [])
-              if m.get("kind") == "chest"]
-    chest_invs = [slots_from_data(m.get("storage", []), C.CHEST_SLOTS) for m in chests]
-    _machine_items_to_resources([inv] + chest_invs)
-    data["inventory"]["slots"] = inv.to_data()
-    for m, storage in zip(chests, chest_invs):
-        m["storage"] = storage.to_data()
-    return data
-
-
-def migrate_v8(data: dict) -> dict:
-    """v8 -> v9 (v0.5 M2, base respirável): só entram os blocos da base e o Dispersor. O v8 não tem nenhum dos dois,
-    então não há o que converter: a camada sem "base" carrega sem base."""
-    return data
-
-
-MIGRATIONS: dict = {7: migrate_v7, 8: migrate_v8}
+MIGRATIONS: dict = {}   # vazio: o v10 recomeçou do zero (v7–v9 viraram "save antigo")
 
 
 class SaveError(Exception):
@@ -525,10 +484,10 @@ class SaveError(Exception):
 
 
 class OldSaveError(SaveError):
-    """Save de uma versão antiga do jogo (v1–v6, antes do v0.4 Marco 2): não migra, pede novo jogo."""
+    """Save de uma versão antiga do jogo (v1–v9, antes do mapa 256 do v0.5 M3.1): não migra, pede novo jogo."""
 
     def __init__(self, version: int):
-        super().__init__(f"save da versão {version} (o v0.4 exige novo jogo)")
+        super().__init__(f"save da versão {version} (esta versão do jogo exige novo jogo)")
         self.version = version
 
 
@@ -577,7 +536,7 @@ def write_save(state: GameState, path: Path | str | None = None) -> bool:
 
 
 def probe(path: Path | str | None = None) -> tuple[str, GameState | None]:
-    """Olha o save: ("none", None) sem arquivo, ("old", None) de versão antiga (v1–v6), ("broken", None)
+    """Olha o save: ("none", None) sem arquivo, ("old", None) de versão antiga (v1–v9), ("broken", None)
     estragado ou de versão desconhecida, ("ok", estado) carregado. Nunca apaga nada."""
     path = _path(path)
     if not path.exists():
@@ -607,7 +566,7 @@ def has_save(path: Path | str | None = None) -> bool:
 
 
 def backup_old(path: Path | str | None = None) -> Path | None:
-    """Save antigo (v1–v6) vira slot1.v<N>.json, pra um jogo novo poder salvar sem apagar ele.
+    """Save antigo (v1–v9) vira slot1.v<N>.json, pra um jogo novo poder salvar sem apagar ele.
     Devolve o caminho novo (None se não tinha save antigo)."""
     path = _path(path)
     try:

@@ -73,7 +73,9 @@ WORLD_NAME_MAX = 20             # caracteres do nome do mundo
 
 # Duas camadas (v0.3, bíblia §9): a SUPERFÍCIE (deserto aberto, onde fica a base) e a CAVERNA (o gerador
 # antigo do world.py, que entra de verdade no Marco 2). Cada uma tem o próprio mapa (game/layers.py).
-SURFACE_W = SURFACE_H = 192     # deserto (game/surface_gen.py)
+SURFACE_W = SURFACE_H = 256     # deserto (game/surface_gen.py). v0.5 M3.1: era 192; o que depende do tamanho deriva daqui
+GEO_REF_SIZE = 192              # tamanho do deserto pro qual os números GEO_* foram ajustados (game/geo.py escala por SURFACE/isto)
+SURFACE_AREA_SCALE = SURFACE_W * SURFACE_H / GEO_REF_SIZE ** 2   # quanto a área cresceu: o que se espalha pelo mapa todo (morros, teto de rochas) segue isto
 CAVE_W = CAVE_H = 128           # caverna (game/world.py)
 WORLD_W, WORLD_H = CAVE_W, CAVE_H   # nome antigo: tamanho padrão do World (a caverna)
 CAVE_CENTER = (64, 64)          # centro da caverna, em tiles (no Marco 2 a rampa de subida fica aqui)
@@ -121,6 +123,7 @@ SURFACE_CLEAR_RADIUS = 8        # raio de areia limpa em volta da cápsula
 SURFACE_CRATER_DIST = (15, 20)  # distância (tiles) do centro da cratera até a base
 SURFACE_VEINS = (3, 5)          # veios de drill na superfície: poucos, longe, obrigam a explorar
 SURFACE_VEIN_MIN_DIST = 35      # nenhum tile de veio a menos disso da base
+SURFACE_VEIN_MAX_DIST = 88      # ...nem a mais disso (o alcance do mapa de 192: o mapa cresce na borda, o ritmo da coleta não muda)
 SURFACE_VEIN_SPACING = 14       # distância mínima entre veios (tiles)
 SMALL_ROCK_CHANCE = 0.013       # chance de um tile de areia virar rocha pequena (~430 no mapa; era 0,011/~357 com os soltos)
 SMALL_ROCK_MIN_DIST = SURFACE_CLEAR_RADIUS   # a área da cápsula fica limpa
@@ -135,7 +138,7 @@ ROCK_HIDDEN = (21, 13)          # ...e fora da tela: meia-tela em tiles no zoom 
 # ---------------------------------------------------------------------------
 # Base (cápsula) e player · a base fica no CENTRO da superfície
 # ---------------------------------------------------------------------------
-BASE_TILE = (SURFACE_W // 2, SURFACE_H // 2)  # (96, 96): o tile logo abaixo da cápsula, à direita do meio
+BASE_TILE = (SURFACE_W // 2, SURFACE_H // 2)  # o meio do mapa: o tile logo abaixo da cápsula, à direita do meio
 # A cápsula ocupa 2 tiles de largura na linha de cima do BASE_TILE. A âncora é o centro da base (chão).
 POD_TILES = [(BASE_TILE[0] - 1, BASE_TILE[1] - 1), (BASE_TILE[0], BASE_TILE[1] - 1)]
 POD_ANCHOR = (BASE_TILE[0] * TILE, BASE_TILE[1] * TILE)           # pixel: centro da base da cápsula
@@ -445,7 +448,7 @@ STAGE_COLOR = {1: C_ACCENT, 2: "#e8b37a", 3: "#9fd2e6", 4: "#a6e07a"}
 TRANSITION_WINDOW = 0.35        # fração final da barra de progresso em que a mancha cresce
 TRANSITION_STEPS = 100          # "degraus" da janela: o visual só muda a cada 1% (deixa cachear)
 TRANSITION_FRONT_NEAR = 14      # tiles que a frente da mancha anda "em linha reta" ao longo da janela
-TRANSITION_FRONT_FAR = 150      # tiles extras que ela dispara no fim, pra chegar nas bordas do mapa (deserto 192×192)
+TRANSITION_FRONT_FAR = round(SURFACE_W * 0.78)   # tiles extras que ela dispara no fim, pra chegar nas bordas do mapa (era 150 no de 192)
 TRANSITION_FRONT_POWER = 8      # quão no fim é esse disparo (maior = mais concentrado no final)
 TRANSITION_NOISE_SCALE = 0.11   # tamanho das "manchas" do ruído (menor = manchas maiores)
 TRANSITION_WOBBLE = 0.7         # quanto o ruído estica/encolhe a distância (0 = círculo perfeito)
@@ -663,7 +666,8 @@ VOLUME["gust"] = 0.8            # som da rajada (sem gust.wav, fica em silêncio
 # ---------------------------------------------------------------------------
 # v0.4 Marco 2 · Geografia nova (game/geo.py + game/surface_gen.py · bíblia §11). Mapa de referência aprovado:
 # reports/design/regioes/mapa_regioes.png (tools/sprites/regions_core.gen_world, portado e variando pela seed).
-# Posições em tiles, relativas à base (BASE_TILE), num deserto 192×192.
+# Posições em tiles, relativas à base (BASE_TILE), num deserto de GEO_REF_SIZE: o game/geo.py escala os números das
+# REGIÕES (salar, basalto, faixa gelada, bacias) pelo tamanho real da superfície. O resto (cratera, formações, veios) fica absoluto.
 # ---------------------------------------------------------------------------
 REGIONS_PALETTES = SPRITES_DIR / "regions" / "regions_palettes.json"   # rampas, níveis, formações (Designer)
 GEO_LEVELS = (0.19, 0.29, 0.385)    # altura (0..1) das marcas d'água L1 (Névoa), L2, L3 (Verde cheio)
@@ -839,7 +843,7 @@ OBJECTIVE_HINT_TIME = 9.0          # s da dica do objetivo ("Os sensores detecta
 # 1º lago ~10 min · portões ~16 / 22 / 28 min · lago médio ~16 min · lago cheio ~27 min · Verde ~35 min.
 # ---------------------------------------------------------------------------
 SMALL_ROCK_CHANCE = 0.019       # era 0,013 (~430 rochas no mapa, agora ~600): a bacia sem rocha e a ida à magmatita deixaram o casual em ~41 min; agora ~35
-ROCK_MAX = 700                  # era 520: com ~600 rochas na partida o teto de 520 desligaria o reaparecimento (folga de ~100, como antes)
+ROCK_MAX = round(700 * SURFACE_AREA_SCALE)   # (700 no mapa de 192; v0.5 M3.1: acompanha a área, já que as rochas pequenas são por tile) era 520: com ~600 rochas na partida o teto de 520 desligaria o reaparecimento (folga de ~100, como antes)
 STAGES = [_replace(_s, ti=7_000) if _s.key == "arid" else _s for _s in STAGES]   # Árido: era 6.500 (com as rochas a mais o casual chegava em ~7m45s; a meta é 8–12 min, agora ~8m30s)
 # Cratera (feedback do dono: abria rápido demais, ~55 s depois do 1º aquecedor): agora ~4 min de 1 aquecedor (4 pK/s),
 # ~2 min com 2. As fumarolas seguem a mesma faixa (acordam uma a uma entre 1 e 4 min de aquecimento): a magmatita

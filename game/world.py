@@ -2,7 +2,7 @@
 
 `World` é o mapa em si (consultas e regras de tile). `World.generate(seed)` gera a CAVERNA
 (128×128, paredes com minério, terminais, rampa de subida 3×3 no meio do salão), que era o mapa inteiro
-até o v0.2. A caverna não terraforma (`terraforms = False`: sem água nem plantas). A SUPERFÍCIE (deserto 192×192, onde fica a base) é montada pelo game/surface_gen.py
+até o v0.2. A caverna não terraforma (`terraforms = False`: sem água nem plantas). A SUPERFÍCIE (deserto SURFACE_W×SURFACE_H, onde fica a base) é montada pelo game/surface_gen.py
 em cima do mesmo `World`.
 
 Paredes altas (rocha, minério, borda, terminal) × sólidos baixos (rocha pequena, cratera, destroço, formação): os dois

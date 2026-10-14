@@ -8,7 +8,7 @@ com tudo que foi explorado. Cada camada tem um `Explored` (1 byte por tile).
       dos terminais e das máquinas (raios iguais aos do game/lighting.py).
 
 `fresh` junta os tiles revelados desde a última vez que alguém pediu (`take_fresh`): o minimapa usa isso
-pra pintar só o que é novo (sem redesenhar 192×192 todo frame).
+pra pintar só o que é novo (sem redesenhar a superfície toda frame).
 
 Save: bitset (1 bit por tile) comprimido com zlib e em base64 (um mapa novo dá ~100 bytes).
 Python puro, testado em tests/test_explore.py.
@@ -87,6 +87,22 @@ class Explored:
                 ex.bits[i] = 1
         ex.count = sum(ex.bits)
         return ex
+
+
+class RevealedAll:
+    """F3 (debug): faz de conta que a camada inteira foi vista, SÓ pra exibir (mapa, minimapa e marcadores).
+    Não grava nada: o `Explored` de verdade não é tocado, então desligar o F3 volta a névoa como estava."""
+
+    def seen(self, x: int, y: int) -> bool:
+        return True
+
+
+REVEALED_ALL = RevealedAll()
+
+
+def view_of(state, layer):
+    """O que o mapa deve consultar pra saber o que é visível: o explorado da camada (ou tudo, com o F3 ligado)."""
+    return REVEALED_ALL if state.fast else layer.explored
 
 
 def light_circles(state) -> list[tuple[float, float, float]]:

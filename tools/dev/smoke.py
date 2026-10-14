@@ -59,6 +59,12 @@ OUT = ROOT / "reports" / "dev"
 DT = 1 / 60
 
 
+def t192(x: int, y: int) -> tuple[int, int]:
+    """Tile escrito pro mapa antigo de 192×192 (base em (96, 96)), trazido pro de hoje: a base é o referencial."""
+    return x - 96 + C.BASE_TILE[0], y - 96 + C.BASE_TILE[1]
+
+
+
 class Bot:
     def __init__(self):
         clear_saves()
@@ -244,7 +250,7 @@ def check_directions_and_order(bot) -> None:
     s = bot.state
     frames = []
     for key in (pygame.K_s, pygame.K_w, pygame.K_d, pygame.K_a):
-        bot.teleport((96, 99))
+        bot.teleport(t192(96, 99))
         pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=key, mod=0, unicode="", scancode=0))
         bot.frames(0.25)
         frames.append(crop_around_player(bot))      # tirado no meio da caminhada
@@ -266,7 +272,7 @@ def check_directions_and_order(bot) -> None:
         order.blit(crop_around_player(bot), (i * 96, 0))
     pygame.image.save(pygame.transform.scale_by(order, 3), str(OUT / "ordem_desenho.png"))
     print("  screenshot: reports/dev/ordem_desenho.png  (esquerda: player atrás da máquina · direita: na frente)")
-    bot.teleport((96, 98))
+    bot.teleport(t192(96, 98))
     bot.frames(0.1)
 
 
@@ -307,17 +313,17 @@ def check_walls_and_hover(bot) -> None:
     s.o2 = C.O2_MAX
 
     # 3) cursor em cima de máquina colocada (com e sem fantasma) — playtest 1 mostrou quadrado preto aqui
-    bot.teleport((96, 98))
+    bot.teleport(t192(96, 98))
     bot.frames(0.1)
     give(s, iron=60, silicon=30, ice=40)
-    build_at(s, "melter", (94, 99))
+    build_at(s, "melter", t192(94, 99))
     hold_constructor(bot, "melter")
-    bot.mouse_to(bot.tile_on_screen((94, 99)))          # fantasma em cima da máquina colocada (inválido)
+    bot.mouse_to(bot.tile_on_screen(t192(94, 99)))          # fantasma em cima da máquina colocada (inválido)
     bot.frames(0.2)
     shot_hover = pygame.Surface((240, 120))
-    cxp, cyp = bot.tile_on_screen((94, 99))
+    cxp, cyp = bot.tile_on_screen(t192(94, 99))
     shot_hover.blit(bot.app.frame, (0, 0), (cxp - 60, cyp - 80, 120, 120))
-    bot.mouse_to(bot.tile_on_screen((92, 99)))          # fantasma num lugar válido, ao lado
+    bot.mouse_to(bot.tile_on_screen(t192(92, 99)))          # fantasma num lugar válido, ao lado
     bot.frames(0.2)
     release_constructor(bot)
     shot_hover.blit(bot.app.frame, (120, 0), (cxp - 100, cyp - 80, 120, 120))
@@ -468,7 +474,7 @@ def check_zoom_and_fullscreen(bot) -> None:
     s, app = bot.state, bot.app
     settings.SETTINGS_PATH.unlink(missing_ok=True)
     assert app.zoom == 1.0
-    bot.teleport((96, 98))
+    bot.teleport(t192(96, 98))
     s.o2 = C.O2_MAX
     bot.frames(0.2)
     machine = s.machines[0]
@@ -488,7 +494,7 @@ def check_zoom_and_fullscreen(bot) -> None:
     assert app.zoom == 0.75 and settings.load()["zoom"] == 0.75, "zoom tem que ir pro settings.json"
     assert app.cam == app.renderer.camera(s, (1280, 720))
     hover_machine_check()
-    tile_check((92, 94))
+    tile_check(t192(92, 94))
     app.floaters.add("+15 FERRO", s.player.x, s.player.y - 40, C.ORE_COLORS["iron"][0])
     start = len(bot.frame_times)
     bot.frames(1.0)
@@ -514,15 +520,15 @@ def check_zoom_and_fullscreen(bot) -> None:
     # zoom in até o máximo (= e + do teclado numérico), e para no 2×
     bot.key(pygame.K_EQUALS)
     assert app.zoom == 1.5
-    tile_check((94, 96))
+    tile_check(t192(94, 96))
     bot.key(pygame.K_KP_PLUS)
     bot.key(pygame.K_KP_PLUS)
     assert app.zoom == 2.0
     hover_machine_check()
-    tile_check((95, 96))
+    tile_check(t192(95, 96))
     # fantasma de colocação no tile certo com zoom
     hold_constructor(bot, "o2")
-    target = (97, 96)
+    target = t192(97, 96)
     bot.mouse_to(bot.tile_on_screen(target))
     assert app.place_target() == target
     app.floaters.add("+15 FERRO", s.player.x, s.player.y - 40, C.ORE_COLORS["iron"][0])
@@ -590,16 +596,16 @@ def check_dismantle(bot) -> None:
     botão direito 2 s (barrinha, scanner descendo, a receita volta); o clique rápido não faz nada; soltar cancela.
     Prints: construindo, desmontar, desmontar_segurando, desmontar_depois."""
     s, app = bot.state, bot.app
-    bot.teleport((96, 98))
+    bot.teleport(t192(96, 98))
     bot.frames(0.1)
     give(s, iron=60, silicon=30, ice=40, magmatite=10)
     kind = "heater" if s.recipe_status("heater") == "ok" else "o2"   # aquecedor só libera com Ti 500
     hold_constructor(bot, kind)
-    bot.mouse_to(bot.tile_on_screen((98, 98)))
+    bot.mouse_to(bot.tile_on_screen(t192(98, 98)))
     bot.frames(0.1)
     rate = s.ti_rate
-    bot.click(bot.tile_on_screen((98, 98)))
-    m = s.machine_at((98, 98))
+    bot.click(bot.tile_on_screen(t192(98, 98)))
+    m = s.machine_at(t192(98, 98))
     assert m is not None and m.kind == kind and m.build > 0 and app.placing == kind   # continua construindo
     assert s.ti_rate == rate                                    # se construindo: ainda não soma
     release_constructor(bot)                                    # sem o fantasma por cima, pro print
@@ -644,20 +650,20 @@ def check_dismantle(bot) -> None:
     pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONUP, pos=pod, button=3))
     bot.frames(DT)
     assert len(s.machines) == n
-    build_at(s, kind, (98, 98))      # devolve a máquina pro resto do smoke
+    build_at(s, kind, t192(98, 98))      # devolve a máquina pro resto do smoke
 
 
 def check_inventory_and_chest(bot) -> None:
     """Hotbar, Tab, baú (pegar/soltar/metade/Shift+clique), baú com coisa não desmonta, inventário cheio."""
     s, app = bot.state, bot.app
-    bot.teleport((96, 98))
+    bot.teleport(t192(96, 98))
     s.o2 = C.O2_MAX
     s.inventory.clear()
     give(s, iron=86, silicon=30, ice=24)                # ferro em 2 pilhas (50 + 36): o baú gasta 6
     s.inventory.add("drone", 2)
     # construtor na mão: o menu escolhe o baú e o clique constrói (gasta do inventário)
     hold_constructor(bot, "chest")
-    site = (95, 99)                                     # dentro da zona de O₂ da base
+    site = t192(95, 99)                                     # dentro da zona de O₂ da base
     assert s.world.is_floor(*site) and s.machine_at(site) is None
     bot.mouse_to(bot.tile_on_screen(site))
     bot.frames(0.2)
@@ -782,8 +788,8 @@ def check_inventory_and_chest(bot) -> None:
     s.inventory.add("drone", 1)
     s.inventory.add("scanner", 1)
     assert None not in s.inventory.slots
-    bot.teleport((96, 98))
-    ore = (96, 100)
+    bot.teleport(t192(96, 98))
+    ore = t192(96, 100)
     s.world.set(*ore, C.IRON)
     bot.frames(0.1)
     pos = bot.tile_on_screen(ore)
@@ -804,23 +810,23 @@ def check_energy(bot) -> None:
     medidor vermelho + aviso + ritmo no hover + power_low disparado uma vez."""
     from game.systems import Machine
     s, app = bot.state, bot.app
-    bot.teleport((96, 98))
+    bot.teleport(t192(96, 98))
     bot.frames(0.1)
     give(s, iron=max(8, s.inventory.count("iron")), silicon=max(6, s.inventory.count("silicon")))
     hold_constructor(bot, "solar")
-    spot = next(t for t in [(94, 99), (93, 100), (95, 100), (92, 99), (98, 100)] if s.can_place("solar", t))
+    spot = next(t for t in [t192(94, 99), t192(93, 100), t192(95, 100), t192(92, 99), t192(98, 100)] if s.can_place("solar", t))
     bot.click(bot.tile_on_screen(spot))
     panel = s.machine_at(spot)
     assert panel is not None and panel.kind == "solar", "o painel devia ter sido construído"
     release_constructor(bot)
     bot.frames(C.BUILD_TIME + 0.1)                      # termina de se construir: aí gera
     assert s.power.production == C.POD_POWER + C.POWER_GEN["solar"] and not s.power.deficit
-    bot.mouse_to(bot.tile_on_screen((96, 101)))
+    bot.mouse_to(bot.tile_on_screen(t192(96, 101)))
     bot.frames(0.5)
     bot.shot("energia_ok.png")
 
     # déficit forçado: máquinas nv.2 direto no mundo (o teste é do HUD, não do fabricador)
-    free = [(x, y) for y in range(99, 103) for x in range(90, 103)
+    free = [(x, y) for y in range(t192(0, 99)[1], t192(0, 103)[1]) for x in range(t192(90, 0)[0], t192(103, 0)[0])
             if s.world.is_floor(x, y) and not s.machine_at((x, y)) and (x, y) not in C.POD_TILES
             and s.world.vein_at(x, y) is None and (x, y) != s.player.tile]
     extra = [Machine("heater_t2", *t) for t in free[::3][:3]]
@@ -866,7 +872,7 @@ def check_transition(bot, stage: int, shots: list[tuple[str, float]]) -> None:
     stage_before, storm_before = s.stage, s.storm
     s.stage = stage                              # sem stage_up: o banner não aparece nos prints
     s.storm = 1.0 if stage <= C.STORM_STAGE else 0.0
-    bot.teleport((96, 98))
+    bot.teleport(t192(96, 98))
     s.o2 = C.O2_MAX
     for name, fraction in shots:
         s.indices.update(o2=ti_in_window(stage, fraction), heat=0.0, water=0.0)
@@ -883,7 +889,7 @@ def check_arid(bot) -> None:
     tempestade some em STORM_FADE_S (prints: banner_arido, arido)."""
     s, app = bot.state, bot.app
     assert s.stage == C.STORM_STAGE and s.storm == 1.0
-    bot.teleport((96, 98))
+    bot.teleport(t192(96, 98))
     s.o2 = C.O2_MAX
     s.indices["o2"] += C.STAGES[C.ARID_STAGE - 1].ti - s.ti
     bot.frames(0.8)
@@ -920,7 +926,7 @@ def check_veins(bot) -> None:
         sheet.blit(c, (i * 244, 0))
     pygame.image.save(pygame.transform.scale_by(sheet, 2), str(OUT / "veios.png"))
     print("  screenshot: reports/dev/veios.png  (ferro, silício, gelo, estágio 1)")
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     bot.frames(0.1)
 
 
@@ -930,7 +936,7 @@ def check_drill_feature(bot) -> None:
     s, app = bot.state, bot.app
     assert s.stage >= C.MIST_STAGE and s.recipe_status("drill") != "locked"
     give(s, iron=60, silicon=40)
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     bot.frames(0.1)
     cx, cy = C.BASE_TILE
     vein = min(s.world.veins, key=lambda v: math.hypot(v.tx - cx, v.ty - cy))
@@ -1005,7 +1011,7 @@ def check_drill_feature(bot) -> None:
     bot.frames(0.3)
     assert s.inventory.count(drill.resource) == before + C.DRILL_CAPACITY and drill.stored == 0
     bot.shot("drill_coletou.png")
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     bot.frames(0.1)
 
 
@@ -1013,11 +1019,11 @@ def check_melter(bot) -> None:
     """v0.5 M2: derretedor com inventário. Constrói, E abre o painel, põe gelo (clique no inventário), espera a
     cápsula, liga o Envia e tira as cápsulas. Prints: derretedor_painel, derretedor_cheio."""
     s, app = bot.state, bot.app
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     s.o2 = C.O2_MAX
     bot.frames(0.1)
     give(s, iron=30, ice=60)
-    site = next((t for t in ((100, 98), (101, 99), (99, 100), (102, 97), (98, 101))
+    site = next((t for t in (t192(100, 98), t192(101, 99), t192(99, 100), t192(102, 97), t192(98, 101))
                  if s.can_place("melter", t)), None)
     assert site, "sem lugar pro derretedor"
     melter = build_at(s, "melter", site)
@@ -1051,11 +1057,11 @@ def check_melter(bot) -> None:
     assert melter.capsules == 0 and s.inventory.count("water_capsule") == max_stack_capsule()
     bot.key(pygame.K_ESCAPE)
     assert app.mode == "play"
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     bot.frames(0.1)
 
 
-def find_free_area(state, w: int, h: int, near=(96, 99), spread: int = 22):
+def find_free_area(state, w: int, h: int, near=t192(96, 99), spread: int = 22):
     """Canto (x, y) de uma área w×h de chão livre (sem máquina, veio, água nem cápsula) o mais perto de `near`."""
     best = None
     for y in range(near[1] - spread, near[1] + spread):
@@ -1238,7 +1244,7 @@ def check_base(bot) -> None:
         s.base.remove(block)
     s.surface.machines[:] = machines_before
     s.inventory.slots[:] = slots_before
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     bot.frames(0.2)
 
 
@@ -1273,7 +1279,7 @@ def check_drones(bot) -> None:
     from game import drones
     s, app = bot.state, bot.app
     assert s.recipe_status("drone_station") != "locked"
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     s.o2 = C.O2_MAX
     bot.frames(0.1)
     give(s, iron=60, silicon=40, ice=20)
@@ -1418,7 +1424,7 @@ def check_drones(bot) -> None:
     cxw, cyw = chest.anchor
     shot_zoom(bot, "drones_entrega.png", ((ax + cxw) / 2, (ay + cyw) / 2 - 30))
     carve(s, [(mid[0] + i, mid[1] + j) for i in (-1, 0, 1) for j in (0, 1)])
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     bot.frames(0.1)
 
 
@@ -1550,7 +1556,7 @@ def check_logistics(bot) -> None:
     s.machines.remove(far)
     if fresh is not None:
         s.machines.remove(fresh)
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     bot.frames(0.1)
 
 
@@ -1560,7 +1566,7 @@ def check_final_polish(bot) -> None:
     from game import drones, viewport
     from game.systems import Machine
     s, app = bot.state, bot.app
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     s.o2 = C.O2_MAX
     bot.frames(0.1)
     chest = s.chests[0]
@@ -1660,7 +1666,7 @@ def check_final_polish(bot) -> None:
     print(f"  rótulo do baú (UI): {tuple(label)} · floaters: {[f.text for f in app.floaters.items]}")
     shot_zoom(bot, "rotulo_floater.png", (ax, ay - 70), w=220, h=150, k=3)
     bot.mouse_to((20, 20))
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     bot.frames(0.1)
 
 
@@ -1687,7 +1693,7 @@ def check_polish(bot) -> None:
     from game import drones
     from game.systems import Machine
     s, app = bot.state, bot.app
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     s.o2 = C.O2_MAX
     bot.mouse_to((20, 20))
     bot.frames(0.1)
@@ -1735,7 +1741,7 @@ def check_polish(bot) -> None:
     assert s.power.factor == 1 or not any(m.kind == "heater_t2" and m.tx < 10 for m in s.machines)
 
     # fabricador: abas (D vai pra direita), rolagem (W/S e rodinha) e Shift+Enter fabrica 5
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     give(s, iron=100, silicon=60, ice=30)
     bot.frames(0.1)
     bot.key(pygame.K_e)
@@ -1793,7 +1799,7 @@ def check_polish(bot) -> None:
         for d, (st, dx, dy) in zip(landed, saved):
             d.state, d.x, d.y = st, dx, dy
     app.set_zoom(zoom, notify=False)
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     bot.frames(0.1)
 
 
@@ -1862,7 +1868,7 @@ def check_bench_t2(bot) -> None:
     blueprints_before = set(s.blueprints)
     machines_before = list(s.surface.machines)
     s.blueprints.add("workbench")
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     bot.frames(0.1)
     px, py = s.player.tile
     spot_ = next((px + dx, py + dy) for dy in range(2, 9) for dx in range(-6, 4)
@@ -1934,7 +1940,7 @@ def check_b2_screens(bot) -> None:
     s.equipment.slots["o2_tank"], s.equipment.slots["scanner"] = "o2_tank", "scanner"
     for ui_size in ("grande", "pequena"):
         app.set_ui_size(ui_size)
-        bot.teleport((96, 97))
+        bot.teleport(t192(96, 97))
         s.o2 = s.o2_max
         app.hotbar_selected = 3
         bot.mouse_to(ui_to_window(app, pygame.Rect(app.ui.w // 2 - 60, app.ui.h // 2 - 40, 1, 1)))
@@ -2061,7 +2067,7 @@ def check_backpack(bot) -> None:
     s, app = bot.state, bot.app
     ui_before = app.settings["ui_size"]
     inv_before = [Stack(st.item, st.count) if st else None for st in s.inventory.slots]
-    bot.teleport((96, 98))
+    bot.teleport(t192(96, 98))
     s.o2 = C.O2_MAX
     s.inventory.clear()
     give(s, iron=30, silicon=12, ice=8, backpack=1)
@@ -2124,7 +2130,7 @@ def check_ui_size(bot) -> None:
     app.scale = 2
     app.window = app.open_window(False)
     assert app.window.get_size() == (1920, 1080), app.window.get_size()
-    bot.teleport((96, 98))
+    bot.teleport(t192(96, 98))
     s.o2 = C.O2_MAX
     bot.frames(0.2)
     # pela pausa: Opções > INTERFACE, D diminui (Média -> Pequena), A aumenta
@@ -2147,7 +2153,7 @@ def check_ui_size(bot) -> None:
     assert app.mode == "play"
 
     # mundo igual nos 3 tamanhos: a câmera e o mouse do mundo não dependem da interface
-    tile = (98, 96)
+    tile = t192(98, 96)
     hover = bot.tile_on_screen(tile)
     times = {}
     for ui_size in ("grande", "media", "pequena"):
@@ -2186,7 +2192,7 @@ def check_ui_size(bot) -> None:
 
     # Pequena: fabricador (clique na aba) e baú (clique no slot transfere)
     app.set_ui_size("pequena")
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     bot.frames(0.2)
     bot.key(pygame.K_e)
     assert app.mode == "fabricator"
@@ -2271,7 +2277,7 @@ def check_save(bot) -> None:
     """Autosave com o aviso no HUD, "Salvar e sair" pela pausa, Mundos (novo mundo com nome e seed, jogar,
     salvar, voltar, Continuar), apagar com confirmação e voltar pro mundo 1 pela lista."""
     s, app = bot.state, bot.app
-    bot.teleport((96, 98))
+    bot.teleport(t192(96, 98))
     s.o2 = C.O2_MAX
     bot.frames(0.2)
     # autosave: só conta jogando (pausado o relógio não anda)
@@ -2441,7 +2447,7 @@ def check_surface(bot) -> None:
         pygame.image.save(full, str(OUT / name))
         print(f"  screenshot: reports/dev/{name}  ({note})")
 
-    full_map("superficie_mapa.png", "mapa 192×192 reduzido 8×; anéis = veios, branco = cratera")
+    full_map("superficie_mapa.png", "mapa reduzido 8×; anéis = veios, branco = cratera")
 
     # 5b) rochas reaparecendo (regra real): enche até o teto com o player na base e olha a densidade no teto
     start_rocks = rock_respawn.count(w)
@@ -2472,7 +2478,7 @@ def check_surface(bot) -> None:
         bot.key(key, hold=0.75)
     ft = bot.frame_times[start:]
     avg = sum(ft) / len(ft)
-    print(f"  perf deserto 192×192, zoom 0,75×: média {avg * 1000:.1f} ms · pior {max(ft) * 1000:.1f} ms "
+    print(f"  perf deserto {C.SURFACE_W}×{C.SURFACE_H}, zoom 0,75×: média {avg * 1000:.1f} ms · pior {max(ft) * 1000:.1f} ms "
           f"({len(ft)} frames, orçamento 16,7 ms)")
     assert avg < 1 / 60, "deserto no zoom 0,75 passou do orçamento de 16,7 ms"
     app.set_zoom(zoom_before, notify=False)
@@ -2611,7 +2617,7 @@ def check_ground(bot) -> None:
             full.blit(pygame.transform.smoothscale(piece, (128, 128)), (cx // 8, cy // 8))
     r.ground.sync = False
     pygame.image.save(full, str(OUT / "chao_mapa.png"))
-    print("  screenshot: reports/dev/chao_mapa.png  (chão 192×192 reduzido 8×)")
+    print("  screenshot: reports/dev/chao_mapa.png  (chão reduzido 8×)")
     # 6) desempenho: assar 1 bloco, o passeio de antes (zoom 0,75) e o pior quadro andando rápido (F3)
     app.set_zoom(0.75, notify=False)
     r.ground.reset()                                 # cache fria: mede o assado de verdade
@@ -2690,8 +2696,8 @@ def check_hills(bot) -> None:
     for ty in range(8, w.height - 8):
         for tx in range(8, w.width - 8):
             if (w.get(tx, ty) == C.ROCK and w.is_wall(tx, ty - 1) and w.is_floor(tx, ty + 1)
-                    and w.is_floor(tx, ty + 2) and tx % C.HILL_BLOCK not in (0, C.HILL_BLOCK - 1)
-                    and ty % C.HILL_BLOCK not in (0, 1, C.HILL_BLOCK - 1) and geo.region[ty, tx] == 0):
+                    and w.is_floor(tx, ty + 2) and 1 <= tx % C.HILL_BLOCK <= C.HILL_BLOCK - 2
+                    and 2 <= ty % C.HILL_BLOCK <= C.HILL_BLOCK - 3 and geo.region[ty, tx] == 0):   # fora da janela dos vizinhos (hills.window_bounds: ±1 em x, ±2 em y)
                 target = (tx, ty)
                 break
         if target:
@@ -2704,6 +2710,7 @@ def check_hills(bot) -> None:
     bot.mouse_to(pos)
     bot.frames(0.1)
     bakes = hb.bakes
+    _ids = {k: id(v) for k, v in hb.blocks.items()}
     bot.mouse_down(pos)
     bot.frames(0.35)
     assert s.mining is not None
@@ -2715,7 +2722,11 @@ def check_hills(bot) -> None:
     bot.mouse_up(pos)
     bot.frames(0.1)
     assert not w.is_wall(*target), "o tile do morro devia ter quebrado"
-    rebaked = hb.bakes - bakes
+    # só conta os blocos que a mineração mexe (o resto pode ter assado porque a câmera ainda andava: bloco novo na borda da tela)
+    from game.hills import window_bounds
+    rebaked = sum(1 for k, v in hb.blocks.items() if _ids.get(k) != id(v)
+                  and window_bounds(*k)[0] <= target[0] < window_bounds(*k)[1]
+                  and window_bounds(*k)[2] <= target[1] < window_bounds(*k)[3])
     assert rebaked == 1, f"minerar 1 tile no meio do bloco re-assou {rebaked} blocos (devia ser só o dele)"
     shot_zoom(bot, "morros_minerado.png", ((target[0] + 0.5) * C.TILE, (target[1] + 0.2) * C.TILE), w=200, h=120)
     print(f"  minerou {target}: re-assou {rebaked} bloco")
@@ -3504,6 +3515,30 @@ def check_map_panorama(bot) -> None:
     app.save_map_prefs()
 
 
+def check_map_f3(bot) -> None:
+    """v0.5 M3.1: F3 revela o mapa grande e o minimapa inteiros, só exibindo (o explorado não muda).
+    Prints: mapa_f3_revelado.png (mapa aberto, 1×) e minimapa_f3_revelado.png (HUD com o minimapa)."""
+    s, app = bot.state, bot.app
+    view = app.map_view
+    zoom_before = view.zoom
+    layer = s.layers[s.layer]
+    bits, fast_before = bytes(layer.explored.bits), s.fast
+    s.fast = True                                        # F3 (o toggle é testado no pytest)
+    view.zoom = 1
+    bot.key(pygame.K_m)
+    assert app.mode == "map"
+    bot.frames(0.1)
+    bot.mouse_to((4, 4))
+    bot.shot("mapa_f3_revelado.png")
+    bot.key(pygame.K_m)
+    bot.frames(0.1)
+    bot.shot("minimapa_f3_revelado.png")
+    s.fast = fast_before
+    assert bytes(layer.explored.bits) == bits, "o F3 não pode marcar nada como explorado"
+    view.zoom = zoom_before
+    print("  screenshot: reports/dev/mapa_f3_revelado.png · minimapa_f3_revelado.png")
+
+
 def check_wrecks(bot) -> None:
     """v0.3 Marco 3 · destroços, caixa, diagrama (achar, ler na bancada), fabricador trancado, equipamento, tanque, minimapa e mapas."""
     from game import layers
@@ -3644,6 +3679,7 @@ def check_wrecks(bot) -> None:
     extra += [Machine("chest", C.BASE_TILE[0] + 4 + i, C.BASE_TILE[1] + 5) for i in range(3)]
     s.surface.machines.extend(extra)
     check_map_panorama(bot)
+    check_map_f3(bot)
     bot.key(pygame.K_m)
     assert app.mode == "map"
     bot.frames(0.3)
@@ -4170,7 +4206,7 @@ def check_machine_anim(bot) -> None:
     pygame.image.save(sheet, str(OUT / "maquinas_animadas.png"))
     print("  screenshot: reports/dev/maquinas_animadas.png  (4 capturas a cada 0,2 s)")
     s.machines = old
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     bot.frames(0.1)
 
 
@@ -4197,7 +4233,7 @@ def check_rock_veins(bot) -> None:
     print("  screenshot: reports/dev/rochas_veio.png  (ferro, silício, gelo; 8 tiles cada)")
     for tile in placed:
         w.set(*tile, C.SAND)
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     bot.frames(0.1)
 
 
@@ -4265,9 +4301,9 @@ def check_magmatite(bot) -> None:
     s.fabricator_opened = True
     s.crafted.update(constructor=max(1, s.crafted["constructor"]), o2=max(1, s.crafted["o2"]),
                      chest=max(1, s.crafted["chest"]), melter=max(1, s.crafted["melter"]))
-    layer.machines.append(Machine("o2", 93, 98))
+    layer.machines.append(Machine("o2", *t192(93, 98)))
     app.set_zoom(1.0, notify=False)
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     app.objectives = ObjectiveTracker(s)
     bot.frames(0.6)
     shown = app.objectives.lines(s)
@@ -4357,7 +4393,7 @@ def main() -> None:
 
     print("3) fabricador")
     give(s, iron=60, silicon=30, ice=24)
-    bot.teleport((96, 97))
+    bot.teleport(t192(96, 97))
     bot.frames(0.3)
     bot.key(pygame.K_e)
     bot.frames(0.2)
@@ -4367,7 +4403,7 @@ def main() -> None:
     button = next(rect for rect, kind in bot.app.ui.fabricator_buttons if kind == "constructor")
     bot.click((button.centerx * 2, button.centery * 2))
     assert bot.app.constructor_selected(), "o construtor fabricado devia ir pra mão"
-    bot.mouse_to(bot.tile_on_screen((93, 98)))
+    bot.mouse_to(bot.tile_on_screen(t192(93, 98)))
     bot.key(pygame.K_e)                                  # v0.5 M1: construtor na mão, E abre o menu de construção
     assert bot.app.mode == "build"
     bot.app.build_menu.select("o2")
@@ -4376,13 +4412,13 @@ def main() -> None:
     button = next(rect for rect, kind in bot.app.ui.fabricator_buttons if kind == "o2")
     bot.click((button.centerx * 2, button.centery * 2))
     assert bot.app.placing == "o2", "CONSTRUIR devia entrar no modo de construir"
-    bot.mouse_to(bot.tile_on_screen((93, 98)))
+    bot.mouse_to(bot.tile_on_screen(t192(93, 98)))
     bot.frames(0.3)
     bot.shot("placing.png")
-    bot.click(bot.tile_on_screen((93, 98)))
+    bot.click(bot.tile_on_screen(t192(93, 98)))
     assert len(s.machines) == 1
     # mais duas máquinas pelo teclado: S (desce) + Enter
-    for target, steps in [((99, 98), 1), ((92, 96), 0)]:
+    for target, steps in [(t192(99, 98), 1), (t192(92, 96), 0)]:
         bot.key(pygame.K_e)
         for _ in range(steps):
             bot.key(pygame.K_s)

@@ -8,7 +8,7 @@
 
 O que é real e o que é aproximado
 ---------------------------------
-v0.3 Marco 1: o mundo é a SUPERFÍCIE (deserto 192×192 do `surface_gen`, a camada ativa do GameState), ainda
+v0.3 Marco 1: o mundo é a SUPERFÍCIE (deserto do `surface_gen`, a camada ativa do GameState), ainda
 sem caverna. Minério = minério dos morros + rochas pequenas (`C.TILE_RESOURCE`), que reaparecem pela regra real
 (`game/rock_respawn.py`, rodando junto da produção). O volume de minério da superfície é baixo de propósito
 (a mineração em volume vem com a caverna no Marco 2).

@@ -21,6 +21,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from game import config as C
+from game import explore
 from game.geo import REGION_LABELS
 
 ZOOMS = (1, 2, 3, 4)
@@ -142,7 +143,7 @@ def map_entries(state, key: str) -> list[Entry]:
     vistos mesmo longe do player (game/explore.py) e aparecem em ilhas soltas de explorado no mapa.
     A distância é contada do player; na outra camada, da rampa dela ("... da rampa")."""
     layer = state.layers[key]
-    world, explored = layer.world, layer.explored
+    world, explored = layer.world, explore.view_of(state, layer)   # F3 ligado: tudo visível (só exibe)
 
     def seen_any(tiles) -> bool:
         return any(explored.seen(*t) for t in tiles)

@@ -23,3 +23,10 @@ def build_now(game, kind: str, tile, rotation: int = 0, finish: bool = True):
     if finish:
         machine.build = 0.0
     return machine
+
+
+def from_192(x, y):
+    """Coordenada (em tiles) escrita pro mapa antigo de 192×192, trazida pro mapa de hoje: a base é o referencial
+    (era (96, 96)), então o ponto continua com o mesmo deslocamento dela. Troca o SURFACE_W sem mexer nos testes."""
+    from game import config as C
+    return (x - 96 + C.BASE_TILE[0], y - 96 + C.BASE_TILE[1])

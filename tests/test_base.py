@@ -480,7 +480,7 @@ def test_dispenser_burns_one_capsule_every_x_minutes_and_only_when_sealed(game):
 
 def test_o2_recharges_inside_the_sealed_base_and_not_outside(game):
     d, x0, y0 = demo_base(game, water=1)
-    game.player.x, game.player.y = 4000.0, 4000.0                  # fora de tudo (longe da cápsula)
+    game.player.x, game.player.y = 900.0, 900.0                    # fora de tudo (longe da cápsula)
     game.update(0.05, Controls())
     game.o2 = 50.0
     run(game, 1.0)
@@ -597,14 +597,14 @@ def test_leak_alert_stops_when_sealed(game):
     assert not any(e[0] == "leak_alert" for e in game.events)
 
 
-# ---------------------------------------------------------------- save v9
-def test_save_version_is_9_and_blocks_roundtrip(game, tmp_path):
+# ---------------------------------------------------------------- save v10 (os blocos da base entraram no v9)
+def test_save_version_is_10_and_blocks_roundtrip(game, tmp_path):
     d, x0, y0 = demo_base(game, water=2)
     d.burn = 42.5
     dd = BaseBlock(C.BASE_DOOR2, x0 - 1 - 3, y0, "v")
     game.base.add(dd)
     data = save.state_to_dict(game)
-    assert data["version"] == save.SAVE_VERSION == 9
+    assert data["version"] == save.SAVE_VERSION == 10
     entries = data["layers"]["surface"]["base"]
     double = [e for e in entries if e["kind"] == C.BASE_DOOR2]
     assert double == [{"kind": C.BASE_DOOR2, "tx": dd.tx, "ty": dd.ty, "orient": "v"}]    # um objeto só, com âncora e orientação
@@ -629,17 +629,6 @@ def test_dispenser_save_sanitizes_the_slot():
     data["burn"] = 99999
     back = save.machine_from_dict(data)
     assert back.capsules == 0 and back.burn == C.DISPENSER_CAPSULE_TIME
-
-
-def test_v8_save_migrates_without_a_base(game, tmp_path):
-    data = save.state_to_dict(game)
-    data["version"] = 8
-    data["layers"]["surface"].pop("base", None)
-    path = tmp_path / "slot1.json"
-    path.write_text(json.dumps(data), encoding="utf-8")
-    loaded = save.load_game(path)
-    assert loaded is not None and loaded.base.blocks == []
-    assert save.state_to_dict(loaded)["version"] == 9
 
 
 def test_load_ignores_unknown_and_overlapping_blocks():

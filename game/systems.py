@@ -331,7 +331,7 @@ class GameState:
         self.fainted = False
         self.faint_time = 0.0          # segundos desde o desmaio
         self.time_scale = 1            # F1 muda pra 10
-        self.fast = False              # F3: player DEBUG_SPEED× mais rápido e broca DEBUG_MINE× mais rápida
+        self.fast = False              # F3: player DEBUG_SPEED× mais rápido, broca DEBUG_MINE× mais rápida e mapa/minimapa inteiros
         self.debug_crater = False      # F4: a cratera foi aberta pelo atalho de debug (aviso no topo da tela)
         self.play_time = 0.0
         self.logs_read: set[int] = set()
@@ -1801,7 +1801,8 @@ class GameState:
         self.time_scale = C.DEBUG_TIME_SCALE if self.time_scale == 1 else 1
 
     def toggle_fast(self) -> None:
-        """F3: liga/desliga o player rápido + broca rápida (pra testar sem andar e minerar tanto)."""
+        """F3: liga/desliga o player rápido + broca rápida + mapa revelado (pra testar sem andar e minerar tanto).
+        O mapa revelado só exibe (game/explore.py `view_of`, game/minimap.py): não grava nada como explorado."""
         self.fast = not self.fast
 
     @property

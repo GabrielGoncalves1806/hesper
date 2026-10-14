@@ -10,10 +10,10 @@ Cada save ganha o bloco `world` (ver game/save.py): {"name": "Mundo 1", "seed": 
 "played_s": 734.2}. A seed do mundo continua também no `seed` da raiz do save (é ela que gera o mapa); o
 `world.seed` é a mesma, repetida pra lista de mundos.
 
-Migração do save único: na primeira vez, um `saves/slot1.json` **v7** (o formato atual) é COPIADO pra
+Migração do save único: na primeira vez, um `saves/slot1.json` da versão atual é COPIADO pra
 `world1.json`, com o nome "Mundo 1" e a seed que ele já usava (7). O `slot1.json` fica onde está, intacto (é o
 backup), e o índice marca `migrated_slot1` pra ele não voltar a virar mundo se o mundo 1 for apagado.
-Um `slot1.json` v1–v6 não migra: o título mostra o aviso de "save antigo" e, ao criar um mundo, ele vira
+Um `slot1.json` v1–v9 não migra: o título mostra o aviso de "save antigo" e, ao criar um mundo, ele vira
 `slot1.v<N>.json` (`save.backup_old`, que nunca sobrescreve outro backup). Nenhum outro arquivo da pasta
 (`slot1.antigo.json`, `slot1.v5.json`, `slot1.v6.json`...) é lido, mexido ou apagado.
 
@@ -156,7 +156,7 @@ def legacy_path() -> Path:
 
 
 def legacy_status() -> str:
-    """Estado do saves/slot1.json: "none", "ok" (versão atual), "old" (v1–v6) ou "broken". Só lê o JSON."""
+    """Estado do saves/slot1.json: "none", "ok" (versão atual), "old" (v1–v9) ou "broken". Só lê o JSON."""
     legacy = legacy_path()
     if not legacy.exists():
         return "none"
@@ -172,8 +172,8 @@ def legacy_status() -> str:
 
 
 def migrate_legacy() -> bool:
-    """saves/slot1.json da versão atual (v7) -> saves/world1.json, uma vez só. O slot1.json não é tocado
-    (fica de backup). Save antigo (v1–v6) NÃO migra: segue o fluxo de "save antigo" (o título avisa e, quando
+    """saves/slot1.json da versão atual -> saves/world1.json, uma vez só. O slot1.json não é tocado
+    (fica de backup). Save antigo (v1–v9) NÃO migra: segue o fluxo de "save antigo" (o título avisa e, quando
     um mundo novo é criado, ele vira slot1.v<N>.json pelo save.backup_old). Devolve True se migrou."""
     index = read_index()
     if index.get("migrated_slot1"):
@@ -203,7 +203,7 @@ def migrate_legacy() -> bool:
 
 
 def retire_old_legacy() -> Path | None:
-    """Criou um mundo com um slot1.json antigo (v1–v6) na pasta: ele vira slot1.v<N>.json (nunca apagado,
+    """Criou um mundo com um slot1.json antigo (v1–v9) na pasta: ele vira slot1.v<N>.json (nunca apagado,
     nunca por cima de outro backup), igual ao "Novo jogo" de antes dos mundos."""
     if legacy_status() != "old":
         return None
