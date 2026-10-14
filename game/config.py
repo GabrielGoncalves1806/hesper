@@ -874,6 +874,10 @@ THAW_GATE_HEAT = ((2800, 4300, 5800), (5800, 8000, 10200), (14000, 18000, 22000)
 # ~94% da partida do casual) e o gelo some em 28.000: perto do fim, nunca "nunca".
 # Provisório, balancear depois (a passada única de números).
 THAW_GIANT_HEAT = (22000, 25000, 28000)
+# v0.5 M3.6.4 · névoa do bolsão da criatura: cobre o interior até a fresta do portão grande abrir e some em GIANT_FOG_FADE_S s.
+# A mensagem usa o aviso do degelo (a mesma pílula da cratera, THAW_CRATER_NOTICE_S). Texto provisório.
+GIANT_FOG_FADE_S = 3.5
+GIANT_OPEN_NOTICE = "O grande gelo do norte cedeu. O que ele guardava não é rocha."
 LAKE_WATER = (2500, 7000, 15000)   # era (3000, 15000, 40000): L1 junto com a Névoa, L2 no meio do jogo (era ~32 min), L3 antes do Verde (o 40.000 nunca chegava)
 # Mantidos de propósito: STAGES Névoa 10.000 e Verde 100.000, RAIN_* (o dono aprovou a chuva no playtest), O₂, receitas.
 

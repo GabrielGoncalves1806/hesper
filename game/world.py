@@ -102,6 +102,9 @@ class World:
         # (nasce com todos na geração; o Layer.refresh_gates refaz). A colisão do gelo é por retângulo, não por tile:
         # isto é a sombra dele em tiles, pro `reachable_from` e pro mapa do scanner (pinta como pegada de formação).
         self.closed_gate_tiles: frozenset[tuple[int, int]] = frozenset()
+        # v0.5 M3.6.4: tiles que o mapa do scanner esconde (o interior do bolsão da criatura com o portão grande fechado).
+        # Derivado como o closed_gate_tiles (Layer.refresh_gates).
+        self.hidden_tiles: frozenset[tuple[int, int]] = frozenset()
         self._geo_rows = None                                     # (altura, bacia, beira) em listas (ver _rows)
 
     # ---- geração ----------------------------------------------------------

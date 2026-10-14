@@ -38,7 +38,7 @@ FILTERS = ("base", "crater", "wreck", "wreck_empty", "vein", "terminal", "machin
 PRIORITY = {"you": 0, "base": 1, "wreck": 2, "wreck_empty": 2, "container": 2, "terminal": 3, "crater": 4, "vein": 5,
             "machine": 6, "chest": 7, "formation": 8}
 # ordem do desenho (de baixo pra cima), igual ao mockup; a formação fica por baixo de tudo
-DRAW_ORDER = ("formation", "chest", "machine", "vein", "container", "wreck", "wreck_empty", "terminal", "crater", "base",
+DRAW_ORDER = ("formation", "unknown", "chest", "machine", "vein", "container", "wreck", "wreck_empty", "terminal", "crater", "base",
               "you")
 CARDINALS = ("a leste", "a sudeste", "ao sul", "a sudoeste", "a oeste", "a noroeste", "ao norte", "a nordeste")
 # agrupamento (cluster) de máquinas e baús: dois marcadores da mesma categoria a menos de N tiles (na maior
@@ -175,10 +175,13 @@ def map_entries(state, key: str) -> list[Entry]:
             entries.append(Entry(cat, cat, *wreck.center, f"Destroço · {wreck.name}",
                                  "caixa vazia" if empty else "caixa cheia"))
     geo = getattr(world, "geo", None)
+    fogged = bool(world.hidden_tiles) and not state.fast     # v0.5 M3.6.4: bolsão na névoa (o F3 mostra tudo)
     gates = {id(p.gate): i for i, p in enumerate(geo.pockets)} if geo is not None else {}
     for f in (geo.formations if geo is not None else ()):    # v0.4 Marco 2: marcos de paisagem (sem filtro)
         if f.kind.startswith("vent_"):      # v0.4 M3.1: fumarola é formação pequena (sem marcador no mapa)
             continue
+        if f.kind == "ice_giant" and fogged:
+            continue                        # v0.5 M3.6.4: o gelo gigante some do mapa enquanto o bolsão está na névoa
         if seen_any(f.tiles) and not f.small:              # as pequenas da v9 são miúdas: sem marcador
             what = REGION_LABELS[f.region] if f.kind != "ice_gate" else _gate_state(layer, gates.get(id(f)))
             entries.append(Entry("formation", "formation", *f.center, f.name, what))
@@ -187,6 +190,10 @@ def map_entries(state, key: str) -> list[Entry]:
         ex, ey, ew, eh = giant.entry_rect
         entries.append(Entry("formation", "formation", ex + ew / 2, ey + eh / 2, "Grande gelo",
                              _gate_state(layer, ice_blocks.gate_count(geo) - 1)))
+    if giant is not None and fogged and seen_any(giant.interior):    # v0.5 M3.6.4: o bolsão na névoa: só um "?"
+        xs, ys = [x for x, _ in giant.interior], [y for _, y in giant.interior]
+        entries.append(Entry("formation", "unknown", sum(xs) / len(xs) + 0.5, sum(ys) / len(ys) + 0.5, "Desconhecido",
+                             "névoa fria · não dá pra ver o que há dentro"))
     for tx, ty in getattr(world, "containers", ()):          # v0.4 M3.2: contêiner lacrado (sem filtro)
         if explored.seen(tx, ty):
             entries.append(Entry("container", "container", tx + 0.5, ty + 0.5, "Contêiner", "lacrado"))

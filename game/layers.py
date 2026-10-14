@@ -14,7 +14,7 @@ baixo e o player sempre chega logo abaixo dela. A caverna é criada na primeira 
 from dataclasses import dataclass, field
 
 from game import config as C
-from game import ice_blocks, thaw
+from game import ice_blocks, pocket_fog, thaw
 from game.base import BaseGrid
 from game.explore import Explored
 from game.rock_respawn import RockRespawn
@@ -79,6 +79,7 @@ class Layer:
                 closed.update(ice_blocks.gate_tiles(geo, i))
         self.gate_blocks = blocks
         self.world.closed_gate_tiles = frozenset(closed)
+        self.world.hidden_tiles = pocket_fog.hidden_tiles(geo) if pocket_fog.closed(self) else frozenset()   # M3.6.4
 
     @property
     def gate_solids(self) -> list:
