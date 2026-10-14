@@ -4525,11 +4525,25 @@ def main() -> None:
     pygame.image.save(pygame.transform.scale_by(sheet, 4), str(OUT / "player_fallback.png"))
     print("  screenshot: reports/dev/player_fallback.png")
 
+    print("9) borda de baixo no Verde")
+    check_borda_baixo(bot)
+
     ft = sorted(bot.frame_times)
     avg = sum(ft) / len(ft)
     p95 = ft[int(len(ft) * 0.95)]
     print(f"OK · {len(ft)} frames · média {avg * 1000:.1f} ms · p95 {p95 * 1000:.1f} ms (orçamento: 16,7 ms)")
     pygame.quit()
+
+
+def check_borda_baixo(bot) -> None:
+    """Bug da rocha furada: os 24 px de baixo do mapa (abaixo da cordilheira da borda) saíam transparentes e
+    aparecia o chão (grama no Verde). Print com a câmera no fundo do mapa (borda_baixo_verde)."""
+    s, app = bot.state, bot.app
+    s.indices.update(o2=100_000.0, heat=0.0, water=0.0)       # Ti do Verde (o estágio vem dos índices)
+    s.storm = 0.0
+    bot.teleport((s.world.width // 2, s.world.height - 4))
+    bot.frames(2.0)
+    bot.shot("borda_baixo_verde.png")
 
 
 if __name__ == "__main__":
