@@ -1,0 +1,2833 @@
+{
+ "blocks": {
+  "shard_0": {
+   "name": "Lasca 1",
+   "sprite": "ice_block_shard_0.png",
+   "frame": [
+    100,
+    117
+   ],
+   "frames": 8,
+   "scales": [
+    1.0,
+    0.89,
+    0.78,
+    0.67,
+    0.56,
+    0.45,
+    0.34,
+    0.23
+   ],
+   "anchor": [
+    23,
+    112
+   ],
+   "collision": [
+    [
+     -17,
+     -25,
+     31,
+     26
+    ],
+    [
+     -15,
+     -22,
+     27,
+     22
+    ],
+    [
+     -12,
+     -18,
+     22,
+     17
+    ],
+    [
+     -9,
+     -14,
+     16,
+     12
+    ],
+    [
+     -5,
+     -10,
+     9,
+     7
+    ],
+    [
+     -2,
+     -7,
+     4,
+     3
+    ],
+    null,
+    null
+   ]
+  },
+  "shard_1": {
+   "name": "Lasca 2",
+   "sprite": "ice_block_shard_1.png",
+   "frame": [
+    112,
+    131
+   ],
+   "frames": 8,
+   "scales": [
+    1.0,
+    0.89,
+    0.78,
+    0.67,
+    0.56,
+    0.45,
+    0.34,
+    0.23
+   ],
+   "anchor": [
+    28,
+    122
+   ],
+   "collision": [
+    [
+     -23,
+     -26,
+     45,
+     31
+    ],
+    [
+     -20,
+     -23,
+     39,
+     27
+    ],
+    [
+     -17,
+     -18,
+     32,
+     21
+    ],
+    [
+     -14,
+     -14,
+     25,
+     16
+    ],
+    [
+     -11,
+     -10,
+     17,
+     12
+    ],
+    [
+     -9,
+     -6,
+     8,
+     7
+    ],
+    [
+     -6,
+     -4,
+     5,
+     5
+    ],
+    [
+     -4,
+     -3,
+     3,
+     4
+    ]
+   ]
+  },
+  "slab_0": {
+   "name": "Laje 1",
+   "sprite": "ice_block_slab_0.png",
+   "frame": [
+    97,
+    71
+   ],
+   "frames": 8,
+   "scales": [
+    1.0,
+    0.89,
+    0.78,
+    0.67,
+    0.56,
+    0.45,
+    0.34,
+    0.23
+   ],
+   "anchor": [
+    39,
+    64
+   ],
+   "collision": [
+    [
+     -34,
+     -34,
+     68,
+     37
+    ],
+    [
+     -29,
+     -30,
+     58,
+     32
+    ],
+    [
+     -24,
+     -25,
+     49,
+     26
+    ],
+    [
+     -19,
+     -21,
+     39,
+     21
+    ],
+    [
+     -14,
+     -16,
+     29,
+     15
+    ],
+    [
+     -10,
+     -12,
+     21,
+     11
+    ],
+    [
+     -6,
+     -8,
+     13,
+     6
+    ],
+    [
+     -3,
+     -5,
+     7,
+     3
+    ]
+   ]
+  },
+  "slab_1": {
+   "name": "Laje 2",
+   "sprite": "ice_block_slab_1.png",
+   "frame": [
+    109,
+    68
+   ],
+   "frames": 8,
+   "scales": [
+    1.0,
+    0.89,
+    0.78,
+    0.67,
+    0.56,
+    0.45,
+    0.34,
+    0.23
+   ],
+   "anchor": [
+    41,
+    66
+   ],
+   "collision": [
+    [
+     -35,
+     -29,
+     76,
+     27
+    ],
+    [
+     -31,
+     -26,
+     66,
+     24
+    ],
+    [
+     -26,
+     -22,
+     57,
+     20
+    ],
+    [
+     -22,
+     -19,
+     48,
+     17
+    ],
+    [
+     -17,
+     -15,
+     38,
+     13
+    ],
+    [
+     -13,
+     -11,
+     29,
+     9
+    ],
+    [
+     -9,
+     -8,
+     21,
+     6
+    ],
+    [
+     -5,
+     -5,
+     13,
+     4
+    ]
+   ]
+  },
+  "boulder_0": {
+   "name": "Pedra 1",
+   "sprite": "ice_block_boulder_0.png",
+   "frame": [
+    95,
+    84
+   ],
+   "frames": 8,
+   "scales": [
+    1.0,
+    0.89,
+    0.78,
+    0.67,
+    0.56,
+    0.45,
+    0.34,
+    0.23
+   ],
+   "anchor": [
+    36,
+    75
+   ],
+   "collision": [
+    [
+     -20,
+     -31,
+     41,
+     27
+    ],
+    [
+     -17,
+     -28,
+     35,
+     25
+    ],
+    [
+     -15,
+     -24,
+     31,
+     21
+    ],
+    [
+     -12,
+     -21,
+     26,
+     18
+    ],
+    [
+     -10,
+     -17,
+     21,
+     15
+    ],
+    [
+     -8,
+     -14,
+     17,
+     12
+    ],
+    [
+     -6,
+     -10,
+     13,
+     9
+    ],
+    [
+     -4,
+     -7,
+     9,
+     6
+    ]
+   ]
+  },
+  "boulder_1": {
+   "name": "Pedra 2",
+   "sprite": "ice_block_boulder_1.png",
+   "frame": [
+    87,
+    90
+   ],
+   "frames": 8,
+   "scales": [
+    1.0,
+    0.89,
+    0.78,
+    0.67,
+    0.56,
+    0.45,
+    0.34,
+    0.23
+   ],
+   "anchor": [
+    29,
+    78
+   ],
+   "collision": [
+    [
+     -18,
+     -38,
+     36,
+     35
+    ],
+    [
+     -16,
+     -34,
+     32,
+     31
+    ],
+    [
+     -14,
+     -30,
+     28,
+     27
+    ],
+    [
+     -11,
+     -25,
+     22,
+     23
+    ],
+    [
+     -9,
+     -20,
+     18,
+     18
+    ],
+    [
+     -7,
+     -16,
+     14,
+     15
+    ],
+    [
+     -5,
+     -11,
+     10,
+     10
+    ],
+    [
+     -3,
+     -7,
+     7,
+     7
+    ]
+   ]
+  }
+ },
+ "recipes": {
+  "A": {
+   "name": "Muralha (5 blocos)",
+   "blocks": [
+    {
+     "b": "slab_1",
+     "x": -30,
+     "y": -30,
+     "melt": [
+      0.46,
+      1.0
+     ]
+    },
+    {
+     "b": "shard_1",
+     "x": 22,
+     "y": -34,
+     "melt": [
+      0.26,
+      0.8
+     ]
+    },
+    {
+     "b": "boulder_0",
+     "x": 50,
+     "y": -26,
+     "melt": [
+      0.41,
+      0.92
+     ]
+    },
+    {
+     "b": "boulder_1",
+     "x": -44,
+     "y": -2,
+     "melt": [
+      0.16,
+      0.7
+     ]
+    },
+    {
+     "b": "shard_0",
+     "x": 4,
+     "y": -4,
+     "melt": [
+      0.36,
+      0.88
+     ]
+    }
+   ],
+   "opens_at": 0.6
+  },
+  "B": {
+   "name": "Lasca no meio (4 blocos)",
+   "blocks": [
+    {
+     "b": "boulder_1",
+     "x": -46,
+     "y": -28,
+     "melt": [
+      0.44,
+      0.9
+     ]
+    },
+    {
+     "b": "shard_1",
+     "x": -6,
+     "y": -34,
+     "melt": [
+      0.54,
+      1.0
+     ]
+    },
+    {
+     "b": "slab_0",
+     "x": 34,
+     "y": -28,
+     "melt": [
+      0.29,
+      0.85
+     ]
+    },
+    {
+     "b": "slab_1",
+     "x": -22,
+     "y": -2,
+     "melt": [
+      0.24,
+      0.72
+     ]
+    }
+   ],
+   "opens_at": 0.57
+  },
+  "C": {
+   "name": "Duas lajes (3 blocos)",
+   "blocks": [
+    {
+     "b": "slab_0",
+     "x": -30,
+     "y": -28,
+     "melt": [
+      0.4,
+      0.95
+     ]
+    },
+    {
+     "b": "slab_1",
+     "x": 28,
+     "y": -32,
+     "melt": [
+      0.3,
+      0.85
+     ]
+    },
+    {
+     "b": "boulder_0",
+     "x": -2,
+     "y": -4,
+     "melt": [
+      0.5,
+      1.0
+     ]
+    }
+   ],
+   "opens_at": 0.58
+  }
+ },
+ "note": "Sprites indexados: 0..7 = rampa, 8 = contorno #1b1630, 9 = sombra (preto, alfa 80), 255 = transparente. Cor final = ramps[tabela][região][estágio][índice]. crater_impact_*: 10..17 = ramps.ICE.frost, 18..20 = ramps.METAL. decor_*_moss_*: 0..3 = ramps.MOSS (só no Verde). Formações com small=true são as pequenas da v9; vent_* (v9.1) têm sprites dormant/active, paleta HILL.basalt + 10..13 = ramps.VENT.basalt e mouths (px de onde sai a fumaça do bloco smoke).",
+ "levels": [
+  0.19,
+  0.29,
+  0.385
+ ],
+ "warp_px": 14,
+ "decal_cell": 96,
+ "decal_p": {
+  "plateau": 0.4,
+  "salar": 0.35,
+  "basalt": 0.45,
+  "frost": 0.4,
+  "bed": 0.25
+ },
+ "decal_mix": {
+  "plateau": [
+   [
+    "patch_dark",
+    3
+   ],
+   [
+    "patch_light",
+    2
+   ],
+   [
+    "crack",
+    5
+   ],
+   [
+    "plates",
+    3
+   ],
+   [
+    "gravel",
+    4
+   ],
+   [
+    "wind",
+    3
+   ]
+  ],
+  "salar": [
+   [
+    "ridges",
+    4
+   ],
+   [
+    "patch_dark",
+    2
+   ],
+   [
+    "crack",
+    2
+   ],
+   [
+    "patch_light",
+    2
+   ]
+  ],
+  "basalt": [
+   [
+    "scoria",
+    5
+   ],
+   [
+    "stain",
+    2
+   ],
+   [
+    "crack",
+    3
+   ],
+   [
+    "patch_dark",
+    2
+   ],
+   [
+    "plates",
+    2
+   ]
+  ],
+  "frost": [
+   [
+    "icesheet",
+    4
+   ],
+   [
+    "wind",
+    4
+   ],
+   [
+    "gravel",
+    2
+   ],
+   [
+    "patch_light",
+    2
+   ]
+  ],
+  "bed": [
+   [
+    "crack",
+    2
+   ],
+   [
+    "patch_light",
+    2
+   ]
+  ]
+ },
+ "v9_density": {
+  "note": "v9 (aprovado): 3º sorteio de decalque na célula de 96 px (decal_p/decal_mix, só os nomes da v9) e soltos novos por tile de chão livre (decor_p: chances que somam). Leito seco = bed. Formações pequenas: count por mundo. Verde+: decor_{boulder,column_stub}_moss_N por cima da pedra de mesmo N, só no Verde, rampa MOSS.",
+  "decal_p": {
+   "plateau": 0.3,
+   "salar": 0.3,
+   "basalt": 0.3,
+   "frost": 0.3,
+   "bed": 0.35
+  },
+  "decal_mix": {
+   "plateau": [
+    [
+     "vein",
+     3
+    ],
+    [
+     "oxide",
+     2
+    ]
+   ],
+   "salar": [
+    [
+     "saltpoly",
+     3
+    ],
+    [
+     "efflor",
+     3
+    ]
+   ],
+   "basalt": [
+    [
+     "ropy",
+     2
+    ]
+   ],
+   "frost": [
+    [
+     "icepoly",
+     3
+    ],
+    [
+     "rime",
+     3
+    ]
+   ],
+   "bed": [
+    [
+     "trail",
+     2
+    ],
+    [
+     "ripples",
+     3
+    ]
+   ]
+  },
+  "decor_p": {
+   "plateau": [
+    [
+     "pebbles",
+     0.012
+    ],
+    [
+     "boulder",
+     0.006
+    ],
+    [
+     "slabs",
+     0.008
+    ]
+   ],
+   "bed": [
+    [
+     "mud_curls",
+     0.02
+    ],
+    [
+     "pebbles",
+     0.006
+    ]
+   ],
+   "salar": [
+    [
+     "salt_mound",
+     0.01
+    ],
+    [
+     "salt_slabs",
+     0.012
+    ]
+   ],
+   "basalt": [
+    [
+     "bombs",
+     0.012
+    ],
+    [
+     "column_stub",
+     0.008
+    ]
+   ],
+   "frost": [
+    [
+     "penitentes",
+     0.012
+    ],
+    [
+     "rimed_rock",
+     0.01
+    ]
+   ]
+  },
+  "small_formations": {
+   "split_rock": "4–6 no planalto",
+   "salt_pillar": "3–4 no salar",
+   "lava_tube": "2–4 no basalto",
+   "ice_needles": "3–5 na faixa gelada"
+  },
+  "moss_on": [
+   "boulder",
+   "column_stub"
+  ]
+ },
+ "vent_density": {
+  "per_world": "5–8 no basalto (cone 2–3, par 1–2, chaminé 1–2)",
+  "rule": "inteira no basalto com 2 tiles de folga na mesma região, fora de bacia, a 26+ tiles da base, a 8+ tiles uma da outra e 6+ das formações grandes; de preferência em grupo (campo de fumarolas): 60% sorteadas num raio de 10–30 tiles do cone de escória, o resto livre no basalto. Não nascem no bolsão nem no avental dos gelos-portão.",
+  "wake": "cada fumarola sorteia um limiar de calor entre o calor da etapa 1 e o da etapa 4 da tampa da cratera (o mesmo índice de calor do Marco 3): abaixo, dormente; acima, ativa. Assim elas acordam aos poucos enquanto o gelo da cratera derrete. Na troca, 1 s de transição: a fumaça começa com 1/3 da taxa e sobe; o sprite troca na hora (o brilho é leve).",
+  "count": {
+   "cone": [
+    2,
+    3
+   ],
+   "pair": [
+    1,
+    2
+   ],
+   "chimney": [
+    1,
+    2
+   ]
+  },
+  "note": "v9.1 (aprovado): fumarolas do basalto. Sprite _dormant abaixo do limiar de calor, _active acima. Paleta 0..9 = ramps.HILL.basalt, 10..13 = ramps.VENT.basalt (10, 11 enxofre, seguem o estágio; 12, 13 brasa, fixas). A fumaça é partícula (bloco smoke), saindo das mouths (px do sprite)."
+ },
+ "smoke": {
+  "rate": {
+   "cone": 2.5,
+   "pair": 2.0,
+   "chimney": 3.5
+  },
+  "life": [
+   2.6,
+   3.4
+  ],
+  "rise": [
+   16.0,
+   22.0
+  ],
+  "radius": [
+   1.5,
+   2.5,
+   7.0,
+   10.0
+  ],
+  "jitter": 3.0,
+  "wind": 0.45,
+  "color": [
+   "#e9e4dc",
+   "#c4bdb4",
+   "#958e88"
+  ],
+  "alpha": [
+   150,
+   110,
+   70
+  ],
+  "stage_tint": {
+   "storm": "#c9a37e",
+   "arid": null,
+   "mist": "#aab3bb",
+   "green": null
+  }
+ },
+ "formations": {
+  "monolith": {
+   "foot": [
+    38,
+    124
+   ],
+   "tiles": [
+    [
+     0,
+     0
+    ]
+   ],
+   "size": [
+    1,
+    1
+   ],
+   "name": "Hoodoo (monolito)",
+   "sprite": "form_monolith.png",
+   "region": "plateau",
+   "ramp": "SAND"
+  },
+  "arch": {
+   "foot": [
+    112,
+    128
+   ],
+   "tiles": [
+    [
+     -2,
+     0
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "size": [
+    5,
+    1
+   ],
+   "name": "Arco de pedra",
+   "sprite": "form_arch.png",
+   "region": "plateau",
+   "ramp": "SAND"
+  },
+  "basalt_spires": {
+   "foot": [
+    78,
+    116
+   ],
+   "tiles": [
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     -1,
+     -1
+    ],
+    [
+     0,
+     -1
+    ],
+    [
+     1,
+     -1
+    ]
+   ],
+   "size": [
+    3,
+    2
+   ],
+   "name": "Basalto colunar",
+   "sprite": "form_basalt_spires.png",
+   "region": "basalt",
+   "ramp": "HILL"
+  },
+  "salt_ridge": {
+   "foot": [
+    102,
+    70
+   ],
+   "tiles": [
+    [
+     -2,
+     0
+    ],
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "size": [
+    5,
+    1
+   ],
+   "name": "Crosta de sal elevada",
+   "sprite": "form_salt_ridge.png",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "cone": {
+   "foot": [
+    76,
+    74
+   ],
+   "tiles": [
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     -1,
+     -1
+    ],
+    [
+     0,
+     -1
+    ],
+    [
+     1,
+     -1
+    ]
+   ],
+   "size": [
+    3,
+    2
+   ],
+   "name": "Cone de escória",
+   "sprite": "form_cone.png",
+   "region": "basalt",
+   "ramp": "HILL"
+  },
+  "ice_gate_0": {
+   "foot": [
+    70,
+    112
+   ],
+   "tiles": [
+    [
+     -2,
+     0
+    ],
+    [
+     -2,
+     -1
+    ],
+    [
+     -1,
+     0
+    ],
+    [
+     -1,
+     -1
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     -1
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     -1
+    ]
+   ],
+   "size": [
+    4,
+    2
+   ],
+   "name": "Gelo-portão",
+   "sprite": "ice_gate_0.png",
+   "region": "frost",
+   "ramp": "ICE"
+  },
+  "ice_gate_1": {
+   "foot": [
+    70,
+    112
+   ],
+   "tiles": [
+    [
+     -1,
+     0
+    ],
+    [
+     -1,
+     -1
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     -1
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     -1
+    ]
+   ],
+   "size": [
+    4,
+    2
+   ],
+   "name": "Gelo-portão",
+   "sprite": "ice_gate_1.png",
+   "region": "frost",
+   "ramp": "ICE"
+  },
+  "ice_gate_2": {
+   "foot": [
+    70,
+    112
+   ],
+   "tiles": [
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     0
+    ]
+   ],
+   "size": [
+    4,
+    2
+   ],
+   "name": "Gelo-portão",
+   "sprite": "ice_gate_2.png",
+   "region": "frost",
+   "ramp": "ICE"
+  },
+  "crater_impact_0": {
+   "anchor": [
+    84,
+    70
+   ],
+   "tiles": [
+    [
+     -1,
+     -1
+    ],
+    [
+     -1,
+     0
+    ],
+    [
+     -1,
+     1
+    ],
+    [
+     0,
+     -1
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     -1
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "size": [
+    3,
+    3
+   ],
+   "name": "Cratera de impacto",
+   "sprite": "crater_impact_0.png",
+   "region": "plateau",
+   "ramp": "BASE+ICE+METAL"
+  },
+  "crater_impact_1": {
+   "anchor": [
+    84,
+    70
+   ],
+   "tiles": [
+    [
+     -1,
+     -1
+    ],
+    [
+     -1,
+     0
+    ],
+    [
+     -1,
+     1
+    ],
+    [
+     0,
+     -1
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     -1
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "size": [
+    3,
+    3
+   ],
+   "name": "Cratera de impacto",
+   "sprite": "crater_impact_1.png",
+   "region": "plateau",
+   "ramp": "BASE+ICE+METAL"
+  },
+  "crater_impact_2": {
+   "anchor": [
+    84,
+    70
+   ],
+   "tiles": [
+    [
+     -1,
+     -1
+    ],
+    [
+     -1,
+     0
+    ],
+    [
+     -1,
+     1
+    ],
+    [
+     0,
+     -1
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     -1
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "size": [
+    3,
+    3
+   ],
+   "name": "Cratera de impacto",
+   "sprite": "crater_impact_2.png",
+   "region": "plateau",
+   "ramp": "BASE+ICE+METAL"
+  },
+  "crater_impact_3": {
+   "anchor": [
+    84,
+    70
+   ],
+   "tiles": [
+    [
+     -1,
+     -1
+    ],
+    [
+     -1,
+     0
+    ],
+    [
+     -1,
+     1
+    ],
+    [
+     0,
+     -1
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     -1
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "size": [
+    3,
+    3
+   ],
+   "name": "Cratera de impacto",
+   "sprite": "crater_impact_3.png",
+   "region": "plateau",
+   "ramp": "BASE+ICE+METAL"
+  },
+  "crater_impact_4": {
+   "anchor": [
+    84,
+    70
+   ],
+   "tiles": [
+    [
+     -1,
+     -1
+    ],
+    [
+     -1,
+     0
+    ],
+    [
+     -1,
+     1
+    ],
+    [
+     0,
+     -1
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     -1
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "size": [
+    3,
+    3
+   ],
+   "name": "Cratera de impacto",
+   "sprite": "crater_impact_4.png",
+   "region": "plateau",
+   "ramp": "BASE+ICE+METAL"
+  },
+  "split_rock": {
+   "foot": [
+    36,
+    52
+   ],
+   "tiles": [
+    [
+     0,
+     0
+    ]
+   ],
+   "size": [
+    1,
+    1
+   ],
+   "name": "Pedra rachada",
+   "sprite": "form_split_rock.png",
+   "region": "plateau",
+   "ramp": "HILL",
+   "count": "4–6 no planalto",
+   "small": true
+  },
+  "salt_pillar": {
+   "foot": [
+    34,
+    52
+   ],
+   "tiles": [
+    [
+     0,
+     0
+    ]
+   ],
+   "size": [
+    1,
+    1
+   ],
+   "name": "Pilares de sal",
+   "sprite": "form_salt_pillar.png",
+   "region": "salar",
+   "ramp": "BASE",
+   "count": "3–4 no salar",
+   "small": true
+  },
+  "lava_tube": {
+   "foot": [
+    62,
+    40
+   ],
+   "tiles": [
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "size": [
+    3,
+    1
+   ],
+   "name": "Tubo de lava colapsado",
+   "sprite": "form_lava_tube.png",
+   "region": "basalt",
+   "ramp": "HILL",
+   "count": "2–4 no basalto",
+   "small": true
+  },
+  "ice_needles": {
+   "foot": [
+    42,
+    62
+   ],
+   "tiles": [
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "size": [
+    3,
+    1
+   ],
+   "name": "Agulhas de gelo",
+   "sprite": "form_ice_needles.png",
+   "region": "frost",
+   "ramp": "ICE",
+   "count": "3–5 na faixa gelada",
+   "small": true
+  },
+  "vent_cone": {
+   "foot": [
+    30,
+    38
+   ],
+   "tiles": [
+    [
+     0,
+     0
+    ]
+   ],
+   "size": [
+    1,
+    1
+   ],
+   "name": "Fumarola · cone baixo",
+   "sprites": {
+    "dormant": "form_vent_cone_dormant.png",
+    "active": "form_vent_cone_active.png"
+   },
+   "sprite": "form_vent_cone_dormant.png",
+   "mouths": [
+    [
+     30,
+     24
+    ]
+   ],
+   "region": "basalt",
+   "ramp": "HILL+VENT",
+   "count": [
+    2,
+    3
+   ],
+   "small": true
+  },
+  "vent_pair": {
+   "foot": [
+    36,
+    52
+   ],
+   "tiles": [
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "size": [
+    2,
+    1
+   ],
+   "name": "Fumarola · par de cones",
+   "sprites": {
+    "dormant": "form_vent_pair_dormant.png",
+    "active": "form_vent_pair_active.png"
+   },
+   "sprite": "form_vent_pair_dormant.png",
+   "mouths": [
+    [
+     26,
+     21
+    ],
+    [
+     48,
+     39
+    ]
+   ],
+   "region": "basalt",
+   "ramp": "HILL+VENT",
+   "count": [
+    1,
+    2
+   ],
+   "small": true
+  },
+  "vent_chimney": {
+   "foot": [
+    20,
+    68
+   ],
+   "tiles": [
+    [
+     0,
+     0
+    ]
+   ],
+   "size": [
+    1,
+    1
+   ],
+   "name": "Fumarola · chaminé",
+   "sprites": {
+    "dormant": "form_vent_chimney_dormant.png",
+    "active": "form_vent_chimney_active.png"
+   },
+   "sprite": "form_vent_chimney_dormant.png",
+   "mouths": [
+    [
+     20,
+     19
+    ]
+   ],
+   "region": "basalt",
+   "ramp": "HILL+VENT",
+   "count": [
+    1,
+    2
+   ],
+   "small": true
+  }
+ },
+ "ramps": {
+  "BASE": {
+   "plateau": {
+    "storm": [
+     "#644837",
+     "#79553d",
+     "#8f6448",
+     "#956848",
+     "#9b6e4c",
+     "#b0825b",
+     "#927a65",
+     "#75513e"
+    ],
+    "arid": [
+     "#3a231d",
+     "#5c3727",
+     "#80503a",
+     "#8a573a",
+     "#93603f",
+     "#b48258",
+     "#857469",
+     "#56322a"
+    ],
+    "mist": [
+     "#493c36",
+     "#453833",
+     "#5c4b44",
+     "#624f45",
+     "#68554a",
+     "#806c5b",
+     "#66625e",
+     "#423534"
+    ],
+    "green": [
+     "#635034",
+     "#4d4029",
+     "#635036",
+     "#695436",
+     "#6e5a3a",
+     "#856e48",
+     "#696651",
+     "#4a3e2b"
+    ]
+   },
+   "salar": {
+    "storm": [
+     "#846b58",
+     "#9d856f",
+     "#ae977f",
+     "#baa489",
+     "#c6b097",
+     "#d1bea7",
+     "#b08976",
+     "#dbcab7"
+    ],
+    "arid": [
+     "#6e5c54",
+     "#978679",
+     "#b2a392",
+     "#c6b8a4",
+     "#d8ccba",
+     "#ebe3d4",
+     "#b48d84",
+     "#fbf7ee"
+    ],
+    "mist": [
+     "#56514f",
+     "#746e69",
+     "#89827a",
+     "#999186",
+     "#a8a094",
+     "#b8b2a4",
+     "#8a7571",
+     "#cac3b0"
+    ],
+    "green": [
+     "#635950",
+     "#867b6d",
+     "#9d9280",
+     "#aea38e",
+     "#bdb39e",
+     "#cfc7b1",
+     "#9f8074",
+     "#e1dac1"
+    ]
+   },
+   "basalt": {
+    "storm": [
+     "#4f3f35",
+     "#56463d",
+     "#5e4d44",
+     "#64534b",
+     "#6e5c55",
+     "#816c64",
+     "#785642",
+     "#8b5d43"
+    ],
+    "arid": [
+     "#17141b",
+     "#231f28",
+     "#2f2a33",
+     "#3a343e",
+     "#4b444f",
+     "#685e68",
+     "#5a3a30",
+     "#7a4632"
+    ],
+    "mist": [
+     "#1c1c20",
+     "#25252a",
+     "#2d2c32",
+     "#343439",
+     "#403f45",
+     "#545257",
+     "#463a38",
+     "#58443e"
+    ],
+    "green": [
+     "#1a1b1b",
+     "#232324",
+     "#2c2c2d",
+     "#343335",
+     "#413f42",
+     "#565355",
+     "#49382f",
+     "#5f4232"
+    ]
+   },
+   "frost": {
+    "storm": [
+     "#5f5c5c",
+     "#747273",
+     "#8f8f8d",
+     "#9a9996",
+     "#a6a6a2",
+     "#c0bcb4",
+     "#7ca7ad",
+     "#bac9c2"
+    ],
+    "arid": [
+     "#33425a",
+     "#536880",
+     "#7f95aa",
+     "#90a6b9",
+     "#a4bacb",
+     "#cfe0ea",
+     "#62bede",
+     "#c6f3ff"
+    ],
+    "mist": [
+     "#3f4752",
+     "#505a66",
+     "#64717e",
+     "#6c7a87",
+     "#768491",
+     "#8999a4",
+     "#588396",
+     "#80a7b4"
+    ],
+    "green": [
+     "#3c4a4d",
+     "#4d5e60",
+     "#617579",
+     "#6a7e81",
+     "#74898b",
+     "#889d9d",
+     "#518b95",
+     "#7eacae"
+    ]
+   },
+   "bed": {
+    "storm": [
+     "#6e4e3b",
+     "#825c44",
+     "#916a4d",
+     "#9d7354",
+     "#a97f5d",
+     "#b8906c",
+     "#927a65",
+     "#78553f"
+    ],
+    "arid": [
+     "#4a2d24",
+     "#6a4433",
+     "#835a42",
+     "#96694d",
+     "#aa7c5c",
+     "#c39874",
+     "#857469",
+     "#5a372c"
+    ],
+    "mist": [
+     "#3a312e",
+     "#5a4b44",
+     "#5f5149",
+     "#6b5b51",
+     "#7a695d",
+     "#937b67",
+     "#66625e",
+     "#453836"
+    ],
+    "green": [
+     "#423526",
+     "#6e5a40",
+     "#68553c",
+     "#756045",
+     "#846d4e",
+     "#9a805a",
+     "#6c6755",
+     "#4d3d2c"
+    ]
+   }
+  },
+  "HILL": {
+   "plateau": {
+    "storm": [
+     "#564035",
+     "#63493e",
+     "#705141",
+     "#7c5a48",
+     "#8b654e",
+     "#9b7459",
+     "#956a49",
+     "#a47551"
+    ],
+    "arid": [
+     "#22161a",
+     "#38242a",
+     "#4d322f",
+     "#62403a",
+     "#7a5244",
+     "#946a55",
+     "#8a5a3c",
+     "#a26c48"
+    ],
+    "mist": [
+     "#211f22",
+     "#302a2e",
+     "#3e3535",
+     "#4c3f3e",
+     "#5a4c48",
+     "#6b5d56",
+     "#625146",
+     "#715d50"
+    ],
+    "green": [
+     "#2c2b1e",
+     "#393428",
+     "#463d2d",
+     "#524634",
+     "#60513b",
+     "#706047",
+     "#695638",
+     "#776240"
+    ]
+   },
+   "basalt": {
+    "storm": [
+     "#4a3b30",
+     "#504138",
+     "#57463f",
+     "#5d4d46",
+     "#66554f",
+     "#756460",
+     "#785642",
+     "#8b5d43"
+    ],
+    "arid": [
+     "#100e14",
+     "#1a1720",
+     "#24202b",
+     "#2e2a36",
+     "#3c3745",
+     "#565060",
+     "#5a3a30",
+     "#7a4632"
+    ],
+    "mist": [
+     "#17181c",
+     "#1e1f24",
+     "#26262c",
+     "#2d2d33",
+     "#37373e",
+     "#4a4951",
+     "#463a38",
+     "#58443e"
+    ],
+    "green": [
+     "#151615",
+     "#1c1e1f",
+     "#242427",
+     "#2c2c2f",
+     "#36363a",
+     "#4a484e",
+     "#49382f",
+     "#5f4232"
+    ]
+   },
+   "frost": {
+    "storm": [
+     "#59504c",
+     "#645c5a",
+     "#6f6967",
+     "#7b7473",
+     "#959796",
+     "#c5c0b8",
+     "#7ca7ad",
+     "#bac9c2"
+    ],
+    "arid": [
+     "#28303f",
+     "#3a4456",
+     "#4c586c",
+     "#5e6b80",
+     "#8aa2b8",
+     "#d6e6ef",
+     "#62bede",
+     "#c6f3ff"
+    ],
+    "mist": [
+     "#373e47",
+     "#414851",
+     "#4b525d",
+     "#545c67",
+     "#6a7886",
+     "#8c9ca8",
+     "#588396",
+     "#80a7b4"
+    ],
+    "green": [
+     "#354140",
+     "#3f4b4b",
+     "#485656",
+     "#526061",
+     "#667c80",
+     "#8ba1a1",
+     "#518b95",
+     "#7eacae"
+    ]
+   },
+   "salar": {
+    "storm": [
+     "#78604f",
+     "#8b725f",
+     "#9d856f",
+     "#ae977f",
+     "#c6b097",
+     "#d5c4ae",
+     "#b08976",
+     "#dbcab7"
+    ],
+    "arid": [
+     "#5b4a45",
+     "#7a685f",
+     "#978679",
+     "#b2a392",
+     "#d8ccba",
+     "#f2ece0",
+     "#b48d84",
+     "#fbf7ee"
+    ],
+    "mist": [
+     "#494444",
+     "#5e5957",
+     "#746e69",
+     "#89827a",
+     "#a8a094",
+     "#bfb9ab",
+     "#8a7571",
+     "#cac3b0"
+    ],
+    "green": [
+     "#544b44",
+     "#6c6259",
+     "#867b6d",
+     "#9d9280",
+     "#bdb39e",
+     "#d6cfba",
+     "#9f8074",
+     "#e1dac1"
+    ]
+   }
+  },
+  "SAND": {
+   "plateau": {
+    "storm": [
+     "#5a4130",
+     "#6e4d39",
+     "#835841",
+     "#956547",
+     "#a87551",
+     "#bd8b61",
+     "#927a65",
+     "#75513e"
+    ],
+    "arid": [
+     "#2a1714",
+     "#4a2a22",
+     "#6b3d2e",
+     "#8a5238",
+     "#a86c48",
+     "#c98f62",
+     "#857469",
+     "#56322a"
+    ],
+    "mist": [
+     "#262020",
+     "#3a2f2d",
+     "#4e3e39",
+     "#614d44",
+     "#755e52",
+     "#94755d",
+     "#66625e",
+     "#423534"
+    ],
+    "green": [
+     "#302c1b",
+     "#433825",
+     "#56452e",
+     "#695136",
+     "#7b6240",
+     "#96764b",
+     "#696651",
+     "#4a3e2b"
+    ]
+   }
+  },
+  "ICE": {
+   "frost": {
+    "storm": [
+     "#53585d",
+     "#5c6c77",
+     "#678591",
+     "#7ca0a8",
+     "#99b6b7",
+     "#b9c6bf",
+     "#d3cec2",
+     "#757068"
+    ],
+    "arid": [
+     "#1f3d5c",
+     "#2d5e86",
+     "#3f86b0",
+     "#62b2d6",
+     "#8fd6ee",
+     "#c4f0fb",
+     "#eefcff",
+     "#55636e"
+    ],
+    "mist": [
+     "#374451",
+     "#425363",
+     "#4d6676",
+     "#587e92",
+     "#6b93a3",
+     "#80a4b1",
+     "#90aeb9",
+     "#4f575f"
+    ],
+    "green": [
+     "#32474d",
+     "#3c5861",
+     "#466c76",
+     "#528590",
+     "#6699a0",
+     "#7ea9ab",
+     "#90b2b0",
+     "#4d5b58"
+    ]
+   }
+  },
+  "METAL": [
+   "#b9bcc4",
+   "#5b6070",
+   "#e2733a"
+  ],
+  "MOSS": [
+   "#22331f",
+   "#38502e",
+   "#5c7d45",
+   "#75985a"
+  ],
+  "VENT": {
+   "basalt": {
+    "storm": [
+     "#937c48",
+     "#bda35e",
+     "#b8431e",
+     "#ff9a3c"
+    ],
+    "arid": [
+     "#86773a",
+     "#c9b65e",
+     "#b8431e",
+     "#ff9a3c"
+    ],
+    "mist": [
+     "#5f5b44",
+     "#938a5c",
+     "#b8431e",
+     "#ff9a3c"
+    ],
+    "green": [
+     "#686239",
+     "#a0954e",
+     "#b8431e",
+     "#ff9a3c"
+    ]
+   }
+  }
+ },
+ "files": {
+  "crater_ejecta.png": {
+   "size": "256×216",
+   "region": "plateau",
+   "ramp": "BASE"
+  },
+  "crater_impact_0.png": {
+   "size": "168×150",
+   "region": "plateau",
+   "ramp": "BASE+ICE+METAL"
+  },
+  "crater_impact_1.png": {
+   "size": "168×150",
+   "region": "plateau",
+   "ramp": "BASE+ICE+METAL"
+  },
+  "crater_impact_2.png": {
+   "size": "168×150",
+   "region": "plateau",
+   "ramp": "BASE+ICE+METAL"
+  },
+  "crater_impact_3.png": {
+   "size": "168×150",
+   "region": "plateau",
+   "ramp": "BASE+ICE+METAL"
+  },
+  "crater_impact_4.png": {
+   "size": "168×150",
+   "region": "plateau",
+   "ramp": "BASE+ICE+METAL"
+  },
+  "decal_crack_0.png": {
+   "size": "208×65",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_crack_1.png": {
+   "size": "162×54",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_crack_2.png": {
+   "size": "126×72",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_efflor_0.png": {
+   "size": "37×29",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decal_efflor_1.png": {
+   "size": "34×31",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decal_efflor_2.png": {
+   "size": "32×22",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decal_fumarole_0.png": {
+   "size": "49×31",
+   "region": "basalt",
+   "ramp": "BASE"
+  },
+  "decal_fumarole_1.png": {
+   "size": "44×31",
+   "region": "basalt",
+   "ramp": "BASE"
+  },
+  "decal_fumarole_2.png": {
+   "size": "68×38",
+   "region": "basalt",
+   "ramp": "BASE"
+  },
+  "decal_gravel_0.png": {
+   "size": "49×31",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_gravel_1.png": {
+   "size": "50×20",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_gravel_2.png": {
+   "size": "50×30",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_gravel_3.png": {
+   "size": "47×28",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_icepoly_0.png": {
+   "size": "115×77",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_icepoly_1.png": {
+   "size": "94×64",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_icepoly_2.png": {
+   "size": "141×92",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_icesheet_0.png": {
+   "size": "128×72",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_icesheet_1.png": {
+   "size": "104×60",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_icesheet_2.png": {
+   "size": "88×52",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_oxide_0.png": {
+   "size": "67×44",
+   "region": "plateau",
+   "ramp": "BASE"
+  },
+  "decal_oxide_1.png": {
+   "size": "53×36",
+   "region": "plateau",
+   "ramp": "BASE"
+  },
+  "decal_oxide_2.png": {
+   "size": "87×48",
+   "region": "plateau",
+   "ramp": "BASE"
+  },
+  "decal_patch_dark_0.png": {
+   "size": "224×96",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_patch_dark_1.png": {
+   "size": "176×80",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_patch_dark_2.png": {
+   "size": "144×64",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_patch_light_0.png": {
+   "size": "192×80",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_patch_light_1.png": {
+   "size": "150×64",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_patch_light_2.png": {
+   "size": "120×56",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_plates_0.png": {
+   "size": "54×42",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_plates_1.png": {
+   "size": "62×40",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_plates_2.png": {
+   "size": "52×31",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_ridges_0.png": {
+   "size": "60×24",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_ridges_1.png": {
+   "size": "53×29",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_ridges_2.png": {
+   "size": "45×26",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_rime_0.png": {
+   "size": "67×43",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_rime_1.png": {
+   "size": "53×35",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_rime_2.png": {
+   "size": "63×48",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_ripples_0.png": {
+   "size": "97×57",
+   "region": "bed",
+   "ramp": "BASE"
+  },
+  "decal_ripples_1.png": {
+   "size": "78×46",
+   "region": "bed",
+   "ramp": "BASE"
+  },
+  "decal_ripples_2.png": {
+   "size": "105×62",
+   "region": "bed",
+   "ramp": "BASE"
+  },
+  "decal_ropy_0.png": {
+   "size": "95×56",
+   "region": "basalt",
+   "ramp": "BASE"
+  },
+  "decal_ropy_1.png": {
+   "size": "76×47",
+   "region": "basalt",
+   "ramp": "BASE"
+  },
+  "decal_ropy_2.png": {
+   "size": "107×64",
+   "region": "basalt",
+   "ramp": "BASE"
+  },
+  "decal_rubble_0.png": {
+   "size": "58×14",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_rubble_1.png": {
+   "size": "44×14",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_rubble_2.png": {
+   "size": "61×14",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_rubble_3.png": {
+   "size": "39×14",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_saltpoly_0.png": {
+   "size": "115×69",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decal_saltpoly_1.png": {
+   "size": "88×52",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decal_saltpoly_2.png": {
+   "size": "131×80",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decal_scoria_0.png": {
+   "size": "50×35",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_scoria_1.png": {
+   "size": "42×24",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_scoria_2.png": {
+   "size": "54×32",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_scoria_3.png": {
+   "size": "48×18",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_stain_0.png": {
+   "size": "144×88",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_stain_1.png": {
+   "size": "112×72",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_stain_2.png": {
+   "size": "96×56",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_trail_0.png": {
+   "size": "146×58",
+   "region": "bed",
+   "ramp": "BASE"
+  },
+  "decal_trail_1.png": {
+   "size": "112×38",
+   "region": "bed",
+   "ramp": "BASE"
+  },
+  "decal_trail_2.png": {
+   "size": "174×73",
+   "region": "bed",
+   "ramp": "BASE"
+  },
+  "decal_vein_0.png": {
+   "size": "102×43",
+   "region": "plateau",
+   "ramp": "BASE"
+  },
+  "decal_vein_1.png": {
+   "size": "79×41",
+   "region": "plateau",
+   "ramp": "BASE"
+  },
+  "decal_vein_2.png": {
+   "size": "129×22",
+   "region": "plateau",
+   "ramp": "BASE"
+  },
+  "decal_wind_0.png": {
+   "size": "140×40",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_wind_1.png": {
+   "size": "128×33",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_wind_2.png": {
+   "size": "106×40",
+   "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decor_bombs_0.png": {
+   "size": "29×21",
+   "region": "basalt",
+   "ramp": "HILL"
+  },
+  "decor_bombs_1.png": {
+   "size": "31×19",
+   "region": "basalt",
+   "ramp": "HILL"
+  },
+  "decor_bombs_2.png": {
+   "size": "29×22",
+   "region": "basalt",
+   "ramp": "HILL"
+  },
+  "decor_boulder_0.png": {
+   "size": "24×24",
+   "region": "plateau",
+   "ramp": "HILL"
+  },
+  "decor_boulder_1.png": {
+   "size": "25×23",
+   "region": "plateau",
+   "ramp": "HILL"
+  },
+  "decor_boulder_2.png": {
+   "size": "28×25",
+   "region": "plateau",
+   "ramp": "HILL"
+  },
+  "decor_boulder_moss_0.png": {
+   "size": "24×24",
+   "region": "plateau",
+   "ramp": "MOSS (fixa, só Verde)"
+  },
+  "decor_boulder_moss_1.png": {
+   "size": "25×23",
+   "region": "plateau",
+   "ramp": "MOSS (fixa, só Verde)"
+  },
+  "decor_boulder_moss_2.png": {
+   "size": "28×25",
+   "region": "plateau",
+   "ramp": "MOSS (fixa, só Verde)"
+  },
+  "decor_column_stub_0.png": {
+   "size": "20×25",
+   "region": "basalt",
+   "ramp": "HILL"
+  },
+  "decor_column_stub_1.png": {
+   "size": "25×25",
+   "region": "basalt",
+   "ramp": "HILL"
+  },
+  "decor_column_stub_2.png": {
+   "size": "27×26",
+   "region": "basalt",
+   "ramp": "HILL"
+  },
+  "decor_column_stub_moss_0.png": {
+   "size": "20×25",
+   "region": "basalt",
+   "ramp": "MOSS (fixa, só Verde)"
+  },
+  "decor_column_stub_moss_1.png": {
+   "size": "25×25",
+   "region": "basalt",
+   "ramp": "MOSS (fixa, só Verde)"
+  },
+  "decor_column_stub_moss_2.png": {
+   "size": "27×26",
+   "region": "basalt",
+   "ramp": "MOSS (fixa, só Verde)"
+  },
+  "decor_ice_chunks_0.png": {
+   "size": "26×18",
+   "region": "frost",
+   "ramp": "ICE"
+  },
+  "decor_ice_chunks_1.png": {
+   "size": "26×18",
+   "region": "frost",
+   "ramp": "ICE"
+  },
+  "decor_ice_chunks_2.png": {
+   "size": "26×18",
+   "region": "frost",
+   "ramp": "ICE"
+  },
+  "decor_mud_curls_0.png": {
+   "size": "26×9",
+   "region": "bed",
+   "ramp": "BASE"
+  },
+  "decor_mud_curls_1.png": {
+   "size": "23×11",
+   "region": "bed",
+   "ramp": "BASE"
+  },
+  "decor_mud_curls_2.png": {
+   "size": "24×13",
+   "region": "bed",
+   "ramp": "BASE"
+  },
+  "decor_pebbles_0.png": {
+   "size": "17×17",
+   "region": "plateau",
+   "ramp": "HILL"
+  },
+  "decor_pebbles_1.png": {
+   "size": "17×15",
+   "region": "plateau",
+   "ramp": "HILL"
+  },
+  "decor_pebbles_2.png": {
+   "size": "24×14",
+   "region": "plateau",
+   "ramp": "HILL"
+  },
+  "decor_penitentes_0.png": {
+   "size": "15×19",
+   "region": "frost",
+   "ramp": "ICE"
+  },
+  "decor_penitentes_1.png": {
+   "size": "26×20",
+   "region": "frost",
+   "ramp": "ICE"
+  },
+  "decor_penitentes_2.png": {
+   "size": "23×26",
+   "region": "frost",
+   "ramp": "ICE"
+  },
+  "decor_rimed_rock_0.png": {
+   "size": "27×25",
+   "region": "frost",
+   "ramp": "HILL"
+  },
+  "decor_rimed_rock_1.png": {
+   "size": "26×24",
+   "region": "frost",
+   "ramp": "HILL"
+  },
+  "decor_rimed_rock_2.png": {
+   "size": "24×23",
+   "region": "frost",
+   "ramp": "HILL"
+  },
+  "decor_salt_crystals_0.png": {
+   "size": "22×16",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decor_salt_crystals_1.png": {
+   "size": "22×16",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decor_salt_crystals_2.png": {
+   "size": "22×16",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decor_salt_mound_0.png": {
+   "size": "17×15",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decor_salt_mound_1.png": {
+   "size": "19×15",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decor_salt_mound_2.png": {
+   "size": "20×16",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decor_salt_slabs_0.png": {
+   "size": "19×14",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decor_salt_slabs_1.png": {
+   "size": "24×14",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decor_salt_slabs_2.png": {
+   "size": "20×13",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "decor_shards_0.png": {
+   "size": "28×24",
+   "region": "basalt",
+   "ramp": "HILL"
+  },
+  "decor_shards_1.png": {
+   "size": "28×24",
+   "region": "basalt",
+   "ramp": "HILL"
+  },
+  "decor_shards_2.png": {
+   "size": "28×24",
+   "region": "basalt",
+   "ramp": "HILL"
+  },
+  "decor_slabs_0.png": {
+   "size": "21×16",
+   "region": "plateau",
+   "ramp": "HILL"
+  },
+  "decor_slabs_1.png": {
+   "size": "15×16",
+   "region": "plateau",
+   "ramp": "HILL"
+  },
+  "decor_slabs_2.png": {
+   "size": "29×15",
+   "region": "plateau",
+   "ramp": "HILL"
+  },
+  "form_arch.png": {
+   "size": "208×150",
+   "region": "plateau",
+   "ramp": "SAND"
+  },
+  "form_basalt_spires.png": {
+   "size": "156×136",
+   "region": "basalt",
+   "ramp": "HILL"
+  },
+  "form_cone.png": {
+   "size": "152×112",
+   "region": "basalt",
+   "ramp": "HILL"
+  },
+  "form_ice_needles.png": {
+   "size": "84×72",
+   "region": "frost",
+   "ramp": "ICE"
+  },
+  "form_lava_tube.png": {
+   "size": "124×56",
+   "region": "basalt",
+   "ramp": "HILL"
+  },
+  "form_monolith.png": {
+   "size": "80×140",
+   "region": "plateau",
+   "ramp": "SAND"
+  },
+  "form_salt_pillar.png": {
+   "size": "68×60",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "form_salt_ridge.png": {
+   "size": "204×96",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "form_split_rock.png": {
+   "size": "72×64",
+   "region": "plateau",
+   "ramp": "HILL"
+  },
+  "form_vent_chimney_active.png": {
+   "size": "40×78",
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  },
+  "form_vent_chimney_dormant.png": {
+   "size": "40×78",
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  },
+  "form_vent_cone_active.png": {
+   "size": "60×48",
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  },
+  "form_vent_cone_dormant.png": {
+   "size": "60×48",
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  },
+  "form_vent_pair_active.png": {
+   "size": "72×64",
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  },
+  "form_vent_pair_dormant.png": {
+   "size": "72×64",
+   "region": "basalt",
+   "ramp": "HILL+VENT"
+  },
+  "frost_ring.png": {
+   "size": "176×72",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "ground_basalt.png": {
+   "size": "512×512",
+   "region": "basalt",
+   "ramp": "BASE"
+  },
+  "ground_bed.png": {
+   "size": "512×512",
+   "region": "bed",
+   "ramp": "BASE"
+  },
+  "ground_frost.png": {
+   "size": "512×512",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "ground_plateau.png": {
+   "size": "512×512",
+   "region": "plateau",
+   "ramp": "BASE"
+  },
+  "ground_salar.png": {
+   "size": "512×512",
+   "region": "salar",
+   "ramp": "BASE"
+  },
+  "hill_face.png": {
+   "size": "512×24",
+   "region": "região do morro",
+   "ramp": "HILL"
+  },
+  "hill_top.png": {
+   "size": "512×512",
+   "region": "região do morro",
+   "ramp": "HILL"
+  },
+  "ice_gate_0.png": {
+   "size": "144×132",
+   "region": "frost",
+   "ramp": "ICE"
+  },
+  "ice_gate_1.png": {
+   "size": "144×132",
+   "region": "frost",
+   "ramp": "ICE"
+  },
+  "ice_gate_2.png": {
+   "size": "144×132",
+   "region": "frost",
+   "ramp": "ICE"
+  }
+ }
+}
