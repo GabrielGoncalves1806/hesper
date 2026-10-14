@@ -80,7 +80,8 @@ Decisões do dono (2026-10-14). Cada item abaixo é **uma tarefa, soltas uma por
    - Arte nova integrada. **O tamanho da faixa não muda no M3** (dono, 2026-10-14: achou curta, mas tem ideias pro gelo e mexe nisso em outra versão, junto do rebalanceamento).
    - **Veio de gelo (2×2, da drill) só nasce na faixa gelada.** Ferro e silício continuam como hoje.
 4. **Cratera orgânica** (Dev)
-   - Os **blocos mineráveis dentro da cratera** (caverna) ganham o formato orgânico dos morros da superfície, **reaproveitando o motor dos morros** (`game/hills.py`). Sem arte nova.
+   - Os **blocos mineráveis dentro da cratera** (caverna) **deixam de ser quadrados no desenho**: ganham as bordas curvas dos morros da superfície, **reaproveitando o motor dos morros** (`game/hills.py`). Sem arte nova.
+   - **A geração da caverna não muda** (dono, 2026-10-14): mesmos tiles, mesma forma; só o desenho.
 5. **Fumarola garantida** (Dev)
    - Toda seed tem pelo menos uma fumarola (magmatita) a no máximo X tiles da cápsula. X provisório, fica pro balanceamento.
 6. **Gelo gigante com a criatura** (Dev)
