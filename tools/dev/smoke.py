@@ -2767,6 +2767,46 @@ def check_hills(bot) -> None:
     bot.frames(0.2)
 
 
+def check_faixa_gelada(bot) -> None:
+    """v0.5 M3.3 · faixa gelada nos 4 estágios (Tempestade, Árido, Névoa, Verde): veio de gelo (só na região frost),
+    rocha pequena com a neve por cima (ferro, silício e gelo) e o chão novo. Prints: faixa_gelada_<estagio>.png."""
+    from game import geo as G
+    s, app = bot.state, bot.app
+    w, geo = s.world, s.active.geo
+    ice = [v for v in w.veins if v.resource == "ice"]
+    assert ice and all(geo.region_at(*t) == G.FROST for v in ice for t in v.tiles), "veio de gelo fora da faixa gelada"
+    v = ice[0]
+    before = dict(s.indices)
+    stage_before, storm_before, zoom_before = s.stage, s.storm, app.zoom
+    # 3 rochas pequenas (ferro, silício, gelo) em areia livre da faixa, à esquerda do veio, de frente pra câmera
+    rocks, saved = [], {}
+    for (dx, kind) in ((-4, C.SMALL_IRON), (-6, C.SMALL_SILICON), (-8, C.SMALL_ICE)):
+        t = (v.tx + dx, v.ty + 1)
+        assert geo.region_at(*t) == G.FROST, f"rocha de teste fora da faixa gelada {t}"
+        saved[t] = w.get(*t)
+        w.set(*t, kind)
+        rocks.append(t)
+    app.set_zoom(1.0, notify=False)
+    bot.mouse_to((900, 500))
+    s.player.x, s.player.y = (v.tx - 2) * C.TILE, (v.ty + 4) * C.TILE
+    s.o2 = C.O2_MAX
+    for stage, tag in ((C.STORM_STAGE, "tempestade"), (C.ARID_STAGE, "arido"), (C.MIST_STAGE, "nevoa"),
+                       (C.GREEN_STAGE, "verde")):
+        s.stage, s.storm = stage, 0.0
+        s.indices.update(o2=float(C.STAGES[stage - 1].ti), heat=0.0, water=0.0)
+        app.renderer.stage_map.update(s.indices["o2"], [])
+        ground_settle(bot)
+        shot_zoom(bot, f"faixa_gelada_{tag}.png", ((v.tx - 3) * C.TILE, (v.ty + 1.5) * C.TILE), w=400, h=220, k=2)
+    for t, tile in saved.items():
+        w.set(*t, tile)
+    s.indices.update(before)
+    s.stage, s.storm = stage_before, storm_before
+    app.set_zoom(zoom_before, notify=False)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+
+
 def check_formations(bot) -> None:
     """v0.4 Marco 2 · trilha C · formações (C3): as 6 no mundo, o player atrás e na frente do arco, passando pelo
     vão, o hoodoo e o basalto em 2 estágios, o raio-x atrás do arco e o desempenho."""
@@ -4363,6 +4403,7 @@ def main() -> None:
     check_ground(bot)
     check_hills(bot)
     check_formations(bot)
+    check_faixa_gelada(bot)
     check_v9_elements(bot)
     check_thaw(bot)
     check_crater(bot)

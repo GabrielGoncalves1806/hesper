@@ -26,7 +26,7 @@ import numpy as np
 from game import config as C
 from game import magmatite
 from game import wrecks as wreck_gen
-from game.geo import REGION_NAMES, add_vents, generate_geo
+from game.geo import FROST, REGION_NAMES, add_vents, generate_geo
 from game.world import Vein, World, hash01, value_noise
 
 _cache: dict[int, World] = {}
@@ -357,7 +357,8 @@ def _crater(world: World, rng: random.Random) -> None:
 
 
 def _veins(world: World, rng: random.Random) -> None:
-    """3 a 5 veios 2×2, longe da base, em areia aberta, um de cada recurso primeiro."""
+    """3 a 5 veios 2×2, longe da base, em areia aberta, um de cada recurso primeiro. v0.5 M3.3: o veio de gelo só
+    nasce na faixa gelada (os 4 tiles do veio na região frost); ferro e silício seguem em qualquer região."""
     lo, hi = C.SURFACE_VEINS
     count = rng.randint(lo, hi)
     resources = list(C.VEIN_RESOURCES)
@@ -367,7 +368,9 @@ def _veins(world: World, rng: random.Random) -> None:
     max_dist = min(min(world.width, world.height) / 2 - 8, C.SURFACE_VEIN_MAX_DIST)
     crater = world.crater
 
-    def ok(tx, ty):
+    def ok(tx, ty, frost_only=False):
+        if frost_only and not all(world.geo.region_at(tx + dx, ty + dy) == FROST for dx in (0, 1) for dy in (0, 1)):
+            return False
         area = [(tx + dx, ty + dy) for dx in range(-1, 3) for dy in range(-1, 4)]   # 2×2 + linha de baixo + folga
         if not all(world.get(*t) == C.SAND for t in area):
             return False
@@ -379,7 +382,17 @@ def _veins(world: World, rng: random.Random) -> None:
             return False
         return all(math.hypot(tx - v.tx, ty - v.ty) >= C.SURFACE_VEIN_SPACING for v in world.veins)
 
+    ice_max = min(min(world.width, world.height) / 2 - 8, C.SURFACE_ICE_VEIN_MAX_DIST)
+    frost = sorted(zip(*(a.tolist() for a in np.nonzero(world.geo.region == FROST)[::-1])))   # (x, y) da faixa gelada
     for resource in resources:
+        if resource == "ice":                     # a faixa é estreita: sorteia entre os cantos válidos, sem tentar às cegas
+            sites = [t for t in frost if ice_max >= world.dist_from_center(*t) >= C.SURFACE_VEIN_MIN_DIST + 2 and ok(*t, True)]
+            if sites:
+                tx, ty = rng.choice(sites)
+                world.veins.append(Vein(resource, tx, ty))
+                for t in world.veins[-1].tiles:
+                    world._vein_tiles[t] = world.veins[-1]
+            continue
         for _ in range(3000):
             angle = rng.uniform(0, math.tau)
             dist = rng.uniform(C.SURFACE_VEIN_MIN_DIST + 2, max_dist)
