@@ -3327,6 +3327,38 @@ def check_lakes(bot) -> None:
     bot.frames(0.1)
 
 
+def check_cover(bot) -> None:
+    """Cobertura do estágio no chão assado (porte do cover_layer da Designer): grama e musgo no Verde, umidade na
+    Névoa. Prints: verde_cobertura_{planalto,basalto,lago}.png e nevoa_cobertura.png."""
+    s, app = bot.state, bot.app
+    w = s.world
+    geo = s.active.geo
+    before = dict(s.indices)
+    stage_before, storm_before, level_before = s.stage, s.storm, w.water_level
+    zoom_before = app.zoom
+    app.set_zoom(1.0, notify=False)
+    bot.mouse_to((900, 500))
+    shots = [(C.MIST_STAGE, "nevoa_cobertura.png", region_spot(geo, w, 0), C.GEO_LEVELS[1])]
+    lake = lake_spots(w)["planalto"]
+    shots += [(C.GREEN_STAGE, "verde_cobertura_planalto.png", region_spot(geo, w, 0), C.GEO_LEVELS[2]),
+              (C.GREEN_STAGE, "verde_cobertura_basalto.png", region_spot(geo, w, 2), C.GEO_LEVELS[2]),
+              (C.GREEN_STAGE, "verde_cobertura_lago.png", lake, C.GEO_LEVELS[2])]
+    for stage, name, spot, level in shots:
+        s.stage, s.storm = stage, 0.0
+        s.indices.update(o2=float(C.STAGES[stage - 1].ti), heat=0.0, water=0.0)
+        w.water_level = level
+        bot.teleport(spot)
+        s.o2 = C.O2_MAX
+        ground_settle(bot)
+        bot.shot(name)
+    s.indices.update(before)
+    s.stage, s.storm, w.water_level = stage_before, storm_before, level_before
+    app.set_zoom(zoom_before, notify=False)
+    bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
+    s.o2 = C.O2_MAX
+    bot.frames(0.2)
+
+
 def check_rain(bot) -> None:
     """M3.3: chuva na Névoa (pancada forçada no state.rain) e o custo dela no frame."""
     from game.rain import RainDrops
@@ -3763,6 +3795,7 @@ def main() -> None:
     bot.key(pygame.K_d, hold=0.5)
     bot.shot("stage2.png")
     check_lakes(bot)
+    check_cover(bot)
     check_rain(bot)
     check_submerged(bot)
     give(s, iron=40, silicon=30, ice=20)
