@@ -627,6 +627,8 @@ Plano: `docs/superpowers/plans/2026-10-13-v04-marco3-gelo-agua.md`. O que o calo
 ### Magmatita (decisão do dono, a implementar)
 - **O que é**: mineral novo, uma pedra quente de basalto com fissuras de lava. É o que faz as **primeiras máquinas de calor**: entra como **ingrediente na receita do Aquecedor** (nv.1 e nv.2). Depois de colocado, o aquecedor roda sozinho como hoje (não é combustível).
 - **Onde nasce**: **só perto das fumarolas**, como se elas expelissem a pedra do fundo da terra. Por enquanto **escassa**, só como rochas soltas que reaparecem em volta delas, sem veio.
+- **Quanto nasce**: o mesmo minério sempre. A **fumarola dormente** já tem **poucas** pedras em volta (o bastante pro 1º aquecedor, senão o jogo trava: o calor que acorda a fumarola vem do aquecedor). A **fumarola acordada** expele **mais**, e as pedras voltam mais rápido.
+- **Objetivo novo**, logo antes de "Fabrique um Aquecedor": **"Encontre magmatita no basalto (oeste)"**, com a dica *"Os sensores detectaram calor a oeste. Talvez exista algo por lá pra gerar calor."* (o basalto fica a oeste/sudoeste da base).
 - **Depois (gancho)**: uma **drill nv.2 colocada na fumarola** pra extrair magmatita direto.
 - **Arte**: o aquecedor redesenhado (Marco 4) mostra as pedras de magmatita incandescentes numa câmara com janela. O minério (`ore`/`pickup`/`icon`) é proposto pela Designer.
 - **Consequência**: o Aquecedor passa a exigir uma ida ao basalto antes da cratera. Isso entra no balanceamento (ordem dos objetivos e tempo até a cratera).
