@@ -27,6 +27,7 @@ import pygame
 
 from game import art
 from game import autotile
+from game import cave_rocks
 from game.base import floor_variant
 from game import config as C
 from game import drones
@@ -225,6 +226,7 @@ class Renderer:
         self.ground = ground.Ground(getattr(sprites, "enabled", True))  # chão assado da superfície com geo (v0.4 M2, game/ground.py)
         # v0.4 Marco 2 (trilha C, game/hills.py): morros orgânicos assados em blocos
         self._hills: hills.HillBlocks | None = None
+        self._cave_rocks: cave_rocks.CaveRocks | None = None   # rocha da caverna com borda orgânica (v0.5 M3.4)
         self._hill_stage_tags: dict[tuple[int, int], tuple] = {}
         self.formation_sprites = hills.FormationSprites()   # formações fixas (v0.4 M2 · C3)
         self.crater_sprites = hills.CraterSprites()          # cratera de impacto e a tampa de gelo (C4)
@@ -511,7 +513,13 @@ class Renderer:
         self.power_factor = state.power.factor
         self.powered = self.power_factor > 0            # sem energia nenhuma: máquinas no quadro 0
         objects = self.collect_objects(canvas, state, cam, t)
-        strips = self.hill_strips(state, cam) if self.organic_hills(state) else None
+        organic = self.organic_hills(state)
+        cave = not state.active.has_base
+        strips = (self.cave_strips(state, cam) if cave else self.hill_strips(state, cam)) if organic else None
+        terminals = {}                                  # caverna orgânica: o terminal é desenhado depois da tira da linha
+        if strips is not None and cave:
+            for term in state.world.terminals:
+                terminals.setdefault(term[1], []).append(term)
         hill_rows = None if strips is None else {r for rows in strips.values() for r in rows}
         # +1 linha embaixo: o topo elevado de uma parede logo abaixo da tela ainda aparece
         for item in build_draw_list(state.world, objects, tx0, tx1, ty0, ty1 + 1, hill_rows):
@@ -526,6 +534,8 @@ class Renderer:
                     if strip is not None:
                         surf, x, y = strip
                         canvas.blit(surf, (x - cam[0], y - cam[1]))
+                for tx, ty in terminals.get(row, ()):
+                    self._draw_terminal(canvas, tx, ty, tx * T - cam[0], ty * T - cam[1])
             else:
                 item[1]()
         self._draw_player_silhouette(canvas, state, cam, t)
@@ -700,21 +710,56 @@ class Renderer:
 
     # ---- morros orgânicos da superfície (v0.4 Marco 2 · game/hills.py) ----------
     def organic_hills(self, state: GameState) -> bool:
-        """Morro com borda orgânica? Só na superfície, com sprites e com a arte das regiões presente.
-        A caverna continua com as paredes de hoje."""
-        if not (C.ORGANIC_HILLS and state.active.has_base and self.sprites.enabled):
+        """Morro com borda orgânica? Com sprites e com a arte dos morros presente: na superfície (hills.py) e, desde
+        o v0.5 M3.4, na rocha da caverna (cave_rocks.py)."""
+        if not self.sprites.enabled:
             return False
-        return self.hill_blocks().ok
+        if not state.active.has_base:
+            return C.ORGANIC_CAVE and self.cave_rock_blocks().ok
+        return C.ORGANIC_HILLS and self.hill_blocks().ok
+
+    def _ore_rgba(self) -> dict:
+        ore = {}
+        for resource in C.ORE_TILES.values():
+            surf = self.surface(f"ore_{resource}", lambda r=resource: art.ore(r, 0), f"ore_{resource}#0")[0]
+            rgb = pygame.surfarray.array3d(surf).transpose(1, 0, 2)
+            alpha = pygame.surfarray.array_alpha(surf).T
+            ore[resource] = np.dstack([rgb, alpha]).astype(np.uint8)
+        return ore
+
+    def cave_rock_blocks(self) -> cave_rocks.CaveRocks:
+        if self._cave_rocks is None:
+            self._cave_rocks = cave_rocks.CaveRocks(self._ore_rgba())
+        return self._cave_rocks
+
+    def cave_strips(self, state: GameState, cam) -> dict:
+        """{(bx, by): {linha: (surf, x, y)}} da rocha da caverna que aparece na tela (e 1 bloco de folga por frame)."""
+        cb = self.cave_rock_blocks()
+        world = state.world
+        bp = C.HILL_BLOCK * T
+        cam_x, cam_y = cam
+        bx0, bx1 = cam_x // bp, (cam_x + self.view_w) // bp
+        by0 = (cam_y // T - 1) // C.HILL_BLOCK
+        by1 = ((cam_y + self.view_h) // T + 2) // C.HILL_BLOCK
+        nb_x = -(-world.width // C.HILL_BLOCK)
+        nb_y = -(-world.height // C.HILL_BLOCK)
+        out = {}
+        for by in range(max(0, by0), min(nb_y, by1 + 1)):
+            for bx in range(max(0, bx0), min(nb_x, bx1 + 1)):
+                out[(bx, by)] = cb.strips(world, bx, by)
+        budget = C.HILL_PREFETCH
+        for by in range(max(0, by0 - 1), min(nb_y, by1 + 2)):
+            for bx in range(max(0, bx0 - 1), min(nb_x, bx1 + 2)):
+                if budget <= 0:
+                    return out
+                if (bx, by) not in out and not cb.cached(world, bx, by):
+                    cb.strips(world, bx, by)
+                    budget -= 1
+        return out
 
     def hill_blocks(self) -> hills.HillBlocks:
         if self._hills is None:
-            ore = {}
-            for resource in C.ORE_TILES.values():
-                surf = self.surface(f"ore_{resource}", lambda r=resource: art.ore(r, 0), f"ore_{resource}#0")[0]
-                rgb = pygame.surfarray.array3d(surf).transpose(1, 0, 2)
-                alpha = pygame.surfarray.array_alpha(surf).T
-                ore[resource] = np.dstack([rgb, alpha]).astype(np.uint8)
-            self._hills = hills.HillBlocks(ore)
+            self._hills = hills.HillBlocks(self._ore_rgba())
         return self._hills
 
     def _hill_stage(self, bx: int, by: int) -> tuple:
@@ -872,10 +917,13 @@ class Renderer:
         if not world.is_wall(tx, ty + 1):
             canvas.blit(self.surface(f"wall_face_{stage}", lambda: art.wall_face(stage))[0], (sx, sy + FACE_Y))
             if kind == C.TERMINAL:   # o terminal fica pendurado na face
-                term = self.surface("terminal", art.terminal)[0]
-                canvas.blit(self.anim_surface("terminal", term, anim_frame_index(self.clock, tile_phase(tx, ty))), (sx, sy))
-                if self.highlight is not None and self.highlight == ("terminal", (tx, ty)):
-                    canvas.blit(self.outline_of("terminal", term), (sx - 1, sy - 1))
+                self._draw_terminal(canvas, tx, ty, sx, sy)
+
+    def _draw_terminal(self, canvas, tx, ty, sx, sy) -> None:
+        term = self.surface("terminal", art.terminal)[0]
+        canvas.blit(self.anim_surface("terminal", term, anim_frame_index(self.clock, tile_phase(tx, ty))), (sx, sy))
+        if self.highlight is not None and self.highlight == ("terminal", (tx, ty)):
+            canvas.blit(self.outline_of("terminal", term), (sx - 1, sy - 1))
 
     def _draw_floor(self, canvas, world, tx, ty, sx, sy, stage, stage_num, t, wall_shadows=True) -> None:
         # deserto: areia com a variação da Designer (dunas em faixas); FLOOR (caverna) com o sorteio de sempre

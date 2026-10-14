@@ -760,7 +760,8 @@ GROUND_MOSS = ("#22331f", "#2c4127", "#38502e", "#466338", "#5c7d45", "#75985a")
 # ---------------------------------------------------------------------------
 # Morros orgânicos da superfície (v0.4 Marco 2 · trilha C · bíblia §11): game/hills.py. A caverna fica igual.
 # ---------------------------------------------------------------------------
-ORGANIC_HILLS = True            # False = paredes da superfície do jeito antigo (tile + face), como a caverna
+ORGANIC_HILLS = True            # False = paredes da superfície do jeito antigo (tile + face)
+ORGANIC_CAVE = True             # v0.5 M3.4 (game/cave_rocks.py): False = rocha da caverna quadrada, como antes
 HILL_BLOCK = 8                  # morros assados em blocos de 8×8 tiles (256 px): ~3 ms por bloco
 HILL_FACE = 24                  # px da face (a silhueta do topo extrudada pra baixo)
 HILL_CACHE_BLOCKS = 96          # teto de blocos assados guardados (LRU): ~3 telas no zoom 0,75

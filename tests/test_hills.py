@@ -177,14 +177,19 @@ def test_draw_list_uses_one_hill_strip_per_row():
     assert order.index(("hills", 3)) < order.index(("obj", "player"))   # logo abaixo: na frente da face
 
 
-def test_cave_keeps_the_old_walls_and_surface_goes_organic():
+def test_cave_goes_organic_too_and_the_flag_brings_back_the_old_walls():
     pygame.init()
     pygame.display.set_mode((64, 64))
     g = GameState(rng=random.Random(1))
     r = Renderer(Sprites())
     assert r.organic_hills(g)
     g.enter_layer("cave")
-    assert not r.organic_hills(g)
+    assert r.organic_hills(g)                      # v0.5 M3.4: game/cave_rocks.py
+    C.ORGANIC_CAVE = False
+    try:
+        assert not r.organic_hills(g)
+    finally:
+        C.ORGANIC_CAVE = True
 
 
 def test_surface_frame_draws_hill_strips():
