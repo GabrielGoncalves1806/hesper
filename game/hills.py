@@ -508,6 +508,8 @@ def formation_file(kind: str, variant: int = 0) -> str:
     (variant 0 = dormente, 1 = acordada)."""
     if kind.startswith("vent_"):
         return f"form_{kind}_{'active' if variant else 'dormant'}.png"
+    if kind == "ice_giant":                      # v0.5 M3.6.2: variant 0 = larva, 1 = casulo (C.GIANT_VARIANTS)
+        return f"form_ice_giant_{C.GIANT_VARIANTS[min(variant, len(C.GIANT_VARIANTS) - 1)]}.png"
     return f"ice_gate_{variant}.png" if kind == "ice_gate" else f"form_{kind}.png"
 
 
@@ -525,16 +527,22 @@ class FormationSprites:
         self._cache: dict[tuple, pygame.Surface] = {}
         self._masks: dict[int, pygame.mask.Mask] = {}
 
-    def surface(self, formation, stage: int, variant: int | None = None) -> pygame.Surface:
+    def surface(self, formation, stage: int, variant: int | None = None, frame: int = 0) -> pygame.Surface:
         """`variant` (opcional) passa por cima do `formation.variant`: a fumarola acordada (M3.1) vem do estado,
-        não da formação (a geo é dividida entre os estados da mesma seed)."""
+        não da formação (a geo é dividida entre os estados da mesma seed). `frame` (> 0) só vale pro gelo gigante
+        (M3.6.2): o quadro da tira `form_ice_giant_<criatura>_anim.png` (0 = o sprite parado)."""
         variant = getattr(formation, "variant", 0) if variant is None else variant
         name = formation_file(formation.kind, variant)
         stage = max(1, min(len(STAGE_KEYS), stage))
-        key = (name, stage)
+        if frame <= 0 or formation.kind != "ice_giant":
+            frame = 0
+        key = (name, stage, frame)
         if key not in self._cache:
             surf = None
-            idx = load_indexed(name)
+            idx = load_indexed(name if not frame else name.replace(".png", "_anim.png"))
+            if idx is not None and frame:
+                fw = idx.shape[1] // 8
+                idx = idx[:, frame * fw:(frame + 1) * fw] if idx.shape[1] >= fw * (frame + 1) else None
             rmp = ramp(*formation_ramp(formation.kind, variant), STAGE_KEYS[stage - 1])
             if idx is not None and rmp is not None:
                 surf = rgba_surface(colorize(idx, rmp))
@@ -565,9 +573,10 @@ class FormationSprites:
             return surf.get_width() // 2, surf.get_height()
         return ax, ay
 
-    def placement(self, formation, stage: int, variant: int | None = None) -> tuple[pygame.Surface, int, int]:
+    def placement(self, formation, stage: int, variant: int | None = None,
+                  frame: int = 0) -> tuple[pygame.Surface, int, int]:
         """(sprite, x, y) do canto de cima-esquerda do sprite no mundo (px): a âncora cai no base_px."""
-        surf = self.surface(formation, stage, variant)
+        surf = self.surface(formation, stage, variant, frame)
         ax, ay = self.anchor(formation, surf)
         bx, by = formation.base_px
         return surf, round(bx - ax), round(by - ay)
@@ -627,13 +636,14 @@ class FrostRing:
     """Geada no chão em volta do gelo-portão que derrete (frost_ring.png, rampa BASE da faixa gelada), por estágio.
     Sem a arte: None (não desenha nada)."""
 
-    def __init__(self):
+    def __init__(self, name: str = "frost_ring.png"):
+        self.name = name                         # a geada grande do gelo gigante (M3.6.2) é a `frost_field.png`
         self._cache: dict[int, pygame.Surface | None] = {}
 
     def surface(self, stage: int) -> pygame.Surface | None:
         stage = max(1, min(len(STAGE_KEYS), stage))
         if stage not in self._cache:
-            idx = load_indexed("frost_ring.png")
+            idx = load_indexed(self.name)
             rmp = ramp("BASE", "frost", STAGE_KEYS[stage - 1])
             self._cache[stage] = None if idx is None or rmp is None else rgba_surface(colorize(idx, rmp))
         return self._cache[stage]
@@ -644,6 +654,14 @@ def frost_ring_pos(gate, surf: pygame.Surface) -> tuple[int, int]:
     (regions_mockups.populate: o anel sai do pé do portão, x - w/2, y - 60)."""
     bx, by = gate.base_px
     return round(bx - surf.get_width() / 2), round(by - 60)
+
+
+def frost_field_pos(giant, surf: pygame.Surface) -> tuple[int, int]:
+    """Canto da geada grande no mundo (px): centro em (âncora.x, âncora.y − 54), como no contrato do gelo gigante
+    (`formations.ice_giant.frost_field.at`)."""
+    bx, by = giant.base_px
+    dx, dy = palettes().get("formations", {}).get("ice_giant", {}).get("frost_field", {}).get("at", (0, -54))
+    return round(bx + dx - surf.get_width() / 2), round(by + dy - surf.get_height() / 2)
 
 
 def foot_tile(formation) -> tuple[int, int]:

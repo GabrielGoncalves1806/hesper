@@ -161,6 +161,12 @@ def _pockets(world: World) -> None:
             world.set(*t, C.BEDROCK)
         for t in pocket.interior + pocket.apron + pocket.gate.tiles:
             world.set(*t, C.SAND)
+    giant = world.geo.giant                      # v0.5 M3.6.2: bolsão grande da criatura (entrada aberta até a 6.3)
+    if giant is not None:
+        for t in giant.ring:
+            world.set(*t, C.BEDROCK)
+        for t in giant.interior + giant.apron + giant.entry:
+            world.set(*t, C.SAND)
 
 
 def _pocket_finds(world: World) -> None:
@@ -189,6 +195,9 @@ def _keep_clear(geo) -> set[tuple[int, int]]:
         out |= _ring(f.box, C.FORMATION_HALO)
     for p in geo.pockets:
         out |= set(p.interior) | set(p.ring) | set(p.apron)
+    if geo.giant is not None:                    # v0.5 M3.6.2: bolsão grande da criatura (a entrada e a frente também)
+        g = geo.giant
+        out |= set(g.interior) | set(g.ring) | set(g.apron) | set(g.entry)
     return out
 
 
@@ -215,6 +224,8 @@ def _hills(world: World, rng: random.Random) -> None:
         taken |= set(f.box) if f.small else _ring(f.box, C.FORMATION_HILL_GAP - 2)
     for p in geo.pockets:
         taken |= set(p.ring) | set(p.apron) | set(p.interior)
+    if geo.giant is not None:
+        taken |= set(geo.giant.ring) | set(geo.giant.apron) | set(geo.giant.interior) | set(geo.giant.entry)
     while placed < target and tries < round(4000 * area):
         tries += 1
         size = hrng.randint(*C.HILL_SIZE)
@@ -408,7 +419,7 @@ def _outcrops(world: World) -> None:
     """Afloramentos: 3 ou 4 rochas pequenas a 1–2 tiles da pegada de cada formação (o gelo-portão não tem), com o
     minério da região (OUTCROP_ORE). Nunca no vão do arco, e espaçadas (nenhuma encosta na outra pelo lado)."""
     for i, f in enumerate(world.geo.formations):
-        if f.kind == "ice_gate" or f.small:          # o portão e as pequenas da v9 (miúdas) não têm
+        if f.kind in ("ice_gate", "ice_giant") or f.small:   # o portão, o gelo gigante e as pequenas da v9 (miúdas) não têm
             continue
         if f.kind.startswith("vent_"):           # M3.1: fumarola é formação pequena (sem afloramento)
             continue
