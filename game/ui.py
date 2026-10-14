@@ -790,7 +790,8 @@ class UI:
             self.draw_hint(hint)
 
         debug = ([f"DEBUG · TEMPO x{state.time_scale}"] if state.time_scale != 1 else []) \
-            + ([f"DEBUG · RAPIDO x{C.DEBUG_SPEED:g} · BROCA x{C.DEBUG_MINE:g} · MAPA REVELADO"] if state.fast else []) \
+            + ([f"DEBUG · RAPIDO x{C.DEBUG_SPEED:g} · BROCA x{C.DEBUG_MINE:g}", "DEBUG · MAPA REVELADO"]
+               if state.fast else []) \
             + (["DEBUG · CRATERA ABERTA (F4)"] if state.debug_crater else [])
         for i, line in enumerate(debug):          # F1, F3 e F4: uma linha cada, no topo (não alcança o painel do Ti)
             self.text(line, self.w // 2, 8 + 10 * i, C.C_TI, align="center")
