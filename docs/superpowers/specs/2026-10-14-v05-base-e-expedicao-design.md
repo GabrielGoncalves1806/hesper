@@ -84,9 +84,15 @@ Decisões do dono (2026-10-14). Cada item abaixo é **uma tarefa, soltas uma por
    - **A geração da caverna não muda** (dono, 2026-10-14): mesmos tiles, mesma forma; só o desenho.
 5. ~~**Fumarola garantida** (Dev)~~ **Adiada** (dono, 2026-10-14): o basalto não fica tão longe no mapa 256, o O₂ dá pra ir e voltar e o tanque novo vem cedo. Volta se o playtest mostrar que precisa.
    - Toda seed tem pelo menos uma fumarola (magmatita) a no máximo X tiles da cápsula. X provisório, fica pro balanceamento.
-6. **Gelo gigante com a criatura** (Dev)
-   - Contrato em `reports/design/gelo_gigante/pendentes/`: pegada 7×4, rampa `ICE_DEEP`, geada. Teaser sem interação, num canto da faixa gelada.
-   - Sprite **Larva em C ou Casulo, sorteado pela seed** (mesma seed, mesma criatura). Não existe "tipo de mundo" no jogo; se um dia existir, a criatura passa a seguir ele.
+6. **Gelo gigante com a criatura no bolsão grande** (Dev; decisões do dono 2026-10-14)
+   - **Faixa gelada maior:** desce até mais ou menos o dobro de hoje (de ~32 pra ~50–60 tiles no mapa 256). O veio de gelo vem junto, mais perto da base.
+   - **Bolsão grande da criatura**, num **lugar sorteado pela seed dentro da faixa** (às vezes no meio, às vezes num canto). Anel de `BEDROCK` como os outros bolsões, mas bem maior: o gelo gigante (pegada 7×4, rampa `ICE_DEEP`, geada) fica no meio, com **espaço pro player andar em volta dele** por todos os lados. Os bolsões de hoje (2–3, `ICE_GATES`) continuam, sem encostar nele.
+   - **Portão bem maior** que os outros (mais blocos de gelo, receita nova montada com os blocos que já existem), e **o último a derreter**, depois de todos os outros portões.
+   - **Névoa dentro do bolsão:** de fora não se vê o que tem lá. O scanner também não mostra o interior (só uma mancha "?" no mapa). Quando o portão abre, a névoa se dissipa em alguns segundos.
+   - **Mensagem ao abrir**, no estilo da cratera: "O grande gelo do norte cedeu. O que ele guardava não é rocha." (provisória; o texto passa pelo dono na revisão de lore).
+   - Sprite **Larva em C ou Casulo, sorteado pela seed** (mesma seed, mesma criatura). Contrato em `reports/design/gelo_gigante/pendentes/`. Teaser sem interação.
+   - Estado da criatura num lugar fácil de mudar depois (gancho do futuro).
+   - **Futuro (fora do v0.5):** o gelo derrete, o verme se enterra e o rastro leva o player até a cratera, pra caçar o verme na caverna.
 7. **Nevasca na faixa gelada** (Dev, cor proposta pela Designer)
    - Na Tempestade, com o player na faixa gelada, a camada da tempestade (`game/dust.py`) troca a "skin": nuvem branco-azulada no lugar do ocre, faixas brancas e mais finas, e **flocos** (um pouco maiores, mais lentos, com zigue-zague) no lugar dos grãos. Vento, rajada e raio de visão não mudam.
    - A troca segue **a posição do player**, com transição suave de 1–2 s. A versão por pixel (poeira de um lado, neve do outro na borda) fica pra depois, se a troca ficar artificial no playtest.
