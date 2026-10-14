@@ -288,6 +288,13 @@ SEC = '''
 
 <h2>2d. Magmatita (a família completa)</h2>
 <div class="note">Pedra quente de basalto, <b>igual à do aquecedor</b> (<code>machines_r3d.py</code>, <code>magma_rock</code>): basalto escuro (<code>#6a5f72 · #4e4558 · #3a3244 · #2a2333</code>) com veios de lava incandescente (laranja <code>#ff9a3d</code>, vermelho <code>#e0602a</code>, toques de amarelo <code>#ffd27a</code>). <b>O brilho fica só dentro das fissuras</b>: nenhum halo fora da pedra, e o contorno é o normal da família (<code>#1b1630</code>). Mantive a rede de rachaduras finas espalhadas pela pedra, que combina com o visual do aquecedor. Mesmos tamanhos do contrato. Nasce só perto das fumarolas (bíblia §12, "Magmatita"; sem veio por enquanto, o <code>vein_magmatite</code> fica pronto pro gancho da drill nv.2 na fumarola).</div>
+<h3>Veio da magmatita: "mais lava" (ajuste do dono)</h3>
+<div class="pair"><figure><figcaption>referência do dono (estilo)</figcaption><img src="../refs/veio_magmatita_lava_ref_dono.png" style="width:384px;height:384px;image-rendering:pixelated"></figure>
+<figure><figcaption>esboço do dono (radial)</figcaption><img src="../refs/veio_magmatita_radial_esboco_dono.png" style="width:384px;image-rendering:pixelated"></figure>
+<figure><figcaption>vein_magmatite 64×64 (6×)</figcaption>{img_v}</figure>
+<figure><figcaption>animada (6×, CSS)</figcaption><div style="width:384px;height:384px;image-rendering:pixelated;background:url(pendentes/vein_magmatite_anim.png) 0 0/1536px 384px no-repeat;animation:vl 1.2s steps(4) infinite"></div></figure></div>
+<style>@keyframes vl{{to{{background-position-x:-1536px}}}}</style>
+<p><b>v4 · lava radial.</b> A fenda diagonal reta ("raio de Zeus") saiu; as placas de basalto continuam as mesmas (o dono gostou da distribuição). Agora a lava <b>nasce numa poça incandescente no centro</b> (núcleo amarelo-branco <code>#fff4cc</code>) e <b>8 rachaduras tortas irradiam pras bordas</b>, buscando as juntas entre as placas, ramificando e <b>afinando até 1 px</b> perto das bordas; a mais grossa é a perto do centro. O brilho que vaza tinge as quinas das placas vizinhas (só dentro da silhueta, mais forte perto do centro, sem halo fora) e as <b>brasas</b> ficam. Do estilo da referência de lava aproveitei basalto quase preto com desnível, o gradiente amarelo-branco, laranja, vermelho e a luz vindo só da lava (desenho original). 64×64, mesma âncora, contorno <code>#1b1630</code>. <b>Animação</b> (4 quadros, 256×64): o núcleo da poça pulsa e o calor corre do centro pras pontas das rachaduras; as brasas piscam. As rochas e o minério de morro seguem como estavam.</p>
 {grid}
 <table><tr><th>arquivo</th><th>1:1</th><th>ampliado</th></tr>{mz}</table>
 <h3>No basalto, perto da fumarola, nos 4 estágios (tempestade, árido, névoa, verde)</h3>
@@ -323,7 +330,7 @@ def html(rows, extra):
     mz = "".join(f'<tr><td class="n">{n}</td><td>{img(f"pendentes/{n}", sz, sz, 1)}</td><td>{img(f"pendentes/{n}", sz, sz, 8 if sz == 16 else 4)}</td></tr>'
                  for n, sz in (("ore_magmatite.png", 32), ("icon_magmatite.png", 16), ("pickup_magmatite.png", 16),
                                ("rock_small_magmatite_0.png", 32), ("rock_small_magmatite_1.png", 32), ("vein_magmatite.png", 64)))
-    rv_sec = SEC.format(rv=rv, vz=vz, mz=mz, anim=anim_html(), grid=grid_html())
+    rv_sec = SEC.format(rv=rv, vz=vz, mz=mz, img_v=img('pendentes/vein_magmatite.png', 64, 64, 6), anim=anim_html(), grid=grid_html())
     return f'''<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Hesper · minério bruto (proposta)</title>
 <style>
 body{{background:#1b1630;color:#eee8f5;font:15px/1.5 system-ui,sans-serif;max-width:1180px;margin:0 auto;padding:24px}}

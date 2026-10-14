@@ -178,6 +178,7 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 | `icon_iron.png` `icon_silicon.png` `icon_ice.png` | 16×16 | ícones do inventário/HUD. **Freela, aprovado pelo dono** |
 | `pickup_iron.png` `pickup_silicon.png` `pickup_ice.png` | 16×16 | **Freela, aprovado pelo dono** (arquivos copiados junto com o minério; continuam fora do jogo, como antes) |
 | `rock_small_{iron,silicon,ice}_{0,1}.png` | 32×32 | rocha com veio (minério bruto), 2 variações por minério. **Freela, aprovado pelo dono.** A variação sai por hash do tile; o Dev integra |
+| `{ore,icon,pickup,vein}_magmatite.png`, `rock_small_magmatite_{0,1}.png` | os mesmos tamanhos das outras famílias | **Magmatita** (bíblia §12): basalto escuro com lava só nas fissuras, no visual das pedras do aquecedor. O veio 64×64 tem a lava irradiando de uma poça central. **Aprovado pelo dono.** Tiras de 4 quadros com a lava pulsando em `anim/{ore,vein}_magmatite_anim.png` e `anim/rock_small_magmatite_{0,1}_anim.png` (opcionais, pensadas pra caverna) |
 | `pod.png` | 64×72 | cápsula/base. **Freela r3d v1.2, sapata B, aprovado pelo dono** |
 | `machine_o2.png` `machine_heater.png` `machine_melter.png` | até 40×56 | nível 1. **Freela r3d v1.2, sapata B, aprovado pelo dono** |
 | `machine_o2_t2.png` `machine_heater_t2.png` `machine_melter_t2.png` | até 40×64 | nível 2. **Freela r3d v1.2, sapata B, aprovado pelo dono** |

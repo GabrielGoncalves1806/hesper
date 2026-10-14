@@ -783,10 +783,168 @@ def anim_strip(parts, glow_on):
     return out
 
 
+
+# ---------------------------------------------------------------------------
+# vein_magmatite v3 ("mais lava"): placas de basalto quase pretas com desnível, uma fenda principal larga de lava
+# (núcleo amarelo-branco, laranja, borda vermelha), rachaduras finas ramificadas, brilho que vaza pras quinas das
+# placas vizinhas (dentro da silhueta) e brasas. Referência de estilo: a imagem do dono (só estilo, desenho original).
+# ---------------------------------------------------------------------------
+B_DARK = ["#3c3446", "#2c2536", "#211b29", "#181320", "#120e18"]
+
+
+def _lift(mask, k):
+    out = np.zeros_like(mask)
+    if k:
+        out[:-k] = mask[k:]
+        return out
+    return mask
+
+
+def vein_lava_parts():
+    rnd = random.Random(8 * 977)
+    cv = Canvas(64, 64)
+    # placas: (cx, cy, r, vértices, altura do degrau); as que encostam na fenda são mais altas
+    slabs = [(15, 17, 17, 7, 0), (44, 14, 14, 6, 3), (12, 41, 14, 7, 0), (36, 41, 18, 8, 2), (55, 46, 10, 6, 0),
+             (26, 57, 13, 6, 0), (53, 27, 11, 6, 2), (30, 24, 11, 6, 3)]
+    items = []
+    for (cx, cy, r, n, lift) in slabs:
+        items.append((cy - lift, poly_slab(rnd, cx, cy, r, n), lift))
+    for _cy, top, lift in sorted(items, key=lambda i: i[0]):
+        top = _lift(top, lift)
+        cv.blit(extrude(top, 3 + lift, B_DARK[0], B_DARK[1], B_DARK[2], B_DARK[3], glint=False), 0, 0)
+    # lava RADIAL: uma poça incandescente no meio e 8 rachaduras tortas irradiando pelas juntas das placas,
+    # ramificando e afinando até 1 px perto das bordas.
+    allowed = _solid_noline(cv)
+    C0 = (31.5, 31.0)
+    joint = ~allowed                                               # contorno ou vazio: onde estão as juntas
+
+    def jscore(x, y):
+        ix, iy = int(round(x)), int(round(y))
+        if not (0 <= ix < 64 and 0 <= iy < 64):
+            return 1.0
+        return float(joint[max(0, iy - 1):iy + 2, max(0, ix - 1):ix + 2].mean())
+
+    samples = []                                                   # (x, y, raio, percurso desde o centro)
+    for k in range(8):                                             # poça: miolo grande + lóbulos tortos
+        a_ = k * math.pi / 4 + rnd.uniform(-0.3, 0.3)
+        samples.append((C0[0] + math.cos(a_) * 2.2, C0[1] + math.sin(a_) * 1.8, rnd.uniform(1.8, 2.5), 0.0))
+    samples.append((C0[0], C0[1], 3.6, 0.0))
+
+    def arm(x, y, ang, length, r0, travel, depth):
+        base, step, nb = ang, 0.5, 0
+        n_ = int(length / step)
+        for i in range(n_):
+            t = i / n_
+            best, bs = ang, -9
+            for da in (-0.55, -0.3, -0.1, 0.1, 0.3, 0.55):
+                cand = ang + da
+                sc = jscore(x + math.cos(cand) * 2.2, y + math.sin(cand) * 2.2) + rnd.uniform(0, 0.45) - abs(cand - base) * 0.35
+                if sc > bs:
+                    best, bs = cand, sc
+            ang = best + rnd.gauss(0, 0.16)
+            x += math.cos(ang) * step
+            y += math.sin(ang) * step
+            travel += step
+            r = max(0.7, r0 * (1.0 - t) ** 1.3 + 0.2)
+            samples.append((x, y, r, travel))
+            if depth < 2 and nb < (3 if depth == 0 else 1) and 0.2 < t < 0.7 and rnd.random() < 0.09:
+                nb += 1
+                arm(x, y, ang + rnd.choice([-1, 1]) * rnd.uniform(0.7, 1.2), length * rnd.uniform(0.3, 0.45), max(0.8, r * 0.6),
+                    travel, depth + 1)
+            if x < -2 or x > 66 or y < -2 or y > 66:
+                break
+    for k in range(8):
+        arm(C0[0], C0[1], k * math.pi / 4 + rnd.uniform(-0.35, 0.35), rnd.uniform(26, 34), rnd.uniform(1.8, 2.2), 0.0, 0)
+    rho = np.full((64, 64), 9.0)
+    trav = np.zeros((64, 64))
+    rr = np.zeros((64, 64))
+    yy, xx = np.mgrid[0:64, 0:64]
+    for (px, py, r, tr) in samples:
+        d = np.hypot(xx + 0.5 - px, (yy + 0.5 - py) * 1.1) / r
+        better = d < rho
+        rho[better] = d[better]
+        trav[better] = tr
+        rr[better] = r
+    lava = rho <= 1.0
+    embers = []
+    for _ in range(26):
+        ex, ey = rnd.randrange(2, 62), rnd.randrange(2, 62)
+        if allowed[ey, ex] and not lava[ey, ex]:
+            embers.append((ex, ey, rnd.randrange(4)))
+    return dict(cv=cv, rho=rho, trav=trav, rr=rr, lava=lava, embers=embers, allowed=allowed, c=C0)
+
+
+def vein_lava_frame(P, f):
+    cv = Canvas(64, 64)
+    cv.a = P["cv"].a.copy()
+    rho, trav, rr, lava = P["rho"], P["trav"], P["rr"], P["lava"]
+    cx, cy = P["c"]
+    # 1) brilho que vaza: dilatação da lava tinge as placas vizinhas (só dentro da silhueta), mais forte no centro
+    dist = np.full((64, 64), 9)
+    dist[lava] = 0
+    cur = lava.copy()
+    for d in (1, 2, 3):
+        grow = cur.copy()
+        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)):
+            sh = np.zeros_like(cur)
+            sh[max(dy, 0):64 + min(dy, 0), max(dx, 0):64 + min(dx, 0)] = cur[max(-dy, 0):64 + min(-dy, 0), max(-dx, 0):64 + min(-dx, 0)]
+            grow |= sh
+        dist[grow & (dist == 9)] = d
+        cur = grow
+    breath = 0.5 + 0.5 * math.sin(2 * math.pi * f / 4)
+    for y, x in zip(*np.nonzero(P["allowed"] & ~lava & (dist <= 3))):
+        base = tuple(int(v) for v in cv.a[y, x, :3])
+        near = math.exp(-math.hypot(x - cx, y - cy) / 13.0)
+        t = {1: 0.34, 2: 0.16, 3: 0.06}[int(dist[y, x])] * (0.55 + 0.9 * near) * (0.85 + 0.3 * breath)
+        cv.px(x, y, mix((*base, 255), "#ff8a3a", t))
+    # 2) brasas piscando
+    for (ex, ey, ph) in P["embers"]:
+        k = (f + ph) % 4
+        if k == 0:
+            cv.px(ex, ey, "#ffb25a")
+        elif k == 1:
+            cv.px(ex, ey, "#ff9a3d")
+        elif k == 2:
+            cv.px(ex, ey, "#a8402a")
+    # 3) lava: o calor corre do centro pras pontas (onda em função do percurso); o núcleo da poça pulsa
+    for y, x in zip(*np.nonzero(lava)):
+        r, w_ = rho[y, x], rr[y, x]
+        wave = math.sin(2 * math.pi * (f / 4 - trav[y, x] / 22))
+        if w_ < 1.25:                                              # rachadura fina: laranja com calor correndo
+            c = "#ffd27a" if wave > 0.55 else "#ff9a3d" if wave > -0.45 else "#e0602a"
+        else:
+            core = 0.30 + 0.15 * wave if trav[y, x] > 0 else 0.45 + 0.12 * math.sin(2 * math.pi * f / 4)
+            if r < core:
+                c = "#fff4cc"
+            elif r < core + 0.18:
+                c = "#ffd27a"
+            elif r < 0.62 + 0.08 * wave:
+                c = "#ff9a3d"
+            elif r < 0.88:
+                c = "#e0602a"
+            else:
+                c = "#a8402a"
+        cv.px(x, y, c)
+    cv.outline()                                                   # contorno #1b1630 também ao redor da lava
+    return cv
+
+
+def vein_lava():
+    return vein_lava_frame(vein_lava_parts(), 0)
+
+
+def vein_lava_anim():
+    P = vein_lava_parts()
+    out = Canvas(256, 64)
+    for f in range(4):
+        out.blit(vein_lava_frame(P, f), f * 64, 0)
+    return out
+
+
 def magma_family():
     d = {"ore_magmatite.png": (ore_magma(), (32, 32)),
-         "vein_magmatite.png": (vein_organic("magmatite"), (64, 64)),
-         "vein_magmatite_anim.png": (anim_strip(lambda: vein_organic_parts("magmatite"), True), (256, 64)),
+         "vein_magmatite.png": (vein_lava(), (64, 64)),
+         "vein_magmatite_anim.png": (vein_lava_anim(), (256, 64)),
          "ore_magmatite_anim.png": (anim_strip(ore_magma_parts, False), (128, 32)),
          "icon_magmatite.png": (raw("magmatite"), (16, 16)),
          "pickup_magmatite.png": (raw("magmatite", 16, 0.75, 2), (16, 16))}
@@ -794,6 +952,8 @@ def magma_family():
         d[f"rock_small_magmatite_{v}.png"] = (rock_vein_magma(v), (32, 32))
         d[f"rock_small_magmatite_{v}_anim.png"] = (anim_strip(lambda v=v: rock_vein_magma_parts(v), True), (128, 32))
     return d
+
+
 
 
 
