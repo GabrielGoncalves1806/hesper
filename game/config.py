@@ -124,6 +124,7 @@ SURFACE_CRATER_DIST = (15, 20)  # distância (tiles) do centro da cratera até a
 SURFACE_VEINS = (3, 5)          # veios de drill na superfície: poucos, longe, obrigam a explorar
 SURFACE_VEIN_MIN_DIST = 35      # nenhum tile de veio a menos disso da base
 SURFACE_VEIN_MAX_DIST = 88      # ...nem a mais disso (o alcance do mapa de 192: o mapa cresce na borda, o ritmo da coleta não muda)
+SURFACE_ICE_VEIN_MAX_DIST = 120  # v0.5 M3.3: o veio de gelo só nasce na faixa gelada, que começa a ~95 tiles da base (teto: metade do mapa - 8)
 SURFACE_VEIN_SPACING = 14       # distância mínima entre veios (tiles)
 SMALL_ROCK_CHANCE = 0.013       # chance de um tile de areia virar rocha pequena (~430 no mapa; era 0,011/~357 com os soltos)
 SMALL_ROCK_MIN_DIST = SURFACE_CLEAR_RADIUS   # a área da cápsula fica limpa
@@ -748,7 +749,7 @@ GROUND_DECOR_P = 0.035           # chance de decoração solta (lasca, cristal, 
 # Cobertura do estágio por cima do chão assado (v0.4 Marco 3 · porte do `Scene.cover_layer` da Designer · bíblia §11)
 GROUND_COVER_CELL = 5.0          # tiles: tamanho da célula do ruído das manchas (fbm de 3 oitavas, domínio deformado)
 GROUND_COVER_SEED = 313          # seed do ruído das manchas (soma a seed do mundo)
-GROUND_GRASS_THR = (0.45, 0.70, 0.58, 0.48, 0.40)   # limiar da grama por classe: planalto, salar, basalto, gelada, leito (planalto 0,47 → 0,45: o dono quis mais grama no Verde, ~58% → ~65%)
+GROUND_GRASS_THR = (0.45, 0.70, 0.58, 0.62, 0.40)   # limiar da grama por classe: planalto, salar, basalto, gelada, leito (planalto 0,47 → 0,45: o dono quis mais grama no Verde, ~58% → ~65%; gelada 0,48 → 0,62 no v0.5 M3.3: neve derretendo, não gramado)
 GROUND_GRASS_NEAR = 0.12         # perto da bacia o limiar cai isso (mais grama na beira)
 GROUND_MIST_THR = 0.56           # Névoa: acima disso o chão fica úmido
 GROUND_MIST_DAMP = (0.80, 0.84, 0.90)   # Névoa: multiplicador RGB do chão úmido

@@ -44,6 +44,7 @@ from game.minimap import Minimap
 from game.rain import RainDrops, rain_level
 from game.surfaces import opaque
 from game.base import BaseBlock
+from game.geo import FROST
 from game.systems import GameState, Mining
 from game.transition import BASE_SOURCE, StageMap
 from game.world import hash01
@@ -1130,8 +1131,9 @@ class Renderer:
             for tx in range(max(0, tx0), min(world.width, tx0 + self.view_w // T + 2)):
                 resource = C.SMALL_ROCKS.get(row[tx])
                 if resource:
-                    items.append(((ty + 1) * T, lambda tx=tx, ty=ty, r=resource: self.draw_small_rock(
-                        canvas, tx * T - cam_x, ty * T - cam_y, r, tx, ty)))
+                    snow = world.geo is not None and world.geo.region_at(tx, ty) == FROST   # v0.5 M3.3: neve na rocha (só superfície)
+                    items.append(((ty + 1) * T, lambda tx=tx, ty=ty, r=resource, sn=snow: self.draw_small_rock(
+                        canvas, tx * T - cam_x, ty * T - cam_y, r, tx, ty, sn)))
         if self.stage_map.next_stage >= C.GREEN_STAGE:   # plantas nascem junto com a mancha verde
             for ty in range(ty0, ty0 + self.view_h // T + 3):
                 for tx in range(tx0, tx0 + self.view_w // T + 2):
@@ -1288,10 +1290,16 @@ class Renderer:
             self._surfaces[key] = (base, True)
         return self._surfaces[key]
 
-    def draw_small_rock(self, canvas, x: int, y: int, resource: str, tx: int = 0, ty: int = 0) -> None:
-        """Rocha pequena em (tx·32, ty·32): a do minério com veio (2 variações por tile)."""
-        surf, _ = self.small_rock_surface(resource, tx, ty)
+    def draw_small_rock(self, canvas, x: int, y: int, resource: str, tx: int = 0, ty: int = 0,
+                        snow: bool = False) -> None:
+        """Rocha pequena em (tx·32, ty·32): a do minério com veio (2 variações por tile). `snow` (tile da região
+        gelada, só na superfície): a neve (rock_small_snowcap_{v}.png) por cima, no mesmo (x, y). Sem o PNG, nada."""
+        surf, old = self.small_rock_surface(resource, tx, ty)
         canvas.blit(surf, (x, y))
+        if snow:
+            cap = self.sprites.get(f"rock_small_snowcap_{0 if old else rock_variant(tx, ty)}")   # rock_small comum = 0
+            if cap is not None:
+                canvas.blit(cap, (x, y))
 
     HIGHLIGHT_RGBA = (255, 236, 176, 150)   # contorno do alvo do E: creme claro, meio transparente
 

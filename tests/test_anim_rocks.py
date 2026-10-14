@@ -149,3 +149,43 @@ def test_highlight_outline_follows_the_machine_own_sprite():
         outline = r.highlight_outline(m)
         assert outline.get_size() == (sprite.get_width() + 2, sprite.get_height() + 2)
         assert outline is not r.highlight_outline(Machine("drone_station", 3, 3))
+
+
+# ---------------------------------------------------------------- v0.5 M3.3: neve na rocha pequena da faixa gelada
+def test_snowcap_only_on_small_rocks_in_the_frost_region_on_the_surface():
+    from game.geo import FROST
+    import random
+    pygame.init()
+    pygame.display.set_mode((64, 64))
+    g = GameState(C.WORLD_SEED, rng=random.Random(1))
+    r = Renderer(Sprites())
+    r.view_w, r.view_h = C.SCREEN_W, C.SCREEN_H
+    geo = g.world.geo
+    frost = [(x, y) for y in range(g.world.height) for x in range(g.world.width)
+             if geo.region_at(x, y) == FROST and g.world.get(x, y) == C.SAND][len(g.world.tiles) // 2]
+    other = (g.world.center[0] + 6, g.world.center[1] + 6)                  # perto da base: planalto
+    assert geo.region_at(*other) != FROST
+    g.world.set(*frost, C.SMALL_IRON)
+    g.world.set(*other, C.SMALL_IRON)
+    calls = {}
+    r.draw_small_rock = lambda canvas, x, y, res, tx, ty, snow=False: calls.__setitem__((tx, ty), snow)
+    for target in (frost, other):
+        cam = (target[0] * C.TILE - 480, target[1] * C.TILE - 270)
+        canvas = pygame.Surface((C.SCREEN_W, C.SCREEN_H))
+        for _, draw in r.collect_objects(canvas, g, cam, 0.0):
+            draw()
+    assert calls[frost] is True and calls[other] is False
+
+
+def test_snowcap_is_drawn_after_the_rock_at_the_same_xy():
+    r = renderer()
+    cap0, cap1 = r.sprites.get("rock_small_snowcap_0"), r.sprites.get("rock_small_snowcap_1")
+    assert cap0 is not None and cap1 is not None
+    tx, ty = next((x, y) for x in range(20) for y in range(20) if rock_variant(x, y) == 1)
+    plain, snowy = pygame.Surface((32, 32), pygame.SRCALPHA), pygame.Surface((32, 32), pygame.SRCALPHA)
+    r.draw_small_rock(plain, 0, 0, "iron", tx, ty)
+    r.draw_small_rock(snowy, 0, 0, "iron", tx, ty, snow=True)
+    expect = plain.copy()
+    expect.blit(cap1, (0, 0))
+    assert pygame.image.tobytes(snowy, "RGBA") == pygame.image.tobytes(expect, "RGBA")
+    assert pygame.image.tobytes(snowy, "RGBA") != pygame.image.tobytes(plain, "RGBA")

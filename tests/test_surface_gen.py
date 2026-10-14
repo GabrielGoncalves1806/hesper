@@ -298,3 +298,23 @@ def test_veins_and_wrecks_stay_out_of_basins(seed):
         assert all(w.geo.basin_at(*t) < 0 for t in v.tiles)
     for wreck in w.wrecks:
         assert all(w.geo.basin_at(*t) < 0 for t in wreck.tiles + [wreck.crate])
+
+
+# ---- v0.5 M3.3: o veio de gelo só nasce na faixa gelada ---------------------------------------------------------
+@pytest.mark.parametrize("seed", [1, 2, 7, 9, 13, 42, 98, C.WORLD_SEED])
+def test_ice_vein_only_in_the_frost_band_and_at_least_one(seed):
+    w = generate_surface(seed)
+    ice = [v for v in w.veins if v.resource == "ice"]
+    assert ice, f"seed {seed} sem veio de gelo"
+    for v in ice:
+        assert all(w.geo.region_at(*t) == FROST for t in v.tiles)
+        assert C.SURFACE_VEIN_MIN_DIST <= w.dist_from_center(v.tx, v.ty) <= C.SURFACE_ICE_VEIN_MAX_DIST
+    for v in w.veins:                                   # ferro e silício seguem as regras de antes (teto de 88)
+        if v.resource != "ice":
+            assert w.dist_from_center(v.tx, v.ty) <= C.SURFACE_VEIN_MAX_DIST + 2
+
+
+def test_ice_vein_many_seeds():
+    for seed in range(100, 130):
+        w = generate_surface(seed)
+        assert any(v.resource == "ice" for v in w.veins), seed

@@ -569,7 +569,7 @@
   "plateau": 0.4,
   "salar": 0.35,
   "basalt": 0.45,
-  "frost": 0.4,
+  "frost": 0.5,
   "bed": 0.25
  },
  "decal_mix": {
@@ -641,15 +641,15 @@
   ],
   "frost": [
    [
-    "icesheet",
+    "snowbank",
     4
    ],
    [
-    "wind",
+    "sastrugi",
     4
    ],
    [
-    "gravel",
+    "glaze",
     2
    ],
    [
@@ -674,7 +674,7 @@
    "plateau": 0.3,
    "salar": 0.3,
    "basalt": 0.3,
-   "frost": 0.3,
+   "frost": 0.45,
    "bed": 0.35
   },
   "decal_mix": {
@@ -706,11 +706,11 @@
    ],
    "frost": [
     [
-     "icepoly",
-     3
+     "snowdrift",
+     4
     ],
     [
-     "rime",
+     "sparkle",
      3
     ]
    ],
@@ -773,11 +773,15 @@
    "frost": [
     [
      "penitentes",
-     0.012
+     0.01
     ],
     [
      "rimed_rock",
      0.01
+    ],
+    [
+     "snow_slabs",
+     0.006
     ]
    ]
   },
@@ -1732,44 +1736,44 @@
    },
    "frost": {
     "storm": [
-     "#5f5c5c",
-     "#747273",
-     "#8f8f8d",
-     "#9a9996",
-     "#a6a6a2",
-     "#c0bcb4",
-     "#7ca7ad",
-     "#bac9c2"
+     "#4a5270",
+     "#6c7896",
+     "#96a2bc",
+     "#b2bccc",
+     "#c8ccd2",
+     "#e0ddd6",
+     "#7fa6c2",
+     "#f6f1e8"
     ],
     "arid": [
-     "#33425a",
-     "#536880",
-     "#7f95aa",
-     "#90a6b9",
-     "#a4bacb",
-     "#cfe0ea",
-     "#62bede",
-     "#c6f3ff"
+     "#3d4f8a",
+     "#5f7ec0",
+     "#8eaee0",
+     "#b0cbef",
+     "#c8dcf6",
+     "#e4f0ff",
+     "#6fc4ec",
+     "#ffffff"
     ],
     "mist": [
-     "#3f4752",
-     "#505a66",
-     "#64717e",
-     "#6c7a87",
-     "#768491",
-     "#8999a4",
-     "#588396",
-     "#80a7b4"
+     "#2f3d5a",
+     "#47597e",
+     "#6880a6",
+     "#86a0c4",
+     "#9eb4d2",
+     "#bccde2",
+     "#4a7fae",
+     "#dbe7f4"
     ],
     "green": [
-     "#3c4a4d",
-     "#4d5e60",
-     "#617579",
-     "#6a7e81",
-     "#74898b",
-     "#889d9d",
-     "#518b95",
-     "#7eacae"
+     "#2f4c58",
+     "#4a6f7c",
+     "#76a0aa",
+     "#a0c2c8",
+     "#bad6d8",
+     "#d6eae8",
+     "#3f8494",
+     "#eef8f4"
     ]
    },
    "bed": {
@@ -1902,42 +1906,42 @@
    },
    "frost": {
     "storm": [
-     "#59504c",
-     "#645c5a",
-     "#6f6967",
-     "#7b7473",
-     "#959796",
-     "#c5c0b8",
+     "#32333f",
+     "#4b4d5e",
+     "#7a7d8c",
+     "#a8b0c0",
+     "#d2d2d4",
+     "#ece8e0",
      "#7ca7ad",
      "#bac9c2"
     ],
     "arid": [
-     "#28303f",
-     "#3a4456",
-     "#4c586c",
-     "#5e6b80",
-     "#8aa2b8",
-     "#d6e6ef",
+     "#2c3548",
+     "#46536c",
+     "#7d8ea8",
+     "#9fb8de",
+     "#d0e1f6",
+     "#f2f8ff",
      "#62bede",
      "#c6f3ff"
     ],
     "mist": [
-     "#373e47",
-     "#414851",
-     "#4b525d",
-     "#545c67",
-     "#6a7886",
-     "#8c9ca8",
+     "#232b3b",
+     "#384459",
+     "#5f6e86",
+     "#7e96b8",
+     "#a8bcd6",
+     "#cbd9ea",
      "#588396",
      "#80a7b4"
     ],
     "green": [
-     "#354140",
-     "#3f4b4b",
-     "#485656",
-     "#526061",
-     "#667c80",
-     "#8ba1a1",
+     "#27313e",
+     "#3c4a5a",
+     "#667888",
+     "#90acbe",
+     "#bcd2dc",
+     "#e0eef0",
      "#518b95",
      "#7eacae"
     ]
@@ -2189,6 +2193,21 @@
    "region": "basalt",
    "ramp": "BASE"
   },
+  "decal_glaze_0.png": {
+   "size": "85×42",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_glaze_1.png": {
+   "size": "61×34",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_glaze_2.png": {
+   "size": "94×50",
+   "region": "frost",
+   "ramp": "BASE"
+  },
   "decal_gravel_0.png": {
    "size": "49×31",
    "region": "região onde cai",
@@ -2394,6 +2413,21 @@
    "region": "salar",
    "ramp": "BASE"
   },
+  "decal_sastrugi_0.png": {
+   "size": "120×60",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_sastrugi_1.png": {
+   "size": "96×50",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_sastrugi_2.png": {
+   "size": "143×69",
+   "region": "frost",
+   "ramp": "BASE"
+  },
   "decal_scoria_0.png": {
    "size": "50×35",
    "region": "região onde cai",
@@ -2412,6 +2446,56 @@
   "decal_scoria_3.png": {
    "size": "48×18",
    "region": "região onde cai",
+   "ramp": "BASE"
+  },
+  "decal_snowbank_0.png": {
+   "size": "154×70",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_snowbank_1.png": {
+   "size": "127×66",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_snowbank_2.png": {
+   "size": "184×90",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_snowdrift_0.png": {
+   "size": "38×21",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_snowdrift_1.png": {
+   "size": "29×17",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_snowdrift_2.png": {
+   "size": "46×27",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_sparkle_0.png": {
+   "size": "25×17",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_sparkle_1.png": {
+   "size": "20×18",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_sparkle_2.png": {
+   "size": "26×15",
+   "region": "frost",
+   "ramp": "BASE"
+  },
+  "decal_sparkle_3.png": {
+   "size": "17×8",
+   "region": "frost",
    "ramp": "BASE"
   },
   "decal_stain_0.png": {
@@ -2697,6 +2781,21 @@
   "decor_slabs_2.png": {
    "size": "29×15",
    "region": "plateau",
+   "ramp": "HILL"
+  },
+  "decor_snow_slabs_0.png": {
+   "size": "32×28",
+   "region": "frost",
+   "ramp": "HILL"
+  },
+  "decor_snow_slabs_1.png": {
+   "size": "32×26",
+   "region": "frost",
+   "ramp": "HILL"
+  },
+  "decor_snow_slabs_2.png": {
+   "size": "30×24",
+   "region": "frost",
    "ramp": "HILL"
   },
   "form_arch.png": {
