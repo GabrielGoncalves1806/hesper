@@ -59,7 +59,8 @@ Design em `docs/superpowers/specs/2026-10-13-v04-mundo-vivo-design.md`. Novo jog
 Design em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-design.md`. Novo jogo obrigatório (no Marco 3).
 
 - [x] Marco 1: construtor (único jeito de colocar máquina, luz de scanner), desmontar segurando 2 s, fabricador T1 → Bancada T2, diagrama no lugar do projeto, mochila (+1 linha)
-- [ ] Marco 2: base respirável (chão, parede, porta, flood fill, Dispersor de O₂ gastando cápsula de água, derretedor com inventário)
+- [x] Marco 2: base respirável (chão, parede alta, porta solo e dupla, flood fill, Dispersor de O₂ gastando cápsula de água, derretedor com inventário, save v9)
+  - Pendências: redesenhar a porta (aprovada como provisória), chuva caindo dentro da base vedada, blocos não reagem quando o lago sobe por cima
 - [ ] Marco 3: mundo (mapa ~256, faixa gelada, cratera orgânica, fumarola perto, criatura no gelo gigante)
 - [ ] Marco 4: expedição e loot (broca de mão nv.1/nv.2, contêiner lacrado, itens novos nos loots) + playtest
 
