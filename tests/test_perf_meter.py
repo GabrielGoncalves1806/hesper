@@ -41,8 +41,8 @@ def test_toggle_and_draw_in_the_bottom_left():
     m.visible = True
     win.fill((0, 0, 0))
     m.draw(win)
-    assert win.get_at((10, 190))[:3] != (0, 0, 0)     # pintou o canto de baixo à esquerda
+    assert win.get_at((20, 180))[:3] != (0, 0, 0)     # pintou o canto de baixo à esquerda
     m.toggle()
     win.fill((0, 0, 0))
     m.draw(win)
-    assert win.get_at((10, 190))[:3] == (0, 0, 0)
+    assert win.get_at((20, 180))[:3] == (0, 0, 0)

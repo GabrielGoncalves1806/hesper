@@ -100,10 +100,20 @@ def stage_color(c, region: str, stage: str):
     raise KeyError(stage)
 
 
+# Rachaduras "fechando" com os estágios (pedido do dono): só a cor do índice da fenda na rampa BASE chega perto do
+# tom médio (índice 3). plateau: índice 0 (fenda; a borda clara é o 5). bed: índice 1 (a fenda de lama).
+# Valor = quanto da distância até a cor do índice 3 a fenda anda. Tempestade e Árido ficam como estavam.
+CRACK_IDX = {"plateau": 0, "bed": 1}
+CRACK_FADE = {"plateau": {"mist": 0.50, "green": 0.88}, "bed": {"mist": 0.40, "green": 0.75}}
+
+
 def ramp(region: str, stage: str, table=None) -> np.ndarray:
     """10×3 uint8: rampa do estágio (0..7), contorno (8) e sombra (9, preto)."""
     table = table or BASE
     cols = [stage_color(rgb(h), region, stage) for h in table[region]]
+    if table is BASE and region in CRACK_IDX and stage in CRACK_FADE[region]:
+        k = CRACK_IDX[region]
+        cols[k] = mix(cols[k], cols[3], CRACK_FADE[region][stage])
     return np.array(cols + [OUTLINE, (0, 0, 0)], dtype=np.uint8)
 
 
