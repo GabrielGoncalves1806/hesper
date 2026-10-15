@@ -77,7 +77,7 @@ def test_constructor_is_the_first_cheap_iron_recipe():
 def test_fabricator_lists_only_items_and_the_constructor_only_machines():
     fab = craft_menu()
     fab_kinds = [k for t, _ in fab.tabs for k in fab.kinds_of(t)]
-    assert sorted(fab_kinds) == sorted(["constructor", "diagram_workbench", "drone", "o2_tank", "scanner"])
+    assert sorted(fab_kinds) == sorted(["constructor", "diagram_chest_large", "diagram_workbench", "drone", "o2_tank", "scanner"])
     build = build_menu()
     build_kinds = [k for t, _ in build.tabs for k in build.kinds_of(t)]
     assert sorted(build_kinds) == sorted(MACHINE_KINDS)

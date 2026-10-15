@@ -493,7 +493,7 @@ def test_group_tooltip_has_count_types_and_distance():
     assert machines.detail == "3 geradores de O₂, 2 aquecedores, 1 drill"
     assert machines.sub == MV.distance_label(origin, (machines.x, machines.y))
     chests = next(e for e in out if e.category == "chest")
-    assert chests.title == "Baús · 2" and chests.detail == "1/48 pilhas"
+    assert chests.title == "Baús · 2" and chests.detail == "1/32 pilhas"
     # na outra camada a distância do grupo também é "da rampa"
     g.enter_layer("cave")
     origin, suffix = MV.origin_of(g, "surface")

@@ -39,7 +39,7 @@ def drill(game, tx, ty, stored=0, resource="iron", send=True, batch=C.DRONE_BATC
 
 
 def chest(game, tx, ty, receives=(), sends=(), batch=C.DRONE_BATCH_DEFAULT, **content) -> Machine:
-    c = Machine("chest", tx, ty, receives=set(receives), sends=set(sends), batch=batch)
+    c = Machine("chest_large", tx, ty, receives=set(receives), sends=set(sends), batch=batch)
     for item, n in content.items():
         c.storage.add(item, n)
     game.machines.append(c)

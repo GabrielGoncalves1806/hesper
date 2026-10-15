@@ -1195,7 +1195,7 @@ class Renderer:
                     items.append((my, lambda m=m, mx=mx, my=my: self.draw_drill(canvas, m, mx - cam_x, my - cam_y, self.machine_t)))
                 elif m.is_chest:
                     items.append((my, lambda m=m, mx=mx, my=my: self._blit_anchored(
-                        canvas, self.chest_surface(m is self.open_chest), mx - cam_x, my - cam_y)))
+                        canvas, self.chest_surface(m.kind, m is self.open_chest), mx - cam_x, my - cam_y)))
                 elif m.is_station:
                     items.append((my, lambda m=m: self.draw_station(canvas, m, cam, t)))
                 elif m.is_dispenser:
@@ -1428,7 +1428,7 @@ class Renderer:
             return self.outline_of("drill", self.drill_frame(0))
         if machine.is_chest:
             opened = machine is self.open_chest
-            return self.outline_of(("chest", opened), self.chest_surface(opened))
+            return self.outline_of(("chest", machine.kind, opened), self.chest_surface(machine.kind, opened))
         if machine.is_bench:
             return self.outline_of("bench", self.machine_still(machine)[0])
         if machine.is_station:
@@ -1570,7 +1570,7 @@ class Renderer:
         if machine.is_drill:
             return self.drill_frame(0), False
         if machine.is_chest:
-            return self.chest_surface(), False
+            return self.chest_surface(machine.kind), False
         if machine.is_station:
             return self.station_surface(), False
         if machine.is_lamp:
@@ -1678,8 +1678,13 @@ class Renderer:
             level = round(fh * drill.stored / C.DRILL_CAPACITY)
             canvas.fill(C.ORE_COLORS[drill.resource][0], (x + fx, y + fy + fh - level, fw, level))
 
-    def chest_surface(self, opened: bool = False) -> pygame.Surface:
-        """Baú fechado ou aberto. Enquanto o sprite não for aprovado, sempre o desenho de fallback."""
+    def chest_surface(self, kind: str = "chest", opened: bool = False) -> pygame.Surface:
+        """Baú de qualquer tamanho, fechado ou aberto (v0.6 M1): o Simples usa a arte da caixa de saque, o Normal a
+        do baú e o Grande a do contêiner. Sem o PNG, o desenho de fallback de cada um."""
+        if kind == "chest_small":
+            return self.crate_surface(opened)
+        if kind == "chest_large":
+            return self.container_surface(opened)
         name = ("chest_open" if opened else "chest") if C.CHEST_SPRITE_APPROVED else None
         return self.surface(name, lambda: art.chest(opened), f"chest#{opened}")[0]
 
@@ -1773,6 +1778,10 @@ class Renderer:
             elif item == "chest":
                 name = "icon_chest" if C.CHEST_SPRITE_APPROVED else None
                 small = self.surface(name, art.chest_icon, "icon_chest#fallback" if name is None else None)[0]
+            elif item in ("chest_small", "chest_large"):
+                # icon_chest_small / icon_chest_large vêm da Designer; até lá, o sprite fechado reduzido pra 16×16
+                small = self.surface(C.CHEST_ICONS[item], lambda: art.reduced_icon(self.chest_surface(item)),
+                                     f"{C.CHEST_ICONS[item]}#fallback")[0]
             elif item == "drone_station":
                 name = "icon_drone_station" if C.DRONE_SPRITES_APPROVED else None
                 small = self.surface(name, art.drone_station_icon,
@@ -1835,8 +1844,8 @@ class Renderer:
         """Imagem da máquina pro fabricador (resolução cheia, sem redimensionar com suavização)."""
         if kind == "drone":
             return pygame.transform.scale_by(self.drone_icon(), 3)   # 16×16 → 48×48, pixel a pixel
-        if kind == "chest":
-            return self.chest_surface()
+        if kind in C.CHEST_KINDS:
+            return self.chest_surface(kind)
         if kind in C.DIAGRAM_ITEMS:      # o item do diagrama (receita no fabricador): o ícone ×3, pixel a pixel
             return pygame.transform.scale_by(self.surface("icon_diagram", art.blueprint_icon)[0], 3)
         if kind == "drone_station":
@@ -1876,8 +1885,8 @@ class Renderer:
                 surf.set_alpha(alpha)
             self._blit_anchored(canvas, surf, ax, ay)
             return
-        if kind == "chest":                      # baú: sem animação nem rotação (é o fantasma de colocar)
-            surf = self.chest_surface().copy()
+        if kind in C.CHEST_KINDS:                # baú: sem animação nem rotação (é o fantasma de colocar)
+            surf = self.chest_surface(kind).copy()
             if alpha is not None:
                 surf.set_alpha(alpha)
             self._blit_anchored(canvas, surf, ax, ay)

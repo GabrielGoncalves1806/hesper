@@ -317,7 +317,7 @@ def machine_from_dict(data: dict) -> Machine:
     if not machine.type.placeable:
         raise ValueError(f"{kind!r} não é máquina de chão")
     if machine.is_chest:
-        machine.storage = slots_from_data(data.get("storage", []), C.CHEST_SLOTS)
+        machine.storage = slots_from_data(data.get("storage", []), C.CHEST_SIZES[machine.kind])
         machine.name = clean_chest_name(data.get("name", C.CHEST_DEFAULT_NAME))
     if machine.is_drill:
         if machine.resource not in C.RESOURCES:

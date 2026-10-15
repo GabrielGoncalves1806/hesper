@@ -697,6 +697,15 @@ def chest(opened: bool = False) -> pygame.Surface:
     return s
 
 
+def reduced_icon(src: pygame.Surface) -> pygame.Surface:
+    """Ícone 16×16 de um sprite maior (fallback dos ícones novos): reduzido e centralizado, formato explícito."""
+    k = 16 / max(src.get_size())
+    w, h = max(1, round(src.get_width() * k)), max(1, round(src.get_height() * k))
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    s.blit(pygame.transform.scale(src, (w, h)), (8 - w // 2, 8 - h // 2))
+    return s
+
+
 def chest_icon() -> pygame.Surface:
     """Ícone 16×16 do baú (pra hotbar e inventário)."""
     s = pygame.Surface((16, 16), pygame.SRCALPHA)

@@ -12,14 +12,14 @@ def test_every_recipe_has_a_tab():
     assert tab_kinds("terraform") == ["o2", "melter", "heater", "o2_t2", "melter_t2", "heater_t2"]
     assert tab_kinds("energy") == ["solar"]
     assert tab_kinds("automation") == ["drill", "drone_station", "drone", "workbench"]
-    assert tab_kinds("storage") == ["chest"]
+    assert tab_kinds("storage") == ["chest_small", "chest", "chest_large"]
     assert tab_kinds("light") == ["lamp", "lamp_t2"]
     assert tab_kinds("suit") == ["o2_tank", "scanner", "backpack"]       # Marco 3: aba "Traje" (a mochila é da T2)
-    assert tab_kinds("tools") == ["constructor", "diagram_workbench"]                         # v0.5 M1
+    assert tab_kinds("tools") == ["constructor", "diagram_workbench", "diagram_chest_large"]                         # v0.5 M1
 
 
 def test_craft_tabs_have_only_items_and_build_tabs_only_machines():
-    assert craft_kinds("tools") == ["constructor", "diagram_workbench"]
+    assert craft_kinds("tools") == ["constructor", "diagram_workbench", "diagram_chest_large"]
     assert craft_kinds("automation") == ["drone"]
     assert craft_kinds("suit") == ["o2_tank", "scanner"]
     assert build_kinds("automation") == ["drill", "drone_station", "workbench"]
@@ -41,7 +41,7 @@ def test_switch_tab_wraps_and_remembers_selection():
     m.switch_tab(-1)
     assert m.tab_id == "light" and m.current == "lamp"
     m.switch_tab(-1)
-    assert m.tab_id == "storage" and m.current == "chest"
+    assert m.tab_id == "storage" and m.current == "chest_small"
     m.switch_tab(3)
     assert m.tab_id == "terraform" and m.current == "melter"   # cada aba lembra a sua seleção
 

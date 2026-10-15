@@ -1846,7 +1846,7 @@ class App:
         if machine and machine.is_chest:
             used = sum(1 for st in machine.storage.slots if st)
             mine = target is not None and target[1] is machine
-            return f"{machine.name or C.CHEST_DEFAULT_NAME} ({used}/{C.CHEST_SLOTS})" + (" · [E] abrir" if mine else other)
+            return f"{machine.name or C.CHEST_DEFAULT_NAME} ({used}/{len(machine.storage)})" + (" · [E] abrir" if mine else other)
         if machine and machine.is_bench:
             mine = target is not None and target[1] is machine
             return "Bancada T2" + (" · [E] abrir" if mine else other) + (
