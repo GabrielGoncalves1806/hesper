@@ -102,6 +102,20 @@ def test_shift_click_sends_straight(app):
     assert app.held is None and s.inventory.count("iron") == 20 and chest.storage.is_empty()
 
 
+def test_shift_click_sends_only_the_clicked_stack(app):
+    """Dono (v0.6): Shift+clique manda só a pilha clicada, não todas as pilhas daquele item."""
+    s = fresh(app)
+    chest = chest_panel(app, s)
+    s.inventory.slots[8] = Stack("iron", 10)
+    s.inventory.slots[9] = Stack("iron", 7)
+    app.keys_down.add(pygame.K_LSHIFT)
+    try:
+        click(app, s.inventory, 9)
+    finally:
+        app.keys_down.discard(pygame.K_LSHIFT)
+    assert chest.storage.count("iron") == 7 and s.inventory.slots[8] == Stack("iron", 10)
+
+
 def test_drill_refuses_drops_and_taking_counts_as_collected(app):
     s = fresh(app)
     drill = build_now(s, "drill", (s.player.tile[0] + 3, s.player.tile[1]))

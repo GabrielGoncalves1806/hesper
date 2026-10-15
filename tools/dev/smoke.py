@@ -710,10 +710,12 @@ def check_inventory_and_chest(bot) -> None:
     assert app.mode == "chest"
     bot.frames(DT)
     inv, box = s.inventory, chest.storage
-    # Shift+clique: o ferro (todas as pilhas) vai direto pro baú
+    # Shift+clique: só a pilha clicada vai direto pro baú (dono, v0.6); a outra pilha de ferro vai no 2º Shift+clique
     iron_slot = inv.slots.index(next(st for st in inv.slots if st and st.item == "iron" and st.count == 50))
     shift_click(bot, slot_pos(bot, inv, iron_slot))
-    assert app.held is None and inv.slots[iron_slot] is None and box.count("iron") >= 50 and inv.count("iron") == 0
+    assert app.held is None and inv.slots[iron_slot] is None and box.count("iron") == 50 and inv.count("iron") == 33
+    shift_click(bot, slot_pos(bot, inv, inv.slots.index(next(st for st in inv.slots if st and st.item == "iron"))))
+    assert app.held is None and box.count("iron") == 83 and inv.count("iron") == 0
     # cursor (v0.6): direito com a mão vazia pega metade; clique solta no slot escolhido do inventário
     right_click(bot, slot_pos(bot, box, 0))
     assert app.held.count == 19 and box.slots[0].count == 18

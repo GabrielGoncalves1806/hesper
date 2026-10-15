@@ -1003,8 +1003,7 @@ class App:
             state.events.append(("loot", stack.item, stack.count, self.open_crate.anchor))
 
     def panel_shift_click(self, pos: tuple[float, float]) -> None:
-        """Shift+clique esquerdo: manda direto pro outro lado (o jeito de antes do cursor)."""
-        button = 1
+        """Shift+clique esquerdo: manda a pilha clicada direto pro outro lado (só ela, não todas as do item: dono, v0.6)."""
         ui, state = self.ui, self.state
         amount = None
         if self.open_crate is not None:                  # caixa de saque / contêiner: tira e guarda
@@ -1043,10 +1042,7 @@ class App:
         if self.open_drill is not None:                  # a drill só produz: só dá pra tirar dela
             drill = self.open_drill
             if inv is drill.storage:
-                if button == 1 and self.shift_held():
-                    moved = state.drill_take(drill)
-                else:
-                    moved = state.drill_take(drill, i, amount)
+                moved = state.drill_take(drill, i, amount)
                 if moved:
                     self.audio.play("inv_move")
             else:
@@ -1055,21 +1051,12 @@ class App:
         if self.open_melter is not None:                 # gelo entra na entrada, a cápsula (e o gelo) sai
             melter = self.open_melter
             if inv is melter.storage:
-                if button == 1 and self.shift_held():
-                    moved = state.melter_take(melter)
-                else:
-                    moved = state.melter_take(melter, i, amount)
+                moved = state.melter_take(melter, i, amount)
             elif item != "ice":
                 self.show_notice("O derretedor só aceita gelo")
                 return
             else:
-                moved = 0
-                if button == 1 and self.shift_held():    # todas as pilhas de gelo
-                    for j, st in enumerate(inv.slots):
-                        if st is not None and st.item == "ice":
-                            moved += state.melter_put(melter, j)
-                else:
-                    moved = state.melter_put(melter, i, amount)
+                moved = state.melter_put(melter, i, amount)
                 if not moved:
                     self.show_notice("Entrada de gelo cheia")
             if moved:
@@ -1098,10 +1085,7 @@ class App:
                 self.audio.play("inv_move")
             return
         target = self.other_side(inv)
-        if button == 1 and self.shift_held():
-            moved = inv.quick_move(i, target)            # todas as pilhas desse item vão pro outro lado
-        else:
-            moved = inv.transfer(i, target, amount)
+        moved = inv.transfer(i, target, amount)
         if moved:
             self.audio.play("inv_move")
         else:
