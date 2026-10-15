@@ -491,8 +491,8 @@ class App:
                     self.show_log(target[1].log)
                 elif target and target[0] == "crate":
                     self.open_loot(target[1])
-                elif target and target[0] == "container":          # v0.4 M3.2: lacrado, só a dica de lore
-                    self.show_toast(C.CONTAINER_LORE, C.CONTAINER_LORE_TIME)
+                elif target and target[0] == "container":          # v0.5 M4: abre de graça, mesma tela da caixa de saque
+                    self.open_loot(state.container_crate(target[1]))
                 elif target and target[0] == "drill" and self.shift_held():
                     state.collect(target[1])              # Shift+E: coleta tudo sem abrir o painel
                 elif target and target[0] == "drill":
@@ -556,6 +556,11 @@ class App:
         self.audio.play("ui_click")
 
     # ---- construtor (v0.5 M1) -----------------------------------------------------
+    def hand_drill_selected(self) -> bool:
+        """v0.5 M4: a broca de mão é o slot escolhido da hotbar? (só com ela o clique minera)"""
+        stack = self.state.inventory.slots[self.hotbar_selected]
+        return stack is not None and stack.item == C.HAND_DRILL
+
     def constructor_selected(self) -> bool:
         stack = self.state.inventory.slots[self.hotbar_selected]
         return stack is not None and stack.item == "constructor"
@@ -1423,7 +1428,8 @@ class App:
         my = sum(MOVE_KEYS[k][1] for k in self.keys_down if k in MOVE_KEYS)
         mine = self.mouse_tile() if self.mouse_held and not self.placing else None
         dismantle = (self.hovered_machine() or self.hovered_block()) if self.right_held and not self.placing else None
-        return Controls(max(-1, min(1, mx)), max(-1, min(1, my)), mine, dismantle=dismantle)
+        return Controls(max(-1, min(1, mx)), max(-1, min(1, my)), mine, dismantle=dismantle,
+                        drill_in_hand=self.hand_drill_selected())
 
     # ---- update ---------------------------------------------------------------
     def update(self, dt: float) -> None:
@@ -1530,8 +1536,9 @@ class App:
             self.audio.start_charge()
         elif kind == "dismantle_cancel":      # soltou antes (ou tirou o mouse): o charge sai em fadeout curto
             self.audio.stop_charge()
-        elif kind == "crate_open":            # caixa de saque (vazia: mais baixo, dica do Som)
-            self.audio.play("crate_open", gain=0.67 if event[1] else 1.0)
+        elif kind in ("crate_open", "container_open"):   # caixa de saque / contêiner (vazia: mais baixo, dica do Som)
+            sfx = "container_open" if kind == "container_open" and self.audio.has("container_open") else "crate_open"
+            self.audio.play(sfx, gain=0.67 if event[1] else 1.0)
             self.crate_open_t = self.t
         elif kind == "diagram_read":          # lido na bancada: som calmo e o aviso
             self.audio.play("diagram_read")
@@ -1872,7 +1879,8 @@ class App:
         if hover is not None and hover[0] == "wreck_log":
             return "Terminal · chegue mais perto"
         if hover is not None and hover[0] == "container":
-            return "Contêiner lacrado · chegue mais perto"
+            box = state.container_crate(hover[1])
+            return "Contêiner aberto" if box is not None and box.opened else "Contêiner lacrado · chegue mais perto"
         gate = self.gate_under_mouse()                    # v0.4 M3.5: gelo-portão debaixo do mouse
         if gate is not None:
             return self.gate_ice_hint(gate)
@@ -1887,6 +1895,8 @@ class App:
         if state.in_base_zone():
             return "[E] Fabricador" if self.t > 6 else "As rochas pequenas do deserto têm minério"
         if state.world.is_minable(*tile):
+            if not self.hand_drill_selected():              # v0.5 M4: sem a broca na mão, o clique não minera
+                return "Selecione a broca de mão pra minerar"
             if state.world.get(*tile) in C.SMALL_ROCKS:
                 name = C.RESOURCE_NAME[C.SMALL_ROCKS[state.world.get(*tile)]]
                 return (f"Rocha com {name} · segure o clique para quebrar" if state.can_mine(tile)
@@ -1946,8 +1956,11 @@ class App:
             return "[E] Caixa vazia" if obj.empty else "[E] Abrir caixa de saque"
         if kind == "wreck_log":
             return "[E] Ler terminal"
-        if kind == "container":
-            return "[E] Contêiner lacrado"
+        if kind == "container":                       # v0.5 M4
+            box = self.state.container_crate(obj)
+            if box is not None and box.opened and box.empty:
+                return "Contêiner aberto"
+            return "[E] Abrir contêiner"
         if kind == "chest":
             name = obj.name or C.CHEST_DEFAULT_NAME
             return "[E] Abrir baú" if name == C.CHEST_DEFAULT_NAME else f"[E] Abrir baú: {name}"

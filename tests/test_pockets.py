@@ -389,7 +389,7 @@ def test_rich_wreck_brings_a_missing_blueprint():
     assert all(x.blueprint is None for x in w.wrecks if x.rich)
 
 
-def test_sealed_container_never_opens_and_shows_the_lore_line():
+def test_sealed_container_is_an_interaction_target_in_reach():
     g = game()
     g.indices["heat"] = 1e9
     g._apply_thaw()
@@ -398,7 +398,6 @@ def test_sealed_container_never_opens_and_shows_the_lore_line():
     assert g.interaction() == ("container", (tx, ty))
     assert g.interactable_at((tx + 0.5) * T, (ty + 0.5) * T) == ("container", (tx, ty))
     assert g.in_reach("container", (tx, ty))
-    assert "Contêiner lacrado" in C.CONTAINER_LORE and "Colônia Hesper" in C.CONTAINER_LORE
     g.player.x, g.player.y = (tx + 0.5) * T, (ty + 9) * T
     assert not g.in_reach("container", (tx, ty))
 
@@ -512,7 +511,7 @@ def test_gate_open_event_shows_the_notice_only_when_open(app):
     assert app.toast == C.THAW_GATE_NOTICE and app.toast_time == C.THAW_GATE_NOTICE_TIME
 
 
-def test_e_on_the_container_shows_the_lore_and_opens_nothing(app):
+def test_e_on_the_container_opens_its_loot_panel(app):
     s = app.state
     s.indices["heat"] = 1e9
     s._apply_thaw()
@@ -521,11 +520,12 @@ def test_e_on_the_container_shows_the_lore_and_opens_nothing(app):
     s.player.x, s.player.y = (tx + 0.5) * T, (ty + 2) * T - 2
     app.set_mode("play")
     target = app.e_target()
-    assert target == ("container", (tx, ty)) and app.e_label(target) == "[E] Contêiner lacrado"
+    assert target == ("container", (tx, ty)) and app.e_label(target) == "[E] Abrir contêiner"
     assert app.highlight_target() == ("container", (tx, ty))
     pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_e, mod=0, unicode="e", scancode=0))
     app.handle_events()
-    assert app.mode == "play" and app.toast == C.CONTAINER_LORE
+    assert app.mode == "crate" and app.open_crate is s.container_crate((tx, ty))
+    assert app.open_crate.opened
 
 
 def test_hovering_the_ice_gate_shows_the_heat_it_needs(app, monkeypatch):

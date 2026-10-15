@@ -48,6 +48,7 @@ def test_sprites_exist():
 
 def test_stacks_like_a_resource():
     g = GameState(1)
+    g.inventory.remove("hand_drill", 1)
     give(g, magmatite=60)
     assert g.inventory.count("magmatite") == 60
     assert sorted(s.count for s in g.inventory.slots if s) == [10, 50]

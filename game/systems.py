@@ -30,7 +30,7 @@ from game.rain import Rain
 from game.thaw import lake_level
 from game.weather import Weather
 from game.world import World
-from game.wrecks import Crate, Wreck
+from game.wrecks import ContainerSpot, Crate, Wreck
 
 
 @dataclass
@@ -41,6 +41,7 @@ class Controls:
     mine_tile: tuple[int, int] | None = None   # tile mirado enquanto segura o clique
     in_menu: bool = False                      # tela aberta (inventário, fabricador, mapa...): sem empurrão do vento
     dismantle: "Machine | None" = None         # v0.5 M1: máquina debaixo do mouse com o botão direito segurado
+    drill_in_hand: bool = True                 # v0.5 M4: a broca de mão é o slot selecionado da hotbar (sem ela, não minera)
 
 
 @dataclass
@@ -319,6 +320,7 @@ class GameState:
         # mochila com slots (game/inventory.py): recursos E máquinas fabricadas ainda não colocadas.
         # A hotbar são os slots 0 a 7 (a primeira linha).
         self.inventory = Inventory(C.INVENTORY_SLOTS)
+        self.inventory.add(C.HAND_DRILL, 1)                # v0.5 M4: nasce com a broca de mão, no 1º slot da hotbar
         self.machines: list[Machine] = []                  # colocadas no mundo
         # Tiles onde já existiu máquina: fontes da mancha de transição (game/transition.py).
         # Só cresce: desmontar a máquina NÃO tira daqui, senão a terra em volta "desconverteria".
@@ -556,7 +558,7 @@ class GameState:
             self.player.move(controls.move_x, controls.move_y, dt, self.solids_near, self.player_speed)
             if not controls.in_menu:          # rajada: o vento empurra (parado, desliza; contra, anda mais devagar)
                 self.player.drift(*self.weather.push(storm), dt, self.solids_near)
-            self._update_mining(dt, controls.mine_tile)
+            self._update_mining(dt, controls.mine_tile if controls.drill_in_hand else None)
             self._update_o2(sim_dt)
         self._update_building(dt)
         self._update_doors(dt)
@@ -1079,7 +1081,7 @@ class GameState:
             wreck = self.world.wreck_at(*tile)
             if wreck is not None and wreck.terminal == tile:
                 return "wreck_log", wreck
-        for tile in tiles:                               # v0.4 M3.2: contêiner lacrado (só mostra a dica)
+        for tile in tiles:                               # v0.4 M3.2: contêiner lacrado (v0.5 M4: abre como a caixa)
             if self.world.get(*tile) == C.CONTAINER:
                 return "container", tile
         for i, tile in enumerate(self.world.terminals):
@@ -1637,6 +1639,14 @@ class GameState:
                 if w.terminal is not None and self.wreck_terminal_distance(w) <= C.TERMINAL_REACH]
         return min(near, key=self.wreck_terminal_distance, default=None)
 
+    @property
+    def containers(self) -> dict:
+        """Caixas dos contêineres lacrados da camada ativa (tile -> Crate)."""
+        return self.active.containers
+
+    def container_crate(self, tile: tuple[int, int]) -> Crate | None:
+        return self.containers.get(tuple(tile))
+
     def container_distance(self, tile: tuple[int, int]) -> float:
         """Dos pés até a base do contêiner lacrado (v0.4 M3.2)."""
         tx, ty = tile
@@ -1650,7 +1660,7 @@ class GameState:
         """E na caixa: abre (som). Diagrama que estiver dentro NÃO é lido sozinho: fica na caixa como item, o player
         pega e lê na bancada. Dá o aviso "diagrama encontrado" (evento) e devolve os diagramas que a caixa tem."""
         crate.opened = True
-        self.events.append(("crate_open", crate.empty))
+        self.events.append(("container_open" if isinstance(crate.wreck, ContainerSpot) else "crate_open", crate.empty))
         found = [C.DIAGRAM_ITEMS[st.item] for st in crate.storage.slots if st is not None and st.item in C.DIAGRAM_ITEMS]
         for diagram in found:
             self.events.append(("diagram_found", diagram))
@@ -1779,6 +1789,15 @@ class GameState:
     @property
     def has_backpack(self) -> bool:
         return self.equipment.has("backpack")
+
+    def ensure_hand_drill(self) -> bool:
+        """v0.5 M4: save sem a broca de mão (v10 do M3) ganha uma. Vale a que estiver no inventário ou guardada em
+        baú; só dá outra se não achar nenhuma. Devolve True se deu (False: já tinha, ou o inventário está cheio)."""
+        if self.inventory.count(C.HAND_DRILL) or any(
+                m.storage is not None and m.storage.count(C.HAND_DRILL)
+                for layer in self.layers.values() for m in layer.machines):
+            return False
+        return self.inventory.add(C.HAND_DRILL, 1) == 0
 
     def sync_backpack(self) -> None:
         """Deixa o inventário com 16 slots (sem mochila) ou 24 (com ela). Encolher só corta slots vazios; se a

@@ -1166,12 +1166,13 @@ class Renderer:
             x, y = tx * T - cam_x, ty * T - cam_y
             if -T < x < self.view_w and -T < y < self.view_h:
                 items.append(((ty + 1) * T, lambda c=crate, x=x, y=y: self.draw_crate(canvas, c, x, y)))
-        for tx, ty in getattr(world, "containers", ()):        # contêiner lacrado (v0.4 M3.2): pé na borda de baixo
-            surf = self.container_surface()
+        for (tx, ty), box in state.containers.items():          # contêiner lacrado/aberto (v0.5 M4): pé na borda de baixo
+            surf = self.container_surface(box.opened)
             w, h = surf.get_size()
             x, y = (tx * T + T // 2 - w // 2) - cam_x, (ty + 1) * T - h - cam_y
             if -w < x < self.view_w and -h < y < self.view_h:
-                items.append(((ty + 1) * T, lambda t=(tx, ty), x=x, y=y: self.draw_container(canvas, t, x, y)))
+                items.append(((ty + 1) * T, lambda t=(tx, ty), o=box.opened, x=x, y=y:
+                              self.draw_container(canvas, t, x, y, o)))
         self.blinks = [b for b in self.blinks if (t - b[2]) * C.SCAN_FPS < C.SCAN_BLINK_STEPS]
         for info, (bx, by), t0 in self.blinks:                 # v0.5 M1: o holograma piscando depois do desmonte
             step = int((t - t0) * C.SCAN_FPS)
@@ -1328,16 +1329,20 @@ class Renderer:
         if x + w > cam[0] and x < cam[0] + self.view_w and y + h > cam[1] and y < cam[1] + self.view_h:
             canvas.blit(surf, (x - cam[0], y - cam[1]))
 
-    def container_surface(self) -> pygame.Surface:
+    def container_surface(self, opened: bool = False) -> pygame.Surface:
         """Contêiner lacrado: container_sealed.png (r3d v1.1, 40×44, aprovado; o pé cai no centro de baixo do tile, como
-        as máquinas de 40 px) ou, sem a arte, o placeholder por código."""
-        return self.surface("container_sealed", art.sealed_container)[0]
+        as máquinas de 40 px) ou, sem a arte, o placeholder por código. Aberto (v0.5 M4): container_open.png (mesma
+        âncora) ou, enquanto a arte não vem, o lacrado escurecido com a tampa aberta (art.opened_container)."""
+        sealed = self.surface("container_sealed", art.sealed_container)[0]
+        if not opened:
+            return sealed
+        return self.surface("container_open", lambda: art.opened_container(sealed))[0]
 
-    def draw_container(self, canvas, tile, x: int, y: int) -> None:
-        surf = self.container_surface()
+    def draw_container(self, canvas, tile, x: int, y: int, opened: bool = False) -> None:
+        surf = self.container_surface(opened)
         canvas.blit(surf, (x, y))
         if self.highlight == ("container", tile):          # alvo do E: contorno igual ao da caixa de saque
-            canvas.blit(self.outline_of("container", surf), (x - 1, y - 1))
+            canvas.blit(self.outline_of(("container", opened), surf), (x - 1, y - 1))
 
     def crater_surface(self, surface_layer: bool = True) -> tuple[pygame.Surface, str]:
         """A rampa da camada (96×96) e a chave dela: na superfície a cratera com a rampa de descida aberta
@@ -1788,6 +1793,8 @@ class Renderer:
                 small = self.surface("icon_backpack", art.backpack_icon)[0]
             elif item == "water_capsule":        # v0.5 M2: icon_water_capsule.png (aprovado)
                 small = self.surface("icon_water_capsule", art.water_capsule_icon)[0]
+            elif item == C.HAND_DRILL or item in C.LOOT_ITEMS:   # v0.5 M4: icon_<item>.png (a broca ainda aguarda o dono)
+                small = self._m4_icon(item)
             elif item in C.BASE_KINDS or item == C.DISPENSER:   # v0.5 M2: icon_base_*.png e icon_o2_dispenser.png
                 name = C.BASE_ICON.get(item, "icon_o2_dispenser")
                 small = self.surface(name, lambda: self._placeholder(16, item))[0]
@@ -1808,6 +1815,14 @@ class Renderer:
                 return icon
             self._item_icons[item] = pygame.transform.scale_by(small, 2)   # 16×16 → 32×32, pixel a pixel
         return self._item_icons[item]
+
+    def _m4_icon(self, item: str) -> pygame.Surface:
+        """Ícone 16×16 da broca de mão ou de uma peça de loot: o PNG de assets/sprites ou, sem ele, o fallback (a broca
+        usa o 1º quadro da drill_side reduzido; as peças, um quadradinho colorido)."""
+        if item == C.HAND_DRILL:
+            sheet = self.surface("drill_side", lambda: art.drill("side"))[0]
+            return self.surface("icon_hand_drill", lambda: art.hand_drill_icon(sheet))[0]
+        return self.surface(f"icon_{item}", lambda: self._placeholder(16, item))[0]
 
     def drone_icon(self) -> pygame.Surface:
         """Ícone 16×16 do item drone: assets/sprites/icon_drone.png assim que for aprovado (é só ele
@@ -1833,6 +1848,8 @@ class Renderer:
             return pygame.transform.scale_by(self.surface("icon_constructor", art.constructor_icon)[0], 3)
         if kind == "water_capsule":
             return pygame.transform.scale_by(self.surface("icon_water_capsule", art.water_capsule_icon)[0], 3)
+        if kind == C.HAND_DRILL or kind in C.LOOT_ITEMS:
+            return pygame.transform.scale_by(self._m4_icon(kind), 3)
         if kind in C.BASE_KINDS:
             return pygame.transform.scale_by(self.surface(C.BASE_ICON[kind], lambda: self._placeholder(16, kind))[0], 3)
         if kind == "drill":

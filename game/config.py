@@ -734,10 +734,30 @@ VOLUME.setdefault("ice_crack", 0.7)  # estalo do gelo (ice_crack.wav + ice_crack
 # nave de fora) e, se algum projeto de BLUEPRINTS não caiu nos destroços de fora, o 1º que faltar.
 WRECK_RICH_KIND = "cargo"
 WRECK_RICH_LOOT = {"iron": (30, 40), "silicon": (20, 28), "ice": (14, 20)}
-# Contêiner lacrado no container_spot (gancho das peças raras do v0.5): não abre. O texto final passa pelo dono.
-CONTAINER_LORE = "Contêiner lacrado · selo da Colônia Hesper · o lacre não cede com a ferramenta que você tem"
+# Contêiner lacrado no container_spot de cada bolsão (v0.5 M4): o E abre de graça, uma vez só (vira "aberto").
 CONTAINER_REACH = 48                # px dos pés até a base dele (igual à caixa de saque)
-CONTAINER_LORE_TIME = 4.5           # s do aviso com a dica de lore
+
+# ---------------------------------------------------------------------------
+# v0.5 Marco 4: broca de mão e itens de loot (números de partida; o dono balanceia depois)
+# ---------------------------------------------------------------------------
+# Broca de mão: item não empilha (1), sem receita, nada do jogo a destrói. Sem ela selecionada na hotbar não se minera.
+# Os itens de loot só ocupam inventário (nenhum uso ainda): empilham até STACK_LOOT e vão pra baú.
+HAND_DRILL = "hand_drill"
+VOLUME["container_open"] = 0.9   # trava do contêiner abrindo (container_open.wav, D3s CC0, aprovado): curto e seco
+STACK_TOOL = 1
+STACK_LOOT = 20
+LOOT_ITEMS = ("iron_ingot", "silicon_wafer", "circuit", "chip", "wire")
+MACHINES[HAND_DRILL] = MachineType(HAND_DRILL, "Broca de mão", "segure pra minerar", {}, None, 0, 0,
+                                   "icon_hand_drill", placeable=False)
+for _key, _name, _desc in (("iron_ingot", "Lingote de ferro", "peça rara"), ("silicon_wafer", "Wafer de silício", "peça rara"),
+                           ("circuit", "Circuito", "peça rara"), ("chip", "Chip", "peça rara"), ("wire", "Fios", "peça rara")):
+    MACHINES[_key] = MachineType(_key, _name, _desc, {}, None, 0, 0, f"icon_{_key}", placeable=False)
+# Chance de cair e quantidade (mín, máx) de cada item, por tipo de saque. Sorteado pela seed, depois dos recursos.
+LOOT_COMMON = {"wire": (0.60, (1, 3)), "iron_ingot": (0.40, (1, 2)), "silicon_wafer": (0.15, (1, 1))}   # destroço de fora
+LOOT_RICH = {"silicon_wafer": (0.70, (1, 3)), "circuit": (0.60, (1, 2)), "chip": (0.15, (1, 1))}         # destroço rico
+LOOT_CONTAINER = {"chip": (1.0, (2, 3)), "circuit": (1.0, (3, 5)), "silicon_wafer": (1.0, (2, 4)),       # contêiner: saque top
+                  "iron_ingot": (1.0, (3, 5)), "wire": (1.0, (4, 8))}
+CONTAINER_RESOURCES = {"iron": (20, 30), "silicon": (14, 20), "ice": (10, 14)}   # + "um pouco de tudo" em recurso
 
 # Morros por região (o salar quase sem morro, o basalto com mais) e o minério de cada uma
 HILL_REGION_WEIGHT = {"plateau": 1.0, "salar": 0.05, "basalt": 2.2, "frost": 1.0}

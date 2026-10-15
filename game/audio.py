@@ -275,6 +275,10 @@ class Audio:
         return [sound if f == 1.0 else pygame.mixer.Sound(buffer=resample(samples, channels, f).tobytes())
                 for f in factors]
 
+    def has(self, name: str) -> bool:
+        """Tem arquivo desse efeito em assets/audio? (som que ainda não chegou usa outro no lugar)"""
+        return bool(self.ok and self._get(name))
+
     def _pick(self, name: str) -> pygame.mixer.Sound | None:
         """Sorteia uma variação, sem repetir a mesma duas vezes seguidas."""
         variants = self._get(name)

@@ -20,7 +20,7 @@ from game.explore import Explored
 from game.rock_respawn import RockRespawn
 from game.surface_gen import generate_surface
 from game.world import World
-from game.wrecks import make_crates
+from game.wrecks import make_container_crates, make_crates
 
 SURFACE, CAVE = "surface", "cave"
 ORDER = (SURFACE, CAVE)
@@ -33,6 +33,7 @@ class Layer:
     machines: list = field(default_factory=list)
     rocks: RockRespawn | None = None      # reaparecimento das rochas pequenas (só na superfície)
     crates: dict = field(default_factory=dict)   # caixas de saque dos destroços: tile -> Crate (Marco 3)
+    containers: dict = field(default_factory=dict)   # v0.5 M4: contêineres lacrados dos bolsões: tile -> Crate (a caixa deles)
     explored: Explored | None = None      # o que o jogador já viu nesta camada (Marco 3, game/explore.py)
     # v0.4 Marco 2: tampa de gelo da cratera (só a superfície usa): 0 = tampada ... CRATER_ICE_STAGES (4) = vazia,
     # com a rampa exposta. No M2 fica sempre tampada (o derretimento pelo calor é do M3); F4 abre na hora (debug).
@@ -119,7 +120,8 @@ def current_formations(layer: Layer) -> list:
 
 def make_surface(seed: int) -> Layer:
     world = generate_surface(seed)
-    return Layer(SURFACE, world, rocks=RockRespawn(), crates=make_crates(world, seed))
+    return Layer(SURFACE, world, rocks=RockRespawn(), crates=make_crates(world, seed),
+                 containers=make_container_crates(world, seed))
 
 
 def make_cave(seed: int) -> Layer:

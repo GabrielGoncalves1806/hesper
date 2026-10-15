@@ -537,6 +537,7 @@ def check_zoom_and_fullscreen(bot) -> None:
     bot.key(pygame.K_ESCAPE)
     assert app.placing is None
     release_constructor(bot)
+    bot.frames(DT)      # desenha com o slot 1 (a broca de mão, v0.5 M4) selecionado, igual ao quadro de depois
     # o HUD não muda de tamanho: a hotbar fica no mesmo lugar em qualquer zoom (compara a faixa de baixo)
     hud_zoom = app.frame.subsurface((0, C.SCREEN_H - 60, C.SCREEN_W, 60)).copy()
     bot.key(pygame.K_KP_MINUS)
@@ -784,7 +785,9 @@ def check_inventory_and_chest(bot) -> None:
 
     # inventário cheio: o tile quebra, o minério não entra, aparece o aviso
     s.inventory.clear()
-    give(s, iron=200, silicon=150, ice=350)            # 4 + 3 + 7 slots
+    s.inventory.add("hand_drill", 1)                   # v0.5 M4: sem a broca na mão não minera (slot 1, o selecionado)
+    app.hotbar_selected = 0
+    give(s, iron=200, silicon=150, ice=300)            # 4 + 3 + 6 slots
     s.inventory.add("drone", 1)
     s.inventory.add("scanner", 1)
     assert None not in s.inventory.slots
@@ -802,6 +805,7 @@ def check_inventory_and_chest(bot) -> None:
     assert app.notice == "Inventário cheio" and app.notice_time > 0
     bot.shot("inventario_cheio.png")
     s.inventory.clear()
+    s.inventory.add("hand_drill", 1)                   # o resto do smoke minera: a broca volta pro slot 1
     bot.frames(C.NOTICE_TIME)
 
 
@@ -4276,7 +4280,7 @@ def check_gates(bot) -> None:
     bot.frames(DT)
     assert s.player.y < gate.ty * C.TILE - 8, f"não entrou no bolsão (y {s.player.y:.0f}, portão {gate.ty * C.TILE})"
     print(f"  portão 0 sem gelo com calor {hi}: entrou no bolsão a pé (y {s.player.y:.0f})")
-    # interior: o destroço rico e o contêiner lacrado; o E no contêiner só mostra a dica de lore
+    # interior: o destroço rico e o contêiner lacrado; o E no contêiner abre o saque (v0.5 M4)
     rich = next(w for w in s.world.wrecks if w.rich and (w.tx, w.ty) == p.wreck_spot)
     box = p.container_spot
     bot.teleport((box[0], box[1] + 1))
@@ -4284,15 +4288,18 @@ def check_gates(bot) -> None:
     bot.mouse_to(bot.tile_on_screen(box))
     ground_settle(bot)
     assert app.e_target() == ("container", box), app.e_target()
-    assert app.hint() == "[E] Contêiner lacrado", app.hint()
+    assert app.hint() == "[E] Abrir contêiner", app.hint()
     xs = [t[0] for t in p.interior]
     ys = [t[1] for t in p.interior]
     center = ((min(xs) + max(xs) + 1) / 2 * C.TILE, (min(ys) + max(ys) + 1) / 2 * C.TILE)
     shot_zoom(bot, "m32_bolsao_interior.png", center, w=400, h=300, k=2)
     bot.key(pygame.K_e)
     bot.frames(0.2)
-    assert app.mode == "play" and app.toast == C.CONTAINER_LORE, app.toast
+    assert app.mode == "crate" and s.container_crate(box).opened, app.mode
     bot.shot("m32_conteiner_dica.png")
+    bot.key(pygame.K_ESCAPE)
+    bot.frames(0.2)
+    assert app.mode == "play", app.mode
     crate = s.crates[rich.crate]
     print(f"  destroço rico {rich.kind} em {p.wreck_spot}: {crate.storage.counts()} · contêiner em {box}")
     shot_boxes(bot, box)
