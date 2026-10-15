@@ -201,3 +201,77 @@ def test_ui_chip_slot_and_hint(ui):
     assert {v[0] for _, v in ui.logistics_buttons} == {"recv"}           # dispersor: sem Envia e sem Lote
     drill = Machine("drill", 0, 0, resource="iron")
     assert ui.logistics_height(drill) == ui.logistics_height(Machine("drill", 0, 0, resource="iron", chip=True))
+
+
+# ---- v0.6 M2 Task 2: receita do chip e save v11 ----------------------------------------------------
+def test_chip_is_a_t2_recipe(game):
+    from game import fabricator
+    assert C.MACHINES["chip"].cost == {"silicon_wafer": 2, "iron": 1}
+    assert "chip" in fabricator.t2_kinds("t2") and "chip" not in fabricator.craft_kinds("t2")
+    give(game, silicon_wafer=2, iron=1)
+    assert game.craft("chip", bench="t2") and game.inventory.count("chip") == 1
+    assert game.inventory.count("silicon_wafer") == 0
+
+
+def test_v10_to_v11_gives_chip_to_working_drills_and_melters():
+    data = {"version": 10, "layers": {"surface": {"machines": [
+        {"kind": "drill", "tx": 0, "ty": 0, "rotation": 0, "resource": "iron", "sends": ["iron"]},
+        {"kind": "drill", "tx": 4, "ty": 0, "rotation": 0, "resource": "iron", "sends": []},
+        {"kind": "melter", "tx": 8, "ty": 0, "rotation": 0, "sends": ["water_capsule"]},
+        {"kind": "o2_dispenser", "tx": 9, "ty": 0, "rotation": 0},
+        {"kind": "chest", "tx": 10, "ty": 0, "rotation": 0, "sends": ["iron"]},
+    ]}}}
+    out = save.MIGRATIONS[10](data)["layers"]["surface"]["machines"]
+    assert [m.get("chip") for m in out] == [True, None, True, None, None]
+
+
+def test_v10_save_loads_with_chip_on_working_drill(game):
+    drill = Machine("drill", 70, 70, resource="iron")
+    drill.sends.add("iron")
+    disp = Machine(C.DISPENSER, 74, 70)
+    game.machines += [drill, disp]
+    data = save.state_to_dict(game)
+    data["version"] = 10
+    for layer in data["layers"].values():
+        for m in layer["machines"]:
+            m.pop("chip", None)
+    loaded = save.state_from_dict(save.migrate(data))
+    by_kind = {m.kind: m for m in loaded.machines}
+    assert by_kind["drill"].chip is True and by_kind[C.DISPENSER].chip is False
+
+
+# ---- v0.6 M2 Task 3: estado do dispersor só no hover -----------------------------------------------
+def test_dispenser_label_only_on_hover_and_bang_when_stopped(monkeypatch):
+    from game.app import App
+    app = App.__new__(App)
+    state = GameState(rng=random.Random(3))
+    app.state = state
+    dry, ok = Machine(C.DISPENSER, 3, 3), Machine(C.DISPENSER, 9, 9)
+    state.machines += [dry, ok]
+    monkeypatch.setattr(state, "dispenser_state", lambda m, factor=None: "dry" if m is dry else "sealed")
+    monkeypatch.setattr(app, "hovered_machine", lambda: None)
+    assert app.dispenser_labels() == [(dry, "dry", False)]          # vedado sem hover: nada
+    monkeypatch.setattr(app, "hovered_machine", lambda: ok)
+    got = sorted(app.dispenser_labels(), key=lambda t: t[0].tx)
+    assert got == [(dry, "dry", False), (ok, "sealed", True)]
+
+
+def test_draw_dispenser_labels_bang_and_hover(ui):
+    ui.set_layout((0, 0, 960, 540), 2.0, (480, 270))
+    m = Machine(C.DISPENSER, 20, 20)
+    ui.begin()
+    ui.draw_dispenser_labels([(m, "dry", False)], (0, 0), 1.0)
+    ui.draw_dispenser_labels([(m, "sealed", True)], (0, 0), 1.0)
+
+
+# ---- resumo do título da seção DRONES usa nome curto antes de cair na contagem -----------------------
+def test_logistics_summary_short_names(ui):
+    assert ui.logistics_summary(Machine("chest", 0, 0), short=True) == "nada configurado"
+    disp = Machine(C.DISPENSER, 0, 0, chip=True)
+    disp.receives.add("water_capsule")
+    assert ui.logistics_summary(disp) == "recebe cápsula de água"
+    assert ui.logistics_summary(disp, short=True) == "recebe cápsula"
+    melter = Machine("melter", 0, 0, chip=True)
+    melter.sends.add("water_capsule")
+    melter.receives.add("ice")
+    assert ui.logistics_summary(melter, short=True) == "envia cápsula · recebe gelo"

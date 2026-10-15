@@ -775,6 +775,9 @@ MACHINES[HAND_DRILL] = MachineType(HAND_DRILL, "Broca de mão", "segure pra mine
 for _key, _name, _desc in (("iron_ingot", "Lingote de ferro", "peça rara"), ("silicon_wafer", "Wafer de silício", "peça rara"),
                            ("circuit", "Circuito", "peça rara"), ("chip", "Chip", "peça rara"), ("wire", "Fios", "peça rara")):
     MACHINES[_key] = MachineType(_key, _name, _desc, {}, None, 0, 0, f"icon_{_key}", placeable=False)
+# v0.6 M2: o chip (que liga a máquina aos drones) também se fabrica na Bancada T2, só com o inventário
+CHIP_COST = {"silicon_wafer": 2, "iron": 1}
+MACHINES["chip"] = _replace(MACHINES["chip"], cost=CHIP_COST)
 # Chance de cair e quantidade (mín, máx) de cada item, por tipo de saque. Sorteado pela seed, depois dos recursos.
 LOOT_COMMON = {"wire": (0.60, (1, 3)), "iron_ingot": (0.40, (1, 2)), "silicon_wafer": (0.15, (1, 1))}   # destroço de fora
 LOOT_RICH = {"silicon_wafer": (0.70, (1, 3)), "circuit": (0.60, (1, 2)), "chip": (0.15, (1, 1))}         # destroço rico
@@ -997,7 +1000,7 @@ MACHINES["diagram_chest_large"] = MachineType("diagram_chest_large", "Diagrama: 
 MACHINE_ORDER.append("diagram_chest_large")
 MACHINE_CATEGORY["diagram_chest_large"] = "tools"
 # Receitas da Bancada T2 (itens, ids de MACHINES). O fabricador T1 não mostra estas (fabricator.craft_kinds).
-T2_RECIPES: tuple[str, ...] = ("backpack",)   # a mochila (B3); a broca nv.2 entra no M4
+T2_RECIPES: tuple[str, ...] = ("backpack", "chip")   # a mochila (B3) e o chip (v0.6 M2); a broca nv.2 entra no M4
 T2_TABS = (("t2", "Itens"),)    # a Bancada T2 tem uma aba só por enquanto
 
 

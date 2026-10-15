@@ -87,7 +87,7 @@ from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 from game.wrecks import loot_for
 
-SAVE_VERSION = 10  # v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
+SAVE_VERSION = 11  # v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
 FIRST_VERSION = 10  # saves com versão menor que essa são de outra época do jogo: "save antigo" (v1–v9, não migram)
 # Numeração dos estágios dentro do "progress": 2 = v0.4 (Tempestade, Árido, Névoa, Verde). O 1 (os 3 estágios do
 # v0.3) só existia no save v6, que não carrega mais.
@@ -489,7 +489,17 @@ def state_from_dict(data: dict) -> GameState:
 # um save da versão N pra N+1 (ela recebe o dict e devolve o dict atualizado).
 # As migrações v1 -> v5 (v0.1/v0.2) saíram no v0.3: o mundo mudou inteiro (deserto + camadas) e o dono
 # decidiu que o v0.3 começa do zero. Ver o histórico do git (game/save.py até o commit ec889a6).
-MIGRATIONS: dict = {}   # vazio: o v10 recomeçou do zero (v7–v9 viraram "save antigo")
+def _v10_to_v11(data: dict) -> dict:
+    """v0.6 M2: drill e derretedor que já mandavam algo pros drones ganham o chip (a base de ninguém para).
+    O dispersor do save antigo vem sem chip."""
+    for layer in data.get("layers", {}).values():
+        for m in layer.get("machines", []):
+            if (m.get("kind") == "drill" or m.get("kind") in C.MELTER_KINDS) and m.get("sends"):
+                m["chip"] = True
+    return data
+
+
+MIGRATIONS: dict = {10: _v10_to_v11}   # o v10 recomeçou do zero (v7–v9 viraram "save antigo")
 
 
 class SaveError(Exception):
