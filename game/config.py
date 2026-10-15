@@ -265,8 +265,8 @@ CAVE_MAGMATITE_ROCK_CHANCE = 0.03 # rochinha de magmatita num chão do basalto (
 # Visual PROVISÓRIO por região (até a arte do M2): tinta RGBA por cima do chão e cor da rocha orgânica.
 CAVE_REGION_TINT = {0: (0, 0, 0, 0),            # centro: a névoa de sempre
                     1: (214, 176, 120, 46),     # salar: areia
-                    2: (150, 52, 30, 52),       # basalto: brasa
-                    3: (140, 200, 235, 52)}     # gelo
+                    2: (24, 24, 28, 84),        # basalto: cinza-chumbo/preto, como o da superfície (dono: nada de vermelho)
+                    3: (90, 170, 255, 72)}      # gelo: mais azul (dono: estava cinza)
 
 MACHINES["drill"] = MachineType("drill", "Drill automática", "+ minério", DRILL_COST, None, 0,
                                 DRILL_UNLOCK_TI, "machine_drill", size=2)
