@@ -408,9 +408,9 @@ def test_unknown_layer_is_no_save(tmp_path):
 
 def test_unknown_items_become_empty_slots():
     data = save.state_to_dict(rich_state())
-    data["inventory"]["slots"][0] = ["unobtanium", 3]
+    data["inventory"]["slots"][15] = ["unobtanium", 3]
     state = save.state_from_dict(data)
-    assert state.inventory.slots[0] is None and len(state.inventory) == C.INVENTORY_SLOTS
+    assert state.inventory.slots[15] is None and len(state.inventory) == C.INVENTORY_SLOTS
 
 
 # ---------------------------------------------------------------- tela de título com save antigo

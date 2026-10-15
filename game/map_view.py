@@ -196,7 +196,9 @@ def map_entries(state, key: str) -> list[Entry]:
                              "névoa fria · não dá pra ver o que há dentro"))
     for tx, ty in getattr(world, "containers", ()):          # v0.4 M3.2: contêiner lacrado (sem filtro)
         if explored.seen(tx, ty):
-            entries.append(Entry("container", "container", tx + 0.5, ty + 0.5, "Contêiner", "lacrado"))
+            box = layer.containers.get((tx, ty))
+            entries.append(Entry("container", "container", tx + 0.5, ty + 0.5, "Contêiner",
+                                 "aberto" if box is not None and box.opened else "lacrado"))
     for i, (tx, ty) in enumerate(world.terminals):
         if explored.seen(tx, ty) or explored.seen(tx, ty + 1):
             read = "lido" if i in state.logs_read else "não lido"

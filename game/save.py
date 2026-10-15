@@ -84,7 +84,7 @@ from game.rock_respawn import RockRespawn
 from game.surface_gen import pristine_tiles as surface_pristine
 from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
-from game.wrecks import crate_loot
+from game.wrecks import loot_for
 
 SAVE_VERSION = 10  # v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
 FIRST_VERSION = 10  # saves com versão menor que essa são de outra época do jogo: "save antigo" (v1–v9, não migram)
@@ -150,9 +150,9 @@ def tiles_to_list(state: GameState, key: str) -> list:
 def crates_to_list(state: GameState, layer) -> list:
     """Só as caixas que mudaram (abertas ou saqueadas): [x, y, slots, aberta]."""
     out = []
-    for (x, y), crate in layer.crates.items():
+    for (x, y), crate in [*layer.crates.items(), *layer.containers.items()]:   # destroços e contêineres (v0.5 M4)
         fresh = Inventory(C.CRATE_SLOTS)
-        for item, n in crate_loot(crate.wreck, state.seed):
+        for item, n in loot_for(crate.wreck, state.seed):
             fresh.add(item, n)
         if crate.opened or crate.storage.to_data() != fresh.to_data():
             out.append([x, y, crate.storage.to_data(), crate.opened])
@@ -188,7 +188,7 @@ def layers_to_dict(state: GameState) -> dict:
                 "explored": layer.explored.to_data()}
         if layer.rocks is not None:
             data["rocks"] = layer.rocks.to_data()
-        if layer.crates:
+        if layer.crates or layer.containers:
             data["crates"] = crates_to_list(state, layer)
         if layer.has_base:                                       # v0.4 M2: a tampa de gelo da cratera (0..4)
             data["crater_ice"] = layer.crater_ice
@@ -216,7 +216,7 @@ def layers_from_dict(state: GameState, data: dict) -> None:
         if layer.rocks is not None and "rocks" in ldata:     # save v6 antigo: "rocks" falta e "pickups"
             layer.rocks = RockRespawn.from_data(ldata["rocks"])  # (os soltos, que saíram do jogo) é ignorado
         for x, y, slots, opened in ldata.get("crates", []):      # Marco 3 (save do Marco 1/2 não tem)
-            crate = layer.crates.get((int(x), int(y)))
+            crate = layer.crates.get((int(x), int(y))) or layer.containers.get((int(x), int(y)))
             if crate is not None:
                 crate.storage = slots_from_data(slots, C.CRATE_SLOTS)
                 crate.opened = bool(opened)
@@ -464,6 +464,7 @@ def state_from_dict(data: dict) -> GameState:
     if layer not in state.layers:
         raise ValueError(f"camada ativa sem dados: {layer!r}")
     state.layer = layer
+    state.ensure_hand_drill()     # v0.5 M4: save v10 do M3 não tem a broca de mão (mesma versão, checagem no load)
     state._apply_thaw()           # v0.4 M3: o que o calor muda no mapa sai dos índices (não vai no save)
     state.events.clear()          # ...e o load não solta aviso nem som
     return state

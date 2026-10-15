@@ -62,6 +62,7 @@ def test_tank_lasts_220_seconds_outside():
 
 def test_equip_swaps_and_scanner_flag():
     g = GameState(7)
+    g.inventory.remove("hand_drill", 1)              # o scanner tem que cair no slot 0
     give(g, scanner=2)
     assert not g.has_scanner
     assert g.equip_from(0) and g.has_scanner and g.inventory.count("scanner") == 1

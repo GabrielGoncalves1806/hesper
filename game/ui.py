@@ -319,6 +319,10 @@ def item_category(item: str) -> tuple[str, str]:
         return "TRAJE", C.C_TERMINAL
     if item in ("drone", "constructor"):
         return "ITEM", C.C_TI
+    if item == C.HAND_DRILL:
+        return "FERRAMENTA", C.C_TI
+    if item in C.LOOT_ITEMS:
+        return "PEÇA", C.C_TERMINAL
     return "MÁQUINA", C.C_ACCENT
 
 

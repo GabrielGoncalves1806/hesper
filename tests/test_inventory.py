@@ -158,8 +158,9 @@ def fill_with_ice(game: GameState) -> None:
 def test_player_has_16_slots_and_the_hotbar_is_the_first_row(game):
     assert len(game.inventory) == C.INVENTORY_SLOTS == 16
     assert C.HOTBAR_SLOTS == 8
+    assert game.inventory.slots[0] == Stack("hand_drill", 1)   # v0.5 M4: nasce com a broca de mão no 1º slot
     game.inventory.add("iron", 1)
-    assert game.inventory.slots[0] == Stack("iron", 1)  # o que chega primeiro vai pra hotbar
+    assert game.inventory.slots[1] == Stack("iron", 1)  # o que chega primeiro vai pra hotbar
 
 
 def test_mining_with_full_inventory_breaks_the_tile_but_loses_the_ore(game):
@@ -175,6 +176,7 @@ def test_mining_with_full_inventory_breaks_the_tile_but_loses_the_ore(game):
 
 
 def test_mining_with_room_for_part_of_the_drop(game):
+    game.inventory.remove("hand_drill", 1)
     game.inventory.add("ice", (C.INVENTORY_SLOTS - 1) * C.STACK_RESOURCE)
     game.inventory.add("iron", C.STACK_RESOURCE - 1)    # sobra lugar pra 1 ferro
     game.rng = random.Random(0)
@@ -194,7 +196,7 @@ def test_mining_with_room_for_part_of_the_drop(game):
 def test_craft_turns_into_an_item(game):
     give(game, iron=5)
     assert game.craft("constructor")
-    assert game.inventory.counts() == {"constructor": 1}
+    assert game.inventory.counts() == {"constructor": 1, "hand_drill": 1}
 
 
 def test_craft_counts_the_slot_freed_by_the_recipe(game):

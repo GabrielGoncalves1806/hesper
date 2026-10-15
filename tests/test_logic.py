@@ -111,7 +111,7 @@ def test_rock_drops_nothing(game):
     tile = put_wall_next_to_player(game, C.ROCK)
     run(game, 1.0, Controls(mine_tile=tile))
     assert game.world.get(*tile) == C.SAND
-    assert game.inventory.is_empty()
+    assert game.inventory.counts() == {"hand_drill": 1}     # só a broca de mão (não gasta nem some)
 
 
 def test_switching_target_resets_progress(game):
@@ -169,7 +169,7 @@ def test_craft_consumes_resources(game):
     give(game, iron=12, silicon=5)
     assert game.recipe_status("constructor") == "ok"
     assert game.craft("constructor")
-    assert game.inventory.counts() == {"iron": 7, "silicon": 5, "constructor": 1}
+    assert game.inventory.counts() == {"iron": 7, "silicon": 5, "constructor": 1, "hand_drill": 1}
 
 
 def test_craft_fails_without_resources(game):
@@ -183,7 +183,7 @@ def test_build_consumes_resources(game):
     give(game, constructor=1, iron=12, silicon=5)
     px, py = game.player.tile
     assert game.build("o2", (px + 2, py))
-    assert game.inventory.counts() == {"constructor": 1, "iron": 2, "silicon": 1}
+    assert game.inventory.counts() == {"constructor": 1, "iron": 2, "silicon": 1, "hand_drill": 1}
 
 
 def test_build_fails_without_resources(game):

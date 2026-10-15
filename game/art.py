@@ -922,6 +922,29 @@ def sealed_container() -> pygame.Surface:
     return s
 
 
+def opened_container(sealed: pygame.Surface) -> pygame.Surface:
+    """Contêiner aberto (v0.5 M4), PLACEHOLDER até o container_open.png do dono: o lacrado escurecido, com a tampa
+    aberta (uma fenda escura no topo). Serve pra qualquer tamanho de sprite."""
+    s = sealed.copy()
+    s.fill((120, 120, 130, 255), special_flags=pygame.BLEND_RGBA_MULT)
+    w, h = s.get_size()
+    _r(s, "#1b1630", w // 8, h // 6, w - 2 * (w // 8), max(3, h // 8))
+    _r(s, "#0c0a18", w // 8 + 1, h // 6 + 1, w - 2 * (w // 8) - 2, max(2, h // 8 - 2))
+    return s
+
+
+def hand_drill_icon(side_sheet: pygame.Surface) -> pygame.Surface:
+    """Ícone 16×16 da broca de mão (fallback do icon_hand_drill.png): o 1º quadro do drill_side reduzido pra caber,
+    centralizado."""
+    fw = side_sheet.get_width() // 4
+    frame = side_sheet.subsurface((0, 0, fw, side_sheet.get_height()))
+    k = 16 / max(frame.get_size())
+    small = pygame.transform.scale(frame, (max(1, round(frame.get_width() * k)), max(1, round(frame.get_height() * k))))
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    s.blit(small, (8 - small.get_width() // 2, 8 - small.get_height() // 2))
+    return s
+
+
 def blueprint_icon() -> pygame.Surface:
     """Ícone 16×16 de projeto: chip azul de blueprint com linhas de desenho técnico."""
     s = pygame.Surface((16, 16), pygame.SRCALPHA)

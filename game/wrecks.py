@@ -235,8 +235,18 @@ class Crate:
         return (tx + 0.5) * T, (ty + 1) * T
 
 
+def _roll_parts(rng: random.Random, table: dict) -> list[tuple[str, int]]:
+    """Peças de loot (v0.5 M4): cada item da tabela {item: (chance, (mín, máx))} cai ou não, na ordem da tabela."""
+    out = []
+    for item, (chance, (lo, hi)) in table.items():
+        if rng.random() < chance:
+            out.append((item, rng.randint(lo, hi)))
+    return out
+
+
 def crate_loot(wreck: Wreck, seed: int) -> list[tuple[str, int]]:
-    """Saque da caixa: o diagrama (se tiver) primeiro, depois os recursos pelo tamanho do destroço."""
+    """Saque da caixa: o diagrama (se tiver) primeiro, depois os recursos pelo tamanho do destroço e, por último
+    (v0.5 M4, sorteio depois dos recursos: não mexe neles), as peças de loot (comum de fora, rica nos bolsões)."""
     rng = random.Random(seed * 1009 + wreck.rank * 7919 + wreck.tx * 31 + wreck.ty)
     items = []
     if wreck.blueprint:
@@ -245,7 +255,52 @@ def crate_loot(wreck: Wreck, seed: int) -> list[tuple[str, int]]:
         n = rng.randint(lo, hi)
         if n > 0:
             items.append((resource, n))
+    items += _roll_parts(rng, C.LOOT_RICH if wreck.rich else C.LOOT_COMMON)
     return items
+
+
+# ---------------------------------------------------------------------------
+# Contêiner lacrado (v0.5 M4): uma Crate com um "destroço" de mentira (só o que a caixa e a tela precisam)
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class ContainerSpot:
+    tx: int
+    ty: int
+    name: str = "Contêiner"
+    log: int | None = None
+    terminal: tuple[int, int] | None = None
+    blueprint: str | None = None
+    rich: bool = True
+
+    @property
+    def crate(self) -> tuple[int, int]:
+        return self.tx, self.ty
+
+
+def container_loot(spot: ContainerSpot, seed: int) -> list[tuple[str, int]]:
+    """Saque top do contêiner: um pouco de cada recurso e todas as peças (chip e circuito à frente)."""
+    rng = random.Random(seed * 2003 + spot.tx * 37 + spot.ty * 11 + 5)
+    items = []
+    for resource, (lo, hi) in C.CONTAINER_RESOURCES.items():
+        items.append((resource, rng.randint(lo, hi)))
+    return items + _roll_parts(rng, C.LOOT_CONTAINER)
+
+
+def loot_for(wreck, seed: int) -> list[tuple[str, int]]:
+    """Saque inicial de qualquer caixa (destroço ou contêiner): o save usa pra saber se ela mudou."""
+    return container_loot(wreck, seed) if isinstance(wreck, ContainerSpot) else crate_loot(wreck, seed)
+
+
+def make_container_crates(world, seed: int) -> dict[tuple[int, int], Crate]:
+    """Uma Crate por contêiner do mapa (`world.containers`), tile -> Crate."""
+    out = {}
+    for tx, ty in getattr(world, "containers", []):
+        spot = ContainerSpot(tx, ty)
+        storage = Inventory(C.CRATE_SLOTS)
+        for item, n in container_loot(spot, seed):
+            storage.add(item, n)
+        out[(tx, ty)] = Crate(spot, storage)
+    return out
 
 
 def make_crates(world, seed: int) -> dict[tuple[int, int], Crate]:
