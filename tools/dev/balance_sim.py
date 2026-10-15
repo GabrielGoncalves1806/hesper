@@ -661,6 +661,7 @@ class Sim:
         ok = self._build("drill", (vein.tx, vein.ty))
         assert ok, f"não conseguiu colocar a drill no veio {vein}"
         drill = self.gs.machine_at((vein.tx, vein.ty))
+        drill.chip = True                                # v0.6 M2: o simulador não é jogador, ganha o chip de graça
         drones.toggle_send(drill, drill.resource)        # o jogador marca Envia = o minério dela no painel
 
     def collect_trip(self, missing) -> bool:

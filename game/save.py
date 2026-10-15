@@ -310,6 +310,8 @@ def machine_to_dict(m: Machine) -> dict:
         data["sends"] = [i for i in C.LOGISTIC_ITEMS if i in m.sends]
         data["receives"] = [i for i in C.LOGISTIC_ITEMS if i in m.receives]
         data["batch"] = m.batch
+    if m.needs_chip:                     # v0.6 M2 (o número da versão sobe na Task 2)
+        data["chip"] = m.chip
     if m.is_station:
         data["buffer"] = dict(m.station.buffer)
         slots = [m.station.drone_in(i) for i in range(C.STATION_DRONE_SLOTS)]
@@ -342,6 +344,7 @@ def machine_from_dict(data: dict) -> Machine:
         machine.storage = dispenser_storage(data.get("storage", []))
         machine.burn = min(max(float(data.get("burn", 0.0)), 0.0), C.DISPENSER_CAPSULE_TIME)
         machine.sealed_once = bool(data.get("sealed_once", False))
+    machine.chip = bool(data.get("chip", False)) if machine.needs_chip else False
     if machine.is_logistic:
         # o que não pode (item desconhecido, a drill recebendo, o mesmo item dos dois lados) é ignorado
         machine.sends = {i for i in data.get("sends", []) if drones.can_send(machine, i)}

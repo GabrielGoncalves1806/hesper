@@ -35,7 +35,7 @@ import math
 from dataclasses import dataclass, field
 
 from game import config as C
-from game.inventory import Inventory
+from game.inventory import Inventory, Stack, max_stack
 
 LANDED, OUTBOUND, COLLECTING, CARRYING, DROPPING, RETURNING = (
     "landed", "outbound", "collecting", "carrying", "dropping", "returning")
@@ -215,14 +215,14 @@ def center(machine) -> tuple[float, float]:
 
 # ---------------------------------------------------------------- configuração (Envia / Recebe / Lote)
 def is_logistic(machine) -> bool:
-    """Baú, drill e derretedor têm inventário que os drones atendem."""
+    """Baú, drill, derretedor e dispersor têm inventário que os drones atendem (os três últimos só com chip)."""
     return machine.is_logistic
 
 
 def can_send(machine, item: str) -> bool:
-    """A drill só tem o minério dela pra enviar, o derretedor só a cápsula (o gelo da entrada é dele); o baú,
-    qualquer item logístico."""
-    if item not in C.LOGISTIC_ITEMS:
+    """A drill só envia o minério dela, o derretedor só a cápsula, o dispersor nada (v0.6 M2); o baú, qualquer
+    item logístico."""
+    if item not in C.LOGISTIC_ITEMS or machine.is_dispenser:
         return False
     if machine.is_melter:
         return item == "water_capsule"
@@ -230,8 +230,45 @@ def can_send(machine, item: str) -> bool:
 
 
 def can_receive(machine, item: str) -> bool:
-    """Drill e derretedor não recebem (só produzem: abastecer o derretedor de gelo é do v0.6)."""
-    return item in C.LOGISTIC_ITEMS and not machine.is_producer
+    """v0.6 M2: o derretedor recebe gelo (na entrada), o dispersor cápsula; a drill nada; o baú, qualquer item."""
+    if item not in C.LOGISTIC_ITEMS or machine.is_drill:
+        return False
+    if machine.is_melter:
+        return item == "ice"
+    if machine.is_dispenser:
+        return item == "water_capsule"
+    return True
+
+
+def receive_slot(machine, item: str) -> int | None:
+    """O slot fixo onde esse item entra (derretedor: entrada de gelo; dispersor: o da cápsula), ou None (qualquer)."""
+    if machine.is_melter and item == "ice":
+        return C.MELTER_ICE_SLOT
+    if machine.is_dispenser and item == "water_capsule":
+        return C.DISPENSER_CAPSULE_SLOT
+    return None
+
+
+def slot_room(storage, slot: int, item: str) -> int:
+    have = storage.slots[slot]
+    if have is None:
+        return max_stack(item)
+    return have.room if have.item == item else 0
+
+
+def deliver(machine, item: str, amount: int) -> int:
+    """Põe `amount` de `item` na máquina (no slot certo). Devolve quanto NÃO coube."""
+    slot = receive_slot(machine, item)
+    if slot is None:
+        return machine.storage.add(item, amount)
+    moved = min(amount, slot_room(machine.storage, slot, item))
+    if moved:
+        have = machine.storage.slots[slot]
+        if have is None:
+            machine.storage.slots[slot] = Stack(item, moved)
+        else:
+            have.count += moved
+    return amount - moved
 
 
 def toggle_send(machine, item: str) -> bool:
@@ -298,10 +335,14 @@ class Ledger:
         return max(0, source.storage.count(item) - self.taking.get((id(source), item), 0))
 
     def room(self, dest, item: str) -> int:
-        """Espaço livre pro item, como se o que já está vindo pra cá tivesse chegado."""
+        """Espaço livre pro item, como se o que já está vindo pra cá tivesse chegado (no slot dele, se tiver)."""
         if not can_receive(dest, item):
             return 0
         promised = self.incoming.get(id(dest))
+        slot = receive_slot(dest, item)
+        if slot is not None:
+            coming = sum(n for it, n in promised or () if it == item)
+            return max(0, slot_room(dest.storage, slot, item) - coming)
         if not promised:
             return dest.storage.space_for(item)
         trial = dest.storage.copy()
@@ -481,7 +522,7 @@ def update_drone(machine, drone: Drone, logistics, ledger: Ledger, dt: float, ev
             dest, item = drone.dest, drone.resource
             delivered = 0
             if _exists(dest, logistics) and item in dest.receives:
-                delivered = drone.cargo - dest.storage.add(item, drone.cargo)
+                delivered = drone.cargo - deliver(dest, item, drone.cargo)
                 drone.cargo -= delivered
             if delivered:
                 events.append(("drone_deliver", item, delivered, dest.anchor))

@@ -1793,6 +1793,8 @@ class Renderer:
                 small = self.surface("icon_lamp", art.lamp_icon)[0]
             elif item == "lamp_t2":
                 small = self.surface("icon_lamp_t2", art.lamp_strong_icon)[0]
+            elif item == "chip_slot_empty":     # v0.6 M2: a silhueta do slot de chip vazio (UI), não é item
+                small = self.surface("chip_slot_empty", art.chip_slot_empty)[0]
             elif item == "o2_tank":
                 small = self.surface("icon_o2_tank", art.o2_tank_icon)[0]
             elif item == "scanner":

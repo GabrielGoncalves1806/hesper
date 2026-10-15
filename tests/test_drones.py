@@ -36,7 +36,7 @@ def add_drill(game, dx: int, dy: int = 0, stored: int = 0, resource: str = "iron
               send: bool = True, batch: int = C.DRONE_BATCH_DEFAULT) -> Machine:
     """Drill a (dx, dy) tiles da estação, já com Envia = o minério dela (a não ser que send=False)."""
     d = Machine("drill", station[0] + dx, station[1] + dy, resource=resource, stored_init=stored,
-                sends={resource} if send else set(), batch=batch)
+                sends={resource} if send else set(), batch=batch, chip=True)
     game.machines.append(d)
     return d
 

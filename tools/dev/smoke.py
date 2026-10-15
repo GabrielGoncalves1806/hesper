@@ -224,6 +224,18 @@ def slot_pos(bot, inv, index) -> tuple[int, int]:
     return rect.centerx * 2, rect.centery * 2
 
 
+def put_chip_in_machine(bot, machine) -> None:
+    """v0.6 M2: com o painel da máquina aberto, pega um chip do inventário no cursor e clica no slot de chip dela."""
+    s = bot.state
+    give(s, chip=1)
+    slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "chip")
+    bot.click(slot_pos(bot, s.inventory, slot))
+    assert bot.app.held is not None and bot.app.held.item == "chip"
+    rect = next(r for r, m in bot.app.ui.chip_rects if m is machine)
+    bot.click((rect.centerx * 2, rect.centery * 2))
+    bot.frames(DT)
+
+
 def shift_click(bot, pos) -> None:
     """Clique esquerdo com o Shift segurado (nos painéis, manda direto pro outro lado)."""
     pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_LSHIFT, mod=pygame.KMOD_LSHIFT, unicode="", scancode=0))
@@ -1021,6 +1033,12 @@ def check_drill_feature(bot) -> None:
     assert app.mode == "drill" and app.open_drill is drill, app.mode
     bot.frames(DT)
     assert not any(v[0] == "recv" for _, v in app.ui.logistics_buttons)   # a drill não recebe
+    assert not app.ui.logistics_buttons and not drill.chip                # v0.6 M2: sem chip, nada de Envia/Lote
+    bot.shot("logistica_drill_sem_chip.png")
+    put_chip_in_machine(bot, drill)                                       # chip no cursor -> clique no slot dele
+    assert drill.chip and app.held is None and drill in s.drone_logistics()
+    bot.frames(DT)
+    assert not any(v[0] == "recv" for _, v in app.ui.logistics_buttons)
     bot.shot("logistica_drill_vazia.png")
     send = next(r for r, v in app.ui.logistics_buttons if v == ("send", drill.resource))
     bot.click((send.centerx * 2, send.centery * 2))
@@ -1072,7 +1090,11 @@ def check_melter(bot) -> None:
     bot.key(pygame.K_e)
     assert app.mode == "melter" and app.open_melter is melter
     bot.frames(DT)
-    assert [v for _, v in app.ui.logistics_buttons if v[0] == "recv"] == []     # ele só envia
+    assert app.ui.logistics_buttons == [] and not melter.chip                  # v0.6 M2: sem chip, só o texto
+    bot.shot("derretedor_sem_chip.png")
+    put_chip_in_machine(bot, melter)
+    assert melter.chip and melter.receives == {"ice"} and melter in s.drone_logistics()
+    assert [v for _, v in app.ui.logistics_buttons if v[0] == "recv"] == [("recv", "ice")]
     ice_slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "ice")
     iron_slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "iron")
     bot.click(slot_pos(bot, s.inventory, iron_slot))                  # ferro no cursor, solta na entrada: recusa
@@ -1223,6 +1245,12 @@ def check_base(bot) -> None:
     assert s.interaction() == ("dispenser", disp) and app.hint() == "[E] Abrir Dispersor de O₂", app.hint()
     bot.key(pygame.K_e)
     assert app.mode == "dispenser" and app.open_dispenser is disp
+    bot.frames(0.2)
+    assert app.ui.logistics_buttons == [] and not disp.chip                    # v0.6 M2: sem chip, só o texto
+    bot.shot("base_painel_dispersor_sem_chip.png")
+    put_chip_in_machine(bot, disp)
+    assert disp.chip and disp.receives == {"water_capsule"} and disp in s.drone_logistics()
+    assert {v[0] for _, v in app.ui.logistics_buttons} == {"recv"}              # só recebe: sem Envia e sem Lote
     bot.frames(0.2)
     bot.shot("base_painel_dispersor.png")
     iron_slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "iron")
@@ -1554,7 +1582,7 @@ def check_logistics(bot) -> None:
     far_vein = max((v for v in s.world.veins if not s.machine_at((v.tx, v.ty))),
                    key=lambda v: math.hypot(v.tx - 64, v.ty - 64))
     far = Machine("drill", far_vein.tx, far_vein.ty, resource=far_vein.resource,
-                  stored_init=C.DRILL_CAPACITY, sends={far_vein.resource}, batch=5)
+                  stored_init=C.DRILL_CAPACITY, sends={far_vein.resource}, batch=5, chip=True)
     s.machines.append(far)
     chest.receives.add(far.resource)
     chest.sends.discard(far.resource)
@@ -1609,6 +1637,24 @@ def check_logistics(bot) -> None:
         d.state, d.source, d.dest, d.cargo, d.resource = drones.LANDED, None, None, 0, None
         drones.undock(station.station, d.pad)
     s.machines.remove(far)
+    # v0.6 M2: dispersor com chip + baú que envia cápsula -> os drones enchem o slot do dispersor
+    src = Machine("chest", station.tx - 8, station.ty, sends={"water_capsule"})
+    src.storage.add("water_capsule", 4)
+    disp = Machine(C.DISPENSER, station.tx - 8, station.ty + 4)
+    s.machines += [src, disp]
+    for _ in range(int(30 / DT)):                          # sem chip: nada chega
+        s.o2 = C.O2_MAX
+        bot.frames(DT)
+    assert disp.capsules == 0 and src.storage.count("water_capsule") == 4
+    assert s.chip_install(disp)
+    for _ in range(int(60 / DT)):
+        s.o2 = C.O2_MAX
+        bot.frames(DT)
+        if disp.capsules > 0:
+            break
+    assert disp.capsules > 0, "o dispersor com chip devia receber a cápsula pelos drones"
+    s.machines.remove(src)
+    s.machines.remove(disp)
     if fresh is not None:
         s.machines.remove(fresh)
     bot.teleport(t192(96, 97))

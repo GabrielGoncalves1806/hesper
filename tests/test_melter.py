@@ -20,8 +20,10 @@ def game() -> GameState:
     return g
 
 
-def add_melter(game, kind="melter", tile=(64, 70), ice=0, capsules=0, sends=("water_capsule",)) -> Machine:
-    m = Machine(kind, *tile, sends=set(sends))
+def add_melter(game, kind="melter", tile=(64, 70), ice=0, capsules=0, sends=("water_capsule",), receives=(),
+               chip=True) -> Machine:
+    """Derretedor na rede (v0.6 M2: com chip, por padrão). `receives` ligado só quando o teste pedir."""
+    m = Machine(kind, *tile, sends=set(sends), receives=set(receives), chip=chip)
     if ice:
         m.storage.slots[C.MELTER_ICE_SLOT] = Stack("ice", ice)
     if capsules:
@@ -47,7 +49,7 @@ def test_item_is_registered_not_craftable_and_stacks():
 # ---------------------------------------------------------------- produção
 def test_melter_has_two_slots(game):
     m = Machine("melter", 5, 5)
-    assert len(m.storage) == C.MELTER_SLOTS and m.is_logistic and m.is_producer
+    assert len(m.storage) == C.MELTER_SLOTS and m.is_logistic and m.needs_chip and not m.in_network
     assert Machine("melter_t2", 5, 5).is_melter
 
 
@@ -126,16 +128,22 @@ def test_drone_takes_capsules_to_chest(game):
     assert chest.storage.count("water_capsule") == 3 and m.capsules == 0
 
 
-def test_drone_never_feeds_melter_and_ignores_unmarked(game):
+def test_drone_feeds_melter_only_with_ice_marked_and_ignores_unmarked(game):
+    """v0.6 M2: o derretedor passou a receber gelo. Sem `ice` no Recebe (ou sem chip) o drone não traz gelo, e o
+    Envia desligado continua sem deixar ninguém tirar a cápsula."""
     add_station(game)
-    m = add_melter(game, capsules=2, sends=())            # Envia desligado: ninguém tira
-    chest = Machine("chest", 66, 72, receives={"water_capsule"})
+    m = add_melter(game, capsules=2, sends=())            # Envia desligado: ninguém tira; Recebe desligado: ninguém traz
+    chest = Machine("chest", 66, 72, receives={"water_capsule"}, sends={"ice"})
+    chest.storage.add("ice", 20)
     game.machines.append(chest)
     run(game, 20)
-    assert m.capsules == 2 and chest.storage.is_empty()
-    assert not drones.can_receive(m, "ice") and not drones.can_receive(m, "water_capsule")
+    assert m.capsules == 2 and m.ice == 0 and chest.storage.count("ice") == 20
+    assert not drones.can_receive(m, "water_capsule") and drones.can_receive(m, "ice")
     assert drones.can_send(m, "water_capsule") and not drones.can_send(m, "ice")
-    assert not drones.toggle_receive(m, "ice")
+    assert not drones.toggle_receive(m, "water_capsule")
+    assert drones.toggle_receive(m, "ice")                # liga o Recebe: agora o gelo chega
+    run(game, 20)
+    assert m.ice > 0
 
 
 # ---------------------------------------------------------------- save
