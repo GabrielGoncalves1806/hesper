@@ -76,7 +76,7 @@ OBJECTIVES = [
     Objective("Minere silício", lambda s: s.mined_total["silicon"] >= 4, ("silicon", 4)),
     Objective("Construa um Gerador de O₂ [E com o construtor]", lambda s: crafted(s, "o2") >= 1),
     Objective("Construa o gerador perto da base", lambda s: placed_near_base(s, "o2")),
-    Objective("Construa um baú", lambda s: crafted(s, "chest") >= 1),
+    Objective("Construa um baú", lambda s: any(crafted(s, k) >= 1 for k in C.CHEST_KINDS)),
     # v0.4 Marco 3 (ordem decidida pelo dono): o calor só sai do aquecedor, que libera no Ti 500. Então o trio
     # Derretedor -> Ti 500 -> Aquecedor vem antes da cratera.
     Objective("Minere gelo e construa um Derretedor", lambda s: crafted(s, "melter") >= 1),

@@ -108,7 +108,7 @@ def test_tooltip_of_first_chest_row_stays_off_the_chest_name(ui):
     for name in _panels(ui, (480, 270)):
         if name == "bau":
             break
-    first = min((r for r, inv, _ in ui.slot_rects if len(inv) == 24), key=lambda r: (r.y, r.x))
+    first = min((r for r, inv, _ in ui.slot_rects if len(inv) == 16), key=lambda r: (r.y, r.x))
     title = next(h for h in ui.header_rects if h.bottom <= first.top and h.x < first.x < h.right)
     assert not ui.tooltip_rect(80, first.center).colliderect(title)
 

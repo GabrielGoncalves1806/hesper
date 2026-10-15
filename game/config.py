@@ -495,7 +495,7 @@ BACKPACK_SLOTS = 8              # a mochila (equipamento do traje) acrescenta +1
 HOTBAR_SLOTS = 8                # a hotbar É a primeira linha da mochila (slots 0 a 7), teclas 1–8
 STACK_RESOURCE = 50             # recursos empilham até 50 por slot
 STACK_MACHINE = 5               # máquinas fabricadas viram itens e empilham até 5
-CHEST_SLOTS = 24                # baú: 3 linhas de 8
+CHEST_SLOTS = 24                # só compatibilidade (= o Baú grande): o tamanho de cada baú sai de CHEST_SIZES[kind]
 CHEST_REACH = 48                # px entre os pés do player e a base do baú pra abrir com E
 CHEST_SPRITE_SIZE = (32, 40)    # chest.png / chest_open.png (bíblia §8, contrato de assets)
 CHEST_SPRITE_APPROVED = True    # chest/chest_open/icon_chest aprovados pelo dono (v0.2); False = desenho de fallback
@@ -504,9 +504,27 @@ CHEST_DEFAULT_NAME = "Baú"      # nome de todo baú novo (e de nome apagado)
 CHEST_NAME_MAX = 16             # máximo de caracteres no nome do baú
 CHEST_NAME_BLINK = 1.0          # segundos de um ciclo do cursor piscando na edição do nome
 
-# O baú é uma "máquina" sem índice: não soma Ti, não consome energia, só guarda itens.
-MACHINES["chest"] = MachineType("chest", "Baú", "guarda 24 pilhas", {"iron": 6}, None, 0, 0, "chest")
-MACHINE_ORDER.insert(MACHINE_ORDER.index("heater") + 1, "chest")   # no fabricador, junto das receitas do começo
+# v0.6 M1: três baús, todos a mesma "máquina" sem índice (não soma Ti, não consome energia, só guarda itens), de 1 tile.
+# O Baú grande é trancado por diagrama (lido na bancada T1, como a Bancada T2); os outros dois liberam de começo.
+CHEST_KINDS = ("chest_small", "chest", "chest_large")
+CHEST_SIZES = {"chest_small": 8, "chest": 16, "chest_large": 24}
+CHEST_SPRITES = {"chest_small": ("loot_crate", "loot_crate_empty"), "chest": ("chest", "chest_open"),
+                 "chest_large": ("container_sealed", "container_open")}          # (fechado, aberto)
+CHEST_SPRITE_SIZES = {"chest_small": (32, 32), "chest": CHEST_SPRITE_SIZE, "chest_large": (40, 44)}
+CHEST_ICONS = {"chest_small": "icon_chest_small", "chest": "icon_chest", "chest_large": "icon_chest_large"}
+CHEST_COST = {"chest_small": {"iron": 3}, "chest": {"iron": 6}, "chest_large": {"iron": 10, "silicon": 2}}
+CHEST_DIAGRAM_COST = {"iron": 10, "silicon": 4, "iron_ingot": 2}   # o item diagram_chest_large, no fabricador T1
+CHEST_DIAGRAM_UNLOCK_TI = 10_000
+CHEST_ROW = 8                   # slots por linha no painel de qualquer baú
+MACHINES["chest_small"] = MachineType("chest_small", "Baú simples", "guarda 8 pilhas", CHEST_COST["chest_small"],
+                                      None, 0, 0, "loot_crate")
+MACHINES["chest"] = MachineType("chest", "Baú", "guarda 16 pilhas", CHEST_COST["chest"], None, 0, 0, "chest")
+MACHINES["chest_large"] = MachineType("chest_large", "Baú grande", "guarda 24 pilhas", CHEST_COST["chest_large"],
+                                      None, 0, 0, "container_sealed")
+# no construtor, junto das receitas do começo
+MACHINE_ORDER.insert(MACHINE_ORDER.index("heater") + 1, "chest_small")
+MACHINE_ORDER.insert(MACHINE_ORDER.index("chest_small") + 1, "chest")
+MACHINE_ORDER.insert(MACHINE_ORDER.index("chest") + 1, "chest_large")
 
 # Sons novos: o Som ainda vai entregar os .wav. Enquanto o arquivo não existe, o play() fica em silêncio.
 VOLUME.update({"inv_move": 0.5, "chest_open": 0.7, "chest_close": 0.7, "inv_full": 0.5})
@@ -562,7 +580,7 @@ MACHINE_CATEGORY = {
     "o2_t2": "terraform", "melter_t2": "terraform", "heater_t2": "terraform",
     "solar": "energy",
     "drill": "automation", "drone_station": "automation", "drone": "automation",
-    "chest": "storage",
+    "chest_small": "storage", "chest": "storage", "chest_large": "storage",
     "lamp": "light",
 }
 CRAFT_VISIBLE_ROWS = 4          # fabricador (só itens): 4 linhas, o resto da coluna é a área "Diagramas" (v0.5 M1)
@@ -598,15 +616,15 @@ LOOT_CRATE_SIZE = (32, 32)
 # Diagramas (v0.5 M1, antes "projetos"): item "diagram_<id>" que fica no inventário como item normal. Ler na bancada
 # (GameState.read_diagram) gasta 1 e libera a receita pra sempre (state.blueprints). O save antigo tinha "bp_<id>".
 BLUEPRINTS = {"o2_tank": "Tanque de O₂", "scanner": "Scanner de navegação", "lamp_t2": "Luminária forte",
-              "workbench": "Bancada T2"}
+              "workbench": "Bancada T2", "chest_large": "Baú grande"}
 WRECK_DIAGRAMS = ("o2_tank", "scanner", "lamp_t2")   # os que dão nos destroços (o da Bancada T2 se fabrica no T1)
 DIAGRAM_ITEMS = {f"diagram_{k}": k for k in BLUEPRINTS}
 LEGACY_DIAGRAM_ITEMS = {f"bp_{k}": f"diagram_{k}" for k in BLUEPRINTS}   # item do save antigo -> item de hoje
 RECIPE_BLUEPRINT = {"o2_tank": "o2_tank", "scanner": "scanner", "lamp_t2": "lamp_t2",
-                    "workbench": "workbench"}   # receita -> diagrama
+                    "workbench": "workbench", "chest_large": "chest_large"}   # receita -> diagrama
 # Bancada que lê cada diagrama ("t1" = o fabricador da cápsula, "t2" = a Bancada T2 do Dev B2). Diagrama de máquina
 # (placeable) é lido em qualquer bancada (spec); os de item só na bancada daqui.
-DIAGRAM_BENCH = {"o2_tank": "t1", "scanner": "t1", "lamp_t2": "t1", "workbench": "t1"}
+DIAGRAM_BENCH = {"o2_tank": "t1", "scanner": "t1", "lamp_t2": "t1", "workbench": "t1", "chest_large": "t1"}
 BENCH_LABEL = {"t1": "FABRICADOR", "t2": "BANCADA T2"}
 
 # Luminária forte (diagrama): raio 7 tiles. A luminária comum tem 5.
@@ -967,6 +985,12 @@ MACHINES["diagram_workbench"] = MachineType("diagram_workbench", "Diagrama: Banc
                                             BENCH_DIAGRAM_COST, None, 0, 0, "icon_diagram", placeable=False)
 MACHINE_ORDER.append("diagram_workbench")
 MACHINE_CATEGORY["diagram_workbench"] = "tools"
+# v0.6 M1: o diagrama do Baú grande, também do fabricador T1 (aba Ferramentas); lido na bancada libera o baú no construtor.
+MACHINES["diagram_chest_large"] = MachineType("diagram_chest_large", "Diagrama: Baú grande", "libera o Baú grande",
+                                              CHEST_DIAGRAM_COST, None, 0, CHEST_DIAGRAM_UNLOCK_TI, "icon_diagram",
+                                              placeable=False)
+MACHINE_ORDER.append("diagram_chest_large")
+MACHINE_CATEGORY["diagram_chest_large"] = "tools"
 # Receitas da Bancada T2 (itens, ids de MACHINES). O fabricador T1 não mostra estas (fabricator.craft_kinds).
 T2_RECIPES: tuple[str, ...] = ("backpack",)   # a mochila (B3); a broca nv.2 entra no M4
 T2_TABS = (("t2", "Itens"),)    # a Bancada T2 tem uma aba só por enquanto

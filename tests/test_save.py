@@ -58,7 +58,7 @@ def rich_state() -> GameState:
     chest = state.chests[0]
     chest.storage.slots[0] = Stack("iron", 50)
     chest.storage.slots[5] = Stack("drone", 2)
-    chest.storage.slots[23] = Stack("ice", 3)
+    chest.storage.slots[15] = Stack("ice", 3)
     # hotbar com itens em slots escolhidos (a ordem dos slots tem que voltar igual)
     give(state, drone=2)                                  # fabricados e ainda no inventário
     state.inventory.move(state.inventory.slots.index(Stack("drone", 2)), 6)

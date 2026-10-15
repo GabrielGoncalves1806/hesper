@@ -1672,7 +1672,7 @@ class UI:
         if isinstance(side, Crate):
             side_h = 100
         elif side.is_chest:
-            side_h = 100 + LOGI_H + 14
+            side_h = self._chest_logi_y(side) + LOGI_H + 14
         elif side.is_drill or side.is_melter:
             side_h = 92 + LOGI_H - LOGI_ROW + 10
         elif side.is_dispenser:
@@ -1900,7 +1900,13 @@ class UI:
         self._grid(box, list(range(len(box))), cx + 8, y + SIDE_GRID_Y, item_icon, mouse)
         self._button(mid, ">>\nGUARDAR\nRECURSOS", "store_all", mouse, True, "primary")
         self._button(mid.move(0, 44), "<<\nPEGAR\nTUDO", "take_all", mouse, not box.is_empty(), "ghost")
-        self.draw_logistics(cx + 8, y + 100, GRID_W, chest, item_icon, mouse)
+        self.draw_logistics(cx + 8, y + self._chest_logi_y(chest), GRID_W, chest, item_icon, mouse)
+
+    @staticmethod
+    def _chest_logi_y(chest) -> int:
+        """y (relativo ao painel) da seção DRONES: logo abaixo da grade, que tem uma linha por 8 slots (3 linhas = 100)."""
+        rows = -(-len(chest.storage) // C.CHEST_ROW)
+        return 100 - (3 - rows) * SLOT_STEP
 
     def _drill_panel(self, drill, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str,
                      mid: pygame.Rect) -> None:
@@ -2126,7 +2132,7 @@ class UI:
                     for (kind, _), nxt in zip(parts, parts[1:])]
             w = sum(widths) + sum(gaps) + 8
             ax, ay = chest.anchor
-            top = ay - C.CHEST_SPRITE_SIZE[1] - 2                 # logo acima da tampa (mundo)
+            top = ay - C.CHEST_SPRITE_SIZES[chest.kind][1] - 2                 # logo acima da tampa (mundo)
             sx, sy = self.world_to_ui((ax, top), cam, zoom)
             x, y = int(sx - w / 2), int(sy - 15)
             while any(r.colliderect((x, y, w, 14)) for r in placed):   # baús vizinhos: empilha

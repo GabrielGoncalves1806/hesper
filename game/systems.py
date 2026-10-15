@@ -87,7 +87,7 @@ class Machine:
         if self.storage is None and self.is_drill:
             self.storage = Inventory(C.DRILL_SLOTS)
         elif self.storage is None and self.is_chest:
-            self.storage = Inventory(C.CHEST_SLOTS)
+            self.storage = Inventory(C.CHEST_SIZES[self.kind])
         elif self.storage is None and self.is_melter:
             self.storage = Inventory(C.MELTER_SLOTS)
         elif self.storage is None and self.is_dispenser:
@@ -119,7 +119,7 @@ class Machine:
 
     @property
     def is_chest(self) -> bool:
-        return self.kind == "chest"
+        return self.kind in C.CHEST_KINDS
 
     @property
     def is_bench(self) -> bool:
@@ -206,7 +206,7 @@ class Machine:
         if self.is_drill:
             w, h = C.DRILL_SPRITE_SIZE
         elif self.is_chest:
-            w, h = C.CHEST_SPRITE_SIZE
+            w, h = C.CHEST_SPRITE_SIZES[self.kind]
         elif self.is_station:
             w, h = C.DRONE_STATION_SPRITE_SIZE
         elif self.is_bench:
