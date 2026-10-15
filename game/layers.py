@@ -34,6 +34,7 @@ class Layer:
     rocks: RockRespawn | None = None      # reaparecimento das rochas pequenas (só na superfície)
     crates: dict = field(default_factory=dict)   # caixas de saque dos destroços: tile -> Crate (Marco 3)
     containers: dict = field(default_factory=dict)   # v0.5 M4: contêineres lacrados dos bolsões: tile -> Crate (a caixa deles)
+    removed_crates: set = field(default_factory=set)   # v0.6 M1: caixas de destroço desmontadas (tile); não voltam da seed
     explored: Explored | None = None      # o que o jogador já viu nesta camada (Marco 3, game/explore.py)
     # v0.4 Marco 2: tampa de gelo da cratera (só a superfície usa): 0 = tampada ... CRATER_ICE_STAGES (4) = vazia,
     # com a rampa exposta. No M2 fica sempre tampada (o derretimento pelo calor é do M3); F4 abre na hora (debug).

@@ -1275,6 +1275,14 @@ class GameState:
             self.events.append(("drone_dock", placed))
         return placed
 
+    def station_dock_slot(self, machine: Machine, slot: int) -> bool:
+        """Pousa 1 drone (que o player segura no cursor, já fora do inventário) na baia `slot`. False se a baia não está livre."""
+        if drones.dock(machine, machine.station, slot) is None:
+            return False
+        self.drones_docked += 1
+        self.events.append(("drone_dock", 1))
+        return True
+
     def station_undock(self, machine: Machine, slot: int) -> bool:
         """Tira o drone pousado do slot e devolve como item (com a carga que ele segurava, se tiver).
         Drone em viagem: não sai (o slot está travado). Não cabe no inventário: fica, com o aviso."""
@@ -1339,6 +1347,8 @@ class GameState:
 
     def can_dismantle(self, machine) -> bool:
         px, py = self.player.tile
+        if isinstance(machine, Crate):                  # v0.6 M1: caixa de saque de destroço (o contêiner não desmonta)
+            return self.crates.get(machine.tile) is machine and self.crate_distance(machine) <= C.CRATE_REACH
         if isinstance(machine, BaseBlock):              # v0.5 M2: bloco da base (a dupla: qualquer metade serve)
             return machine in self.base.blocks and min(
                 max(abs(x - px), abs(y - py)) for x, y in machine.tiles) <= C.PLACE_REACH
@@ -1366,6 +1376,8 @@ class GameState:
         O baú só desmonta vazio. A cápsula não é uma Machine, então nunca entra aqui."""
         if not self.can_dismantle(machine):
             return False
+        if isinstance(machine, Crate):
+            return self.dismantle_crate(machine)
         if isinstance(machine, BaseBlock):
             return self._dismantle_block(machine)
         if machine.is_chest and not machine.storage.is_empty():
@@ -1384,6 +1396,26 @@ class GameState:
             self.inventory.add(item, n)
         self.machines.remove(machine)
         self.events.append(("dismantle", machine.kind, (machine.tx, machine.ty)))
+        return True
+
+    def dismantle_crate(self, crate: Crate) -> bool:
+        """Desmonta a caixa de saque VAZIA: devolve C.CRATE_DISMANTLE_RETURN (tudo ou nada), o tile vira areia e a caixa
+        some de vez (`removed_crates` vai no save). Com item dentro avisa ("crate_not_empty")."""
+        if not self.can_dismantle(crate):
+            return False
+        if not crate.empty:
+            self.events.append(("crate_not_empty",))
+            return False
+        trial = self.inventory.copy()
+        if any(trial.add(item, n) for item, n in C.CRATE_DISMANTLE_RETURN.items()):
+            self.events.append(("inv_full",))
+            return False
+        for item, n in C.CRATE_DISMANTLE_RETURN.items():
+            self.inventory.add(item, n)
+        del self.crates[crate.tile]
+        self.active.removed_crates.add(crate.tile)
+        self.world.set(*crate.tile, C.SAND)
+        self.events.append(("dismantle", "crate", crate.tile))
         return True
 
     def _dismantle_block(self, block: BaseBlock) -> bool:
@@ -1414,7 +1446,11 @@ class GameState:
             self.dismantling, self.dismantle_t = None, 0.0
             if target is None:
                 return
-            if target.is_chest and not target.storage.is_empty():   # nem começa: já avisa
+            if isinstance(target, Crate) and not target.empty:      # nem começa: já avisa
+                self.events.append(("crate_not_empty",))
+                self._dismantle_lock = target
+                return
+            if getattr(target, "is_chest", False) and not target.storage.is_empty():   # nem começa: já avisa
                 self.events.append(("chest_not_empty",))
                 self._dismantle_lock = target
                 return
@@ -1691,6 +1727,13 @@ class GameState:
         self.blueprints.add(diagram)
         self.events.append(("diagram_read", diagram))
         return "ok"
+
+    def crate_put(self, crate: Crate, index: int, amount: int | None = None) -> int:
+        """Guarda na caixa aberta (destroço ou contêiner) o slot `index` do inventário: a pilha (`amount` None) ou N
+        unidades. Caixa fechada não aceita. Devolve quantas unidades entraram."""
+        if not crate.opened:
+            return 0
+        return self.inventory.transfer(index, crate.storage, amount)
 
     def crate_take(self, crate: Crate, index: int | None = None, amount: int | None = None) -> int:
         """Tira da caixa pro inventário: tudo (`index` None) ou o slot `index` (`amount` None = a pilha,

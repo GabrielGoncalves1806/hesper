@@ -904,16 +904,121 @@ class App:
             if self.open_chest is not None and ui.name_rect is not None and ui.name_rect.collidepoint(pos):
                 self.start_name_edit()
                 return
-        amount = None if button == 1 else 1
-        if self.open_crate is not None:                  # caixa de saque: só tirar
+        if button == 1 and self.shift_held():
+            self.panel_shift_click(pos)                  # Shift+clique: manda direto pro outro lado
+        else:
+            self.panel_cursor_click(button, pos)
+
+    # ---- painel com a pilha no cursor (v0.6 M1) ---------------------------------------
+    def panel_cursor_click(self, button: int, pos: tuple[float, float]) -> None:
+        """Clique esquerdo pega/solta/junta/troca a pilha do slot; direito pega metade (mão vazia) ou solta 1."""
+        ui, state = self.ui, self.state
+        if self.open_station is not None:
+            station = self.open_station
+            bay = next((slot for rect, slot in ui.bay_rects if rect.collidepoint(pos)), None)
+            if bay is not None:
+                self.station_bay_click(station, bay)
+                return
+            res = next((r for rect, r in ui.buffer_rects if rect.collidepoint(pos)), None)
+            if res is not None:                          # as sobras só tiram (direto pro inventário)
+                if self.held is not None:
+                    self.show_notice("As sobras só tiram")
+                elif state.station_take(station, res, None if button == 1 else 1):
+                    self.audio.play("inv_move")
+                return
+        hit = next(((inv, i) for rect, inv, i in ui.slot_rects if rect.collidepoint(pos)), None)
+        if hit is not None and self.panel_put(hit[0], hit[1], button):
+            self.audio.play("inv_move")
+
+    def station_bay_click(self, station, bay: int) -> None:
+        """Baia da estação: mão vazia tira o drone pousado (vai pro inventário); com drone na mão, põe 1 na baia livre."""
+        state = self.state
+        drone = station.station.drone_in(bay)
+        if self.held is None:
+            if drone is not None and drone.busy:
+                self.show_notice("Drone em voo: espere ele pousar")
+            elif drone is not None and state.station_undock(station, bay):
+                self.audio.play("inv_move")
+        elif self.held.item != "drone":
+            self.show_notice("Só drones vão na estação")
+        elif drone is not None:
+            self.show_notice("Drone em voo: espere ele pousar" if drone.busy else "Baia ocupada")
+        elif state.station_dock_slot(station, bay):
+            self.held.count -= 1
+            if self.held.count == 0:
+                self.held = None
+            self.audio.play("inv_move")
+
+    def panel_refusal(self, inv, index: int, item: str) -> str | None:
+        """Por que `item` não pode ser solto no slot `index` de `inv` (texto do aviso), ou None se pode."""
+        if inv is self.state.inventory:
+            return None
+        if self.open_drill is not None and inv is self.open_drill.storage:
+            return "A drill só produz: não guarda nada"
+        if self.open_melter is not None and inv is self.open_melter.storage:
+            return None if (index == C.MELTER_ICE_SLOT and item == "ice") else "O derretedor só aceita gelo"
+        if self.open_dispenser is not None and inv is self.open_dispenser.storage:
+            return None if item == "water_capsule" else "O Dispersor só aceita cápsula de água"
+        return None
+
+    def panel_put(self, inv, index: int, button: int) -> bool:
+        """Um clique no slot `index` de `inv` com a pilha do cursor (`self.held`). Devolve se algo mudou. A regra do
+        slot (drill só tira, derretedor só gelo na entrada...) e os efeitos de tirar (drill_collected, loot) moram aqui."""
+        state, held, slot = self.state, self.held, inv.slots[index]
+        right = button != 1
+        if held is None:
+            if slot is None:
+                return False
+            taken = inv.take_half(index) if right else inv.take(index)
+            self.held = taken
+            self._took_from_panel(inv, taken)
+            return True
+        refusal = self.panel_refusal(inv, index, held.item)
+        if refusal is None and inv is not state.inventory and self.open_melter is not None                 and inv is self.open_melter.storage and slot is not None and slot.item != held.item:
+            refusal = "O derretedor só aceita gelo"
+        if refusal is not None:
+            self.show_notice(refusal)
+            return False
+        if right:                                        # solta 1
+            if slot is not None and (slot.item != held.item or slot.room <= 0):
+                return False
+            inv.put(index, Stack(held.item, 1))
+            held.count -= 1
+            if held.count == 0:
+                self.held = None
+            return True
+        before = ((held.item, held.count), inv.to_data())
+        self.held = inv.put(index, held)                 # solta, junta ou troca
+        if self.held is slot and slot is not None:       # trocou: o que estava no slot saiu pro cursor
+            self._took_from_panel(inv, slot)
+        return before != (((self.held.item, self.held.count) if self.held else None), inv.to_data())
+
+    def _took_from_panel(self, inv, stack: Stack) -> None:
+        """Efeitos de tirar `stack` de um painel pro cursor: a drill conta como coletado, a caixa solta o evento loot."""
+        state = self.state
+        if self.open_drill is not None and inv is self.open_drill.storage:
+            state.drill_collected[stack.item] += stack.count
+            state.events.append(("drill_collect", stack.item, stack.count, self.open_drill.anchor))
+        elif self.open_crate is not None and inv is self.open_crate.storage and stack.item in C.RESOURCES:
+            state.events.append(("loot", stack.item, stack.count, self.open_crate.anchor))
+
+    def panel_shift_click(self, pos: tuple[float, float]) -> None:
+        """Shift+clique esquerdo: manda direto pro outro lado (o jeito de antes do cursor)."""
+        button = 1
+        ui, state = self.ui, self.state
+        amount = None
+        if self.open_crate is not None:                  # caixa de saque / contêiner: tira e guarda
             hit = next(((inv, i) for rect, inv, i in ui.slot_rects if rect.collidepoint(pos)), None)
             if hit is None or hit[0].slots[hit[1]] is None:
                 return
             if hit[0] is self.open_crate.storage:
-                if state.crate_take(self.open_crate, hit[1], amount):
-                    self.audio.play("inv_move")
+                moved = state.crate_take(self.open_crate, hit[1], amount)
             else:
-                self.show_notice("A caixa só deixa tirar")
+                moved = state.crate_put(self.open_crate, hit[1], amount)
+                if not moved:
+                    self.show_notice("Caixa cheia")
+            if moved:
+                self.audio.play("inv_move")
             return
         if self.open_station is not None:
             station = self.open_station
@@ -1182,12 +1287,13 @@ class App:
         return [chest] if chest is not None and chest.is_chest else []
 
     def stash_held(self) -> bool:
-        """Devolve a pilha da mão pro inventário (ou pro baú aberto). False se não coube tudo."""
+        """Devolve a pilha da mão pro inventário (ou pro baú / caixa / contêiner aberto). False se não coube tudo."""
         if self.held is None:
             return True
         left = self.state.inventory.add(self.held.item, self.held.count)
-        if left and self.open_chest is not None:
-            left = self.open_chest.storage.add(self.held.item, left)
+        box = self.open_chest or self.open_crate
+        if left and box is not None:
+            left = box.storage.add(self.held.item, left)
         self.held = Stack(self.held.item, left) if left else None
         return self.held is None
 
@@ -1427,7 +1533,7 @@ class App:
         mx = sum(MOVE_KEYS[k][0] for k in self.keys_down if k in MOVE_KEYS)
         my = sum(MOVE_KEYS[k][1] for k in self.keys_down if k in MOVE_KEYS)
         mine = self.mouse_tile() if self.mouse_held and not self.placing else None
-        dismantle = ((self.hovered_machine() or self.hovered_block())        # v0.6: só com o construtor na mão
+        dismantle = ((self.hovered_machine() or self.hovered_block() or self.hovered_crate())   # v0.6: só com o construtor na mão
                      if self.right_held and not self.placing and self.constructor_selected() else None)
         return Controls(max(-1, min(1, mx)), max(-1, min(1, my)), mine, dismantle=dismantle,
                         drill_in_hand=self.hand_drill_selected())
@@ -1520,7 +1626,7 @@ class App:
             _, _, tile = event
             self.renderer.spawn_chips(tile, "#9a9086", 14)       # poeirinha
             self.renderer.spawn_chips(tile, "#c8c0b4", 8)
-            if event[1] not in C.BASE_KINDS:
+            if event[1] not in C.BASE_KINDS and event[1] != "crate":
                 self.renderer.start_blink(tile, self.t)          # o holograma dela pisca e some (bloco da base não tem)
             # v0.5 M1: o dismantle_done (Som) entra no mesmo frame, sem cortar o charge; sem o arquivo, o place_low
             self.audio.play("dismantle_done" if self.audio.has("dismantle_done") else "place_low")
@@ -1595,6 +1701,8 @@ class App:
             self.show_notice("Inventário cheio")
         elif kind == "backpack_not_empty":
             self.show_notice("Esvazie a mochila primeiro")
+        elif kind == "crate_not_empty":
+            self.show_notice("Esvazie a caixa antes de desmontar")
         elif kind == "chest_not_empty":
             self.show_notice("Esvazie o baú antes de desmontar")
         elif kind == "craft":
@@ -1749,6 +1857,11 @@ class App:
     def hovered_machine(self):
         return self.state.machine_at_point(*self.mouse_world())
 
+    def hovered_crate(self):
+        """Caixa de saque de destroço debaixo do mouse (v0.6 M1: a única caixa que desmonta; contêiner não)."""
+        hover = self.state.interactable_at(*self.mouse_world())
+        return hover[1] if hover is not None and hover[0] == "crate" else None
+
     def hovered_block(self):
         """Bloco da base (chão, parede, porta) debaixo do mouse; a máquina em cima do chão tem prioridade (hovered_machine)."""
         return self.state.block_at_point(*self.mouse_world())
@@ -1876,6 +1989,9 @@ class App:
         wreck = state.world.wreck_at(*self.mouse_tile())
         if wreck is not None and hover is None:                         # corpo do destroço (não a caixa/terminal)
             return f"{wreck.name} · destroço" + (f" · {self.e_label(target)}" if target else "")
+        if target and target[0] == "crate" and target[1].empty and state.can_dismantle(target[1]):   # v0.6 M1
+            return self.e_label(target) + (f" · segure [{C.DISMANTLE_KEY}] desmontar" if held
+                                           else " · construtor na mão pra desmontar")
         if target:
             return self.e_label(target)
         if hover is not None and hover[0] == "crate":                   # caixa debaixo do mouse, longe
@@ -1957,7 +2073,7 @@ class App:
                 return self.crater_ice_hint()
             return "[E] Descer pela rampa" if self.state.active.has_base else "[E] Subir pela rampa"
         if kind == "crate":
-            return "[E] Caixa vazia" if obj.empty else "[E] Abrir caixa de saque"
+            return "[E] Abrir caixa" if obj.empty else "[E] Abrir caixa de saque"
         if kind == "wreck_log":
             return "[E] Ler terminal"
         if kind == "container":                       # v0.5 M4

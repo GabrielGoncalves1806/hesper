@@ -20,6 +20,7 @@ v9 e os anteriores não carregam):
           "machines": [...],        # máquinas da camada (baús, drills e estações com o conteúdo)
           "rocks": {"timer": 3.5},   # relógio do reaparecimento das rochas pequenas (só superfície)
           "crates": [[x, y, slots, aberta], ...],   # Marco 3: só as caixas de destroço que mudaram
+          "removed_crates": [[x, y], ...],          # v0.6 M1: caixas desmontadas (opcional; sem o campo, nenhuma)
           "explored": "eJzt...",    # Marco 3: tiles vistos (bitset, zlib, base64)
           "crater_ice": 0,          # v0.4 M2: tampa de gelo da cratera, 0 (tampada) a 4 (vazia); só superfície
           "base": [...]             # v9: blocos da base (chão, parede, portas), ver abaixo; ausente = sem base
@@ -190,6 +191,8 @@ def layers_to_dict(state: GameState) -> dict:
             data["rocks"] = layer.rocks.to_data()
         if layer.crates or layer.containers:
             data["crates"] = crates_to_list(state, layer)
+        if layer.removed_crates:                                 # v0.6 M1: caixa desmontada (campo novo, padrão = nenhuma)
+            data["removed_crates"] = sorted([x, y] for x, y in layer.removed_crates)
         if layer.has_base:                                       # v0.4 M2: a tampa de gelo da cratera (0..4)
             data["crater_ice"] = layer.crater_ice
         if layer.base.blocks:                                    # v9: blocos da base (a dupla é 1 objeto)
@@ -220,6 +223,12 @@ def layers_from_dict(state: GameState, data: dict) -> None:
             if crate is not None:
                 crate.storage = slots_from_data(slots, C.CRATE_SLOTS)
                 crate.opened = bool(opened)
+        for x, y in ldata.get("removed_crates", []):             # v0.6 M1: a caixa desmontada não volta da seed
+            tile = (int(x), int(y))
+            layer.crates.pop(tile, None)
+            layer.removed_crates.add(tile)
+            if layer.world.get(*tile) == C.LOOT_CRATE:
+                layer.world.set(*tile, C.SAND)
         world = layer.world
         layer.explored = Explored.from_data(world.width, world.height, ldata.get("explored"))
         layer.crater_ice = max(0, min(C.CRATER_ICE_STAGES, int(ldata.get("crater_ice", 0))))
