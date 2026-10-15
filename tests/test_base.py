@@ -604,7 +604,7 @@ def test_save_version_is_10_and_blocks_roundtrip(game, tmp_path):
     dd = BaseBlock(C.BASE_DOOR2, x0 - 1 - 3, y0, "v")
     game.base.add(dd)
     data = save.state_to_dict(game)
-    assert data["version"] == save.SAVE_VERSION == 10
+    assert data["version"] == save.SAVE_VERSION == 11
     entries = data["layers"]["surface"]["base"]
     double = [e for e in entries if e["kind"] == C.BASE_DOOR2]
     assert double == [{"kind": C.BASE_DOOR2, "tx": dd.tx, "ty": dd.ty, "orient": "v"}]    # um objeto só, com âncora e orientação

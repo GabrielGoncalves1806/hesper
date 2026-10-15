@@ -1295,10 +1295,17 @@ class App:
         }[state]
 
     def dispenser_labels(self) -> list:
-        """(Dispersor, estado) dos Dispersores da camada: o estado vai escrito em cima de cada um."""
-        factor = self.state.power.factor
-        return [(m, self.state.dispenser_state(m, factor)) for m in self.state.machines
-                if m.is_dispenser and m.build <= 0 and not m.submerged]
+        """(Dispersor, estado, hover): o de baixo do mouse mostra o estado escrito; os outros só aparecem parados por
+        problema (o selo "!"). Vedado sem hover não aparece. Pedido do dono, v0.6 M2."""
+        factor, hovered = self.state.power.factor, self.hovered_machine()
+        out = []
+        for m in self.state.machines:
+            if not m.is_dispenser or m.build > 0 or m.submerged:
+                continue
+            st = self.state.dispenser_state(m, factor)
+            if m is hovered or st != "sealed":
+                out.append((m, st, m is hovered))
+        return out
 
     def labeled_chests(self) -> list:
         """Baús que mostram o rótulo flutuante (↓recebe ↑envia Nome): só o que está debaixo do mouse."""

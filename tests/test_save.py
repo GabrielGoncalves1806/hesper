@@ -139,7 +139,7 @@ def test_loaded_game_keeps_running(tmp_path):
 def test_save_only_stores_what_changed(tmp_path):
     state = rich_state()
     data = save.state_to_dict(state)
-    assert data["version"] == save.SAVE_VERSION == 10
+    assert data["version"] == save.SAVE_VERSION == 11
     assert set(data) == {"version", "seed", "layer", "layers", "player", "inventory", "progress", "world"}
     assert set(data["layers"]) == {"surface"} and data["layer"] == "surface"
     assert len(data["layers"]["surface"]["changed_tiles"]) == 6   # 5 minérios + 1 cavado na marra
@@ -226,18 +226,19 @@ def test_missing_version_is_no_save(tmp_path):
 
 
 def test_migration_hook_runs(tmp_path, monkeypatch):
-    """Uma migração registrada leva um save antigo até a versão atual."""
+    """Uma migração registrada leva um save antigo até a versão atual (passando também pela migração real v10 -> v11)."""
     data = save.state_to_dict(rich_state())
+    data["version"] = 10
     data["progress"]["play_time"] = 1.0
 
-    def old_to_new(d):
+    def v11_to_v12(d):
         d["progress"]["play_time"] = 99.0
         return d
 
-    monkeypatch.setattr(save, "SAVE_VERSION", 11)
-    monkeypatch.setattr(save, "MIGRATIONS", {**save.MIGRATIONS, 10: old_to_new})
+    monkeypatch.setattr(save, "SAVE_VERSION", 12)
+    monkeypatch.setattr(save, "MIGRATIONS", {**save.MIGRATIONS, 11: v11_to_v12})
     migrated = save.migrate(data)
-    assert migrated["version"] == 11 and migrated["progress"]["play_time"] == 99.0
+    assert migrated["version"] == 12 and migrated["progress"]["play_time"] == 99.0
 
 
 def test_atomic_write_keeps_old_save_on_crash(tmp_path, monkeypatch):
@@ -328,7 +329,7 @@ def test_save_with_old_pickups_field_still_loads(tmp_path):
     surface["pickups"] = {"items": [["iron", 2, 3200.5, 3300.0], ["ice", 1, 100.0, 200.0]], "timer": 3.5}
     path = tmp_path / "slot1.json"
     path.write_text(json.dumps(data), encoding="utf-8")
-    assert data["version"] == save.SAVE_VERSION == 10
+    assert data["version"] == save.SAVE_VERSION == 11
     status, loaded = save.probe(path)
     assert status == "ok" and loaded.surface.rocks.timer == 0.0
     assert not hasattr(loaded.surface, "pickups")
@@ -461,7 +462,7 @@ def test_load_converts_bp_items_to_diagram_items():
 
 def test_v9_save_is_refused_as_old_and_backed_up(tmp_path, capsys):
     """v0.5 M3.1: a mesma seed gera outro mundo (256×256), então o v9 não carrega nem migra: aviso + backup."""
-    assert save.SAVE_VERSION == save.FIRST_VERSION == 10
+    assert save.SAVE_VERSION == 11 and save.FIRST_VERSION == 10
     data = save.state_to_dict(rich_state())
     data["version"] = 9
     path = tmp_path / "slot1.json"

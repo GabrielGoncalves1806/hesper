@@ -69,6 +69,34 @@ def main() -> None:
         state.chip_install(machine)
         shot(f"{label}_com_chip.png")
         app.set_mode("play")
+
+    # painel da Bancada T2 com o chip na lista
+    bench = Machine("workbench", 66, 70)
+    state.machines.append(bench)
+    state.inventory.add("silicon_wafer", 4)
+    app.set_mode("play")
+    app.open_bench, app.fab_bench = bench, "t2"
+    app.set_mode("fabricator")
+    app.fab_t2.select("chip")
+    shot("bancada_t2_chip.png")
+    app.set_mode("play")
+
+    # dispersor no mundo: "!" sem hover (parado) e rótulo com o mouse em cima
+    from game import viewport
+    disp.chip = True
+    p = state.player
+    p.x, p.y = (disp.tx + 0.5) * C.TILE, (disp.ty + 4) * C.TILE
+    frames()
+    assert state.dispenser_state(disp) != "sealed"
+    app.mouse = (10, 10)                                   # longe de tudo
+    app.mouse_window = app.mouse
+    shot("dispersor_mundo_exclamacao.png")
+    ax, ay = disp.anchor
+    pos = viewport.world_to_canvas((ax, ay - 8), app.cam, app.zoom)
+    app.mouse = (round(pos[0]), round(pos[1]))
+    app.mouse_window = app.mouse
+    assert app.hovered_machine() is disp
+    shot("dispersor_mundo_hover.png")
     pygame.quit()
 
 

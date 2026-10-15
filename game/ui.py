@@ -45,6 +45,7 @@ GRID_W = 8 * SLOT_STEP - SLOT_GAP                # 8 colunas = 174
 LOGI_ROW = 25                                    # passo entre as linhas Envia / Recebe
 LOGI_BTN = 22                                    # botão de drone: o ícone do material é o botão (22×22)
 LOGI_BATCH_H = 16                                # botões do lote: 1 / 5 / 10 / 20 (22×16)
+SHORT_NAME = {"water_capsule": "cápsula"}          # só no resumo do título da seção DRONES (C.RESOURCE_NAME fica como está)
 LOGI_COL = 52                                    # onde começam os botões (depois de "Recebe")
 DISP_LOGI_Y = 92                                 # onde a seção DRONES começa nos painéis da drill, derretedor e dispersor
 LOGI_H = 14 + 2 * LOGI_ROW + 2 + LOGI_BATCH_H    # altura da seção com Envia e Recebe (82)
@@ -2041,10 +2042,11 @@ class UI:
         off = (rect.w - 16) // 2
         self.native.append((icon, ((rect.x + off) * 2, (rect.y + off - (1 if active else 0)) * 2)))
 
-    def logistics_summary(self, machine) -> str:
-        """O que vai no título da seção DRONES: "envia ferro", "envia ferro · recebe gelo", "nada configurado"."""
+    def logistics_summary(self, machine, short: bool = False) -> str:
+        """O que vai no título da seção DRONES: "envia ferro", "envia ferro · recebe gelo", "nada configurado".
+        `short` usa os nomes curtos (cápsula em vez de cápsula de água) quando o título não cabe."""
         def names(chosen):
-            return [C.RESOURCE_NAME[i] for i in C.LOGISTIC_ITEMS if i in chosen]
+            return [(SHORT_NAME.get(i) if short else None) or C.RESOURCE_NAME[i] for i in C.LOGISTIC_ITEMS if i in chosen]
         parts = []
         if machine.sends:
             parts.append("envia " + ", ".join(names(machine.sends)))
@@ -2097,7 +2099,9 @@ class UI:
                 return
         summary = self.logistics_summary(machine)
         room = w - label_w - 4
-        if self.body.size("· " + summary)[0] > room:            # comprido: só as quantidades
+        if self.body.size("· " + summary)[0] > room:            # comprido: nomes curtos, depois só as quantidades
+            summary = self.logistics_summary(machine, short=True)
+        if self.body.size("· " + summary)[0] > room:
             parts = []
             if machine.sends:
                 parts.append(f"envia {len(machine.sends)}")
@@ -2193,15 +2197,20 @@ class UI:
                 px += pw + (gaps[n] if n < len(gaps) else 0)
 
     def draw_dispenser_labels(self, labels, cam: tuple[int, int], zoom: float) -> None:
-        """O estado de cada Dispersor escrito em cima dele ("Vedado ✓", "Vazamento", "Sem água", "Sem energia"): preso
-        no mundo (acompanha o zoom), letra de tamanho fixo, com a bolinha da cor do estado."""
-        for m, state in labels:
+        """O estado do Dispersor escrito em cima dele ("Vedado ✓", "Vazamento", "Sem água", "Sem energia") só com o mouse
+        em cima; sem hover e parado por problema, só um selo "!" na cor do estado. Preso no mundo (acompanha o zoom),
+        letra de tamanho fixo, com a bolinha da cor do estado."""
+        for m, state, hover in labels:
             text = C.STATE_LABEL[state]
-            w = self.body.size(text)[0] + 16
+            w = self.body.size(text)[0] + 16 if hover else 10
             ax, ay = m.anchor
             sx, sy = self.world_to_ui((ax, ay - C.DISPENSER_SPRITE_SIZE[1] - 2), cam, zoom)
             x, y = int(sx - w / 2), int(sy - 15)
             if not (-w < x < self.w and -14 < y < self.h):
+                continue
+            if not hover:
+                self.panel(x, y, w, 14, (15, 17, 25, 220))
+                self.tx("!", x + w / 2, y + 1, C.STATE_COLOR[state], self.body, "center")
                 continue
             self.panel(x, y, w, 14, (15, 17, 25, 220))
             self.native.append((self._dot_icon(C.STATE_COLOR[state]), ((x + 4) * 2, (y + 5) * 2)))

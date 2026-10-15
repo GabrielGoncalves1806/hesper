@@ -425,7 +425,7 @@ def test_backpack_is_a_t2_recipe_and_not_t1():
     give(s, iron=12, silicon=6)
     assert not s.craft("backpack")                                    # o T1 não fabrica a mochila
     assert s.craft("backpack", "t2", m) and s.inventory.count("backpack") == 1
-    assert "backpack" not in craft_kinds("suit") and t2_kinds("t2") == ["backpack"]
+    assert "backpack" not in craft_kinds("suit") and t2_kinds("t2") == ["backpack", "chip"]
 
 
 @pytest.mark.parametrize("bench", ["t1", "t2"])
