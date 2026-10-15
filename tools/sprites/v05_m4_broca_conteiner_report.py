@@ -78,8 +78,8 @@ def tabs():
     names = ["workbench", "constructor", None, "solar", "drill", "chest", "lamp", "o2_tank"]
     out = {}
     for tag, drill_src, base_src in (("hoje", SPR / "icon_drill.png", None),
-                                     ("A", ASSETS_DRILL, PEND / "icon_tab_base_1.png"),
-                                     ("B", ASSETS_DRILL, PEND / "icon_tab_base_2.png")):
+                                     ("A", ASSETS_DRILL, PEND / "icon_tab_base_cap_A.png"),
+                                     ("B", ASSETS_DRILL, PEND / "icon_tab_base_cap_B.png")):
         icons = []
         for n in names:
             if n is None:
@@ -109,6 +109,8 @@ def build():
         hotbar(c).save(REP / f"hotbar_{c}.png")
     for c in "XY":
         hotbar(c).save(REP / f"hotbar3_{c}.png")
+    for c in ("R1", "R2"):
+        hotbar(c).save(REP / f"hotbar4_{c}.png")
     # a broca da mão (quadro 0 do drill_side) pra comparação
     ds = load(SPR / "drill_side.png").crop((0, 0, 24, 16))
     ds.save(REP / "ref_drill_side_f0.png")
@@ -141,12 +143,18 @@ def build():
     tabsz = tabs()
     tabfig = "".join(f'<figure><img class="px" src="abas_{t}.png" width="{tabsz[t][0] * 4}" height="{tabsz[t][1] * 4}" alt=""><figcaption>{c}</figcaption></figure>'
                      for t, c in (("hoje", "hoje: drill antiga e a aba Base caindo no ícone do baú (fallback)"),
-                                  ("A", "porta entreaberta 1 (luz âmbar vazando)"), ("B", "porta entreaberta 2 (luz verde e poça de luz no chão)")))
+                                  ("A", "cápsula A (pernas abertas, pés laranja) · recomendada"), ("B", "cápsula B (compacta, janela com luz)")))
     hot2 = "".join(f'<figure><img class="px" src="hotbar3_{c}.png" width="{(7 * 22 + 2) * 4}" height="{24 * 4}" alt=""><figcaption>hotbar com a opção {c}</figcaption></figure>' for c in "XY")
     r3_hand = (ref_big2("drill_side.png", "drill_side.png, quadro 0 original (10×)") +
                gr("icon_hand_drill_X", 14, "X · corpo idêntico, broca encurtada · recomendada") +
                gr("icon_hand_drill_Y", 14, "Y · quadro todo reduzido (nearest)"))
     r3_base = "".join(gr(f"icon_tab_base_{c}", 14, t) for c, t in (("1", "1 · luz âmbar vazando pela fresta"), ("2", "2 · luz verde e poça de luz no chão")))
+    r4_ref = (f'<figure><div class="chk"><img src="ref_dono_broca.png" width="340" height="251" style="image-rendering:auto" alt=""></div><figcaption>referência do dono (broca)</figcaption></figure>')
+    r4_hand = r4_ref + gr("icon_hand_drill_R1", 14, "R1 · fiel (broca de 5 colunas) · recomendada") + gr("icon_hand_drill_R2", 14, "R2 · broca mais longa (6 colunas)")
+    hot4 = "".join(f'<figure><img class="px" src="hotbar4_{c}.png" width="{(7 * 22 + 2) * 4}" height="{24 * 4}" alt=""><figcaption>hotbar com {c}</figcaption></figure>' for c in ("R1", "R2"))
+    r4_cap = (f'<figure><div class="chk"><img src="ref_dono_capsula.png" width="250" height="244" style="image-rendering:auto" alt=""></div><figcaption>referência do dono (cápsula)</figcaption></figure>' +
+              ref("pod.png", 2, "pod.png do jogo (64×72, 2×)") +
+              gr("icon_tab_base_cap_A", 14, "A · cápsula, pernas abertas e pés laranja · recomendada") + gr("icon_tab_base_cap_B", 14, "B · compacta, janela com luz"))
     r3_drill = ref("icon_drill.png", 14, "icon_drill APROVADO (B, já em assets/)")
     icons = "".join(im(f"pendentes/icon_hand_drill_{c}.png", 14, f"{c}" + (" · recomendada" if c == "A" else ""))
                     for c in "ABC")
@@ -173,6 +181,21 @@ img{{image-rendering:pixelated}}figure{{margin:0}}figcaption{{font:12px monospac
 @keyframes op{{0%{{background-image:url(../../../assets/sprites/container_sealed.png)}}50%{{background-image:url(pendentes/container_open_A.png)}}}}
 </style></head><body><div class="wrap">
 <h1>v0.5 M4 · Ícones novos e contêiner aberto</h1>
+<div class="v2" style="border-left-color:#ff6a55"><b>Rodada 4 · v4.0 · o que mudou (referências do dono)</b><ul>
+<li><b>Broca de mão pela referência do dono</b> (corpo robusto creme, visor escuro com LED verde, faixa laranja, barriga cinza com detalhe amarelo, base escura com friso laranja, mandril escuro e broca cônica com anéis). Contorno <code>#1b1630</code>, cores do jogo. R1 fiel, R2 com a broca mais longa. Recomendo <b>R1</b>.</li>
+<li><b>Ícone da aba Base = a cápsula de pouso</b> da referência, coerente com o <code>pod.png</code> do jogo (corpo creme, porta escura com moldura laranja, faixas laranja laterais, antena com ponta laranja, 3 pernas). Nome final: <code>icon_tab_base.png</code>. Recomendo <b>A</b>. A fachada e a porta entreaberta ficam descartadas.</li></ul></div>
+
+<h2>Rodada 4 · Broca de mão (referência do dono)</h2>
+<div class="row">{r4_hand}</div>
+<div class="row">{hot4}</div>
+<p>R1 e R2 mantêm a proporção da referência (corpo quase tão alto quanto largo, broca saindo do meio). A referência tem sulcos mais finos que 16 px
+aguentam, então a broca vira anéis claros e escuros alternados. R2 ganha 1 coluna de broca no lugar de 1 do corpo.</p>
+
+<h2>Rodada 4 · Aba "Base" (cápsula)</h2>
+<div class="row">{r4_cap}</div>
+<div class="row" style="flex-direction:column;align-items:flex-start">{tabfig}</div>
+<p>Fileira de abas do construtor com o <code>icon_drill</code> B novo e a aba Base em cada opção (a última, marrom).</p>
+
 <div class="v2" style="border-left-color:#7fd67a"><b>Rodada 3 · v3.0 · o que mudou</b><ul>
 <li><b><code>icon_drill</code> B aprovado</b>: copiado pra <code>assets/sprites/icon_drill.png</code> (substitui o antigo) e registrado no contrato §6.</li>
 <li><b>Broca de mão: o sprite exato.</b> O quadro 0 do <code>drill_side.png</code> tem 19×10 px com contorno, então não cabe inteiro em 16 de largura.
@@ -189,11 +212,10 @@ do slot (40 px nativos, 32 de ícone + 4 de margem de cada lado). Recomendo <b>X
 <p>A <b>X</b> mantém a carcaça, o LED, a faixa laranja e o cabo com a base laranja idênticos ao quadro 0; só a broca fica mais curta
 (a espiral vira 2 listras). A Y mantém a broca comprida, mas amassa tudo na vertical e perde o cabo e o LED legíveis.</p>
 
-<h2>Rodada 3 · Aba "Base" com a porta entreaberta</h2>
-<div class="row">{r3_base}{r3_drill}</div>
-<div class="row" style="flex-direction:column;align-items:flex-start">{tabfig}</div>
+<h2>Rodada 3 · Aba "Base" com a porta entreaberta · DESCARTADA (e a fachada da rodada 2 também)</h2>
+<div class="row">{r3_base}</div>
 <p>Fileira de abas com o <code>icon_drill</code> novo e a aba Base em cada opção. Sugestão de nome: <code>icon_tab_base.png</code>.
-<b>Recomendo a 1</b> (fresta amarela quente: lê "luz de dentro" mais rápido que o verde).</p>
+Substituída pela cápsula da referência do dono (rodada 4).</p>
 
 <div class="v2" style="border-left-color:#f2c46d"><b>Rodada 2 · v2.0 · o que mudou (retorno do dono)</b><ul>
 <li><b>Contêiner aberto: a B foi aprovada</b> e já está em <code>assets/sprites/container_open.png</code> (40×44), com a linha no contrato da bíblia §6.</li>

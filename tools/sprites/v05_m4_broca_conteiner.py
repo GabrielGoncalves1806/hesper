@@ -463,6 +463,95 @@ def base_2():
     return grid2(BASE_2)
 
 
+# ------------------------------------------------------------------ rodada 4 · broca da referência do dono
+def hand_ref(bw, prof):
+    """Broca de perfil (referência do dono): corpo creme com topo claro, visor escuro com LED verde, faixa laranja,
+    barriga cinza com detalhe amarelo, base escura com friso laranja, mandril escuro e broca cônica com anéis.
+    bw = largura do corpo; prof = meia-altura da broca em cada coluna (da raiz pra ponta)."""
+    g = [["."] * 14 for _ in range(9)]
+    for y in range(9):
+        for x in range(bw):
+            ch = "."
+            if y == 0:
+                ch = "B" if x == 1 else "A" if 1 < x < bw - 1 else "."
+            elif y == 1:
+                ch = "B" if x == 0 else "D" if x == bw - 1 else "A"
+            elif y in (2, 3):
+                ch = "B" if x == 0 else "D" if x == bw - 1 else ("S" if x in (1, 2) else "A")
+                if y == 3 and x == 1:
+                    ch = "G"
+                if y == 3 and 2 < x < bw - 1:
+                    ch = "B"
+            elif y in (4, 5):
+                ch = "p" if (y == 4 and x == 0) else "o"
+            elif y == 6:
+                ch = "X" if x == 3 else ("M" if x == bw - 1 else "m")
+            elif y == 7:
+                ch = "N" if 0 < x < bw else "."
+            elif y == 8:
+                ch = "o" if 0 < x < bw - 1 else "."
+            g[y][x] = ch
+    for y in range(2, 7):                                  # mandril: 2 colunas escuras
+        g[y][bw], g[y][bw + 1] = "K", "k"
+    stripes = "wzxvxz"
+    for j, hh in enumerate(prof):
+        x = bw + 2 + j
+        for y in range(4 - hh, 4 + hh + 1):
+            g[y][x] = stripes[j % len(stripes)]
+    return "\n".join("".join(r) for r in g)
+
+
+def hand_r1():
+    return grid2(hand_ref(7, [2, 2, 1, 1, 0]), ox=1, oy=3)
+
+
+def hand_r2():
+    return grid2(hand_ref(6, [2, 2, 1, 1, 1, 0]), ox=1, oy=3)
+
+
+# ------------------------------------------------------------------ rodada 4 · aba Base = cápsula de pouso (pod.png, de frente)
+CAP_A = """
+......pp......
+......nn......
+....BAAAAD....
+..BAAAAAAAAD..
+.BAAAAAAAAAAD.
+.BAAonYnnoAAD.
+.BAAonnnnoAAD.
+.ooAonnnnoAoo.
+.BDDonnnnoDDD.
+..DDDmmmmDDD..
+..nn..mm..nn..
+.nn...mm...nn.
+nn....oo....nn
+oo..........oo
+"""
+CAP_B = """
+......pp......
+......nn......
+....BAAAAD....
+..BAAAAAAAAD..
+.BAAAAAAAAAAD.
+.BAAoSSSSoAAD.
+.BAAoSYLSoAAD.
+.ooAoSSSSoAoo.
+.BDDoSSSSoDDD.
+..DDDmmmmDDD..
+.nnn..mm..nnn.
+nn.oo.oo.oo.nn
+..............
+..............
+"""
+
+
+def cap_a():
+    return grid2(CAP_A)
+
+
+def cap_b():
+    return grid2(CAP_B)
+
+
 ITEMS = {
     "icon_hand_drill_A": (icon_a, (16, 16)),
     "icon_hand_drill_B": (icon_b, (16, 16)),
@@ -477,6 +566,10 @@ ITEMS = {
     "icon_tab_base_A": (base_a, (16, 16)),
     "icon_tab_base_B": (base_b, (16, 16)),
     "icon_hand_drill_X": (hand_x, (16, 16)),
+    "icon_tab_base_cap_A": (cap_a, (16, 16)),
+    "icon_tab_base_cap_B": (cap_b, (16, 16)),
+    "icon_hand_drill_R1": (hand_r1, (16, 16)),
+    "icon_hand_drill_R2": (hand_r2, (16, 16)),
     "icon_hand_drill_Y": (hand_y, (16, 16)),
     "icon_tab_base_1": (base_1, (16, 16)),
     "icon_tab_base_2": (base_2, (16, 16)),

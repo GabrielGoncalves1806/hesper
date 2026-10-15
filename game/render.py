@@ -1798,6 +1798,8 @@ class Renderer:
             elif item in C.BASE_KINDS or item == C.DISPENSER:   # v0.5 M2: icon_base_*.png e icon_o2_dispenser.png
                 name = C.BASE_ICON.get(item, "icon_o2_dispenser")
                 small = self.surface(name, lambda: self._placeholder(16, item))[0]
+            elif item == "tab_base":             # v0.5 M4: ícone da aba Base do construtor (cápsula A, aprovado); sem ele, o baú
+                small = self.surface("icon_tab_base", art.chest_icon)[0]
             elif item == "constructor":          # v0.5 M1: com o icon_constructor.png no assets, ele (sem mudar código)
                 small = self.surface("icon_constructor", art.constructor_icon)[0]
             elif item in C.DIAGRAM_ITEMS:       # v0.5 M1: icon_diagram.png (aprovado); sem ele, o chip de projeto de antes

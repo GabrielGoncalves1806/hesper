@@ -87,7 +87,7 @@ OK_BG, OK_BORDER = (127, 214, 122, 18), "#2f4a33"
 BAD_BG, BAD_BORDER = (255, 106, 85, 30), "#6a302b"
 # ícone de cada aba do fabricador (só a ativa mostra o nome: cabe nos 3 tamanhos)
 FAB_TAB_ICON = {"t2": "workbench", "tools": "constructor", "terraform": "o2", "energy": "solar", "automation": "drill", "storage": "chest", "light": "lamp",
-                "suit": "o2_tank"}
+                "suit": "o2_tank", "base": "tab_base"}
 
 
 # Dígitos 5×7 desenhados à mão, no traço fino da Pixelify. Em 11 px a fonte desenha o "5" igual
