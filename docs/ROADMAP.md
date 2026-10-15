@@ -62,7 +62,10 @@ Design em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-design.md`. No
 - [x] Marco 2: base respirável (chão, parede alta, porta solo e dupla, flood fill, Dispersor de O₂ gastando cápsula de água, derretedor com inventário, save v9)
   - Pendências: blocos não reagem quando o lago sobe por cima, hum não baixa com a porta aberta (porta redesenhada no M3; chuva dentro da base: o dono decidiu deixar)
 - [x] Marco 3: mundo (mapa 256 + F3 revela o mapa, faixa gelada maior com neve e veio de gelo, caverna orgânica, bolsão da criatura com gelo gigante, portão grande "Grande gelo" com névoa e mensagem, nevasca na faixa, porta e chão novos da base; fumarola garantida adiada)
-- [ ] Marco 4: expedição e loot (broca de mão nv.1/nv.2, contêiner lacrado, itens novos nos loots) + playtest
+- [x] Marco 4: expedição e loot (broca de mão como item, nasce com ela, só minera com ela selecionada; lingote, wafer, circuito, chip e fios nos loots, sem uso ainda; contêiner lacrado abre com E e dá o saque top, sprite aberto B e trava CC0 D3s; ícones novos da drill automática e da aba Base) + playtest do dono
+  - Decisões: sem broca nv.2 e sem furar BEDROCK neste update (a nv.2 vem pra rochas mais duras); contêiner abre de graça por enquanto (sem chip)
+
+**v0.5 fechado em 2026-10-14.** Ficou pra depois: ícone da broca de mão definitivo (hoje a Y provisória; as R1/R2 da referência do dono estão em `reports/design/v05_m4_broca_conteiner/`), update de melhoria de sprites, balanceamento do loot (números de partida em `C.LOOT_*`), uso das peças (v0.6).
 
 ## v0.6 · Logística e fundo
 Chip num slot deixa baú/máquina visível pros drones (menu "Drone"), drones abastecendo máquinas, elevador de carga, biomas de caverna. Ganchos: basalto → vulcão, espécie nativa nas cavernas. Fornalha (magmatita → lingote) e cobre → fios.
@@ -74,6 +77,7 @@ Inimigos, combate, primeiro boss, ruínas da Colônia Hesper.
 Fauna e flora surgindo com o Ti, farm, música.
 
 ## Futuro
+- **Update de melhoria de sprites** (pedido do dono no playtest do v0.5 M4): uma rodada só de arte, revisando os sprites que ficaram "ok mas não ótimos" (começa pela broca de mão).
 - Ideia do dono (2026-10-13): **variação de tom por mundo**, a seed puxando um leve deslocamento de cor em cada região (um basalto mais avermelhado num mundo, mais acinzentado em outro). Hoje a cor é só região × estágio.
 - Mapa: máquinas coladas viram uma "régua" de marcadores (agrupar por base ou desenhar menor quando estão juntas).
 - Testar em Windows/Linux (CI com testes + smoke nos 3 sistemas, varrer imagens criadas sem formato explícito) e empacotar executável.
