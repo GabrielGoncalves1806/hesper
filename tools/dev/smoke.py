@@ -3529,9 +3529,9 @@ def check_cave(bot) -> None:
     rx, ry = cave.crater
     pygame.draw.circle(full, (255, 255, 255), ((rx + 1.5) * 8, (ry + 1.5) * 8), 20, 2)
     pygame.image.save(full, str(OUT / "caverna_mapa.png"))
-    ores = sum(cave.get(x, y) in C.ORE_TILES for y in range(128) for x in range(128))
-    walls = sum(cave.is_wall(x, y) for y in range(128) for x in range(128))
-    print(f"  screenshot: reports/dev/caverna_mapa.png  (128×128 reduzido 4×; anéis: veios, verde = terminais, "
+    ores = sum(cave.get(x, y) in C.ORE_TILES for y in range(cave.height) for x in range(cave.width))
+    walls = sum(cave.is_wall(x, y) for y in range(cave.height) for x in range(cave.width))
+    print(f"  screenshot: reports/dev/caverna_mapa.png  ({cave.width}×{cave.height} tiles, reduzido 4×; anéis: veios, verde = terminais, "
           f"branco = rampa) · minério {ores} de {walls} paredes ({100 * ores / walls:.0f}%)")
 
     # 6) perf: caverna escura com 30 luminárias na tela, zoom 0,75, andando

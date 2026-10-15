@@ -3,15 +3,17 @@
 Python puro (nada de pygame), testado em tests/test_save.py.
 
 Ideia central: **salvar só o que muda**. O mapa de cada camada sai sempre igual da seed (o deserto do
-surface_gen.py, a caverna do world.py), então o save não guarda as casas da superfície: guarda a seed e só os
+surface_gen.py, a caverna do cave_gen.py), então o save não guarda as casas da superfície: guarda a seed e só os
 tiles que ficaram diferentes do mapa gerado (paredes mineradas, rochas pequenas quebradas ou reaparecidas). Pra carregar,
 gera o mapa da seed de novo e aplica as diferenças.
 
-Formato do arquivo (JSON, v10 · v0.5 M3.1, mapa 256; igual ao v9 do M2, mas a mesma seed gera outro mundo, então o
-v9 e os anteriores não carregam):
+Formato do arquivo (JSON, v12 · v0.6 Fundo M1; o formato é o do v10 (v0.5 M3.1, mapa 256; o v9 e anteriores não
+carregam). O v11 só ganhou o "chip" das máquinas; o v12 não muda o formato: a caverna nova (256×256, regiões)
+sai de outro gerador (game/cave_gen.py), então o v11 carrega SEM a caverna (layers.cave some e quem estava lá volta
+pra cratera da superfície):
 
     {
-      "version": 10,
+      "version": 12,
       "seed": 7,
       "layer": "surface",          # camada em que o player está
       "layers": {                  # uma entrada por camada que já existe ("surface", e "cave" no Marco 2)
@@ -87,7 +89,7 @@ from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 from game.wrecks import loot_for
 
-SAVE_VERSION = 11  # v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
+SAVE_VERSION = 12  # v12 (v0.6 Fundo M1): caverna nova 256×256 (a do v11 é descartada) · v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
 FIRST_VERSION = 10  # saves com versão menor que essa são de outra época do jogo: "save antigo" (v1–v9, não migram)
 # Numeração dos estágios dentro do "progress": 2 = v0.4 (Tempestade, Árido, Névoa, Verde). O 1 (os 3 estágios do
 # v0.3) só existia no save v6, que não carrega mais.
@@ -476,6 +478,8 @@ def state_from_dict(data: dict) -> GameState:
     if layer not in state.layers:
         raise ValueError(f"camada ativa sem dados: {layer!r}")
     state.layer = layer
+    if data.get("_back_to_crater"):               # v11 -> v12: estava na caverna antiga
+        state.player.x, state.player.y = layers.ramp_arrival(state.surface.world)
     state.ensure_hand_drill()     # v0.5 M4: save v10 do M3 não tem a broca de mão (mesma versão, checagem no load)
     state._apply_thaw()           # v0.4 M3: o que o calor muda no mapa sai dos índices (não vai no save)
     state.events.clear()          # ...e o load não solta aviso nem som
@@ -499,7 +503,18 @@ def _v10_to_v11(data: dict) -> dict:
     return data
 
 
-MIGRATIONS: dict = {10: _v10_to_v11}   # o v10 recomeçou do zero (v7–v9 viraram "save antigo")
+def _v11_to_v12(data: dict) -> dict:
+    """v0.6 Fundo M1: a caverna mudou inteira (256×256, regiões). Decisão do dono: a do save antigo some (tiles,
+    máquinas, baús, estações, o que tiver), sem compensação. Quem estava lá embaixo volta pra cratera da superfície
+    (o state_from_dict põe o player na chegada dela)."""
+    data.get("layers", {}).pop("cave", None)
+    if data.get("layer") == "cave":
+        data["layer"] = "surface"
+        data["_back_to_crater"] = True
+    return data
+
+
+MIGRATIONS: dict = {10: _v10_to_v11, 11: _v11_to_v12}   # o v10 recomeçou do zero (v7–v9 viraram "save antigo")
 
 
 class SaveError(Exception):

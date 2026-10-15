@@ -139,7 +139,7 @@ def test_loaded_game_keeps_running(tmp_path):
 def test_save_only_stores_what_changed(tmp_path):
     state = rich_state()
     data = save.state_to_dict(state)
-    assert data["version"] == save.SAVE_VERSION == 11
+    assert data["version"] == save.SAVE_VERSION == 12
     assert set(data) == {"version", "seed", "layer", "layers", "player", "inventory", "progress", "world"}
     assert set(data["layers"]) == {"surface"} and data["layer"] == "surface"
     assert len(data["layers"]["surface"]["changed_tiles"]) == 6   # 5 minérios + 1 cavado na marra
@@ -226,19 +226,19 @@ def test_missing_version_is_no_save(tmp_path):
 
 
 def test_migration_hook_runs(tmp_path, monkeypatch):
-    """Uma migração registrada leva um save antigo até a versão atual (passando também pela migração real v10 -> v11)."""
+    """Uma migração registrada leva um save antigo até a versão atual (passando também pelas migrações reais v10 -> v12)."""
     data = save.state_to_dict(rich_state())
     data["version"] = 10
     data["progress"]["play_time"] = 1.0
 
-    def v11_to_v12(d):
+    def v12_to_v13(d):
         d["progress"]["play_time"] = 99.0
         return d
 
-    monkeypatch.setattr(save, "SAVE_VERSION", 12)
-    monkeypatch.setattr(save, "MIGRATIONS", {**save.MIGRATIONS, 11: v11_to_v12})
+    monkeypatch.setattr(save, "SAVE_VERSION", 13)
+    monkeypatch.setattr(save, "MIGRATIONS", {**save.MIGRATIONS, 12: v12_to_v13})
     migrated = save.migrate(data)
-    assert migrated["version"] == 12 and migrated["progress"]["play_time"] == 99.0
+    assert migrated["version"] == 13 and migrated["progress"]["play_time"] == 99.0
 
 
 def test_atomic_write_keeps_old_save_on_crash(tmp_path, monkeypatch):
@@ -329,7 +329,7 @@ def test_save_with_old_pickups_field_still_loads(tmp_path):
     surface["pickups"] = {"items": [["iron", 2, 3200.5, 3300.0], ["ice", 1, 100.0, 200.0]], "timer": 3.5}
     path = tmp_path / "slot1.json"
     path.write_text(json.dumps(data), encoding="utf-8")
-    assert data["version"] == save.SAVE_VERSION == 11
+    assert data["version"] == save.SAVE_VERSION == 12
     status, loaded = save.probe(path)
     assert status == "ok" and loaded.surface.rocks.timer == 0.0
     assert not hasattr(loaded.surface, "pickups")
@@ -462,7 +462,7 @@ def test_load_converts_bp_items_to_diagram_items():
 
 def test_v9_save_is_refused_as_old_and_backed_up(tmp_path, capsys):
     """v0.5 M3.1: a mesma seed gera outro mundo (256×256), então o v9 não carrega nem migra: aviso + backup."""
-    assert save.SAVE_VERSION == 11 and save.FIRST_VERSION == 10
+    assert save.SAVE_VERSION == 12 and save.FIRST_VERSION == 10
     data = save.state_to_dict(rich_state())
     data["version"] = 9
     path = tmp_path / "slot1.json"
@@ -482,3 +482,38 @@ def test_surface_size_comes_from_the_config():
     from game.surface_gen import generate_surface
     w = generate_surface(3)
     assert (w.width, w.height) == (C.SURFACE_W, C.SURFACE_H) and C.BASE_TILE == (C.SURFACE_W // 2, C.SURFACE_H // 2)
+
+
+def test_v11_save_drops_the_old_cave_and_keeps_the_surface():
+    g = GameState(seed=7)
+    g.inventory.add("iron", 9)
+    g.enter_layer(layers.CAVE, layers.ramp_arrival(layers.make_cave(7).world))
+    data = save.state_to_dict(g)
+    data["version"] = 11
+    data["layers"]["cave"]["changed_tiles"] = [[3, 3, C.FLOOR]]
+    data["layers"]["cave"]["machines"] = [{"kind": "chest", "tx": 5, "ty": 5}]
+    data["layer"] = "cave"
+    loaded = save.state_from_dict(save.migrate(data))
+    assert "cave" not in loaded.layers
+    assert loaded.layer == layers.SURFACE
+    assert (loaded.player.x, loaded.player.y) == layers.ramp_arrival(loaded.layers[layers.SURFACE].world)
+    assert loaded.inventory.count("iron") >= 9
+
+
+def test_v11_save_on_the_surface_keeps_the_player_where_it_was():
+    g = GameState(seed=7)
+    g.player.x, g.player.y = 4000.0, 4100.0
+    data = save.state_to_dict(g)
+    data["version"] = 11
+    loaded = save.state_from_dict(save.migrate(data))
+    assert (loaded.player.x, loaded.player.y) == (4000.0, 4100.0)
+
+
+def test_v12_round_trip_keeps_the_new_cave():
+    g = GameState(seed=7)
+    g.enter_layer(layers.CAVE, layers.ramp_arrival(layers.make_cave(7).world))
+    tile = next((x, y) for y in range(256) for x in range(256) if g.world.get(x, y) == C.COPPER)
+    g.world.set(*tile, C.FLOOR)
+    loaded = save.state_from_dict(save.migrate(save.state_to_dict(g)))
+    assert loaded.layers[layers.CAVE].world.get(*tile) == C.FLOOR
+    assert save.SAVE_VERSION == 12
