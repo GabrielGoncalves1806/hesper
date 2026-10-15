@@ -500,9 +500,10 @@ class GameState:
         """Baús e drills da camada ativa."""
         return [m for m in self.machines if m.is_logistic]
 
-    def drone_logistics(self) -> list[Machine]:
-        """O que os drones atendem: o mapa inteiro, só da superfície (v0.3), e só quem está na rede (v0.6 M2: chip)."""
-        return [m for m in self.surface.machines if m.in_network]
+    def drone_logistics(self, key: str = SURFACE) -> list[Machine]:
+        """O que os drones da camada `key` atendem: a camada inteira (v0.6 M3: cada camada tem a sua rede, o drone
+        nunca troca de camada) e só quem está na rede (v0.6 M2: chip)."""
+        return [m for m in self.layers[key].machines if m.in_network]
 
     def dist_to_base(self) -> float:
         return math.hypot(self.player.x - C.BASE_CENTER[0], self.player.y - C.BASE_CENTER[1])
@@ -756,8 +757,6 @@ class GameState:
             return False
         if kind in C.BASE_KINDS:                # v0.5 M2: bloco da base (chão, parede, porta)
             return self._can_place_base(kind, tile, rotation)
-        if kind == "drone_station" and not self.active.has_base:   # drones só atendem a superfície (v0.3)
-            return False
         machine = Machine(kind, tx, ty)
         vein = self.world.vein_at(tx, ty)
         if kind == "drill":
@@ -1533,9 +1532,13 @@ class GameState:
                 for m in layer.machines:
                     if m.is_dispenser and not m.submerged and m.build <= 0:
                         self._burn_capsules(m, layer, work_dt)
-        stations = [m for m in self.surface.machines if m.is_station and m.build <= 0]
-        if stations:                         # drones (game/drones.py): só na superfície; no déficit voam mais devagar
-            self.drone_deliveries += drones.update_stations(stations, self.drone_logistics(), work_dt, self.events)
+        for key in layers.ORDER:             # drones (game/drones.py): uma rede por camada (v0.6 M3), as duas rodam
+            if key not in self.layers:       # sempre; um Ledger por chamada; no déficit voam mais devagar
+                continue
+            stations = [m for m in self.layers[key].machines if m.is_station and m.build <= 0]
+            if stations:
+                self.drone_deliveries += drones.update_stations(stations, self.drone_logistics(key), work_dt,
+                                                                self.events)
         self._check_stage()
         self._apply_thaw()                   # v0.4 M3: o calor muda o mapa (depois de somar os índices)
 

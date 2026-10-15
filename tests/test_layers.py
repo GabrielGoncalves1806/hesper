@@ -79,13 +79,14 @@ def test_faint_in_cave_wakes_up_on_the_surface():
     assert g.layer == SURFACE and (g.player.x, g.player.y) == C.SPAWN_POS
 
 
-def test_drones_only_serve_the_surface():
+def test_each_layer_has_its_own_drone_network():
     g = GameState(rng=random.Random(1))
     g.enter_layer(CAVE)
     cave_chest = Machine("chest", 60, 60)
     g.machines.append(cave_chest)
     g.enter_layer(SURFACE)
-    assert cave_chest not in g.drone_logistics() and g.base_chests() == []
+    assert cave_chest not in g.drone_logistics() and cave_chest in g.drone_logistics(CAVE)
+    assert g.base_chests() == []
 
 
 def test_small_rock_drops_2_to_4_and_becomes_sand():

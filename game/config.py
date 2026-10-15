@@ -542,7 +542,7 @@ DRONE_STATION_UNLOCK_TI = 10_000   # libera na Névoa, junto com a drill
 STATION_DRONE_SLOTS = 4         # slots de drone da estação (1 drone por slot = 1 drone ativo)
 DRONE_COST = {"iron": 6, "silicon": 4}   # o item drone (fabricador), libera junto com a estação
 CRAFT_BATCH = 5                 # Shift+Enter / Shift+clique no fabricador: fabrica até 5 de uma vez
-# Sem alcance: os drones atendem o mapa inteiro (logística estilo Planet Crafter, bíblia §8).
+# Sem alcance: os drones atendem a camada inteira (logística estilo Planet Crafter, bíblia §8).
 DRONE_SPEED = 6.0               # tiles por segundo (× fator da energia). Era 4: com o mapa todo, ~13 s numa viagem de 80 tiles
 DRONE_PICKUP_TIME = 0.8         # segundos parado em cima da origem "pegando"
 DRONE_DROP_TIME = 0.6           # segundos parado em cima do destino "soltando"

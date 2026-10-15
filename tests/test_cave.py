@@ -185,10 +185,10 @@ def test_lamp_goes_on_both_layers_and_counts():
     assert g.dismantle(g.machines[0]) and g.lamps_placed == 2          # só cresce
 
 
-def test_no_drone_station_in_the_cave_but_drill_works():
+def test_drone_station_can_be_placed_in_the_cave_and_on_the_surface():   # v0.6 M3: antes só na superfície
     g = cave_state()
     px, py = g.player.tile
-    assert not g.can_place("drone_station", (px + 2, py + 1))
+    assert any(g.can_place("drone_station", (px + dx, py + dy)) for dx in range(-4, 5) for dy in range(-4, 5))
     g.enter_layer(SURFACE)
     g.player.x, g.player.y = C.SPAWN_POS
     px, py = g.player.tile
