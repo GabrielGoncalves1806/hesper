@@ -765,6 +765,7 @@ CONTAINER_REACH = 48                # px dos pés até a base dele (igual à cai
 # Broca de mão: item não empilha (1), sem receita, nada do jogo a destrói. Sem ela selecionada na hotbar não se minera.
 # Os itens de loot só ocupam inventário (nenhum uso ainda): empilham até STACK_LOOT e vão pra baú.
 HAND_DRILL = "hand_drill"
+VOLUME.update({"chip_connect": 0.5, "chip_disconnect": 0.45})   # v0.6 M2: bip de encaixar/tirar o chip
 VOLUME["container_open"] = 0.9   # trava do contêiner abrindo (container_open.wav, D3s CC0, aprovado): curto e seco
 STACK_TOOL = 1
 STACK_LOOT = 20

@@ -62,7 +62,7 @@ def test_only_drones_go_in(game):
 
 def test_docked_drone_starts_working(game):
     st = station(game)
-    drill = Machine("drill", ST[0] + 8, ST[1], resource="iron", stored_init=10, sends={"iron"})
+    drill = Machine("drill", ST[0] + 8, ST[1], resource="iron", stored_init=10, sends={"iron"}, chip=True)
     chest = Machine("chest", ST[0] - 3, ST[1], receives={"iron"})
     game.machines += [drill, chest]
     game._update_machines(0.1)
@@ -77,7 +77,7 @@ def test_slot_locked_while_flying_and_free_after_landing(game):
     st = station(game)
     give(game, drone=1)
     game.station_dock(st, slot_of(game, "drone"))
-    drill = Machine("drill", ST[0] + 6, ST[1], resource="ice", stored_init=8, sends={"ice"}, batch=5)
+    drill = Machine("drill", ST[0] + 6, ST[1], resource="ice", stored_init=8, sends={"ice"}, batch=5, chip=True)
     chest = Machine("chest", ST[0] - 3, ST[1], receives={"ice"})
     game.machines += [drill, chest]
     game._update_machines(0.1)

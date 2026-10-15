@@ -33,7 +33,7 @@ def add_station(game, tile=ST, count: int = 1) -> Machine:
 
 def drill(game, tx, ty, stored=0, resource="iron", send=True, batch=C.DRONE_BATCH_DEFAULT) -> Machine:
     d = Machine("drill", tx, ty, resource=resource, stored_init=stored,
-                sends={resource} if send else set(), batch=batch)
+                sends={resource} if send else set(), batch=batch, chip=True)
     game.machines.append(d)
     return d
 

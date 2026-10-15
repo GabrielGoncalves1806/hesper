@@ -706,6 +706,14 @@ def reduced_icon(src: pygame.Surface) -> pygame.Surface:
     return s
 
 
+def chip_slot_empty() -> pygame.Surface:
+    """Silhueta 16×16 do chip no slot vazio do painel (fallback do `chip_slot_empty.png`): contorno cinza fraco."""
+    s = pygame.Surface((16, 16), pygame.SRCALPHA)
+    _r(s, (150, 150, 150, 90), 3, 3, 10, 10)
+    _r(s, (0, 0, 0, 0), 4, 4, 8, 8)
+    return s
+
+
 def chest_icon() -> pygame.Surface:
     """Ícone 16×16 do baú (pra hotbar e inventário)."""
     s = pygame.Surface((16, 16), pygame.SRCALPHA)

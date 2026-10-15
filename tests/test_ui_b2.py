@@ -92,7 +92,7 @@ def test_drone_toggles_hit_test(ui, size):
         assert pygame.Rect(0, 0, *size).contains(rect)
     assert all(a.collidelist([b for b in rects if b is not a]) < 0 for a in rects)
     assert ui.logistics_summary(chest) == "envia ferro"
-    drill = Machine("drill", 0, 0, resource="silicon")
+    drill = Machine("drill", 0, 0, resource="silicon", chip=True)       # v0.6 M2: sem chip a seção DRONES some
     ui.begin()
     ui.draw_inventory(s.inventory, drill, 0, icon, (0, 0))
     assert [v for _, v in ui.logistics_buttons if v[0] != "batch"] == [("send", "silicon")]

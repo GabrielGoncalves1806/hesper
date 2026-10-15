@@ -894,6 +894,10 @@ class App:
             if ui.name_rect is not None and ui.name_rect.collidepoint(pos):
                 return
             self.finish_name_edit(confirm=True)
+        if button == 1 and self.on_chip_click(pos):       # v0.6 M2: o slot do chip
+            return
+        if button == 3 and self.held is not None and self.held.item == "chip" and self.on_chip_click(pos):
+            return                                        # direito com chip na mão: encaixa 1, igual ao esquerdo
         if button == 1 and self.on_logistics_click(pos):  # seção DRONES do baú/drill (Envia/Recebe/Lote)
             return
         if button == 1:
@@ -908,6 +912,30 @@ class App:
             self.panel_shift_click(pos)                  # Shift+clique: manda direto pro outro lado
         else:
             self.panel_cursor_click(button, pos)
+
+    def on_chip_click(self, pos) -> bool:
+        """Clique no slot do chip. Mão vazia: o chip vai pro cursor (Shift: pro inventário). Chip na mão: encaixa 1.
+        Outro item na mão: recusa. Devolve se o clique era no slot. O som sai do evento chip_on/chip_off."""
+        machine = self.ui.chip_at(pos)
+        if machine is None:
+            return False
+        state, held = self.state, self.held
+        if held is None:
+            if not machine.chip:
+                return True
+            if self.shift_held():
+                state.chip_take(machine)
+            elif state.chip_remove(machine):
+                self.held = Stack("chip", 1)
+        elif held.item != "chip":
+            self.show_notice("Só chip vai nesse slot")
+        elif machine.chip:
+            self.show_notice("Essa máquina já tem chip")
+        elif state.chip_install(machine):
+            held.count -= 1
+            if held.count == 0:
+                self.held = None
+        return True
 
     # ---- painel com a pilha no cursor (v0.6 M1) ---------------------------------------
     def panel_cursor_click(self, button: int, pos: tuple[float, float]) -> None:
@@ -1039,6 +1067,13 @@ class App:
             return
         inv, i = hit
         item = inv.slots[i].item
+        target = self.open_drill or self.open_melter or self.open_dispenser
+        if item == "chip" and inv is state.inventory and target is not None:
+            if target.chip:                              # v0.6 M2: Shift+clique no chip encaixa na máquina aberta
+                self.show_notice("Essa máquina já tem chip")
+            else:
+                state.chip_install_from(target, i)       # o som sai do evento chip_on
+            return
         if self.open_drill is not None:                  # a drill só produz: só dá pra tirar dela
             drill = self.open_drill
             if inv is drill.storage:
@@ -1201,7 +1236,7 @@ class App:
         """Clique na seção DRONES do baú/drill aberto: liga/desliga Envia e Recebe, ou troca o lote.
         True se acertou um botão."""
         hit = self.ui.logistics_at(pos)
-        side = self.open_chest or self.open_drill or self.open_melter
+        side = self.open_chest or self.open_drill or self.open_melter or self.open_dispenser
         if hit is None or side is None:
             return False
         kind, value = hit
@@ -1627,6 +1662,9 @@ class App:
             self.audio.start_charge()
         elif kind == "dismantle_cancel":      # soltou antes (ou tirou o mouse): o charge sai em fadeout curto
             self.audio.stop_charge()
+        elif kind in ("chip_on", "chip_off"):    # v0.6 M2: encaixar/tirar o chip (nunca no load do save: ele não solta evento)
+            sfx = "chip_connect" if kind == "chip_on" else "chip_disconnect"
+            self.audio.play(sfx if self.audio.has(sfx) else "ui_click")
         elif kind in ("crate_open", "container_open"):   # caixa de saque / contêiner (vazia: mais baixo, dica do Som)
             sfx = "container_open" if kind == "container_open" and self.audio.has("container_open") else "crate_open"
             self.audio.play(sfx, gain=0.67 if event[1] else 1.0)

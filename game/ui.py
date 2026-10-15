@@ -46,6 +46,7 @@ LOGI_ROW = 25                                    # passo entre as linhas Envia /
 LOGI_BTN = 22                                    # botão de drone: o ícone do material é o botão (22×22)
 LOGI_BATCH_H = 16                                # botões do lote: 1 / 5 / 10 / 20 (22×16)
 LOGI_COL = 52                                    # onde começam os botões (depois de "Recebe")
+DISP_LOGI_Y = 92                                 # onde a seção DRONES começa nos painéis da drill, derretedor e dispersor
 LOGI_H = 14 + 2 * LOGI_ROW + 2 + LOGI_BATCH_H    # altura da seção com Envia e Recebe (82)
 # painéis lado a lado (baú, drill, estação, caixa): inventário | botões do meio | o outro lado
 HELP_CURSOR = [("CLIQUE", "pega/solta"), ("DIR", "metade/1"), ("SHIFT+CLIQUE", "manda direto"), ("ESC", "fecha")]
@@ -422,6 +423,7 @@ class UI:
         self.notice_y = self.hotbar_y - 58                            # altura do aviso nos painéis (draw_inventory)
         # seção DRONES do baú/drill: (retângulo, ("send"|"recv", item) ou ("batch", n))
         self.logistics_buttons: list[tuple[pygame.Rect, tuple[str, object]]] = []
+        self.chip_rects: list[tuple[pygame.Rect, object]] = []   # v0.6 M2: slot do chip de cada máquina aberta
         self.equip_rects: list[tuple[pygame.Rect, str]] = []      # slots de equipamento (Tab): (retângulo, tipo)
         self.inv_tab_rects: list[tuple[pygame.Rect, int]] = []    # abas do Tab: (retângulo, TAB_INVENTORY/CRAFT/LOGS)
         self.detail_item: str | None = None                        # item do painel de detalhe do Tab (último desenho)
@@ -1478,6 +1480,7 @@ class UI:
         self.buffer_rects.clear()
         self.panel_buttons.clear()
         self.logistics_buttons.clear()
+        self.chip_rects.clear()
         self.equip_rects.clear()
         self.inv_tab_rects.clear()
         self.log_rows.clear()
@@ -1677,10 +1680,8 @@ class UI:
             side_h = 100
         elif side.is_chest:
             side_h = self._chest_logi_y(side) + LOGI_H + 14
-        elif side.is_drill or side.is_melter:
-            side_h = 92 + LOGI_H - LOGI_ROW + 10
-        elif side.is_dispenser:
-            side_h = 98
+        elif side.is_drill or side.is_melter or side.is_dispenser:
+            side_h = 92 + self.logistics_height(side) + 10
         else:
             side_h = 164
         hb = C.HOTBAR_SLOTS
@@ -1969,6 +1970,7 @@ class UI:
         for k, line in enumerate(wrap(self.body, info or "", GRID_W)[:3]):
             self.tx(line, gx, y + SIDE_GRID_Y + 26 + k * 12, B_MUTED, self.body)
         self._button(mid, "<<\nPEGAR\nTUDO", "take_dispenser", mouse, not m.storage.is_empty(), "ghost")
+        self.draw_logistics(gx, y + DISP_LOGI_Y, GRID_W, m, item_icon, mouse)
 
     def _station_panel(self, machine, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str,
                        info: str | None, mid: pygame.Rect) -> None:
@@ -2050,19 +2052,49 @@ class UI:
             parts.append("recebe " + ", ".join(names(machine.receives)))
         return " · ".join(parts) if parts else "nada configurado"
 
+    def logistics_height(self, machine) -> int:
+        """Altura da seção DRONES dessa máquina: uma linha por Envia/Recebe que ela tem, mais o Lote se ela envia.
+        Quem precisa de chip nunca fica abaixo de 2 linhas, pro painel não pular de tamanho quando o chip entra."""
+        from game import drones
+        rows = sum(1 for allowed in (drones.can_send, drones.can_receive)
+                   if any(allowed(machine, i) for i in C.LOGISTIC_ITEMS))
+        batch = 2 + LOGI_BATCH_H if any(drones.can_send(machine, i) for i in C.LOGISTIC_ITEMS) else 0
+        height = 14 + rows * LOGI_ROW + batch
+        return max(height, 14 + 2 * LOGI_ROW) if machine.needs_chip else height
+
+    def chip_at(self, pos):
+        """A máquina cujo slot de chip está debaixo de `pos` (coordenadas da UI), ou None."""
+        return next((m for r, m in self.chip_rects if r.collidepoint(pos)), None)
+
+    def _chip_slot(self, x: int, y: int, machine, item_icon, mouse) -> None:
+        """O slot do chip (v0.6 M2) com a legenda CHIP embaixo. Vazio mostra a silhueta `chip_slot_empty`."""
+        rect = pygame.Rect(x, y, SLOT, SLOT)
+        self.draw_slot(x, y, None, item_icon, hover=rect.collidepoint(mouse))
+        icon = item_icon("chip" if machine.chip else "chip_slot_empty")
+        self.native.append((icon, ((x + 2) * 2, (y + 2) * 2)))
+        self.tx("CHIP", x + SLOT / 2, y + SLOT + 1, B_TEXT if machine.chip else B_DIM, align="center")
+        self.chip_rects.append((rect, machine))
+
     def draw_logistics(self, x: int, y: int, w: int, machine, item_icon, mouse) -> None:
         """Seção "DRONES" a partir de (x, y), largura `w`, uma coisa por linha:
 
-            DRONES · envia ferro
+            DRONES · envia ferro                 [chip]
             Envia    [fe][si][ge]
             Recebe   [fe][si][ge]
             Lote     [1][5][10][20]
 
-        A drill pula o Recebe (ela só produz) e só mostra o minério dela no Envia.
-        Guarda os botões em `logistics_buttons`."""
+        Só entra a linha que a máquina pode ter (a drill não tem Recebe, o dispersor não tem Envia nem Lote).
+        Quem precisa de chip mostra o slot dele à direita; sem chip, no lugar das linhas vai o texto
+        "Coloque um chip pra ligar aos drones". Guarda os botões em `logistics_buttons`."""
         from game import drones                      # (import local: a UI não depende da lógica no topo)
         self.fill(B_LINE, (x, y, w, 1))
         label_w = self._section_label("DRONES", x, y + 1, C.C_O2)
+        if machine.needs_chip:
+            self._chip_slot(x + w - SLOT, y + 14, machine, item_icon, mouse)
+            if not machine.chip:
+                for k, line in enumerate(wrap(self.body, "Coloque um chip pra ligar aos drones", w - SLOT - 8)[:2]):
+                    self.tx(line, x, y + 16 + k * 12, B_MUTED, self.body)
+                return
         summary = self.logistics_summary(machine)
         room = w - label_w - 4
         if self.body.size("· " + summary)[0] > room:            # comprido: só as quantidades
@@ -2077,16 +2109,20 @@ class UI:
         self.header_rects.append(pygame.Rect(x + label_w + 4, y + 2, sw, 10))
         col = x + LOGI_COL
         ry = y + 14
-        rows = [("Envia", "send", machine.sends, C.C_ACCENT, drones.can_send)]
-        if not machine.is_producer:
-            rows.append(("Recebe", "recv", machine.receives, C.C_O2, drones.can_receive))
+        rows = [("Envia", "send", machine.sends, C.C_ACCENT, drones.can_send),
+                ("Recebe", "recv", machine.receives, C.C_O2, drones.can_receive)]
         for label, kind, chosen, color, allowed in rows:
+            items = [i for i in C.LOGISTIC_ITEMS if allowed(machine, i)]
+            if not items:
+                continue
             self.tx(label, x, ry + 2, B_MUTED, self.body)
-            for k, item in enumerate(i for i in C.LOGISTIC_ITEMS if allowed(machine, i)):
+            for k, item in enumerate(items):
                 rect = pygame.Rect(col + k * (LOGI_BTN + 3), ry, LOGI_BTN, LOGI_BTN)
                 self._toggle(rect, item, item in chosen, color, item_icon, mouse)
                 self.logistics_buttons.append((rect, (kind, item)))
             ry += LOGI_ROW
+        if not any(drones.can_send(machine, i) for i in C.LOGISTIC_ITEMS):
+            return                                   # quem só recebe não tem Lote ("quanto o drone tira daqui")
         ry += 2
         self.tx("Lote", x, ry + 1, B_MUTED, self.body)
         for k, amount in enumerate(C.DRONE_BATCH_OPTIONS):
@@ -2617,6 +2653,7 @@ class UI:
         self.slot_rects.clear()
         self.equip_rects.clear()
         self.logistics_buttons.clear()
+        self.chip_rects.clear()
         self.bay_rects.clear()
         self.buffer_rects.clear()
         self.header_rects.clear()

@@ -61,6 +61,8 @@ class Machine:
     sends: set[str] = field(default_factory=set)      # Envia: itens que os drones podem tirar daqui
     receives: set[str] = field(default_factory=set)   # Recebe: itens que os drones trazem pra cá
     batch: int = C.DRONE_BATCH_DEFAULT                # Lote: quanto um drone tira daqui por viagem
+    # v0.6 M2: drill, derretedor e dispersor só entram na rede dos drones com chip (o baú não precisa)
+    chip: bool = False
     # só a estação de drones usa este: drones + sobras do buffer antigo (game/drones.py, criado no place)
     station: drones.Station | None = None
     stored_init: dataclasses.InitVar[int] = 0         # atalho pros testes: Machine("drill", ..., stored_init=8)
@@ -135,13 +137,18 @@ class Machine:
 
     @property
     def is_logistic(self) -> bool:
-        """Baú, drill e derretedor: têm inventário que os drones atendem (Envia/Recebe/Lote)."""
-        return self.is_chest or self.is_drill or self.is_melter
+        """Baú, drill, derretedor e dispersor (v0.6 M2): têm Envia/Recebe/Lote. Se o drone atende, é `in_network`."""
+        return self.is_chest or self.is_drill or self.is_melter or self.is_dispenser
 
     @property
-    def is_producer(self) -> bool:
-        """Drill e derretedor só produzem pros drones tirarem: não recebem nada deles."""
-        return self.is_drill or self.is_melter
+    def needs_chip(self) -> bool:
+        """v0.6 M2: drill, derretedor e dispersor só entram na rede dos drones com um chip no slot."""
+        return self.is_drill or self.is_melter or self.is_dispenser
+
+    @property
+    def in_network(self) -> bool:
+        """Os drones atendem: baú sempre, as outras logísticas só com chip."""
+        return self.is_logistic and (self.chip or not self.needs_chip)
 
     @property
     def capsules(self) -> int:
@@ -494,8 +501,8 @@ class GameState:
         return [m for m in self.machines if m.is_logistic]
 
     def drone_logistics(self) -> list[Machine]:
-        """Baús e drills que os drones atendem: o mapa inteiro, mas só da superfície (v0.3)."""
-        return [m for m in self.surface.machines if m.is_logistic]
+        """O que os drones atendem: o mapa inteiro, só da superfície (v0.3), e só quem está na rede (v0.6 M2: chip)."""
+        return [m for m in self.surface.machines if m.in_network]
 
     def dist_to_base(self) -> float:
         return math.hypot(self.player.x - C.BASE_CENTER[0], self.player.y - C.BASE_CENTER[1])
@@ -1178,6 +1185,42 @@ class GameState:
         self.events.append(("drill_collect", resource, moved, drill.anchor))
         return moved
 
+    def chip_install(self, machine: Machine) -> bool:
+        """Põe um chip na máquina (v0.6 M2): ela entra na rede e o Recebe dela liga (derretedor: gelo; dispersor:
+        cápsula). Não gasta item: quem chama tira o chip de onde ele estava. False se não leva chip ou já tem."""
+        if not machine.needs_chip or machine.chip:
+            return False
+        machine.chip = True
+        machine.receives |= {i for i in C.LOGISTIC_ITEMS if drones.can_receive(machine, i)}
+        self.events.append(("chip_on", machine.anchor))
+        return True
+
+    def chip_install_from(self, machine: Machine, index: int) -> bool:
+        """Shift+clique num chip do inventário com o painel da máquina aberto: gasta 1 do slot `index`."""
+        stack = self.inventory.slots[index]
+        if stack is None or stack.item != "chip" or not self.chip_install(machine):
+            return False
+        self.inventory.remove_from_slot(index, 1)
+        return True
+
+    def chip_remove(self, machine: Machine) -> bool:
+        """Desliga o chip (a máquina sai da rede na hora; os drones a caminho seguem as regras de origem/destino
+        que somem). Não devolve o item: quem chama decide pra onde ele vai."""
+        if not machine.chip:
+            return False
+        machine.chip = False
+        self.events.append(("chip_off", machine.anchor))
+        return True
+
+    def chip_take(self, machine: Machine) -> bool:
+        """Tira o chip pro inventário. Não cabendo, fica na máquina e avisa."""
+        if not machine.chip:
+            return False
+        if self.inventory.add("chip", 1):
+            self.events.append(("inv_full",))
+            return False
+        return self.chip_remove(machine)
+
     def melter_put(self, melter: Machine, index: int, amount: int | None = None) -> int:
         """Põe gelo do slot `index` do inventário do player na entrada do derretedor (`amount` None = a pilha
         inteira, 1 = clique direito). Só entra gelo, e só até a pilha encher. Devolve quanto entrou."""
@@ -1363,6 +1406,8 @@ class GameState:
         if machine.is_melter or machine.is_dispenser:          # v0.5 M2: o gelo e as cápsulas que ficaram dentro
             for item, n in machine.storage.counts().items():
                 out[item] = out.get(item, 0) + n
+        if machine.chip:                                       # v0.6 M2: o chip volta junto
+            out["chip"] = out.get("chip", 0) + 1
         if machine.is_station:
             for r, n in drones.recall_cargo(machine.station).items():
                 out[r] = out.get(r, 0) + n
