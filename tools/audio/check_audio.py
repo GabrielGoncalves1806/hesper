@@ -45,6 +45,8 @@ CONTRACT = {
     # v0.5 Marco 2 · base respirável (v13.1, aprovados pelo dono)
     "door_open": False, "door_close": False, "base_sealed": False, "dispenser_hum": True,
     "leak_alert": False, "dispenser_dry": False,
+    # v0.5 Marco 4 · contêiner lacrado (v14.3, D3s aprovada pelo dono)
+    "container_open": False,
 }
 # entregues em _pending/ até o dono aprovar
 PENDING: dict = {}

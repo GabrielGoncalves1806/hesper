@@ -104,6 +104,7 @@ Decisões do dono (2026-10-14). Cada item abaixo é **uma tarefa, soltas uma por
 - Contêiner lacrado abre com as peças raras (chip, circuito).
 - Itens novos espalhados nos loots dos destroços e dos gelos-portão.
 - Playtest e polimento.
+- **Decisões do dono (2026-10-14):** a broca nv.1 substitui a mineração e o player nasce com ela; **sem nv.2 e sem furar BEDROCK neste update**; os itens novos entram no loot sem uso; o contêiner abre com E, de graça, por enquanto. Detalhes na bíblia §13, "Marco 4".
 
 ## Riscos
 

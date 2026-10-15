@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · v0.5 M4 · Broca de mão e contêiner aberto</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;padding:0 16px}
+.wrap{max-width:1100px;margin:0 auto;padding:40px 0 80px}
+h1{font:600 36px/1.1 monospace;margin:8px 0 12px}h2{font:600 22px monospace;margin:40px 0 12px;color:var(--cyan)}
+code{color:var(--gold)}p,li{color:var(--muted)}b{color:var(--fg)}
+.v2{background:#241b17;border:1px solid var(--line);border-left:3px solid var(--cyan);padding:12px 18px}
+.chk{display:inline-block;padding:10px;background-color:#2a2f38;background-image:linear-gradient(45deg,#333944 25%,transparent 25%,transparent 75%,#333944 75%),linear-gradient(45deg,#333944 25%,transparent 25%,transparent 75%,#333944 75%);background-size:16px 16px;background-position:0 0,8px 8px}
+img{image-rendering:pixelated}figure{margin:0}figcaption{font:12px monospace;color:var(--muted);margin-top:6px}
+.row{display:flex;gap:28px;align-items:flex-end;flex-wrap:wrap}
+.px{border:1px solid var(--line)}
+.a-c{width:320px;height:352px;background-size:100% 100%;animation:op 2.4s steps(1) infinite}
+@keyframes op{0%{background-image:url(../../../assets/sprites/container_sealed.png)}50%{background-image:url(pendentes/container_open_A.png)}}
+</style></head><body><div class="wrap">
+<h1>v0.5 M4 · Ícones novos e contêiner aberto</h1>
+<div class="v2" style="border-left-color:#7fd67a"><b>Rodada 3 · v3.0 · o que mudou</b><ul>
+<li><b><code>icon_drill</code> B aprovado</b>: copiado pra <code>assets/sprites/icon_drill.png</code> (substitui o antigo) e registrado no contrato §6.</li>
+<li><b>Broca de mão: o sprite exato.</b> O quadro 0 do <code>drill_side.png</code> tem 19×10 px com contorno, então não cabe inteiro em 16 de largura.
+<b>X</b>: as 16 primeiras colunas do corpo pixel a pixel (carcaça, faixa, LED, cabo, mandril) e a ponta da broca encurtada em 3 colunas.
+<b>Y</b>: o quadro todo por nearest em 16×8 (perde a espiral e o contorno fica falhado, mas é "o desenho inteiro").
+<b>Z</b> (canvas maior que 16×16): <b>não dá sem mexer em código</b>. O <code>item_icon</code> (<code>game/render.py</code>) escala o PNG ×2 e o slot
+(<code>draw_slot</code>, <code>game/ui.py</code>) cola o resultado fixo em <code>(x*2+4, y*2+4)</code> sem centralizar; um ícone maior que 16×16 sai
+do slot (40 px nativos, 32 de ícone + 4 de margem de cada lado). Recomendo <b>X</b>.</li>
+<li><b>Aba Base com a porta entreaberta</b>: 2 opções, partindo da fachada A.</li></ul></div>
+
+<h2>Rodada 3 · Broca de mão (sprite exato)</h2>
+<div class="row"><figure><div class="chk"><img src="ref_drill_side_f0.png" width="240" height="160" alt=""></div><figcaption>drill_side.png, quadro 0 original (10×)</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_hand_drill_X.png" width="224" height="224" alt=""></div><figcaption>X · corpo idêntico, broca encurtada · recomendada</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_hand_drill_Y.png" width="224" height="224" alt=""></div><figcaption>Y · quadro todo reduzido (nearest)</figcaption></figure></div>
+<div class="row"><figure><img class="px" src="hotbar3_X.png" width="624" height="96" alt=""><figcaption>hotbar com a opção X</figcaption></figure><figure><img class="px" src="hotbar3_Y.png" width="624" height="96" alt=""><figcaption>hotbar com a opção Y</figcaption></figure></div>
+<p>A <b>X</b> mantém a carcaça, o LED, a faixa laranja e o cabo com a base laranja idênticos ao quadro 0; só a broca fica mais curta
+(a espiral vira 2 listras). A Y mantém a broca comprida, mas amassa tudo na vertical e perde o cabo e o LED legíveis.</p>
+
+<h2>Rodada 3 · Aba "Base" com a porta entreaberta</h2>
+<div class="row"><figure><div class="chk"><img src="pendentes/icon_tab_base_1.png" width="224" height="224" alt=""></div><figcaption>1 · luz âmbar vazando pela fresta</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_tab_base_2.png" width="224" height="224" alt=""></div><figcaption>2 · luz verde e poça de luz no chão</figcaption></figure><figure><div class="chk"><img src="../../../assets/sprites/icon_drill.png" width="224" height="224" alt=""></div><figcaption>icon_drill APROVADO (B, já em assets/)</figcaption></figure></div>
+<div class="row" style="flex-direction:column;align-items:flex-start"><figure><img class="px" src="abas_hoje.png" width="736" height="96" alt=""><figcaption>hoje: drill antiga e a aba Base caindo no ícone do baú (fallback)</figcaption></figure><figure><img class="px" src="abas_A.png" width="736" height="96" alt=""><figcaption>porta entreaberta 1 (luz âmbar vazando)</figcaption></figure><figure><img class="px" src="abas_B.png" width="736" height="96" alt=""><figcaption>porta entreaberta 2 (luz verde e poça de luz no chão)</figcaption></figure></div>
+<p>Fileira de abas com o <code>icon_drill</code> novo e a aba Base em cada opção. Sugestão de nome: <code>icon_tab_base.png</code>.
+<b>Recomendo a 1</b> (fresta amarela quente: lê "luz de dentro" mais rápido que o verde).</p>
+
+<div class="v2" style="border-left-color:#f2c46d"><b>Rodada 2 · v2.0 · o que mudou (retorno do dono)</b><ul>
+<li><b>Contêiner aberto: a B foi aprovada</b> e já está em <code>assets/sprites/container_open.png</code> (40×44), com a linha no contrato da bíblia §6.</li>
+<li><b>Ícone da broca de mão refeito</b> a partir do quadro 0 do <code>drill_side.png</code>: carcaça cinza, faixa laranja, LED ciano, cabo escuro com base laranja, broca prateada. 2 opções (reto e diagonal).</li>
+<li><b><code>icon_drill</code> (a drill automática) refeito</b> pra ler como a máquina do <code>machine_drill.png</code>: base com tela, mastro, braço, cabeça e feixe ciano entrando no chão com a brasa. 3 opções.</li>
+<li><b>Ícone novo da aba Base</b> do construtor (<code>icon_tab_base</code>), com as cores dos blocos da base. 2 opções.</li>
+<li>Os candidatos desta rodada ficam em <code>pendentes/</code> até o ok do dono.</li></ul></div>
+
+<h2>Rodada 2 · Broca de mão (item 2)</h2>
+<div class="row"><figure><div class="chk"><img src="ref_drill_side_f0.png" width="240" height="160" alt=""></div><figcaption>drill_side.png, quadro 0 (a que o player segura)</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_hand_drill_1.png" width="224" height="224" alt=""></div><figcaption>1 · reto · recomendado</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_hand_drill_2.png" width="224" height="224" alt=""></div><figcaption>2 · diagonal (girado 28°)</figcaption></figure></div>
+<p>Mantém a silhueta da broca da mão (carcaça, mandril escuro, broca cônica de aço, cabo com base laranja), reduzida pra 16×16
+com contorno <code>#1b1630</code>. O <b>1</b> é o reto, o mais fiel ao quadro 0; o <b>2</b> é o mesmo girado 28° (cabe na diagonal,
+mas o cabo vira escada e perde limpeza). <b>Recomendo o 1.</b></p>
+<div class="row"><figure><img class="px" src="hotbar3_X.png" width="624" height="96" alt=""><figcaption>hotbar com a opção X</figcaption></figure><figure><img class="px" src="hotbar3_Y.png" width="624" height="96" alt=""><figcaption>hotbar com a opção Y</figcaption></figure></div>
+
+<h2>Rodada 2 · Drill automática (item 3) · B APROVADA</h2>
+<div class="row"><figure><div class="chk"><img src="ref_machine_drill_f0.png" width="256" height="320" alt=""></div><figcaption>machine_drill.png, quadro 0 (a máquina no chão)</figcaption></figure><figure><div class="chk"><img src="../../../assets/sprites/icon_drill.png" width="224" height="224" alt=""></div><figcaption>icon_drill de hoje (o dono reprovou)</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_drill_A.png" width="224" height="224" alt=""></div><figcaption>A · a máquina inteira: base com tela, mastro, braço, cabeça e feixe no chão · recomendada</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_drill_B.png" width="224" height="224" alt=""></div><figcaption>B · como A, com LED verde e mais uma faixa no mastro</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_drill_C.png" width="224" height="224" alt=""></div><figcaption>C · só a cabeça e o feixe furando a placa do chão (mais simples)</figcaption></figure></div>
+<p>A fonte é a máquina do chão: pedestal bege com a tela escura, mastro com faixa laranja, braço, cabeça bege com o LED e o feixe
+ciano furando o chão (brasa laranja e faíscas). No <b>A</b> sobra espaço vazio entre o mastro e a cabeça pra silhueta não virar
+caixa. O <b>C</b> é o mais legível em 16 px, mas já não mostra a máquina inteira. <b>Recomendo A.</b></p>
+
+<h2>Rodada 2 · Aba "Base" do construtor (item 4)</h2>
+<div class="row"><figure><div class="chk"><img src="pendentes/icon_tab_base_A.png" width="224" height="224" alt=""></div><figcaption>A · fachada: parede com faixa laranja, porta com luz e chão · recomendada</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_tab_base_B.png" width="224" height="224" alt=""></div><figcaption>B · módulo da base em corte, com a porta e o chão</figcaption></figure><figure><div class="chk"><img src="../../../assets/sprites/icon_base_wall.png" width="224" height="224" alt=""></div><figcaption>icon_base_wall.png</figcaption></figure><figure><div class="chk"><img src="../../../assets/sprites/icon_base_door.png" width="224" height="224" alt=""></div><figcaption>icon_base_door.png</figcaption></figure><figure><div class="chk"><img src="../../../assets/sprites/icon_base_floor.png" width="224" height="224" alt=""></div><figcaption>icon_base_floor.png</figcaption></figure></div>
+<p>Os 3 últimos são os ícones de item da base (parede, porta, chão), pra comparar: o da aba é bem diferente deles (um é o
+conjunto montado, os outros são peças soltas). <b>Recomendo A</b> (parede + porta + chão numa fachada só, lê "construir base").</p>
+<div class="row" style="flex-direction:column;align-items:flex-start"><figure><img class="px" src="abas_hoje.png" width="736" height="96" alt=""><figcaption>hoje: drill antiga e a aba Base caindo no ícone do baú (fallback)</figcaption></figure><figure><img class="px" src="abas_A.png" width="736" height="96" alt=""><figcaption>porta entreaberta 1 (luz âmbar vazando)</figcaption></figure><figure><img class="px" src="abas_B.png" width="736" height="96" alt=""><figcaption>porta entreaberta 2 (luz verde e poça de luz no chão)</figcaption></figure></div>
+<p>Fileira de abas do fabricador na ordem de <code>FAB_TAB_ICON</code> (<code>game/ui.py</code>) com a aba Base no fim (a última, marrom).
+Nome sugerido: <code>icon_tab_base.png</code> (a candidata escolhida renomeada).</p>
+
+<h2>Rodada 1 · Contêiner aberto (B aprovado) e broca de mão (substituída pela rodada 2)</h2>
+<div class="v2"><b>v1.0 · o que mudou (proposta, espera o ok do dono)</b><ul>
+<li><b>Ícone da broca de mão nv.1</b> (<code>icon_hand_drill</code>, 16×16): a mesma pistola do <code>drill_side.png</code> que o
+player segura (carcaça cinza-metal, faixa laranja, LED ciano, cabo escuro, mandril e broca cônica de aço), de perfil, bocal pra
+direita, contorno <code>#1b1630</code>. Não confunde com o <code>icon_drill</code> (a drill automática é uma máquina branca com
+pé e broca pra baixo).</li>
+<li><b>Contêiner aberto</b> (<code>container_open</code>, 40×44): o mesmo modelo r3d v1.1 do <code>container_sealed</code>
+(mesma caixa, pivô e pé), com a tampa girada pra trás na dobradiça, o miolo escuro e vazio, o trinco levantado, as duas
+cintas de aço cortadas (só o coto) e o selo dourado partido.</li>
+<li><b>B aprovada</b> e promovida a <code>container_open.png</code>. O resto da rodada 1 (broca A/B/C) foi substituído pela rodada 2.</li></ul></div>
+
+<h2>Ícone da broca de mão · 3 candidatas</h2>
+<div class="row"><figure><div class="chk"><img src="pendentes/icon_hand_drill_A.png" width="224" height="224" alt=""></div><figcaption>A · recomendada</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_hand_drill_B.png" width="224" height="224" alt=""></div><figcaption>B</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_hand_drill_C.png" width="224" height="224" alt=""></div><figcaption>C</figcaption></figure>
+<figure><div class="chk"><img src="../../../assets/sprites/icon_drill.png" width="224" height="224" alt=""></div><figcaption>icon_drill (a drill AUTOMÁTICA, pra comparar)</figcaption></figure>
+<figure><div class="chk"><img src="ref_drill_side_f0.png" width="240" height="160" alt=""></div><figcaption>drill_side.png, quadro 0 (a que o player segura)</figcaption></figure></div>
+<p><b>A</b> é a fiel à da mão (carcaça mais comprida, cabo fino, bit cônico). <b>B</b> é mais robusta, com a bateria laranja
+grande no cabo: lê melhor como "equipamento", mas se afasta um pouco da broca da mão. <b>C</b> é compacta, com o bit mais
+longo e a espiral mais marcada. <b>Recomendo A</b>: é a que mais lembra a broca na mão do player e continua legível em 16 px.</p>
+
+<h2>Na hotbar, com os outros ícones</h2>
+<div class="row"><figure><img class="px" src="hotbar_A.png" width="624" height="96" alt=""><figcaption>hotbar com a candidata A</figcaption></figure><figure><img class="px" src="hotbar_B.png" width="624" height="96" alt=""><figcaption>hotbar com a candidata B</figcaption></figure><figure><img class="px" src="hotbar_C.png" width="624" height="96" alt=""><figcaption>hotbar com a candidata C</figcaption></figure></div>
+<p>Slots do <code>ui_slot.png</code> (20×20), ícones 16×16 com 2 px de margem, ampliado 4×. O slot 1 está selecionado.</p>
+
+<h2>Contêiner aberto · 2 candidatas</h2>
+<div class="row"><figure><div class="chk"><img src="../../../assets/sprites/container_sealed.png" width="320" height="352" alt=""></div><figcaption>fechado (aprovado, hoje)</figcaption></figure><figure><div class="chk"><img src="pendentes/container_open_A.png" width="320" height="352" alt=""></div><figcaption>A · tampa toda aberta</figcaption></figure><figure><div class="chk"><img src="pendentes/container_open_B.png" width="320" height="352" alt=""></div><figcaption>B · tampa meio aberta (forçada) · APROVADA</figcaption></figure></div>
+<p><b>A</b>: tampa toda em pé. <b>B</b> (aprovada): tampa meio aberta, com cara de "forçada".</p>
+
+<h2>No chão do jogo</h2>
+<div class="row"><figure><img class="px" src="cena_conteiner.png" width="864" height="288" alt=""><figcaption>chão do estágio Morto · fechado, A, B · pé no centro de baixo do tile (mesmo pivô do fechado), 3×</figcaption></figure>
+<figure><div class="chk"><div class="a-c"></div></div><figcaption>fechado → aberto A (o que o E faz)</figcaption></figure></div>
+
+<h2>Pro Dev integrar</h2>
+<ul>
+<li><code>icon_hand_drill.png</code>: 16×16, mesmo uso dos outros <code>icon_*</code> (hotbar e inventário). Item <code>hand_drill</code>.</li>
+<li><code>container_open.png</code>: 40×44, <b>mesma âncora do <code>container_sealed.png</code></b> (pé no centro de baixo do
+tile, a mesma conta de offset); só troca a textura do tile <code>C.CONTAINER</code> quando o contêiner já foi aberto.
+A silhueta ocupa a mesma caixa; a tampa em pé sobe até a linha 1 do quadro (a do fechado sobe até a linha ~8).</li>
+<li>Alpha só 0/255, sem sombra no PNG.</li></ul>
+<h2>Gerado por</h2><p><code>python3 tools/sprites/v05_m4_broca_conteiner.py</code> (determinístico).</p>
+</div></body></html>

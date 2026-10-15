@@ -2587,6 +2587,24 @@ SOUNDS.update({
 })
 
 
+# v0.5 Marco 4 (v14.3): container_open = a candidata D3s, aprovada pelo dono ("a mais seca").
+# Gravação CC0 limpa (rubberduck, "80 CC0 RPG SFX", lock_03), sem camadas e sem reverb.
+def sfx_container_open(rng):
+    import shutil
+    import subprocess
+    p = VENDOR_ROOT / "oga_rpg80" / "Audio" / "lock_03.ogg"
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(p), "-ac", "1", "-ar", str(SR),
+                          "-f", "s16le", "-"], capture_output=True, check=True).stdout
+    x = (np.frombuffer(raw, "<i2").astype(float) / 32768)[: ns(0.34)].copy()
+    x = filt(x, 70, 6500, 2)
+    f = ns(0.04)
+    x[-f:] *= np.linspace(1, 0, f) ** 2
+    return x
+
+
+SOUNDS["container_open"] = (sfx_container_open, False, -19.0, "v05m4:container_open_D3s")
+
+
 def v11_ready() -> str | None:
     """None se dá pra gerar a v11; senão, o motivo."""
     import importlib.util

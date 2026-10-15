@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Som · v0.5 M4 Contêiner lacrado (proposta)</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;margin:0;padding:16px}
+.wrap{max-width:1000px;margin:0 auto;padding-block:36px 70px}
+h1{font-size:34px;margin:8px 0 12px}h2{font-size:22px;margin:44px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.eyebrow{font:12px monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--rust)}
+.note{border-left:3px solid var(--gold);background:var(--panel);padding:12px 16px;margin:18px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:8px}
+.card.nb{opacity:.85}
+.fname{font:500 14px monospace}.when{font:11px monospace;color:var(--gold);text-transform:uppercase}
+.what{margin:0;color:var(--muted);font-size:14px}.tag{font:11px monospace;color:var(--muted);border:1px solid var(--line);padding:1px 6px;margin-right:4px}
+.tag.loop{color:var(--cyan);border-color:#2c5560}
+canvas{width:100%;height:44px;background:#251c18;display:block}audio{width:100%;height:36px}
+button{background:#251c18;color:var(--fg);border:1px solid var(--rust);padding:6px 12px;cursor:pointer;font:13px monospace;margin:4px 6px 4px 0}
+button:hover{background:var(--rust);color:#000}
+code{font:13px monospace;color:var(--cyan)}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+li{margin:4px 0;color:var(--muted)}li b{color:var(--fg)}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Som · v0.5 Marco 4 · proposta (nada entrou no jogo)</div>
+<h1>Contêiner lacrado abrindo</h1>
+<div class="note" style="border-left-color:#7bd88f"><b>v14.3 · APROVADA: D3s é o <code>container_open</code> oficial.</b> O dono ouviu e escolheu a mais seca. Agora é <code>assets/audio/container_open.wav</code> (0,31 s, pico −1,05 dBFS, byte a byte igual à candidata D3s), gerado pelo <code>build_audio.py</code> (SOUNDS) e registrado no <code>check_audio.py</code>. <b>VOLUME sugerido: 0,9.</b> As outras (A1 a D3, D1s) ficam abaixo só como histórico em <code>assets/audio/candidates/</code>.</div>
+<div class="note"><b>v14.2 · click seco, sem chiado:</b> o dono gostou da direção mas não quis o "sheee" no fundo. <b>D1s</b> e <b>D3s</b> são só a gravação limpa (CC0, rubberduck), sem ar, sem rangido (o <code>door_open_01</code> é ruído e soaria como chiado), sem baque sintético e sem reverb. Só passa-alta 70 Hz, passa-baixa 6,5 kHz e fade de saída. D1, D2 e D3 (com ar por baixo) ficam como anteriores. <b>(Recomendada na época: D1s; o dono escolheu a D3s.)</b> (vários cliques e o clunk final, 0,7 s). A D3s é a mais curta e seca (0,3 s). Como o click gravado tem pico alto, a D3s sai com loudness baixa (-25 dB) com o pico já em -1 dBFS: suba o <code>VOLUME</code> (D1s ~0,7; D3s ~0,9).</div>
+<div class="note"><b>v14.1 · (anterior) refeito com gravação real:</b> · refeito com gravação real:</b> o dono reprovou as 3 sintéticas (A1, B1, C1: "parece um prato de bateria abafado"). As novas <b>D1, D2 e D3</b> têm como base um <b>click de trava gravado de verdade</b> (rubberduck, OpenGameArt, <b>CC0</b> conferido na página; sha256 e URL em <code>tools/audio/vendor/*/SOURCE.txt</code>, crédito no <code>CREDITS.md</code>). Por baixo, só ruído <b>escuro</b> (até 3 kHz) de ar saindo e o peso da tampa; sem tom, sem acorde, sem brilho, sem reverb longo (nada de cauda de "prato"). As A1/B1/C1 ficam abaixo marcadas como <b>reprovadas</b>, só pra comparar. <code>assets/audio/container_open.wav</code> <b>não existe ainda</b>. Validação por análise (formato, pico, loudness aproximado, bandas, picos tonais, clipping); eu não ouço, a palavra final é do teu ouvido.<br><b>Recomendada: D1</b> (a trava solta em vários cliques e o "clunk" final, é a mais "abrindo um lacre"). D2 é um fecho de case de duas travas; D3 é a mais seca e curta.</div>
+<p style="color:var(--muted)">Os cliques gravados são naturalmente de pico alto e curtos, então D2 e D3 saem com loudness menor (-23 e -21 dB) que a D1 (-19), com o pico já em -1 dBFS; no jogo, ajuste pelo <code>VOLUME</code>. Brilho: os cliques passaram por passa-baixa de 6,5 kHz.</p>
+
+<h2>Novas · click seco (D1s, D3s)</h2><div class="cards" id="dry"></div>
+<h2>Anteriores · com ar por baixo (D1, D2, D3)</h2><div class="cards" id="cand"></div>
+<h2>Reprovadas (sintéticas)</h2><div class="cards" id="rej"></div>
+<div class="note"><button onclick="simOpen('container_open_D1s')">D1s no contexto</button><button onclick="simOpen('container_open_D2')">D2 no contexto</button><button onclick="simOpen('container_open_D3s')">D3s no contexto</button><button onclick="simCompare()">Comparar: chest, crate, D1s, D3s, D1</button><button onclick="stopAll()">Parar</button><span id="log" style="font:12px monospace;color:var(--muted)"></span></div>
+
+<h2>Vizinhos pra comparar</h2><div class="cards" id="nb"></div>
+
+<h2>Dicas pro Dev</h2><ul>
+<li><b>Volume sugerido</b> (escala do <code>VOLUME</code>): <code>container_open</code> 0,6 pra D1 (-19 dB de loudness, perto do chest/crate em -21). Se achar alto, 0,5.</li>
+<li><b>Quando tocar</b>: uma vez, no instante do E que rompe o lacre (junto da troca pro sprite de aberto). É único por contêiner e o contêiner não reabre, então não precisa de cooldown nem de variação de pitch (nem convém: o contorno é o reconhecimento).</li>
+<li><b>Ordem sugerida</b>: <code>container_open</code> primeiro; o <code>pickup</code> dos itens do saque entra ~0,8 a 1 s depois (já com a tampa no batente), em fila, sem sobrepor o baque. O texto de lore pode aparecer junto do estalo.</li>
+<li><b>Canal</b>: canal próprio de efeito, sem ducking; nada contínuo compete (o <code>amb_*</code> segue embaixo). Se houver <code>vent_hiss</code> perto, ele não atrapalha.</li>
+<li>Volume: D1 0,6; D2 0,75 e D3 0,7 (saem mais baixas por serem cliques de pico alto). Se escolher uma, eu promovo pro SOUNDS do <code>build_audio.py</code> com o nome <code>container_open</code> (mesma seed, byte a byte igual à candidata) e registro no contrato do <code>check_audio.py</code>.</li>
+</ul>
+<p style="color:var(--muted);font-size:13px">Gerado por <code>tools/audio/build_v05_m4.py</code> (seed por nome, só numpy; usa os blocos do <code>build_audio.py</code>).</p>
+</div>
+<script src="v05_meta.js"></script>
+<script>
+const M=window.V05_META;
+const NEW={
+ container_open_D1:["D1 · anterior · 1,2 s","Trava gravada (lock_open_01) soltando em vários cliques e o clunk final; ar escuro saindo, rangido de porta gravado baixinho e baque de tampa. Natural, sem tom."],
+ container_open_D2:["D2 · fecho de case · 0,9 s","Duas travas gravadas em sequência (lock_02 e lock_01), ar escuro, rangido grave e baque. Mais curto e seco."],
+ container_open_D3:["D3 · a mais seca · 0,6 s","Só o click gravado (lock_03: dois cliques e o encaixe), um sopro escuro curtinho e o peso da tampa."]};
+const DRY={
+ container_open_D1s:["D1s · 0,7 s","Só a trava gravada (lock_open_01): cliques soltando e o clunk final. Nada por baixo, sem reverb."],
+ container_open_D3s:["D3s · APROVADA, OFICIAL · 0,3 s","Só o lock_03 gravado: dois cliques e o encaixe, limpo."]};
+const REJ={
+ container_open_A1:["A1 · REPROVADA","Sintética equilibrada com brilho de Lá."],
+ container_open_B1:["B1 · REPROVADA","Sintética seca, sem tom."],
+ container_open_C1:["C1 · REPROVADA","Sintética com nuvem de Lá sus2."]};
+const NB={chest_open:["Baú (aprovado)","Referência de família: -21 dB, 0,56 s."],crate_open:["Caixa de destroço (aprovada)","Referência de família: -21 dB, 0,55 s."],base_sealed:["Base vedada (aprovado)","Referência do brilho de Lá: -19 dB."],pickup:["Coletar (aprovado)","O poop que vem logo depois do saque."]};
+function card(name,key,txt,nb){const m=M[key];const el=document.createElement("div");el.className="card"+(nb?" nb":"");
+ el.innerHTML=`<div><span class="fname">${name}.wav</span> <span class="tag">${m.duration.toFixed(2)} s</span><span class="tag">pico ${m.peak_db} dBFS</span><span class="tag">loud ${m.loudness_db} dB</span></div>
+ <div class="when">${txt[0]}</div><canvas width="320" height="44"></canvas>
+ <audio controls preload="metadata" src="${m.file}"></audio><p class="what">${txt[1]}</p>`;
+ const c=el.querySelector("canvas").getContext("2d");c.fillStyle=nb?"#8a7a6e":"#e2733a";const w=m.wave,bw=320/w.length;
+ w.forEach((v,i)=>{const h=Math.max(1,v*42);c.fillRect(i*bw,22-h/2,Math.max(1,bw-0.5),h)});return el}
+for(const k in NEW)document.getElementById("cand").append(card(k,k,NEW[k],false));
+for(const k in DRY)document.getElementById("dry").append(card(k,k,DRY[k],false));
+for(const k in REJ)document.getElementById("rej").append(card(k,k,REJ[k],true));
+for(const k in NB)document.getElementById("nb").append(card("nb_"+k,"nb:"+k,NB[k],true));
+let timers=[],auds=[];
+function A(n,v){const a=new Audio(M[n].file);a.volume=v==null?1:v;auds.push(a);return a}
+function stopAll(){timers.forEach(clearTimeout);timers=[];auds.forEach(a=>a.pause());auds=[];log("")}
+function log(s){document.getElementById("log").textContent=s}
+function later(ms,f){timers.push(setTimeout(f,ms))}
+function simOpen(k){stopAll();A(k,.6).play();later(1700,()=>A("nb:pickup",.5).play());later(2000,()=>A("nb:pickup",.5).play());later(2300,()=>A("nb:pickup",.5).play());log(" abre e depois 3 coletas")}
+function simCompare(){stopAll();const seq=[["nb:chest_open",.5],["nb:crate_open",.5],["container_open_D1s",.7],["container_open_D3s",.9],["container_open_D1",.6]];seq.forEach((s,i)=>later(i*2400,()=>A(s[0],s[1]).play()))}
+</script></body></html>

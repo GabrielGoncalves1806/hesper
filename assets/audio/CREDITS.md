@@ -101,3 +101,20 @@ o que o próprio NPS pede numa publicação comercial. Os CC0 não exigem nada, 
 - Uso: só como reverb por convolução (`pedalboard.Convolution`) do `ice_crack`, `ice_crack_1` e
   `ice_collapse`. Mudanças: canal W, começa na primeira chegada, cauda de ~4,2 s encurtada pra
   ~2,3 s, passa-alta 120 Hz e passa-baixa 4,5 kHz.
+
+### OpenGameArt · "100 CC0 metal and wood SFX" e "80 CC0 RPG SFX" (v0.5 M4, candidatas do `container_open`)
+
+- Autor: rubberduck
+- Fontes: https://opengameart.org/content/100-cc0-metal-and-wood-sfx e https://opengameart.org/content/80-cc0-rpg-sfx
+- Licença: **CC0 1.0**. Conferida na página de cada pack (os zips não trazem arquivo de licença).
+  Originais e sha256 em `tools/audio/vendor/oga_metal_wood/` e `oga_rpg80/` (`SOURCE.txt`).
+  Só lidos como áudio. Também baixados e **não usados**: "87 Clickety Clips" (OwlishMedia, CC0) e "open chest SFX" (Oiboo, CC0).
+
+| Arquivo | Origem | Tratamento |
+|---|---|---|
+| `candidates/container_open_D1.wav` | `lock_open_01`, `door_open_01` (metal/wood) | mono, 44,1 kHz, passa-alta 70 Hz e passa-baixa 6,5 kHz no click, ar escuro e baque de tampa sintéticos (ruído) por baixo, reverb curto |
+| `candidates/container_open_D2.wav` | `lock_02` e `lock_01` (RPG) | idem, mais rangido grave sintético |
+| `candidates/container_open_D3.wav` | `lock_03` (RPG) | idem, sem rangido |
+| `candidates/container_open_D1s.wav` | `lock_open_01` (metal/wood) | mono, 44,1 kHz, passa-alta 70 Hz, passa-baixa 6,5 kHz, fade de saída; nada mais (sem reverb, sem camadas) |
+| `candidates/container_open_D3s.wav` | `lock_03` (RPG) | idem |
+| `container_open.wav` (oficial, v14.3) | `lock_03` (RPG) | igual à `candidates/container_open_D3s.wav` (gerado por `build_audio.py`) |

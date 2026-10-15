@@ -189,7 +189,7 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 | `anim/anim_{machine_o2,machine_heater,machine_melter}{,_t2}.png` | 160×56 / 160×64 | tiras de animação das máquinas (4 quadros de 40 px, na horizontal). **Ligadas**: a máquina trabalhando anima a ~5 fps com fase por tile (hash); parada no quadro 0 se submersa ou sem energia nenhuma; no déficit anda mais devagar (× `power.factor`). Fantasma de colocar e ícones ficam no parado; sem a tira, usa o parado |
 | `anim/anim_solar_panel.png` `anim/anim_terminal.png` | 128×40 / 128×32 | tiras de animação (4 quadros). **Ligadas**: o painel solar anima sempre que está em pé (não há noite no jogo); o terminal anima sempre |
 | `anim/anim_pod.png` `anim/anim_drone_station.png` | 256×72 | tiras de animação (4 quadros de 64 px). **Ligadas**: a cápsula anima sempre; a estação anima só com drone dentro (e energia) |
-| `icon_drill.png` | 16×16 | ícone (estoque de máquinas e fabricador) |
+| `icon_drill.png` | 16×16 | ícone (estoque de máquinas e fabricador) · **refeito no v0.5 M4 (candidata B, aprovada pelo dono)**: a máquina do `machine_drill` inteira (base com tela e LED verde, mastro, braço, cabeça e feixe no chão) |
 | `icon_water_capsule.png` | 16×16 | **v0.5 M2, aprovado pelo dono.** Ícone da cápsula de água (item que sai do derretedor e o Dispersor gasta). Entrou com o Dev D do M2 e só agora está registrado aqui |
 | `base_floor_{0..3}.png` | 32×32 | **v0.5 M2, aprovado pelo dono.** Chão da base: chapa de aço azulada, 4 variações, igual nos 3 estágios. Sorteio por hash do tile: `FLOOR_PICK[(tx·73856093 ^ ty·19349663) & 7]` = `(0,0,0,0,1,1,2,3)`. Passada do chão, embaixo de tudo; aceita máquina em cima |
 | `base_wall_top.png` | 64×96 | **v0.5 M2, aprovado.** Topo da parede da base no autotile A2 (o mesmo layout do `water_auto`, 47 combinações: `game/autotile.py`). Sobe 24 px (`WALL_LIFT`) por cima do tile; conecta só com parede da base (a porta e a rocha não contam) |
@@ -260,6 +260,7 @@ WAV, 44,1 kHz, 16-bit, mono. Loops precisam emendar sem estalo.
 | `dispenser_hum.wav` | loop 8 s | **aprovado, v13.1.** Canal próprio (13), enquanto o player está dentro de uma base vedada com o Dispersor soprando; entra e sai com fade de 0,8 s (0,3 s quando a água acaba) e **substitui o `machine_hum`** lá dentro. Volume **0,35** |
 | `leak_alert.wav` | sfx ~0,9 s | **aprovado, v13.1.** A cada 4 s (`LEAK_ALERT_EVERY`) enquanto a base que já esteve vedada vaza, com o player a até 12 tiles do Dispersor ou do tile furado. Sem variar o pitch. Volume **0,55** |
 | `dispenser_dry.wav` | sfx ~1,6 s | **aprovado, v13.1.** Uma vez, quando acaba a última cápsula do Dispersor. Volume **0,5** |
+| `container_open.wav` | sfx ~0,31 s | **aprovado pelo dono, v14.3** (gravação CC0 limpa, rubberduck `lock_03`, sem camadas nem reverb: "a mais seca"). v0.5 M4: o E rompeu o lacre do contêiner lacrado e o saque top sai. Uma vez só por contêiner, junto da troca pro sprite de aberto; o `pickup` dos itens entra ~0,8 a 1 s depois. Sem variação de pitch. Volume **0,9** |
 
 Os 7 sons da v11 vêm de gravações livres (CC0, domínio público do NPS e um IR de reverb em **CC BY 4.0**): o crédito obrigatório pra tela de créditos está em `assets/audio/CREDITS.md`. O build deles precisa do pedalboard: `uv run python tools/audio/build_audio.py`.
 
@@ -370,6 +371,7 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 | `chest.png` | 32×40 | baú, ancorado no centro da base · **r3d v1.1, aprovado pelo dono** |
 | `chest_open.png` | 32×40 | baú aberto · **r3d v1.1, aprovado pelo dono** |
 | `container_sealed.png` | 40×44 | **contêiner lacrado** (v0.4 M3, gancho das peças raras), 1 tile, mesma família do baú (caixa de aço com cintas e selo) · **r3d v1.1, aprovado pelo dono**. Substitui o placeholder `art.sealed_container` quando o Dev integrar |
+| `container_open.png` | 40×44 | **contêiner lacrado aberto** (v0.5 M4), mesma caixa, pivô e pé do `container_sealed.png`; tampa meio aberta (forçada), miolo escuro e vazio, cintas cortadas e selo partido. Troca a textura do `C.CONTAINER` depois que o player abre com E · **r3d v1.1, aprovado pelo dono (candidata B)** |
 | `solar_panel.png` | 32×40 | painel solar |
 | `drone_station.png` | 64×72 | estação 2×2, com espaço pros drones pousados (documentar os pontos de pouso) |
 | `drone.png` | 64×16 | 4 quadros de 16×16 com as hélices girando. O jogo desenha a sombra |
@@ -796,3 +798,9 @@ Design completo em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-desig
 - **Custo**: o ruído fbm continua gerado uma vez; as texturas tingidas (add/sub/detail e faixas) ficam em cache por degrau de neve (12), construídas na 1ª vez que o degrau aparece. Frame da tempestade (`draw_storm`, 960×540 sem janela): ~0,53 ms na poeira, ~0,66 ms na neve cheia.
 - **Chiado**: `ui.static_noise(..., snow)` esfria o chiado do mapa/minimapa (branco-azulado), mesmo fator, 4 degraus de cor em cache.
 - Testes em `tests/test_dust.py`. Print avulso: `uv run python tools/dev/shot_nevasca.py` → `reports/dev/nevasca.png`.
+
+### Marco 4 · Expedição e loot (decisões do dono, 2026-10-14)
+- **Broca de mão** (`hand_drill`) vira item de hotbar e **substitui** a mineração embutida: o player nasce com ela (nv.1, minera igual a antes: mesmos `MINE_TIME`, alcance e drops). **Só minera com ela selecionada**; com outro slot na mão, o clique não minera. Arte da mão continua a de sempre (`drill_*.png`); ícone novo pela Designer.
+- **Sem broca nv.2 neste update** e o `BEDROCK` continua sem minerar. A nv.2 vem depois, pra furar rochas mais duras que ainda não existem.
+- **Itens novos no loot** (lingote de ferro, wafer de silício, circuito, chip, fios; ícones aprovados no M1): **não fazem nada ainda**, só ocupam inventário. Destroços comuns dão os mais simples, o destroço rico dos bolsões dá os melhores, e o contêiner lacrado dá o saque top.
+- **Contêiner lacrado abre** com E, de graça (sem chip, por enquanto), uma vez só, e entrega o saque top. Sprite de aberto e som de abrir pela Designer e pelo Som.

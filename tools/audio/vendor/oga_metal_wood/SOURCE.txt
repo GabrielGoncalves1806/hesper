@@ -1,0 +1,5 @@
+Fonte: OpenGameArt, '100 CC0 metal and wood SFX', autor rubberduck
+Página: https://opengameart.org/content/100-cc0-metal-and-wood-sfx (licença CC0, conferida na página em 2026-10-14)
+Arquivo: https://opengameart.org/sites/default/files/100-CC0-wood-metal-SFX.zip  sha256 be6eba63b03409ac0c77787a956b1503a7c186403d04aef9725c52644a4b7878
+Extraído com unzip pra Audio/. Só lido como áudio (ffmpeg). Usados: lock_open_01, door_open_01.
+Obs.: o zip não traz arquivo de licença; a licença CC0 está só na página.
