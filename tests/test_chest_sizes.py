@@ -36,12 +36,16 @@ def test_each_kind_has_its_size_and_is_a_logistic_chest(kind, size):
     assert c in s.chests and c in s.base_chests()
 
 
-def test_small_and_normal_build_from_the_start_and_large_needs_the_diagram():
+def test_small_builds_from_the_start_normal_at_ti_50k_and_large_needs_the_diagram():
     s = make_state()
     for kind in ("chest_small", "chest"):
         assert s.build_status(kind) == "no_constructor"
     give(s, constructor=1, iron=30, silicon=5)
-    assert s.build_status("chest_small") == "ok" and s.build_status("chest") == "ok"
+    assert s.build_status("chest_small") == "ok" and s.build_status("chest") == "locked"
+    s.indices["o2"] = C.CHEST_UNLOCK_TI - 1
+    assert s.build_status("chest") == "locked"
+    s.indices["o2"] = C.CHEST_UNLOCK_TI                  # Baú normal libera em Ti 50.000 (dono, 2026-10-15)
+    assert C.CHEST_UNLOCK_TI == 50_000 and s.build_status("chest") == "ok"
     assert s.build_status("chest_large") == "blueprint"
     assert not s.can_build("chest_large", spot(s))
     s.blueprints.add("chest_large")
@@ -55,10 +59,10 @@ def test_chest_diagram_is_locked_by_ti_then_read_unlocks_the_large_chest():
     cost = {"iron": 10, "silicon": 4, "iron_ingot": 2}
     assert C.MACHINES["diagram_chest_large"].cost == cost and not C.MACHINES["diagram_chest_large"].placeable
     assert C.DIAGRAM_BENCH["chest_large"] == "t1"
-    s = make_state(ti=9_999)
+    s = make_state(ti=89_999)
     give(s, **cost)
     assert s.recipe_status("diagram_chest_large") == "locked"
-    s = make_state(ti=10_000)
+    s = make_state(ti=90_000)
     assert s.recipe_status("diagram_chest_large") == "missing"
     give(s, **cost)
     assert s.recipe_status("diagram_chest_large") == "ok"

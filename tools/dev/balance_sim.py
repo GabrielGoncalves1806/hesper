@@ -768,13 +768,13 @@ class Sim:
     def craft_and_place_chest(self) -> bool:
         """Baú dentro da zona de O₂ (o fabricador enxerga ele), num lugar com espaço pra estação do lado."""
         self._set_player(self.home)
-        if not self._ready("chest"):
+        if not self._ready("chest_small"):
             return False
         bx, by = C.BASE_CENTER
         cand = sorted((math.hypot((x + 0.5) * C.TILE - bx, (y + 1) * C.TILE - by), (x, y))
                       for y in range(by // C.TILE - 6, by // C.TILE + 7) for x in range(bx // C.TILE - 6, bx // C.TILE + 7))
         tiles = [t for d, t in cand if d <= C.BASE_RADIUS - 8 and self._station_spots(t)]
-        if not self._place_near("chest", tiles):
+        if not self._place_near("chest_small", tiles):
             raise AssertionError("não achou lugar pro baú na base")
         chest = self.gs.machines[-1]                       # o baú que acabou de colocar
         for r in C.RESOURCES:                             # o jogador marca Recebe tudo no painel do baú
@@ -1017,7 +1017,7 @@ class Sim:
                 elif self.want_drill():
                     kind = "drill"
                 elif self.want_station():
-                    kind = "drone_station" if self.gs.base_chests() else "chest"
+                    kind = "drone_station" if self.gs.base_chests() else "chest_small"
                 elif self.want_drone():
                     kind = "drone"
                 else:
@@ -1046,7 +1046,7 @@ class Sim:
                         self.craft_and_place_station()
                     elif kind == "drone":
                         self.craft_and_dock_drone()
-                    elif kind == "chest":
+                    elif kind == "chest_small":
                         self.craft_and_place_chest()
                     else:
                         self.craft_and_place(kind)

@@ -17,11 +17,11 @@
 | id | Nome | Slots | Custo | Libera | Sprite fechado / aberto | Tamanho do PNG |
 |---|---|---|---|---|---|---|
 | `chest_small` | Baú simples | 8 | 3 ferro | Ti 0 | `loot_crate` / `loot_crate_empty` | 32×32 |
-| `chest` | Baú | 16 | 6 ferro | Ti 0 | `chest` / `chest_open` | 32×40 |
+| `chest` | Baú | 16 | 6 ferro | Ti 50.000 | `chest` / `chest_open` | 32×40 |
 | `chest_large` | Baú grande | 24 | 10 ferro + 2 silício | diagrama lido | `container_sealed` / `container_open` | 40×44 (pé no centro de baixo do tile, como as máquinas de 40 px) |
 
 - Todos ocupam 1 tile. Ícones: `icon_chest_small`, `icon_chest`, `icon_chest_large` (os dois novos vêm da Designer; até aprovar, fallback = o sprite fechado reduzido pra 16×16).
-- `diagram_chest_large`: item não colocável, fabricado no **T1**, `unlock_ti = 10_000`, custo 10 ferro + 4 silício + 2 `iron_ingot`, categoria "tools", ícone `icon_diagram`. Lido na bancada (`DIAGRAM_BENCH = "t1"`) libera `chest_large` no construtor.
+- `diagram_chest_large`: item não colocável, fabricado no **T1**, `unlock_ti = 90_000`, custo 10 ferro + 4 silício + 2 `iron_ingot`, categoria "tools", ícone `icon_diagram`. Lido na bancada (`DIAGRAM_BENCH = "t1"`) libera `chest_large` no construtor.
 - Baú de qualquer tamanho: nome, Envia/Recebe/Lote, Pegar tudo/Guardar tudo, desmonta só vazio, entra na rede dos drones, conta como baú da base pro fabricador.
 - **Caixa de saque (`loot_crate` dos destroços)**: aberta, aceita guardar item (8 slots). **Fica fora da rede dos drones** (decisão do gerente, ver abaixo). Segurar o botão direito 2 s com ela vazia desmonta: devolve `C.CRATE_DISMANTLE_RETURN = {"iron": 3}`, o tile vira chão (`SAND`) e a caixa some de vez (inclusive depois de carregar o save). Com item: aviso igual ao do baú ("Esvazie a caixa antes").
 - **Contêiner**: aberto, aceita guardar item; **não desmonta** (o clique direito segurado não faz nada nele).

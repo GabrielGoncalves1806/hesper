@@ -169,7 +169,13 @@ def build_at(state, kind, tile, rotation=0, finish=True):
         short = n - state.inventory.count(r)
         if short > 0:
             state.inventory.add(r, short)
-    assert state.build(kind, tile, rotation), f"não construiu {kind} em {tile}"
+    indices = dict(state.indices)               # v0.6: a trava de Ti (ex.: Baú normal) não atrapalha o atalho
+    state.indices["o2"] += max(0.0, C.MACHINES[kind].unlock_ti - state.ti) + 1
+    try:
+        assert state.build(kind, tile, rotation), \
+            f"não construiu {kind} em {tile}: {state.build_status(kind)}, lugar {state.can_place(kind, tile, rotation)}"
+    finally:
+        state.indices.update(indices)
     machine = state.machine_at(tile)
     if finish:
         machine.build = 0.0
@@ -660,10 +666,10 @@ def check_inventory_and_chest(bot) -> None:
     bot.teleport(t192(96, 98))
     s.o2 = C.O2_MAX
     s.inventory.clear()
-    give(s, iron=86, silicon=30, ice=24)                # ferro em 2 pilhas (50 + 36): o baú gasta 6
+    give(s, iron=86, silicon=30, ice=24)                # ferro em 2 pilhas (50 + 36): o baú simples gasta 3
     s.inventory.add("drone", 2)
     # construtor na mão: o menu escolhe o baú e o clique constrói (gasta do inventário)
-    hold_constructor(bot, "chest")
+    hold_constructor(bot, "chest_small")                 # v0.6: o Normal só libera em Ti 50.000
     site = t192(95, 99)                                     # dentro da zona de O₂ da base
     assert s.world.is_floor(*site) and s.machine_at(site) is None
     bot.mouse_to(bot.tile_on_screen(site))
@@ -671,8 +677,8 @@ def check_inventory_and_chest(bot) -> None:
     bot.shot("hotbar.png")
     bot.click(bot.tile_on_screen(site))
     chest = s.machine_at(site)
-    assert chest is not None and chest.is_chest and s.inventory.count("chest") == 0
-    assert app.placing == "chest" and s.inventory.count("iron") == 80   # continua construindo; 6 de ferro
+    assert chest is not None and chest.is_chest and s.inventory.count("chest_small") == 0
+    assert app.placing == "chest_small" and s.inventory.count("iron") == 83   # continua construindo; 3 de ferro
     release_constructor(bot)
     assert chest in s.base_chests()
 
@@ -708,11 +714,11 @@ def check_inventory_and_chest(bot) -> None:
     # Pegar tudo e Guardar recursos (só ferro/silício/gelo: os itens ficam no inventário)
     button = {a: r for r, a in app.ui.panel_buttons}
     bot.click((button["take_all"].centerx * 2, button["take_all"].centery * 2))
-    assert box.is_empty() and inv.count("iron") == 80 and inv.count("scanner") == 1
+    assert box.is_empty() and inv.count("iron") == 83 and inv.count("scanner") == 1
     button = {a: r for r, a in app.ui.panel_buttons}
     bot.click((button["store_all"].centerx * 2, button["store_all"].centery * 2))
     assert inv.counts() == {"drone": 2, "scanner": 1, "constructor": 1}
-    assert box.counts() == {"iron": 80, "silicon": 30, "ice": 61}
+    assert box.counts() == {"iron": 83, "silicon": 30, "ice": 61}
 
     # nome do baú: clique no nome, apaga, digita (E, 1 e WASD viram texto, não ação), Enter confirma
     rect = app.ui.name_rect
@@ -727,7 +733,7 @@ def check_inventory_and_chest(bot) -> None:
         pygame.event.post(pygame.event.Event(pygame.TEXTINPUT, text=ch))
         bot.frames(DT)
     assert app.mode == "chest" and app.name_edit.text == "Minérios da base", app.name_edit.text
-    bot.mouse_to((slot_pos(bot, box, 15)[0], slot_pos(bot, box, 15)[1]))   # mouse longe do campo
+    bot.mouse_to((slot_pos(bot, box, 7)[0], slot_pos(bot, box, 7)[1]))   # mouse longe do campo
     while app.t % C.CHEST_NAME_BLINK >= C.CHEST_NAME_BLINK / 2 - 0.05:    # print com o cursor aceso
         bot.frames(DT)
     bot.shot("bau_nome.png")
@@ -760,7 +766,7 @@ def check_inventory_and_chest(bot) -> None:
     bot.key(pygame.K_MINUS)
 
     # o fabricador enxerga o baú da base: os 80 ferro (86 - 6 do baú) e os 30 silício estão no baú
-    assert s.available("iron") == 80 and s.available("silicon") == 30
+    assert s.available("iron") == 83 and s.available("silicon") == 30
     assert s.available("iron", inv_only=True) == 0             # o construtor não (só o inventário)
 
     # Tab: inventário sozinho, com tooltip
@@ -2736,7 +2742,7 @@ def check_hills(bot) -> None:
     print(f"  minerou {target}: re-assou {rebaked} bloco")
     # 3) o fantasma de colocar uma máquina encostada no morro
     give(s, iron=max(6, s.inventory.count("iron")))
-    hold_constructor(bot, "chest")
+    hold_constructor(bot, "chest_small")
     bot.mouse_to(bot.tile_on_screen((target[0], target[1] + 1)))
     bot.frames(0.2)
     shot_zoom(bot, "morros_fantasma.png", ((target[0] + 0.5) * C.TILE, (target[1] + 0.5) * C.TILE), w=200, h=120)

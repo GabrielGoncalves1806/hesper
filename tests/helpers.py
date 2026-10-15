@@ -8,7 +8,7 @@ def give(game, **amounts: int) -> None:
 
 
 def build_now(game, kind: str, tile, rotation: int = 0, finish: bool = True):
-    """v0.5 M1: constrói `kind` em `tile` pelo construtor (dá o construtor e a receita se faltar) e, com `finish`,
+    """v0.5 M1: constrói `kind` em `tile` pelo construtor (dá o construtor, a receita e o Ti da trava se faltar) e, com `finish`,
     pula a animação de construir (a máquina já sai funcionando). Devolve a máquina (None se não deu)."""
     from game import config as C
     if game.inventory.count("constructor") == 0:
@@ -17,8 +17,13 @@ def build_now(game, kind: str, tile, rotation: int = 0, finish: bool = True):
         short = n - game.inventory.count(r)
         if short > 0:
             give(game, **{r: short})
-    if not game.build(kind, tile, rotation):
-        return None
+    indices = dict(game.indices)                   # v0.6: trava de Ti (ex.: Baú normal) não atrapalha o atalho;
+    game.indices["o2"] += max(0.0, C.MACHINES[kind].unlock_ti - game.ti) + 1   # o Ti volta ao que era logo depois
+    try:
+        if not game.build(kind, tile, rotation):
+            return None
+    finally:
+        game.indices.update(indices)
     machine = game.machines[-1]
     if finish:
         machine.build = 0.0

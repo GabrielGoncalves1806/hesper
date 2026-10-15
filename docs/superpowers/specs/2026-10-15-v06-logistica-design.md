@@ -15,7 +15,7 @@ Deixar a base rodar sozinha: os drones passam a **abastecer** máquinas (não s�
 | Receita do chip | Bancada T2: 2 wafer + 1 ferro (partida). Wafer ainda é só loot; os crafts todos serão remapeados depois |
 | Baús | Três tamanhos: **Simples** 1 linha (8), **Normal** 2 linhas (16), **Grande** 3 linhas (24) |
 | Save antigo | Sem migração (dono): o baú existente carrega como **Normal** (16) e o que estava nos slots 17–24 some. Save continua v10 |
-| Baú Grande | Precisa do **diagrama**, fabricável no T1, receita do diagrama **libera na Névoa** (Ti 10.000) e é mais cara |
+| Travas | Simples desde o começo; **Normal em Ti 50.000**; Grande precisa do **diagrama** (fabricado no T1, receita liberada em **Ti 90.000**). Revisto pelo dono no teste da Task 1: com o Normal livre de começo, o Simples não fazia sentido |
 | Baú de loot | O bauzinho dos destroços vira um Baú Simples de verdade: guarda item e pode ser desmontado |
 | Painel de transferência | O clique pega a pilha no cursor e solta no slot escolhido, igual ao inventário (hoje o clique joga direto pro outro lado) |
 | Caverna | A estação de drones funciona na caverna. **Cada camada tem a sua rede**; drone nunca troca de camada |
@@ -30,10 +30,10 @@ Deixar a base rodar sozinha: os drones passam a **abastecer** máquinas (não s�
 | Baú | id | Slots | Custo | Libera | Sprite |
 |---|---|---|---|---|---|
 | Simples | `chest_small` | 8 (1×8) | 3 ferro | desde o começo | `loot_crate` (fechado) / `loot_crate_empty` (aberto) |
-| Normal | `chest` | 16 (2×8) | 6 ferro | desde o começo | `chest` / `chest_open` de hoje |
+| Normal | `chest` | 16 (2×8) | 6 ferro | Ti 50.000 | `chest` / `chest_open` de hoje |
 | Grande | `chest_large` | 24 (3×8) | 10 ferro + 2 silício | diagrama lido | `container_sealed` (fechado) / `container_open` (aberto) |
 
-- **Diagrama do Baú Grande** (`diagram_chest_large`): fabricado no T1, receita liberada em **Ti 10.000** (Névoa), custo 10 ferro + 4 silício + 2 lingote de ferro. Lido na bancada, libera o Baú Grande no construtor pra sempre (mecanismo de diagrama que já existe, `DIAGRAM_BENCH`).
+- **Diagrama do Baú Grande** (`diagram_chest_large`): fabricado no T1, receita liberada em **Ti 90.000**, custo 10 ferro + 4 silício + 2 lingote de ferro. Lido na bancada, libera o Baú Grande no construtor pra sempre (mecanismo de diagrama que já existe, `DIAGRAM_BENCH`).
 - Os três são baús pra tudo: nome, Envia/Recebe/Lote, "Pegar tudo"/"Guardar tudo", desmontar só vazio (regra de hoje). O painel ajusta a altura ao número de linhas.
 - **Baú de loot dos destroços** (`loot_crate`): depois de aberto, funciona como um Baú Simples no lugar (8 slots, guarda item; **fica fora da rede dos drones**, decisão do dono no plano do M1). Segurar o botão direito desmonta e devolve **os materiais do Baú Simples** (3 ferro), com a mesma regra dos baús: só desmonta vazio. O **contêiner lacrado** (aberto) também guarda item (24 slots), mas **não desmonta** (não vira Baú Grande de graça). Futuro: desmontar com uma trava (decisão do dono).
 - **Painel de transferência no estilo do inventário** (baú, baú de loot, contêiner, drill, derretedor, dispersor, estação):

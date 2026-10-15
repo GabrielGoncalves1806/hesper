@@ -65,7 +65,7 @@ Design em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-design.md`. No
 - [x] Marco 4: expedição e loot (broca de mão como item, nasce com ela, só minera com ela selecionada; lingote, wafer, circuito, chip e fios nos loots, sem uso ainda; contêiner lacrado abre com E e dá o saque top, sprite aberto B e trava CC0 D3s; ícones novos da drill automática e da aba Base) + playtest do dono
   - Decisões: sem broca nv.2 e sem furar BEDROCK neste update (a nv.2 vem pra rochas mais duras); contêiner abre de graça por enquanto (sem chip)
 
-**v0.5 fechado em 2026-10-14.** Ficou pra depois: ícone da broca de mão definitivo (hoje a Y provisória; as R1/R2 da referência do dono estão em `reports/design/v05_m4_broca_conteiner/`), update de melhoria de sprites, balanceamento do loot (números de partida em `C.LOOT_*`), uso das peças (v0.6).
+**v0.5 fechado em 2026-10-14.** Ficou pra depois: simulador: a estratégia "variado" ficou bimodal no v0.6 M1 (seeds 1 e 5 fecham em ~50 min sem máquina nv.2; o teste dela não exige mais a nv.2); ícone da broca de mão definitivo (hoje a Y provisória; as R1/R2 da referência do dono estão em `reports/design/v05_m4_broca_conteiner/`), update de melhoria de sprites, balanceamento do loot (números de partida em `C.LOOT_*`), uso das peças (v0.6).
 
 ## v0.6 · Logística e fundo
 Dividido em dois blocos (brainstorm de 2026-10-15).

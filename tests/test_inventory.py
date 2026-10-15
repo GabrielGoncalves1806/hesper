@@ -233,7 +233,7 @@ def place_chest_with(game: GameState, **content) -> object:
 def test_chest_is_a_machine_without_index(game):
     chest = place_chest_with(game)
     assert chest.is_chest and len(chest.storage) == C.CHEST_SIZES["chest"] == 16
-    assert C.MACHINES["chest"].cost == {"iron": 6} and C.MACHINES["chest"].unlock_ti == 0
+    assert C.MACHINES["chest"].cost == {"iron": 6} and C.MACHINES["chest"].unlock_ti == C.CHEST_UNLOCK_TI
     ti = game.ti
     game._update_machines(100)
     assert game.ti == ti and game.ti_rate == 0          # não soma Ti

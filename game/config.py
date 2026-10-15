@@ -505,7 +505,8 @@ CHEST_NAME_MAX = 16             # máximo de caracteres no nome do baú
 CHEST_NAME_BLINK = 1.0          # segundos de um ciclo do cursor piscando na edição do nome
 
 # v0.6 M1: três baús, todos a mesma "máquina" sem índice (não soma Ti, não consome energia, só guarda itens), de 1 tile.
-# O Baú grande é trancado por diagrama (lido na bancada T1, como a Bancada T2); os outros dois liberam de começo.
+# O Simples libera de começo; o Normal em Ti 50.000 (meio do caminho Névoa → Verde); o Grande é trancado por
+# diagrama (lido na bancada T1, como a Bancada T2), cuja receita libera em Ti 90.000 (reta final antes do Verde).
 CHEST_KINDS = ("chest_small", "chest", "chest_large")
 CHEST_SIZES = {"chest_small": 8, "chest": 16, "chest_large": 24}
 CHEST_SPRITES = {"chest_small": ("loot_crate", "loot_crate_empty"), "chest": ("chest", "chest_open"),
@@ -514,11 +515,13 @@ CHEST_SPRITE_SIZES = {"chest_small": (32, 32), "chest": CHEST_SPRITE_SIZE, "ches
 CHEST_ICONS = {"chest_small": "icon_chest_small", "chest": "icon_chest", "chest_large": "icon_chest_large"}
 CHEST_COST = {"chest_small": {"iron": 3}, "chest": {"iron": 6}, "chest_large": {"iron": 10, "silicon": 2}}
 CHEST_DIAGRAM_COST = {"iron": 10, "silicon": 4, "iron_ingot": 2}   # o item diagram_chest_large, no fabricador T1
-CHEST_DIAGRAM_UNLOCK_TI = 10_000
+CHEST_UNLOCK_TI = 50_000         # Baú normal (decisão do dono, 2026-10-15)
+CHEST_DIAGRAM_UNLOCK_TI = 90_000
 CHEST_ROW = 8                   # slots por linha no painel de qualquer baú
 MACHINES["chest_small"] = MachineType("chest_small", "Baú simples", "guarda 8 pilhas", CHEST_COST["chest_small"],
                                       None, 0, 0, "loot_crate")
-MACHINES["chest"] = MachineType("chest", "Baú", "guarda 16 pilhas", CHEST_COST["chest"], None, 0, 0, "chest")
+MACHINES["chest"] = MachineType("chest", "Baú", "guarda 16 pilhas", CHEST_COST["chest"], None, 0, CHEST_UNLOCK_TI,
+                                "chest")
 MACHINES["chest_large"] = MachineType("chest_large", "Baú grande", "guarda 24 pilhas", CHEST_COST["chest_large"],
                                       None, 0, 0, "container_sealed")
 # no construtor, junto das receitas do começo

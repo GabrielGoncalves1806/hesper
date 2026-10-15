@@ -106,16 +106,16 @@ def test_build_spends_only_inventory_and_ignores_base_chests():
     chest = base_chest(s, iron=20)
     give(s, constructor=1, iron=2)
     assert s.available("iron") == 22 and s.available("iron", inv_only=True) == 2
-    assert s.build_status("chest") == "missing" and not s.can_build("chest", spot(s))
-    assert not s.build("chest", spot(s))
+    assert s.build_status("chest_small") == "missing" and not s.can_build("chest_small", spot(s))
+    assert not s.build("chest_small", spot(s))
     assert chest.storage.count("iron") == 20
-    give(s, iron=5)                                        # 7 no inventário: dá um baú (6 de ferro)
-    assert s.build("chest", spot(s))
+    give(s, iron=2)                                        # 4 no inventário: dá um baú simples (3 de ferro)
+    assert s.build("chest_small", spot(s))
     assert s.inventory.count("iron") == 1 and chest.storage.count("iron") == 20   # o baú da base não foi tocado
     assert s.inventory.count("chest") == 0                                        # máquina não é item
     built = s.machine_at(spot(s))
-    assert built is not None and built.kind == "chest" and built.build == C.BUILD_TIME
-    assert s.crafted["chest"] == 1 and ("build", "chest", spot(s)) in s.events
+    assert built is not None and built.kind == "chest_small" and built.build == C.BUILD_TIME
+    assert s.crafted["chest_small"] == 1 and ("build", "chest_small", spot(s)) in s.events
 
 
 def test_build_works_far_from_base():
