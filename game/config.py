@@ -236,10 +236,13 @@ DRILL_FULL_COOLDOWN = 10.0      # ...e não repete pra mesma drill antes de 10 s
 # Regiões (os números do game/geo.py: PLATEAU = centro). Distâncias em tiles a partir do MEIO DO MAPA (a cratera varia
 # ±20 tiles por seed; medir da rampa desequilibraria as áreas). O raio livre é em volta da chegada da rampa.
 CAVE_FROST_EDGE = 48            # o gelo começa a 48 tiles ao norte do meio (pega a faixa de cima inteira)
-CAVE_BASALT_EDGE = 40           # o basalto, a 40 tiles a oeste
-CAVE_SALAR_EDGE = 26            # o salar, a 26 tiles a leste (maior que os outros, decisão do dono)
-CAVE_REGION_WARP = 10           # quanto a fronteira ondula (± tiles, fbm)
-CAVE_FREE_RADIUS = 28           # em volta da chegada é sempre centro
+CAVE_BASALT_EDGE = 54           # o basalto, a 54 tiles a oeste (dono: estava perto demais do centro; era 40)
+CAVE_SALAR_EDGE = 36            # o salar, a 36 tiles a leste (maior que os outros, decisão do dono; era 26)
+CAVE_BORDER_SWING = 30          # passeio grande das fronteiras do basalto e do salar (± tiles; dono: "tabela do Excel")
+CAVE_FROST_SWING = 16           # ...e da fronteira do gelo
+CAVE_BORDER_CELL = 70           # tamanho da curva do passeio (tiles): grande = curvas lentas
+CAVE_REGION_WARP = 6            # tremido pequeno por cima do passeio (± tiles, fbm; era 10 sozinho)
+CAVE_FREE_RADIUS = 34           # em volta da chegada é sempre centro (era 28)
 CAVE_HARD_REGIONS = frozenset({2, 3})   # BASALT, FROST (game/geo.py): rocha dura
 # Minério de parede por região: {região: ((recurso, peso), ...)}. A magmatita nunca nasce na parede.
 CAVE_WALL_ORE = {0: (("iron", 0.50), ("silicon", 0.35), ("ice", 0.15)),

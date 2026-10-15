@@ -29,13 +29,19 @@ def region_map(seed: int, center: tuple[int, int], w: int, h: int) -> np.ndarray
     ys, xs = np.mgrid[0:h, 0:w].astype(float)
     s = (seed & 0xFFFF) * 16 + 500
 
+    def swing(along: np.ndarray, k: int, amp: float) -> np.ndarray:
+        """Passeio grande e lento da fronteira ao longo do eixo dela (o desenho do dono: linha torta, não régua)."""
+        v = fbm(along, np.full_like(along, 1000.0 * k), C.CAVE_BORDER_CELL, s + k, 3)
+        v = v - v.mean()                                  # o fbm fica quase todo perto do meio (desvio ~0,09):
+        return amp * v / max(float(np.abs(v).max()), 1e-6)   # normaliza pra curva usar o ±amp inteiro
+
     def warp(k: int) -> np.ndarray:
-        return C.CAVE_REGION_WARP * 2 * (fbm(xs, ys, 18, s + k, 3) - 0.5)
+        return C.CAVE_REGION_WARP * 2 * (fbm(xs, ys, 18, s + 10 + k, 3) - 0.5)   # tremido pequeno por cima
 
     region = np.full((h, w), PLATEAU, np.uint8)
-    region[xs - mx > C.CAVE_SALAR_EDGE + warp(1)] = SALAR
-    region[mx - xs > C.CAVE_BASALT_EDGE + warp(2)] = BASALT
-    region[my - ys > C.CAVE_FROST_EDGE + warp(3)] = FROST
+    region[xs - mx > C.CAVE_SALAR_EDGE + swing(ys, 1, C.CAVE_BORDER_SWING) + warp(1)] = SALAR
+    region[mx - xs > C.CAVE_BASALT_EDGE + swing(ys, 2, C.CAVE_BORDER_SWING) + warp(2)] = BASALT
+    region[my - ys > C.CAVE_FROST_EDGE + swing(xs, 3, C.CAVE_FROST_SWING) + warp(3)] = FROST
     cx, cy = center
     region[np.hypot(xs + 0.5 - cx, ys + 0.5 - cy) < C.CAVE_FREE_RADIUS] = PLATEAU
     return region
