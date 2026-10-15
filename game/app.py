@@ -1943,14 +1943,12 @@ class App:
         target_tile = self.place_target() if self.placing else None
         if target_tile is not None and state.world.is_water(*target_tile, state.stage):   # v0.4 M3.4
             return "Não dá pra construir na água · Esc cancela"
-        if self.placing == "drone_station" and not state.active.has_base:
-            return "Drones só funcionam na superfície · Esc cancela"
         if self.placing:
             missing = self.build_missing(self.placing)
             if missing:                                    # v0.5 M1: sem material, o fantasma fica vermelho
                 return f"{missing} · Esc cancela"
         if self.placing == "drone_station":
-            return "Clique para construir · drones atendem o mapa todo · Esc cancela"
+            return "Clique para construir · drones atendem esta camada · Esc cancela"
         if self.placing:
             return "Clique para construir · R gira · [E] outra máquina · Esc cancela"
         machine = self.hovered_machine()

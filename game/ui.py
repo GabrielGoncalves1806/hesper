@@ -1979,7 +1979,7 @@ class UI:
         st = machine.station
         self.window(cx, y, pw, h, "Estação de drones", f"{len(st.drones)}/{C.STATION_DRONE_SLOTS}", C.C_O2)
         self._section_label("DRONES", cx + 8, y + 16, C.C_O2)
-        self.tx("ALCANCE: MAPA TODO", cx + pw - 8, y + 16, B_MUTED, align="right")
+        self.tx("ALCANCE: ESTA CAMADA", cx + pw - 8, y + 16, B_MUTED, align="right")
         n = C.STATION_DRONE_SLOTS
         margin = 6
         step = (GRID_W - 2 * margin - SLOT) // (n - 1)    # espalhados na largura: cabe "POUSADO" embaixo de cada
@@ -2015,7 +2015,7 @@ class UI:
                     self.buffer_rects.append((rect, stack.item))
             self._button(mid, "<<\nPEGAR\nTUDO", "take_buffer", mouse, True, "ghost")
         else:                                          # o lugar vira a dica de como a logística funciona
-            tip = ("Os drones levam itens de quem ENVIA pra quem RECEBE, no mapa todo. "
+            tip = ("Os drones levam itens de quem ENVIA pra quem RECEBE, na camada da estação. "
                    "Configure no painel de cada baú e drill (seção DRONES).")
             for k, line in enumerate(wrap(self.body, tip, GRID_W)[:5]):
                 self.tx(line, cx + 8, by + k * 12, B_MUTED, self.body)

@@ -323,7 +323,7 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 - No v0.2 não tem bateria nem ciclo dia/noite (ficam pra depois).
 
 ### Marco 3 · Automação com drones (logística estilo The Planet Crafter)
-- **Estação de drones**: libera na Névoa (Ti 10.000), custa **12 ferro + 8 silício + 3 gelo** e ocupa 2×2. **Vem vazia**: tem **4 slots de drone** e consome **1 kW**. A estação é só a **casa** dos drones (onde pousam e de onde saem): eles atendem o **mapa inteiro**, sem alcance.
+- **Estação de drones**: libera na Névoa (Ti 10.000), custa **12 ferro + 8 silício + 3 gelo** e ocupa 2×2. **Vem vazia**: tem **4 slots de drone** e consome **1 kW**. A estação é só a **casa** dos drones (onde pousam e de onde saem): eles atendem a **camada inteira** em que a estação está, sem alcance (v0.6 M3: cada camada tem a sua rede).
 - **Drone** é um **item**: receita no fabricador, libera junto com a estação (Névoa), custa **6 ferro + 4 silício** e empilha até 5 no inventário (igual às máquinas). Não se coloca no chão: vai num slot da estação.
 - **E na estação** abre um painel no estilo do baú: inventário à esquerda e a estação à direita, com os **4 slots de drone** (só aceitam o item drone, 1 por slot) e o estado ("ALCANCE: MAPA TODO" e "2 drones · 1 em voo · 1 kW").
   - Cada drone num slot é **1 drone ativo**. Colocar um drone (clique no drone do inventário) faz ele começar a operar; clique esquerdo manda quantos couberem, o direito manda 1.
@@ -364,7 +364,7 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 - **Drone decola e pousa suave**: nos primeiros/últimos ~0,35 s de voo a sombra sai de debaixo dele (maior e mais escura) e vai se afastando e encolhendo.
 - **Barrinha nas drills**: barra fina em cima de cada drill (quanto ela guardou de 20), na cor do minério; cheia fica verde.
 - **Sem energia**: no déficit, toda máquina que consome mostra um raio vermelho piscando em cima.
-- **Alcance da estação**: ~~círculo de 30 tiles e área de entrega lilás~~ saiu no Marco 3 da logística (os drones atendem o mapa inteiro). Colocando a estação, a dica diz "drones atendem o mapa todo".
+- **Alcance da estação**: ~~círculo de 30 tiles e área de entrega lilás~~ saiu no Marco 3 da logística (os drones atendem o mapa inteiro). Colocando a estação, a dica diz "drones atendem esta camada".
 - **Volume padrão** (quem nunca mexeu): geral 100%, efeitos 40%, ambiente 50%.
 - Rodar o simulador de novo com inventário, energia e drones, e ajustar até bater a meta de tempo.
 - Playtest do dono. Os assets novos só entram depois de aprovados.
@@ -478,7 +478,7 @@ Rochas usam `mine_hit`/`mine_break` e, ao dar o minério, o `pickup.wav` já apr
 - **O₂ na caverna**: sem zona; 100 s; a seta do O₂ crítico aponta pra rampa ("Suba pela rampa · N m", rótulo RAMPA).
 - **Escuridão** (`game/lighting.py`, `Lighting(cell=4, banding=True)`, ambiente 0 = breu): lanterna do capacete (4 tiles, viés de 10 px pra onde o player olha); **luz do dia na boca da rampa** de subida ((tx·32+48, ty·32+30), 3,5 tiles, `#fff0d6`); luminária (5 tiles, quente, tremidinha leve); luz fraca de cada máquina (1,8 tile, na cor dela; baú não tem, drill cheia apaga); terminais com verde fraco (2 tiles); brilho nos minérios (~40% dos tiles, por cima do escuro). Rachaduras da mineração e fantasma de colocar ficam por cima do escuro; HUD e textos flutuantes também.
 - **Luminária** (`lamp`): 1 Fe + 1 Si, Ti 0, sem energia, sem Ti, 1 tile (só o pé bloqueia, 12×12 px), colocável nas duas camadas. Fica na aba nova **"Luz"** do fabricador (junto vai a "luminária melhor" do Marco 3). Na superfície ela também ganha um brilho quente no sistema de luz de lá. *(Dono: revisar a aba.)*
-- **Duas camadas**: drill na caverna funciona e o jogador busca à mão; **estação de drones não pode ser colocada na caverna** (dica "Drones só funcionam na superfície"); fabricador puxa só dos baús da base; energia e Ti globais.
+- **Duas camadas**: drill na caverna funciona e o jogador busca à mão; **a estação de drones funciona nas duas camadas, cada uma com a sua rede** (v0.6 M3; antes era só na superfície); fabricador puxa só dos baús da base; energia e Ti globais.
 - **Áudio** (dica do Som): `amb_cave` (0,7, nos mesmos canais A/B do ambiente) substitui o `amb_{estágio}` e o vento; descendo, o ambiente e o vento saem em 1,5 s e o `amb_cave` entra em 2,5 s, meio segundo depois (subindo, o inverso; o vento volta em 2,5 s). Mudar de estágio lá embaixo não troca o ambiente: o novo entra ao subir. `ramp_down`/`ramp_up` 0,8; `lamp_place` 0,8 no lugar do `place`. Sem o arquivo: silêncio (sem `amb_cave`, fica o ambiente do estágio, sem vento).
 - **Objetivos**: depois de "Fabrique um baú" entram "Desça na caverna pela cratera [E]" e "Coloque uma luminária" (contador `lamps_placed`, só cresce). "Leia um terminal" não pula mais. *(Dono: revisar a posição.)*
 - **Save v6** (sem subir versão): a camada atual e a caverna (se já foi gerada) já iam no save; entrou `progress.lamps_placed` (save do Marco 1 sem o campo carrega com 0). Salvou no meio do fade, antes da troca: o save já grava o destino (camada + ponto de chegada da rampa), como se a viagem tivesse acabado *(Marco 4; antes carregava antes da troca)*.
