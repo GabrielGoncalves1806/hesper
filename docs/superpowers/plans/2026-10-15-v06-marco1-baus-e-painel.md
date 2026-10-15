@@ -37,7 +37,7 @@
 - UI: nada de UW/UH/HOTBAR fixos em código novo; mouse via `app.mouse_ui`; superfície nova sempre com formato explícito (teste AST existente). Não abrir janela, não commitar, não mexer em `assets/`, `tools/sprites`, `tools/audio`, `reports/design`, `reports/audio`, `saves/`, `settings.json`.
 
 ## Decisões (o dono deveria ver)
-- **[revisar] Caixa de saque fora da rede dos drones.** A spec dizia que ela entraria como baú; o código dos drones só conhece `Machine` (precisa de `sends`/`receives`/`batch`/`anchor`/`size`, `_exists`), e a caixa fica nos destroços, longe da base. Ela guarda e desmonta; drone nela fica pra depois se fizer falta.
+- **Caixa de saque fora da rede dos drones** (aprovado pelo dono). A spec dizia que ela entraria como baú; o código dos drones só conhece `Machine` (precisa de `sends`/`receives`/`batch`/`anchor`/`size`, `_exists`), e a caixa fica nos destroços, longe da base. Ela guarda e desmonta; drone nela fica pra depois se fizer falta.
 - Objetivo "Construa um baú" passa a valer pra qualquer um dos três.
 - `Machine.is_chest` cobre os três; nenhum outro lugar compara `kind == "chest"`.
 
