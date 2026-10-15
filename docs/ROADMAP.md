@@ -60,7 +60,7 @@ Design em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-design.md`. No
 
 - [x] Marco 1: construtor (único jeito de colocar máquina, luz de scanner), desmontar segurando 2 s, fabricador T1 → Bancada T2, diagrama no lugar do projeto, mochila (+1 linha)
 - [x] Marco 2: base respirável (chão, parede alta, porta solo e dupla, flood fill, Dispersor de O₂ gastando cápsula de água, derretedor com inventário, save v9)
-  - Pendências: redesenhar a porta (aprovada como provisória), chuva caindo dentro da base vedada, blocos não reagem quando o lago sobe por cima
+  - Pendências: blocos não reagem quando o lago sobe por cima, hum não baixa com a porta aberta (porta redesenhada no M3; chuva dentro da base: o dono decidiu deixar)
 - [x] Marco 3: mundo (mapa 256 + F3 revela o mapa, faixa gelada maior com neve e veio de gelo, caverna orgânica, bolsão da criatura com gelo gigante, portão grande "Grande gelo" com névoa e mensagem, nevasca na faixa, porta e chão novos da base; fumarola garantida adiada)
 - [ ] Marco 4: expedição e loot (broca de mão nv.1/nv.2, contêiner lacrado, itens novos nos loots) + playtest
 
