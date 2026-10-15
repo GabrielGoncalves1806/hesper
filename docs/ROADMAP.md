@@ -73,7 +73,7 @@ Dividido em dois blocos (brainstorm de 2026-10-15).
 **Logística** (spec: `docs/superpowers/specs/2026-10-15-v06-logistica-design.md`)
 - [x] Marco 1 · Baús e painel (fechado em 2026-10-15, testado pelo dono; travas: Normal em Ti 50.000, diagrama do Grande em Ti 90.000; desmontar só com o construtor na mão, 1 s; Shift+clique manda só a pilha clicada; caixa de saque fora da rede): baú Simples (8) / Normal (16) / Grande (24, diagrama na Névoa); baú de loot guarda item e desmonta; painel de transferência com pilha no cursor; sem migração de save (baú antigo vira Normal).
 - [x] Marco 2 · Chip e máquinas na rede (fechado em 2026-10-15, testado pelo dono; Lote só em quem envia; estado do dispersor no mundo só no hover, "!" quando parado; sons `chip_connect`/`chip_disconnect`): chip no slot liga drill, derretedor e dispersor aos drones; derretedor recebe gelo, dispersor recebe cápsula; chip na T2 (2 wafer + 1 ferro); save v11.
-- [ ] Marco 3 · Drones na caverna: estação na caverna, rede separada por camada.
+- [x] Marco 3 · Drones na caverna (fechado em 2026-10-15; os drones voam por cima das paredes, sem pathfinding): estação na caverna, rede separada por camada, as duas rodando com o player em qualquer camada; sem save novo.
 
 **Fundo** (spec própria depois): caverna espelhando as regiões da superfície (caverna gelada, de fogo e magma), menos minério solto e veios de parede (6 a 8 blocos), cobre na caverna, fornalha (magmatita → lingote, cobre → fios), broca nv.2 quebrando a pedra que dá acesso aos biomas. Ganchos: basalto → vulcão, espécie nativa nas cavernas. Remapear os crafts.
 

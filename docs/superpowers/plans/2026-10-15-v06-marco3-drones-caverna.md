@@ -56,7 +56,7 @@
 - Consumes: `game.layers.SURFACE`, `CAVE`, `ORDER`; `GameState.enter_layer(key)`; `drones.new_station(machine, count)`; `Machine.in_network`; `drones.update_stations(stations, logistics, dt, events) -> int`.
 - Produces: `GameState.drone_logistics(self, key: str = SURFACE) -> list[Machine]`. A Task 2 usa.
 
-- [ ] **Step 1: Escrever os testes que falham**
+- [x] **Step 1: Escrever os testes que falham**
 
 Criar `tests/test_drones_cave.py`:
 
@@ -193,12 +193,12 @@ def test_each_layer_has_its_own_drone_network():
     assert g.base_chests() == []
 ```
 
-- [ ] **Step 2: Rodar e ver falhar**
+- [x] **Step 2: Rodar e ver falhar**
 
 Run: `uv run pytest tests/test_drones_cave.py tests/test_layers.py -q`
 Expected: FAIL. O `drone_logistics(CAVE)` dá `TypeError` (não aceita argumento), o `can_place` na caverna dá `False` e os drones da caverna não andam.
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 `game/systems.py`, o `drone_logistics` (o `SURFACE` já é importado no arquivo; conferir com `grep -n "^from game.layers\|^from game import.*layers" game/systems.py` e usar o nome que o arquivo já usa):
 
@@ -253,14 +253,14 @@ e trocar `"Clique para construir · drones atendem o mapa todo · Esc cancela"` 
 
 Comentário do `game/config.py:545` ("os drones atendem o mapa inteiro"): trocar por "a camada inteira".
 
-- [ ] **Step 4: Rodar e ver passar**
+- [x] **Step 4: Rodar e ver passar**
 
 Run: `uv run pytest tests/test_drones_cave.py tests/test_layers.py tests/test_chip.py tests/test_drones.py -q`
 Expected: PASS.
 
 Se `test_station_can_be_placed_in_the_cave` falhar por falta de chão perto da chegada (e não pela regra), olhar `game.world.is_floor` em volta do `player.tile` e escolher um ponto de chão no teste. Não afrouxar a regra do `can_place`.
 
-- [ ] **Step 5: Suíte inteira**
+- [x] **Step 5: Suíte inteira**
 
 Run: `uv run pytest -q`
 Expected: tudo verde (1514+ passed).
@@ -277,7 +277,7 @@ Expected: tudo verde (1514+ passed).
 - Consumes: `GameState.drone_logistics(key)` (Task 1); `save.state_to_dict(state) -> dict`, `save.state_from_dict(data) -> GameState`; `drones.CARRYING`.
 - Produces: nada de código pra outras tarefas.
 
-- [ ] **Step 1: Teste do save**
+- [x] **Step 1: Teste do save**
 
 Acrescentar em `tests/test_drones_cave.py`:
 
@@ -306,7 +306,7 @@ def test_save_keeps_stations_and_flying_cargo_of_each_layer(game):
 Run: `uv run pytest tests/test_drones_cave.py -q`
 Expected: PASS sem mudar código (o save já grava cada camada). Se falhar, a causa está no `game/save.py` (`machine_to_dict`/`machine_from_dict` da estação): investigar antes de mexer e avisar o gerente no report. Se o `run(game, 6)` não deixar o drone no ar com carga, ajustar o tempo (olhar `drone.state`) e não a regra.
 
-- [ ] **Step 2: Print avulso `tools/dev/shot_v06_m3.py`**
+- [x] **Step 2: Print avulso `tools/dev/shot_v06_m3.py`**
 
 Seguir o molde do `tools/dev/shot_v06_m2.py` (mesmo cabeçalho, driver dummy, `settings.SETTINGS_PATH` temporário, `App(scale=1, skip_title=True)`, `app.set_mode("play")`). Cena:
 
@@ -318,7 +318,7 @@ Seguir o molde do `tools/dev/shot_v06_m2.py` (mesmo cabeçalho, driver dummy, `s
 Run: `uv run python tools/dev/shot_v06_m3.py`
 Expected: os 2 PNGs em `reports/dev/v06_m3/`. Abrir com o Read e conferir que tem drone voando na caverna escura e a dica nova.
 
-- [ ] **Step 3: As 3 ferramentas**
+- [x] **Step 3: As 3 ferramentas**
 
 Run: `uv run pytest -q && uv run python tools/dev/smoke.py && uv run python tools/dev/real_video_check.py`
 Expected: tudo verde. No report, dizer quantos testes passaram e se o smoke estourou frame em algum ponto (rodar de novo antes de chamar de regressão).

@@ -847,3 +847,11 @@ Spec: `docs/superpowers/specs/2026-10-15-v06-logistica-design.md`. O v0.6 virou 
 - **Save v11**: `"chip"` nas máquinas que precisam. `MIGRATIONS[10]` dá o chip pra drill e derretedor com Envia ligado; o dispersor antigo vem sem chip. `FIRST_VERSION` continua 10.
 - **Dispersor no mundo** (pedido do dono): o estado escrito ("Vedado ✓", "Sem água"...) só aparece com o mouse em cima; parado por problema e sem hover, um selo "!" na cor do estado; vedado e sem hover, nada (`App.dispenser_labels` → `(m, estado, hover)`).
 - **Testes e ferramentas**: `tests/test_chip.py`; `tools/dev/shot_v06_m2.py` (painéis com e sem chip, T2 com o chip, dispersor com "!" e com hover). O smoke põe o chip pelo cursor de verdade; o simulador dá o chip de graça na drill (`_place_drill`).
+
+### Marco 3 · como ficou na implementação (`game/systems.py`, `game/app.py`, `game/ui.py`)
+- **Rede por camada**: `GameState.drone_logistics(key=SURFACE)` devolve as máquinas `in_network` só daquela camada. O `_update_machines` chama `drones.update_stations` uma vez por camada (`layers.ORDER`, só as que existem), com as estações e a rede dela, então cada camada tem o seu `Ledger` sem mexer no `game/drones.py`. As duas camadas rodam sempre, com o player em qualquer uma.
+- **Energia global**: o mesmo `work_dt` (dt × fator) vai pras duas camadas; no déficit, os drones das duas ficam lentos.
+- **Estação na caverna**: saiu o bloqueio do `can_place` e a dica "Drones só funcionam na superfície". Dica de construir: "drones atendem esta camada"; painel da estação: "ALCANCE: ESTA CAMADA" e "na camada da estação". Os drones voam em linha reta por cima das paredes (sem pathfinding), igual por cima dos morros.
+- **Desenho e som** já eram da camada ativa (`state.stations`): sem mudança.
+- **Save**: sem versão nova (v11); a estação e a carga dos drones já iam em `layers[key]["machines"]`.
+- **Testes e ferramentas**: `tests/test_drones_cave.py` (rede por camada, as duas rodando com o player na outra, redes que não se misturam, energia, save com carga no ar); `tools/dev/shot_v06_m3.py`.
