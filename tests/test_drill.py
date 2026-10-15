@@ -18,7 +18,7 @@ def world() -> World:
 
 
 def near_veins(world):
-    cx, cy = C.CAVE_CENTER
+    cx, cy = world.center
     return [v for v in world.veins if ((v.tx + 1 - cx) ** 2 + (v.ty + 1 - cy) ** 2) ** 0.5 <= 20]
 
 
@@ -30,16 +30,15 @@ def test_veins_are_deterministic(world):
 
 def test_one_of_each_type_near_base_and_reachable(world):
     near = near_veins(world)
-    assert sorted(v.resource for v in near) == sorted(C.VEIN_RESOURCES)
-    reach = world.reachable_from(C.CAVE_CENTER)
+    assert sorted(v.resource for v in near) == sorted(C.CAVE_VEINS_NEAR)
+    reach = world.reachable_from(world.center)
     for v in near:
         assert all(t in reach for t in v.tiles)          # dá pra chegar andando, sem cavar
 
 
 def test_more_veins_far_away(world):
     far = [v for v in world.veins if v not in near_veins(world)]
-    for r in C.VEIN_RESOURCES:
-        assert sum(v.resource == r for v in far) == C.VEINS_FAR_PER_TYPE
+    assert len(far) == C.CAVE_VEINS_PER_REGION * len(C.CAVE_VEINS)      # v0.6 Fundo: 6 por região
 
 
 def test_veins_do_not_overlap_anything(world):

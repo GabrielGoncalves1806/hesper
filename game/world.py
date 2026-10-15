@@ -1,8 +1,7 @@
 """Mapa de uma camada: uma grade de tiles gerada por noise com seed fixa.
 
 `World` é o mapa em si (consultas e regras de tile). `World.generate(seed)` gera a CAVERNA
-(128×128, paredes com minério, terminais, rampa de subida 3×3 no meio do salão), que era o mapa inteiro
-até o v0.2. A caverna não terraforma (`terraforms = False`: sem água nem plantas). A SUPERFÍCIE (deserto SURFACE_W×SURFACE_H, onde fica a base) é montada pelo game/surface_gen.py
+(256×256 desde o v0.6 Fundo M1, em game/cave_gen.py: regiões, paredes com minério, terminais, rampa de subida 3×3 embaixo da cratera). A caverna não terraforma (`terraforms = False`: sem água nem plantas). A SUPERFÍCIE (deserto SURFACE_W×SURFACE_H, onde fica a base) é montada pelo game/surface_gen.py
 em cima do mesmo `World`.
 
 Paredes altas (rocha, minério, borda, terminal) × sólidos baixos (rocha pequena, cratera, destroço, formação): os dois
@@ -12,7 +11,6 @@ Não usa pygame: é só dados + regras. Por isso dá pra testar sem abrir janela
 """
 
 import math
-import random
 from collections import deque
 from dataclasses import dataclass
 
@@ -79,12 +77,15 @@ class World:
         self.lowness = [[0.0] * width for _ in range(height)]    # "altura" do chão: valores baixos viram poça
         self.veins: list[Vein] = []                               # veios de minério 2×2 no chão
         self._vein_tiles: dict[tuple[int, int], Vein] = {}        # tile -> veio que ocupa ele
-        self.center: tuple[int, int] = C.CAVE_CENTER              # "centro" da camada (base ou rampa), em tiles
+        self.center: tuple[int, int] = (width // 2, height // 2)  # "centro" da camada (base ou chegada da rampa), em tiles
         self.floor_kind = C.FLOOR                                 # o chão que fica quando um sólido quebra
         # Rampa 3×3 da camada (tiles CRATER): a cratera de descida na superfície, a rampa de subida na caverna.
         # Canto de cima à esquerda; as regras de uso ficam em game/layers.py (ramp_target, ramp_arrival).
         self.crater: tuple[int, int] | None = None
         self.terraforms = True                                    # False na caverna: sem água nem plantas, nunca
+        # v0.6 Fundo M1 (só na caverna): região de cada tile, (H, W) uint8 com os números do game/geo.py
+        # (PLATEAU = centro, SALAR, BASALT, FROST). None na superfície (lá a região é do self.geo).
+        self.cave_region: np.ndarray | None = None
         self.sand_variants: list[bytes] | None = None             # variação do sand_{stage}_{v} por tile (superfície)
         self.wrecks: list = []                                    # destroços (game/wrecks.py), só na superfície
         self._wreck_index: dict | None = None                     # tile (área ou caixa) -> destroço (lazy)
@@ -110,120 +111,9 @@ class World:
     # ---- geração ----------------------------------------------------------
     @classmethod
     def generate(cls, seed: int = C.WORLD_SEED) -> "World":
-        world = cls(seed)
-        cx, cy = C.CAVE_CENTER
-        for y in range(world.height):
-            for x in range(world.width):
-                dist = math.hypot(x + 0.5 - cx, y + 0.5 - cy)
-                world.tiles[y][x] = world._pick_tile(x, y, dist)
-                world.lowness[y][x] = value_noise(x * 0.22 + 200, y * 0.22 + 50, seed + 21)
-        world.terraforms = False                              # rocha fria: não muda com o Ti (bíblia §9)
-        world.crater = C.CAVE_RAMP                           # rampa de subida no meio do salão
-        rx, ry = C.CAVE_RAMP
-        for dy in range(3):
-            for dx in range(3):
-                world.set(rx + dx, ry + dy, C.CRATER)
-        world._place_terminals()
-        world._place_veins()
-        return world
-
-    def _pick_tile(self, x: int, y: int, dist: float) -> int:
-        seed = self.seed
-        # Borda do mapa: rocha indestrutível, pra ninguém cavar pra fora do mundo.
-        if x == 0 or y == 0 or x == self.width - 1 or y == self.height - 1:
-            return C.BEDROCK
-        # Cratera: um círculo com a borda "mordida" pelo noise.
-        edge = C.CAVE_HALL_RADIUS + (value_noise(x * 0.18, y * 0.18, seed) - 0.5) * 7
-        if dist < C.CAVE_SAFE_RADIUS or dist < edge:
-            return C.FLOOR
-        # Algumas cavernas naturais longe da base, pra exploração não ser só cavar reto.
-        if dist > 20 and value_noise(x * 0.13 + 70, y * 0.13 + 30, seed + 3) > 0.74:
-            return C.FLOOR
-        # Minério: quanto mais longe do centro, mais fácil de aparecer.
-        far = min(1.0, max(0.0, (dist - C.CAVE_HALL_RADIUS) / 45))
-        base, extra = C.CAVE_ORE_THRESHOLD
-        threshold = base - extra * far
-        if value_noise(x * 0.5 + 40, y * 0.5 + 9, seed + 7) > threshold:
-            kind = value_noise(x * 0.15 + 90, y * 0.15 + 3, seed + 13)
-            if kind < 0.47:
-                return C.IRON
-            if kind < 0.62:
-                return C.SILICON
-            return C.ICE
-        return C.ROCK
-
-    def _place_terminals(self) -> None:
-        """Enterra cada terminal numa parede, com uma salinha de chão embaixo dele."""
-        cx, cy = C.CAVE_CENTER
-        for dist, angle in C.TERMINAL_SPOTS:
-            tx = int(round(cx + dist * math.cos(math.radians(angle))))
-            ty = int(round(cy + dist * math.sin(math.radians(angle))))
-            # moldura de rocha em volta do terminal (fica "dentro" da parede)
-            for dy in (-1, 0):
-                for dx in (-1, 0, 1):
-                    self.set(tx + dx, ty + dy, C.ROCK)
-            self.set(tx, ty, C.TERMINAL)
-            # salinha 3×2 na frente (embaixo) do terminal
-            for dy in (1, 2):
-                for dx in (-1, 0, 1):
-                    self.set(tx + dx, ty + dy, C.FLOOR)
-            self.terminals.append((tx, ty))
-
-    def _place_veins(self) -> None:
-        """Veios 2×2: 1 de cada tipo perto da base (chão aberto e alcançável) e mais alguns longe,
-        uns em caverna aberta e outros enterrados num bolsão escavado na rocha (achados cavando)."""
-        rng = random.Random(self.seed * 7919 + 13)
-        cx, cy = C.CAVE_CENTER
-        rx, ry = C.CAVE_RAMP                                # a rampa de subida + 2 tiles de folga (e a chegada)
-        blocked = {(rx + dx, ry + dy) for dx in range(-2, 5) for dy in range(-2, 6)}
-        for tx, ty in self.terminals:                       # terminal + salinha + folga
-            blocked |= {(tx + dx, ty + dy) for dx in range(-2, 3) for dy in range(-2, 4)}
-
-        def block_ok(tx, ty, spacing):
-            if not (3 <= tx <= self.width - 5 and 3 <= ty <= self.height - 5):     # longe da borda
-                return False
-            area = [(tx + dx, ty + dy) for dx in range(-1, 3) for dy in range(-1, 3)]   # 2×2 + 1 de folga
-            if any(t in blocked for t in area):
-                return False
-            return all(math.hypot(tx - v.tx, ty - v.ty) >= spacing for v in self.veins)
-
-        def center_dist(tx, ty):
-            return math.hypot(tx + 1 - cx, ty + 1 - cy)
-
-        def open_floor(tx, ty):
-            """Os 2×2 são chão E a linha logo abaixo também (senão o topo elevado da parede
-            de baixo cobriria o veio)."""
-            return all(self.get(tx + dx, ty + dy) == C.FLOOR for dx in (0, 1) for dy in (0, 1, 2))
-
-        # perto da base: chão aberto, alcançável a pé a partir da cratera
-        reach = self.reachable_from(C.CAVE_CENTER)
-        lo, hi = C.VEINS_NEAR_BASE
-        for resource in C.VEIN_RESOURCES:
-            candidates = [(tx, ty) for ty in range(self.height - 1) for tx in range(self.width - 1)
-                          if lo <= center_dist(tx, ty) <= hi and block_ok(tx, ty, spacing=8)
-                          and open_floor(tx, ty)
-                          and all((x, y) in reach for x, y in Vein(resource, tx, ty).tiles)]
-            if candidates:
-                self._add_vein(Vein(resource, *rng.choice(candidates)))
-
-        # longe: mais veios, alternando caverna aberta e bolsão escavado na rocha
-        lo, hi = C.VEINS_FAR_RANGE
-        for resource in C.VEIN_RESOURCES:
-            placed = 0
-            for _ in range(400):
-                if placed >= C.VEINS_FAR_PER_TYPE:
-                    break
-                angle, dist = rng.uniform(0, math.tau), rng.uniform(lo, hi)
-                tx, ty = int(cx + dist * math.cos(angle)) - 1, int(cy + dist * math.sin(angle)) - 1
-                if not block_ok(tx, ty, spacing=6):
-                    continue
-                vein = Vein(resource, tx, ty)
-                if not open_floor(tx, ty):
-                    for dy in range(-1, 3):                  # bolsão de chão 4×4 em volta do veio (inclui a linha de baixo)
-                        for dx in range(-1, 3):
-                            self.set(tx + dx, ty + dy, C.FLOOR)
-                self._add_vein(vein)
-                placed += 1
+        """A CAVERNA da seed (game/cave_gen.py). Fica aqui pelo nome antigo, que os testes e o layers usam."""
+        from game.cave_gen import generate_cave          # cave_gen importa World: o import fica aqui dentro
+        return generate_cave(seed)
 
     def _add_vein(self, vein: Vein) -> None:
         self.veins.append(vein)
@@ -294,6 +184,20 @@ class World:
 
     def is_minable(self, tx: int, ty: int) -> bool:
         return self.get(tx, ty) in C.MINE_TIME
+
+    def region_at_cave(self, tx: int, ty: int) -> int | None:
+        """Região da caverna no tile (None fora da caverna ou fora do mapa)."""
+        if self.cave_region is None or not self.in_bounds(tx, ty):
+            return None
+        return int(self.cave_region[ty, tx])
+
+    def is_hard(self, tx: int, ty: int) -> bool:
+        """Parede que só a broca nv.2 quebra (v0.6 Fundo): a rocha dura e o minério de parede dentro do gelo e do
+        basalto da caverna."""
+        kind = self.get(tx, ty)
+        if kind == C.HARD_ROCK:
+            return True
+        return kind in C.ORE_TILES and self.region_at_cave(tx, ty) in C.CAVE_HARD_REGIONS
 
     def dist_from_center(self, tx: int, ty: int) -> float:
         cx, cy = self.center

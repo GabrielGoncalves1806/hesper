@@ -46,6 +46,14 @@ def pristine_tiles(seed: int) -> list[list[int]]:
     return _cache[seed].tiles
 
 
+def crater_of(seed: int) -> tuple[int, int]:
+    """Canto de cima à esquerda da cratera da seed (só leitura). A rampa da caverna nasce no mesmo canto
+    (v0.6 Fundo M1)."""
+    if seed not in _cache:
+        _cache[seed] = _build(seed)
+    return _cache[seed].crater
+
+
 # ---------------------------------------------------------------------------
 # Variação da areia (sand_{stage}_{v}): lógica da Designer (tools/sprites/build_sprites.py · sand_variant),
 # copiada aqui igual, com o mesmo hash e ruído, pra o jogo bater com as prévias aprovadas.

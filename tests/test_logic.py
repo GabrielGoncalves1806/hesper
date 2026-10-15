@@ -50,31 +50,20 @@ def test_world_is_deterministic():
 
 def test_world_size_and_border():
     w = World.generate()
-    assert (w.width, w.height) == (128, 128)
-    assert all(w.tiles[0][x] == C.BEDROCK for x in range(128))
+    assert (w.width, w.height) == (256, 256)    # v0.6 Fundo M1: era 128
+    assert all(w.tiles[0][x] == C.BEDROCK for x in range(w.width))
     assert w.get(-1, 5) == C.BEDROCK   # fora do mapa conta como parede
 
 
 def test_crater_center_is_free():
     """O salão da caverna é chão, menos a rampa de subida 3×3 (Marco 2)."""
     w = World.generate()
-    rx, ry = C.CAVE_RAMP
+    rx, ry = w.crater
     ramp = {(rx + dx, ry + dy) for dx in range(3) for dy in range(3)}
-    for y in range(128):
-        for x in range(128):
+    for y in range(w.height):
+        for x in range(w.width):
             if w.dist_from_center(x, y) < C.CAVE_SAFE_RADIUS:
                 assert w.tiles[y][x] == (C.CRATER if (x, y) in ramp else C.FLOOR), (x, y)
-
-
-def test_more_ore_far_from_center():
-    w = World.generate()
-
-    def ore_ratio(lo, hi):
-        cells = [w.tiles[y][x] for y in range(128) for x in range(128)
-                 if lo <= w.dist_from_center(x, y) < hi and w.tiles[y][x] != C.FLOOR]
-        return sum(t in C.ORE_TILES for t in cells) / len(cells)
-
-    assert ore_ratio(40, 60) > ore_ratio(13, 22) > 0.1
 
 
 def test_three_terminals_at_growing_distance():

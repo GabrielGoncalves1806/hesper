@@ -125,5 +125,5 @@ def test_rocks_respawn_with_the_real_update():
 def test_cave_layer_is_made_by_the_old_generator():
     g = GameState(rng=random.Random(1))
     g.enter_layer(CAVE)
-    assert len(g.world.terminals) == 3 and g.world.center == C.CAVE_CENTER
+    assert len(g.world.terminals) == 3 and g.world.center == (g.world.crater[0] + 1, g.world.crater[1] + 3)
     give(g, iron=1)
