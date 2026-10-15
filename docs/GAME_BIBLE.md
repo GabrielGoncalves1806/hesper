@@ -820,3 +820,12 @@ Design completo em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-desig
 - **Contêiner lacrado abre**: o E abre de graça (sem chip) e usa **a mesma tela e fluxo da caixa de saque** (`Crate` com um `wrecks.ContainerSpot` no lugar do destroço; `Layer.containers`, tile → `Crate`, criada junto com a camada). O saque é fixo, uma vez só (pegou, acabou; o que sobrou na caixa fica lá). `crate.opened` vira o estado "aberto", **salvo no save na mesma lista `crates`** (só entra se abriu ou foi mexido). Alvo do E: "[E] Abrir contêiner"; aberto e vazio, "Contêiner aberto" (o E ainda abre a tela vazia, como a caixa). Mapa: o marcador continua, com o estado "aberto". A **lore antiga saiu** (`CONTAINER_LORE` removido): a tela com o saque já conta a história, e o texto nunca foi aprovado. Painel: "Contêiner · caixa".
 - **Arte e som**: `container_open.png` (B, **aprovado**) e `container_open.wav` (D3s, **aprovado**, volume 0,9) já estão no jogo; `icon_hand_drill.png` (opção Y, provisória) e `icon_tab_base.png` (cápsula A) aprovados. O evento `container_open` toca `container_open` se existir em `assets/audio/` (`Audio.has`), senão o `crate_open`.
 - Testes: `tests/test_m4_expedition.py`. Print avulso: `uv run python tools/dev/shot_m4_loot.py` → `reports/dev/m4_*.png`.
+
+## 14. v0.6 · Logística (decisões do dono, 2026-10-15)
+Spec: `docs/superpowers/specs/2026-10-15-v06-logistica-design.md`. O v0.6 virou dois blocos, Logística e Fundo; o elevador de carga foi pro Futuro.
+- **Chip**: máquina só entra na rede dos drones com um chip no slot dela (drill envia o minério; derretedor recebe gelo e envia cápsula; dispersor de O₂ recebe cápsula). **Baú não precisa de chip.** Receita do chip na Bancada T2 (2 wafer + 1 ferro, partida); continua saindo de loot. Save antigo: drill e derretedor com Envia ligado ganham o chip.
+- **Baús**: Simples (8 slots, sprite `loot_crate`), Normal (16, `chest`) e Grande (24, `container_sealed`/`container_open`). O Grande precisa do diagrama, fabricado no T1 e liberado na Névoa (Ti 10.000). O baú de hoje (24) vira **Grande** no save antigo.
+- **Baú de loot** dos destroços, depois de aberto, funciona como Baú Simples (guarda item, entra na rede) e desmonta vazio. O contêiner lacrado aberto guarda item mas não desmonta.
+- **Painel de transferência** (baú, drill, máquinas, estação) no estilo do inventário: o clique pega a pilha no cursor e solta no slot escolhido; Shift+clique continua mandando direto.
+- **Caverna**: a estação de drones funciona lá; cada camada tem a sua rede e os drones nunca trocam de camada.
+

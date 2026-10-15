@@ -68,7 +68,14 @@ Design em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-design.md`. No
 **v0.5 fechado em 2026-10-14.** Ficou pra depois: ícone da broca de mão definitivo (hoje a Y provisória; as R1/R2 da referência do dono estão em `reports/design/v05_m4_broca_conteiner/`), update de melhoria de sprites, balanceamento do loot (números de partida em `C.LOOT_*`), uso das peças (v0.6).
 
 ## v0.6 · Logística e fundo
-Chip num slot deixa baú/máquina visível pros drones (menu "Drone"), drones abastecendo máquinas, elevador de carga, biomas de caverna. Ganchos: basalto → vulcão, espécie nativa nas cavernas. Fornalha (magmatita → lingote) e cobre → fios.
+Dividido em dois blocos (brainstorm de 2026-10-15).
+
+**Logística** (spec: `docs/superpowers/specs/2026-10-15-v06-logistica-design.md`)
+- [ ] Marco 1 · Baús e painel: baú Simples (8) / Normal (16) / Grande (24, diagrama na Névoa); baú de loot guarda item e desmonta; painel de transferência com pilha no cursor; save v11 (baú antigo vira Grande).
+- [ ] Marco 2 · Chip e máquinas na rede: chip no slot liga drill, derretedor e dispersor aos drones; derretedor recebe gelo, dispersor recebe cápsula; chip na T2; save v12.
+- [ ] Marco 3 · Drones na caverna: estação na caverna, rede separada por camada.
+
+**Fundo** (spec própria depois): caverna espelhando as regiões da superfície (caverna gelada, de fogo e magma), menos minério solto e veios de parede (6 a 8 blocos), cobre na caverna, fornalha (magmatita → lingote, cobre → fios), broca nv.2 quebrando a pedra que dá acesso aos biomas. Ganchos: basalto → vulcão, espécie nativa nas cavernas. Remapear os crafts.
 
 ## v0.7 · Perigo e lore
 Inimigos, combate, primeiro boss, ruínas da Colônia Hesper.
@@ -77,6 +84,7 @@ Inimigos, combate, primeiro boss, ruínas da Colônia Hesper.
 Fauna e flora surgindo com o Ti, farm, música.
 
 ## Futuro
+- **Elevador de carga** (saiu do v0.6): ligar a rede de drones da caverna com a da superfície.
 - **Update de melhoria de sprites** (pedido do dono no playtest do v0.5 M4): uma rodada só de arte, revisando os sprites que ficaram "ok mas não ótimos" (começa pela broca de mão).
 - Ideia do dono (2026-10-13): **variação de tom por mundo**, a seed puxando um leve deslocamento de cor em cada região (um basalto mais avermelhado num mundo, mais acinzentado em outro). Hoje a cor é só região × estágio.
 - Mapa: máquinas coladas viram uma "régua" de marcadores (agrupar por base ou desenhar menor quando estão juntas).
