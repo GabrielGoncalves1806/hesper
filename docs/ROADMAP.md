@@ -75,7 +75,13 @@ Dividido em dois blocos (brainstorm de 2026-10-15).
 - [x] Marco 2 · Chip e máquinas na rede (fechado em 2026-10-15, testado pelo dono; Lote só em quem envia; estado do dispersor no mundo só no hover, "!" quando parado; sons `chip_connect`/`chip_disconnect`): chip no slot liga drill, derretedor e dispersor aos drones; derretedor recebe gelo, dispersor recebe cápsula; chip na T2 (2 wafer + 1 ferro); save v11.
 - [x] Marco 3 · Drones na caverna (fechado em 2026-10-15; os drones voam por cima das paredes, sem pathfinding): estação na caverna, rede separada por camada, as duas rodando com o player em qualquer camada; sem save novo.
 
-**Fundo** (spec própria depois): caverna espelhando as regiões da superfície (caverna gelada, de fogo e magma), menos minério solto e veios de parede (6 a 8 blocos), cobre na caverna, fornalha (magmatita → lingote, cobre → fios), broca nv.2 quebrando a pedra que dá acesso aos biomas. Ganchos: basalto → vulcão, espécie nativa nas cavernas. Remapear os crafts.
+**Fundo** (spec: `docs/superpowers/specs/2026-10-15-v06-fundo-design.md`)
+- [ ] Marco 1 · Caverna nova: 256×256, rampa sob a cratera, regiões (gelo N, basalto O, salar L maior, centro), rocha dura nos biomas trancados, veios de parede (6–8), menos minério solto, cobre no salar, magmatita em veio e rochinha no basalto, F3 quebra rocha dura, save v12 (caverna antiga descartada).
+- [ ] Marco 2 · Cara dos biomas: chão, parede, luz e som por região (arte e som com o dono).
+- [ ] Marco 3 · Fornalha: magmatita de combustível, lingote de ferro e de cobre, fios no fabricador, na rede com chip.
+- [ ] Marco 4 · Broca nv.2: quebra rocha dura, minera ×1,5, consome a nv.1.
+- [ ] Marco 5 · Remapear crafts.
+Ganchos: vulcão no basalto, espécie nativa, areia do salar, ruínas na caverna.
 
 ## v0.7 · Perigo e lore
 Inimigos, combate, primeiro boss, ruínas da Colônia Hesper.
@@ -86,6 +92,7 @@ Fauna e flora surgindo com o Ti, farm, música.
 ## Futuro
 - **Baú grande colado em outro** (dono, teste do v0.6 M1, print em `reports/design/v06_m1_baus/feedback/bau_grande_colado.png`): o sprite do contêiner tem 40 px num tile de 32, então dois Grandes lado a lado se sobrepõem 8 px. Opções: arte de 32 px de largura, Grande ocupando 2 tiles, ou proibir colar. Já tinha sido levantado pela Designer.
 - **Prioridade dos drones** (dono, 2026-10-15, fechando o v0.6 M2): um esquema de prioridade pra quem os drones atendem primeiro (ex.: dispersor sem água antes de encher baú). Hoje o `drones.pick_task` escolhe pelo maior estoque e pela menor viagem. Conversar o desenho antes.
+- **Trefiladora** (dono, brainstorm do Fundo): lingote de cobre → fio como máquina, linha de produção fornalha → trefiladora pelos drones. No Fundo o fio sai do fabricador.
 - **Elevador de carga** (saiu do v0.6): ligar a rede de drones da caverna com a da superfície.
 - **Update de melhoria de sprites** (pedido do dono no playtest do v0.5 M4): uma rodada só de arte, revisando os sprites que ficaram "ok mas não ótimos" (começa pela broca de mão).
 - Ideia do dono (2026-10-13): **variação de tom por mundo**, a seed puxando um leve deslocamento de cor em cada região (um basalto mais avermelhado num mundo, mais acinzentado em outro). Hoje a cor é só região × estágio.
