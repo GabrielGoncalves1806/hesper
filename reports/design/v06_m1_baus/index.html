@@ -1,0 +1,54 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Hesper · v0.6 M1 · baús</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;margin:0;padding:32px;max-width:1100px}
+h1{margin:6px 0}h2{margin-top:40px;color:var(--gold);border-bottom:1px solid var(--line)}.eb{color:var(--rust);font:12px monospace;text-transform:uppercase}
+img{image-rendering:pixelated}.chk{display:inline-block;background:conic-gradient(#3a3a46 25%,#2b2b35 0 50%,#3a3a46 0 75%,#2b2b35 0) 0 0/16px 16px;padding:8px}
+.row{display:flex;gap:20px;flex-wrap:wrap}figure{margin:0}figcaption{color:var(--muted);font-size:12px;margin-top:4px}
+.note{background:var(--panel);border:1px solid var(--line);padding:10px 16px;border-left:4px solid var(--rust)}
+code{color:var(--cyan)}table{border-collapse:collapse}td,th{border:1px solid var(--line);padding:4px 10px;text-align:left}
+</style></head><body>
+<div class="eb">Hesper · Designer · v0.6 Marco 1</div><h1>Baús em três tamanhos</h1>
+<div class="note"><b>v1.0 · o que é</b>: ícones do baú simples e do baú grande (3 opções cada), silhueta de slot de chip vazio (2 opções) e a conferência dos três sprites de mundo como baú construído. <b>Pra aprovar</b>: tudo em <code>pendentes/</code>, nada foi pra <code>assets/sprites/</code>.<br>Estilo: mesma família do <code>icon_chest</code> (azul #0a74de / #2f93f4 / #055ec8, cinta cinza, contorno #1b1630); os ícones são versões reduzidas do <code>loot_crate</code> (tampa em gomos, cinta, trinco) e do <code>container_sealed</code> (4 gomos, duas cintas verticais, fecho dourado).</div>
+
+<h2>1 · Ícones (16×16)</h2>
+<p>Referência: o <code>icon_chest</code> atual ocupa 16×12 (baú normal). O simples fica menor (12 de largura), o grande ocupa o quadro todo com mais altura.</p>
+<div class="row"><figure><div class="chk"><img src="../../../assets/sprites/icon_chest.png" width="128" height="128"></div><figcaption><code>icon_chest</code> (hoje, normal 16 slots)</figcaption></figure><figure><div class="chk"><img src="../../../assets/sprites/loot_crate.png" width="128" height="128"></div><figcaption><code>loot_crate</code> (mundo, 8×)</figcaption></figure><figure><div class="chk"><img src="../../../assets/sprites/container_sealed.png" width="120" height="132"></div><figcaption><code>container_sealed</code> (mundo)</figcaption></figure></div>
+<h3>Baú simples (8 slots)</h3>
+<div class="row"><figure><div class="chk"><img src="pendentes/icon_chest_small_A.png" width="128" height="128"></div><figcaption><code>icon_chest_small_A</code> 16×16</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_chest_small_B.png" width="128" height="128"></div><figcaption><code>icon_chest_small_B</code> 16×16</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_chest_small_C.png" width="128" height="128"></div><figcaption><code>icon_chest_small_C</code> 16×16</figcaption></figure></div>
+<p><b>A</b> cinta cinza com trinco (o mais fiel ao loot_crate). <b>B</b> fecho dourado pequeno (lê "caixinha com tranca"; combina com o grande). <b>C</b> cinta com ponteiras laterais (a aba cinza do loot_crate saindo pros lados). Recomendo <b>A</b>: o trinco cinza é o que o loot_crate tem, e o dourado fica de marca do baú grande.</p>
+<div class="row"><figure><img class="px" src="hotbar_small_A.png" width="270" height="72"><figcaption>no slot, 3× (com scanner, baú atual e lâmpada)</figcaption></figure><figure><img class="px" src="hotbar_small_B.png" width="270" height="72"><figcaption>no slot, 3× (com scanner, baú atual e lâmpada)</figcaption></figure><figure><img class="px" src="hotbar_small_C.png" width="270" height="72"><figcaption>no slot, 3× (com scanner, baú atual e lâmpada)</figcaption></figure></div>
+<h3>Baú grande (24 slots)</h3>
+<div class="row"><figure><div class="chk"><img src="pendentes/icon_chest_large_A.png" width="128" height="128"></div><figcaption><code>icon_chest_large_A</code> 16×16</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_chest_large_B.png" width="128" height="128"></div><figcaption><code>icon_chest_large_B</code> 16×16</figcaption></figure><figure><div class="chk"><img src="pendentes/icon_chest_large_C.png" width="128" height="128"></div><figcaption><code>icon_chest_large_C</code> 16×16</figcaption></figure></div>
+<p><b>A</b> duas cintas verticais cinza e fecho dourado, o container_sealed em miniatura. <b>B</b> cintas finas, tampa mais arredondada, pezinhos. <b>C</b> cinta horizontal larga estilo aba do container, abas laterais e pezinhos. Recomendo <b>A</b>: é a que mais lê "container" ao lado do normal (cinta horizontal) no menu do construtor.</p>
+<div class="row"><figure><img class="px" src="hotbar_large_A.png" width="270" height="72"><figcaption>no slot, 3× (com scanner, baú atual e lâmpada)</figcaption></figure><figure><img class="px" src="hotbar_large_B.png" width="270" height="72"><figcaption>no slot, 3× (com scanner, baú atual e lâmpada)</figcaption></figure><figure><img class="px" src="hotbar_large_C.png" width="270" height="72"><figcaption>no slot, 3× (com scanner, baú atual e lâmpada)</figcaption></figure></div>
+
+<h2>2 · Silhueta de slot de chip vazio (16×16)</h2>
+<div class="row"><figure><div class="chk"><img src="pendentes/chip_slot_empty_A.png" width="128" height="128"></div><figcaption><b>A</b> <code>chip_slot_empty_A</code> contorno do chip, miolo vazio</figcaption></figure><figure><div class="chk"><img src="pendentes/chip_slot_empty_B.png" width="128" height="128"></div><figcaption><b>B</b> <code>chip_slot_empty_B</code> máscara cheia, miolo mais fundo</figcaption></figure><figure><div class="chk"><img src="../../../assets/sprites/icon_chip.png" width="128" height="128"></div><figcaption><code>icon_chip</code> (o item)</figcaption></figure></div>
+<p>Cinza translúcido (alpha 96, miolo de B alpha 70; é o único alpha intermediário, de propósito, como sombra de UI), sem o contorno escuro, pra não competir com item de verdade. Os pinos saem do próprio icon_chip. Em slot, 1× a 3× (A, B, chip real):</p>
+<img src="slot_chip.png" width="340" height="120">
+<p>Recomendo <b>B</b>: A fica ralo em 1× (só um aro pontilhado); B lê "aqui entra um chip" mesmo no slot escuro.</p>
+
+<h2>3 · Conferência como baú construído</h2>
+<p>Chão da base (<code>base_floor</code>), aquecedor como referência de máquina e os três baús com o pé no centro de baixo do tile (mesma âncora do chest), 2×:</p>
+<img src="cena_base_3_baus.png" width="640" height="320">
+<p>Fantasma do construtor (aproximação: sprite tingido, verde = pode, vermelho = não pode; o jogo faz o tingimento dele, aqui é só pra checar a silhueta):</p>
+<img src="cena_fantasma.png" width="640" height="256">
+<table><tr><th>sprite</th><th>tamanho</th><th>conteúdo (bbox)</th><th>observação</th></tr>
+<tr><td><code>loot_crate</code> / <code>_empty</code></td><td>32×32</td><td>26×18 / 26×25, y 12–30</td><td>cabe em 1 tile com folga de 3 px de cada lado</td></tr>
+<tr><td><code>chest</code> / <code>_open</code></td><td>32×40</td><td>32×23 / 32×32, y 15–38</td><td>preenche o tile exato</td></tr>
+<tr><td><code>container_sealed</code> / <code>_open</code></td><td>40×44</td><td>40×29 / 40×38, y 13–42</td><td>passa 4 px pra cada lado do tile</td></tr></table>
+<h3>Veredito</h3>
+<ul>
+<li><b>Os três funcionam</b> como baú construído: mesma família azul/cinza, leem como o mesmo objeto em 3 tamanhos, contorno escuro igual ao das máquinas, e o azul se destaca do chão cinza-esverdeado da base sem brigar com o branco/laranja das máquinas.</li>
+<li><b>Atenção 1 · container_sealed</b> tem 40 px de largura num tile de 32: sobra 4 px pra cada lado, então ele encosta/cobre um pedaço da máquina vizinha. Se a base permitir baú colado em máquina, vale ordenar pelo y do pé (já é a regra) e o fantasma ficar 8 px mais largo que a célula. Não vi problema visual nos testes, só aponto. Se o grande ocupar 1 célula, nada a mudar; se a ideia for ocupar 2 células de largura, ele ficaria apertado.</li>
+<li><b>Atenção 2 · aberto</b>: <code>container_open</code> sobe até y=4 (38 px de altura útil, a tampa em pé cobre quase um tile acima) e <code>chest_open</code> até y=6. Aberto ao lado de parede/máquina atrás, a tampa cobre o que está no tile de cima; ok pro top-down 3/4, só lembrar de desenhar na ordem do pé.</li>
+<li><b>Atenção 3 · loot_crate vs chest</b> em escala 1×: a diferença de tamanho é só ~6 px de largura e ~5 de altura. Lê bem lado a lado, mas isolado alguém pode confundir simples com normal. O ícone e o rótulo do painel (8/16/24 slots) resolvem; se o dono quiser diferença maior, uma cinta de cor diferente no loot_crate seria o ajuste. Não refiz nada.</li>
+<li>Todos têm margem de 2 px embaixo (o pé do sprite fica 2 px acima da borda do canvas), consistente entre os três; sem ajuste.</li></ul>
+
+<h2>Pro Dev integrar</h2>
+<ul><li>Ícones: 16×16, <code>icon_chest_small</code> e <code>icon_chest_large</code> (depois do ok, a versão escolhida perde o sufixo A/B/C). Mesmo uso do <code>icon_chest</code>: blit em (2,2) do <code>ui_slot</code> 20×20.</li>
+<li><code>chip_slot_empty</code>: 16×16, mesmo encaixe em (2,2) do slot; desenhar só quando o slot de chip está vazio, com alpha da própria imagem.</li>
+<li>Mundo: nenhum sprite novo. <code>loot_crate</code>(_empty), <code>chest</code>(_open) e <code>container_sealed</code>/<code>container_open</code> mantêm tamanho e âncora (pé no centro de baixo do tile).</li></ul>
+<p style="color:var(--muted)">Gerado por <code>tools/sprites/v06_m1_baus.py</code> (determinístico).</p>
+</body></html>
