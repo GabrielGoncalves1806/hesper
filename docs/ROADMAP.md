@@ -71,7 +71,7 @@ Design em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-design.md`. No
 Dividido em dois blocos (brainstorm de 2026-10-15).
 
 **Logística** (spec: `docs/superpowers/specs/2026-10-15-v06-logistica-design.md`)
-- [ ] Marco 1 · Baús e painel: baú Simples (8) / Normal (16) / Grande (24, diagrama na Névoa); baú de loot guarda item e desmonta; painel de transferência com pilha no cursor; sem migração de save (baú antigo vira Normal).
+- [x] Marco 1 · Baús e painel (fechado em 2026-10-15, testado pelo dono; travas: Normal em Ti 50.000, diagrama do Grande em Ti 90.000; desmontar só com o construtor na mão, 1 s; Shift+clique manda só a pilha clicada; caixa de saque fora da rede): baú Simples (8) / Normal (16) / Grande (24, diagrama na Névoa); baú de loot guarda item e desmonta; painel de transferência com pilha no cursor; sem migração de save (baú antigo vira Normal).
 - [ ] Marco 2 · Chip e máquinas na rede: chip no slot liga drill, derretedor e dispersor aos drones; derretedor recebe gelo, dispersor recebe cápsula; chip na T2; save v11.
 - [ ] Marco 3 · Drones na caverna: estação na caverna, rede separada por camada.
 
