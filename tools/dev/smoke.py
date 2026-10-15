@@ -727,7 +727,7 @@ def check_inventory_and_chest(bot) -> None:
         pygame.event.post(pygame.event.Event(pygame.TEXTINPUT, text=ch))
         bot.frames(DT)
     assert app.mode == "chest" and app.name_edit.text == "Minérios da base", app.name_edit.text
-    bot.mouse_to((slot_pos(bot, box, 20)[0], slot_pos(bot, box, 20)[1]))   # mouse longe do campo
+    bot.mouse_to((slot_pos(bot, box, 15)[0], slot_pos(bot, box, 15)[1]))   # mouse longe do campo
     while app.t % C.CHEST_NAME_BLINK >= C.CHEST_NAME_BLINK / 2 - 0.05:    # print com o cursor aceso
         bot.frames(DT)
     bot.shot("bau_nome.png")
