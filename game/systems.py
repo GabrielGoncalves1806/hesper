@@ -580,7 +580,7 @@ class GameState:
 
     # ---- mineração ----------------------------------------------------------
     def can_mine(self, tile: tuple[int, int]) -> bool:
-        if not self.world.is_minable(*tile):
+        if not self.world.is_minable(*tile) or self.hard_blocked(tile):
             return False
         px, py = self.player.tile
         return max(abs(tile[0] - px), abs(tile[1] - py)) <= C.MINE_REACH
@@ -1927,6 +1927,15 @@ class GameState:
     def player_speed(self) -> float:
         """px/s do player (com o F3 ligado, DEBUG_SPEED× mais rápido)."""
         return C.PLAYER_SPEED * (C.DEBUG_SPEED if self.fast else 1)
+
+    @property
+    def can_break_hard(self) -> bool:
+        """Quebra rocha dura? (v0.6 Fundo: só a broca nv.2, que entra no M4; no M1, o F3 pra testar os biomas)"""
+        return self.fast
+
+    def hard_blocked(self, tile: tuple[int, int]) -> bool:
+        """Tile duro que o player ainda não consegue quebrar."""
+        return self.world.is_hard(*tile) and not self.can_break_hard
 
     @property
     def mine_speed(self) -> float:

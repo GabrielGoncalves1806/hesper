@@ -2044,6 +2044,8 @@ class App:
         if state.world.is_minable(*tile):
             if not self.hand_drill_selected():              # v0.5 M4: sem a broca na mão, o clique não minera
                 return "Selecione a broca de mão pra minerar"
+            if state.hard_blocked(tile):                     # v0.6 Fundo: gelo e basalto da caverna
+                return "Rocha dura demais · precisa da broca nv.2"
             if state.world.get(*tile) in C.SMALL_ROCKS:
                 name = C.RESOURCE_NAME[C.SMALL_ROCKS[state.world.get(*tile)]]
                 return (f"Rocha com {name} · segure o clique para quebrar" if state.can_mine(tile)

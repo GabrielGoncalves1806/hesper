@@ -103,9 +103,12 @@ CONTAINER = 15                  # contêiner lacrado atrás de um gelo-portão (
                                 # não abre nem minera (quem desenha é o render, como a caixa de saque)
 SMALL_MAGMATITE = 16            # rocha pequena de magmatita (v0.4 · bíblia §12): só em volta das fumarolas
                                 # (game/magmatite.py), sem veio e sem minério de parede
-ORE_TILES = {IRON: "iron", SILICON: "silicon", ICE: "ice"}            # minério NA PAREDE (overlay no topo)
+COPPER = 17                     # v0.6 Fundo M1: minério de cobre NA PAREDE (só na caverna, região do salar)
+HARD_ROCK = 18                  # v0.6 Fundo M1: rocha dura (parede alta). Toda a rocha do gelo e do basalto da caverna;
+                                # só a broca nv.2 quebra (no M1, o F3). Ver World.is_hard
+ORE_TILES = {IRON: "iron", SILICON: "silicon", ICE: "ice", COPPER: "copper"}   # minério NA PAREDE (overlay no topo)
 SMALL_ROCKS = {SMALL_IRON: "iron", SMALL_SILICON: "silicon", SMALL_ICE: "ice", SMALL_MAGMATITE: "magmatite"}
-WALL_TILES = {ROCK, IRON, SILICON, ICE, BEDROCK, TERMINAL}            # paredes ALTAS (topo elevado + face)
+WALL_TILES = {ROCK, IRON, SILICON, ICE, COPPER, HARD_ROCK, BEDROCK, TERMINAL}   # paredes ALTAS (topo elevado + face)
 FLAT_SOLIDS = set(SMALL_ROCKS) | {CRATER, WRECK, LOOT_CRATE, FORMATION, CONTAINER}                         # sólidos baixos: bloqueiam, mas não têm altura
 SOLID_TILES = WALL_TILES | FLAT_SOLIDS
 FLOOR_TILES = {FLOOR, SAND}
@@ -160,7 +163,8 @@ PLAYER_BOX_W, PLAYER_BOX_H = 14, 8   # caixa de colisão nos pés
 # ---------------------------------------------------------------------------
 # Mineração (§4 Mineração)
 # ---------------------------------------------------------------------------
-MINE_TIME = {ROCK: 0.6, IRON: 1.0, SILICON: 1.2, ICE: 0.8,
+MINE_TIME = {ROCK: 0.6, IRON: 1.0, SILICON: 1.2, ICE: 0.8, COPPER: 1.1,
+             HARD_ROCK: 1.5,                                        # v0.6 Fundo: só com a nv.2 (no M1, o F3)
              SMALL_IRON: 0.7, SMALL_SILICON: 0.7, SMALL_ICE: 0.7,   # rocha pequena: rapidinha
              SMALL_MAGMATITE: 0.9}                                  # magmatita: basalto, um pouco mais dura
 DROP_MIN, DROP_MAX = 1, 2       # minério de parede
@@ -168,12 +172,13 @@ DROP_RANGE = {k: (2, 4) for k in SMALL_ROCKS}   # rocha pequena dá 2 a 4 (o res
 MINE_REACH = 2              # alcance em tiles (distância de Chebyshev a partir do tile do player)
 MINE_HIT_INTERVAL = 0.25    # som de picareta a cada 0,25 s
 
-RESOURCES = ("iron", "silicon", "ice", "magmatite")
+RESOURCES = ("iron", "silicon", "ice", "magmatite", "copper")
 # Os que têm veio e minério de parede (drill, caverna, sorteio dos veios da superfície). A magmatita (v0.4, bíblia
 # §12) é só rocha solta em volta das fumarolas: fica fora daqui pra não mexer no sorteio dos veios.
 VEIN_RESOURCES = ("iron", "silicon", "ice")
-RESOURCE_LABEL = {"iron": "FERRO", "silicon": "SILICIO", "ice": "GELO", "magmatite": "MAGMATITA"}   # HUD (Silkscreen)
-RESOURCE_NAME = {"iron": "ferro", "silicon": "silício", "ice": "gelo", "magmatite": "magmatita",
+RESOURCE_LABEL = {"iron": "FERRO", "silicon": "SILICIO", "ice": "GELO", "magmatite": "MAGMATITA",
+                  "copper": "COBRE"}   # HUD (Silkscreen)
+RESOURCE_NAME = {"iron": "ferro", "silicon": "silício", "ice": "gelo", "magmatite": "magmatita", "copper": "cobre",
                  "water_capsule": "cápsula de água"}   # em frases (Pixelify); a cápsula (v0.5 M2) só entra por nome
 RESOURCE_LABEL["water_capsule"] = "CÁPSULA"   # (idem: não é recurso, RESOURCES não tem ela)
 
@@ -239,6 +244,14 @@ DRILL_FULL_COOLDOWN = 10.0      # ...e não repete pra mesma drill antes de 10 s
 VEINS_NEAR_BASE = (8, 20)       # 1 veio de cada tipo entre 8 e 20 tiles da base
 VEINS_FAR_PER_TYPE = 5          # mais longe: 5 de cada tipo (total 6 de cada)
 VEINS_FAR_RANGE = (24, 58)      # distância dos veios "de longe" (tiles)
+
+# v0.6 Fundo M1 · caverna nova (game/cave_gen.py · bíblia §15). Números de partida.
+CAVE_HARD_REGIONS = frozenset({2, 3})   # BASALT, FROST (game/geo.py): rocha dura
+# Visual PROVISÓRIO por região (até a arte do M2): tinta RGBA por cima do chão e cor da rocha orgânica.
+CAVE_REGION_TINT = {0: (0, 0, 0, 0),            # centro: a névoa de sempre
+                    1: (214, 176, 120, 46),     # salar: areia
+                    2: (150, 52, 30, 52),       # basalto: brasa
+                    3: (140, 200, 235, 52)}     # gelo
 
 MACHINES["drill"] = MachineType("drill", "Drill automática", "+ minério", DRILL_COST, None, 0,
                                 DRILL_UNLOCK_TI, "machine_drill", size=2)
@@ -423,6 +436,7 @@ ORE_COLORS = {  # cor, sombra
     "iron": ("#e8a066", "#a5582c"),
     "silicon": ("#c3d1e2", "#7d8ca3"),
     "ice": ("#a6ecff", "#4fb3d6"),
+    "copper": ("#e0703f", "#aa4a2a"),      # v0.6 Fundo: laranja do cobre (paleta da Designer, reports/design/v06_fundo_cobre_ferro)
     "magmatite": ("#ff7a2e", "#a8361a"),   # laranja-lava (a fissura da pedra), sombra de brasa
     "water_capsule": ("#59d0e6", "#2a7f96"),   # v0.5 M2: só pra pepita do drone e aviso flutuante (não é minério)
 }

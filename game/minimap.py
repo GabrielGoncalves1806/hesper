@@ -18,13 +18,18 @@ TILE_COLORS = {
     C.SAND: (138, 106, 78), C.FLOOR: (92, 84, 80),
     C.ROCK: (58, 50, 54), C.BEDROCK: (30, 24, 28), C.TERMINAL: (111, 227, 160),
     C.IRON: (150, 92, 60), C.SILICON: (110, 118, 140), C.ICE: (70, 130, 160),
+    C.COPPER: (206, 112, 66),             # v0.6 Fundo: cobre na parede
+    C.HARD_ROCK: (44, 38, 44),            # v0.6 Fundo: rocha dura (fora da caverna não existe)
     C.SMALL_IRON: (106, 90, 80), C.SMALL_SILICON: (106, 90, 80), C.SMALL_ICE: (106, 90, 80),
     C.SMALL_MAGMATITE: (106, 90, 80),   # rocha pequena: a mesma cor neutra das outras
     C.CRATER: (21, 16, 24), C.WRECK: (200, 192, 176), C.LOOT_CRATE: (242, 163, 58),
     C.FORMATION: (46, 38, 42),          # a pegada; o marcador "Formação" do mapa vai por cima
     C.CONTAINER: (239, 229, 218),       # contêiner lacrado (v0.4 M3.2); o marcador "Contêiner" vai por cima
 }
-VEIN_COLORS = {"iron": (232, 160, 102), "silicon": (195, 209, 226), "ice": (166, 236, 255)}
+VEIN_COLORS = {"iron": (232, 160, 102), "silicon": (195, 209, 226), "ice": (166, 236, 255),
+               "copper": (224, 112, 63), "magmatite": (255, 122, 46)}
+# v0.6 Fundo M1: chão da caverna no mapa, por região (provisório como a tinta do render)
+CAVE_REGION_COLORS = {0: (92, 84, 80), 1: (130, 112, 88), 2: (96, 66, 60), 3: (98, 118, 134)}
 UNSEEN = (0, 0, 0)
 FOG_COLOR = (150, 176, 196)             # v0.5 M3.6.4: mancha de névoa no interior fechado do bolsão da criatura
 WATER_COLOR = (63, 118, 144)            # v0.4 M3.3: lago nas bacias (a água da Névoa, PALETTES["mist"]["water"])
@@ -66,6 +71,9 @@ def tile_color(world, x: int, y: int, reveal: bool = False) -> tuple[int, int, i
         return WATER_COLOR
     if geo is not None and kind in (C.SAND, C.ROCK):
         return (REGION_COLORS if kind == C.SAND else REGION_ROCK_COLORS)[geo.region[y, x]]
+    region = world.region_at_cave(x, y) if hasattr(world, "region_at_cave") else None
+    if region is not None and kind == C.FLOOR:
+        return CAVE_REGION_COLORS[region]
     return TILE_COLORS.get(kind, (92, 84, 80))
 
 

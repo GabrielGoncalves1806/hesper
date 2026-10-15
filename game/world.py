@@ -85,6 +85,9 @@ class World:
         # Canto de cima à esquerda; as regras de uso ficam em game/layers.py (ramp_target, ramp_arrival).
         self.crater: tuple[int, int] | None = None
         self.terraforms = True                                    # False na caverna: sem água nem plantas, nunca
+        # v0.6 Fundo M1 (só na caverna): região de cada tile, (H, W) uint8 com os números do game/geo.py
+        # (PLATEAU = centro, SALAR, BASALT, FROST). None na superfície (lá a região é do self.geo).
+        self.cave_region: np.ndarray | None = None
         self.sand_variants: list[bytes] | None = None             # variação do sand_{stage}_{v} por tile (superfície)
         self.wrecks: list = []                                    # destroços (game/wrecks.py), só na superfície
         self._wreck_index: dict | None = None                     # tile (área ou caixa) -> destroço (lazy)
@@ -294,6 +297,20 @@ class World:
 
     def is_minable(self, tx: int, ty: int) -> bool:
         return self.get(tx, ty) in C.MINE_TIME
+
+    def region_at_cave(self, tx: int, ty: int) -> int | None:
+        """Região da caverna no tile (None fora da caverna ou fora do mapa)."""
+        if self.cave_region is None or not self.in_bounds(tx, ty):
+            return None
+        return int(self.cave_region[ty, tx])
+
+    def is_hard(self, tx: int, ty: int) -> bool:
+        """Parede que só a broca nv.2 quebra (v0.6 Fundo): a rocha dura e o minério de parede dentro do gelo e do
+        basalto da caverna."""
+        kind = self.get(tx, ty)
+        if kind == C.HARD_ROCK:
+            return True
+        return kind in C.ORE_TILES and self.region_at_cave(tx, ty) in C.CAVE_HARD_REGIONS
 
     def dist_from_center(self, tx: int, ty: int) -> float:
         cx, cy = self.center

@@ -599,4 +599,4 @@ def test_minimap_paints_the_ground_by_region():
                 seen.add(int(geo.region[y, x]))
     assert seen == {0, 1, 2, 3}
     cave = layers.make_cave(1).world
-    assert minimap.tile_color(cave, *C.CAVE_CENTER) == minimap.TILE_COLORS[C.FLOOR]
+    assert minimap.tile_color(cave, *cave.center) == minimap.CAVE_REGION_COLORS[0]

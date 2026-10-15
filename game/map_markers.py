@@ -15,7 +15,7 @@ C_O2, C_ACCENT = "#59d0e6", "#e2733a"
 COLORS = {"you": "#ffd84a", "base": C_O2, "crater": "#ffffff", "ramp_up": "#7fd6a0", "wreck": "#f2a33a",
           "wreck_empty": "#7a6c62", "terminal": "#7fd6a0", "machine": "#d9dde6", "chest": "#d8b27a",
           "formation": "#cbb79a", "container": "#efe5da", "unknown": "#d6e6f2"}
-VEIN_COLORS = {"iron": "#e8a066", "silicon": "#c3d1e2", "ice": "#a6ecff"}
+VEIN_COLORS = {"iron": "#e8a066", "silicon": "#c3d1e2", "ice": "#a6ecff", "copper": "#e0703f", "magmatite": "#ff7a2e"}
 RING = "#ffd84a"                 # anel em volta de "você" (alfa 130)
 
 BASE_A = ["........o....", "..ooo..oto...", ".orrro..o....", "ooooooooooooo", "o#####+#####o", "o#w#w####dd#o",
