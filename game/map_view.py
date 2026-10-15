@@ -170,7 +170,7 @@ def map_entries(state, key: str) -> list[Entry]:
     for wreck in world.wrecks:
         if seen_any(wreck.tiles):
             crate = layer.crates.get(wreck.crate)
-            empty = crate is not None and crate.empty
+            empty = crate is None or crate.empty        # v0.6: sem caixa = desmontada
             cat = "wreck_empty" if empty else "wreck"
             entries.append(Entry(cat, cat, *wreck.center, f"Destroço · {wreck.name}",
                                  "caixa vazia" if empty else "caixa cheia"))

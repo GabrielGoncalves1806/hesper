@@ -48,6 +48,7 @@ LOGI_BATCH_H = 16                                # botões do lote: 1 / 5 / 10 /
 LOGI_COL = 52                                    # onde começam os botões (depois de "Recebe")
 LOGI_H = 14 + 2 * LOGI_ROW + 2 + LOGI_BATCH_H    # altura da seção com Envia e Recebe (82)
 # painéis lado a lado (baú, drill, estação, caixa): inventário | botões do meio | o outro lado
+HELP_CURSOR = [("CLIQUE", "pega/solta"), ("DIR", "metade/1"), ("SHIFT+CLIQUE", "manda direto"), ("ESC", "fecha")]
 SIDE_W = GRID_W + 16                             # 8 de margem dos dois lados da grade
 SIDE_MID = 58                                    # coluna do meio: "GUARDAR RECURSOS >>" / "<< PEGAR TUDO"
 SIDE_GRID_Y = 26                                 # grade do lado (abaixo do título e do rótulo "BAÚ")
@@ -1702,23 +1703,23 @@ class UI:
         mid = pygame.Rect(lx + SIDE_W + 4, y + 22, SIDE_MID - 8, 40)
         if isinstance(side, Crate):
             self._crate_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, mid)
-            pairs = [("CLIQUE", "tira a pilha"), ("DIR", "1"), ("ESC", "fecha")]
+            pairs = HELP_CURSOR
         elif side.is_chest:
             self._chest_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, t, editing, mid)
             pairs = ([("ENTER", "ok"), ("ESC", "cancela")] if editing is not None else
-                     [("CLIQUE", "pilha"), ("DIR", "1"), ("SHIFT+CLIQUE", "todas"), ("ESC", "fecha")])
+                     HELP_CURSOR)
         elif side.is_drill:
             self._drill_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, mid)
-            pairs = [("CLIQUE", "tira a pilha"), ("DIR", "1"), ("ESC", "fecha")]
+            pairs = HELP_CURSOR
         elif side.is_melter:
             self._melter_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, mid)
-            pairs = [("CLIQUE", "pilha"), ("DIR", "1"), ("SHIFT+CLIQUE", "tudo"), ("ESC", "fecha")]
+            pairs = HELP_CURSOR
         elif side.is_dispenser:
             self._dispenser_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, info, mid)
-            pairs = [("CLIQUE", "pilha"), ("DIR", "1"), ("SHIFT+CLIQUE", "tudo"), ("ESC", "fecha")]
+            pairs = HELP_CURSOR
         else:
             self._station_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, info, mid)
-            pairs = [("CLIQUE", "pilha/drone"), ("DIR", "1"), ("ESC", "fecha")]
+            pairs = HELP_CURSOR
         self.help_line(y + h + 7, pairs)
         self.notice_y = self.panel_notice_y(y, y + h + HELP_H + 2)
 
@@ -1830,8 +1831,8 @@ class UI:
         self.notice_y = self.panel_notice_y(y, y + h + HELP_H + 2)
 
     def _crate_panel(self, crate, cx: int, y: int, pw: int, h: int, item_icon, mouse, mid: pygame.Rect) -> None:
-        """Caixa de saque de um destroço: só tirar (clique = pilha, direito = 1), "<< PEGAR TUDO" no meio e,
-        na nave e na sonda, Ler registro (o LOG que apareceu ao abrir)."""
+        """Caixa de saque de um destroço (ou contêiner) aberta: tira e guarda (clique = pilha, direito = 1),
+        "<< PEGAR TUDO" no meio e, na nave e na sonda, Ler registro (o LOG que apareceu ao abrir)."""
         box = crate.storage
         used = sum(1 for st in box.slots if st)
         self.window(cx, y, pw, h, f"{crate.wreck.name} · caixa", f"{used}/{len(box)}", "#f2a33a")
@@ -1840,9 +1841,9 @@ class UI:
         line_y = y + SIDE_GRID_Y + SLOT + 4 + (len(box) - 1) // 8 * SLOT_STEP
         if crate.empty:
             vw = self.tx("VAZIA", cx + 8, line_y, C.C_ALERT)
-            self.tx("o saque não volta", cx + 8 + vw + 6, line_y - 2, B_MUTED, self.body)
+            self.tx("dá pra guardar coisas", cx + 8 + vw + 6, line_y - 2, B_MUTED, self.body)
         else:
-            for k, text in enumerate(wrap(self.body, "Só dá pra tirar. O conteúdo é fixo: não reabastece.", GRID_W)[:2]):
+            for k, text in enumerate(wrap(self.body, "O saque não reabastece. Dá pra guardar coisas aqui.", GRID_W)[:2]):
                 self.tx(text, cx + 8, line_y - 2 + k * 12, B_MUTED, self.body)
         self._button(mid, "<<\nPEGAR\nTUDO", "take_crate", mouse, not crate.empty, "ghost")
         if crate.wreck.log is not None and crate.wreck.terminal is None:

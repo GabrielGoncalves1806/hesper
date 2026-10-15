@@ -50,6 +50,7 @@ from game.surfaces import opaque
 from game.base import BaseBlock
 from game.geo import FROST
 from game.systems import GameState, Mining
+from game.wrecks import Crate
 from game.transition import BASE_SOURCE, StageMap
 from game.world import hash01
 
@@ -2066,6 +2067,11 @@ class Renderer:
             x = round((sum(xs) / len(xs) + 0.5) * T - cam[0])
             y = round(block.ty * T - cam[1]) - (0 if block.is_floor else C.BASE_WALL_LIFT) - bh - 2
             self.draw_drill_bar(canvas, x, y, state.dismantle_progress, C.C_O2, False, w=bw, h=bh)
+        if isinstance(block, Crate):                          # v0.6 M1: desmontando a caixa de saque
+            bw, bh = C.DISMANTLE_BAR
+            ax, ay = block.anchor
+            self.draw_drill_bar(canvas, round(ax - cam[0]), round(ay - cam[1]) - C.LOOT_CRATE_SIZE[1] - bh - 2,
+                                state.dismantle_progress, C.C_O2, False, w=bw, h=bh)
         for m in state.machines:
             ax, ay = m.anchor
             x, y = round(ax - cam[0]), round(ay - cam[1])

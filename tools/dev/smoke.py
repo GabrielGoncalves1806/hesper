@@ -224,6 +224,22 @@ def slot_pos(bot, inv, index) -> tuple[int, int]:
     return rect.centerx * 2, rect.centery * 2
 
 
+def shift_click(bot, pos) -> None:
+    """Clique esquerdo com o Shift segurado (nos painéis, manda direto pro outro lado)."""
+    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_LSHIFT, mod=pygame.KMOD_LSHIFT, unicode="", scancode=0))
+    bot.frames(DT)
+    bot.click(pos)
+    pygame.event.post(pygame.event.Event(pygame.KEYUP, key=pygame.K_LSHIFT, mod=0, unicode="", scancode=0))
+    bot.frames(DT)
+
+
+def drop_held_in_inventory(bot) -> None:
+    """Solta a pilha do cursor no primeiro slot vazio do inventário (painel aberto)."""
+    inv = bot.state.inventory
+    bot.click(slot_pos(bot, inv, inv.slots.index(None)))
+    assert bot.app.held is None
+
+
 def right_click(bot, pos) -> None:
     bot.mouse_to(pos)
     pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=pos, button=3))
@@ -694,20 +710,22 @@ def check_inventory_and_chest(bot) -> None:
     assert app.mode == "chest"
     bot.frames(DT)
     inv, box = s.inventory, chest.storage
-    # clique esquerdo (estilo Planet Crafter): a pilha de 50 ferro vai inteira pro baú
+    # Shift+clique: o ferro (todas as pilhas) vai direto pro baú
     iron_slot = inv.slots.index(next(st for st in inv.slots if st and st.item == "iron" and st.count == 50))
-    bot.click(slot_pos(bot, inv, iron_slot))
-    assert app.held is None and inv.slots[iron_slot] is None and box.count("iron") == 50
-    # clique direito no gelo do baú: 1 unidade vem pro inventário
+    shift_click(bot, slot_pos(bot, inv, iron_slot))
+    assert app.held is None and inv.slots[iron_slot] is None and box.count("iron") >= 50 and inv.count("iron") == 0
+    # cursor (v0.6): direito com a mão vazia pega metade; clique solta no slot escolhido do inventário
     right_click(bot, slot_pos(bot, box, 0))
-    assert box.slots[0].count == 36 and inv.count("ice") == 25
+    assert app.held.count == 19 and box.slots[0].count == 18
+    drop_held_in_inventory(bot)
+    assert inv.count("ice") == 24 + 19
+    ice_slot = inv.slots.index(next(st for st in inv.slots if st and st.item == "ice" and st.count == 19))
+    bot.click(slot_pos(bot, inv, ice_slot))                   # pega de novo e solta no baú: junta na pilha de lá
+    bot.click(slot_pos(bot, box, 0))
+    assert app.held is None and box.slots[0].count == 37 and inv.count("ice") == 24
     # Shift+clique no silício do inventário: vai tudo pro baú
     silicon_slot = inv.slots.index(next(st for st in inv.slots if st and st.item == "silicon"))
-    pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_LSHIFT, mod=pygame.KMOD_LSHIFT, unicode="", scancode=0))
-    bot.frames(DT)
-    bot.click(slot_pos(bot, inv, silicon_slot))
-    pygame.event.post(pygame.event.Event(pygame.KEYUP, key=pygame.K_LSHIFT, mod=0, unicode="", scancode=0))
-    bot.frames(DT)
+    shift_click(bot, slot_pos(bot, inv, silicon_slot))
     assert inv.count("silicon") == 0 and box.count("silicon") == 30
     # print com o tooltip em cima do gelo do baú
     bot.mouse_to(slot_pos(bot, box, 0))
@@ -1010,10 +1028,16 @@ def check_drill_feature(bot) -> None:
     assert drill.batch == 5
     inv = s.inventory
     iron_slot = next(i for i, st in enumerate(inv.slots) if st and st.item == "iron")
-    bot.click(slot_pos(bot, inv, iron_slot))      # do inventário pra drill: não pode
-    assert app.notice == "A drill só produz: não guarda nada"
-    right_click(bot, slot_pos(bot, drill.storage, 0))   # direito: tira 1
-    assert drill.stored == C.DRILL_CAPACITY - 1 and inv.count(drill.resource) == before + 1
+    bot.click(slot_pos(bot, inv, iron_slot))      # pega o ferro no cursor...
+    bot.click(slot_pos(bot, drill.storage, 0))    # ...e soltar na drill: não pode
+    assert app.notice == "A drill só produz: não guarda nada" and app.held is not None
+    bot.click(slot_pos(bot, inv, iron_slot))      # devolve
+    assert app.held is None
+    half = (C.DRILL_CAPACITY + 1) // 2
+    right_click(bot, slot_pos(bot, drill.storage, 0))   # direito, mão vazia: metade vai pro cursor
+    assert app.held is not None and app.held.count == half and drill.stored == C.DRILL_CAPACITY - half
+    drop_held_in_inventory(bot)
+    assert inv.count(drill.resource) == before + half
     bot.mouse_to((send.centerx * 2, send.centery * 2))    # tooltip do toggle
     bot.frames(0.1)
     bot.shot("logistica_drill.png")
@@ -1049,10 +1073,13 @@ def check_melter(bot) -> None:
     assert [v for _, v in app.ui.logistics_buttons if v[0] == "recv"] == []     # ele só envia
     ice_slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "ice")
     iron_slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "iron")
+    bot.click(slot_pos(bot, s.inventory, iron_slot))                  # ferro no cursor, solta na entrada: recusa
+    bot.click(slot_pos(bot, melter.storage, C.MELTER_ICE_SLOT))
+    assert app.notice == "O derretedor só aceita gelo" and melter.ice == 0 and app.held is not None
     bot.click(slot_pos(bot, s.inventory, iron_slot))
-    assert app.notice == "O derretedor só aceita gelo" and melter.ice == 0
-    bot.click(slot_pos(bot, s.inventory, ice_slot))
-    assert melter.ice > 0
+    bot.click(slot_pos(bot, s.inventory, ice_slot))                   # gelo no cursor, solta na entrada
+    bot.click(slot_pos(bot, melter.storage, C.MELTER_ICE_SLOT))
+    assert melter.ice > 0 and app.held is None
     send = next(r for r, v in app.ui.logistics_buttons if v == ("send", "water_capsule"))
     bot.click((send.centerx * 2, send.centery * 2))
     assert melter.sends == {"water_capsule"}
@@ -1064,8 +1091,11 @@ def check_melter(bot) -> None:
     assert melter.capsules_full
     bot.frames(0.2)
     bot.shot("derretedor_cheio.png")
-    right_click(bot, slot_pos(bot, melter.storage, C.MELTER_CAPSULE_SLOT))      # direito: tira 1
-    assert melter.capsules == max_stack_capsule() - 1 and s.inventory.count("water_capsule") == 1
+    right_click(bot, slot_pos(bot, melter.storage, C.MELTER_CAPSULE_SLOT))      # direito: metade vai pro cursor
+    half = (max_stack_capsule() + 1) // 2
+    assert melter.capsules == max_stack_capsule() - half and app.held.count == half
+    drop_held_in_inventory(bot)
+    assert s.inventory.count("water_capsule") == half
     app.on_panel_button("take_melter")
     assert melter.capsules == 0 and s.inventory.count("water_capsule") == max_stack_capsule()
     bot.key(pygame.K_ESCAPE)
@@ -1195,7 +1225,8 @@ def check_base(bot) -> None:
     bot.shot("base_painel_dispersor.png")
     iron_slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "iron")
     bot.click(slot_pos(bot, s.inventory, iron_slot))
-    assert app.notice == "O Dispersor só aceita cápsula de água"
+    bot.click(slot_pos(bot, disp.storage, C.DISPENSER_CAPSULE_SLOT))
+    assert app.notice == "O Dispersor só aceita cápsula de água" and app.held is not None
     bot.key(pygame.K_ESCAPE)
     assert app.mode == "play"
     # --- porta solo aberta (player perto) e fechada (longe)
@@ -1333,13 +1364,20 @@ def check_drones(bot) -> None:
     bot.frames(DT)
     inv = s.inventory
     iron_slot = inv.slots.index(next(st for st in inv.slots if st and st.item == "iron"))
-    bot.click(slot_pos(bot, inv, iron_slot))              # minério não entra na estação
+    def bay_pos(slot):
+        rect = next(r for r, k in app.ui.bay_rects if k == slot)
+        return rect.centerx * 2, rect.centery * 2
+
+    bot.click(slot_pos(bot, inv, iron_slot))              # minério no cursor: não entra na baia
+    bot.click(bay_pos(0))
     assert app.notice == "Só drones vão na estação" and not station.station.drones
+    bot.click(slot_pos(bot, inv, iron_slot))              # devolve
     drone_slot = inv.slots.index(next(st for st in inv.slots if st and st.item == "drone"))
-    right_click(bot, slot_pos(bot, inv, drone_slot))      # direito: 1 drone
-    assert len(station.station.drones) == 1
-    bot.click(slot_pos(bot, inv, drone_slot))             # esquerdo: o resto
-    assert [d.pad for d in station.station.drones] == [0, 1] and inv.count("drone") == 0
+    bot.click(slot_pos(bot, inv, drone_slot))             # drones no cursor, 1 por baia
+    bot.click(bay_pos(0))
+    assert len(station.station.drones) == 1 and app.held.count == 1
+    bot.click(bay_pos(1))
+    assert [d.pad for d in station.station.drones] == [0, 1] and inv.count("drone") == 0 and app.held is None
     bay = next(r for r, k in app.ui.bay_rects if k == 1)
     bot.mouse_to((bay.centerx * 2, bay.centery * 2))      # tooltip do slot de drone
     bot.frames(0.1)
@@ -2230,8 +2268,8 @@ def check_ui_size(bot) -> None:
     slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "iron")
     rect = next(r for r, inv, i in app.ui.slot_rects if inv is s.inventory and i == slot)
     before = chest.storage.count("iron")
-    bot.click(ui_to_window(app, rect))
-    assert chest.storage.count("iron") > before, "clique no slot do inventário devia mandar pro baú (Pequena)"
+    shift_click(bot, ui_to_window(app, rect))
+    assert chest.storage.count("iron") > before, "Shift+clique no slot do inventário devia mandar pro baú (Pequena)"
     box_slot = next(i for i, st in enumerate(chest.storage.slots) if st and st.item == "iron")
     rect = next(r for r, inv, i in app.ui.slot_rects if inv is chest.storage and i == box_slot)
     bot.mouse_to(ui_to_window(app, rect))                  # tooltip do slot do baú
@@ -3733,7 +3771,7 @@ def check_wrecks(bot) -> None:
     assert app.mode == "play"
     bot.mouse_to(bot.tile_on_screen(cargo.crate))
     bot.frames(0.1)
-    assert app.hint() == "[E] Caixa vazia", app.hint()
+    assert app.hint() == "[E] Abrir caixa · construtor na mão pra desmontar", app.hint()   # v0.6: vazia guarda e desmonta
     # 3) módulo da colônia: terminal com o LOG 05
     module = next(x for x in w.wrecks if x.blueprint == "scanner")
     tx, ty = module.terminal
