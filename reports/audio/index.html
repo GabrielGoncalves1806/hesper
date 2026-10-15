@@ -88,9 +88,10 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Hesper · report de som · v13 (M2 pendente)</div>
+    <div class="eyebrow">Hesper · report de som · v15 · v0.6 M2 · chip (aguardando teu ouvido)</div>
     <h1>Som do planeta</h1>
     <p class="lede">Os 40 arquivos do contrato de áudio da bíblia (§6), todos gerados por síntese procedural com seed fixa em <code>tools/audio/build_audio.py</code>. A estética é 8/16-bit refinada: osciladores limitados em banda, ruído filtrado, envelopes, varreduras de pitch e um reverb de cratera. Dá o play em cada um, os loops tocam em repetição pra tu ouvir a emenda.</p>
+    <div class="note" style="border-left-color:#59d0e6"><b style="color:#59d0e6">v15 · v0.6 Marco 2 · chip nas máquinas (candidatas, aguardando teu ouvido):</b> um bip seco de "conectado" (3 candidatas, <code>chip_connect</code>) e um "desconectado" opcional (<code>chip_disconnect</code>), todos na seção <a href="#chip">Chip nas máquinas</a>. Estão só em <code>assets/audio/candidates/</code>; nada em <code>assets/audio/</code> mudou e o jogo não foi tocado.</div>
     <div class="note" style="border-left-color:#f2c46d"><b style="color:#7bd88f">v14.3 · v0.5 Marco 4 · contêiner lacrado: APROVADO, D3s virou <code>assets/audio/container_open.wav</code> (VOLUME 0,9).</b> Histórico das rodadas: D1s e D3s, só a gravação CC0 limpa, sem chiado (recomendada D1s); D1, D2 e D3 (com ar por baixo) ficam como anteriores. Antes disso: as 3 sintéticas foram reprovadas; 3 candidatas novas com click de trava gravado CC0 (D1, D2, D3; recomendada D1) em <a href="v05_m4_conteiner/index.html">v05_m4_conteiner/index.html</a>. Estão só em <code>assets/audio/candidates/</code>; o oficial não existe até você escolher.</div>
     <div class="note" style="border-left-color:#f2c46d"><b style="color:#f2c46d">v13 · v0.5 Marco 2 · base respirável (proposta, aguardando teu ouvido):</b> 6 sons novos (porta abrindo e fechando, base vedando, loop do Dispersor, alerta de vazamento e Dispersor sem água) em <a href="v05_m2_base/index.html">v05_m2_base/index.html</a>. Estão só em <code>reports/audio/v05_m2_base/pendentes/</code>; nada em <code>assets/audio/</code> mudou.</div>
     <div class="note" style="border-left-color:#7fd67a"><b style="color:#7fd67a">v11.1 · gelo e água aprovados:</b> tu aprovou a v11 do jeito que está. <code>ice_crack</code>, <code>ice_crack_1</code>, <code>ice_collapse</code>, <code>amb_rain</code>, <code>amb_rain_light</code>, <code>amb_rain_heavy</code> e <code>vent_hiss</code> agora são oficiais em <code>assets/audio/</code>, idênticos byte a byte ao que tu ouviu (md5). O contrato agora tem 54 arquivos, e nenhum dos outros mudou. A v10 sintetizada fica só pra comparar. O crédito obrigatório do IR (CC BY 4.0) e o aviso do NPS estão prontos em <code>CREDITS.md</code>. Ficou anotado pra próxima rodada o teu comentário de que o gelo lembra "bater no esqueleto do Minecraft" (osso/clack), na <a href="#gelo-agua-v11">seção do gelo</a>.</div>
@@ -117,7 +118,7 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
     </div>
     <nav class="toc">
       <a href="#gelo-agua-v11">Gelo e água · v11 (aprovado)</a><a href="#gelo-agua">v10 · síntese</a><a href="#tempestade">Tempestade</a><a href="#refeitos">v8.1 · refeitos</a><a href="#caverna">Caverna e destroços</a><a href="#superficie">Superfície</a><a href="#mineracao">Mineração</a><a href="#interface">Interface</a><a href="#sobrevivencia">Sobrevivência</a>
-      <a href="#maquinas">Máquinas</a><a href="#drill">Drill</a><a href="#energia">Energia</a><a href="#drones">Drones</a><a href="#ambiente">Ambiente</a><a href="#recompensa">Recompensa</a>
+      <a href="#maquinas">Máquinas</a><a href="#drill">Drill</a><a href="#energia">Energia</a><a href="#drones">Drones</a><a href="#ambiente">Ambiente</a><a href="#recompensa">Recompensa</a><a href="#chip">Chip · v0.6 M2</a>
       <a href="#direcao">Direção de ambientação</a><a href="#integracao">Integração</a><a href="#checagens">Checagens</a>
     </nav>
   </header>
@@ -590,6 +591,22 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
     <div class="cards" id="cands"></div>
   </section>
 
+  <section class="pick" id="chip" style="border-color:#59d0e6">
+    <div class="sec-head" style="border-color:#2c5a6a"><span class="num">v15 · v0.6 Marco 2 · candidatas, aguardando teu ouvido</span><h2 style="color:#59d0e6">Chip nas máquinas</h2>
+      <p>Quando o player encaixa o <code>chip</code> no slot da broca, do derretedor ou do dispersor de O₂, a máquina entra na rede dos drones, e esse bip confirma. Vai tocar várias vezes, então é curto (0,15–0,2 s), seco e eletrônico, sem nota longa e sem graça. O "desconectado" é opcional (tirou o chip): mesmo caminho, descendo e mais fosco. Todas são síntese (seed fixa em <code>build_audio.py</code>, bloco v12); o oficial só sai depois que tu escolher.</p></div>
+    <div class="cards" id="chip-cards"></div>
+    <div class="note" style="margin:24px 0 0;border-left-color:var(--cyan);max-width:none"><b style="color:var(--cyan)">Dicas de integração pro Dev</b>
+      <ul style="margin:8px 0 0;padding-left:20px">
+        <li><b>Volume:</b> 0,5 pra <code>chip_connect</code>, 0,45 pra <code>chip_disconnect</code>, atenuado pela distância como os outros sfx (cheio até 3 tiles, some em 12).</li>
+        <li><b>Pitch:</b> variação pequena, 0,98–1,02. Mais que isso, o bip vira "boing".</li>
+        <li><b>Quando toca:</b> só quando o player encaixa ou tira o chip. Não toca no load do save nem quando a rede é recalculada.</li>
+        <li><b>Ordem com o <code>place</code>:</b> o <code>place</code> toca quando a máquina pousa; o <code>chip_connect</code> entra uns 0,12 s depois, se o chip for encaixado logo em seguida.</li>
+        <li><b>Repetição:</b> se várias máquinas forem ligadas no mesmo instante, toca um só (cooldown de ~0,15 s). Não empilha bipes.</li>
+        <li><b>Canal:</b> sfx comum, sem loop. Não corta outros sons da máquina.</li>
+      </ul>
+    </div>
+  </section>
+
   <div id="groups"></div>
 
   <section id="direcao">
@@ -1009,6 +1026,38 @@ CANDS.forEach(([key, file, title, src, desc]) => {
   card.querySelector("[data-a]").onclick = () => isBreak ? playBurst(hitV3, 4, url) : playBurst(url, 4);
   card.querySelector("[data-b]").onclick = () => isBreak ? playBurst(hitV3, 4, BREAK_OFFICIAL) : playBurst(url, 4, BREAK_OFFICIAL);
 });
+
+// ---- v15: chip nas máquinas (v0.6 M2) · candidatas ----
+(() => {
+  const CHIP = [
+    ["cand:chip_connect_A1", "candidates/chip_connect_A1.wav", "A1 · dois bipes subindo", "Síntese v12 · recomendada", "Clique de trava e dois bipes subindo (G6 → D7), o 2º mais longo. Confirma sem chamar atenção.", "connect", 3, "#59d0e6"],
+    ["cand:chip_connect_A2", "candidates/chip_connect_A2.wav", "A2 · bip só, com queda", "Síntese v12", "Um bip quadrado que cai de ~2,3 para ~1,95 kHz em 20 ms, com corpo grave por baixo. Mais seco e mais \"máquina\", mas pode lembrar laser de jogo.", "connect", 3, "#59d0e6"],
+    ["cand:chip_connect_B1", "candidates/chip_connect_B1.wav", "B1 · tic-tic-tuuu digital", "Síntese v12", "Dois pulsos curtos em A6 e um tom final em E7, com onda de pulso estreita (25%). É o mais eletrônico e o mais \"jogo de 8 bits\" das três.", "connect", 3, "#59d0e6"],
+    ["cand:chip_disconnect_A1", "candidates/chip_disconnect_A1.wav", "Desconectado · dois bipes descendo", "Síntese v12 · opcional", "O caminho do A1 ao contrário: D6 → G5 em onda triangular, mais grave e fosco. Tirou o chip, a máquina saiu da rede.", "disconnect", 3, "#8fa3b8"],
+  ];
+  const root = document.getElementById("chip-cards");
+  CHIP.forEach(([key, file, title, src, desc, kind, times, color]) => {
+    const m = META[key] || {};
+    const url = "../../assets/audio/" + file;
+    const card = document.createElement("article");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="card-top"><span class="fname">${title}</span>
+        <span class="tags"><span class="tag src">${src}</span><span class="tag">${fmtDur(m.duration)}</span><span class="tag">pico ${fmtDb(m.peak_db)}</span></span></div>
+      <canvas class="wave" aria-hidden="true"></canvas>
+      <audio controls preload="auto" src="${url}"></audio>
+      <div class="btns"><button class="btn" data-a>▶ ${kind === "connect" ? "conectar" : "desconectar"} 3× (0,6 s)</button></div>
+      <div class="when">${file}</div>
+      <p class="what">${desc}</p>`;
+    root.appendChild(card);
+    const cv = card.querySelector("canvas");
+    requestAnimationFrame(() => drawWave(cv, m.wave, color));
+    window.addEventListener("resize", () => drawWave(cv, m.wave, color));
+    card.querySelector("[data-a]").onclick = () => {
+      for (let i = 0; i < times; i++) setTimeout(() => { new Audio(url).play().catch(() => {}); }, i * 600);
+    };
+  });
+})();
 
 // ---- v7: vento do deserto (aprovado) + prévia mixada ----
 (() => {

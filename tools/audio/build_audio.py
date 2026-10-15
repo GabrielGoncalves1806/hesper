@@ -2605,6 +2605,73 @@ def sfx_container_open(rng):
 SOUNDS["container_open"] = (sfx_container_open, False, -19.0, "v05m4:container_open_D3s")
 
 
+# ---------------------------------------------------------------------------
+# v12 (v0.6 · Marco 2 · Logística, tarefa 2.5): chip nas máquinas. CANDIDATAS em
+# assets/audio/candidates/ até o dono escolher (o oficial sai do SOUNDS depois).
+# Ideias: "encaixe" = clique de trava (ruído de banda larga, 3 ms, sem ressonância) +
+# bip seco de onda quadrada filtrada (passa-baixa ~4 kHz, decaimento curto, sem
+# vibrato). Desconectado: o mesmo caminho, descendo e mais grave/fosco.
+# ---------------------------------------------------------------------------
+
+def _chip_click(rng, gain_hi: float = 6500.0) -> np.ndarray:
+    return noise_burst(rng, 2200, gain_hi, 0.0003, 0.0035, 0.012)
+
+
+def cand_chip_connect_A1(rng):
+    """A1: dois bips subindo (G6 → D7), o 2º mais longo: "conectou, confirmado"."""
+    tr = Track()
+    tr.add(_chip_click(rng), 0, 0.5)
+    tr.add(chip_note(1568, 0.05, "square", 4500, decay=0.02, release=0.012), 0.012, 0.55)
+    tr.add(chip_note(2349, 0.08, "square", 4500, decay=0.03, release=0.02), 0.075, 0.55)
+    tr.add(chip_note(1174, 0.09, "tri", 2000, decay=0.03, release=0.02), 0.075, 0.25)
+    return tr.render()
+
+
+def cand_chip_connect_A2(rng):
+    """A2: um bip só, com queda de pitch curta (2,3 → 1,95 kHz): mais "máquina" e mais seco."""
+    tr = Track()
+    tr.add(_chip_click(rng), 0, 0.45)
+    n = ns(0.14)
+    t = tvec(n)
+    f = 1950 + 350 * np.exp(-t / 0.02)
+    body = bl_wave(f, n, "square", 4000, duty=0.5) * perc(n, 0.0015, 0.035)
+    body *= np.clip((n / SR - t) / 0.02, 0, 1)
+    tr.add(body, 0.008, 0.6)
+    tr.add(chip_note(975, 0.08, "tri", 1500, decay=0.025, release=0.015), 0.008, 0.18)
+    return tr.render()
+
+
+def cand_chip_connect_B1(rng):
+    """B1: "tic-tic-tuuu" digital, com pulso estreito (25%): mais eletrônico e menos bip."""
+    tr = Track()
+    tr.add(chip_note(1760, 0.03, "pulse", 3500, duty=0.25, decay=0.012, release=0.006), 0, 0.45)
+    tr.add(chip_note(1760, 0.03, "pulse", 3500, duty=0.25, decay=0.012, release=0.006), 0.045, 0.45)
+    tr.add(chip_note(2637, 0.09, "pulse", 3500, duty=0.25, decay=0.03, release=0.02), 0.09, 0.5)
+    tr.add(_chip_click(rng, 5000.0), 0.0, 0.2)
+    return tr.render()
+
+
+def cand_chip_disconnect_A1(rng):
+    """Desconectado: mesmo caminho do A1, descendo (1,17 → 784 Hz) e mais fosco."""
+    tr = Track()
+    tr.add(_chip_click(rng, 4500.0), 0, 0.3)
+    tr.add(chip_note(1174, 0.06, "tri", 3000, decay=0.02, release=0.012), 0.01, 0.6)
+    tr.add(chip_note(784, 0.10, "tri", 2000, decay=0.035, release=0.02), 0.07, 0.6)
+    return tr.render()
+
+
+CANDIDATES.update({
+    "chip_connect_A1": (cand_chip_connect_A1, -22.0),
+    "chip_connect_A2": (cand_chip_connect_A2, -22.0),
+    "chip_connect_B1": (cand_chip_connect_B1, -22.0),
+    "chip_disconnect_A1": (cand_chip_disconnect_A1, -23.0),
+})
+
+# aprovados pelo dono (v0.6 M2): A1 no encaixe e o par dele no desencaixe (mesma seed da candidata: sai igual)
+SOUNDS["chip_connect"] = (cand_chip_connect_A1, False, -22.0, "chip_connect_A1")
+SOUNDS["chip_disconnect"] = (cand_chip_disconnect_A1, False, -23.0, "chip_disconnect_A1")
+
+
 def v11_ready() -> str | None:
     """None se dá pra gerar a v11; senão, o motivo."""
     import importlib.util
