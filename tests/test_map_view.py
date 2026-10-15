@@ -309,10 +309,10 @@ def test_layers_q_e_and_cave_locked_before_first_descent(app):
     key(app, pygame.K_e)
     assert view.layer == "cave" and view.zoom == 3                  # mantém o zoom
     ramp = MV.ramp_center(s.layers["cave"].world)
-    expect = view_at(size=(128, 128), zoom=3, center=ramp)      # na rampa (com os limites da caverna)
+    expect = view_at(size=(256, 256), zoom=3, center=ramp)      # na rampa (com os limites da caverna)
     expect.set_area(*view.area)
     expect.center_on(*ramp)
-    assert view.size == (128, 128) and (view.cx, view.cy) == pytest.approx((expect.cx, expect.cy))
+    assert view.size == (256, 256) and (view.cx, view.cy) == pytest.approx((expect.cx, expect.cy))
     app.draw()
     assert not any(e.category == "you" for _, e in ui.map_markers)  # você está na superfície
     key(app, pygame.K_q)
@@ -599,4 +599,4 @@ def test_minimap_paints_the_ground_by_region():
                 seen.add(int(geo.region[y, x]))
     assert seen == {0, 1, 2, 3}
     cave = layers.make_cave(1).world
-    assert minimap.tile_color(cave, *C.CAVE_CENTER) == minimap.TILE_COLORS[C.FLOOR]
+    assert minimap.tile_color(cave, *cave.center) == minimap.TILE_COLORS[C.FLOOR]

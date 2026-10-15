@@ -154,7 +154,7 @@ def test_counter_is_capped_at_goal(game):
 
 def test_rock_does_not_count_as_ore(game):
     mine_one(game, C.ROCK)
-    assert game.mined_total == {"iron": 0, "silicon": 0, "ice": 0, "magmatite": 0}
+    assert game.mined_total == {"iron": 0, "silicon": 0, "ice": 0, "magmatite": 0, "copper": 0}
 
 
 # ---------------------------------------------------------------- fora de ordem

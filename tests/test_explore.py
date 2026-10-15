@@ -41,19 +41,21 @@ def test_surface_sees_the_screen_from_the_start():
 
 def test_cave_only_sees_what_light_reveals():
     g = GameState(7)
-    g.enter_layer("cave", (40 * C.TILE, 40 * C.TILE))
+    from game.surface_gen import crater_of
+    rx, ry = crater_of(7)
+    ox, oy = rx - 63, ry - 61                                # a caverna é 256×256: os pontos do teste andam com a rampa
+    g.enter_layer("cave", ((40 + ox) * C.TILE, (40 + oy) * C.TILE))
     g.update(0.016, Controls())
     ex = g.layers["cave"].explored
-    assert ex.seen(39, 38) and not ex.seen(39 + 8, 38)
-    rx, ry = C.CAVE_RAMP
+    assert ex.seen(39 + ox, 38 + oy) and not ex.seen(39 + 8 + ox, 38 + oy)
     assert not ex.seen(rx + 1, ry + 1)                      # a rampa está fora da tela daqui
-    g.player.x, g.player.y = 52 * C.TILE, 52 * C.TILE
-    g.machines.append(Machine("lamp", 50, 50))
-    g.machines.append(Machine("lamp_t2", 64, 50))
+    g.player.x, g.player.y = (52 + ox) * C.TILE, (52 + oy) * C.TILE
+    g.machines.append(Machine("lamp", 50 + ox, 50 + oy))
+    g.machines.append(Machine("lamp_t2", 64 + ox, 50 + oy))
     for _ in range(5):
         g.update(0.05, Controls())
-    assert ex.seen(50, 46) and ex.seen(54, 50)              # o círculo da luminária (5 tiles)
-    assert ex.seen(70, 50) and not ex.seen(72, 50)          # a forte ilumina 7
+    assert ex.seen(50 + ox, 46 + oy) and ex.seen(54 + ox, 50 + oy)      # o círculo da luminária (5 tiles)
+    assert ex.seen(70 + ox, 50 + oy) and not ex.seen(72 + ox, 50 + oy)  # a forte ilumina 7
     assert ex.seen(rx + 1, ry + 1)                          # a boca da rampa (luz do dia) entrou na tela
 
 

@@ -76,19 +76,10 @@ WORLD_NAME_MAX = 20             # caracteres do nome do mundo
 SURFACE_W = SURFACE_H = 256     # deserto (game/surface_gen.py). v0.5 M3.1: era 192; o que depende do tamanho deriva daqui
 GEO_REF_SIZE = 192              # tamanho do deserto pro qual os números GEO_* foram ajustados (game/geo.py escala por SURFACE/isto)
 SURFACE_AREA_SCALE = SURFACE_W * SURFACE_H / GEO_REF_SIZE ** 2   # quanto a área cresceu: o que se espalha pelo mapa todo (morros, teto de rochas) segue isto
-CAVE_W = CAVE_H = 128           # caverna (game/world.py)
-WORLD_W, WORLD_H = CAVE_W, CAVE_H   # nome antigo: tamanho padrão do World (a caverna)
-CAVE_CENTER = (64, 64)          # centro da caverna, em tiles (no Marco 2 a rampa de subida fica aqui)
-CAVE_HALL_RADIUS = 12           # raio médio do salão aberto da caverna (a borda é irregular por causa do noise)
+CAVE_W = CAVE_H = 256           # caverna (game/cave_gen.py). v0.6 Fundo M1: era 128; agora igual à superfície
+WORLD_W = WORLD_H = 128         # tamanho padrão de um World VAZIO (testes). Não é mais o tamanho da caverna
+CAVE_HALL_RADIUS = 12           # raio médio do salão aberto em volta da rampa (a borda é irregular por causa do noise)
 CAVE_SAFE_RADIUS = 8            # dentro desse raio é sempre chão, não importa o noise
-# Rampa de subida (Marco 2): 3×3 de tiles CRATER no meio do salão. Canto de cima à esquerda; o E mira no tile
-# do meio de baixo (tx+1, ty+2) e o player chega/sai em (tx+1, ty+3), que é o CAVE_CENTER.
-CAVE_RAMP = (CAVE_CENTER[0] - 1, CAVE_CENTER[1] - 3)
-# Minério da caverna: um tile de rocha vira minério se o noise passar de  base - extra × longe  (longe = 0 no
-# salão, 1 a 45+ tiles dele). Histórico: 0,66/0,11 no Marco 1 (~35% das paredes); 0,62/0,15 no Marco 2 (~48%,
-# o dono achou demais no playtest); agora 0,64/0,11: ~39% (seeds 7/1/42: 40,0/40,9/36,9%), ~29% perto do
-# salão e ~41% a 40–60 tiles.
-CAVE_ORE_THRESHOLD = (0.64, 0.11)
 
 # Tipos de tile (inteiros pra caber numa grade simples)
 FLOOR, ROCK, IRON, SILICON, ICE, BEDROCK, TERMINAL = range(7)
@@ -103,16 +94,20 @@ CONTAINER = 15                  # contêiner lacrado atrás de um gelo-portão (
                                 # não abre nem minera (quem desenha é o render, como a caixa de saque)
 SMALL_MAGMATITE = 16            # rocha pequena de magmatita (v0.4 · bíblia §12): só em volta das fumarolas
                                 # (game/magmatite.py), sem veio e sem minério de parede
-ORE_TILES = {IRON: "iron", SILICON: "silicon", ICE: "ice"}            # minério NA PAREDE (overlay no topo)
+COPPER = 17                     # v0.6 Fundo M1: minério de cobre NA PAREDE (só na caverna, região do salar)
+HARD_ROCK = 18                  # v0.6 Fundo M1: rocha dura (parede alta). Toda a rocha do gelo e do basalto da caverna;
+                                # só a broca nv.2 quebra (no M1, o F3). Ver World.is_hard
+ORE_TILES = {IRON: "iron", SILICON: "silicon", ICE: "ice", COPPER: "copper"}   # minério NA PAREDE (overlay no topo)
 SMALL_ROCKS = {SMALL_IRON: "iron", SMALL_SILICON: "silicon", SMALL_ICE: "ice", SMALL_MAGMATITE: "magmatite"}
-WALL_TILES = {ROCK, IRON, SILICON, ICE, BEDROCK, TERMINAL}            # paredes ALTAS (topo elevado + face)
+WALL_TILES = {ROCK, IRON, SILICON, ICE, COPPER, HARD_ROCK, BEDROCK, TERMINAL}   # paredes ALTAS (topo elevado + face)
 FLAT_SOLIDS = set(SMALL_ROCKS) | {CRATER, WRECK, LOOT_CRATE, FORMATION, CONTAINER}                         # sólidos baixos: bloqueiam, mas não têm altura
 SOLID_TILES = WALL_TILES | FLAT_SOLIDS
 FLOOR_TILES = {FLOOR, SAND}
 TILE_RESOURCE = {**ORE_TILES, **SMALL_ROCKS}                          # o que cada tile dá ao quebrar
 
-# Terminais de lore da caverna: (distância em tiles do centro, ângulo em graus). Distâncias crescentes.
-TERMINAL_SPOTS = [(19, 35), (31, 160), (45, 280)]
+# Terminais de lore da caverna: (distância em tiles do centro, ângulo em graus; 0° = leste, 90° = sul). Distâncias
+# crescentes. v0.6 Fundo M1: todos na área livre (centro/salar), longe do gelo (norte) e do basalto (oeste).
+TERMINAL_SPOTS = [(19, 35), (31, 100), (45, 350)]
 
 # Gerador do deserto (game/surface_gen.py · bíblia §9, Marco 1)
 SURFACE_BORDER = (2, 3)         # cordilheira da borda: 2 ou 3 tiles de espessura (intransponível, não minera)
@@ -160,7 +155,8 @@ PLAYER_BOX_W, PLAYER_BOX_H = 14, 8   # caixa de colisão nos pés
 # ---------------------------------------------------------------------------
 # Mineração (§4 Mineração)
 # ---------------------------------------------------------------------------
-MINE_TIME = {ROCK: 0.6, IRON: 1.0, SILICON: 1.2, ICE: 0.8,
+MINE_TIME = {ROCK: 0.6, IRON: 1.0, SILICON: 1.2, ICE: 0.8, COPPER: 1.1,
+             HARD_ROCK: 1.5,                                        # v0.6 Fundo: só com a nv.2 (no M1, o F3)
              SMALL_IRON: 0.7, SMALL_SILICON: 0.7, SMALL_ICE: 0.7,   # rocha pequena: rapidinha
              SMALL_MAGMATITE: 0.9}                                  # magmatita: basalto, um pouco mais dura
 DROP_MIN, DROP_MAX = 1, 2       # minério de parede
@@ -168,12 +164,12 @@ DROP_RANGE = {k: (2, 4) for k in SMALL_ROCKS}   # rocha pequena dá 2 a 4 (o res
 MINE_REACH = 2              # alcance em tiles (distância de Chebyshev a partir do tile do player)
 MINE_HIT_INTERVAL = 0.25    # som de picareta a cada 0,25 s
 
-RESOURCES = ("iron", "silicon", "ice", "magmatite")
+RESOURCES = ("iron", "silicon", "ice", "magmatite", "copper")
 # Os que têm veio e minério de parede (drill, caverna, sorteio dos veios da superfície). A magmatita (v0.4, bíblia
 # §12) é só rocha solta em volta das fumarolas: fica fora daqui pra não mexer no sorteio dos veios.
 VEIN_RESOURCES = ("iron", "silicon", "ice")
-RESOURCE_LABEL = {"iron": "FERRO", "silicon": "SILICIO", "ice": "GELO", "magmatite": "MAGMATITA"}   # HUD (Silkscreen)
-RESOURCE_NAME = {"iron": "ferro", "silicon": "silício", "ice": "gelo", "magmatite": "magmatita",
+RESOURCE_LABEL = {"iron": "FERRO", "silicon": "SILICIO", "ice": "GELO", "magmatite": "MAGMATITA", "copper": "COBRE"}   # HUD (Silkscreen)
+RESOURCE_NAME = {"iron": "ferro", "silicon": "silício", "ice": "gelo", "magmatite": "magmatita", "copper": "cobre",
                  "water_capsule": "cápsula de água"}   # em frases (Pixelify); a cápsula (v0.5 M2) só entra por nome
 RESOURCE_LABEL["water_capsule"] = "CÁPSULA"   # (idem: não é recurso, RESOURCES não tem ela)
 
@@ -236,9 +232,33 @@ DRILL_SLOTS = 1                 # inventário da drill: 1 slot, só do minério 
 DRILL_REACH = 56                # px entre os pés do player e a base da drill pro E (painel) e Shift+E (coleta)
 DRILL_FULL_NOTICE = 4 * TILE    # chegou perto (px) de uma drill cheia: toca drill_full uma vez
 DRILL_FULL_COOLDOWN = 10.0      # ...e não repete pra mesma drill antes de 10 s
-VEINS_NEAR_BASE = (8, 20)       # 1 veio de cada tipo entre 8 e 20 tiles da base
-VEINS_FAR_PER_TYPE = 5          # mais longe: 5 de cada tipo (total 6 de cada)
-VEINS_FAR_RANGE = (24, 58)      # distância dos veios "de longe" (tiles)
+# v0.6 Fundo M1 · caverna nova (game/cave_gen.py · bíblia §15). Números de partida.
+# Regiões (os números do game/geo.py: PLATEAU = centro). Distâncias em tiles a partir do MEIO DO MAPA (a cratera varia
+# ±20 tiles por seed; medir da rampa desequilibraria as áreas). O raio livre é em volta da chegada da rampa.
+CAVE_FROST_EDGE = 48            # o gelo começa a 48 tiles ao norte do meio (pega a faixa de cima inteira)
+CAVE_BASALT_EDGE = 40           # o basalto, a 40 tiles a oeste
+CAVE_SALAR_EDGE = 26            # o salar, a 26 tiles a leste (maior que os outros, decisão do dono)
+CAVE_REGION_WARP = 10           # quanto a fronteira ondula (± tiles, fbm)
+CAVE_FREE_RADIUS = 28           # em volta da chegada é sempre centro
+CAVE_HARD_REGIONS = frozenset({2, 3})   # BASALT, FROST (game/geo.py): rocha dura
+# Minério de parede por região: {região: ((recurso, peso), ...)}. A magmatita nunca nasce na parede.
+CAVE_WALL_ORE = {0: (("iron", 0.50), ("silicon", 0.35), ("ice", 0.15)),
+                 1: (("copper", 0.60), ("silicon", 0.40)),
+                 2: (("iron", 1.0),),
+                 3: (("ice", 0.80), ("iron", 0.20))}
+CAVE_LOOSE_ORE_THRESHOLD = 0.80   # minério solto: o noise passa disto (alvo: 4–7% das paredes; calibrar nas seeds 7/1/42)
+CAVE_WALL_VEIN_SIZE = (6, 8)      # veio de parede: 6 a 8 tiles do mesmo minério colados
+CAVE_WALL_VEIN_TRIES = 900        # sorteios de semente de veio de parede no mapa todo (só pega em rocha)
+CAVE_WALL_VEIN_SPACING = 7        # distância mínima entre as sementes de dois veios de parede
+CAVE_NEAR_WALL_VEINS = {"iron": 3, "silicon": 3, "ice": 2}   # começo garantido: veios de parede perto da rampa
+CAVE_NEAR_RANGE = (12, 28)        # ...a essa distância da chegada, na borda de um túnel/salão (visíveis)
+# Veios 2×2 (drill) por região
+CAVE_VEINS = {0: ("iron", "silicon"), 1: ("copper", "silicon"), 2: ("magmatite",), 3: ("ice",)}
+CAVE_VEINS_NEAR = ("iron", "silicon")   # 1 de cada, a 8–20 tiles da chegada, alcançável a pé
+CAVE_VEINS_NEAR_RANGE = (8, 20)
+CAVE_VEINS_PER_REGION = 6         # longe: 6 por região, alternando os recursos da região
+CAVE_VEINS_MIN_DIST = 24          # nenhum veio "de longe" a menos disso da chegada
+CAVE_MAGMATITE_ROCK_CHANCE = 0.03 # rochinha de magmatita num chão do basalto (não reaparece)
 
 MACHINES["drill"] = MachineType("drill", "Drill automática", "+ minério", DRILL_COST, None, 0,
                                 DRILL_UNLOCK_TI, "machine_drill", size=2)
@@ -423,6 +443,7 @@ ORE_COLORS = {  # cor, sombra
     "iron": ("#e8a066", "#a5582c"),
     "silicon": ("#c3d1e2", "#7d8ca3"),
     "ice": ("#a6ecff", "#4fb3d6"),
+    "copper": ("#e0703f", "#aa4a2a"),      # v0.6 Fundo: laranja do cobre (paleta da Designer, reports/design/v06_fundo_cobre_ferro)
     "magmatite": ("#ff7a2e", "#a8361a"),   # laranja-lava (a fissura da pedra), sombra de brasa
     "water_capsule": ("#59d0e6", "#2a7f96"),   # v0.5 M2: só pra pepita do drone e aviso flutuante (não é minério)
 }
