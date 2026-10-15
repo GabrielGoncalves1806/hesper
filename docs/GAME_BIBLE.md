@@ -824,7 +824,7 @@ Design completo em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-desig
 ## 14. v0.6 · Logística (decisões do dono, 2026-10-15)
 Spec: `docs/superpowers/specs/2026-10-15-v06-logistica-design.md`. O v0.6 virou dois blocos, Logística e Fundo; o elevador de carga foi pro Futuro.
 - **Chip**: máquina só entra na rede dos drones com um chip no slot dela (drill envia o minério; derretedor recebe gelo e envia cápsula; dispersor de O₂ recebe cápsula). **Baú não precisa de chip.** Receita do chip na Bancada T2 (2 wafer + 1 ferro, partida); continua saindo de loot. Save antigo: drill e derretedor com Envia ligado ganham o chip.
-- **Baús**: Simples (8 slots, sprite `loot_crate`), Normal (16, `chest`) e Grande (24, `container_sealed`/`container_open`). O Grande precisa do diagrama, fabricado no T1 e liberado na Névoa (Ti 10.000). O baú de hoje (24) vira **Grande** no save antigo.
+- **Baús**: Simples (8 slots, sprite `loot_crate`), Normal (16, `chest`) e Grande (24, `container_sealed`/`container_open`). O Grande precisa do diagrama, fabricado no T1 e liberado na Névoa (Ti 10.000). Sem migração (dono): o baú do save antigo carrega como Normal (16) e perde os slots 17–24.
 - **Baú de loot** dos destroços, depois de aberto, funciona como Baú Simples (guarda item, entra na rede) e desmonta vazio. O contêiner lacrado aberto guarda item mas não desmonta.
 - **Painel de transferência** (baú, drill, máquinas, estação) no estilo do inventário: o clique pega a pilha no cursor e solta no slot escolhido; Shift+clique continua mandando direto.
 - **Caverna**: a estação de drones funciona lá; cada camada tem a sua rede e os drones nunca trocam de camada.

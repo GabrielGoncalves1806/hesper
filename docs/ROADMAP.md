@@ -71,8 +71,8 @@ Design em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-design.md`. No
 Dividido em dois blocos (brainstorm de 2026-10-15).
 
 **Logística** (spec: `docs/superpowers/specs/2026-10-15-v06-logistica-design.md`)
-- [ ] Marco 1 · Baús e painel: baú Simples (8) / Normal (16) / Grande (24, diagrama na Névoa); baú de loot guarda item e desmonta; painel de transferência com pilha no cursor; save v11 (baú antigo vira Grande).
-- [ ] Marco 2 · Chip e máquinas na rede: chip no slot liga drill, derretedor e dispersor aos drones; derretedor recebe gelo, dispersor recebe cápsula; chip na T2; save v12.
+- [ ] Marco 1 · Baús e painel: baú Simples (8) / Normal (16) / Grande (24, diagrama na Névoa); baú de loot guarda item e desmonta; painel de transferência com pilha no cursor; sem migração de save (baú antigo vira Normal).
+- [ ] Marco 2 · Chip e máquinas na rede: chip no slot liga drill, derretedor e dispersor aos drones; derretedor recebe gelo, dispersor recebe cápsula; chip na T2; save v11.
 - [ ] Marco 3 · Drones na caverna: estação na caverna, rede separada por camada.
 
 **Fundo** (spec própria depois): caverna espelhando as regiões da superfície (caverna gelada, de fogo e magma), menos minério solto e veios de parede (6 a 8 blocos), cobre na caverna, fornalha (magmatita → lingote, cobre → fios), broca nv.2 quebrando a pedra que dá acesso aos biomas. Ganchos: basalto → vulcão, espécie nativa nas cavernas. Remapear os crafts.

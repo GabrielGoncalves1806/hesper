@@ -14,7 +14,7 @@ Deixar a base rodar sozinha: os drones passam a **abastecer** máquinas (não s�
 | Máquinas na rede | Drill (Envia o minério dela), Derretedor (Recebe gelo, Envia cápsula), Dispersor de O₂ (Recebe cápsula). Fornalha entra no Fundo |
 | Receita do chip | Bancada T2: 2 wafer + 1 ferro (partida). Wafer ainda é só loot; os crafts todos serão remapeados depois |
 | Baús | Três tamanhos: **Simples** 1 linha (8), **Normal** 2 linhas (16), **Grande** 3 linhas (24) |
-| Save antigo | Todo baú existente (24 slots) vira **Baú Grande**, sem perder nada |
+| Save antigo | Sem migração (dono): o baú existente carrega como **Normal** (16) e o que estava nos slots 17–24 some. Save continua v10 |
 | Baú Grande | Precisa do **diagrama**, fabricável no T1, receita do diagrama **libera na Névoa** (Ti 10.000) e é mais cara |
 | Baú de loot | O bauzinho dos destroços vira um Baú Simples de verdade: guarda item e pode ser desmontado |
 | Painel de transferência | O clique pega a pilha no cursor e solta no slot escolhido, igual ao inventário (hoje o clique joga direto pro outro lado) |
@@ -43,7 +43,7 @@ Deixar a base rodar sozinha: os drones passam a **abastecer** máquinas (não s�
   - slots que não aceitam o item (ex.: a drill só envia, o slot de cápsula só aceita cápsula) recusam a soltura e a pilha fica no cursor;
   - fechar o painel com pilha no cursor devolve ela pro inventário (não cabendo, volta pra origem; nada some).
   - Reaproveita o `held` e os métodos por slot do `Inventory` (`take`, `take_half`, `put`, `swap`) que a tela de inventário já usa.
-- **Save v11**: o tipo do baú vai no save. Baú do save v10 → `chest_large` com nome, itens, Envia/Recebe e Lote mantidos. Baús de loot passam a guardar o conteúdo depois de abertos (o estado já vai na lista `crates`).
+- **Save** continua v10 (sem migração, decisão do dono): o tipo do baú já vai no `kind`; o baú antigo carrega como Normal e perde os slots 17–24. Baús de loot passam a guardar o conteúdo depois de abertos (o estado já vai na lista `crates`).
 
 ### Marco 2 · Chip e máquinas na rede
 
@@ -62,7 +62,7 @@ Deixar a base rodar sozinha: os drones passam a **abastecer** máquinas (não s�
 
   O "espaço livre" de uma máquina que recebe é o espaço do slot daquele item (o derretedor recebe gelo até encher a entrada; o dispersor, cápsula até encher o slot).
 - **Chip na Bancada T2**: 2 `silicon_wafer` + 1 ferro (partida). O chip continua saindo de loot.
-- **Save v12** (o v11 é do M1; cada marco sobe a sua versão): a máquina guarda `chip: bool`. Migração: drill e derretedor que já tinham algum Envia ligado ganham o chip de graça (a base de ninguém para). O dispersor do save antigo vem sem chip.
+- **Save v11**: a máquina guarda `chip: bool`. Migração: drill e derretedor que já tinham algum Envia ligado ganham o chip de graça (a base de ninguém para). O dispersor do save antigo vem sem chip.
 
 ### Marco 3 · Drones na caverna
 
@@ -80,7 +80,7 @@ Deixar a base rodar sozinha: os drones passam a **abastecer** máquinas (não s�
 
 ## Testes
 
-- pytest: tamanhos dos três baús; desmontar baú de loot (vazio sim, com item não); contêiner não desmonta; painel com pilha no cursor (pegar, soltar, juntar, trocar, recusar, fechar devolvendo); migração v10 → v11 (baú vira grande, drill/derretedor com Envia ganham chip); chip liga/desliga a máquina na rede; derretedor recebendo gelo e dispersor recebendo cápsula pelos drones; rede separada por camada.
+- pytest: tamanhos dos três baús; desmontar baú de loot (vazio sim, com item não); contêiner não desmonta; painel com pilha no cursor (pegar, soltar, juntar, trocar, recusar, fechar devolvendo); migração v10 → v11 (drill/derretedor com Envia ganham chip); chip liga/desliga a máquina na rede; derretedor recebendo gelo e dispersor recebendo cápsula pelos drones; rede separada por camada.
 - Print avulso por marco (`tools/dev/shot_*.py`) pro dono olhar; smoke existente antes de cada merge.
 
 ## Execução

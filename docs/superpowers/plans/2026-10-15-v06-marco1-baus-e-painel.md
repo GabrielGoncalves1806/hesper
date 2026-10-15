@@ -85,7 +85,7 @@
 - [ ] Implementar o cursor em `on_panel_click` (manter nome/logística/botões antes, como hoje), helper `panel_put`, `stash_held` com caixa/contêiner, textos de ajuda dos painéis (`_side_panels`): "Clique: pegar/soltar · Direito: metade/1 · Shift+clique: mandar direto".
 - [ ] `uv run pytest` verde.
 
-### Task 4: save v11
+### Task 4: save v11 · CANCELADA pelo dono (2026-10-15: "pode jogar fora meus itens"; baú antigo carrega como Normal de 16 e perde os slots 17–24)
 - [ ] Teste: save v10 com baú (24 slots, nome, itens, Envia/Recebe/Lote) carrega como `chest_large` com tudo igual; save v11 ida e volta com os três tipos; `test_save.py::test_migration_hook_runs` ajustado (hoje ele finge o v11 com `MIGRATIONS[10]`: passar pra 12/`MIGRATIONS[11]` e restaurar o dicionário no fim); save v9 continua recusado.
 - [ ] Implementar `SAVE_VERSION = 11`, `MIGRATIONS[10]`, `machine_from_dict` com `C.CHEST_SIZES[kind]`, docstring do formato.
 - [ ] `uv run pytest` verde.
