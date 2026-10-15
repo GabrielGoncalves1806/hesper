@@ -7,7 +7,7 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 import pygame
 import pytest
 
-from game import viewport
+from game import config as C, lighting, viewport
 from game.lighting import Glint, LightSource, Lighting, helmet_lamp, lamp, ore_glints
 
 WHITE = (255, 255, 255)
@@ -188,3 +188,7 @@ def test_ore_glints_so_na_borda_do_tunel_e_sem_branco():
     inner = sum(1 for y in range(1, 127) for x in range(1, 127) if world.get(x, y) in C.ORE_TILES
                 and all(world.is_wall(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))))
     assert inner > 0
+
+
+def test_every_wall_ore_has_a_glint_color():   # v0.6 Fundo: o cobre entrou e o smoke estourou KeyError no escuro
+    assert set(C.ORE_TILES.values()) <= set(lighting.GLINT_COLORS)

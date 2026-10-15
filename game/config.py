@@ -259,6 +259,11 @@ CAVE_VEINS_NEAR_RANGE = (8, 20)
 CAVE_VEINS_PER_REGION = 6         # longe: 6 por região, alternando os recursos da região
 CAVE_VEINS_MIN_DIST = 24          # nenhum veio "de longe" a menos disso da chegada
 CAVE_MAGMATITE_ROCK_CHANCE = 0.03 # rochinha de magmatita num chão do basalto (não reaparece)
+# Visual PROVISÓRIO por região (até a arte do M2): tinta RGBA por cima do chão e cor da rocha orgânica.
+CAVE_REGION_TINT = {0: (0, 0, 0, 0),            # centro: a névoa de sempre
+                    1: (214, 176, 120, 46),     # salar: areia
+                    2: (150, 52, 30, 52),       # basalto: brasa
+                    3: (140, 200, 235, 52)}     # gelo
 
 MACHINES["drill"] = MachineType("drill", "Drill automática", "+ minério", DRILL_COST, None, 0,
                                 DRILL_UNLOCK_TI, "machine_drill", size=2)
@@ -440,7 +445,7 @@ PALETTES = {
 }
 
 ORE_COLORS = {  # cor, sombra
-    "iron": ("#e8a066", "#a5582c"),
+    "iron": ("#b99b82", "#7a6552"),         # v0.6 Fundo: paleta bege do ferro novo (era "#e8a066", "#a5582c")
     "silicon": ("#c3d1e2", "#7d8ca3"),
     "ice": ("#a6ecff", "#4fb3d6"),
     "copper": ("#e0703f", "#aa4a2a"),      # v0.6 Fundo: laranja do cobre (paleta da Designer, reports/design/v06_fundo_cobre_ferro)

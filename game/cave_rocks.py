@@ -40,11 +40,25 @@ def cave_ramp(pal: dict | None = None) -> np.ndarray:
 
 
 def cave_luts() -> dict[int, np.ndarray]:
-    """LUT (80×3) no formato do `hills.colorize_block`: a rampa nas 4 regiões (iguais) e, +40, a versão escurecida
-    (topo da borda do mapa). A chave é o estágio: a caverna é sempre névoa, mas vale pros 4."""
-    lut = np.concatenate([cave_ramp()] * len(hills.REGIONS))
+    """LUT (80×3) no formato do `hills.colorize_block`: a rampa da caverna em cada região (v0.6 Fundo M1: tingida
+    pela C.CAVE_REGION_TINT, provisório até a arte do M2) e, +40, a versão escurecida (topo da borda do mapa)."""
+    base = cave_ramp().astype(np.float32)
+    rows = []
+    for region in range(len(hills.REGIONS)):
+        r, g, b, a = C.CAVE_REGION_TINT.get(region, (0, 0, 0, 0))
+        k = a / 255
+        rows.append((base * (1 - k) + np.array([r, g, b], np.float32) * k).astype(np.uint8))
+    lut = np.concatenate(rows)
     lut = np.concatenate([lut, (lut * hills.BEDROCK_SHADE).astype(np.uint8)])
     return {n: lut for n in STAGES}
+
+
+def region_window(region: np.ndarray, i0: int, i1: int, j0: int, j1: int) -> np.ndarray:
+    """Regiões da janela [j0, j1) × [i0, i1); fora do mapa repete a borda."""
+    h, w = region.shape
+    ys = np.clip(np.arange(j0, j1), 0, h - 1)
+    xs = np.clip(np.arange(i0, i1), 0, w - 1)
+    return region[np.ix_(ys, xs)]
 
 
 class CaveRocks:
@@ -80,7 +94,8 @@ class CaveRocks:
         if entry is None or entry["sig"] != sig:
             i0, i1, j0, j1 = hills.window_bounds(bx, by)
             kinds = np.frombuffer(sig, np.uint8).reshape(j1 - j0, i1 - i0)
-            regions = np.zeros(kinds.shape, np.uint8)
+            regions = (region_window(world.cave_region, i0, i1, j0, j1)
+                       if world.cave_region is not None else np.zeros(kinds.shape, np.uint8))
             geo = hills.bake_block(kinds, regions, bx, by, self.top_tex, self.face_tex, hills.edge_noise(),
                                    height=world.height)
             entry = {"sig": sig, "strips": self._cut(geo)}

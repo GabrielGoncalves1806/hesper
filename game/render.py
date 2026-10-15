@@ -217,6 +217,12 @@ class Renderer:
         self.outline_v.fill((0, 0, 0, 70))
         self.bedrock_shade = pygame.Surface((T, T), pygame.SRCALPHA)
         self.bedrock_shade.fill((0, 0, 0, 110))
+        self.region_tint = {}                               # v0.6 Fundo M1: tinta provisória do chão da caverna
+        for region, rgba in C.CAVE_REGION_TINT.items():
+            if rgba[3]:
+                s = pygame.Surface((T, T), pygame.SRCALPHA)
+                s.fill(rgba)
+                self.region_tint[region] = s
         self.player_shadow = pygame.Surface((16, 5), pygame.SRCALPHA)
         pygame.draw.ellipse(self.player_shadow, (0, 0, 0, 97), (0, 0, 16, 5))
         # Tamanho da "visão" (px do mundo que cabem na tela). Sem zoom é 960×540; com zoom muda
@@ -978,6 +984,9 @@ class Renderer:
             v = int(hash01(tx, ty, 3) * 4)
             sprite = lambda st: (f"floor_{st}_{v}", lambda: art.floor(st, v))     # noqa: E731
         canvas.blit(self.surface(*sprite(stage))[0], (sx, sy))
+        tint = self.region_tint.get(world.region_at_cave(tx, ty))
+        if tint is not None:
+            canvas.blit(tint, (sx, sy))
         if self.stage_map.step > 0:
             self._blend_edges(canvas, world, tx, ty, sx, sy, stage_num, False, sprite)
         if self._wet(world, tx, ty):

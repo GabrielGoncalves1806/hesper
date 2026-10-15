@@ -126,8 +126,9 @@ def machine_light(tx: int, ty: int, color: tuple[int, int, int] = (150, 210, 230
 
 # Cor do brilho no escuro: saturada de propósito. O silício (#c3d1e2) e o gelo (#a6ecff) na cor do sprite
 # saem quase brancos no breu e parecem estrelas (bug visto no Marco 2: "céu estrelado" na caverna).
-GLINT_COLORS = {"iron": (232, 140, 72), "silicon": (120, 150, 230), "ice": (60, 196, 240),
-                "magmatite": (255, 110, 40)}   # não tem minério de parede hoje (só rocha solta): fica pronto
+GLINT_COLORS = {"iron": (212, 164, 118), "silicon": (120, 150, 230), "ice": (60, 196, 240),   # ferro: bege do v0.6 Fundo
+                "copper": (240, 112, 52),      # v0.6 Fundo: cobre na parede do salar
+                "magmatite": (255, 110, 40)}   # não tem minério de parede (só veio e rocha solta): fica pronto
 
 
 def ore_glints(world, tx0: int, tx1: int, ty0: int, ty1: int) -> list[Glint]:

@@ -352,8 +352,11 @@ class Sim:
         return self._tile(i) in C.FLOOR_TILES and i not in self.blocked
 
     def _passable(self, i):
-        """Dá pra chegar nele andando ou minerando."""
-        return i not in self.blocked and (self._tile(i) in C.FLOOR_TILES or self._tile(i) in C.MINE_TIME)
+        """Dá pra chegar nele andando ou minerando (rocha dura não: o simulador não tem a broca nv.2)."""
+        if i in self.blocked:
+            return False
+        k = self._tile(i)
+        return k in C.FLOOR_TILES or (k in C.MINE_TIME and not (i != self.BASE and self.world.is_hard(*self._xy(i))))
 
     def _set_player(self, i):
         if self.cave and i == self.BASE:                     # na base, lá em cima
@@ -401,7 +404,7 @@ class Sim:
         for y in range(self.H):
             for x in range(self.W):
                 res = C.TILE_RESOURCE.get(self.world.tiles[y][x])
-                if res:
+                if res and not self.world.is_hard(x, y):          # v0.6 Fundo: minério duro não conta (sem nv.2)
                     self._bump_near(res, x, y, +1, R)
 
     def _bump_near(self, res, x, y, d, R=None):
@@ -421,7 +424,7 @@ class Sim:
         for yy in range(y - R, y + R + 1):
             for xx in range(x - R, x + R + 1):
                 k = self.world.get(xx, yy)
-                if k in C.TILE_RESOURCE:
+                if k in C.TILE_RESOURCE and not self.world.is_hard(xx, yy):
                     out.append((self._i(xx, yy), k))
         return out
 
