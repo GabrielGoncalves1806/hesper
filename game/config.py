@@ -939,7 +939,7 @@ CRAFT_TABS = (("tools", "Ferramentas"), ("automation", "Automação"), ("suit", 
 FAB_TABS = tuple(t for t in FAB_TABS if t[0] != "suit")
 BUILD_TIME = 1.35               # s da máquina "se construindo" (scanner de baixo pra cima): parada, sem Ti nem energia.
                                 # 1,35 = o clack do build.wav (Som): ela fica pronta junto com ele
-DISMANTLE_HOLD = 2.0            # s segurando o botão direito em cima da máquina pra desmontar
+DISMANTLE_HOLD = 1.0            # s segurando o botão direito (com o construtor na mão) pra desmontar; era 2,0 (dono, v0.6)
 # Luz de scanner (procedural no render: Renderer.draw_scan). Números de partida da Designer (reports/design/
 # v05_m1_construtor, "Pro Dev integrar"; referência tools/sprites/v05_m1_construtor.py · scan_frame), ainda sem o ok
 # do dono. Regra única nos dois sentidos: abaixo da faixa, a máquina; acima, o holograma (o contorno do sprite em

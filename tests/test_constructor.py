@@ -208,12 +208,12 @@ def test_hold_dismantle_returns_the_recipe():
 def test_releasing_or_leaving_the_machine_cancels():
     s = make_state()
     m = build_now(s, "o2", spot(s))
-    hold(s, m, 1.0)
+    hold(s, m, C.DISMANTLE_HOLD / 2)
     s.events.clear()
     s.update(0.05, Controls())                         # soltou
     assert s.dismantling is None and s.dismantle_t == 0 and m in s.machines
     assert ("dismantle_cancel",) in s.events
-    hold(s, m, 1.0)                                    # recomeça do zero
+    hold(s, m, C.DISMANTLE_HOLD / 2)                   # recomeça do zero
     other = build_now(s, "lamp", (spot(s)[0], spot(s)[1] + 2))
     hold(s, other, 0.05)                               # o mouse foi pra outra máquina: a 1ª cancela
     assert s.dismantling is other and s.dismantle_t <= 0.06 and m in s.machines
@@ -371,6 +371,16 @@ def test_quick_right_click_does_nothing_and_holding_dismantles(app):
     app.handle_events()
     app.update(1 / 60)
     assert m in s.machines and not app.right_held and s.dismantling is None
+    app.on_click(3)                                     # v0.6: sem o construtor na mão, segurar não desmonta
+    for _ in range(int(C.DISMANTLE_HOLD * 60) + 5):
+        app.update(1 / 60)
+    assert m in s.machines and s.dismantling is None
+    assert "construtor na mão" in app.hint().lower(), app.hint()
+    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONUP, button=3, pos=app.mouse_window))
+    app.handle_events()
+    from game.inventory import Stack
+    s.inventory.slots[app.hotbar_selected] = Stack("constructor", 1)
+    assert app.constructor_selected()
     app.on_click(3)
     for _ in range(int(C.DISMANTLE_HOLD * 60) + 5):
         app.update(1 / 60)

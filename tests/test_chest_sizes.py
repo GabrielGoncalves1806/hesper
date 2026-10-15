@@ -101,3 +101,4 @@ def test_chest_panel_logistics_sits_right_under_the_grid_rows():
     ys = {k: UI._chest_logi_y(Machine(k, 1, 1)) for k in SIZES}
     assert ys["chest_large"] == 100
     assert ys["chest_large"] - ys["chest"] == ys["chest"] - ys["chest_small"] > 0
+

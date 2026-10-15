@@ -1427,7 +1427,8 @@ class App:
         mx = sum(MOVE_KEYS[k][0] for k in self.keys_down if k in MOVE_KEYS)
         my = sum(MOVE_KEYS[k][1] for k in self.keys_down if k in MOVE_KEYS)
         mine = self.mouse_tile() if self.mouse_held and not self.placing else None
-        dismantle = (self.hovered_machine() or self.hovered_block()) if self.right_held and not self.placing else None
+        dismantle = ((self.hovered_machine() or self.hovered_block())        # v0.6: só com o construtor na mão
+                     if self.right_held and not self.placing and self.constructor_selected() else None)
         return Controls(max(-1, min(1, mx)), max(-1, min(1, my)), mine, dismantle=dismantle,
                         drill_in_hand=self.hand_drill_selected())
 
@@ -1812,13 +1813,16 @@ class App:
             return "Clique para construir · R gira · [E] outra máquina · Esc cancela"
         machine = self.hovered_machine()
         target = self.e_target()
+        held = self.constructor_selected()                 # v0.6: desmontar só com o construtor na mão
+        can_dis = lambda m: held and state.can_dismantle(m)   # noqa: E731
+        far = "chegue mais perto pra" if held else "construtor na mão pra"   # o porquê de não dar
         # mouse numa máquina que o E não vai abrir (longe, ou outra está no alcance): diz qual ele abre
         other = f" · {self.e_label(target)}" if target and target[1] is not machine else ""
         if machine and machine.submerged:                  # v0.4 M3.4: parada debaixo d'água
             if target and target[1] is machine:
-                return self.e_label(target) + f" · segure [{C.DISMANTLE_KEY}] recolher"
-            return (f"Submersa · segure [{C.DISMANTLE_KEY}] recolher" if state.can_dismantle(machine)
-                    else "Submersa · chegue mais perto pra recolher")
+                return self.e_label(target) + (f" · segure [{C.DISMANTLE_KEY}] recolher" if held else "")
+            return (f"Submersa · segure [{C.DISMANTLE_KEY}] recolher" if can_dis(machine)
+                    else f"Submersa · {far} recolher")
         if machine and machine.build > 0:                  # v0.5 M1: ainda se construindo
             return f"{C.MACHINES[machine.kind].name} · construindo..."
         if machine and machine.is_drill:
@@ -1834,7 +1838,7 @@ class App:
         if machine and machine.is_dispenser:               # v0.5 M2: estado da vedação e da água
             content = f"Dispersor de O₂: {C.STATE_LABEL[state.dispenser_state(machine)]}"
             return content + (" · [E] abrir" if target and target[1] is machine else other) + (
-                f" · segure [{C.DISMANTLE_KEY}] desmontar" if state.can_dismantle(machine) else "")
+                f" · segure [{C.DISMANTLE_KEY}] desmontar" if can_dis(machine) else "")
         if machine and machine.is_station:
             st = machine.station
             text = f"Estação: {len(st.drones)}/{C.STATION_DRONE_SLOTS} drones"
@@ -1850,19 +1854,19 @@ class App:
         if machine and machine.is_bench:
             mine = target is not None and target[1] is machine
             return "Bancada T2" + (" · [E] abrir" if mine else other) + (
-                f" · segure [{C.DISMANTLE_KEY}] desmontar" if state.can_dismantle(machine) else "")
+                f" · segure [{C.DISMANTLE_KEY}] desmontar" if can_dis(machine) else "")
         if machine:
             if state.power.deficit and energy.machine_use(machine.kind) > 0:     # no déficit: mostra o ritmo
                 rhythm = f"Ritmo {self.power_percent()}%"
-                return (f"{rhythm} · segure [{C.DISMANTLE_KEY}] desmontar" if state.can_dismantle(machine)
+                return (f"{rhythm} · segure [{C.DISMANTLE_KEY}] desmontar" if can_dis(machine)
                         else f"{rhythm} (falta energia)")
-            return (f"Segure [{C.DISMANTLE_KEY}] para desmontar" if state.can_dismantle(machine)
-                    else "Chegue mais perto pra desmontar")
+            return (f"Segure [{C.DISMANTLE_KEY}] para desmontar" if can_dis(machine)
+                    else f"{far.capitalize()} desmontar")
         block = self.hovered_block()                        # v0.5 M2: chão, parede ou porta da base
         if block:
             name = C.MACHINES[block.kind].name
-            return f"{name} · " + (f"segure [{C.DISMANTLE_KEY}] desmontar" if state.can_dismantle(block)
-                                   else "chegue mais perto pra desmontar")
+            return f"{name} · " + (f"segure [{C.DISMANTLE_KEY}] desmontar" if can_dis(block)
+                                   else f"{far} desmontar")
         vein = state.world.vein_at(*self.mouse_tile())     # mouse em cima de um veio livre
         if vein:
             name = C.RESOURCE_NAME[vein.resource]
@@ -1911,7 +1915,7 @@ class App:
         if status == "missing":
             res = state.missing_resource(kind, inv_only=True)
             short = C.MACHINES[kind].cost[res] - state.available(res, inv_only=True)
-            return f"Falta {short} {C.RESOURCE_NAME[res]} no inventário"
+            return f"Falta {short} {item_name(res).lower()} no inventário"
         if status == "locked":
             return f"Libera em Ti {fmt(C.MACHINES[kind].unlock_ti)}"
         if status == "blueprint":

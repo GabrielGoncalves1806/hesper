@@ -624,6 +624,7 @@ def check_dismantle(bot) -> None:
     assert m.build == 0 and s.ti_rate == rate + C.MACHINES[kind].rate
     camx, camy = app.cam
     body = (int((m.tx + 0.5) * C.TILE - camx), int((m.ty + 1) * C.TILE - 40 - camy))   # no corpo, acima do tile
+    hold_constructor(bot)                                       # v0.6: desmontar só com o construtor na mão
     bot.mouse_to(body)
     bot.frames(0.1)
     assert app.hint() == f"Segure [{C.DISMANTLE_KEY}] para desmontar", app.hint()
@@ -631,15 +632,15 @@ def check_dismantle(bot) -> None:
     # clique rápido: nada
     right_click(bot, body)
     assert m in s.machines and s.dismantling is None
-    # segura 1 s e solta: cancela
+    # segura metade do tempo e solta: cancela
     pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=body, button=3))
-    bot.frames(1.0)
+    bot.frames(C.DISMANTLE_HOLD / 2)
     assert s.dismantling is m and 0.4 < s.dismantle_progress < 0.6
     shot_zoom(bot, "desmontar_segurando.png", (m.anchor[0], m.anchor[1] - 26), w=120, h=90, k=4)
     pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONUP, pos=body, button=3))
     bot.frames(0.1)
     assert m in s.machines and s.dismantling is None
-    # segura 2 s: desmonta e a receita volta
+    # segura o tempo todo: desmonta e a receita volta
     iron = s.inventory.count("iron")
     pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=body, button=3))
     bot.frames(C.DISMANTLE_HOLD + 0.1)
@@ -658,6 +659,7 @@ def check_dismantle(bot) -> None:
     bot.frames(DT)
     assert len(s.machines) == n
     build_at(s, kind, t192(98, 98))      # devolve a máquina pro resto do smoke
+    release_constructor(bot)
 
 
 def check_inventory_and_chest(bot) -> None:
@@ -782,6 +784,7 @@ def check_inventory_and_chest(bot) -> None:
     # baú com coisa dentro não desmonta (aviso já no começo do segurar)
     camx, camy = app.cam
     body = (int((site[0] + 0.5) * C.TILE - camx), int((site[1] + 1) * C.TILE - 20 - camy))
+    hold_constructor(bot)                                       # v0.6: desmontar só com o construtor na mão
     bot.mouse_to(body)
     pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=body, button=3))
     bot.frames(0.1)
@@ -1146,6 +1149,7 @@ def check_base(bot) -> None:
     wall = s.base.get((fx - 1, fy))
     wx, wy = bot.tile_on_screen((fx - 1, fy))
     pos = (wx, wy + 8)
+    hold_constructor(bot)                                       # v0.6: desmontar só com o construtor na mão
     bot.mouse_to(pos)
     assert "desmontar" in app.hint(), app.hint()
     iron1 = s.inventory.count("iron")
@@ -1154,6 +1158,7 @@ def check_base(bot) -> None:
     pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONUP, pos=pos, button=3))
     bot.frames(DT)
     assert s.base.get((fx - 1, fy)) is None and s.inventory.count("iron") == iron1 + C.BASE_COST[C.BASE_WALL]["iron"]
+    release_constructor(bot)
     # --- o resto da base, direto na grade (o fluxo de verdade já foi testado acima)
     for y in range(fy - 1, fy + fh + 1):
         for x in range(fx - 1, fx + fw + 1):

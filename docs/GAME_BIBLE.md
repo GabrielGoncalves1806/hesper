@@ -828,4 +828,6 @@ Spec: `docs/superpowers/specs/2026-10-15-v06-logistica-design.md`. O v0.6 virou 
 - **Baú de loot** dos destroços, depois de aberto, funciona como Baú Simples (guarda item, entra na rede) e desmonta vazio. O contêiner lacrado aberto guarda item mas não desmonta.
 - **Painel de transferência** (baú, drill, máquinas, estação) no estilo do inventário: o clique pega a pilha no cursor e solta no slot escolhido; Shift+clique continua mandando direto.
 - **Caverna**: a estação de drones funciona lá; cada camada tem a sua rede e os drones nunca trocam de camada.
+- **Desmontar** (pedido do dono no teste do M1): só com o **construtor selecionado na hotbar**, segurando o botão direito **1 s** (era 2 s, `C.DISMANTLE_HOLD`). Sem o construtor na mão, a dica diz "construtor na mão pra desmontar".
+- Receita que pede diagrama fabricado (Bancada T2, Baú grande) diz "Fabrique o diagrama no fabricador T1 e leia na bancada"; só os diagramas de destroço (`WRECK_DIAGRAMS`) dizem pra achar num destroço.
 

@@ -426,3 +426,21 @@ def test_backpack_is_a_t2_recipe_and_not_t1():
     assert not s.craft("backpack")                                    # o T1 não fabrica a mochila
     assert s.craft("backpack", "t2", m) and s.inventory.count("backpack") == 1
     assert "backpack" not in craft_kinds("suit") and t2_kinds("t2") == ["backpack"]
+
+
+@pytest.mark.parametrize("bench", ["t1", "t2"])
+def test_every_recipe_detail_draws(ui, bench):
+    """v0.6: abrir a receita do diagrama do Baú grande no T1 crashava (KeyError 'iron_ingot' no RESOURCE_NAME).
+    Desenha o detalhe de toda receita de todas as abas, com e sem Ti, sem o material (linha "FALTAM")."""
+    from game.fabricator import craft_menu
+    ui.set_layout((0, 0, 960, 540), 2.0, (480, 270))
+    for ti in (0, 100_000):
+        s = make_state()
+        s.indices["o2"] = ti
+        menu = craft_menu() if bench == "t1" else t2_menu()
+        for tab in range(len(menu.tabs)):
+            menu.tab = tab
+            for kind in menu.kinds_of(menu.tabs[tab][0]):
+                menu.select(kind)
+                ui.begin()
+                ui.draw_fabricator(s, menu, icon, 0.0, **({"bench": "t2"} if bench == "t2" else {}))

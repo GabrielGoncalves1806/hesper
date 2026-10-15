@@ -1322,7 +1322,10 @@ class UI:
         self.tx("TEM / PRECISA", x + w - 6, cy, B_DIM, align="right")
         row_h = step - 1
         if hidden:
-            for k, line in enumerate(wrap(self.body, "Ache o diagrama num destroço do deserto e leia no fabricador", w - 12)[:3]):
+            where = ("Ache o diagrama num destroço do deserto e leia no fabricador"
+                     if C.RECIPE_BLUEPRINT.get(kind) in C.WRECK_DIAGRAMS          # v0.6: os outros se fabricam no T1
+                     else "Fabrique o diagrama no fabricador T1 e leia na bancada")
+            for k, line in enumerate(wrap(self.body, where, w - 12)[:3]):
                 self.tx(line, x + 6, cy + 11 + k * 12, B_MUTED, self.body)
         else:
             for i, (res, n) in enumerate(m.cost.items()):
@@ -1340,7 +1343,7 @@ class UI:
                 self.native.append((self.dark_icon(icon, 110) if locked else icon,
                                     ((x + 8) * 2, (yy + (row_h - 16) // 2) * 2)))
                 text_y = yy + (row_h - 20) // 2 + 1
-                self.tx(C.RESOURCE_NAME[res].capitalize(), x + 27, text_y, B_TEXT if not locked else B_DIM, self.body)
+                self.tx(item_name(res), x + 27, text_y, B_TEXT if not locked else B_DIM, self.body)
                 self.tx(f"{have}/{n}", x + w - 21, text_y, num_color, self.body, "right")
                 if not locked:
                     if ok:
@@ -1364,7 +1367,7 @@ class UI:
         elif status == "missing":
             res = state.missing_resource(kind, inv_only)
             short = m.cost[res] - state.available(res, inv_only)
-            label, kind_b = f"FALTAM {short} {C.RESOURCE_NAME[res].upper()}", "danger"
+            label, kind_b = f"FALTAM {short} {item_name(res).upper()}", "danger"
             if build:                                # escolhe mesmo assim: o fantasma vermelho diz o que falta
                 self.fabricator_buttons.append((button, kind))
         elif hidden:
