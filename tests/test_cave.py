@@ -210,6 +210,23 @@ def test_cave_lights_has_helmet_lamps_machines_ramp_and_terminals():
     assert len(cave_lights(g)) == len(lights)                         # drill cheia: parada, sem luz
 
 
+def test_flying_drone_lights_up_the_cave():
+    from game import drones
+    from game.render import DRONE_LIGHT, cave_lights
+    g = cave_state()
+    st = Machine("drone_station", 58, 70)
+    st.station = drones.new_station(st, 2)
+    g.machines.append(st)
+    before = len(cave_lights(g))                                      # pousados: só a luz da estação
+    d = st.station.drones[0]
+    d.state, d.x, d.y = drones.OUTBOUND, 1000.0, 900.0
+    assert d.in_air
+    lights = cave_lights(g)
+    assert len(lights) == before + 1
+    glow = [L for L in lights if (L.x, L.y) == (1000.0, 900.0)]
+    assert len(glow) == 1 and glow[0].color == DRONE_LIGHT and glow[0].radius == 1.4 * C.TILE
+
+
 def test_cave_fallback_sprites_have_contract_sizes():
     import pygame
     pygame.init()

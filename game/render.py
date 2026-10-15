@@ -139,6 +139,7 @@ RAMP_LIGHT = (255, 240, 214)       # luz do dia caindo pela boca da rampa de sub
 TERMINAL_LIGHT = (111, 227, 160)
 MACHINE_LIGHT = {"o2": (89, 208, 230), "heater": (255, 138, 61), "melter": (159, 230, 255),
                  "solar": (255, 216, 74), "drill": (255, 210, 140), "drone_station": (150, 210, 230)}
+DRONE_LIGHT = MACHINE_LIGHT["drone_station"]   # v0.6 M3: luzinha do drone voando na caverna (pedido do dono)
 
 
 def cave_lights(state: GameState) -> list[LightSource]:
@@ -161,6 +162,10 @@ def cave_lights(state: GameState) -> list[LightSource]:
             ax, ay = m.anchor
             color = MACHINE_LIGHT.get(m.kind.removesuffix("_t2"), MACHINE_LIGHT["drone_station"])
             out.append(LightSource(ax, ay - T / 2 - (T / 2 if m.size > 1 else 0), 1.8 * T, color, 0.55))
+    for m in state.stations:                     # v0.6 M3: drone voando leva uma luzinha (pousado, a estação já ilumina)
+        for d in m.station.drones:
+            if d.in_air:
+                out.append(LightSource(d.x, d.y, 1.4 * T, DRONE_LIGHT, 0.6))
     for tx, ty in world.terminals:
         out.append(LightSource((tx + 0.5) * T, (ty + 1) * T, 2 * T, TERMINAL_LIGHT, 0.6))
     return out
