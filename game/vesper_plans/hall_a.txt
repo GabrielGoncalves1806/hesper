@@ -1,0 +1,26 @@
+name: Corredor
+layer: vesper
+damage: rock
+k: prop_crate
+r: prop_rubble
+s: prop_ice_stain
+o: prop_barrel
+l: lamp
+L: emergency_light
+---
+#L#.#L#
+#.....#
+#.s...#
+#.....#
+#...k.#
+#.....#
+#.r..l#
+.......
+#.....#
+#...o.#
+#.....#
+#.s...#
+#.....#
+#.k...#
+#.....#
+###.###

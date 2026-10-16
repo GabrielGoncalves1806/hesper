@@ -23,7 +23,7 @@ from game.ui import TAB_INVENTORY, TAB_LOGS  # noqa: E402
 # índices em LOGS (nunca mudam: o save guarda índices) -> dia da história. 0..6 são os da v0.3; 7..18 são das
 # estruturas (v0.7 M1: dias 1, 9, 22, 120, 152, 175, 198, 205, 219, 61, 209, 224)
 DAY_3, DAY_97, DAY_212, DAY_188, DAY_140, DAY_41, DAY_230 = range(7)
-N_LOGS = 21
+N_LOGS = 24                                           # + 21..23 da VÉSPER-7 (v0.7 M4: dias 188, 190, 193)
 
 
 # ---- cronologia e numeração ---------------------------------------------------------------------
@@ -34,15 +34,15 @@ def test_log_days_match_logs():
 
 
 def test_order_is_chronological():
-    assert C.LOG_ORDER == [7, 19, DAY_3, 8, 9, DAY_41, 16, DAY_97, 10, DAY_140, 11, 20, 12, DAY_188, 13, 14, 17,
-                           DAY_212, 15, 18, DAY_230]
+    assert C.LOG_ORDER == [7, 19, DAY_3, 8, 9, DAY_41, 16, DAY_97, 10, DAY_140, 11, 20, 12, DAY_188, 21, 22, 23, 13,
+                           14, 17, DAY_212, 15, 18, DAY_230]
     days = [C.LOG_DAYS[log] for log in C.LOG_ORDER]
     assert days == sorted(days)
 
 
 def test_displayed_number_is_the_chronological_position():
     assert [C.log_label(log) for log in range(7)] == [
-        "LOG 03", "LOG 08", "LOG 18", "LOG 14", "LOG 10", "LOG 06", "LOG 21"]
+        "LOG 03", "LOG 08", "LOG 21", "LOG 14", "LOG 10", "LOG 06", "LOG 24"]
     assert sorted(C.log_number(log) for log in range(N_LOGS)) == list(range(1, N_LOGS + 1))
 
 

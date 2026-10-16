@@ -41,6 +41,7 @@ PITCH_VARIANTS = {
     "dismantle_done": (0.97, 1.0, 1.03),
     "door_open": (0.95, 1.0, 1.05),        # v0.5 M2 (Som): a porta varia o pitch 0,95–1,05
     "door_close": (0.95, 1.0, 1.05),
+    "door_stuck": (0.96, 1.0, 1.04),       # v0.7 M4 (Som): a trava que não cede varia 0,96–1,04
     "smelter_done": (0.96, 1.0, 1.04),     # v0.6 Fundo M3 (Som): várias Fundições não soam iguais
 }
 VOLUME_JITTER = {"mine_hit": 0.10}   # ±10% de volume no mine_hit
@@ -57,12 +58,16 @@ WIND_FADE_IN, WIND_FADE_OUT = 2.5, 1.5   # s: vento sobe devagar ao sair pra sup
 
 # ---------------------------------------------------------------- regras puras (testáveis)
 def ambient_for(layer: str, stage_key: str, has_cave: bool, has_storm: bool = False,
-                cave_region: str | None = None) -> str:
+                cave_region: str | None = None, has_vesper: bool = False) -> str:
     """Qual ambiente toca: na caverna o amb_cave (se o arquivo existir; senão fica o do estágio), na
     superfície o amb_{arte do estágio}. Mudar de estágio lá embaixo não troca o ambiente: o novo entra ao subir.
     Tempestade: amb_storm se o arquivo existir, senão amb_dead. Árido: amb_dead (mesma arte do Morto).
     v0.6 Fundo M2: na caverna, fora do centro, amb_cave_<região> (o chamador passa `cave_region` só se o
-    arquivo existir)."""
+    arquivo existir). v0.7 M4: dentro da VÉSPER-7 toca amb_vesper (se existir; senão o amb_cave)."""
+    if layer == "vesper":
+        if has_vesper:
+            return "vesper"
+        return "cave" if has_cave else C.STAGE_ART.get(stage_key, stage_key)
     if layer == "cave" and has_cave:
         return f"cave_{cave_region}" if cave_region and cave_region != "plateau" else "cave"
     if stage_key == "storm" and has_storm:

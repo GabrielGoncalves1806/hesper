@@ -2407,7 +2407,7 @@ class UI:
         a = max(0.0, min(1.0, a * 1.25))                # fica um tiquinho no preto inteiro
         self.fill((0, 0, 0, int(255 * a)), (0, 0, self.w, self.h))
         if a > 0.5:
-            text = "Descendo..." if trip.to == "cave" else "Subindo..."
+            text = trip.text or ("Descendo..." if trip.to == "cave" else "Subindo...")
             self.text(text, self.w / 2, self.h / 2 - 6, "#d9cfc4", self.body, "center")
 
     # ---- fim do MVP -----------------------------------------------------------
@@ -2844,6 +2844,8 @@ class UI:
         title_w = self.tx("Mapa", x + 8, y + 2, B_TEXT, self.body)
         # Superfície | Caverna (a caverna fica apagada e sem clique até a primeira descida)
         labels = [("surface", "Superfície"), ("cave", "Caverna")]
+        if "vesper" in state.layers:                    # v0.7 M4: a aba da nave só aparece depois de entrar nela
+            labels.append(("vesper", "VÉSPER-7"))
         widths = [self.body.size(lb)[0] + 14 for _, lb in labels]
         sx, sy = x + 8 + title_w + 6, y + 3
         self.round_rect((sx, sy, sum(widths) + 2, 15), B_WELL, B_LINE)

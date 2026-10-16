@@ -14,7 +14,7 @@ baixo e o player sempre chega logo abaixo dela. A caverna é criada na primeira 
 from dataclasses import dataclass, field
 
 from game import config as C
-from game import ice_blocks, pocket_fog, ruins, thaw
+from game import ice_blocks, pocket_fog, ruins, thaw, vesper
 from game.base import BaseGrid
 from game.explore import Explored
 from game.rock_respawn import RockRespawn
@@ -23,7 +23,8 @@ from game.world import World
 from game.wrecks import make_container_crates, make_crates
 
 SURFACE, CAVE = "surface", "cave"
-ORDER = (SURFACE, CAVE)
+VESPER = vesper.VESPER                  # v0.7 M4: o interior da VÉSPER-7 (game/vesper.py)
+ORDER = (SURFACE, CAVE, VESPER)
 
 
 @dataclass
@@ -111,6 +112,21 @@ class Layer:
     def water_level(self, value: float) -> None:
         self.world.water_level = value
 
+    def add_prop(self, prop) -> None:
+        """Põe o prop em todos os tiles dele (v0.7 M4: prop maior que 1 tile aponta pro mesmo objeto)."""
+        for t in prop.tiles:
+            self.props[t] = prop
+
+    def remove_prop(self, prop) -> None:
+        for t in prop.tiles:
+            if self.props.get(t) is prop:
+                del self.props[t]
+
+    @property
+    def buildable(self) -> bool:
+        """Dá pra construir aqui? Não dentro da VÉSPER-7 (v0.7 M4)."""
+        return self.key != VESPER
+
     @property
     def has_base(self) -> bool:
         """A cápsula (e a zona de O₂) fica na superfície."""
@@ -142,7 +158,14 @@ def make_cave(seed: int) -> Layer:
     return layer
 
 
-MAKERS = {SURFACE: make_surface, CAVE: make_cave}
+def make_vesper(seed: int) -> Layer:
+    world = vesper.generate_world(seed)
+    layer = Layer(VESPER, world, crates=vesper.make_crates(world, seed))
+    ruins.apply_overlays(layer)
+    return layer
+
+
+MAKERS = {SURFACE: make_surface, CAVE: make_cave, VESPER: make_vesper}
 
 
 def other_layer(key: str) -> str:

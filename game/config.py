@@ -448,6 +448,25 @@ LOGS += [
     "se movendo sob a superfície, 3 metros por dia, todos na direção da colônia. Classificação: erro de sensor. "
     "Pedido de recalibração: negado.",
 ]
+# v0.7 M4 · interior da VÉSPER-7 (docs/lore/logs_v07_rascunho.md). Índices 21 a 23, nunca mudam.
+LOGS += [
+    # 21 · cabine
+    "Dia 188. Cabine da VÉSPER-7. Pane nos dois motores quarenta segundos depois de sair do chão. Pouso forçado no "
+    "deserto, a vinte quilômetros da colônia. Todos vivos, carga intacta. A colônia diz que manda resgate amanhã.",
+    # 22 · alojamento
+    "Dia 190. O resgate não veio. O Brandt jura que a câmara fria está mais quente que ontem, e o termômetro "
+    "concorda com ele. O contêiner está suando. Gelo de núcleo não sua.",
+    # 23 · câmara fria
+    "Dia 193. Barulho dentro do contêiner a noite inteira. Batidas lentas, sem pressa. Lacramos a câmara e vamos a "
+    "pé até a colônia. Se alguém ler isso, não durma aqui.",
+]
+# v0.7 M4 · interior da VÉSPER-7 (game/vesper.py)
+VESPER_FIXTURE_TEXT = {
+    "jammed_door": "Porta emperrada · energizar a nave pode resolver",
+    "power_panel": "Painel de energia · sem bateria",
+    "container_broken": "Vazio. A tampa foi forçada por dentro.",
+}
+VESPER_FIXTURE_REACH = 48        # px dos pés até a base do fixture (igual ao terminal)
 # Título da tela de leitura de cada LOG (mesma ordem do LOGS)
 LOG_TITLES = ["TERMINAL · COLONIA HESPER"] * 3 + [
     "REGISTRO DE BORDO · VÉSPER-7", "TERMINAL · MODULO DA COLONIA",
@@ -455,11 +474,13 @@ LOG_TITLES = ["TERMINAL · COLONIA HESPER"] * 3 + [
 LOG_TITLES += (["TERMINAL · ACAMPAMENTO"] * 3 + ["DIARIO · DRA. ILVES"] * 3
                + ["TERMINAL · ESTACAO DE DERRETEDORES"] * 3 + ["TERMINAL · POSTO DE PERFURACAO"] * 3)
 LOG_TITLES += ["DIARIO DE BORDO · ARCA-2", "ROBO R-2 · RELATORIO AUTOMATICO"]
+LOG_TITLES += ["CABINE · VÉSPER-7", "ALOJAMENTO · VÉSPER-7", "CAMARA FRIA · VÉSPER-7"]
 # Dia da história de cada LOG (mesma ordem do LOGS). A aba LOGs do inventário lista nessa ordem, e o
 # "LOG 01".."LOG 21" exibido é a posição cronológica (não o índice em LOGS).
 LOG_DAYS = [3, 97, 212, 188, 140, 41, 230]
 LOG_DAYS += [1, 9, 22, 120, 152, 175, 198, 205, 219, 61, 209, 224]
 LOG_DAYS += [2, 167]
+LOG_DAYS += [188, 190, 193]
 LOG_ORDER = sorted(range(len(LOGS)), key=LOG_DAYS.__getitem__)   # índices em LOGS, do dia mais cedo pro mais tarde
 
 
@@ -858,7 +879,7 @@ THAW_GATE_NOTICE_TIME = 4.0         # s do aviso
 VOLUME.setdefault("ice_crack", 0.7)  # estalo do gelo (ice_crack.wav + ice_crack_1.wav, v11)
 # Destroço rico: no wreck_spot de cada bolsão, uma nave de carga com o saque "rico" (mais material que a melhor
 # nave de fora) e, se algum projeto de BLUEPRINTS não caiu nos destroços de fora, o 1º que faltar.
-WRECK_RICH_KIND = "cargo"
+WRECK_RICH_KIND = "robot"       # v0.7 M4: o module 8×4 não cabe no wreck_spot dos bolsões (a VÉSPER-7 é o único cargo)
 WRECK_RICH_LOOT = {"iron": (30, 40), "silicon": (20, 28), "ice": (14, 20)}
 # Contêiner lacrado no container_spot de cada bolsão (v0.5 M4): o E abre de graça, uma vez só (vira "aberto").
 CONTAINER_REACH = 48                # px dos pés até a base dele (igual à caixa de saque)
@@ -870,6 +891,7 @@ CONTAINER_REACH = 48                # px dos pés até a base dele (igual à cai
 # Os itens de loot só ocupam inventário (nenhum uso ainda): empilham até STACK_LOOT e vão pra baú.
 HAND_DRILL = "hand_drill"
 VOLUME.update({"chip_connect": 0.5, "chip_disconnect": 0.45})   # v0.6 M2: bip de encaixar/tirar o chip
+VOLUME.update({"door_stuck": 0.6, "spark": 0.25})   # v0.7 M4 (Som): a trava que não cede e o estalinho da porta emperrada
 VOLUME["container_open"] = 0.9   # trava do contêiner abrindo (container_open.wav, D3s CC0, aprovado): curto e seco
 STACK_TOOL = 1
 STACK_LOOT = 20
@@ -1259,6 +1281,7 @@ class PropType(NamedTuple):
     solid: bool
     place: str          # "floor" | "desk" | "face" | "decal"
     scannable: bool
+    size: tuple[int, int] = (1, 1)   # v0.7 M4: tiles (largura, altura); a âncora é o tile de cima à esquerda
 
 
 PROP_STARTER = ("prop_table", "prop_chair", "prop_crate", "prop_sign")

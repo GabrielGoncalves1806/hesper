@@ -74,6 +74,7 @@ BANNER_FADE_IN, BANNER_FADE_OUT = 0.4, 0.8
 SKY_CLEAR_DELAY = 5.0   # s depois do stage_up do Árido
 END_SCREEN_DELAY = 4.5
 FOOTSTEP_INTERVAL = 0.3
+DOOR_STUCK_COOLDOWN = 0.4   # s entre dois "tunk" da porta emperrada da VÉSPER-7 (dica do Som)
 CRATER_ICE_HINT = "Gelo · derrete com o calor"   # v0.4 M2: no lugar do "[E] Descer" com a cratera tampada
 CRATER_THAW_TEXT = "O gelo da cratera está cedendo"   # v0.4 M3.1: aviso nas etapas 1–3 do degelo
 CRATER_OPEN_TEXT = "A cratera abriu · desça [E]"      # ...e na etapa 4
@@ -189,6 +190,7 @@ class App:
         self.objective_hint_time = 0.0
         self.submerged_kinds: list[str] = []  # v0.4 M3.4: máquinas do aviso "submersa" que está na tela (agrupa)
         self.toast_time = 0.0
+        self.door_stuck_at = -9.0       # v0.7 M4: quando a porta emperrada fez tunk pela última vez (cooldown)
         self.audio.set_mix(**settings.mix(self.settings))
         self.audio.start_ambient(self.ambient_want())
         # save/load e tela de título (game/save.py, game/title.py)
@@ -486,6 +488,10 @@ class App:
                 target = self.e_target()          # o do mouse (no alcance) ou o mais perto
                 if target and target[0] == "ramp":
                     state.start_ramp()                    # cratera/rampa: desce ou sobe (fade)
+                elif target and target[0] in ("hatch_in", "hatch_out"):
+                    state.start_hatch()                   # v0.7 M4: boca do porão / escotilha da VÉSPER-7 (fade)
+                elif target and target[0] == "fixture":
+                    self.use_fixture(target[1])
                 elif target and target[0] == "terminal":
                     state.read_terminal(target[1])
                     self.terminal_index = target[1]
@@ -1650,6 +1656,11 @@ class App:
         self.floaters.update(dt)
         self.floaters.scale = self.zoom * self.ui.canvas_k     # faixas dos floaters em px da tela
         self.renderer.update_particles(dt)
+        spark = self.renderer.update_door_fx(self.state, dt)         # v0.7 M4: faísca da porta emperrada
+        if spark is not None and self.audio.has("spark"):
+            p = self.state.player
+            gain = sound.fade_by_distance(math.hypot(spark[0] - p.x, spark[1] - p.y) / C.TILE, 1.5, 5.5)
+            self.audio.play("spark", gain=gain)
         events = self.state.pop_events()
         broke = any(e[0] == "break" for e in events)
         for event in events:
@@ -1811,7 +1822,7 @@ class App:
             else:
                 self.audio.play("lamp_place" if event[1] == "lamp" and self.audio.has("lamp_place") else "place")
         elif kind == "ramp":                  # começou a descer/subir: passos na rampa (sem arquivo, silêncio)
-            self.audio.play("ramp_down" if event[1] == "cave" else "ramp_up")
+            self.audio.play("ramp_down" if event[1] in ("cave", "vesper") else "ramp_up")
             self.mouse_held = False
         elif kind == "layer":                 # trocou de camada no meio do fade: o que era de lá fica lá
             self.floaters = FloatingTexts()
@@ -1832,7 +1843,7 @@ class App:
             self.banner_stage = event[1]
             self.banner_time = 0.0
             self.audio.stage_up(self.ambient_want(event[1]))   # na caverna o ambiente não troca lá embaixo
-            if event[1] == C.ARID_STAGE and self.state.layer != "cave":
+            if event[1] == C.ARID_STAGE and self.state.layer == "surface":
                 self.audio.play("sky_clear", delay=SKY_CLEAR_DELAY)   # a última lufada indo embora (Som v9)
             if event[1] == C.GREEN_STAGE:      # fim do jogo
                 self.end_timer = END_SCREEN_DELAY
@@ -1840,7 +1851,7 @@ class App:
     def play_ice_break(self, collapse: bool) -> None:
         """Gelo quebrando: estalo (ice_crack, sorteia entre as 2 variações sem repetir) ou desabamento (ice_collapse)."""
         if collapse:
-            self.audio.play("ice_collapse", gain=sound.ice_collapse_gain(self.state.layer == "cave"))
+            self.audio.play("ice_collapse", gain=sound.ice_collapse_gain(self.state.layer in ("cave", "vesper")))
         else:
             self.audio.play("ice_crack")
 
@@ -1918,7 +1929,7 @@ class App:
         if region and not self.audio.has(f"amb_cave_{region}"):
             region = None
         return sound.ambient_for(self.ambient_layer(), key, self.audio.has("amb_cave"), self.audio.has("amb_storm"),
-                                 cave_region=region)
+                                 cave_region=region, has_vesper=self.audio.has("amb_vesper"))
 
     def update_drills_feedback(self, dt: float) -> None:
         """Som e poeira das drills: loop pelas 2 trabalhando mais perto, aviso de cheia, poeirinha na base."""
@@ -1990,6 +2001,19 @@ class App:
         """Bloco da base (chão, parede, porta) debaixo do mouse; a máquina em cima do chão tem prioridade (hovered_machine)."""
         return self.state.block_at_point(*self.mouse_world())
 
+    def use_fixture(self, tile) -> None:
+        """E num fixture da VÉSPER-7 (v0.7 M4): o texto vira aviso (~3 s). Porta emperrada faz tunk (cooldown 0,4 s);
+        painel sem bateria faz power_low. Sem o WAV, fica em silêncio."""
+        kind = self.state.world.fixtures.get(tuple(tile))
+        if kind not in C.VESPER_FIXTURE_TEXT:
+            return
+        self.show_toast(self.state.fixture_text(kind), 3.0)
+        if kind == "jammed_door" and self.t - self.door_stuck_at >= DOOR_STUCK_COOLDOWN and self.audio.has("door_stuck"):
+            self.door_stuck_at = self.t
+            self.audio.play("door_stuck")
+        elif kind == "power_panel" and self.audio.has("power_low"):
+            self.audio.play("power_low")
+
     def e_target(self) -> tuple[str, object] | None:
         """O que o E abre agora: o interagível debaixo do mouse, se estiver no alcance; senão o mais
         perto do player (None = nada; aí, na base, o E abre o fabricador)."""
@@ -2038,6 +2062,8 @@ class App:
         target_tile = self.place_target() if self.placing else None
         if target_tile is not None and state.world.is_water(*target_tile, state.stage):   # v0.4 M3.4
             return "Não dá pra construir na água · Esc cancela"
+        if self.placing and not state.active.buildable:    # v0.7 M4: dentro da VÉSPER-7
+            return "Não dá pra construir aqui · Esc cancela"
         if self.placing:
             missing = self.build_missing(self.placing)
             if missing:                                    # v0.5 M1: sem material, o fantasma fica vermelho
@@ -2113,8 +2139,11 @@ class App:
                         else f"{rhythm} (falta energia)")
             return (f"Segure [{C.DISMANTLE_KEY}] para desmontar" if can_dis(machine)
                     else f"{far.capitalize()} desmontar")
+        hover_fx = state.interactable_at(*self.mouse_world())    # v0.7 M4: fixture/escotilha da VÉSPER-7 sob o mouse, no alcance
+        if hover_fx is not None and hover_fx[0] in ("fixture", "hatch_out") and target == hover_fx:
+            return self.e_label(target)
         block = self.hovered_block()                        # v0.5 M2: chão, parede ou porta da base
-        if block:
+        if block and not block.ruin:                        # (a casca de ruína e da nave não desmonta: sem dica)
             name = C.MACHINES[block.kind].name
             return f"{name} · " + (f"segure [{C.DISMANTLE_KEY}] desmontar" if can_dis(block)
                                    else f"{far} desmontar")
@@ -2196,6 +2225,8 @@ class App:
             return "terminal", tuple(self.state.world.terminals[target[1]])
         if target[0] == "ramp":
             return "ramp", target[1]
+        if target[0] in ("hatch_in", "hatch_out", "fixture"):
+            return target[0], tuple(target[1])
         if target[0] == "wreck_log":
             return "wreck_log", target[1]
         if target[0] == "ruin_log":
@@ -2215,6 +2246,12 @@ class App:
         kind, obj = target
         if kind == "terminal":
             return "[E] Ler terminal"
+        if kind == "hatch_in":
+            return "[E] Entrar na VÉSPER-7"
+        if kind == "hatch_out":
+            return "[E] Sair da nave"
+        if kind == "fixture":
+            return self.state.fixture_text(self.state.world.fixtures[tuple(obj)])
         if kind == "ramp":
             if self.state.ramp_blocked():                 # v0.4: a cratera nasce tampada de gelo
                 return self.crater_ice_hint()

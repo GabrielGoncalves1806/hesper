@@ -86,6 +86,12 @@ def floor_variant(tx: int, ty: int) -> int:
     return C.FLOOR_PICK[((tx * 73856093) ^ (ty * 19349663)) & 7]
 
 
+def hull_floor_variant(tx: int, ty: int) -> int:
+    """Chão da VÉSPER-7 (hull_floor_N, v0.7 M4): 0 (chapa limpa) em ~75% dos tiles; 1 a 3 (manchas, grelha, risco) nos outros."""
+    h = ((tx * 73856093) ^ (ty * 19349663)) & 15
+    return 0 if h < 12 else (h - 12) % 3 + 1
+
+
 @dataclass(frozen=True)
 class Seal:
     """Resultado da vedação a partir de um Dispersor."""
@@ -130,6 +136,10 @@ class BaseGrid:
         """Parede ou porta (de qualquer tile da dupla): o que fecha a vedação e o raio-x lê."""
         b = self.cells.get(tile)
         return b is not None and (b.is_wall or b.is_door)
+
+    def cells_blocking(self) -> list[tuple[int, int]]:
+        """Tiles que barram o passo: parede e porta ainda fechada (v0.7 M4: o teste de alcance da VÉSPER-7 usa)."""
+        return [t for t, b in self.cells.items() if b.is_wall or (b.is_door and b.closed)]
 
     def doors(self) -> list[BaseBlock]:
         return self.door_list

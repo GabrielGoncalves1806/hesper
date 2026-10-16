@@ -285,6 +285,9 @@ WAV, 44,1 kHz, 16-bit, mono. Loops precisam emendar sem estalo.
 | `leak_alert.wav` | sfx ~0,9 s | **aprovado, v13.1.** A cada 4 s (`LEAK_ALERT_EVERY`) enquanto a base que já esteve vedada vaza, com o player a até 12 tiles do Dispersor ou do tile furado. Sem variar o pitch. Volume **0,55** |
 | `dispenser_dry.wav` | sfx ~1,6 s | **aprovado, v13.1.** Uma vez, quando acaba a última cápsula do Dispersor. Volume **0,5** |
 | `container_open.wav` | sfx ~0,31 s | **aprovado pelo dono, v14.3** (gravação CC0 limpa, rubberduck `lock_03`, sem camadas nem reverb: "a mais seca"). v0.5 M4: o E rompeu o lacre do contêiner lacrado e o saque top sai. Uma vez só por contêiner, junto da troca pro sprite de aberto; o `pickup` dos itens entra ~0,8 a 1 s depois. Sem variação de pitch. Volume **0,9** |
+| `amb_vesper.wav` | loop 28 s | **aprovado pelo dono (candidata F), v0.7 M4.** Ambiente dentro da VÉSPER-7: casco rangendo, "zzt" de fio solto longe (amostra CC0 de BMacZero, crédito no `CREDITS.md`) e zumbido de transformador. Toca pelo `ambient_for` na camada `vesper`; sem o arquivo cai no `amb_cave` |
+| `door_stuck.wav` | sfx curto | **aprovado (A), v0.7 M4.** "Tunk" seco da trava que não cede, E na porta emperrada. Volume **0,6**, pitch 0,96–1,04, cooldown de 0,4 s |
+| `spark.wav` `spark_1.wav` `spark_2.wav` | sfx bem curto | **aprovado (A, A1, A2), v0.7 M4.** Estalinho da faísca da porta emperrada (a cada 0,6–1,8 s, player a até 8 tiles). Sorteia entre os 3 sem repetir a última; volume **0,25**, ganho pela distância: cheio até 1,5 tile, zero em 5,5 |
 
 Os 7 sons da v11 vêm de gravações livres (CC0, domínio público do NPS e um IR de reverb em **CC BY 4.0**): o crédito obrigatório pra tela de créditos está em `assets/audio/CREDITS.md`. O build deles precisa do pedalboard: `uv run python tools/audio/build_audio.py`.
 
@@ -396,6 +399,13 @@ Os números abaixo são o ponto de partida; o balanceamento final sai do `tools/
 | `chest_open.png` | 32×40 | baú aberto · **r3d v1.1, aprovado pelo dono** |
 | `container_sealed.png` | 40×44 | **contêiner lacrado** (v0.4 M3, gancho das peças raras), 1 tile, mesma família do baú (caixa de aço com cintas e selo) · **r3d v1.1, aprovado pelo dono**. Substitui o placeholder `art.sealed_container` quando o Dev integrar |
 | `container_open.png` | 40×44 | **contêiner lacrado aberto** (v0.5 M4), mesma caixa, pivô e pé do `container_sealed.png`; tampa meio aberta (forçada), miolo escuro e vazio, cintas cortadas e selo partido. Troca a textura do `C.CONTAINER` depois que o player abre com E · **r3d v1.1, aprovado pelo dono (candidata B)** |
+| `hull_wall_top.png` | 64×96 | **v0.7 M4, aprovado.** Topo da parede da VÉSPER-7, atlas A2 igual ao `base_wall_top`. Na camada `vesper` o render usa `hull_*` no lugar de `base_*` (cai no `base_*` se o PNG faltar) |
+| `hull_wall_face.png` | 128×24 | **v0.7 M4, aprovado.** 4 peças 32×24, índice W + 2·E, igual ao `base_wall_face` |
+| `hull_floor_0..3.png` | 32×32 | **v0.7 M4, aprovado.** Chão de chapa da nave: 0 (limpa) em ~75% dos tiles (`base.hull_floor_variant`), 1 manchas, 2 grelha, 3 risco de gelo |
+| `vesper_power_panel.png` `vesper_jammed_door.png` | 32×24 | **v0.7 M4, aprovado.** Faces **opacas completas** (trocam a peça normal da face da parede, em (tx·32, ty·32+8)). Leitor de crachá da porta em (24,12) da face (nasce a faísca) |
+| `vesper_emergency_light_a.png` `_b.png` | 32×24 | **v0.7 M4, aprovado.** Face opaca da luz de emergência; variante por hash do tile. A luz no `cave_lights`: raio 1,5 tile, cor (255,96,72), intensidade 0,6 |
+| `vesper_hatch_exit_a.png` `_b.png` | 32×32 | **v0.7 M4, aprovado (as duas).** Escotilha de saída no chão do porão (andável); `a` no porão `hold_a`, `b` no `hold_b` (`vesper.hold_variant`) |
+| (contêiner da câmara fria) | 40×44 | **v0.7 M4:** sem sprite novo; o fixture `container_broken` desenha o `container_open.png`, na âncora do lacrado (pé no tile) |
 | `solar_panel.png` | 32×40 | painel solar |
 | `drone_station.png` | 64×72 | estação 2×2, com espaço pros drones pousados (documentar os pontos de pouso) |
 | `drone.png` | 64×16 | 4 quadros de 16×16 com as hélices girando. O jogo desenha a sombra |

@@ -35,8 +35,8 @@ class Plan:
     props: dict[str, str] = field(default_factory=dict)      # v0.7 M2: letra -> kind do prop (id em C.PROPS)
 
 
-def load_plan(key: str) -> Plan:
-    head, grid = (PLAN_DIR / f"{key}.txt").read_text(encoding="utf-8").split("\n---\n", 1)
+def load_plan(key: str, plan_dir: Path = PLAN_DIR) -> Plan:
+    head, grid = (plan_dir / f"{key}.txt").read_text(encoding="utf-8").split("\n---\n", 1)
     meta = dict(line.split(":", 1) for line in head.splitlines() if ":" in line)
     meta = {k.strip(): v.strip() for k, v in meta.items()}
     rows = [row for row in grid.splitlines() if row]
@@ -109,6 +109,9 @@ def ok_in_plan(grid: list[str], x: int, y: int, kind: str) -> bool:
     é chão (decisão do dono: colado numa parede ao sul ele fica, a face cobre a parte de baixo). Mesa de parede: casca em
     cima e não embaixo. Face: é parede e o tile de baixo não é casca nem vazio."""
     place = C.PROPS[kind].place
+    w, h = C.PROPS[kind].size
+    if (w, h) != (1, 1) and any(_at(grid, x + dx, y + dy) != "." for dy in range(h) for dx in range(w)):
+        return False                       # v0.7 M4: prop grande pede todos os tiles de chão (a planta não gira aqui)
     here, below, above = _at(grid, x, y), _at(grid, x, y + 1), _at(grid, x, y - 1)
     if place == "face":
         return here == "#" and below not in WALLISH + " "
@@ -448,7 +451,7 @@ def apply_overlays(layer) -> None:
         layer.base.remove(block)
     layer.machines[:] = [m for m in layer.machines if not m.broken]
     for t in [t for t, p in layer.props.items() if p.ruin]:        # v0.7 M2: os props de ruína também voltam da seed
-        del layer.props[t]
+        del layer.props[t]                                          # (v0.7 M4: prop grande tem um tile por parte)
     layer.ruins_off.clear()
     broken = []
     for ruin in world.ruins:
@@ -478,5 +481,7 @@ def apply_overlays(layer) -> None:
                     if t in ruin.machines and t not in layer.ruin_salvaged:
                         broken.append(Machine(ruin.machines[t], *t, broken=True))
         for t, kind in ruin.props.items():
-            layer.props.setdefault(t, Prop(kind, *t, ruin=True))
+            prop = Prop(kind, *t, ruin=True)
+            if all(p not in layer.props for p in prop.tiles):
+                layer.add_prop(prop)
     layer.machines[:0] = broken                        # sempre na frente das do player (a ordem não muda no load)

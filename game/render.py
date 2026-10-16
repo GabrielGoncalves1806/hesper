@@ -30,7 +30,7 @@ from game import autotile
 from game import cave_ground
 from game import cave_light
 from game import cave_rocks
-from game.base import floor_variant
+from game.base import floor_variant, hull_floor_variant
 from game import config as C
 from game import drones
 from game import dust
@@ -42,6 +42,7 @@ from game import ice_giant
 from game.pocket_fog import PocketFog
 from game import lake
 from game import layers
+from game import vesper, vesper_fx
 from game import smoke
 from game.assets import Sprites
 from game.ground import decor_layers, decor_tile_free
@@ -142,6 +143,9 @@ RAMP_LIGHT = (255, 240, 214)       # luz do dia caindo pela boca da rampa de sub
 TERMINAL_LIGHT = (111, 227, 160)
 MACHINE_LIGHT = {"o2": (89, 208, 230), "heater": (255, 138, 61), "melter": (159, 230, 255),
                  "smelter": (255, 138, 61), "solar": (255, 216, 74), "drill": (255, 210, 140), "drone_station": (150, 210, 230)}
+EMERGENCY_LIGHT = (255, 96, 72)     # v0.7 M4: luz de emergência da VÉSPER-7 (vermelha, fraca)
+EMERGENCY_RADIUS = 1.5              # tiles (decisão do dono: era 2,5 no plano)
+EMERGENCY_INTENSITY = 0.6
 DRONE_LIGHT = MACHINE_LIGHT["drone_station"]   # v0.6 M3: luzinha do drone voando na caverna (pedido do dono)
 
 
@@ -173,6 +177,9 @@ def cave_lights(state: GameState, helmet=WARM_WHITE, helmet_intensity: float = 1
                 out.append(LightSource(d.x, d.y, 1.4 * T, DRONE_LIGHT, 0.6))
     for tx, ty in world.terminals:
         out.append(LightSource((tx + 0.5) * T, (ty + 1) * T, 2 * T, TERMINAL_LIGHT, 0.6))
+    for (tx, ty), kind in world.fixtures.items():   # v0.7 M4: luzes de emergência da VÉSPER-7
+        if kind == "emergency_light":
+            out.append(LightSource((tx + 0.5) * T, (ty + 1) * T, EMERGENCY_RADIUS * T, EMERGENCY_LIGHT, EMERGENCY_INTENSITY))
     return out
 
 
@@ -182,6 +189,7 @@ class Renderer:
         self._surfaces: dict[str, tuple[pygame.Surface, bool]] = {}
         self._fx: dict[tuple, pygame.Surface] = {}
         self.particles: list[list[float]] = []   # [x, y, vx, vy, vida, cor]
+        self.door_fx = vesper_fx.DoorFx()        # v0.7 M4: faísca e névoa da porta emperrada da VÉSPER-7
         self.surface_map = StageMap()            # estágio visual de cada tile da superfície (transição gradual)
         self.cave_map = StageMap()               # caverna: estágio fixo (névoa), nunca transiciona
         self.cave_map.stage = CAVE_STAGE
@@ -381,6 +389,8 @@ class Renderer:
             self.draw_pocket_fog(canvas, state, cam, t)
         if cave:
             self.draw_cave_darkness(canvas, state, cam, t)
+            if state.layer == layers.VESPER:
+                self.door_fx.draw(canvas, cam)                   # faísca e névoa por cima do escuro (brilham)
             # rachaduras e fantasma por cima do escuro: o jogador precisa ver onde está mexendo
             if state.mining:
                 self.draw_mining(canvas, state, state.mining, cam)
@@ -615,18 +625,63 @@ class Renderer:
         tx0, tx1, ty0, ty1 = self.visible_tiles(cam)
         return tx0 - 1, tx1 + 1, ty0 - 1, ty1 + 2
 
+    def hull_name(self, state, name: str) -> str:
+        """Nome do sprite da casca: na VÉSPER-7 o `hull_*` no lugar do `base_*` (se o PNG existir; senão o da base)."""
+        if state.layer == layers.VESPER and name.startswith("base_"):
+            hull = "hull_" + name[len("base_"):]
+            if self.sprites.get(hull) is not None:
+                return hull
+        return name
+
+    def draw_hatch(self, canvas, state: GameState, cam) -> None:
+        """A escotilha de saída (v0.7 M4), no chão do porão: vesper_hatch_exit_a/_b pela variante do porão (andável, abaixo
+        de tudo). Sem o PNG, um quadrado escuro com borda."""
+        hx, hy = vesper.hatch_tile(state.world)
+        name = f"vesper_hatch_exit_{vesper.hold_variant(state.world.seed)}"
+        surf = self.surface(name, lambda: self._fixture_placeholder("hatch", (T, T)))[0]
+        canvas.blit(surf, (hx * T - cam[0], hy * T - cam[1]))
+
+    FIXTURE_COLORS = {"hatch": (20, 18, 24), "container_broken": (150, 170, 190), "power_panel": (70, 90, 120),
+                      "jammed_door": (120, 100, 70), "emergency_light": (200, 60, 50)}
+
+    def _fixture_placeholder(self, kind: str, size) -> pygame.Surface:
+        surf = pygame.Surface(size, pygame.SRCALPHA)
+        surf.fill((*self.FIXTURE_COLORS.get(kind, (200, 0, 200)), 255))
+        pygame.draw.rect(surf, (0, 0, 0), surf.get_rect(), 1)
+        return surf
+
+    def fixture_face(self, kind: str, tile) -> pygame.Surface:
+        """Face opaca (32×24) do painel, da porta ou da luz de emergência (a luz tem 2 variantes por hash do tile)."""
+        name = f"vesper_{kind}"
+        if kind == "emergency_light":
+            name += "_a" if hash01(tile[0], tile[1], 11) < 0.5 else "_b"
+        return self.surface(name, lambda: self._fixture_placeholder(kind, C.PROP_FACE_SIZE))[0]
+
+    def draw_container_broken(self, canvas, tile, x: int, y: int) -> None:
+        """Contêiner arrombado da câmara fria: o container_open.png (aprovado, v0.5 M4), pé no tile (âncora do lacrado)."""
+        surf = self.container_surface(True)
+        canvas.blit(surf, (x, y))
+        if self.highlight == ("fixture", tile):
+            canvas.blit(self.outline_of(("fixture", "container_broken"), surf), (x - 1, y - 1))
+
     def draw_base_floors(self, canvas, state: GameState, cam) -> None:
         """Passada do chão: as 4 variações do base_floor por hash do tile (igual nos 3 estágios), embaixo de tudo."""
         grid = state.base
         if not grid.blocks:
             return
+        hull = state.layer == layers.VESPER
         tx0, tx1, ty0, ty1 = self.base_view(cam)
         for b in grid.blocks:
             if not b.is_floor or not (tx0 <= b.tx <= tx1 and ty0 <= b.ty <= ty1):
                 continue
-            surf, _ = self.surface(f"base_floor_{floor_variant(b.tx, b.ty)}",
-                                   lambda b=b: self._placeholder(T, "floor"))
+            if hull:                                          # v0.7 M4: chão de chapa da nave (0 em ~75%)
+                name = self.hull_name(state, f"base_floor_{hull_floor_variant(b.tx, b.ty)}")
+            else:
+                name = f"base_floor_{floor_variant(b.tx, b.ty)}"
+            surf, _ = self.surface(name, lambda b=b: self._placeholder(T, "floor"))
             canvas.blit(surf, (b.tx * T - cam[0], b.ty * T - cam[1]))
+        if hull:
+            self.draw_hatch(canvas, state, cam)
 
     def collect_base_objects(self, items: list, canvas, state: GameState, cam) -> None:
         """Parede e porta da base entram na ordem de profundidade com ay = ty·32 + 1: caem na linha certa e saem
@@ -653,7 +708,8 @@ class Renderer:
         tx, ty = tile
         grid = state.base
         x, y = tx * T - cam[0], ty * T - cam[1]
-        atlas = self.sprites.get("base_wall_top")
+        top_name = self.hull_name(state, "base_wall_top")      # v0.7 M4: casca da VÉSPER-7 (hull_*), com fallback pro base_*
+        atlas = self.sprites.get(top_name)
         if atlas is None:                                       # sem sprites (testes): caixa lisa
             canvas.fill((58, 62, 78), (x, y - C.BASE_WALL_LIFT, T, T))
             if not grid.is_wall((tx, ty + 1)):
@@ -662,12 +718,13 @@ class Renderer:
             self._draw_ruin_terminal(canvas, state, tile, x, y)
             return
         key = autotile.tile_key(lambda a, b: grid.is_wall((a, b)), tx, ty)
-        canvas.blit(self.base_wall_tiles.get("base_wall", atlas, key), (x, y - C.BASE_WALL_LIFT))
+        canvas.blit(self.base_wall_tiles.get(top_name.removesuffix("_top"), atlas, key), (x, y - C.BASE_WALL_LIFT))
         if not grid.is_wall((tx, ty + 1)):
-            face = self.sprites.get("base_wall_face")
+            face = self.sprites.get(self.hull_name(state, "base_wall_face"))
             if face is not None:
                 idx = int(grid.is_wall((tx - 1, ty))) + 2 * int(grid.is_wall((tx + 1, ty)))
                 canvas.blit(face, (x, y + C.BASE_FACE_Y), (idx * T, 0, T, C.BASE_WALL_LIFT))
+            self._draw_fixture_face(canvas, state, tile, x, y)
             self._draw_face_prop(canvas, state, tile, x, y)
         self._draw_ruin_terminal(canvas, state, tile, x, y)
 
@@ -690,6 +747,17 @@ class Renderer:
         if self.highlight is prop:
             canvas.blit(self.outline_of(("prop", prop.kind), surf), (x - 1, y - 1))
 
+    def _draw_fixture_face(self, canvas, state: GameState, tile, x: int, y: int) -> None:
+        """Painel de energia, porta emperrada ou luz de emergência da VÉSPER-7 (v0.7 M4): face opaca 32×24 que troca a peça
+        normal da face, em (tx·32, ty·32 + 8). O alvo do E (painel e porta) ganha o contorno claro."""
+        kind = state.world.fixtures.get(tuple(tile)) if state.layer == layers.VESPER else None
+        if kind not in vesper.WALL_FIXTURES:
+            return
+        surf = self.fixture_face(kind, tile)
+        canvas.blit(surf, (x, y + C.BASE_FACE_Y))
+        if self.highlight == ("fixture", tuple(tile)):
+            canvas.blit(self.outline_of(("fixture", kind), surf), (x - 1, y + C.BASE_FACE_Y - 1))
+
     def _draw_face_prop(self, canvas, state: GameState, tile, x: int, y: int) -> None:
         """Prop de face (32×24) na face da parede, logo depois dela: (tx·32, ty·32 + 8)."""
         prop = state.active.props.get(tuple(tile)) if state.active.props else None
@@ -702,8 +770,8 @@ class Renderer:
         if not props:
             return
         tx0, tx1, ty0, ty1 = self.base_view(cam)
-        for prop in props.values():
-            if prop.place == "decal" and tx0 <= prop.tx <= tx1 and ty0 <= prop.ty <= ty1:
+        for tile, prop in props.items():
+            if tile == prop.tile and prop.place == "decal" and tx0 <= prop.tx <= tx1 and ty0 <= prop.ty <= ty1:
                 self._blit_prop(canvas, prop, prop.tx * T - cam[0], prop.ty * T - cam[1])
 
     def collect_props(self, items: list, canvas, state: GameState, cam) -> None:
@@ -713,8 +781,8 @@ class Renderer:
         if not props:
             return
         tx0, tx1, ty0, ty1 = self.base_view(cam)
-        for prop in props.values():
-            if prop.place in ("floor", "desk") and tx0 <= prop.tx <= tx1 and ty0 <= prop.ty <= ty1:
+        for tile, prop in props.items():                 # v0.7 M4: prop grande aparece em vários tiles; desenha pela âncora
+            if tile == prop.tile and prop.place in ("floor", "desk") and tx0 <= prop.tx <= tx1 and ty0 <= prop.ty <= ty1:
                 items.append(((prop.ty + 1) * T, lambda p=prop: self._blit_prop(
                     canvas, p, p.tx * T - cam[0], p.ty * T - cam[1] - C.PROP_LIFT)))
 
@@ -1281,6 +1349,13 @@ class Renderer:
             if -w < x < self.view_w and -h < y < self.view_h:
                 items.append(((ty + 1) * T, lambda t=(tx, ty), o=box.opened, x=x, y=y:
                               self.draw_container(canvas, t, x, y, o)))
+        if state.layer == layers.VESPER:                       # v0.7 M4: o contêiner arrombado da câmara fria
+            cw, ch = self.container_surface(True).get_size()
+            for (tx, ty), kind in state.world.fixtures.items():
+                if kind == "container_broken":
+                    x, y = (tx * T + T // 2 - cw // 2) - cam_x, (ty + 1) * T - ch - cam_y
+                    if -cw < x < self.view_w and -ch < y < self.view_h:
+                        items.append(((ty + 1) * T, lambda t=(tx, ty), x=x, y=y: self.draw_container_broken(canvas, t, x, y)))
         self.blinks = [b for b in self.blinks if (t - b[2]) * C.SCAN_FPS < C.SCAN_BLINK_STEPS]
         for info, (bx, by), t0 in self.blinks:                 # v0.5 M1: o holograma piscando depois do desmonte
             step = int((t - t0) * C.SCAN_FPS)
@@ -2278,6 +2353,16 @@ class Renderer:
             p[3] += 220 * dt   # gravidade
             p[4] -= dt
         self.particles = [p for p in self.particles if p[4] > 0]
+
+    def update_door_fx(self, state: GameState, dt: float) -> tuple[float, float] | None:
+        """Anda a faísca e a névoa da porta emperrada (só dentro da VÉSPER-7, a até 8 tiles). Devolve onde estalou uma
+        faísca neste passo (o app toca o `spark` com o ganho pela distância) ou None."""
+        door = None
+        if state.layer == layers.VESPER:
+            door = next((t for t, k in state.world.fixtures.items() if k == "jammed_door"), None)
+        elif self.door_fx.sparks or self.door_fx.fog:
+            self.door_fx.clear()
+        return self.door_fx.update(dt, door, (state.player.x, state.player.y))
 
     def draw_particles(self, canvas, cam) -> None:
         for x, y, _, _, _, color in self.particles:

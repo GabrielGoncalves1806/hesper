@@ -1,0 +1,25 @@
+name: Cabine
+layer: vesper
+damage: rock
+f: wall_monitor_off
+n: wall_bp_ship
+u: prop_console
+t: prop_table
+i: prop_chair
+h: prop_chair_fallen
+r: prop_rubble
+J: jammed_door
+P: power_panel
+L: emergency_light
+1: 21
+---
+#f#P#n#L#J#f#1#fL#
+#................#
+#u..............u#
+#u....tttt......u#
+#.....i..i.......#
+#.......h........#
+#u..r............#
+#u..............r#
+#...i.......i....#
+#########.########

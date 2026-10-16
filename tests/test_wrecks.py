@@ -59,7 +59,7 @@ def test_tiles_and_free_access(seed):
 def test_kinds_for_sequence(n):
     kinds = wrecks.kinds_for(n)
     assert len(kinds) == n
-    assert kinds[:7] == ["cargo", "probe", "module", "liner", "cargo", "probe", "robot"]
+    assert kinds[:7] == ["cargo", "probe", "module", "liner", "probe", "probe", "robot"]
     assert kinds[-1] == "module"
     assert kinds.count("liner") == 1
     assert 1 <= kinds.count("robot") <= 2
@@ -93,6 +93,8 @@ def test_loot_is_fixed_by_seed_and_scales_with_size():
     crates = wrecks.make_crates(world, 7)
     total = {}
     for crate in crates.values():
+        if crate.wreck.rich:                      # os ricos dos bolsões (module desde o M4) têm tabela própria
+            continue
         n = sum(s.count for s in crate.storage.slots if s and s.item in C.RESOURCES)
         total.setdefault(crate.wreck.kind, []).append(n)
     assert min(total["cargo"]) > max(total["module"]) > 0
@@ -317,3 +319,29 @@ def test_wreck_at_px_covers_the_sprite_above_the_footprint():
     x, y, w, h = module.sprite_rect
     assert world.wreck_at_px(x + w / 2, y + 4) is module           # no teto do sprite (fora da pegada)
     assert world.wreck_at_px(x - 40, y - 40) is not module
+
+
+@pytest.mark.parametrize("n", [8, 9, 10])
+def test_one_cargo_per_world(n):
+    kinds = wrecks.kinds_for(n)
+    assert kinds.count("cargo") == 1 and kinds[0] == "cargo"
+    assert kinds[4] == "probe"                     # o rank 4 leva o diagrama da luminária forte
+    assert wrecks.extras_for(4, n) == (None, "lamp_t2")
+
+
+def test_vesper_is_unique_and_named():
+    from game.layers import make_surface
+    for seed in range(0, 200, 7):
+        world = make_surface(seed).world
+        cargos = [w for w in world.wrecks if w.kind == "cargo"]
+        assert len(cargos) == 1 and not cargos[0].rich
+        assert wrecks.vesper_wreck(world) is cargos[0]
+        assert cargos[0].name == "VÉSPER-7"
+
+
+def test_rich_wreck_is_not_cargo():
+    from game.layers import make_surface
+    for seed in range(200):
+        world = make_surface(seed).world
+        rich = [w for w in world.wrecks if w.rich]
+        assert all(w.kind == C.WRECK_RICH_KIND != "cargo" for w in rich)
