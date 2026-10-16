@@ -209,14 +209,14 @@ def test_save_roundtrip_keeps_ruins_and_salvage():
 
 # ---- Task 5: LOGs, E e mapa -------------------------------------------------------------------------
 def test_logs_7_to_18():
-    assert len(C.LOGS) == len(C.LOG_DAYS) == len(C.LOG_TITLES) == 21
+    assert len(C.LOGS) == len(C.LOG_DAYS) == len(C.LOG_TITLES) == 24      # + 21..23 da VÉSPER-7 (v0.7 M4)
     for i, text in enumerate(C.LOGS):
         assert text.startswith(f"Dia {C.LOG_DAYS[i]}."), i
         assert "→" not in text
     assert C.LOG_ORDER[0] == 7                                      # Dia 1 é o primeiro da história
     assert C.LOG_DAYS[7:19] == [1, 9, 22, 120, 152, 175, 198, 205, 219, 61, 209, 224]
-    assert C.LOG_DAYS[19:] == [2, 167]
-    assert C.LOG_TITLES[19:] == ["DIARIO DE BORDO · ARCA-2", "ROBO R-2 · RELATORIO AUTOMATICO"]
+    assert C.LOG_DAYS[19:21] == [2, 167]
+    assert C.LOG_TITLES[19:21] == ["DIARIO DE BORDO · ARCA-2", "ROBO R-2 · RELATORIO AUTOMATICO"]
 
 
 def test_map_shows_ruin_after_seen_and_names_it_after_reading():

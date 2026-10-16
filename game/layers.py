@@ -14,7 +14,7 @@ baixo e o player sempre chega logo abaixo dela. A caverna é criada na primeira 
 from dataclasses import dataclass, field
 
 from game import config as C
-from game import ice_blocks, pocket_fog, ruins, thaw
+from game import ice_blocks, pocket_fog, ruins, thaw, vesper
 from game.base import BaseGrid
 from game.explore import Explored
 from game.rock_respawn import RockRespawn
@@ -23,7 +23,8 @@ from game.world import World
 from game.wrecks import make_container_crates, make_crates
 
 SURFACE, CAVE = "surface", "cave"
-ORDER = (SURFACE, CAVE)
+VESPER = vesper.VESPER                  # v0.7 M4: o interior da VÉSPER-7 (game/vesper.py)
+ORDER = (SURFACE, CAVE, VESPER)
 
 
 @dataclass
@@ -142,7 +143,14 @@ def make_cave(seed: int) -> Layer:
     return layer
 
 
-MAKERS = {SURFACE: make_surface, CAVE: make_cave}
+def make_vesper(seed: int) -> Layer:
+    world = vesper.generate_world(seed)
+    layer = Layer(VESPER, world, crates=vesper.make_crates(world, seed))
+    ruins.apply_overlays(layer)
+    return layer
+
+
+MAKERS = {SURFACE: make_surface, CAVE: make_cave, VESPER: make_vesper}
 
 
 def other_layer(key: str) -> str:
