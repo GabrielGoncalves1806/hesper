@@ -39,3 +39,14 @@ Linha do tempo de hoje: 3 (pouso), 41 (sonda S-3), 97 (índice rápido demais), 
 ## Como fica a história inteira (19 LOGs, em ordem)
 
 1 pouso otimista · 3 pouso perfeito · 9 meta absurda · 22 Ilves vai pro norte · 41 sonda avisa do calor · 61 broca quente demais · 97 índice rápido demais · 120 amostra recongela · 140 "cresce quando ninguém olha" · 152 espécime reage ao calor · 175 "ele não tem pressa, nós temos" · 188 VÉSPER-7 leva o gelo · 198 vapor azulado · 205 marca de dentro pra fora · 209 passagem pro nível 2 · 212 desce de qualquer jeito · 219 derretedores 24 h · 224 "o chão respira" · 230 "não acorde o gelo".
+
+## v0.7 M3 · destroços novos (aprovados pelo dono no chat, 2026-10-16)
+
+Índices novos em `LOGS`: 19 e 20 (nunca mudam). O da ARCA-2 é o Dia 2 (não Dia 0: o Dia 3 "pouso perfeito" e o Dia 1 "primeira noite fora da nave" já existem; o casco virou destroço porque a diretoria mandou desmontar).
+
+| Índice | Dia | Destroço | Texto |
+|---|---|---|---|
+| 19 | 2 | ARCA-2 (nave de passageiros) | Dia 2. ARCA-2, diário de bordo. Ordem da diretoria: desmontar o casco pra virar gerador e tenda. Ninguém volta, então não vai precisar de nave. O comandante assinou sem ler. |
+| 20 | 167 | Robô de reconhecimento R-2 | Dia 167. Unidade de reconhecimento R-2, relatório automático. Varredura do gelo norte: 14 pontos de calor se movendo sob a superfície, 3 metros por dia, todos na direção da colônia. Classificação: erro de sensor. Pedido de recalibração: negado. |
+
+História inteira com eles (21 LOGs): 1 pouso otimista · **2 casco da ARCA desmontado, ninguém volta** · 3 pouso perfeito · ... · 152 espécime reage ao calor · **167 pontos de calor andando sob o gelo** · 175 "ele não tem pressa, nós temos" · ...

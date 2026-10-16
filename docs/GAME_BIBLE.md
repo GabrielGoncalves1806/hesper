@@ -1020,3 +1020,23 @@ Spec: `docs/superpowers/specs/2026-10-16-v07-lore-design.md`. Marcos: M1 estrutu
 - **Save continua v12**: `"scanned"` no topo e `"props"` por camada (só os do player), opcionais.
 - **Balanceamento**: os props de ruína colidindo deixaram o bot da `balance_sim` um tiquinho mais lento (seed 1: 52,4 min); o teto provisório do teste casual subiu de 52 pra 54 min (dono ok).
 - **Smoke**: nenhuma cena nova nem ajuste (as abas são achadas pelo nome). Prints avulsos em `tools/dev/shot_v07_m2.py`.
+
+### Marco 3 · Destroços novos (decisões do dono, 2026-10-16)
+- **Arte** (promovida de `reports/design/v07_lore/pendentes/`; vale o bloco "Pro Dev" da rodada mais recente de cada peça; "dá pra polir" fica pra depois):
+
+  | Tipo | Sprite | Tamanho | Pegada | Lift | Marcas (tile relativo ao canto) |
+  |---|---|---|---|---|---|
+  | `cargo` VÉSPER-7 | `r5_wreck_cargo_A` → `wreck_cargo` | 160×128 | 4×3 → **5×3** | 32 | caixa (1,3); boca do porão (3,2), chega por (3,3), **só arte** até o M4 |
+  | `module` base de vidro | `r5_wreck_module_glass` → `wreck_module` | 256×168 | 3×2 → **8×4** | 40 | terminal (4,2), lido de (4,3), contorno em px (138,117,20,17); porta (1,3) só arte; caixa (5,4) |
+  | `probe` sonda | `wreck_probe` rodada 1 | 64×64 | 2×2 | 0 | caixa (2,1); LED em px (23,37) |
+  | `robot` robô de reconhecimento (novo) | `r2_wreck_robot` → `wreck_robot` | 96×64 | 3×2 | 0 | caixa (3,1) |
+  | `liner` nave de passageiros ARCA-2 (nova) | `wreck_liner` rodada 1 | 160×120 | 5×3 | 24 | caixa (2,3); sem terminal |
+
+  O sprite pode passar da pegada (a colisão é a pegada, aproximada). Ordenação pelo pé da pegada; o mouse e o clique usam o retângulo do sprite.
+- **Loot** (bruto na caixa + bônus sorteado):
+  - **robô**: ferro 4–6, silício 2–4; bônus próprio: **circuito 1–2 sempre** + **chip 40%** (1). É o destroço da peça eletrônica.
+  - **ARCA-2**: ferro 10–14, silício 4–6, gelo 4–8; bônus "de colono": mais fio e chance de wafer que o `LOOT_COMMON`.
+  - VÉSPER-7, base de vidro e sonda: tabelas de hoje.
+- **LOGs** (índices 19 e 20; texto em `docs/lore/logs_v07_rascunho.md`): ARCA-2 = **Dia 2** (o casco foi desmontado por ordem da diretoria, "ninguém volta"); robô R-2 = **Dia 167** (pontos de calor andando sob o gelo norte). Lidos na caixa, como os da nave e da sonda (sem terminal).
+- **Quantidade e lugar**: **8 a 10** destroços (era 6–8), do mais perto pro mais longe: carga (O₂ + LOG VÉSPER), sonda, módulo (scanner + LOG dia 140), **ARCA-2** (LOG dia 2), carga (luminária forte), sonda (LOG S-3), **robô** (LOG R-2), [extras com 9 ou 10: robô, carga], módulo (LOG dia 230, o mais longe). **Uma ARCA-2 por mundo**; **1 ou 2 robôs**, sempre da metade pra longe (o circuito grátis chega quando o player já está perto de fabricar o dele). Regra de lugar igual à de hoje (areia livre, folga, espaçamento); pegada grande que não cabe tenta outro ponto.
+- **Save antigo (opção A)**: o save sobe pra **v13**. A geração dos destroços muda (rng compartilhado), então a mesma seed põe os destroços em outro lugar, e isso vale também pro save antigo. Destroço cuja pegada + caixa bateria em bloco ou máquina do player **não nasce naquele mundo** (padrão do `ruins_off` do M1). Caixa aberta salva numa posição que não é mais caixa é ignorada (o player pode saquear de novo: aceito). O destroço rico do bolsão (`cargo`) precisa caber com 5×3 no `wreck_spot`.

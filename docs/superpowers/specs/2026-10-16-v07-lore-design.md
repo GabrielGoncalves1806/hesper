@@ -112,6 +112,8 @@ Tudo passa pelo dono no report antes de entrar no jogo.
 - Os 3 sprites trocam; o módulo cresce (pegada do #2).
 - Entram a **nave de passageiros** e o **robô de reconhecimento** (dá circuito e eletrônico), cada um com loot, LOG e pegada próprios, no mesmo sistema de tabela dos destroços.
 
+> Decisões fechadas com o dono em 2026-10-16 (loot, LOGs, quantidade e lugar, save antigo): bíblia §16, "Marco 3 · Destroços novos". LOGs em `docs/lore/logs_v07_rascunho.md` (índices 19 e 20).
+
 ## M4 · Interior da VÉSPER-7 (detalhe na hora dele)
 
 - **Camada nova pequena** (~48×48), uma por transportador, gerada com seed + destroço.
