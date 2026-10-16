@@ -838,4 +838,115 @@ Esperado: PASS. No relatório final: os números do smoke, os do print avulso (t
 2. Fazer o merge (`--no-ff`) e rodar `uv run pytest`, o smoke e o `real_video_check` no main.
 3. Commit como Gabriel Oliveira. Os prints vão num commit separado, sem o `reports/dev/receitas.html`. Depois, push.
 4. Marcar o ROADMAP e avisar o dono pra testar: entrar na caverna, F3 pra furar a rocha dura e andar até cada fronteira.
-5. Som por bioma: se o dono aprovar o report do Som, vira uma task curta separada (promover os `amb_cave_*`, escolher pela região do player com histerese e mexer no `audio.ambient_for`).
+5. Som por bioma: **aprovado pelo dono em 2026-10-16** (commit `1169fe0f`) → Task 4, um Dev separado depois do merge das Tasks 1 a 3.
+
+---
+
+### Task 4: Ambiente sonoro por bioma (som aprovado)
+
+**Files:**
+- Create: `assets/audio/amb_cave_{salar,basalt,frost}.wav` (cópia de `reports/audio/v06_fundo_m2_biomas/`)
+- Modify: `game/audio.py:56-64` (`ambient_for`) + uma classe nova, `game/app.py:1814-1835`, `game/config.py`, `assets/audio/CREDITS.md` (se o padrão do arquivo listar os sons sintetizados), contrato do `tools/audio/check_audio.py` (se ele tiver lista de nomes)
+- Test: `tests/test_audio.py` (ou o arquivo de testes de áudio que já existe; procure `ambient_for` em `tests/`)
+
+**Interfaces:**
+- Produz:
+  - `C.CAVE_AMB_HOLD_S = 1.5`: segundos seguidos na região nova antes de trocar;
+  - `audio.ambient_for(layer, stage_key, has_cave, has_storm=False, cave_region=None)`, que devolve `"cave_<nome>"` quando `cave_region` é salar, basalt ou frost e o arquivo existe (quem confere é o chamador: passa `None` se `has(f"amb_cave_{nome}")` for False), senão `"cave"`;
+  - `audio.CaveRegionPicker`, com `.update(region_name: str | None, dt: float) -> str | None` (a região "estável") e `.reset(region_name)`.
+
+O report `reports/audio/v06_fundo_m2_biomas/index.html` tem a seção "Pro Dev integrar". Leia antes de começar.
+
+- [ ] **Step 1: Promover os 3 WAVs**
+
+```bash
+cp reports/audio/v06_fundo_m2_biomas/amb_cave_{salar,basalt,frost}.wav assets/audio/
+uv run python tools/audio/check_audio.py      # tem que passar; se ele tiver uma lista de nomes esperados, some os 3
+```
+
+- [ ] **Step 2: Testes que falham**
+
+```python
+from game import audio as sound
+from game import config as C
+
+
+def test_ambient_for_cave_region():
+    assert sound.ambient_for("cave", "mist", True, cave_region="basalt") == "cave_basalt"
+    assert sound.ambient_for("cave", "mist", True, cave_region="plateau") == "cave"
+    assert sound.ambient_for("cave", "mist", True, cave_region=None) == "cave"
+    assert sound.ambient_for("surface", "mist", True, cave_region="basalt") == "mist"   # a região só vale lá embaixo
+
+
+def test_picker_waits_before_switching():
+    p = sound.CaveRegionPicker()
+    p.reset("plateau")
+    assert p.update("salar", 1.0) == "plateau"
+    assert p.update("salar", C.CAVE_AMB_HOLD_S) == "salar"
+
+
+def test_picker_ignores_short_crossings():
+    p = sound.CaveRegionPicker()
+    p.reset("plateau")
+    p.update("salar", 1.0)
+    p.update("plateau", 0.1)                    # voltou antes do tempo: zera
+    assert p.update("salar", 1.0) == "plateau"
+```
+
+Ajuste o primeiro assert de superfície pro que o `ambient_for` devolve hoje com `"mist"`, ou seja, `C.STAGE_ART["mist"]`.
+
+- [ ] **Step 3: Implementar**
+
+Em `game/audio.py`:
+
+```python
+def ambient_for(layer: str, stage_key: str, has_cave: bool, has_storm: bool = False,
+                cave_region: str | None = None) -> str:
+    """... (docstring de hoje) + v0.6 Fundo M2: na caverna, fora do centro, amb_cave_<região> (o chamador passa
+    `cave_region` só se o arquivo existir)."""
+    if layer == "cave" and has_cave:
+        return f"cave_{cave_region}" if cave_region and cave_region != "plateau" else "cave"
+    ...
+
+
+class CaveRegionPicker:
+    """Histerese do ambiente por bioma: a região "estável" só troca depois de C.CAVE_AMB_HOLD_S seguidos na nova
+    (cruzar a fronteira e voltar não troca o som)."""
+
+    def __init__(self):
+        self.stable: str | None = None
+        self._cand: str | None = None
+        self._held = 0.0
+
+    def reset(self, region: str | None) -> None:
+        self.stable, self._cand, self._held = region, None, 0.0
+
+    def update(self, region: str | None, dt: float) -> str | None:
+        if region == self.stable:
+            self._cand, self._held = None, 0.0
+        elif region == self._cand:
+            self._held += dt
+            if self._held >= C.CAVE_AMB_HOLD_S:
+                self.reset(region)
+        else:
+            self._cand, self._held = region, dt
+            if self._held >= C.CAVE_AMB_HOLD_S:
+                self.reset(region)
+        return self.stable
+```
+
+No `game/app.py`:
+- no `__init__`, `self.cave_amb = sound.CaveRegionPicker()`;
+- no update do áudio, antes do `want = self.ambient_want()`: se a camada de destino é a caverna, pegue a região do tile do player (`state.world.region_at_cave(*state.player.tile)` → `geo.REGION_NAMES[i]`, ou `None`) e chame `self.cave_amb.update(nome, dt)`;
+- quando o player **acaba de descer** (a camada de destino virou `"cave"` neste quadro, ou o `stable` ainda é `None`), use `reset(nome)` pra já tocar o bioma da chegada, sem esperar;
+- `ambient_want` passa `cave_region=self.cave_amb.stable` só se `self.audio.has(f"amb_cave_{stable}")`.
+
+O crossfade de região pra região usa o mesmo `crossfade_to` de hoje, sem passar pelo centro. O `not audio.busy_with_stage` que já existe segura os pedidos durante o fade. Confira se o `_start_on_channel` monta `amb_{key}` (o Som disse que sim) e se o `has("amb_cave_salar")` funciona com o nome do arquivo.
+
+- [ ] **Step 4: Rodar**
+
+Run: `uv run pytest` e depois `uv run python tools/dev/smoke.py`. O smoke imprime `ambiente {app.audio.ambient_key!r}` na chegada da caverna, e ali tem que dar `'cave'`, porque a chegada é no centro. Depois: `git checkout -- reports/dev`.
+
+- [ ] **Step 5: Bíblia**
+
+No "Marco 2 · como ficou" da §15, acrescente uma linha: ambiente por bioma (`amb_cave_salar/basalt/frost`), troca depois de 1,5 s na região nova, crossfade direto, chegada já no bioma.
