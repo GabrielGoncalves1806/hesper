@@ -134,9 +134,10 @@ class Wreck:
 
 
 def kinds_for(n: int) -> list[str]:
-    """Tipo de cada destroço, do mais perto pro mais longe (n de 6 a 8)."""
-    extras = ["cargo", "probe"][:max(0, n - 6)]
-    return ["cargo", "probe", "module", "cargo", "probe", *extras, "module"]
+    """Tipo de cada destroço, do mais perto pro mais longe (n de 8 a 10, v0.7 M3). Uma ARCA-2 (liner) por mundo;
+    robô só do rank 6 pra frente (o circuito grátis chega quando o player já está perto de fabricar o dele)."""
+    extras = ["robot", "cargo"][:max(0, n - 8)]
+    return ["cargo", "probe", "module", "liner", "cargo", "probe", "robot", *extras, "module"]
 
 
 def extras_for(rank: int, n: int) -> tuple[int | None, str | None]:
@@ -146,9 +147,13 @@ def extras_for(rank: int, n: int) -> tuple[int | None, str | None]:
     if rank == 2:
         return 4, "scanner"            # dia 140 (exibido LOG 04) · o segundo
     if rank == 3:
-        return None, "lamp_t2"
+        return 19, None                # v0.7 M3: ARCA-2, dia 2
     if rank == 4:
+        return None, "lamp_t2"
+    if rank == 5:
         return 5, None                 # sonda S-3 (exibido LOG 02) · sonda longe
+    if rank == 6:
+        return 20, None                # v0.7 M3: robô R-2, dia 167
     if rank == n - 1:
         return 6, None                 # dia 230 (exibido LOG 07) · o mais longe de todos
     return None, None
@@ -238,6 +243,35 @@ def keep_free(wrecks: list[Wreck]) -> set[tuple[int, int]]:
         for x, y in wreck.tiles + [wreck.crate]:
             out |= {(x + dx, y + dy) for dx in range(-m, m + 1) for dy in range(-m, m + 1)}
     return out
+
+
+def settle(layer, removed: set = frozenset()) -> None:
+    """v0.7 M3 (save antigo, opção A do dono): roda em todo load. Destroço com máquina, bloco ou prop do player na
+    pegada ou na caixa sai deste mundo (tiles viram chão, a caixa some, sai de `world.wrecks`). Os outros têm a
+    pegada e a caixa recarimbadas: um `changed_tiles` de save v12, cuja posição velha agora cai num destroço novo,
+    não abre buraco. Antes do laço das caixas e do `removed_crates` (a caixa desmontada continua sumindo).
+    `removed`: tiles das caixas desmontadas (do save). O tile delas não conta: o player pode ter construído ali."""
+    world = layer.world
+    if not getattr(world, "wrecks", None):
+        return
+    taken = {t for m in layer.machines for t in m.tiles} | set(layer.base.cells)
+    taken |= {t for t, p in layer.props.items() if not p.ruin}
+    live = []
+    for wreck in world.wrecks:
+        area = [*wreck.tiles] + ([] if wreck.crate in removed else [wreck.crate])
+        if any(t in taken for t in area):
+            for t in area:
+                if world.get(*t) in (C.WRECK, C.LOOT_CRATE):
+                    world.set(*t, world.floor_kind)
+            layer.crates.pop(wreck.crate, None)
+            continue
+        for t in wreck.tiles:
+            world.set(*t, C.WRECK)
+        if wreck.crate not in removed:
+            world.set(*wreck.crate, C.LOOT_CRATE)
+        live.append(wreck)
+    world.wrecks = live
+    world._wreck_index = None
 
 
 # ---------------------------------------------------------------------------

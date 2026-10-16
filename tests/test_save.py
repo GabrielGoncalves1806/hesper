@@ -139,7 +139,7 @@ def test_loaded_game_keeps_running(tmp_path):
 def test_save_only_stores_what_changed(tmp_path):
     state = rich_state()
     data = save.state_to_dict(state)
-    assert data["version"] == save.SAVE_VERSION == 12
+    assert data["version"] == save.SAVE_VERSION == 13
     assert set(data) == {"version", "seed", "layer", "layers", "player", "inventory", "progress", "world"}
     assert set(data["layers"]) == {"surface"} and data["layer"] == "surface"
     assert len(data["layers"]["surface"]["changed_tiles"]) == 6   # 5 minérios + 1 cavado na marra
@@ -226,19 +226,19 @@ def test_missing_version_is_no_save(tmp_path):
 
 
 def test_migration_hook_runs(tmp_path, monkeypatch):
-    """Uma migração registrada leva um save antigo até a versão atual (passando também pelas migrações reais v10 -> v12)."""
+    """Uma migração registrada leva um save antigo até a versão atual (passando também pelas migrações reais v10 -> v13)."""
     data = save.state_to_dict(rich_state())
     data["version"] = 10
     data["progress"]["play_time"] = 1.0
 
-    def v12_to_v13(d):
+    def v13_to_v14(d):
         d["progress"]["play_time"] = 99.0
         return d
 
-    monkeypatch.setattr(save, "SAVE_VERSION", 13)
-    monkeypatch.setattr(save, "MIGRATIONS", {**save.MIGRATIONS, 12: v12_to_v13})
+    monkeypatch.setattr(save, "SAVE_VERSION", 14)
+    monkeypatch.setattr(save, "MIGRATIONS", {**save.MIGRATIONS, 13: v13_to_v14})
     migrated = save.migrate(data)
-    assert migrated["version"] == 13 and migrated["progress"]["play_time"] == 99.0
+    assert migrated["version"] == 14 and migrated["progress"]["play_time"] == 99.0
 
 
 def test_atomic_write_keeps_old_save_on_crash(tmp_path, monkeypatch):
@@ -329,7 +329,7 @@ def test_save_with_old_pickups_field_still_loads(tmp_path):
     surface["pickups"] = {"items": [["iron", 2, 3200.5, 3300.0], ["ice", 1, 100.0, 200.0]], "timer": 3.5}
     path = tmp_path / "slot1.json"
     path.write_text(json.dumps(data), encoding="utf-8")
-    assert data["version"] == save.SAVE_VERSION == 12
+    assert data["version"] == save.SAVE_VERSION == 13
     status, loaded = save.probe(path)
     assert status == "ok" and loaded.surface.rocks.timer == 0.0
     assert not hasattr(loaded.surface, "pickups")
@@ -462,7 +462,7 @@ def test_load_converts_bp_items_to_diagram_items():
 
 def test_v9_save_is_refused_as_old_and_backed_up(tmp_path, capsys):
     """v0.5 M3.1: a mesma seed gera outro mundo (256×256), então o v9 não carrega nem migra: aviso + backup."""
-    assert save.SAVE_VERSION == 12 and save.FIRST_VERSION == 10
+    assert save.SAVE_VERSION == 13 and save.FIRST_VERSION == 10
     data = save.state_to_dict(rich_state())
     data["version"] = 9
     path = tmp_path / "slot1.json"
@@ -516,4 +516,76 @@ def test_v12_round_trip_keeps_the_new_cave():
     g.world.set(*tile, C.FLOOR)
     loaded = save.state_from_dict(save.migrate(save.state_to_dict(g)))
     assert loaded.layers[layers.CAVE].world.get(*tile) == C.FLOOR
-    assert save.SAVE_VERSION == 12
+    assert save.SAVE_VERSION == 13
+
+
+# ---- v0.7 M3: destroços novos, save v12 -> v13 ------------------------------------------------------
+def test_v12_save_with_build_on_new_wreck_keeps_build_and_drops_wreck():
+    state = save.new_state(7)
+    liner = next(w for w in state.world.wrecks if w.kind == "liner")
+    data = save.state_to_dict(state)
+    data["version"] = 12
+    tx, ty = liner.tiles[0]                               # no save v12, ali era areia e o player construiu
+    data["layers"]["surface"].setdefault("base", []).append({"kind": C.BASE_WALL, "tx": tx, "ty": ty})
+    loaded = save.state_from_dict(save.migrate(data))
+    assert loaded.surface.base.cells.get((tx, ty)) is not None
+    assert all((w.kind, w.tx, w.ty) != ("liner", liner.tx, liner.ty) for w in loaded.world.wrecks)
+    assert loaded.world.wreck_at(tx, ty) is None
+    assert liner.crate not in loaded.surface.crates
+    assert loaded.world.get(*liner.crate) != C.LOOT_CRATE
+    assert all(loaded.world.get(*t) != C.WRECK for t in liner.tiles)
+    again = save.state_from_dict(save.migrate(save.state_to_dict(loaded)))   # continua fora no save v13
+    assert all((w.kind, w.tx, w.ty) != ("liner", liner.tx, liner.ty) for w in again.world.wrecks)
+
+
+def test_v12_stale_changed_tile_does_not_punch_hole_in_wreck():
+    state = save.new_state(7)
+    module = next(w for w in state.world.wrecks if w.kind == "module")
+    data = save.state_to_dict(state)
+    data["version"] = 12
+    hole = module.tiles[0]
+    data["layers"]["surface"]["changed_tiles"].append([*hole, C.SAND])   # rocha minerada no mundo velho
+    loaded = save.state_from_dict(save.migrate(data))
+    assert loaded.world.get(*hole) == C.WRECK
+    assert loaded.world.get(*module.crate) == C.LOOT_CRATE
+
+
+def test_v12_old_crate_position_is_ignored():
+    state = save.new_state(7)
+    data = save.state_to_dict(state)
+    data["version"] = 12
+    data["layers"]["surface"]["crates"] = [[3, 3, [], True]]      # caixa que não existe mais
+    loaded = save.state_from_dict(save.migrate(data))
+    assert all(not c.opened for c in loaded.surface.crates.values())
+
+
+def test_save_version_is_13():
+    assert save.SAVE_VERSION == 13
+    assert save.migrate({"version": 12, "layers": {}})["version"] == 13
+
+
+def test_settle_does_not_leak_into_the_world_cache():
+    state = save.new_state(7)
+    liner = next(w for w in state.world.wrecks if w.kind == "liner")
+    data = save.state_to_dict(state)
+    tx, ty = liner.tiles[0]
+    data["layers"]["surface"].setdefault("base", []).append({"kind": C.BASE_WALL, "tx": tx, "ty": ty})
+    save.state_from_dict(save.migrate(data))
+    fresh = save.new_state(7)                                     # o cache da seed não perdeu o destroço
+    assert any(w.kind == "liner" for w in fresh.world.wrecks)
+
+
+def test_build_on_dismantled_crate_tile_keeps_the_wreck():
+    """v0.7 M3: caixa desmontada (removed_crates) + bloco do player no tile dela: o destroço continua no mundo."""
+    state = save.new_state(7)
+    wreck = state.world.wrecks[0]
+    data = save.state_to_dict(state)
+    surface = data["layers"]["surface"]
+    surface["removed_crates"] = [list(wreck.crate)]
+    surface.setdefault("base", []).append({"kind": C.BASE_WALL, "tx": wreck.crate[0], "ty": wreck.crate[1]})
+    loaded = save.state_from_dict(save.migrate(data))
+    assert any((w.kind, w.tx, w.ty) == (wreck.kind, wreck.tx, wreck.ty) for w in loaded.world.wrecks)
+    assert loaded.surface.base.cells.get(wreck.crate) is not None
+    assert wreck.crate not in loaded.surface.crates
+    assert loaded.world.get(*wreck.crate) != C.LOOT_CRATE
+    assert all(loaded.world.get(*t) == C.WRECK for t in wreck.tiles)

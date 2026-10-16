@@ -112,7 +112,7 @@ def test_crate_loot_parts_follow_the_tables_and_are_deterministic(seed):
     for wreck in g.world.wrecks:
         loot = wrecks.crate_loot(wreck, seed)
         assert loot == wrecks.crate_loot(wreck, seed)
-        table = C.LOOT_RICH if wreck.rich else C.LOOT_COMMON
+        table = C.LOOT_RICH if wreck.rich else (wreck.spec.parts or C.LOOT_COMMON)   # v0.7 M3: robô e ARCA-2 têm as suas
         parts = {i: n for i, n in loot if i in C.LOOT_ITEMS}
         assert set(parts) <= set(table)
         for item, n in parts.items():
@@ -125,6 +125,8 @@ def test_common_wrecks_give_simple_parts_and_rich_wrecks_the_better_ones():
     common, rich = set(), set()
     for seed in SEEDS:
         for wreck in game(seed).world.wrecks:
+            if wreck.kind == "robot":                     # v0.7 M3: o robô dá circuito de propósito
+                continue
             parts = {i for i, _ in wrecks.crate_loot(wreck, seed) if i in C.LOOT_ITEMS}
             (rich if wreck.rich else common).update(parts)
     assert {"wire", "iron_ingot"} <= common and not common & {"circuit", "chip"}

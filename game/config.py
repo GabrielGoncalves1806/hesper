@@ -710,8 +710,8 @@ CAVE_AMB_HOLD_S = 1.5           # s seguidos na região nova da caverna antes do
 # ---------------------------------------------------------------------------
 # v0.3 Marco 3 · destroços, projetos, equipamento e scanner (bíblia §9)
 # ---------------------------------------------------------------------------
-# Destroços (game/wrecks.py): 6 a 8 no deserto, do mais perto (~30 tiles da base) ao mais longe (perto da borda).
-WRECK_COUNT = (6, 8)
+# Destroços (game/wrecks.py): 8 a 10 no deserto, do mais perto (~30 tiles da base) ao mais longe (perto da borda).
+WRECK_COUNT = (8, 10)           # 8 a 10 no deserto (v0.7 M3)
 WRECK_DIST = (30, 84)           # distância (tiles) do centro do 1º e do último destroço até a base
 WRECK_SPACING = 14              # distância mínima entre destroços (tiles, centro a centro)
 WRECK_MARGIN = 2                # folga de areia livre em volta do destroço e da caixa (sem rocha pequena)

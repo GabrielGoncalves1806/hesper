@@ -55,18 +55,32 @@ def test_tiles_and_free_access(seed):
         assert world.wreck_at(*w.tiles[0]) is w and world.wreck_at(*w.crate) is w
 
 
+@pytest.mark.parametrize("n", [8, 9, 10])
+def test_kinds_for_sequence(n):
+    kinds = wrecks.kinds_for(n)
+    assert len(kinds) == n
+    assert kinds[:7] == ["cargo", "probe", "module", "liner", "cargo", "probe", "robot"]
+    assert kinds[-1] == "module"
+    assert kinds.count("liner") == 1
+    assert 1 <= kinds.count("robot") <= 2
+    assert all(rank >= 6 for rank, k in enumerate(kinds) if k == "robot")   # robô da metade pra longe
+
+
 @pytest.mark.parametrize("seed", SEEDS)
 def test_kinds_logs_and_blueprints(seed):
     world = generate_surface(seed)
     ws = outside(world)
+    assert len(ws) == len(wrecks.kinds_for(len(ws)))          # nenhum tipo pulado: a sequência é a do n
+    assert [w.kind for w in ws] == wrecks.kinds_for(len(ws))
     assert ws[0].kind == "cargo" and ws[0].blueprint == "o2_tank" and ws[0].log == 3
     scanner = [w for w in ws if w.blueprint == "scanner"]
     assert len(scanner) == 1 and scanner[0].kind == "module" and scanner[0].log == 4
     assert ws[-1].kind == "module" and ws[-1].log == 6
+    assert [w.log for w in ws if w.kind == "liner"] == [19]
+    assert [w for w in ws if w.log == 20][0].kind == "robot"
     probe_log = [w for w in ws if w.log == 5]
     assert len(probe_log) == 1 and probe_log[0].kind == "probe"
     assert any(w.blueprint == "lamp_t2" for w in ws)
-    # só módulos têm terminal (é onde o LOG mora); nave e sonda mostram o log ao abrir a caixa
     for w in ws:
         assert (w.terminal is not None) == (w.kind == "module")
 
@@ -83,6 +97,7 @@ def test_loot_is_fixed_by_seed_and_scales_with_size():
         total.setdefault(crate.wreck.kind, []).append(n)
     assert min(total["cargo"]) > max(total["module"]) > 0
     assert min(total["module"]) > max(total["probe"]) > 0
+    assert max(total["robot"]) < min(total["cargo"])
     first = crates[world.wrecks[0].crate]
     assert first.storage.count("diagram_o2_tank") == 1
 
