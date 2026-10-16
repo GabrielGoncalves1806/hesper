@@ -803,3 +803,4 @@ A Designer fez props novos (rodada 4, `reports/design/v07_m4/index.html`, **aind
 - Testes: um prop fake 2×1 em `C.PROPS` via monkeypatch (põe, colide nos 2 tiles, não põe com 1 tile ocupado, desmonta inteiro, salva e carrega).
 - **Os 11 props novos NÃO entram no `config.py` nem nas plantas na Task 4** (esperam o ok do dono). Entram na Task 5.
 - **Escotilha aprovada (as duas)**: `vesper_hatch_exit_A` e `_B` (rodada 4). O dono mandou guardar as duas, então elas viram **variantes**: a planta `hold_a` usa a A e a `hold_b` usa a B. Na integração entram como `vesper_hatch_exit_a.png` e `vesper_hatch_exit_b.png`, e o render escolhe pela variante do porão sorteada (`vesper` expõe qual).
+- **Luz de emergência aprovada (as duas)**: `vesper_emergency_light_A` (luzinha 6 px) e `_B` (8 px, com grade), da rodada 2. As duas entram como variantes, `vesper_emergency_light_a.png` e `_b.png`, e o render sorteia por hash do tile (determinístico, igual ao `floor_variant`).
