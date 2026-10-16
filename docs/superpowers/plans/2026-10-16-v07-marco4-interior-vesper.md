@@ -766,7 +766,7 @@ def test_emergency_lights_and_map_tab():
 | Sprite | Tamanho | O quê |
 |---|---|---|
 | `hull_wall_top` | atlas A2 igual ao `base_wall_top` | topo da parede da nave (metal ardósia da VÉSPER, rebites, sem tijolo da colônia) |
-| `hull_wall_face` | 96×24 (3 variações, igual ao `base_wall_face`) | face da parede da nave |
+| `hull_wall_face` | 128×24 (4 peças, índice W + 2·E, igual ao `base_wall_face`) | face da parede da nave |
 | `hull_floor_0..3` | 32×32 | chão de chapa (grade, manchas, uma com risco de gelo) |
 | `vesper_hatch` | 32×32 | escotilha/rampa do porão no chão, com a luz do dia vazando pela fresta |
 | `vesper_container_broken` | 40×44 (âncora do `container_sealed`) | contêiner de gelo **arrombado por dentro**: tampa estourada pra fora, metal dobrado de dentro pra fora, gelo derretido escorrido |
@@ -783,3 +783,22 @@ def test_emergency_lights_and_map_tab():
 ## Self-review do plano
 - Cobertura da bíblia §16 M4: uma VÉSPER (T1); camada, salas, esqueleto sem giro, fixtures, caixas, LOGs (T2); entrada e saída, fade, sem construir, O₂, mapa, save (T3/T4); faísca + névoa, luzes (T4); arte e som (T5 + contrato). O "marcador com nome" sai do `SPECS["cargo"].name` (T1).
 - Fora do M4 (gancho): abrir a porta emperrada, bateria e crachá da Ilves.
+
+## Mudanças depois do plano (gerente, 2026-10-16, conversas com o dono)
+Valem por cima do que está acima.
+
+- **Task 1 (feita)**: `WRECK_RICH_KIND = "robot"` (o `module` 8×4 não cabe no `wreck_spot`).
+- **Task 2 (feita)**: o Dev B já pôs `VESPER_FIXTURE_TEXT` e `VESPER_FIXTURE_REACH` no `config.py`; a Task 3 só usa.
+- **Contêiner da câmara fria**: não tem sprite novo. O fixture `container_broken` desenha o **`container_open.png`** (já aprovado, v0.5 M4), na mesma âncora do `container_sealed` (pé no tile). O texto continua "Vazio. A tampa foi forçada por dentro.".
+- **Escotilha de saída**: o sprite passa a se chamar **`vesper_hatch_exit`** (32×32, no chão, andável, sem luz: buraco escuro, grade arrancada deitada no canto, parafusos soltos). Ainda não aprovado; use placeholder.
+- **Luz de emergência**: sprite bem menor (luzinha). No `cave_lights` o raio cai de 2,5 pra **1,5 tile**, com intensidade 0,6.
+- **Som aprovado**: `amb_vesper` = candidato **F**; `door_stuck` = **A**; `spark` = **A** (+ `spark_1`, `spark_2`). Origem: `reports/audio/v07_m4_vesper/pendentes/` (`amb_vesper_F.wav`, `door_stuck_A.wav`, `spark_A.wav`, `spark_A1.wav`, `spark_A2.wav`). Créditos do "zzt" (OpenGameArt, BMacZero, CC0) no report do Som, seção "Rodada 3": vão pro `assets/audio/CREDITS.md` na integração. Dicas do Som: `door_stuck` com cooldown de ~0,4 s e pitch 0,96–1,04; `spark` sorteia entre as 3 sem repetir a última, pitch 0,93–1,07, ganho pela distância zerando em ~5–6 tiles.
+- **Arte aprovada**: `hull_wall_top`, `hull_wall_face` (**128×24**, 4 peças, índice W + 2·E), `hull_floor_0..3`, `vesper_power_panel`, `vesper_jammed_door`. Em `reports/design/v07_m4/pendentes/`.
+
+### Task 4 ganha: prop maior que 1 tile
+A Designer fez props novos (rodada 4, `reports/design/v07_m4/index.html`, **ainda esperando o dono**). Dois deles são **2×1** (`prop_container_stack` 64×40, `prop_command_table` 64×40). Hoje todo prop é 1 tile (M2). A Task 4 ensina o sistema de props a ter tamanho:
+- `PropType` ganha `size: tuple[int, int] = (1, 1)` (com default, a `_PROP_TABLE` de hoje não muda de forma) e `Prop.tiles` (a âncora é o tile de cima à esquerda; o `layer.props` guarda **todos** os tiles apontando pro mesmo `Prop`).
+- Colisão, `can_place`/`_can_place_prop` (todos os tiles livres), scan (o contorno é o sprite inteiro), desmontar (tira todos os tiles), save (salva só a âncora, `[kind, x, y]`, e o load remonta) e o desenho (o sprite sai uma vez, pela âncora, na ordem de profundidade do pé).
+- Na planta (ruínas e nave), a letra do prop 2×1 vai **só na âncora** e o tile da direita é `.`. O `ruins._extract_props`/`ok_in_plan` e o `vesper._built` conferem que os 2 tiles são chão.
+- Testes: um prop fake 2×1 em `C.PROPS` via monkeypatch (põe, colide nos 2 tiles, não põe com 1 tile ocupado, desmonta inteiro, salva e carrega).
+- **Os 11 props novos NÃO entram no `config.py` nem nas plantas na Task 4** (esperam o ok do dono). Entram na Task 5.
