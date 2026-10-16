@@ -1093,8 +1093,11 @@ def check_melter(bot) -> None:
     assert app.ui.logistics_buttons == [] and not melter.chip                  # v0.6 M2: sem chip, só o texto
     bot.shot("derretedor_sem_chip.png")
     put_chip_in_machine(bot, melter)
-    assert melter.chip and melter.receives == {"ice"} and melter in s.drone_logistics()
+    assert melter.chip and melter.receives == set() and melter in s.drone_logistics()   # o chip não marca nada (dono)
     assert [v for _, v in app.ui.logistics_buttons if v[0] == "recv"] == [("recv", "ice")]
+    recv = next(r for r, v in app.ui.logistics_buttons if v == ("recv", "ice"))
+    bot.click((recv.centerx * 2, recv.centery * 2))                   # o player marca o Recebe do gelo
+    assert melter.receives == {"ice"}
     ice_slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "ice")
     iron_slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "iron")
     bot.click(slot_pos(bot, s.inventory, iron_slot))                  # ferro no cursor, solta na entrada: recusa
@@ -1249,8 +1252,11 @@ def check_base(bot) -> None:
     assert app.ui.logistics_buttons == [] and not disp.chip                    # v0.6 M2: sem chip, só o texto
     bot.shot("base_painel_dispersor_sem_chip.png")
     put_chip_in_machine(bot, disp)
-    assert disp.chip and disp.receives == {"water_capsule"} and disp in s.drone_logistics()
+    assert disp.chip and disp.receives == set() and disp in s.drone_logistics()   # o chip não marca nada (dono)
     assert {v[0] for _, v in app.ui.logistics_buttons} == {"recv"}              # só recebe: sem Envia e sem Lote
+    recv = next(r for r, v in app.ui.logistics_buttons if v == ("recv", "water_capsule"))
+    bot.click((recv.centerx * 2, recv.centery * 2))
+    assert disp.receives == {"water_capsule"}
     bot.frames(0.2)
     bot.shot("base_painel_dispersor.png")
     iron_slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "iron")
@@ -1647,6 +1653,7 @@ def check_logistics(bot) -> None:
         bot.frames(DT)
     assert disp.capsules == 0 and src.storage.count("water_capsule") == 4
     assert s.chip_install(disp)
+    disp.receives.add("water_capsule")                     # o chip não marca nada: o player marca o Recebe
     for _ in range(int(60 / DT)):
         s.o2 = C.O2_MAX
         bot.frames(DT)
