@@ -99,6 +99,8 @@ Tudo passa pelo dono no report antes de entrar no jogo.
 
 ## M2 · Props e scanner (detalhe na hora dele)
 
+> Decisões fechadas com o dono em 2026-10-16 (liberados, cenário, props de parede, custo, colisão): bíblia §16, "Marco 2 · Props e scanner". Plano: `docs/superpowers/plans/2026-10-16-v07-marco2-props-scanner.md`.
+
 - Prop é coisa colocável de 1 tile; colidir ou não é por prop. Na ruína pode estar "tombado".
 - Aba **Decoração** no construtor, custo baratinho; 3–4 liberados de cara (mesa, cadeira, caixote).
 - **Scan**: construtor na mão, mouse num prop de **ruína** que o player não conhece → contorno + "Escanear (segure)". Segura o **esquerdo** ~1,5 s (barrinha, som novo do Som) → "Projeto liberado: <nome>" e o prop entra na aba. Prop conhecido não ganha contorno. Com o fantasma de colocar na mão, o esquerdo é colocar (sem scan). **Direito segurado** continua sendo desmontar; prop de ruína não desmonta, prop do player desmonta.

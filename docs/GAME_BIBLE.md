@@ -999,3 +999,14 @@ Spec: `docs/superpowers/specs/2026-10-16-v07-lore-design.md`. Marcos: M1 estrutu
 - **Mapa**: marcador "Ruína" (pictograma do destroço em `#9fc2d8`, filtro "Ruínas") quando algum tile da pegada foi visto; vira o nome da estrutura depois de ler qualquer LOG dela.
 - **LOGs**: índices 7 a 18 em `LOGS` (`LOG_DAYS` e `LOG_TITLES` do rascunho aprovado); o número exibido segue a cronologia, então vai até LOG 19 e a aba LOGs rola.
 - **Smoke**: nenhuma cena nova. A varredura achou só suposições de "a lista de máquinas é só do player" (`machines[0]`, contagem, luminárias): ajustadas pra ignorar `broken`. Nenhuma cena de construção cai perto de ruína (todas ficam a 60+ tiles da base na seed 7).
+
+### Marco 2 · Props e scanner (decisões do dono, 2026-10-16)
+- **Liberados de cara**: mesa, cadeira, caixote e placa. O resto só pelo scanner.
+- **Cenário de ruína** (não escaneia, não ganha contorno, não entra na aba): cadeira caída, entulho, mancha de gelo. A planta seca escaneia (vasinho de decoração).
+- **Props de parede entram no scan**, iguais a qualquer prop: os 6 de face (`wall_*`, desenhados na face da `base_wall`, sem colisão) e as 2 mesas de parede (no tile logo abaixo de uma parede, colidem). Sem texto extra no scan dos diagramas (fica a ideia pra depois).
+- **Custo** (provisório): 2 ferro pro móvel simples; **2 ferro + 1 silício** pro que tem eletrônica (console, microscópio, bancada de laboratório, tanque de amostra e os 2 monitores).
+- **Colisão** pela tabela da Designer: cadeira, cadeira caída, placa, planta seca e mancha de gelo não colidem; o resto colide; props de face nunca colidem.
+- **Scan**: construtor na mão, sem fantasma, mouse num prop de ruína escaneável e desconhecido, no alcance → contorno + "Escanear (segure)". Esquerdo segurado ~1,5 s (barrinha, som do Som) → "Projeto liberado: <nome>". Soltar ou tirar o mouse cancela. Com o fantasma na mão o esquerdo é colocar. O direito segurado continua desmontar: prop de ruína não desmonta, prop do player desmonta e devolve o custo.
+- **Save**: o set de projetos escaneados e os props do player (campos opcionais; o save continua v12). Prop de ruína sai da seed, como a casca.
+- **Plantas**: as 4 ganham letras de prop. A Designer avisa: prop de chão não fica na fileira colada na parede sul (a face cobre 24 px dele) e a mesa de parede só vai onde o tile de cima é parede.
+- **Ícone novo do construtor** (rodada 5, opção A) entra no M2.
