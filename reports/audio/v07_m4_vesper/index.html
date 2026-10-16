@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Som · v0.7 M4 VÉSPER-7 (proposta)</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;margin:0;padding:16px}
+.wrap{max-width:1000px;margin:0 auto;padding-block:36px 70px}
+h1{font-size:34px;margin:8px 0 12px}h2{font-size:22px;margin:44px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.eyebrow{font:12px monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--rust)}
+.note{border-left:3px solid var(--gold);background:var(--panel);padding:12px 16px;margin:18px 0}
+.ask{border:1px solid var(--gold);background:#2a1f14;padding:14px 18px;margin:18px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:8px}
+.card.rec{border-color:var(--ok)}
+.fname{font:500 14px monospace}.when{font:11px monospace;color:var(--gold);text-transform:uppercase}
+.what{margin:0;color:var(--muted);font-size:14px}.tag{font:11px monospace;color:var(--muted);border:1px solid var(--line);padding:1px 6px;margin-right:4px}
+.tag.loop{color:var(--cyan);border-color:#2c5560}.tag.rec{color:var(--ok);border-color:#2f6a2c}
+canvas{width:100%;height:44px;background:#251c18;display:block}audio{width:100%;height:36px}
+button{background:#251c18;color:var(--fg);border:1px solid var(--rust);padding:6px 12px;cursor:pointer;font:13px monospace;margin:4px 6px 4px 0}
+button:hover{background:var(--rust);color:#000}
+code{font:13px monospace;color:var(--cyan)}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+li{margin:4px 0;color:var(--muted)}li b{color:var(--fg)}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Som · v0.7 M4 · interior da VÉSPER-7 · proposta (nada entrou no jogo)</div>
+<h1>Dentro da VÉSPER-7: casco, trava e faísca</h1>
+<div class="note"><b>v19 · o que mudou:</b> 3 sons novos, 2 candidatos de cada, só em <code>reports/audio/v07_m4_vesper/pendentes/</code>; nada em <code>assets/audio/</code> mudou (md5 dos 68 WAVs oficiais igual antes e depois). <code>ramp_down</code>/<code>ramp_up</code> (entrada e saída) e <code>power_low</code> (painel) são reaproveitados. <b>Não consigo ouvir:</b> validei por análise (duração, pico, loudness aproximado, bandas, emenda, pico tonal). A palavra final é do teu ouvido.</div>
+<div class="note" style="border-left-color:#e2733a"><b style="color:#e2733a">Rodada 3 · amb_vesper E e F (v19.2):</b> o dono achou C e D com chiado (a ventilação de ruído). Agora a <b>base é o próprio <code>amb_cave</code></b>: mesmo gerador, mesma seed, então o drone (Lá1/Mi2/Lá2 + fio de Dó3), os brilhos frios e o eco de caverna são os mesmos. Mudaram só os eventos no lugar das gotas, e a ventilação de ruído foi embora (nada de ruído largo; o único "ar" é o ronco grave de 22-140 Hz que o cave já tinha). Continuo sem ouvir: validação por análise. Nada em <code>assets/audio/</code> mudou.</div>
+<h2>Rodada 3 · amb_vesper E e F (loop de 28 s)</h2><div class="cards" id="amb3"></div>
+<div class="note"><b>E (mais perto do cave):</b> 4 "zzt" de fio solto longe, 2 rangidos longínquos e 1 metal assentando. <b>F (um pouco mais de nave):</b> 7 "zzt", 3 rangidos, 3 assentadas e um zumbido de transformador grave que entra e sai em fade de 12 s. Comparativo: <button onclick="cmp('E')">cave (10 s) → vesper E</button><button onclick="cmp('F')">cave → vesper F</button><button onclick="stopAll()">Parar</button><br><br>
+<b>De onde vêm os eventos:</b>
+<ul><li><b>"zzt" de fio solto (amostra CC0):</b> "Electricity Sound Effects" de BMacZero (Brian MacIntosh), gravado de um pequeno gerador Tesla. Usei <code>spark.wav</code> e <code>continuousspark.wav</code>. Tratamento: tocados 0,5-0,7× (mais lentos e graves), passa-faixa 90 Hz a 0,8-1,3 kHz, entrada suave de 30 ms, decaimento de 0,18 s, nível baixo e o mesmo eco de caverna das gotas. Link: <a href="https://opengameart.org/content/electricity-sound-effects-0" style="color:var(--cyan)">opengameart.org/content/electricity-sound-effects-0</a>. Licença: <b>CC0 1.0</b>, conferida na página (2026-10-16). Baixado em <code>tools/audio/vendor/oga_electricity/</code> com <code>SOURCE.txt</code> (sha256), só lido como áudio.</li>
+<li><b>Rangido de casco e metal assentando: síntese</b> (trem de pulsos de atrito de 4 a 6 s com ataque lento, filtrado em 70-330 Hz; assentada = ruído grave de 50-260 Hz com ataque lento). Procurei CC0 de rangido de metal/casco no OpenGameArt: só achei madeira rangendo (Battle at Sea, Thimras, CC0) e batidas de metal (Metal Interactions, Ogrebane, rubberduck), que são pancada, e não rangido. Preferi síntese a forçar uma amostra de pancada. Freesound não dá pra baixar sem login, então ficou fora.</li></ul>
+<b>Texto de crédito pronto</b> (só entra no <code>assets/audio/CREDITS.md</code> depois da aprovação): <pre>### OpenGameArt · "Electricity Sound Effects"
+- Autor: BMacZero (Brian MacIntosh)
+- Fonte: https://opengameart.org/content/electricity-sound-effects-0 (spark.wav, continuousspark.wav)
+- Licença: CC0 1.0. Conferida na página.
+| amb_vesper.wav | spark.wav e continuousspark.wav | mono, 44,1 kHz, tocadas 0,5-0,7x, passa-faixa 90 Hz-1,3 kHz, entrada suave, reverb de caverna, mixadas no amb_cave sem as gotas |</pre></div>
+<h3>Maior transiente acima do fundo (rodada 3)</h3><div style="overflow-x:auto"><table id="tr3"></table></div>
+<h2 style="color:var(--muted)">Rodada 2 (C e D: reprovadas por chiado)</h2>
+<div class="note" style="border-left-color:#7fd67a"><b style="color:#7fd67a">Rodada 2 · amb_vesper refeito (v19.1):</b> o dono achou que os barulhos fortes pareciam guerra, e a ideia é nave abandonada. <code>door_stuck</code> A e <code>spark</code> A (A, A1, A2) estão aprovados. O <code>amb_vesper</code> A e B foram reprovados (ficam abaixo só pra comparar); no lugar entram C e D. Nada em <code>assets/audio/</code> mudou. Continuo sem ouvir: a validação é por análise.</div>
+<h2>Rodada 2 · amb_vesper C e D (loop de 28 s)</h2><div class="cards" id="amb2"></div>
+<div class="note"><b>O que mudou:</b> saíram os tics secos e os rangidos de perto. Ficou um <b>drone Lá1/Mi2/Lá2 quase parado</b>, <b>ventilação morta</b> (ar filtrado de 180 a 1100 Hz, bem baixo, respirando devagar), o <b>zumbido do transformador</b> entrando e saindo em fade de 9 a 11 s (cosseno, sem corte), e <b>rangidos longínquos</b>: 4 a 6 s, ataque lento, só graves (70-330 Hz, "atrás de várias paredes"), com espaço de casco. <b>C</b> é o mais vazio (1 rangido, 1 janela de zumbido, sem goteira). <b>D</b> tem um pouco mais de vida (2 rangidos, 2 janelas de zumbido, 3 goteiras distantes e macias, abafadas pela caverna). Pico C/D em torno de -17 / -18 dBFS e loudness 2 dB abaixo do cave. Comparativo: <button onclick="cmp('C')">cave (10 s) → vesper C</button><button onclick="cmp('D')">cave → vesper D</button><button onclick="stopAll()">Parar</button></div>
+<h3>Maior transiente acima do fundo</h3><div style="overflow-x:auto"><table id="tr"></table></div>
+<p style="color:var(--muted);font-size:13px">Medida: janelas de 50 ms de RMS; transiente = a maior janela menos a mediana das janelas (o fundo), em dB. "Só acima de 200 Hz" faz o mesmo depois de tirar o drone grave, que é onde pancada e estalo aparecem. Meta do dono: nada passando de ~6 dB. C e D ficam abaixo do próprio <code>amb_cave</code> aprovado na faixa aguda.</p>
+<h2 style="color:var(--muted)">Rodada 1 (reprovada no ambiente; trava e faísca A aprovadas)</h2>
+<div class="ask"><b>Rodada 1 (histórico):</b> trava A e faísca A aprovadas; o ambiente A/B foi substituído pela rodada 2 acima. (Texto original: trava A (0,34 s, seca, bate e volta um tico), faísca A (crepitar de 3 a 5 estalinhos). Os B são mais "dramáticos": ambiente com mais rangidos, trava que tenta forçar e geme, faísca tipo "fsst".</div>
+
+<h2>amb_vesper · loop de 28 s (mesmo formato do amb_cave)</h2><div class="cards" id="amb"></div>
+<div class="note">Mesma família do <code>amb_cave</code>: Lá grave, quinta vazia (Lá1/Mi2/Lá2), reverb escuro, nada de bicho. O que muda: no lugar das gotas, <b>rangidos de casco</b> (atrito pega-e-solta, gemido grave que desliza) e tics secos do metal esfriando; no lugar do fio de Dó3, um <b>zumbido de transformador morto</b> (Lá1 com harmônicos) que treme e <b>cai duas vezes por volta</b> (energia que não pega). O espaço é de metal (reflexões curtas, cauda média), menos caverna. Loudness casado com o cave (+1 dB), e o espectro é parecido (≈70% abaixo de 150 Hz). Pra ouvir a família: <button onclick="cmp('A')">cave (10 s) → vesper A</button><button onclick="cmp('B')">cave → vesper B</button><button onclick="stopAll()">Parar</button></div>
+
+<h2>door_stuck · E numa porta emperrada</h2><div class="cards" id="door"></div>
+<h2>spark · faísca da porta (3 variações por candidato)</h2><div class="cards" id="spark"></div>
+
+<h2>Simulação</h2>
+<div class="note">20 s no volume sugerido (ambiente 0,3 aqui só pra caber no player, faísca 0,25, trava 0,6): faíscas em tempos irregulares (duas quase juntas) e a trava duas vezes (em 5 s e 11 s). <button onclick="sim('A')">candidatos A</button><button onclick="sim('B')">candidatos B</button><button onclick="stopAll()">Parar</button></div>
+
+<h2>Checagens</h2><div style="overflow-x:auto"><table id="tbl"></table></div>
+<p style="color:var(--muted);font-size:13px">Bandas = % da energia em 20-150 / 150-600 / 600-2500 / 2,5-6 / 6-16 kHz. Emenda = salto entre a última e a primeira amostra contra o 99,9º percentil dos saltos normais (bem menor = sem clique). Loops são periódicos (ciclos inteiros, ruído filtrado e reverb circulares). Os sfx saem no teto de -1 dBFS porque são transitórios; o "loud" é o que vale pra comparar.</p>
+
+<h2>Como pensei</h2><ul>
+<li><b>Opressivo sem cansar:</b> graves dominam, quase nada acima de 2,5 kHz, e os eventos (rangidos, tics) são esparsos, com 4 (A) ou 6 (B) rangidos em 28 s e silêncio entre eles. O zumbido oscila devagar e some de vez em quando, então não vira parede.</li>
+<li><b>Rangido sem "sirene":</b> é um trem de pulsos de atrito com taxa deslizante e tremida irregular, passado num filtro largo, com amplitude que falha. Nada de ressonância estreita nem tom fixo; o pico tonal medido do ambiente fica no Lá do zumbido (165 Hz é o Mi, harmônico do drone), bem abaixo do cave.</li>
+<li><b>door_stuck:</b> ruído grave de banda larga (o "tunk"), corpo médio, estalo da trava e grãos de metal chacoalhando. Sem seno com pitch (nada de tambor) e sem partes ressonantes (nada de latinha). A: bate e ressalta 70 ms depois (0,34 s). B: bate, tenta forçar com um gemido curtinho e bate de novo mais fraco (0,48 s).</li>
+<li><b>spark:</b> A = crepitar de 3 a 5 microestalos de banda larga em intervalos irregulares; B = estalo + chiadinho curto que cai de brilho. 0,14 s, quase tudo acima de 2,5 kHz, baixo no mix. Três variações de cada pra não repetir.</li></ul>
+
+<h2>Pro Dev integrar</h2><ul>
+<li><b>Nomes finais</b> (o gerente copia depois do ok): <code>amb_vesper.wav</code> (de <code>amb_vesper_A</code> ou <code>_B</code>), <code>door_stuck.wav</code>, e <code>spark.wav</code> + <code>spark_1.wav</code> + <code>spark_2.wav</code> (de <code>spark_A/A1/A2</code> ou <code>spark_B/B1/B2</code>).</li>
+<li><b>amb_vesper:</b> entra pelo mesmo caminho do <code>amb_cave</code> (<code>crossfade_to</code>, 1,5 s sai / 2,5 s entra), no volume de ambiente que já existe (<code>AMBIENT_VOLUME</code> 0,7; o loudness já está casado com o cave). Camada <code>vesper</code> não toca <code>desert_wind</code> nem chuva. Vale o mesmo cuidado do cave: sem o arquivo, cai no ambiente do estágio.</li>
+<li><b>VOLUME sugerido:</b> <code>"door_stuck": 0.6</code>, <code>"spark": 0.25</code> (varia com a distância; ver abaixo). <code>power_low</code> 0,7 e <code>ramp_*</code> 0,8 continuam.</li>
+<li><b>door_stuck:</b> toca a cada E na porta, sem pitch aleatório necessário, mas pode usar 0,96–1,04. Cooldown de ~0,4 s pra não empilhar se o player martelar o E.</li>
+<li><b>spark:</b> sorteia entre os 3 sem repetir o último; pitch 0,93–1,07; só toca com o player perto (gain por distância como o das portas, zerando fora de ~5-6 tiles); intervalo irregular de 1,5 a 6 s, sincronizado com a partícula quando der. Canal de sfx comum; se duas tocarem juntas está ok, são curtas.</li>
+<li><b>Clima junto do cave:</b> o player nunca ouve os dois ao mesmo tempo (a transição é um fade de tela), mas a troca por crossfade deve soar como "mesma família, outro lugar": o vesper é um pouco mais seco e metálico, com o zumbido no lugar das gotas.</li></ul>
+<p style="color:var(--muted);font-size:13px">Gerado por <code>tools/audio/build_v07_m4.py</code> (seed por nome, só numpy; blocos do <code>build_audio.py</code>).</p>
+</div>
+<script src="v07m4_meta.js"></script>
+<script>
+const M=window.M4_META;
+const T={
+ amb_vesper_E:["Loop · 28 s","Cave sem as gotas: zzt longe, 2 rangidos lentos, 1 assentada. Perto do cave.",true,true],
+ amb_vesper_F:["Loop · 28 s","Mais nave: 7 zzt, 3 rangidos, 3 assentadas e zumbido grave em fade.",true,false],
+ amb_vesper_C:["Loop · 28 s","Mais vazio: drone, ar, 1 rangido longínquo e lento, zumbido em fade.",true,true],
+ amb_vesper_D:["Loop · 28 s","Um pouco mais de vida: 2 rangidos longínquos e 3 goteiras distantes macias.",true,false],
+ amb_vesper_A:["Loop · 28 s","Rangidos espaçados (4 por volta), zumbido morto que falha 2x. Recomendado.",true,true],
+ amb_vesper_B:["Loop · 28 s","Mais rangidos (6 por volta), pad um pouco mais presente: mais tenso.",true,false],
+ door_stuck_A:["Trava que não cede · 0,34 s","Tunk seco e ressalto curto. Recomendado.",false,true],
+ door_stuck_B:["Trava que não cede · 0,48 s","Tunk, tentativa de forçar com gemido curtinho, segundo tunk fraco.",false,false],
+ spark_A:["Faísca · 0,14 s","Crepitar de microestalos.",false,true],spark_A1:["Faísca · variação 1","Crepitar de microestalos.",false,true],spark_A2:["Faísca · variação 2","Crepitar de microestalos.",false,true],
+ spark_B:["Faísca · 0,14 s","Estalo com chiadinho que cai.",false,false],spark_B1:["Faísca · variação 1","Estalo com chiadinho que cai.",false,false],spark_B2:["Faísca · variação 2","Estalo com chiadinho que cai.",false,false]};
+function card(key,txt){const m=M[key];const el=document.createElement("div");el.className="card"+(txt[3]?" rec":"");
+ el.innerHTML=`<div><span class="fname">${m.file.split("/")[1]}</span> <span class="tag">${m.duration.toFixed(2)} s</span><span class="tag">pico ${m.peak_db} dBFS</span><span class="tag">loud ${m.loudness_db} dB</span>${txt[2]?'<span class="tag loop">loop</span>':''}${txt[3]?'<span class="tag rec">recomendado</span>':''}</div>
+ <div class="when">${txt[0]}</div><canvas width="320" height="44"></canvas>
+ <audio controls preload="metadata" ${txt[2]?"loop":""} src="${m.file}"></audio><p class="what">${txt[1]}</p>`;
+ const c=el.querySelector("canvas").getContext("2d");c.fillStyle="#e2733a";const w=m.wave,bw=320/w.length;
+ w.forEach((v,i)=>{const h=Math.max(1,v*42*(txt[2]?3:1));c.fillRect(i*bw,22-Math.min(h,42)/2,Math.max(1,bw-0.5),Math.min(h,42))});
+ return el}
+for(const k of Object.keys(T)){const id=k.startsWith("amb")?(/_[EF]$/.test(k)?"amb3":/_[CD]$/.test(k)?"amb2":"amb"):k.startsWith("door")?"door":"spark";document.getElementById(id).append(card(k,T[k]))}
+document.getElementById("tbl").innerHTML="<tr><th>arquivo</th><th>duração</th><th>pico dBFS</th><th>RMS dB</th><th>loudness dB</th><th>clip</th><th>bandas %</th><th>emenda / ref</th><th>pico tonal</th></tr>"+
+ Object.keys(T).map(k=>{const m=M[k];return `<tr><td><code>${m.file.split("/")[1]}</code></td><td>${m.duration.toFixed(2)} s</td><td>${m.peak_db}</td><td>${m.rms_db}</td><td>${m.loudness_db}</td><td>${m.clip}</td><td>${m.bands.join(" / ")}</td><td>${m.seam!==undefined?m.seam+" / "+m.seam_ref:"-"}</td><td>${m.tonal_db} dB @ ${m.tonal_hz} Hz</td></tr>`}).join("");
+document.getElementById("tr").innerHTML="<tr><th>arquivo</th><th>transiente (banda toda)</th><th>só acima de 200 Hz</th></tr>"+[["amb_cave (aprovado)",M._cave.transient_db,M._cave.transient_hp_db]].concat(["C","D","A","B"].map(v=>["amb_vesper_"+v+(v>"B"?"":" (reprovado)"),M["amb_vesper_"+v].transient_db,M["amb_vesper_"+v].transient_hp_db])).map(r=>`<tr><td><code>${r[0]}</code></td><td>${r[1]} dB</td><td>${r[2]} dB</td></tr>`).join("");
+document.getElementById("tr3").innerHTML="<tr><th>arquivo</th><th>transiente (banda toda)</th><th>só acima de 200 Hz</th></tr>"+[["amb_cave (aprovado)",M._cave.transient_db,M._cave.transient_hp_db]].concat(["E","F","C","D","A","B"].map(v=>["amb_vesper_"+v,M["amb_vesper_"+v].transient_db,M["amb_vesper_"+v].transient_hp_db])).map(r=>`<tr><td><code>${r[0]}</code></td><td>${r[1]} dB</td><td>${r[2]} dB</td></tr>`).join("");
+function stopAll(){document.querySelectorAll("audio").forEach(a=>a.pause());if(window._sim)window._sim.forEach(a=>a.pause())}
+function sim(v){stopAll();const a=new Audio(`pendentes/mix_${v}.wav`);window._sim=[a];a.play()}
+function cmp(v){stopAll();const a=new Audio(`pendentes/cmp_cave_vesper_${v}.wav`);window._sim=[a];a.play()}
+document.addEventListener("play",e=>{document.querySelectorAll("audio").forEach(a=>{if(a!==e.target)a.pause()})},true);
+</script></body></html>

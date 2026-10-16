@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · v0.7 M4 · Interior da VÉSPER-7</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;color-scheme:dark}
+*{box-sizing:border-box}body{background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;margin:0;padding:16px}
+.wrap{max-width:1200px;margin:0 auto;padding-block:32px 80px}
+h1{font-size:40px;margin:6px 0 10px}h2{font-size:22px;margin:0 0 14px;border-left:10px solid var(--rust);padding-left:10px}
+section{margin-top:48px}.eyebrow{color:var(--rust);font:12px monospace;letter-spacing:.08em;text-transform:uppercase}
+.note{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--gold);padding:12px 16px;margin:18px 0}
+.note b{color:var(--gold)}code{background:#2a211d;padding:1px 5px;font-size:13px}
+.grid{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+.card{background:var(--panel);border:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:8px}
+.chk{display:flex;gap:14px;align-items:flex-end;padding:8px;background-color:#2a211d;background-image:conic-gradient(#3a2e28 25%,transparent 0 50%,#3a2e28 0 75%,transparent 0);background-size:16px 16px}
+img{image-rendering:pixelated;display:block}
+.card b{color:var(--gold);font:13px monospace}.card span{color:var(--muted);font-size:13px}
+.big{max-width:100%;height:auto;border:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid var(--line);padding:6px 10px;text-align:left}th{color:var(--gold)}
+.row{display:flex;gap:16px;flex-wrap:wrap}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Designer · pra aprovar</div>
+<h1>v0.7 M4 · Interior da VÉSPER-7</h1>
+<div class="note"><b>v1.5 · rodada 6: beliche de parede na horizontal (2×1, com cabos de aço) e o traje caprichado (macacão no chão e traje EVA no armário, A/B).</b> <b>v1.4 · rodada 5: props com mais volume (r3d), cama que sai da parede.</b> <b>v1.3 · rodada 4: pilha 2×1, kit de 10 props da nave e saída refeita (A/B).</b> <b>v1.2 · rodada 3: pilha de contêineres A/B (contêiner arrombado cancelado, usa o container_open).</b> <b>v1.1 · rodada 2 (seção abaixo): contêiner r3d, escotilha de saída e luz menor, A/B.</b> <b>v1.0 · o que mudou:</b> primeira rodada da arte do interior da cargueira: parede (topo A2 + face), 4 pisos de chapa, escotilha do porão, contêiner arrombado por dentro, painel de energia, porta emperrada com leitor de crachá (silhueta do rascunho do dono) e luz de emergência. Tudo gerado por <code>tools/sprites/build_vesper_v07.py</code>. PNGs em <code>reports/design/v07_m4/pendentes/</code> (nada foi pra <code>assets/sprites/</code>). Do rascunho do dono aproveitei só a ideia do ícone (cordão em laço + crachá com cabeça e ombros, amarelo); o desenho é redesenhado em pixel, 6×9 px.</div>
+
+<section><h2>Rodada 6 · cama horizontal com cabos e o traje caprichado</h2>
+<div class="note"><b>Pedido do dono:</b> a cama deitada ao longo da parede norte, no comprido, presa por dois cabos que saem dos cantos da frente e sobem até a parede (rascunho em amarelo sobre a montagem da rodada 5 + foto de cama suspensa por cabo de aço). E "arrumar o traje" com capricho: o macacão no chão e o traje EVA do armário. Script novo: <code>tools/sprites/build_vesper_v07_r6.py</code>; arquivos <code>*_r6*.png</code> (as rodadas anteriores ficam intactas e aparecem como "antes").<br>
+<b>Da referência, só o estilo:</b> o cabo fino de aço com o esticador no meio, a plataforma grossa de chapa com o colchão por cima e o travesseiro na cabeceira. O desenho é nosso, no r3d, com a paleta da VÉSPER (ardósia, laranja desbotado, contorno <code>#1b1630</code>).</div>
+
+<h3 style="color:var(--gold)">1 · Beliche de parede (prop_wall_bunk): agora 2×1, deitado na parede</h3>
+<div class="grid" id="r6bunk"></div>
+<ul style="color:var(--muted)">
+<li><b>Forma:</b> 64×40, plataforma de chapa com espessura (luz em cima, friso laranja com as juntas, nervura escura embaixo), colchão grosso azulado, travesseiro branco à esquerda, cobertor laranja desbotado amarrotado (superfície com dobras de verdade, luz e sombra em faixas) com a barra mais escura e a aba caindo pela frente.</li>
+<li><b>Cabos:</b> olhal numa orelha de chapa em cada quina da frente → cabo → esticador dourado → cabo → chapa de ancoragem com 2 parafusos na parede. Os cabos são desenhados por cima da cama (a ancoragem fica no alto da parede, então o cabo passa na frente do tampo, como na foto).</li>
+<li><b>Suspensa:</b> a cama não toca o chão; embaixo dela aparece a sombra no chão (nível fixo do kit).</li>
+<li><b>Cama dobrada em cima: não entrou.</b> Em 64×40 a parede só aparece nas 8 linhas de cima do sprite, e é ali que ficam as ancoragens; uma segunda cama ali ia brigar com os cabos e poluir. Se o dono quiser, dá pra fazer como face de parede à parte (32×24 por tile, por cima da face), sem mudar contrato.</li>
+<li><b>Limite do contrato:</b> as ancoragens ficam no terço de baixo da face da parede (o sprite de mesa só sobe 8 px acima do tile). Pra ancorar no alto da parede, como no rascunho, o sprite teria que ter 64×56 com <code>PROP_LIFT</code> 24 só pra ele. Não fiz: fica como proposta, se o dono pedir.</li></ul>
+
+<h3 style="color:var(--gold)">2 · Traje EVA no armário (prop_suit_locker): A × B</h3>
+<div class="grid" id="r6locker"></div>
+<ul style="color:var(--muted)">
+<li><b>O traje (igual nas duas):</b> capacete grande com casco branco, aro cinza e visor com reflexo (mancha clara e um arco azul), anel do pescoço, ombreiras laranja, caixa de controle no peito com LEDs verde e âmbar, emblema laranja, mangueiras de ar sanfonadas (ciano do O₂) descendo do peito até a mochila, mochila de suporte de vida aparecendo atrás dos ombros, luvas cinza com punho laranja, pernas com faixa laranja e botas com sola laranja. O traje fica pendurado um pouco pra fora do vão, pra o teto do armário não comer o capacete.</li>
+<li><b>A:</b> armário de chapa com as <b>duas portas abertas em asa</b>, painel escuro por dentro das portas, fita de luz ciano lá dentro, barra do cabide, teto com friso laranja e fendas de ventilação. Visor <b>azul-marinho</b> (o mesmo do astronauta).</li>
+<li><b>B:</b> <b>estação de traje sem porta</b> (nicho com moldura grossa, faixas laranja no pé das laterais, painel de status com 3 LEDs do lado direito, braço que segura a mochila). Visor com a <b>viseira solar dourada</b> baixada. Mais "equipamento", menos "armário".</li></ul>
+
+<h3 style="color:var(--gold)">3 · Macacão largado no chão (prop_uniforms): A × B</h3>
+<div class="grid" id="r6unif"></div>
+<ul style="color:var(--muted)">
+<li><b>Como foi feito:</b> pano visto de cima, peça por peça (tronco, mangas, pernas, gola, cinto, botas): cada uma estufa no meio e cai nas bordas, com franzido atravessado; a luz vem de cima-esquerda e o tom sai em 4 faixas. Peça de cima ganha contorno por cima da de baixo; manga e perna emendadas no tronco ganham só a costura. Detalhe à mão no fim (zíper com puxador, fivela, emblema 3×3, plaqueta de nome).</li>
+<li><b>A:</b> macacão <b>claro</b> de tripulante: gola aberta com o forro escuro no decote, zíper, cinto com fivela dourada, emblema laranja da VÉSPER no peito, punhos e barras laranja; uma manga esticada, a outra caída do lado, uma perna dobrada no joelho; <b>o par de botas tirado</b> do lado (perfil em L, sola laranja).</li>
+<li><b>B:</b> macacão <b>laranja desbotado</b> com arnês ardósia (duas alças + cinto), gola clara, emblema claro com miolo laranja; esparramado com uma manga dobrada pra cima, pernas abertas com <b>as botas ainda calçadas</b> e uma luva largada do lado. Lê melhor no chão de ardósia que o A, mas o A conversa mais com o traje branco do armário.</li></ul>
+
+<h3 style="color:var(--gold)">Alojamento montado (A e B)</h3>
+<p style="color:var(--muted)">Mesma casca aprovada, na ordem do jogo (chão → decal → topo/face da parede → props pelo pé). Duas camas 2×1 na parede norte (tiles 1–2 e 4–5), luz de emergência entre elas, armário de traje no canto, cilindros de O₂ (r5), pilha de contêineres e 2 macacões no chão. A montagem A usa as candidatas A; a B, as B. O halo vermelho é só da montagem.</p>
+<div class="row"><img class="big" src="sala_r6_alojamento_A_escura.png" style="width:576px"><img class="big" src="sala_r6_alojamento_B_escura.png" style="width:576px"></div>
+<div class="row" style="margin-top:12px"><img class="big" src="sala_r6_alojamento_A_clara.png" style="width:576px"><img class="big" src="sala_r6_alojamento_B_clara.png" style="width:576px"></div>
+
+<h3 style="color:var(--gold)">Pro Dev (kit da nave, atualizado na rodada 6)</h3>
+<table><tr><th>id</th><th>nome</th><th>lugar</th><th>tiles</th><th>colide</th><th>sprite</th><th>ícone</th><th>arquivo atual (pendentes/)</th></tr>
+<tr><td><code>prop_wall_bunk</code></td><td>Beliche de parede (cama suspensa por cabos)</td><td><b>desk</b></td><td><b>2×1</b></td><td>sim</td><td><b>64×40</b></td><td><code>icon_prop_wall_bunk</code> 16×16</td><td><code>prop_wall_bunk_r6</code> (novo)</td></tr>
+<tr><td><code>prop_suit_locker</code></td><td>Armário de traje (EVA)</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_suit_locker</code> 16×16</td><td><code>prop_suit_locker_r6_A</code> / <code>_B</code> (novo, escolher)</td></tr>
+<tr><td><code>prop_uniforms</code></td><td>Macacão largado</td><td>decal</td><td>1×1</td><td>não</td><td>32×32</td><td><code>icon_prop_uniforms</code> 16×16</td><td><code>prop_uniforms_r6_A</code> / <code>_B</code> (novo, escolher)</td></tr>
+<tr><td><code>prop_o2_cylinders</code></td><td>Cilindros de O₂</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_o2_cylinders</code> 16×16</td><td><code>_r5</code></td></tr>
+<tr><td><code>prop_server_rack</code></td><td>Rack de servidor</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_server_rack</code> 16×16</td><td><code>_r5</code></td></tr>
+<tr><td><code>prop_server_rack_open</code></td><td>Rack de servidor aberto</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_server_rack_open</code> 16×16</td><td><code>_r5</code></td></tr>
+<tr><td><code>prop_command_table</code></td><td>Mesa de comando</td><td>floor</td><td>2×1</td><td>sim</td><td>64×40</td><td><code>icon_prop_command_table</code> 16×16</td><td><code>_r5</code></td></tr>
+<tr><td><code>prop_workstation</code></td><td>Estação de computador</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_workstation</code> 16×16</td><td><code>_r5</code></td></tr>
+<tr><td><code>prop_pilot_chair</code></td><td>Cadeira de piloto</td><td>floor</td><td>1×1</td><td>não</td><td>32×40</td><td><code>icon_prop_pilot_chair</code> 16×16</td><td><code>_r5</code></td></tr>
+<tr><td><code>prop_container_stack</code></td><td>Pilha de contêineres</td><td>floor</td><td>2×1</td><td>sim</td><td>64×40</td><td><code>icon_prop_container_stack</code> 16×16</td><td>sem sufixo (r4)</td></tr>
+<tr><td><code>wall_cable_panel</code></td><td>Painel de cabos soltos</td><td>face</td><td>1×1</td><td>não</td><td>32×24</td><td><code>icon_wall_cable_panel</code> 16×16</td><td>sem sufixo (r4)</td></tr></table>
+<ul style="color:var(--muted)">
+<li>Nomes finais sem o sufixo (<code>_r6</code>, <code>_r6_A</code>, <code>_r6_B</code> são só desta rodada). Depois da escolha do dono, a candidata vira <code>prop_suit_locker.png</code> / <code>prop_uniforms.png</code>.</li>
+<li><b>Cama 2×1 em <code>desk</code> é novidade:</b> hoje o jogo só tem prop de 1 tile (as <code>prop_wall_desk_a/b</code> são 1×1, e as 2×1 de chão também ainda não existem no código). O prop fica no tile da esquerda e ocupa também o da direita; <b>os dois</b> precisam de parede logo ao norte; colide nos 2 tiles inteiros (como a mesa de parede). Blit em (tx·32, ty·32 − 8) com o sprite 64×40, ordenado pelo pé ((ty+1)·32), como os outros props de chão/mesa.</li>
+<li>As 8 linhas de cima do sprite da cama (as chapas de ancoragem e o topo dos cabos) caem <b>por cima da face da parede</b>: precisa desenhar depois da face (as mesas de parede já são assim). A sombra embaixo da cama tem alpha 90, igual à dos outros props.</li>
+<li>Sem mudar contrato: <code>PROP_SPRITE_SIZE</code> continua 32×40 pro 1×1; 64×40 é o mesmo tamanho dos 2×1 de chão. O fallback de <code>Renderer.prop_surface</code> precisa saber a largura dos 2×1 (hoje ele usa sempre 32×40).</li>
+<li><code>prop_uniforms</code>: decal 32×32 em (tx·32, ty·32), junto do chão (como a <code>prop_ice_stain</code>), sem colisão. <code>prop_suit_locker</code>: chão 32×40, pé no tile, colide (<code>PROP_COLLIDE</code>).</li></ul>
+</section>
+<script>
+const card6=(id,label,items)=>{document.getElementById(id).insertAdjacentHTML("beforeend",`<div class="card"><b>${label}</b><span>${items.map(i=>i[3]).join(" × ")}</span><div class="chk">${items.map(([f,w,h])=>`<img src="pendentes/${f}.png" width="${w*4}" height="${h*4}">`).join("")}${items.map(([f,w,h])=>`<img src="pendentes/${f}.png" width="${w}" height="${h}">`).join("")}</div></div>`)};
+card6("r6bunk","prop_wall_bunk · antes (r5, 32×40) × depois (r6, 64×40)",[["prop_wall_bunk_r5",32,40,"antes"],["prop_wall_bunk_r6",64,40,"depois"]]);
+card6("r6bunk","icon_prop_wall_bunk · antes × depois",[["icon_prop_wall_bunk_r5",16,16,"antes"],["icon_prop_wall_bunk_r6",16,16,"depois"]]);
+card6("r6locker","prop_suit_locker · antes (r5) × A × B",[["prop_suit_locker_r5",32,40,"antes"],["prop_suit_locker_r6_A",32,40,"A"],["prop_suit_locker_r6_B",32,40,"B"]]);
+card6("r6locker","ícones · antes × A × B",[["icon_prop_suit_locker_r5",16,16,"antes"],["icon_prop_suit_locker_r6_A",16,16,"A"],["icon_prop_suit_locker_r6_B",16,16,"B"]]);
+card6("r6unif","prop_uniforms · antes (r5) × A × B",[["prop_uniforms_r5",32,32,"antes"],["prop_uniforms_r6_A",32,32,"A"],["prop_uniforms_r6_B",32,32,"B"]]);
+card6("r6unif","ícones · antes × A × B",[["icon_prop_uniforms_r5",16,16,"antes"],["icon_prop_uniforms_r6_A",16,16,"A"],["icon_prop_uniforms_r6_B",16,16,"B"]]);
+</script>
+<section><h2>Rodada 5 · props com volume (antes × depois)</h2>
+<div class="note"><b>Pedido do dono:</b> "mais 3D": cilindros que pareçam cilindros, rack em volume, cama saindo da parede. Refeitos no r3d (<code>tools/sprites/build_vesper_v07_r5.py</code>), arquivos <code>*_r5.png</code>; a rodada 4 não foi sobrescrita (aparece como "antes").<br>
+<b>Decisões:</b> cilindros de pé (tampo elíptico, brilho vertical, faixa laranja que curva, domo, pescoço e volante da válvula); racks girados ~29° pra mostrar frente + lateral (lateral com venezianas, gavetas em relevo com LED encaixado; o aberto tem a porta em ângulo, gavetas puxadas e cabos); cama: <b>uma</b> cama aberta pra frente (estrado, colchão grosso, cobertor, travesseiro, pés e correntes presos na parede) com a de cima dobrada contra a parede. Mesa, armário, estação e cadeira ganharam cantos arredondados e volume; uniformes viraram macacão aberto (gola, zíper, manga dobrada, punhos) com bota e capacete.</div>
+<div class="grid" id="r5"></div>
+<h3 style="color:var(--gold)">Pro Dev (rodada 5)</h3>
+<table><tr><th>id</th><th>nome</th><th>lugar</th><th>tiles</th><th>colide</th><th>sprite</th><th>ícone</th></tr><tr><td><code>prop_o2_cylinders</code></td><td>Cilindros de O₂ (3 de pé, com válvula)</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_o2_cylinders</code> 16×16</td></tr><tr><td><code>prop_server_rack</code></td><td>Rack de servidor</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_server_rack</code> 16×16</td></tr><tr><td><code>prop_server_rack_open</code></td><td>Rack de servidor aberto</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_server_rack_open</code> 16×16</td></tr><tr><td><code>prop_wall_bunk</code></td><td>Beliche de parede (cama que sai da parede) — substitui <code>wall_bunk</code></td><td>desk</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_wall_bunk</code> 16×16</td></tr><tr><td><code>prop_command_table</code></td><td>Mesa de comando</td><td>floor</td><td>2×1</td><td>sim</td><td>64×40</td><td><code>icon_prop_command_table</code> 16×16</td></tr><tr><td><code>prop_suit_locker</code></td><td>Armário de traje (EVA aberto)</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_suit_locker</code> 16×16</td></tr><tr><td><code>prop_workstation</code></td><td>Estação de computador</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_workstation</code> 16×16</td></tr><tr><td><code>prop_pilot_chair</code></td><td>Cadeira de piloto</td><td>floor</td><td>1×1</td><td>não</td><td>32×40</td><td><code>icon_prop_pilot_chair</code> 16×16</td></tr><tr><td><code>prop_uniforms</code></td><td>Uniformes largados (macacão aberto + capacete)</td><td>decal</td><td>1×1</td><td>não</td><td>32×32</td><td><code>icon_prop_uniforms</code> 16×16</td></tr></table>
+<ul style="color:var(--muted)"><li>Nomes finais sem o sufixo <code>_r5</code> (o sufixo é só desta rodada). <code>prop_wall_bunk</code> troca o <code>wall_bunk</code> da rodada 4 (que sai do kit); mesmo lugar das <code>prop_wall_desk_a/b</code>: tile encostado na parede ao norte, sprite 32×40 em (x, y−8), a cama invade o tile pra baixo (sul) e colide.</li>
+<li>Sem mudança de contrato: continuam 32×40 e 64×40 (mesa 2×1). <code>wall_cable_panel</code> e a pilha de contêineres não mudaram.</li></ul>
+<div class="row"><img class="big" src="sala_r5_cabine_escura.png" style="width:576px"><img class="big" src="sala_r5_alojamento_escura.png" style="width:576px"></div>
+<div class="row" style="margin-top:12px"><img class="big" src="sala_r5_cabine_clara.png" style="width:576px"><img class="big" src="sala_r5_alojamento_clara.png" style="width:576px"></div>
+</section>
+<script>
+const R5=[["prop_o2_cylinders", "32\u00d740", "prop_o2_cylinders"], ["prop_server_rack", "32\u00d740", "prop_server_rack"], ["prop_server_rack_open", "32\u00d740", "prop_server_rack_open"], ["prop_wall_bunk", "32\u00d740", "wall_bunk"], ["prop_command_table", "64\u00d740", "prop_command_table"], ["prop_suit_locker", "32\u00d740", "prop_suit_locker"], ["prop_workstation", "32\u00d740", "prop_workstation"], ["prop_pilot_chair", "32\u00d740", "prop_pilot_chair"], ["prop_uniforms", "32\u00d732", "prop_uniforms"]];
+for(const [n,sz,o] of R5){const [w,h]=sz.split("×").map(Number);
+document.getElementById("r5").insertAdjacentHTML("beforeend",`<div class="card"><b>${n}</b><span>antes (rodada 4: ${o}) × depois (r5)</span><div class="chk"><img src="pendentes/${o}.png" width="${w*4}" height="${h*4}" style="opacity:.85"><img src="pendentes/${n}_r5.png" width="${w*4}" height="${h*4}"><img src="pendentes/${n}_r5.png" width="${w}" height="${h}"><img src="pendentes/icon_${n}_r5.png" width="64" height="64"></div></div>`)}
+</script>
+<section><h2>Rodada 4 · kit da nave, pilha 2×1 e saída refeita</h2>
+<div class="note"><b>Novo:</b> pilha de contêineres em 2×1 (64×40), 10 props de nave (3 do dono + computadores e servidores + extras) e a saída (<code>vesper_hatch</code>) refeita pelo rascunho do dono, sem luz. Script: <code>tools/sprites/build_vesper_v07_r4.py</code> (r3d nos objetos 3D, à mão nos decal/face). Paleta da VÉSPER: ardósia, laranja desbotado, contorno <code>#1b1630</code>.</div>
+<h3 style="color:var(--gold)">Saída (vesper_hatch): A × B</h3>
+<p style="color:var(--muted)">Abertura quadrada escura no chão, a grade redonda arrancada deitada sobre a borda (cima/esquerda, com sombra) e 4 parafusos soltos. <b>A:</b> grade menor, buraco com escada bem sutil. <b>B:</b> grade maior que deixa o buraco mais aberto, com um degrau largo no fundo. 32×32 bastou, não precisou de 64×32. Nomes: <code>vesper_hatch_exit_A.png</code> / <code>_B.png</code> (a antiga com luz do dia fica só no histórico).</p>
+<div class="grid" id="r4h"></div>
+<h3 style="color:var(--gold)">Props</h3><div class="grid" id="r4"></div>
+<h3 style="color:var(--gold)">Pro Dev</h3>
+<table><tr><th>id</th><th>nome</th><th>lugar</th><th>tiles</th><th>colide</th><th>sprite</th><th>ícone</th></tr><tr><td><code>prop_command_table</code></td><td>Mesa de comando (holomapa)</td><td>floor</td><td>2×1</td><td>sim</td><td>64×40</td><td><code>icon_prop_command_table</code> 16×16</td></tr><tr><td><code>wall_bunk</code></td><td>Beliche de parede</td><td>face</td><td>1×1</td><td>não</td><td>32×24</td><td><code>icon_wall_bunk</code> 16×16</td></tr><tr><td><code>prop_uniforms</code></td><td>Uniformes largados</td><td>decal</td><td>1×1</td><td>não</td><td>32×32</td><td><code>icon_prop_uniforms</code> 16×16</td></tr><tr><td><code>prop_suit_locker</code></td><td>Armário de traje (EVA aberto)</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_suit_locker</code> 16×16</td></tr><tr><td><code>prop_o2_cylinders</code></td><td>Cilindros de O₂ tombados</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_o2_cylinders</code> 16×16</td></tr><tr><td><code>wall_cable_panel</code></td><td>Painel de cabos soltos</td><td>face</td><td>1×1</td><td>não</td><td>32×24</td><td><code>icon_wall_cable_panel</code> 16×16</td></tr><tr><td><code>prop_server_rack</code></td><td>Rack de servidor</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_server_rack</code> 16×16</td></tr><tr><td><code>prop_server_rack_open</code></td><td>Rack de servidor aberto</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_server_rack_open</code> 16×16</td></tr><tr><td><code>prop_workstation</code></td><td>Estação de computador</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_workstation</code> 16×16</td></tr><tr><td><code>prop_pilot_chair</code></td><td>Cadeira de piloto</td><td>floor</td><td>1×1</td><td>não</td><td>32×40</td><td><code>icon_prop_pilot_chair</code> 16×16</td></tr><tr><td><code>prop_container_stack</code></td><td>Pilha de contêineres</td><td>floor</td><td>2×1</td><td>sim</td><td>64×40</td><td><code>icon_prop_container_stack</code> 16×16</td></tr></table>
+<ul style="color:var(--muted)"><li>Sprites de chão em 32×40 (ou 64×40 nos 2×1): pé no(s) tile(s), blit em (tx·32, ty·32−8), ordenado pelo pé; o 2×1 ocupa o tile do prop e o da direita. Sem mudar <code>PROP_SPRITE_SIZE</code>: o rack alto cabe nos 40 px.</li>
+<li><code>wall_*</code> (face, 32×24): overlay com fundo transparente, blit em (tx·32, ty·32+8) por cima da face normal, como o <code>wall_monitor_*</code>.</li>
+<li><code>prop_uniforms</code> é decal 32×32 (como o <code>prop_ice_stain</code>), sem colisão. Sugiro lugar <code>decal</code> e cenário (custo {}).</li>
+<li>Escala do rack aberto: ele é 1×1 mas os cabos passam um pouco da pegada, só visual.</li></ul>
+<p style="color:var(--muted)">Montagens no escuro com a casca aprovada: cabine (mesa de comando, racks, estação, cadeiras, painel de cabos) e alojamento (3 beliches de parede, uniformes no chão, armário de traje, cilindros de O₂, pilha 2×1). O brilho laranja dos racks e o vermelho da luz são só da montagem.</p>
+<div class="row"><img class="big" src="sala_r4_cabine_escura.png" style="width:576px"><img class="big" src="sala_r4_alojamento_escura.png" style="width:576px"></div>
+<div class="row" style="margin-top:12px"><img class="big" src="sala_r4_cabine_clara.png" style="width:576px"><img class="big" src="sala_r4_alojamento_clara.png" style="width:576px"></div>
+</section>
+<script>
+const R4=[["prop_command_table", "64\u00d740", "icon_prop_command_table"], ["wall_bunk", "32\u00d724", "icon_wall_bunk"], ["prop_uniforms", "32\u00d732", "icon_prop_uniforms"], ["prop_suit_locker", "32\u00d740", "icon_prop_suit_locker"], ["prop_o2_cylinders", "32\u00d740", "icon_prop_o2_cylinders"], ["wall_cable_panel", "32\u00d724", "icon_wall_cable_panel"], ["prop_server_rack", "32\u00d740", "icon_prop_server_rack"], ["prop_server_rack_open", "32\u00d740", "icon_prop_server_rack_open"], ["prop_workstation", "32\u00d740", "icon_prop_workstation"], ["prop_pilot_chair", "32\u00d740", "icon_prop_pilot_chair"], ["prop_container_stack", "64\u00d740", "icon_prop_container_stack"]];
+const g4=document.getElementById("r4");
+for(const [n,sz,ic] of R4){const [w,h]=sz.split("×").map(Number);g4.insertAdjacentHTML("beforeend",`<div class="card"><b>${n}</b><span>${sz}</span><div class="chk"><img src="pendentes/${n}.png" width="${w}" height="${h}"><img src="pendentes/${n}.png" width="${w*5}" height="${h*5}"><img src="pendentes/${ic}.png" width="16" height="16"><img src="pendentes/${ic}.png" width="64" height="64"></div></div>`)}
+for(const n of ["vesper_hatch_exit_A","vesper_hatch_exit_B"])document.getElementById("r4h").insertAdjacentHTML("beforeend",`<div class="card"><b>${n}</b><span>32×32</span><div class="chk"><img src="pendentes/${n}.png" width="32" height="32"><img src="pendentes/${n}.png" width="192" height="192"></div></div>`);
+</script>
+<section><h2>Rodada 3 · pilha de contêineres (A × B)</h2>
+<div class="note"><b>Novo prop:</b> <code>prop_container_stack</code> (32×40, prop de chão de 1 tile, pé no tile, blit em (x, y−8) como os <code>prop_*</code>) e <code>icon_prop_container_stack</code> (16×16). Motor r3d (<code>tools/sprites/build_vesper_v07_r3.py</code>), mesmo case azul do <code>container_sealed</code>/<code>container_open</code> (corpo, faixa de prata, tampa com gomos, cintas, selo), só menor. O <code>vesper_container_broken</code> foi cancelado: a câmara fria usa o <code>container_open.png</code> aprovado (aparece na sala de teste). Do rascunho do dono aproveitei a composição: 2 caixas embaixo lado a lado, a da direita menor e recuada, e 1 em cima à esquerda.</div>
+<div class="grid" id="r3"></div>
+<ul style="color:var(--muted)"><li><b>A:</b> igual ao rascunho: cintas de prata e selo dourado nas caixas da esquerda; a da direita sem selo.</li>
+<li><b>B:</b> a caixa de cima atravessa as duas e as cintas da menor e da de cima são laranja (<code>#e2733a</code>), a carga marcada. Pior leitura do "empilhado" que a A, mas mais variada no cenário.</li></ul>
+<div class="row"><img class="big" src="sala_r3_escura_A.png" style="width:576px"><img class="big" src="sala_r3_escura_B.png" style="width:576px"></div>
+<div class="row" style="margin-top:12px"><img class="big" src="sala_r3_clara_A.png" style="width:576px"><img class="big" src="sala_r3_clara_B.png" style="width:576px"></div>
+<p style="color:var(--muted)">Montagens: pilha no canto de cima à direita, <code>container_open.png</code> (aprovado) no centro, escotilha B e luz A. A montagem é só pra ver o conjunto no escuro.</p>
+</section>
+<script>
+for(const [n,w,h] of [["prop_container_stack_A",32,40],["prop_container_stack_B",32,40],["icon_prop_container_stack_A",16,16],["icon_prop_container_stack_B",16,16]])
+document.getElementById("r3").insertAdjacentHTML("beforeend",`<div class="card"><b>${n}</b><span>${w}×${h}</span><div class="chk"><img src="pendentes/${n}.png" width="${w}" height="${h}"><img src="pendentes/${n}.png" width="${w*8}" height="${h*8}"></div></div>`)
+</script>
+<section><h2>Rodada 2 · pra escolher (A × B)</h2>
+<div class="note"><b>Aprovados na rodada 1:</b> casca (topo, face, chão), painel e porta emperrada (seguem em <code>pendentes/</code>, intactos). <b>Refeitos agora:</b> contêiner no motor r3d (<code>tools/sprites/build_vesper_v07_r2.py</code>, molde do <code>chests_r3d.py</code>: mesmo case, material e luz do <code>container_sealed</code>), escotilha de SAÍDA e luz de emergência menor. Sufixos <code>_A</code>/<code>_B</code>; as de antes não foram sobrescritas.</div>
+<div class="grid" id="r2"></div>
+<ul style="color:var(--muted)">
+<li><b>Contêiner A:</b> tampa girada pra trás além da vertical (estourou pra cima), duas chapas da frente dobradas pra fora, geada na boca, cintas arrancadas (tocos), selo rachado, fios de gelo e poça.<br><b>Contêiner B:</b> tampa arrancada, voando torta acima da boca, com estilhaços em volta; mesmas chapas, geada e poça. A tampa solta lê mais "explodiu"; a A lê mais "aberta" (limitação: o motor só gira em torno do eixo X).</li>
+<li><b>Escotilha A:</b> alçapão aberto: poço de luz do dia (degradê branco a amarelo), escada escura contra a luz, tampa deitada no alto, mancha de luz quente no chão em volta.<br><b>Escotilha B:</b> rampa do porão entreaberta vista de cima, fresta larga com areia do deserto ao sol, dobradiças laranja, seta "sobe" e luz quente escorrendo no chão. Opção de 64×32: não precisa, os dois leem em 32×32 porque o amarelo quente é o único brilho forte do porão; se o dono quiser a rampa grande, dá pra fazer em 2 tiles.</li>
+<li><b>Luz A:</b> cúpula 6×5, brilho de ~6 px. <b>Luz B:</b> cúpula 8×6 com grade fina e suporte, brilho de ~8 px.</li></ul>
+<p style="color:var(--muted)">Salas no escuro com cada conjunto (A: contêiner A + escotilha A + luz A; B: idem B). O halo vermelho e o amarelo da escotilha são só da montagem.</p>
+<div class="row"><img class="big" src="sala_r2_A_escura.png" style="width:576px"><img class="big" src="sala_r2_B_escura.png" style="width:576px"></div>
+<div class="row" style="margin-top:12px"><img class="big" src="sala_r2_A_clara.png" style="width:576px"><img class="big" src="sala_r2_B_clara.png" style="width:576px"></div>
+</section>
+<script>
+for(const [n,w,h] of [["vesper_container_broken_A",40,44],["vesper_container_broken_B",40,44],["vesper_hatch_A",32,32],["vesper_hatch_B",32,32],["vesper_emergency_light_A",32,24],["vesper_emergency_light_B",32,24]])
+document.getElementById("r2").insertAdjacentHTML("beforeend",`<div class="card"><b>${n}</b><span>${w}×${h}</span><div class="chk"><img src="pendentes/${n}.png" width="${w}" height="${h}"><img src="pendentes/${n}.png" width="${w*6}" height="${h*6}"></div></div>`)
+</script>
+<section><h2>Sala de teste (clara)</h2>
+<p style="color:var(--muted)">Montada só com os sprites, na ordem do jogo: chão, escotilha, topo/face da parede, contêiner pelo pé. Porta emperrada à direita, painel no meio, luz de emergência à esquerda, escotilha no canto de baixo.</p>
+<img class="big" src="sala_clara.png" style="width:864px"></section>
+
+<section><h2>No escuro (lanterna do capacete)</h2>
+<p style="color:var(--muted)">Círculo de lanterna em 5 degraus. A luz de emergência pinta de vermelho só em volta dela.</p>
+<div class="row"><img class="big" src="sala_escura.png" style="width:576px"><img class="big" src="sala_escura_porao.png" style="width:576px"></div></section>
+
+<section><h2>Peças (tamanho real e ampliadas ×6)</h2><div class="grid" id="g"></div></section>
+
+<section><h2>Pro Dev</h2>
+<table><tr><th>Arquivo (pendentes/)</th><th>Tamanho</th><th>Como usar</th></tr>
+<tr><td><code>hull_wall_top.png</code></td><td>64×96</td><td>Atlas A2, mesmo layout do <code>base_wall_top</code> (<code>game/autotile.py</code>); topo em (x, y−24).</td></tr>
+<tr><td><code>hull_wall_face.png</code></td><td>128×24</td><td>4 peças 32×24, índice = W + 2·E, em (x, y+8) quando não há parede embaixo (igual ao <code>base_wall_face</code>).</td></tr>
+<tr><td><code>hull_floor_0..3.png</code></td><td>32×32</td><td>Chão. 0 = chapa limpa (o comum), 1 = manchas, 2 = grelha, 3 = risco de gelo. Sugestão: 0 em ~75%, as outras raras. Emendas casam entre tiles.</td></tr>
+<tr><td><code>vesper_hatch.png</code></td><td>32×32</td><td>Tile da boca do porão (saída), no chão, abaixo de player/props.</td></tr>
+<tr><td><code>vesper_container_broken.png</code></td><td>40×44</td><td>Mesma âncora do <code>container_sealed</code>: pé no centro de baixo do tile, blit em (x−4, y−12) para o tile onde fica o pé; ordenar pelo pé.</td></tr>
+<tr><td><code>vesper_power_panel.png</code></td><td>32×24</td><td>Face de parede, <b>opaca</b> (já inclui a face do casco): blit em (x, y+8) no lugar da peça da face. Encaixe da bateria em x 20–26, y 5–17.</td></tr>
+<tr><td><code>vesper_jammed_door.png</code></td><td>32×24</td><td>Idem, face opaca em (x, y+8). Leitor de crachá em x 19–28, y 3–20 (centro (24,12)). A porta ocupa x 1–19.</td></tr>
+<tr><td><code>vesper_emergency_light.png</code></td><td>32×24</td><td>Idem, face opaca. Centro da luminária ≈ (16, 10) no sprite, útil pra posição da luz vermelha/faísca.</td></tr></table>
+<div class="note"><b>Atenção:</b> o plano diz <code>hull_wall_face</code> 96×24 (3 variações), mas o <code>base_wall_face</code> real tem 128×24 (4 peças, W + 2·E, o <code>draw_base_wall</code> usa <code>idx·T</code> com idx 0..3). Entreguei 128×24 pra reusar o mesmo código. As 3 peças de face (painel, porta, luz) são faces completas, então a célula tem que trocar a peça normal por elas.</div>
+</section>
+</div>
+<script>
+const items=[["hull_wall_top",64,96],["hull_wall_face",128,24],["hull_floor_0",32,32],["hull_floor_1",32,32],["hull_floor_2",32,32],["hull_floor_3",32,32],["vesper_hatch",32,32],["vesper_container_broken",40,44],["vesper_power_panel",32,24],["vesper_jammed_door",32,24],["vesper_emergency_light",32,24]];
+const g=document.getElementById("g");
+for(const [n,w,h] of items){const s=w>64?3:6;g.insertAdjacentHTML("beforeend",`<div class="card"><b>${n}</b><span>${w}×${h}</span><div class="chk"><img src="pendentes/${n}.png" width="${w}" height="${h}"><img src="pendentes/${n}.png" width="${w*s}" height="${h*s}"></div></div>`)}
+</script></body></html>

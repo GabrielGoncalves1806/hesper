@@ -1,0 +1,7 @@
+Fonte: OpenGameArt, "Electricity Sound Effects", autor BMacZero (Brian MacIntosh; crédito opcional)
+Página: https://opengameart.org/content/electricity-sound-effects-0
+Licença: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/), conferida na página em 2026-10-16.
+Gravado de um pequeno gerador Tesla (segundo a página).
+Arquivos: https://opengameart.org/sites/default/files/spark.wav (sha256 9a3d987bdf7f405570aa015f6da42596ce84c5073c18c0561be7cd3ae401bc97)
+          https://opengameart.org/sites/default/files/continuousspark.wav (sha256 4ec24045b4fb6a88b958d00f16cc39b8aa992cd6e6a5edb4ecb0f34b36ddb18b)
+Baixados com curl sem login; só lidos como áudio (wave/numpy), nada executado.
