@@ -1835,7 +1835,7 @@ class Renderer:
                 small = self.surface("icon_backpack", art.backpack_icon)[0]
             elif item == "water_capsule":        # v0.5 M2: icon_water_capsule.png (aprovado)
                 small = self.surface("icon_water_capsule", art.water_capsule_icon)[0]
-            elif item == C.HAND_DRILL or item in C.PART_ITEMS:   # v0.5 M4: icon_<item>.png (a broca ainda aguarda o dono)
+            elif item in C.HAND_DRILLS or item in C.PART_ITEMS:   # v0.5 M4: icon_<item>.png (v0.6 Fundo M4: as duas brocas)
                 small = self._m4_icon(item)
             elif item in C.BASE_KINDS or item == C.DISPENSER:   # v0.5 M2: icon_base_*.png e icon_o2_dispenser.png
                 name = C.BASE_ICON.get(item, "icon_o2_dispenser")
@@ -1863,9 +1863,13 @@ class Renderer:
     def _m4_icon(self, item: str) -> pygame.Surface:
         """Ícone 16×16 da broca de mão ou de uma peça de loot: o PNG de assets/sprites ou, sem ele, o fallback (a broca
         usa o 1º quadro da drill_side reduzido; as peças, um quadradinho colorido)."""
-        if item == C.HAND_DRILL:
+        if item in C.HAND_DRILLS:
             sheet = self.surface("drill_side", lambda: art.drill("side"))[0]
-            return self.surface("icon_hand_drill", lambda: art.hand_drill_icon(sheet))[0]
+            fallback = lambda: art.hand_drill_icon(sheet)   # noqa: E731
+            if item == C.HAND_DRILL_T2:                     # v0.6 Fundo M4: sem o PNG dela, o da nv.1 (ou o fallback)
+                return self.surface("icon_hand_drill_t2",
+                                    lambda: self.surface("icon_hand_drill", fallback)[0].copy())[0]
+            return self.surface("icon_hand_drill", fallback)[0]
         return self.surface(f"icon_{item}", lambda: self._placeholder(16, item))[0]
 
     def drone_icon(self) -> pygame.Surface:
@@ -1892,7 +1896,7 @@ class Renderer:
             return pygame.transform.scale_by(self.surface("icon_constructor", art.constructor_icon)[0], 3)
         if kind == "water_capsule":
             return pygame.transform.scale_by(self.surface("icon_water_capsule", art.water_capsule_icon)[0], 3)
-        if kind == C.HAND_DRILL or kind in C.PART_ITEMS:
+        if kind in C.HAND_DRILLS or kind in C.PART_ITEMS:
             return pygame.transform.scale_by(self._m4_icon(kind), 3)
         if kind in C.BASE_KINDS:
             return pygame.transform.scale_by(self.surface(C.BASE_ICON[kind], lambda: self._placeholder(16, kind))[0], 3)

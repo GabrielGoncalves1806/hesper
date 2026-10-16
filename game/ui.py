@@ -327,7 +327,7 @@ def item_category(item: str) -> tuple[str, str]:
         return "TRAJE", C.C_TERMINAL
     if item in ("drone", "constructor"):
         return "ITEM", C.C_TI
-    if item == C.HAND_DRILL:
+    if item in C.HAND_DRILLS:
         return "FERRAMENTA", C.C_TI
     if item in C.PART_ITEMS:
         return "PEÇA", C.C_TERMINAL
@@ -1968,14 +1968,14 @@ class UI:
 
     def _smelter_panel(self, smelter, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str,
                        mid: pygame.Rect) -> None:
-        """Fundição (v0.6 Fundo M3): minério e magmatita (entram), lingote (só tira), a barra do lingote atual, 4
+        """Fundição (v0.6 Fundo M3): minério e magmatita (entram), saída (só tira: lingote ou wafer), a barra do item atual, 4
         pontinhos da carga de magmatita acesa, o estado, "<< PEGAR TUDO" no meio e a seção DRONES."""
         out = smelter.storage.slots[C.SMELTER_OUT_SLOT]
-        self.window(cx, y, pw, h, "Fundição", f"{out.count if out else 0} ling.", SMELT_COLOR)
+        self.window(cx, y, pw, h, "Fundição", f"{out.count if out else 0} prontos", SMELT_COLOR)
         gx, sy = cx + 8, y + SIDE_GRID_Y
         for label, slot, dx, color in (("MINÉRIO", C.SMELTER_ORE_SLOT, 0, B_MUTED),
                                        ("MAGMATITA", C.SMELTER_FUEL_SLOT, 50, B_MUTED),
-                                       ("LINGOTE", C.SMELTER_OUT_SLOT, 112, SMELT_COLOR)):
+                                       ("SAÍDA", C.SMELTER_OUT_SLOT, 112, SMELT_COLOR)):
             self._section_label(label, gx + dx, y + 16, color)
             self._grid(smelter.storage, [slot], gx + dx, sy, item_icon, mouse)
         self.tx(">", gx + 88, sy + 3, B_MUTED)
@@ -1986,7 +1986,7 @@ class UI:
         for k in range(C.SMELTER_BURNS_PER_FUEL):                       # a carga acesa: fuel pontinhos de 4
             self.fill(SMELT_COLOR if k < smelter.fuel else B_TRACK, (gx + bw + 8 + k * 9, by, 6, 4))
         self.tx(self.fit(status, GRID_W), gx, by + 6, B_MUTED if working else C.C_ALERT)
-        for k, line in enumerate(wrap(self.body, "Ponha minério e magmatita. Drones levam os lingotes.",
+        for k, line in enumerate(wrap(self.body, "Ponha minério e magmatita. Drones levam o que sair.",
                                       GRID_W)[:2]):
             self.tx(line, gx, by + 20 + k * 12, B_MUTED, self.body)
         self._button(mid, "<<\nPEGAR\nTUDO", "take_smelter", mouse, not smelter.storage.is_empty(), "ghost")

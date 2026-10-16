@@ -42,6 +42,7 @@ class Controls:
     in_menu: bool = False                      # tela aberta (inventário, fabricador, mapa...): sem empurrão do vento
     dismantle: "Machine | None" = None         # v0.5 M1: máquina debaixo do mouse com o botão direito segurado
     drill_in_hand: bool = True                 # v0.5 M4: a broca de mão é o slot selecionado da hotbar (sem ela, não minera)
+    drill_tier: int = 1                        # v0.6 Fundo M4: 2 = broca nv.2 na mão (×1,5 e quebra rocha dura)
 
 
 @dataclass
@@ -373,6 +374,7 @@ class GameState:
         self.fainted = False
         self.faint_time = 0.0          # segundos desde o desmaio
         self.time_scale = 1            # F1 muda pra 10
+        self.drill_tier = 1            # v0.6 Fundo M4: nível da broca na mão (1 ou 2), vem do Controls a cada update
         self.fast = False              # F3: player DEBUG_SPEED× mais rápido, broca DEBUG_MINE× mais rápida e mapa/minimapa inteiros
         self.debug_crater = False      # F4: a cratera foi aberta pelo atalho de debug (aviso no topo da tela)
         self.play_time = 0.0
@@ -597,6 +599,7 @@ class GameState:
             self.player.move(controls.move_x, controls.move_y, dt, self.solids_near, self.player_speed)
             if not controls.in_menu:          # rajada: o vento empurra (parado, desliza; contra, anda mais devagar)
                 self.player.drift(*self.weather.push(storm), dt, self.solids_near)
+            self.drill_tier = controls.drill_tier
             self._update_mining(dt, controls.mine_tile if controls.drill_in_hand else None)
             self._update_o2(sim_dt)
         self._update_building(dt)
@@ -753,8 +756,13 @@ class GameState:
         if not trial.has_space(kind, made):
             self.events.append(("inv_full",))
             return False
+        replaced = C.CRAFT_REPLACES.get(kind)
+        slot = next((i for i, s in enumerate(self.inventory.slots) if s is not None and s.item == replaced), None)
         self._spend(cost, inv_only=t2)
-        self.inventory.add(kind, made)
+        if slot is not None and self.inventory.slots[slot] is None and made == 1:
+            self.inventory.slots[slot] = Stack(kind, 1)   # v0.6 Fundo M4: a nv.2 nasce onde estava a nv.1
+        else:
+            self.inventory.add(kind, made)
         self.crafted[kind] += 1
         self.events.append(("craft", kind))
         if at is not None:
@@ -1978,8 +1986,9 @@ class GameState:
     def ensure_hand_drill(self) -> bool:
         """v0.5 M4: save sem a broca de mão (v10 do M3) ganha uma. Vale a que estiver no inventário ou guardada em
         baú; só dá outra se não achar nenhuma. Devolve True se deu (False: já tinha, ou o inventário está cheio)."""
-        if self.inventory.count(C.HAND_DRILL) or any(
-                m.storage is not None and m.storage.count(C.HAND_DRILL)
+        has = lambda inv: any(inv.count(d) for d in C.HAND_DRILLS)   # noqa: E731 (v0.6 Fundo M4: a nv.2 também vale)
+        if has(self.inventory) or any(
+                m.storage is not None and has(m.storage)
                 for layer in self.layers.values() for m in layer.machines):
             return False
         return self.inventory.add(C.HAND_DRILL, 1) == 0
@@ -2024,8 +2033,8 @@ class GameState:
 
     @property
     def can_break_hard(self) -> bool:
-        """Quebra rocha dura? (v0.6 Fundo: só a broca nv.2, que entra no M4; no M1, o F3 pra testar os biomas)"""
-        return self.fast
+        """Quebra rocha dura? A broca nv.2 na mão (v0.6 Fundo M4) ou o F3."""
+        return self.fast or self.drill_tier >= 2
 
     def hard_blocked(self, tile: tuple[int, int]) -> bool:
         """Tile duro que o player ainda não consegue quebrar."""
@@ -2033,8 +2042,10 @@ class GameState:
 
     @property
     def mine_speed(self) -> float:
-        """Multiplicador da broca (com o F3 ligado, DEBUG_MINE×): vale pra parede, minério e rocha pequena."""
-        return C.DEBUG_MINE if self.fast else 1.0
+        """Multiplicador da broca: ×1,5 com a nv.2, ×DEBUG_MINE com o F3 (os dois juntos multiplicam). Vale pra parede,
+        minério e rocha pequena."""
+        speed = C.HAND_DRILL_T2_SPEED if self.drill_tier >= 2 else 1.0
+        return speed * (C.DEBUG_MINE if self.fast else 1.0)
 
     def pop_events(self) -> list[tuple]:
         events, self.events = self.events, []

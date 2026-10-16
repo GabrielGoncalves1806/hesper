@@ -18,7 +18,7 @@ def test_every_recipe_has_a_tab():
     assert tab_kinds("automation") == ["drill", "drone_station", "drone", "smelter", "workbench"]   # v0.6 M3: a Fundição
     assert tab_kinds("storage") == ["chest_small", "chest", "chest_large"]
     assert tab_kinds("light") == ["lamp", "lamp_t2"]
-    assert tab_kinds("materials") == ["wire"]                             # v0.6 M3: fios saem do lingote de cobre
+    assert tab_kinds("materials") == ["wire", "circuit"]                         # v0.6 M3: fios saem do lingote de cobre
     assert tab_kinds("suit") == ["o2_tank", "scanner", "backpack"]       # Marco 3: aba "Traje" (a mochila é da T2)
     assert tab_kinds("tools") == ["constructor", "diagram_workbench", "diagram_chest_large"]                         # v0.5 M1
 
@@ -26,7 +26,7 @@ def test_every_recipe_has_a_tab():
 def test_craft_tabs_have_only_items_and_build_tabs_only_machines():
     assert craft_kinds("tools") == ["constructor", "diagram_workbench", "diagram_chest_large"]
     assert craft_kinds("automation") == ["drone"]
-    assert craft_kinds("materials") == ["wire"]
+    assert craft_kinds("materials") == ["wire", "circuit"]
     assert craft_kinds("suit") == ["o2_tank", "scanner"]
     assert build_kinds("automation") == ["drill", "drone_station", "smelter", "workbench"]
     for tab, _ in C.CRAFT_TABS:
@@ -122,3 +122,19 @@ def test_crafting_wire_needs_room_for_all_three():
     g.inventory.slots[1] = Stack("copper_ingot", 2)                      # (o slot não esvazia ao gastar 1)
     assert not g.craft("wire") and g.inventory.count("copper_ingot") == 2   # 3 fios não cabem (só 2 de espaço)
     assert ("inv_full",) in g.events
+
+
+def test_circuit_recipe_in_materials():
+    m = C.MACHINES["circuit"]
+    assert m.cost == {"silicon_wafer": 1, "wire": 2} and m.unlock_ti == 0
+    assert C.MACHINE_CATEGORY["circuit"] == "materials"
+    assert "circuit" in craft_kinds("materials")
+
+
+def test_crafting_circuit_from_wafer_and_wire():
+    g = GameState(rng=random.Random(1))                                  # nasce na base (o craft exige in_base_zone)
+    g.inventory.add("silicon_wafer", 1)
+    g.inventory.add("wire", 2)
+    assert g.craft("circuit")
+    assert g.inventory.count("circuit") == 1
+    assert g.inventory.count("silicon_wafer") == 0 and g.inventory.count("wire") == 0

@@ -121,7 +121,7 @@ def test_logistic_items_include_ingots():
 def test_drones_rules():
     m = Machine("smelter", 5, 5)
     assert drones.can_receive(m, "iron") and drones.can_receive(m, "copper") and drones.can_receive(m, "magmatite")
-    assert not drones.can_receive(m, "silicon") and not drones.can_receive(m, "iron_ingot")
+    assert drones.can_receive(m, "silicon") and not drones.can_receive(m, "iron_ingot")   # v0.6 Fundo M4: silício entra
     assert drones.can_send(m, "iron_ingot") and drones.can_send(m, "copper_ingot")
     assert not drones.can_send(m, "iron") and not drones.can_send(m, "magmatite")
     assert drones.receive_slot(m, "iron") == drones.receive_slot(m, "copper") == C.SMELTER_ORE_SLOT
@@ -149,7 +149,7 @@ def test_save_roundtrip():
 
 def test_save_cleans_bad_slots():
     data = {"kind": "smelter", "tx": 1, "ty": 1, "rotation": 0, "timer": 99, "fuel": 99,
-            "storage": [["silicon", 5], ["iron", 3], ["iron_ingot", 2]]}
+            "storage": [["ice", 5], ["iron", 3], ["iron_ingot", 2]]}
     m = save.machine_from_dict(data)
     assert m.storage.slots[C.SMELTER_ORE_SLOT] is None and m.storage.slots[C.SMELTER_FUEL_SLOT] is None
     assert m.storage.slots[C.SMELTER_OUT_SLOT] == Stack("iron_ingot", 2)
@@ -222,3 +222,26 @@ def test_chip_on_smelter_marks_nothing(game):
     m = add_smelter(game, sends=(), chip=False)
     assert game.chip_install(m) and m.chip and m.in_network
     assert m.sends == set() and m.receives == set()
+
+
+# ---------------------------------------------------------------- v0.6 Fundo M4: silício vira wafer
+def test_silicon_makes_wafer(game):
+    m = add_smelter(game, ore=("silicon", 2), fuel_items=1)
+    run(game, C.SMELTER_TIME * 2 + 1)
+    assert m.storage.slots[C.SMELTER_OUT_SLOT] == Stack("silicon_wafer", 2)
+    assert m.storage.slots[C.SMELTER_ORE_SLOT] is None
+
+
+def test_wafer_is_logistic_and_drones_route_silicon(game):
+    m = add_smelter(game)
+    assert "silicon_wafer" in C.LOGISTIC_ITEMS
+    assert drones.can_send(m, "silicon_wafer") and drones.can_receive(m, "silicon")
+    assert drones.receive_slot(m, "silicon") == C.SMELTER_ORE_SLOT
+
+
+def test_save_keeps_silicon_and_wafer():
+    data = {"kind": "smelter", "tx": 1, "ty": 1, "rotation": 0, "timer": 0, "fuel": 0,
+            "storage": [["silicon", 3], None, ["silicon_wafer", 2]]}
+    m = save.machine_from_dict(data)
+    assert m.storage.slots[C.SMELTER_ORE_SLOT] == Stack("silicon", 3)
+    assert m.storage.slots[C.SMELTER_OUT_SLOT] == Stack("silicon_wafer", 2)
