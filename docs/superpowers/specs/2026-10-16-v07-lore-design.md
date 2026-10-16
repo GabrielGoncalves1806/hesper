@@ -116,6 +116,8 @@ Tudo passa pelo dono no report antes de entrar no jogo.
 
 ## M4 · Interior da VÉSPER-7 (detalhe na hora dele)
 
+> Decisões fechadas com o dono em 2026-10-16 (uma VÉSPER por mundo, camada `vesper` sem giro, salas, porta emperrada com gancho de bateria + crachá, LOGs 21–23, sem construir dentro, aba no mapa, sons): bíblia §16, "Marco 4 · Interior da VÉSPER-7". Onde diverge do que está abaixo, vale a bíblia.
+
 - **Camada nova pequena** (~48×48), uma por transportador, gerada com seed + destroço.
 - Porta = o porão: E na boca, mesmo fade da rampa ("Entrando..." / "Saindo...").
 - **Salas desenhadas à mão, encaixadas pela seed**: cabine, corredor, alojamento, porão e a **câmara fria**, com o contêiner de gelo **arrombado por dentro**.

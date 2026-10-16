@@ -1057,3 +1057,19 @@ Spec: `docs/superpowers/specs/2026-10-16-v07-lore-design.md`. Marcos: M1 estrutu
 - **Save v13**: `wrecks.settle(layer, removed)` roda em todo load, depois do `ruins.apply_overlays`. O tile de caixa desmontada (`removed_crates`) não conta como ocupado (o player pode ter construído nele sem o destroço sumir).
 - **Balanceamento**: a `balance_sim` (seed 1) fechou o casual da proposta em 43 min (teto 54); não mexeu no teto.
 - **Fica pra Designer**: o `tools/sprites/build_sprites.py` ainda gera os `wreck_*.png` antigos; não rodar sem antes tirar isso.
+
+### Marco 4 · Interior da VÉSPER-7 (decisões do dono, 2026-10-16)
+- **Uma VÉSPER-7 por mundo**, no rank 0. Os outros `cargo` trocam de tipo: o rank 4 vira **probe** (leva o diagrama da luminária forte), o extra de n=10 vira **module** e o destroço rico do bolsão (`WRECK_RICH_KIND`) vira **module**. Save antigo: sem cuidado especial (só o dono joga); os destroços que trocam de tipo trocam também no save antigo.
+- **Camada `vesper`** (~48×48, `layers.MAKERS`), gerada pela seed. **Entrada**: E na boca do porão (tile (3,2) da pegada, chegando por (3,3)), fade "Entrando...", o player aparece no porão. **Saída**: tile de saída no porão, fade "Saindo...", volta pra (3,3) da superfície.
+- **Montagem**: esqueleto fixo **sem giro** (a planta não usa as 8 orientações das ruínas). Cada sala tem 2–3 plantas `.txt` no formato de `game/ruin_plans/`; a seed escolhe a variante, as caixas e os props. De sul pra norte:
+  - **porão**: entrada/saída e **2 caixas** com loot no nível do destroço rico do bolsão;
+  - **corredor**: liga tudo;
+  - **alojamento** (lado): beliches, **LOG 2**;
+  - **câmara fria** (lado): o **contêiner de gelo arrombado por dentro**, **só cenário** (E: "Vazio. A tampa foi forçada por dentro.", sem tela de saque), **LOG 3**;
+  - **cabine** (norte): **LOG 1** e o **painel de energia** com a silhueta da bateria e o encaixe vazio (E: "Painel de energia · sem bateria");
+  - **porta emperrada** na parede norte: **faísca + névoa fria** baixa (sem passar da soleira) e um **leitor de crachá** ao lado, desenhado no sprite. E: "Porta emperrada · energizar a nave pode resolver". **Atrás dela ainda não existe nada** (no mapa é parede). Gancho do futuro: abrir com **bateria no painel + o crachá da Ilves**. Cada pista no seu lugar: a porta só mostra o leitor, a bateria só aparece no painel da cabine.
+  - Tudo escuro (luz da caverna), luminárias (algumas apagadas) e props do kit pra escanear.
+- **LOGs** (índices 21, 22, 23; rascunho em `docs/lore/logs_v07_rascunho.md`, aprovado pelo dono antes de entrar): cabine **Dia 188** (pane logo depois da decolagem, pouso forçado, "todos vivos"); alojamento **Dia ~190** (esperando resgate; o contêiner "suando", a câmara fria mais quente do que devia); câmara fria **Dia ~193** (barulho dentro do contêiner; decidem lacrar a câmara e sair a pé; ninguém chegou). Pista só: não diz o que saiu.
+- **Regras**: o O₂ continua descendo. **Não dá pra construir** lá dentro ("Não dá pra construir aqui"); o scan funciona. **Mapa**: aba **"VÉSPER-7"** no cabeçalho, só depois da primeira entrada; minimapa funciona dentro. **Save**: pela camada (caixas, explorado); salvou dentro, carrega dentro.
+- **Arte (Designer, passa pelo dono)**: piso e parede da nave; boca do porão vista por dentro (saída); contêiner arrombado; painel de energia com silhueta de bateria; porta emperrada; leitor de crachá (cordão + foto, amarelo, do rascunho do dono).
+- **Som (Som, passa pelo dono)**: novos `amb_vesper` (casco rangendo + zumbido elétrico morto, baixo), `door_stuck` (trava que não cede), `spark` (estalinho junto da partícula, só perto). Reaproveita `ramp_down`/`ramp_up` na entrada e saída e `power_low` no painel.
