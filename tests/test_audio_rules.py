@@ -103,3 +103,39 @@ def test_recorded_variants_are_loaded_in_order(tmp_path, monkeypatch):
         assert len(Audio._load("gust")) == 3
     finally:
         pygame.mixer.quit()
+
+
+def test_ambient_for_cave_region():
+    """v0.6 Fundo M2: na caverna, fora do centro, toca o ambiente do bioma; na superfície a região não vale."""
+    from game import audio
+    assert audio.ambient_for("cave", "mist", True, cave_region="basalt") == "cave_basalt"
+    assert audio.ambient_for("cave", "mist", True, cave_region="plateau") == "cave"
+    assert audio.ambient_for("cave", "mist", True, cave_region=None) == "cave"
+    assert audio.ambient_for("surface", "green", True, cave_region="basalt") == "green"
+
+
+def test_cave_picker_waits_before_switching():
+    from game import audio
+    p = audio.CaveRegionPicker()
+    p.reset("plateau")
+    assert p.update("salar", 1.0) == "plateau"
+    assert p.update("salar", C.CAVE_AMB_HOLD_S) == "salar"
+
+
+def test_cave_picker_ignores_short_crossings():
+    from game import audio
+    p = audio.CaveRegionPicker()
+    p.reset("plateau")
+    p.update("salar", 1.0)
+    p.update("plateau", 0.1)                    # voltou antes do tempo: zera
+    assert p.update("salar", 1.0) == "plateau"
+
+
+def test_cave_biome_ambients_exist_and_load():
+    """Os 3 WAVs entram no Audio como amb_cave_<região> (nome certo pro _start_on_channel)."""
+    import os
+    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+    from game.audio import Audio
+    a = Audio()
+    if a.ok:
+        assert all(a.has(f"amb_cave_{n}") for n in ("salar", "basalt", "frost"))

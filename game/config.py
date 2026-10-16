@@ -627,6 +627,9 @@ CAVE_AMBIENT_OUT_MS = 1500      # descendo/subindo: o ambiente que sai (e o vent
 CAVE_AMBIENT_IN_MS = 2500       # ...e o novo entra em 2,5 s...
 CAVE_AMBIENT_DELAY = 0.5        # ...meio segundo depois (dica do Som)
 
+# v0.6 Fundo M2 · som
+CAVE_AMB_HOLD_S = 1.5           # s seguidos na região nova da caverna antes do ambiente trocar pro bioma dela
+
 # ---------------------------------------------------------------------------
 # v0.3 Marco 3 · destroços, projetos, equipamento e scanner (bíblia §9)
 # ---------------------------------------------------------------------------

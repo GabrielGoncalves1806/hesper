@@ -53,15 +53,44 @@ WIND_FADE_IN, WIND_FADE_OUT = 2.5, 1.5   # s: vento sobe devagar ao sair pra sup
 
 
 # ---------------------------------------------------------------- regras puras (testáveis)
-def ambient_for(layer: str, stage_key: str, has_cave: bool, has_storm: bool = False) -> str:
+def ambient_for(layer: str, stage_key: str, has_cave: bool, has_storm: bool = False,
+                cave_region: str | None = None) -> str:
     """Qual ambiente toca: na caverna o amb_cave (se o arquivo existir; senão fica o do estágio), na
     superfície o amb_{arte do estágio}. Mudar de estágio lá embaixo não troca o ambiente: o novo entra ao subir.
-    Tempestade: amb_storm se o arquivo existir, senão amb_dead. Árido: amb_dead (mesma arte do Morto)."""
+    Tempestade: amb_storm se o arquivo existir, senão amb_dead. Árido: amb_dead (mesma arte do Morto).
+    v0.6 Fundo M2: na caverna, fora do centro, amb_cave_<região> (o chamador passa `cave_region` só se o
+    arquivo existir)."""
     if layer == "cave" and has_cave:
-        return "cave"
+        return f"cave_{cave_region}" if cave_region and cave_region != "plateau" else "cave"
     if stage_key == "storm" and has_storm:
         return "storm"
     return C.STAGE_ART.get(stage_key, stage_key)
+
+
+class CaveRegionPicker:
+    """Histerese do ambiente por bioma: a região "estável" só troca depois de C.CAVE_AMB_HOLD_S seguidos na nova
+    (cruzar a fronteira e voltar não troca o som)."""
+
+    def __init__(self):
+        self.stable: str | None = None
+        self._cand: str | None = None
+        self._held = 0.0
+
+    def reset(self, region: str | None) -> None:
+        self.stable, self._cand, self._held = region, None, 0.0
+
+    def update(self, region: str | None, dt: float) -> str | None:
+        if region == self.stable:
+            self._cand, self._held = None, 0.0
+        elif region == self._cand:
+            self._held += dt
+            if self._held >= C.CAVE_AMB_HOLD_S:
+                self.reset(region)
+        else:
+            self._cand, self._held = region, dt
+            if self._held >= C.CAVE_AMB_HOLD_S:
+                self.reset(region)
+        return self.stable
 
 
 def alarm_should_play(currently_on: bool, o2: float) -> bool:
