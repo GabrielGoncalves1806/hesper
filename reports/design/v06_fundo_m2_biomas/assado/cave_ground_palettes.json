@@ -1,0 +1,475 @@
+{
+ "note": "Chão assado da CAVERNA (v0.6 Fundo M2). Mesmo formato do regions_palettes.json da superfície: ramps.BASE[classe][estágio] (8 cores; índice 8 = contorno e 9 = sombra vêm do código, como `RegionArt.lut`). A caverna não tem estágios: o estágio é sempre \"cave\". Classes: plateau, salar, basalt, frost (SEM leito 'bed'). Código no pixel = classe·16 + índice.",
+ "stage": "cave",
+ "classes": [
+  "plateau",
+  "salar",
+  "basalt",
+  "frost"
+ ],
+ "ramps": {
+  "BASE": {
+   "plateau": {
+    "cave": [
+     "#3f322c",
+     "#4c3d35",
+     "#685448",
+     "#6e5a4f",
+     "#75604f",
+     "#85715f",
+     "#a08b78",
+     "#5e4c42"
+    ]
+   },
+   "salar": {
+    "cave": [
+     "#85734f",
+     "#9a8863",
+     "#a8946c",
+     "#b6a279",
+     "#c3b087",
+     "#efe7d3",
+     "#9c8a64",
+     "#d3c39f"
+    ]
+   },
+   "basalt": {
+    "cave": [
+     "#141418",
+     "#1c1c20",
+     "#2d2c32",
+     "#343439",
+     "#403f45",
+     "#545257",
+     "#b8381d",
+     "#ff8a45"
+    ]
+   },
+   "frost": {
+    "cave": [
+     "#2f3d5a",
+     "#40527a",
+     "#566d93",
+     "#6880a6",
+     "#7b93b8",
+     "#9fc0e0",
+     "#c2dcf3",
+     "#eef8ff"
+    ]
+   }
+  }
+ },
+ "decal_cell": 96,
+ "decal_p": {
+  "plateau": 0.4,
+  "salar": 0.4,
+  "basalt": 0.45,
+  "frost": 0.45
+ },
+ "decal_mix": {
+  "plateau": [
+   [
+    "soil",
+    3
+   ],
+   [
+    "patch_light",
+    2
+   ],
+   [
+    "crack",
+    4
+   ],
+   [
+    "gravel",
+    4
+   ]
+  ],
+  "salar": [
+   [
+    "wet",
+    4
+   ],
+   [
+    "efflor",
+    3
+   ],
+   [
+    "ridges",
+    3
+   ],
+   [
+    "crack",
+    2
+   ]
+  ],
+  "basalt": [
+   [
+    "scoria",
+    5
+   ],
+   [
+    "ember_crack",
+    3
+   ],
+   [
+    "ash",
+    3
+   ],
+   [
+    "crack",
+    2
+   ],
+   [
+    "patch_dark",
+    2
+   ],
+   [
+    "ember_pool",
+    0.5
+   ]
+  ],
+  "frost": [
+   [
+    "icesheet",
+    3
+   ],
+   [
+    "frostpatch",
+    3
+   ],
+   [
+    "crack",
+    3
+   ],
+   [
+    "sparkle",
+    3
+   ],
+   [
+    "gravel",
+    1
+   ]
+  ]
+ },
+ "decal_small": [
+  "gravel",
+  "scoria",
+  "plates",
+  "ridges",
+  "crack"
+ ],
+ "files": {
+  "decal_soil_0.png": {
+   "size": "224×96",
+   "classes": [
+    "plateau"
+   ]
+  },
+  "decal_patch_dark_0.png": {
+   "size": "176×80",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_patch_light_0.png": {
+   "size": "192×80",
+   "classes": [
+    "plateau"
+   ]
+  },
+  "decal_crack_0.png": {
+   "size": "208×75",
+   "classes": [
+    "plateau",
+    "salar",
+    "basalt",
+    "frost"
+   ]
+  },
+  "decal_wet_0.png": {
+   "size": "128×80",
+   "classes": [
+    "salar"
+   ]
+  },
+  "decal_efflor_0.png": {
+   "size": "95×55",
+   "classes": [
+    "salar"
+   ]
+  },
+  "decal_ridges_0.png": {
+   "size": "142×34",
+   "classes": [
+    "salar"
+   ]
+  },
+  "decal_ember_crack_0.png": {
+   "size": "183×54",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_ember_pool_0.png": {
+   "size": "30×20",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_ash_0.png": {
+   "size": "170×70",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_icesheet_0.png": {
+   "size": "128×72",
+   "classes": [
+    "frost"
+   ]
+  },
+  "decal_frostpatch_0.png": {
+   "size": "180×76",
+   "classes": [
+    "frost"
+   ]
+  },
+  "decal_sparkle_0.png": {
+   "size": "23×17",
+   "classes": [
+    "frost"
+   ]
+  },
+  "decal_soil_1.png": {
+   "size": "176×80",
+   "classes": [
+    "plateau"
+   ]
+  },
+  "decal_patch_dark_1.png": {
+   "size": "144×64",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_patch_light_1.png": {
+   "size": "150×64",
+   "classes": [
+    "plateau"
+   ]
+  },
+  "decal_crack_1.png": {
+   "size": "166×36",
+   "classes": [
+    "plateau",
+    "salar",
+    "basalt",
+    "frost"
+   ]
+  },
+  "decal_wet_1.png": {
+   "size": "89×63",
+   "classes": [
+    "salar"
+   ]
+  },
+  "decal_efflor_1.png": {
+   "size": "77×55",
+   "classes": [
+    "salar"
+   ]
+  },
+  "decal_ridges_1.png": {
+   "size": "119×34",
+   "classes": [
+    "salar"
+   ]
+  },
+  "decal_ember_crack_1.png": {
+   "size": "146×61",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_ember_pool_1.png": {
+   "size": "28×21",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_ash_1.png": {
+   "size": "130×56",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_icesheet_1.png": {
+   "size": "104×60",
+   "classes": [
+    "frost"
+   ]
+  },
+  "decal_frostpatch_1.png": {
+   "size": "140×60",
+   "classes": [
+    "frost"
+   ]
+  },
+  "decal_sparkle_1.png": {
+   "size": "27×14",
+   "classes": [
+    "frost"
+   ]
+  },
+  "decal_soil_2.png": {
+   "size": "144×64",
+   "classes": [
+    "plateau"
+   ]
+  },
+  "decal_patch_dark_2.png": {
+   "size": "112×56",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_patch_light_2.png": {
+   "size": "120×56",
+   "classes": [
+    "plateau"
+   ]
+  },
+  "decal_crack_2.png": {
+   "size": "126×46",
+   "classes": [
+    "plateau",
+    "salar",
+    "basalt",
+    "frost"
+   ]
+  },
+  "decal_wet_2.png": {
+   "size": "65×51",
+   "classes": [
+    "salar"
+   ]
+  },
+  "decal_efflor_2.png": {
+   "size": "47×41",
+   "classes": [
+    "salar"
+   ]
+  },
+  "decal_ridges_2.png": {
+   "size": "89×23",
+   "classes": [
+    "salar"
+   ]
+  },
+  "decal_ember_crack_2.png": {
+   "size": "116×47",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_ember_pool_2.png": {
+   "size": "20×17",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_ash_2.png": {
+   "size": "100×48",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_icesheet_2.png": {
+   "size": "88×52",
+   "classes": [
+    "frost"
+   ]
+  },
+  "decal_frostpatch_2.png": {
+   "size": "110×52",
+   "classes": [
+    "frost"
+   ]
+  },
+  "decal_sparkle_2.png": {
+   "size": "20×14",
+   "classes": [
+    "frost"
+   ]
+  },
+  "decal_gravel_0.png": {
+   "size": "50×21",
+   "classes": [
+    "plateau",
+    "frost"
+   ]
+  },
+  "decal_scoria_0.png": {
+   "size": "52×32",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_gravel_1.png": {
+   "size": "35×33",
+   "classes": [
+    "plateau",
+    "frost"
+   ]
+  },
+  "decal_scoria_1.png": {
+   "size": "50×37",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_gravel_2.png": {
+   "size": "48×29",
+   "classes": [
+    "plateau",
+    "frost"
+   ]
+  },
+  "decal_scoria_2.png": {
+   "size": "49×37",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "decal_gravel_3.png": {
+   "size": "47×23",
+   "classes": [
+    "plateau",
+    "frost"
+   ]
+  },
+  "decal_scoria_3.png": {
+   "size": "40×35",
+   "classes": [
+    "basalt"
+   ]
+  },
+  "ground_cave_plateau.png": {
+   "size": "512×512",
+   "class": "plateau"
+  },
+  "ground_cave_salar.png": {
+   "size": "512×512",
+   "class": "salar"
+  },
+  "ground_cave_basalt.png": {
+   "size": "512×512",
+   "class": "basalt"
+  },
+  "ground_cave_frost.png": {
+   "size": "512×512",
+   "class": "frost"
+  }
+ }
+}
