@@ -2007,9 +2007,10 @@ class GameState:
         return min(near, key=self.crate_distance, default=None)
 
     def wreck_terminal_distance(self, wreck: Wreck) -> float:
-        """Dos pés até a base do terminal do módulo (o player lê do tile logo abaixo dele)."""
-        tx, ty = wreck.terminal
-        return math.hypot(self.player.x - (tx + 0.5) * C.TILE, self.player.y - (ty + 1) * C.TILE)
+        """Dos pés até a borda de cima do tile de onde se lê o terminal (`reads_from`; v0.7 M3: a base de vidro lê
+        de fora da pegada)."""
+        rx, ry = wreck.reads_from
+        return math.hypot(self.player.x - (rx + 0.5) * C.TILE, self.player.y - ry * C.TILE)
 
     def nearby_wreck_terminal(self) -> Wreck | None:
         near = [w for w in self.world.wrecks

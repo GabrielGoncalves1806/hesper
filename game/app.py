@@ -2124,7 +2124,7 @@ class App:
             unlocked = state.recipe_status("drill") != "locked"
             return f"Veio de {name} · " + ("coloque uma drill" if unlocked else "drill libera na Névoa")
         hover = state.interactable_at(*self.mouse_world())
-        wreck = state.world.wreck_at(*self.mouse_tile())
+        wreck = state.world.wreck_at_px(*self.mouse_world())
         if wreck is not None and hover is None:                         # corpo do destroço (não a caixa/terminal)
             return f"{wreck.name} · destroço" + (f" · {self.e_label(target)}" if target else "")
         if target and target[0] == "crate" and target[1].empty and state.can_dismantle(target[1]):   # v0.6 M1
