@@ -156,7 +156,7 @@ PLAYER_BOX_W, PLAYER_BOX_H = 14, 8   # caixa de colisão nos pés
 # Mineração (§4 Mineração)
 # ---------------------------------------------------------------------------
 MINE_TIME = {ROCK: 0.6, IRON: 1.0, SILICON: 1.2, ICE: 0.8, COPPER: 1.1,
-             HARD_ROCK: 1.5,                                        # v0.6 Fundo: só com a nv.2 (no M1, o F3)
+             HARD_ROCK: 2.25,                                       # v0.6 Fundo: só com a nv.2 (~1,5 s nela, ×1,5) ou o F3
              SMALL_IRON: 0.7, SMALL_SILICON: 0.7, SMALL_ICE: 0.7,   # rocha pequena: rapidinha
              SMALL_MAGMATITE: 0.9}                                  # magmatita: basalto, um pouco mais dura
 DROP_MIN, DROP_MAX = 1, 2       # minério de parede
@@ -173,6 +173,8 @@ RESOURCE_NAME = {"iron": "ferro", "silicon": "silício", "ice": "gelo", "magmati
                  "water_capsule": "cápsula de água"}   # em frases (Pixelify); a cápsula (v0.5 M2) só entra por nome
 RESOURCE_NAME.update({"iron_ingot": "lingote de ferro", "copper_ingot": "lingote de cobre"})   # v0.6 M3: lingotes da Fundição (toggles dos drones)
 RESOURCE_LABEL.update({"iron_ingot": "LING. FERRO", "copper_ingot": "LING. COBRE"})
+RESOURCE_NAME["silicon_wafer"] = "wafer de silício"   # v0.6 Fundo M4: o wafer da Fundição (toggle dos drones)
+RESOURCE_LABEL["silicon_wafer"] = "WAFER"
 RESOURCE_LABEL["water_capsule"] = "CÁPSULA"   # (idem: não é recurso, RESOURCES não tem ela)
 
 # ---------------------------------------------------------------------------
@@ -295,7 +297,8 @@ SMELTER_SLOTS = 3
 SMELTER_TIME = 15.0
 SMELTER_BURNS_PER_FUEL = 4
 SMELTER_FUEL = "magmatite"
-SMELTER_RECIPES = {"iron": "iron_ingot", "copper": "copper_ingot"}
+SMELTER_RECIPES = {"iron": "iron_ingot", "copper": "copper_ingot",
+                   "silicon": "silicon_wafer"}   # v0.6 Fundo M4: o silício vira wafer (mesmo tempo e magmatita)
 SMELTER_REACH = MELTER_REACH
 VOLUME.update({"smelter_loop": 0.45, "smelter_done": 0.6})   # Som, aprovados pelo dono (2026-10-16)
 MACHINES[SMELTER] = MachineType(SMELTER, "Fundição", "minério → lingote", {"iron": 15, "silicon": 6, "magmatite": 4},
@@ -595,7 +598,7 @@ DRONE_PICKUP_TIME = 0.8         # segundos parado em cima da origem "pegando"
 DRONE_DROP_TIME = 0.6           # segundos parado em cima do destino "soltando"
 DRONE_IDLE_RETRY = 0.5          # drone pousado sem tarefa procura de novo a cada 0,5 s
 # Logística (baú e drill): o que os drones tiram (Envia) e trazem (Recebe), e o lote por viagem.
-LOGISTIC_ITEMS = RESOURCES + ("water_capsule", "iron_ingot", "copper_ingot")   # itens com toggle no painel (v0.5 M2: a cápsula de água; v0.6 M3: os lingotes da Fundição)
+LOGISTIC_ITEMS = RESOURCES + ("water_capsule", "iron_ingot", "copper_ingot", "silicon_wafer")   # itens com toggle no painel (v0.5 M2: a cápsula de água; v0.6 M3: os lingotes da Fundição; M4: o wafer)
 DRONE_BATCH_OPTIONS = (1, 5, 10, 20)
 DRONE_BATCH_DEFAULT = 10
 STATION_BUFFER = 50             # legado (save ≤ v4): o buffer não recebe mais nada, só dá pra tirar as sobras
@@ -1008,6 +1011,11 @@ MACHINES["wire"] = _replace(MACHINES["wire"], cost={"copper_ingot": 1}, desc="1 
 MACHINE_ORDER.append("wire")
 MACHINE_CATEGORY["wire"] = "materials"
 CRAFT_YIELD = {"wire": 3}
+# v0.6 Fundo M4 · circuito: 1 wafer (da Fundição) + 2 fios → 1 circuito (aba Materiais, Ti 0). Continua caindo de loot.
+MACHINES["circuit"] = _replace(MACHINES["circuit"], cost={"silicon_wafer": 1, "wire": 2}, desc="1 wafer + 2 fios")
+MACHINE_ORDER.append("circuit")
+MACHINE_CATEGORY["circuit"] = "materials"
+MACHINES["silicon_wafer"] = _replace(MACHINES["silicon_wafer"], desc="sai da Fundição (silício)")
 FAB_TABS = tuple(t for t in FAB_TABS if t[0] != "suit")
 BUILD_TIME = 1.35               # s da máquina "se construindo" (scanner de baixo pra cima): parada, sem Ti nem energia.
                                 # 1,35 = o clack do build.wav (Som): ela fica pronta junto com ele
@@ -1067,8 +1075,22 @@ MACHINES["diagram_chest_large"] = MachineType("diagram_chest_large", "Diagrama: 
 MACHINE_ORDER.append("diagram_chest_large")
 MACHINE_CATEGORY["diagram_chest_large"] = "tools"
 # Receitas da Bancada T2 (itens, ids de MACHINES). O fabricador T1 não mostra estas (fabricator.craft_kinds).
-T2_RECIPES: tuple[str, ...] = ("backpack", "chip")   # a mochila (B3) e o chip (v0.6 M2); a broca nv.2 entra no M4
+T2_RECIPES: tuple[str, ...] = ("backpack", "chip")   # a mochila (B3) e o chip (v0.6 M2); a broca nv.2 entra no bloco do M4, mais abaixo
 T2_TABS = (("t2", "Itens"),)    # a Bancada T2 tem uma aba só por enquanto
+
+# ---------------------------------------------------------------------------
+# v0.6 Fundo M4 · Broca nv.2 (números de partida; balanceamento depois)
+# ---------------------------------------------------------------------------
+# Feita na Bancada T2 com a nv.1, que é consumida (a nv.1 no `cost`; a T2 gasta só o inventário). Minera ×1,5 e quebra
+# rocha dura (GameState.can_break_hard / mine_speed, pelo Controls.drill_tier). Mesmo alcance, mesmo sprite na mão.
+HAND_DRILL_T2 = "hand_drill_t2"
+HAND_DRILLS = (HAND_DRILL, HAND_DRILL_T2)
+HAND_DRILL_T2_SPEED = 1.5
+MACHINES[HAND_DRILL_T2] = MachineType(HAND_DRILL_T2, "Broca de mão nv.2", "×1,5 e quebra rocha dura",
+                                      {HAND_DRILL: 1, "iron_ingot": 2, "wire": 4, "circuit": 1}, None, 0, 0,
+                                      "icon_hand_drill_t2", placeable=False)
+T2_RECIPES = T2_RECIPES + (HAND_DRILL_T2,)
+CRAFT_REPLACES = {HAND_DRILL_T2: HAND_DRILL}   # o item novo nasce no slot do que foi consumido (a broca na hotbar)
 
 
 # ---------------------------------------------------------------------------

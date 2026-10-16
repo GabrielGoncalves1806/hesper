@@ -563,10 +563,16 @@ class App:
         self.audio.play("ui_click")
 
     # ---- construtor (v0.5 M1) -----------------------------------------------------
-    def hand_drill_selected(self) -> bool:
-        """v0.5 M4: a broca de mão é o slot escolhido da hotbar? (só com ela o clique minera)"""
+    def held_drill_tier(self) -> int:
+        """v0.6 Fundo M4: 0 sem broca na mão, 1 a nv.1, 2 a nv.2 (slot escolhido da hotbar)."""
         stack = self.state.inventory.slots[self.hotbar_selected]
-        return stack is not None and stack.item == C.HAND_DRILL
+        if stack is None or stack.item not in C.HAND_DRILLS:
+            return 0
+        return 2 if stack.item == C.HAND_DRILL_T2 else 1
+
+    def hand_drill_selected(self) -> bool:
+        """v0.5 M4: uma broca de mão (nv.1 ou nv.2) é o slot escolhido da hotbar? (só com ela o clique minera)"""
+        return self.held_drill_tier() > 0
 
     def constructor_selected(self) -> bool:
         stack = self.state.inventory.slots[self.hotbar_selected]
@@ -999,7 +1005,7 @@ class App:
                 return None if have is None or have.item == item else "Tire o minério que está na Fundição antes"
             if index == C.SMELTER_FUEL_SLOT and item == C.SMELTER_FUEL:
                 return None
-            return "A Fundição só aceita ferro, cobre e magmatita"
+            return "A Fundição só aceita ferro, cobre, silício e magmatita"
         if self.open_dispenser is not None and inv is self.open_dispenser.storage:
             return None if item == "water_capsule" else "O Dispersor só aceita cápsula de água"
         return None
@@ -1117,7 +1123,7 @@ class App:
             if inv is smelter.storage:
                 moved = state.melter_take(smelter, i, amount)
             elif item not in C.SMELTER_RECIPES and item != C.SMELTER_FUEL:
-                self.show_notice("A Fundição só aceita ferro, cobre e magmatita")
+                self.show_notice("A Fundição só aceita ferro, cobre, silício e magmatita")
                 return
             else:
                 moved = state.smelter_put(smelter, i, amount)
@@ -1607,7 +1613,7 @@ class App:
         dismantle = ((self.hovered_machine() or self.hovered_block() or self.hovered_crate())   # v0.6: só com o construtor na mão
                      if self.right_held and not self.placing and self.constructor_selected() else None)
         return Controls(max(-1, min(1, mx)), max(-1, min(1, my)), mine, dismantle=dismantle,
-                        drill_in_hand=self.hand_drill_selected())
+                        drill_in_hand=self.hand_drill_selected(), drill_tier=max(1, self.held_drill_tier()))
 
     # ---- update ---------------------------------------------------------------
     def update(self, dt: float) -> None:
@@ -2053,7 +2059,7 @@ class App:
             ore_text = f"{ore.count} {C.RESOURCE_NAME[ore.item]}" if ore else "sem minério"
             out = machine.storage.slots[C.SMELTER_OUT_SLOT]
             content = (f"Fundição: {ore_text} · {machine.storage.count(C.SMELTER_FUEL)} magmatita"
-                       f" · {out.count if out else 0} lingote(s)")
+                       f" · {out.count if out else 0} pronto(s)")
             return content + (" · [E] abrir" if target and target[1] is machine else other)
         if machine and machine.is_dispenser:               # v0.5 M2: estado da vedação e da água
             content = f"Dispersor de O₂: {C.STATE_LABEL[state.dispenser_state(machine)]}"
@@ -2124,6 +2130,7 @@ class App:
         if state.world.is_minable(*tile):
             if not self.hand_drill_selected():              # v0.5 M4: sem a broca na mão, o clique não minera
                 return "Selecione a broca de mão pra minerar"
+            state.drill_tier = max(1, self.held_drill_tier())   # v0.6 Fundo M4: a dica vale no frame da troca de slot
             if state.hard_blocked(tile):                     # v0.6 Fundo: gelo e basalto da caverna
                 return "Rocha dura demais · precisa da broca nv.2"
             if state.world.get(*tile) in C.SMALL_ROCKS:
@@ -2241,7 +2248,7 @@ class App:
         ui.begin()
         icons = {r: self.renderer.surface(f"icon_{r}", lambda r=r: art.icon(r))[0] for r in C.RESOURCES}
         icons["water_capsule"] = self.renderer.surface("icon_water_capsule", art.water_capsule_icon)[0]   # rótulo do baú
-        icons.update({r: self.renderer._m4_icon(r) for r in ("iron_ingot", "copper_ingot")})   # v0.6 M3: lingotes no rótulo
+        icons.update({r: self.renderer._m4_icon(r) for r in ("iron_ingot", "copper_ingot", "silicon_wafer")})   # v0.6 M3: lingotes (M4: e o wafer) no rótulo
         labels = []
         if self.mode == "play":
             ui.draw_chest_labels(self.labeled_chests(), cam, self.zoom, icons)

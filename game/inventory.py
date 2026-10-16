@@ -22,8 +22,8 @@ from game import config as C
 
 def max_stack(item: str) -> int:
     """Até quanto esse item empilha num slot."""
-    if item == C.HAND_DRILL:
-        return C.STACK_TOOL                           # v0.5 M4: a broca de mão não empilha
+    if item in C.HAND_DRILLS:
+        return C.STACK_TOOL                           # v0.5 M4: a broca de mão não empilha (v0.6 Fundo M4: nem a nv.2)
     if item in C.PART_ITEMS:
         return C.STACK_LOOT                           # v0.5 M4: peças de loot e lingotes (só ocupam inventário)
     return C.STACK_RESOURCE if item in C.RESOURCES else C.STACK_MACHINE
