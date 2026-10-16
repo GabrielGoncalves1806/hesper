@@ -46,7 +46,7 @@ class WreckSpec:
 
 
 SPECS = {   # v0.7 M3: arte nova (bíblia §16, "Marco 3 · Destroços novos")
-    "cargo": WreckSpec("Nave de carga", (5, 3), "wreck_cargo", (160, 128), 32, (1, 3), None,
+    "cargo": WreckSpec("VÉSPER-7", (5, 3), "wreck_cargo", (160, 128), 32, (1, 3), None,
                        {"iron": (14, 20), "silicon": (8, 12), "ice": (6, 10)}),
     "module": WreckSpec("Base espacial", (8, 4), "wreck_module", (256, 168), 40, (5, 4), (4, 2),
                         {"iron": (8, 12), "silicon": (4, 7), "ice": (3, 5)},
@@ -135,9 +135,15 @@ class Wreck:
 
 def kinds_for(n: int) -> list[str]:
     """Tipo de cada destroço, do mais perto pro mais longe (n de 8 a 10, v0.7 M3). Uma ARCA-2 (liner) por mundo;
-    robô só do rank 6 pra frente (o circuito grátis chega quando o player já está perto de fabricar o dele)."""
-    extras = ["robot", "cargo"][:max(0, n - 8)]
-    return ["cargo", "probe", "module", "liner", "cargo", "probe", "robot", *extras, "module"]
+    robô só do rank 6 pra frente (o circuito grátis chega quando o player já está perto de fabricar o dele).
+    v0.7 M4: uma VÉSPER-7 (cargo) por mundo, no rank 0; o rank 4 virou sonda (leva o diagrama da luminária forte)."""
+    extras = ["robot", "module"][:max(0, n - 8)]
+    return ["cargo", "probe", "module", "liner", "probe", "probe", "robot", *extras, "module"]
+
+
+def vesper_wreck(world) -> "Wreck | None":
+    """A VÉSPER-7 do mundo (o único cargo de fora dos bolsões; v0.7 M4), ou None."""
+    return next((w for w in getattr(world, "wrecks", []) if w.kind == "cargo" and not w.rich), None)
 
 
 def extras_for(rank: int, n: int) -> tuple[int | None, str | None]:

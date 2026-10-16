@@ -858,7 +858,7 @@ THAW_GATE_NOTICE_TIME = 4.0         # s do aviso
 VOLUME.setdefault("ice_crack", 0.7)  # estalo do gelo (ice_crack.wav + ice_crack_1.wav, v11)
 # Destroço rico: no wreck_spot de cada bolsão, uma nave de carga com o saque "rico" (mais material que a melhor
 # nave de fora) e, se algum projeto de BLUEPRINTS não caiu nos destroços de fora, o 1º que faltar.
-WRECK_RICH_KIND = "cargo"
+WRECK_RICH_KIND = "robot"       # v0.7 M4: o module 8×4 não cabe no wreck_spot dos bolsões (a VÉSPER-7 é o único cargo)
 WRECK_RICH_LOOT = {"iron": (30, 40), "silicon": (20, 28), "ice": (14, 20)}
 # Contêiner lacrado no container_spot de cada bolsão (v0.5 M4): o E abre de graça, uma vez só (vira "aberto").
 CONTAINER_REACH = 48                # px dos pés até a base dele (igual à caixa de saque)

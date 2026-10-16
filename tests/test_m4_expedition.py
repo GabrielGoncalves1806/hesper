@@ -125,7 +125,7 @@ def test_common_wrecks_give_simple_parts_and_rich_wrecks_the_better_ones():
     common, rich = set(), set()
     for seed in SEEDS:
         for wreck in game(seed).world.wrecks:
-            if wreck.kind == "robot":                     # v0.7 M3: o robô dá circuito de propósito
+            if wreck.kind == "robot" and not wreck.rich:  # v0.7 M3: o robô comum dá circuito de propósito (o rico, M4, é robô também)
                 continue
             parts = {i for i, _ in wrecks.crate_loot(wreck, seed) if i in C.LOOT_ITEMS}
             (rich if wreck.rich else common).update(parts)
