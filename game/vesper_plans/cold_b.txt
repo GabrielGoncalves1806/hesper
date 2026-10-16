@@ -1,0 +1,21 @@
+name: Câmara fria
+layer: vesper
+damage: rock
+r: prop_rubble
+s: prop_ice_stain
+k: prop_crate
+K: container_broken
+L: emergency_light
+1: 23
+---
+###L######1###
+#............#
+#..ss..k.....#
+#.s..ss.k..r.#
+#.....s....r.#
+.....ss.....K#
+#...ss.....rr#
+#.k..s....s..#
+#....rr..s...#
+#.s.k....k...#
+##############

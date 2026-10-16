@@ -35,8 +35,8 @@ class Plan:
     props: dict[str, str] = field(default_factory=dict)      # v0.7 M2: letra -> kind do prop (id em C.PROPS)
 
 
-def load_plan(key: str) -> Plan:
-    head, grid = (PLAN_DIR / f"{key}.txt").read_text(encoding="utf-8").split("\n---\n", 1)
+def load_plan(key: str, plan_dir: Path = PLAN_DIR) -> Plan:
+    head, grid = (plan_dir / f"{key}.txt").read_text(encoding="utf-8").split("\n---\n", 1)
     meta = dict(line.split(":", 1) for line in head.splitlines() if ":" in line)
     meta = {k.strip(): v.strip() for k, v in meta.items()}
     rows = [row for row in grid.splitlines() if row]

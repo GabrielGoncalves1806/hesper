@@ -112,6 +112,7 @@ class World:
         self.ruins: list = []
         self.ruin_tiles: frozenset = frozenset()
         self.ruin_terminals: dict = {}
+        self.fixtures: dict = {}                                  # v0.7 M4: tile -> tipo, só na camada vesper (game/vesper.py)
 
     # ---- geração ----------------------------------------------------------
     @classmethod

@@ -132,7 +132,8 @@ def pristine_tiles(seed: int, key: str = layers.SURFACE) -> list[list[int]]:
     if key == layers.SURFACE:
         return surface_pristine(seed)
     if (key, seed) not in _pristine:
-        remember_pristine(World.generate(seed), key)   # ~0,15 s, só na primeira vez de cada seed
+        from game import vesper
+        remember_pristine(vesper.generate_world(seed) if key == layers.VESPER else World.generate(seed), key)   # ~0,15 s, só na primeira vez de cada seed
     return _pristine[(key, seed)]
 
 

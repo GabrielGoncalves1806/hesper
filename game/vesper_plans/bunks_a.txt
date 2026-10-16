@@ -1,0 +1,21 @@
+name: Alojamento
+layer: vesper
+damage: rock
+b: prop_bunk
+k: prop_locker
+t: prop_table
+h: prop_chair_fallen
+L: emergency_light
+1: 22
+---
+######1###L###
+#bb........kk#
+#............#
+#bb...t......#
+#.....h......#
+#.............
+#bb..........#
+#............#
+#bb.......k..#
+#............#
+##############
