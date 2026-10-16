@@ -145,17 +145,23 @@ def generate_world(seed: int):
     return world
 
 
+def crate_loot(tx: int, ty: int, seed: int) -> list[tuple[str, int]]:
+    """Saque inicial da caixa do porão em (tx, ty): recursos do destroço rico (C.WRECK_RICH_LOOT) + peças boas
+    (C.LOOT_RICH). O save usa (wrecks.loot_for) pra saber se a caixa mudou."""
+    from game.wrecks import _roll_parts
+    rng = random.Random(seed * 3209 + tx * 43 + ty * 17 + 11)
+    items = [(item, rng.randint(lo, hi)) for item, (lo, hi) in C.WRECK_RICH_LOOT.items()]
+    return items + list(_roll_parts(rng, C.LOOT_RICH))
+
+
 def make_crates(world, seed: int) -> dict:
-    """As 2 caixas do porão: recursos do destroço rico (C.WRECK_RICH_LOOT) + peças boas (C.LOOT_RICH)."""
+    """As 2 caixas do porão (ver crate_loot)."""
     from game.inventory import Inventory
-    from game.wrecks import Crate, _roll_parts
+    from game.wrecks import Crate
     out = {}
     for tx, ty in crate_tiles(world.seed):
-        rng = random.Random(seed * 3209 + tx * 43 + ty * 17 + 11)
         storage = Inventory(C.CRATE_SLOTS)
-        for item, (lo, hi) in C.WRECK_RICH_LOOT.items():
-            storage.add(item, rng.randint(lo, hi))
-        for item, n in _roll_parts(rng, C.LOOT_RICH):
+        for item, n in crate_loot(tx, ty, seed):
             storage.add(item, n)
         out[(tx, ty)] = Crate(ruins.RuinSpot(tx, ty, VESPER, "Caixa · VÉSPER-7"), storage)
     return out

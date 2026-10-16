@@ -361,6 +361,9 @@ def loot_for(wreck, seed: int) -> list[tuple[str, int]]:
         return container_loot(wreck, seed)
     from game import ruins                      # v0.7 M1: a caixa das estruturas (import aqui dentro: ruins importa wrecks)
     if isinstance(wreck, ruins.RuinSpot):
+        if wreck.key == "vesper":                # v0.7 M4: as caixas do porão da VÉSPER-7
+            from game import vesper
+            return vesper.crate_loot(wreck.tx, wreck.ty, seed)
         return ruins.ruin_loot(wreck, seed)
     return crate_loot(wreck, seed)
 

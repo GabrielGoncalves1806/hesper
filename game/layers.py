@@ -113,6 +113,11 @@ class Layer:
         self.world.water_level = value
 
     @property
+    def buildable(self) -> bool:
+        """Dá pra construir aqui? Não dentro da VÉSPER-7 (v0.7 M4)."""
+        return self.key != VESPER
+
+    @property
     def has_base(self) -> bool:
         """A cápsula (e a zona de O₂) fica na superfície."""
         return self.key == SURFACE

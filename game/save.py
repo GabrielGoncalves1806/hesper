@@ -515,7 +515,7 @@ def state_to_dict(state: GameState) -> dict:
         # salvou no meio do fade, antes da troca: grava o destino (camada + chegada da rampa), como se a
         # viagem já tivesse acabado. Depois da troca o estado já está no destino e sai igual.
         data["layer"] = trip.to
-        data["player"]["x"], data["player"]["y"] = layers.ramp_arrival(state.layers[trip.to].world)
+        data["player"]["x"], data["player"]["y"] = trip.arrival or layers.ramp_arrival(state.layers[trip.to].world)
     return data
 
 

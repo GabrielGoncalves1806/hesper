@@ -2407,7 +2407,7 @@ class UI:
         a = max(0.0, min(1.0, a * 1.25))                # fica um tiquinho no preto inteiro
         self.fill((0, 0, 0, int(255 * a)), (0, 0, self.w, self.h))
         if a > 0.5:
-            text = "Descendo..." if trip.to == "cave" else "Subindo..."
+            text = trip.text or ("Descendo..." if trip.to == "cave" else "Subindo...")
             self.text(text, self.w / 2, self.h / 2 - 6, "#d9cfc4", self.body, "center")
 
     # ---- fim do MVP -----------------------------------------------------------

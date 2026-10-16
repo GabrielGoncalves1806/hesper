@@ -19,6 +19,8 @@ from game import explore
 from game import ice_blocks
 from game import layers
 from game import magmatite
+from game import vesper
+from game import wrecks
 from game import thaw
 from game.equipment import Equipment, is_equipment
 from game.inventory import Inventory, Stack, max_stack
@@ -269,10 +271,13 @@ class Machine:
 
 @dataclass
 class RampTrip:
-    """Viagem pela rampa (fade): no RAMP_SWITCH_AT troca de camada, no RAMP_DURATION acaba."""
+    """Viagem pela rampa ou pela escotilha da VÉSPER (fade): no RAMP_SWITCH_AT troca de camada, no RAMP_DURATION acaba.
+    `arrival` (pés) e `text` são da escotilha (v0.7 M4); None = rampa (chega no ramp_arrival, "Descendo..."/"Subindo...")."""
     to: str              # camada de destino
     time: float = 0.0
     switched: bool = False
+    arrival: tuple[float, float] | None = None
+    text: str | None = None
 
 
 @dataclass
@@ -296,9 +301,9 @@ def clean_chest_name(text: str) -> str:
 
 
 def storm_level(state) -> float:
-    """Intensidade da tempestade que vale onde o player está: 0 na caverna (a poeira não entra lá),
-    senão o `state.storm` (1 = tempestade cheia, 0 = céu limpo)."""
-    return 0.0 if state.layer == CAVE else state.storm
+    """Intensidade da tempestade que vale onde o player está: 0 debaixo do chão e dentro da nave (a poeira não entra
+    lá), senão o `state.storm` (1 = tempestade cheia, 0 = céu limpo)."""
+    return state.storm if state.layer == SURFACE else 0.0
 
 
 def stage_for_ti(ti: float) -> int:
@@ -500,13 +505,72 @@ class GameState:
             trip.switched = True
             if trip.to not in self.layers:
                 self.layers[trip.to] = layers.MAKERS[trip.to](self.seed)
-            self.enter_layer(trip.to, layers.ramp_arrival(self.layers[trip.to].world))
+            self.enter_layer(trip.to, trip.arrival or layers.ramp_arrival(self.layers[trip.to].world))
             self.events.append(("layer", trip.to))
         if trip.time >= C.RAMP_DURATION:
             self.ramp = None
 
+    # ---- escotilha da VÉSPER-7 (v0.7 M4 · game/vesper.py) --------------------
+    def hatch_in_target(self) -> tuple[int, int] | None:
+        """O tile da boca do porão da VÉSPER (3,2 da pegada), na superfície; None fora dela."""
+        if self.layer != SURFACE:
+            return None
+        w = wrecks.vesper_wreck(self.world)
+        return None if w is None else (w.tx + 3, w.ty + 2)
+
+    def hatch_in_distance(self) -> float:
+        """Dos pés até a borda de baixo da boca (quem está no (3,3) já está no alcance)."""
+        t = self.hatch_in_target()
+        if t is None:
+            return math.inf
+        return math.hypot(self.player.x - (t[0] + 0.5) * C.TILE, self.player.y - (t[1] + 1) * C.TILE)
+
+    def hatch_out_distance(self) -> float:
+        if self.layer != layers.VESPER:
+            return math.inf
+        hx, hy = vesper.hatch_tile(self.world)
+        return math.hypot(self.player.x - (hx + 0.5) * C.TILE, self.player.y - (hy + 0.5) * C.TILE)
+
+    def surface_exit(self) -> tuple[float, float]:
+        w = wrecks.vesper_wreck(self.surface.world)
+        return (w.tx + 3.5) * C.TILE, (w.ty + 3) * C.TILE + 24
+
+    def start_hatch(self) -> bool:
+        """E na boca do porão (entra) ou na escotilha do porão (sai): começa o fade, como a rampa."""
+        if self.ramp is not None or self.fainted:
+            return False
+        if self.hatch_in_distance() <= C.RAMP_REACH:
+            if layers.VESPER not in self.layers:
+                self.layers[layers.VESPER] = layers.MAKERS[layers.VESPER](self.seed)
+            trip = RampTrip(layers.VESPER, arrival=vesper.arrival(self.layers[layers.VESPER].world), text="Entrando...")
+        elif self.hatch_out_distance() <= C.RAMP_REACH:
+            trip = RampTrip(SURFACE, arrival=self.surface_exit(), text="Saindo...")
+        else:
+            return False
+        self.ramp = trip
+        self.mining = None
+        self.events.append(("ramp", trip.to))
+        return True
+
+    def fixture_text(self, kind: str) -> str:
+        return C.VESPER_FIXTURE_TEXT[kind]
+
+    def fixture_distance(self, tile: tuple[int, int]) -> float:
+        return math.hypot(self.player.x - (tile[0] + 0.5) * C.TILE, self.player.y - (tile[1] + 1) * C.TILE)
+
+    def _fixture_target(self, tile) -> tuple[str, tuple[int, int]] | None:
+        kind = self.world.fixtures.get(tuple(tile))
+        if kind == "hatch":
+            return "hatch_out", tuple(tile)
+        if kind in C.VESPER_FIXTURE_TEXT:
+            return "fixture", tuple(tile)
+        return None
+
     def safe_point(self) -> tuple[float, float, str]:
         """Pra onde a seta do O₂ crítico aponta: a base (superfície) ou a rampa de subida (caverna)."""
+        if self.layer == layers.VESPER:
+            hx, hy = vesper.hatch_tile(self.world)
+            return (hx + 0.5) * C.TILE, (hy + 0.5) * C.TILE, "SAÍDA"
         if self.active.has_base or self.world.crater is None:
             return C.BASE_CENTER[0], C.BASE_CENTER[1], "BASE"
         return (*layers.ramp_mouth(self.world), "RAMPA")
@@ -633,7 +697,7 @@ class GameState:
         if self.weather.update(dt, storm):
             self.events.append(("gust", storm))
         geo = self.surface.geo                         # v0.5 M3.7: nevasca na faixa gelada (só o visual da tempestade)
-        self.weather.update_snow(dt, self.layer != CAVE and geo is not None
+        self.weather.update_snow(dt, self.layer == SURFACE and geo is not None
                                  and geo.region_at(*self.player.tile) == FROST)
         if self.rain.update(dt, self.stage):           # pancada de chuva começou (só a partir da Névoa)
             self.events.append(("rain", True))
@@ -855,6 +919,8 @@ class GameState:
         de cima à esquerda de um veio livre (o App "gruda" o fantasma no veio debaixo do mouse).
         Não olha material nem construtor (isso é o `can_build`)."""
         tx, ty = tile
+        if not self.active.buildable:           # v0.7 M4: dentro da VÉSPER-7 não constrói
+            return False
         if not C.MACHINES[kind].placeable:      # item (drone, construtor, equipamento) não vai pro chão
             return False
         if kind in C.BASE_KINDS:                # v0.5 M2: bloco da base (chão, parede, porta)
@@ -1260,6 +1326,13 @@ class GameState:
                 return "terminal", i
         if self.world.crater is not None and tiles & set(layers.ramp_tiles(self.world)):
             return "ramp", tuple(self.world.crater)
+        hatch = self.hatch_in_target()                   # v0.7 M4: a boca do porão da VÉSPER-7
+        if hatch is not None and hatch in tiles:
+            return "hatch_in", hatch
+        for tile in tiles:                               # v0.7 M4: escotilha de saída e fixtures da nave
+            hit = self._fixture_target(tile)
+            if hit is not None:
+                return hit
         return None
 
     def in_reach(self, kind: str, target) -> bool:
@@ -1268,6 +1341,13 @@ class GameState:
             return self.terminal_distance(target) <= C.TERMINAL_REACH
         if kind == "ramp":
             return self.ramp_distance() <= C.RAMP_REACH
+        if kind == "hatch_in":
+            return self.hatch_in_distance() <= C.RAMP_REACH
+        if kind == "hatch_out":
+            return self.hatch_out_distance() <= C.RAMP_REACH
+        if kind == "fixture":
+            return self.world.fixtures.get(tuple(target)) in C.VESPER_FIXTURE_TEXT \
+                and self.fixture_distance(target) <= C.VESPER_FIXTURE_REACH
         if kind == "crate":
             return self.crates.get(target.tile) is target and self.crate_distance(target) <= C.CRATE_REACH
         if kind == "wreck_log":
@@ -1325,6 +1405,14 @@ class GameState:
             options.append((self.container_distance(box), "container", box))
         if self.ramp_distance() <= C.RAMP_REACH:
             options.append((self.ramp_distance(), "ramp", tuple(self.world.crater)))
+        if self.hatch_in_distance() <= C.RAMP_REACH:
+            options.append((self.hatch_in_distance(), "hatch_in", self.hatch_in_target()))
+        if self.layer == layers.VESPER:
+            if self.hatch_out_distance() <= C.RAMP_REACH:
+                options.append((self.hatch_out_distance(), "hatch_out", vesper.hatch_tile(self.world)))
+            for tile, fx in self.world.fixtures.items():
+                if fx in C.VESPER_FIXTURE_TEXT and self.fixture_distance(tile) <= C.VESPER_FIXTURE_REACH:
+                    options.append((self.fixture_distance(tile), "fixture", tile))
         if not options:
             return None
         _, kind, target = min(options, key=lambda o: o[0])
