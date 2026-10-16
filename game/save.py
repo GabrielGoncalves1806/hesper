@@ -50,6 +50,10 @@ Dispersor de O₂ (v9): {"kind": "o2_dispenser", ..., "storage": [["water_capsul
 Derretedor (v0.5 M2, ainda v8): {"kind": "melter", ..., "timer": 4.0, "storage": [["ice", 12], ["water_capsule", 2]],
         "sends": ["water_capsule"], "receives": [], "batch": 10}. Slot 0 = gelo, slot 1 = cápsulas. Sem "storage"
         (derretedor de antes) carrega vazio: não precisou subir a versão.
+Fundição (v0.6 Fundo M3, ainda v12): {"kind": "smelter", ..., "timer": 7.5, "fuel": 3, "storage": [["copper", 6],
+        ["magmatite", 2], ["copper_ingot", 3]], "sends": [...], "receives": [...], "batch": 10, "chip": true}.
+        Slot 0 = minério, 1 = magmatita, 2 = lingote; `fuel` = fundições que restam da magmatita acesa. Save sem
+        Fundição carrega igual: não precisou subir a versão.
 Estação: {"kind": "drone_station", ..., "buffer": {"iron": 12}, "drones": [["ice", 8], [None, 0], None, None]}
 "drones" são os 4 slots: null = vazio; [minério, carga] = tem drone. Os drones nascem pousados nos pads.
 
@@ -288,6 +292,18 @@ def melter_storage(data: list) -> Inventory:
     return inv
 
 
+def smelter_storage(data: list) -> Inventory:
+    """Inventário da Fundição do save: [0] minério da receita, [1] magmatita, [2] lingote (outra coisa vira vazio)."""
+    inv = Inventory(C.SMELTER_SLOTS)
+    allowed = {C.SMELTER_ORE_SLOT: set(C.SMELTER_RECIPES), C.SMELTER_FUEL_SLOT: {C.SMELTER_FUEL},
+               C.SMELTER_OUT_SLOT: set(C.SMELTER_RECIPES.values())}
+    for slot, items in allowed.items():
+        d = data[slot] if slot < len(data) else None
+        if d and d[0] in items and int(d[1]) > 0:
+            inv.slots[slot] = Stack(d[0], min(int(d[1]), max_stack(d[0])))
+    return inv
+
+
 def dispenser_storage(data: list) -> Inventory:
     """Inventário do Dispersor do save: 1 slot, só cápsula de água (outra coisa vira vazio)."""
     inv = Inventory(C.DISPENSER_SLOTS)
@@ -303,6 +319,8 @@ def machine_to_dict(m: Machine) -> dict:
         data.update(resource=m.resource, timer=m.timer)
     if m.is_melter:
         data["timer"] = m.timer          # v0.5 M2: progresso da cápsula (o inventário vai com o resto do logístico)
+    if m.is_smelter:                     # v0.6 Fundo M3: progresso do lingote e a carga de magmatita acesa
+        data.update(timer=m.timer, fuel=m.fuel)
     if m.is_dispenser:                   # v9
         data.update(storage=m.storage.to_data(), burn=m.burn, sealed_once=m.sealed_once)
     if m.is_chest:
@@ -342,6 +360,11 @@ def machine_from_dict(data: dict) -> Machine:
         # v0.5 M2: [0] gelo, [1] cápsulas. Save de antes do Marco 2 não tem "storage": carrega vazio (sem migração)
         machine.storage = melter_storage(data.get("storage", []))
         machine.timer = min(max(machine.timer, 0.0), C.MELTER_CAPSULE_TIME[kind])
+    if machine.is_smelter:
+        # v0.6 Fundo M3: [0] minério, [1] magmatita, [2] lingote. Save sem Fundição carrega igual (sem migração)
+        machine.storage = smelter_storage(data.get("storage", []))
+        machine.timer = min(max(machine.timer, 0.0), C.SMELTER_TIME)
+        machine.fuel = min(max(int(data.get("fuel", 0)), 0), C.SMELTER_BURNS_PER_FUEL)
     if machine.is_dispenser:
         machine.storage = dispenser_storage(data.get("storage", []))
         machine.burn = min(max(float(data.get("burn", 0.0)), 0.0), C.DISPENSER_CAPSULE_TIME)

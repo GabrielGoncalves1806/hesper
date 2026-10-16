@@ -171,6 +171,8 @@ VEIN_RESOURCES = ("iron", "silicon", "ice")
 RESOURCE_LABEL = {"iron": "FERRO", "silicon": "SILICIO", "ice": "GELO", "magmatite": "MAGMATITA", "copper": "COBRE"}   # HUD (Silkscreen)
 RESOURCE_NAME = {"iron": "ferro", "silicon": "silício", "ice": "gelo", "magmatite": "magmatita", "copper": "cobre",
                  "water_capsule": "cápsula de água"}   # em frases (Pixelify); a cápsula (v0.5 M2) só entra por nome
+RESOURCE_NAME.update({"iron_ingot": "lingote de ferro", "copper_ingot": "lingote de cobre"})   # v0.6 M3: lingotes da Fundição (toggles dos drones)
+RESOURCE_LABEL.update({"iron_ingot": "LING. FERRO", "copper_ingot": "LING. COBRE"})
 RESOURCE_LABEL["water_capsule"] = "CÁPSULA"   # (idem: não é recurso, RESOURCES não tem ela)
 
 # ---------------------------------------------------------------------------
@@ -281,11 +283,28 @@ MELTER_ICE_PER_CAPSULE = 2
 MELTER_CAPSULE_TIME = {"melter": 20.0, "melter_t2": 10.0}   # segundos por cápsula (× fator da energia)
 MELTER_REACH = 56               # px entre os pés do player e a base do derretedor pro E (igual à drill)
 
+# ---------------------------------------------------------------------------
+# v0.6 Fundo M3 · Fundição (bíblia §15, spec 2026-10-15-v06-fundo-design.md). Números de partida.
+# Molde do derretedor: 3 slots, [0] minério (ferro/cobre), [1] combustível (só magmatita), [2] lingote. Uma magmatita
+# acende uma carga de SMELTER_BURNS_PER_FUEL fundições (`Machine.fuel`), gasta no começo de um lingote. 1 minério = 1
+# lingote a cada SMELTER_TIME s (× fator da energia). Saída com o outro lingote ou cheia: para, sem gastar nada.
+# ---------------------------------------------------------------------------
+SMELTER = "smelter"
+SMELTER_ORE_SLOT, SMELTER_FUEL_SLOT, SMELTER_OUT_SLOT = 0, 1, 2
+SMELTER_SLOTS = 3
+SMELTER_TIME = 15.0
+SMELTER_BURNS_PER_FUEL = 4
+SMELTER_FUEL = "magmatite"
+SMELTER_RECIPES = {"iron": "iron_ingot", "copper": "copper_ingot"}
+SMELTER_REACH = MELTER_REACH
+MACHINES[SMELTER] = MachineType(SMELTER, "Fundição", "minério → lingote", {"iron": 15, "silicon": 6, "magmatite": 4},
+                                None, 0, 10_000, "machine_smelter")
+
 MACHINE_ORDER = list(MACHINES)   # ordem no fabricador e nas teclas 1–7
 MACHINES["water_capsule"] = MachineType("water_capsule", "Cápsula de água", "água pro Dispersor", {}, None, 0, 0,
                                         "icon_water_capsule", placeable=False)
 # v0.4 M3.4: máquinas de nome feminino (o aviso "Luminária submersa" / "Aquecedor submerso" concorda)
-MACHINE_FEMININE = {"drill", "drone_station", "lamp", "lamp_t2", "workbench"}
+MACHINE_FEMININE = {"drill", "drone_station", "lamp", "lamp_t2", "workbench", "smelter"}
 DISMANTLE_KEY = "Clique direito"   # o botão de desmontar (segurar): dica do canto e aviso de submersa
 MACHINE_SPRITE_SIZE = {1: (40, 56), 2: (40, 64)}   # tamanho do sprite por nível (usado pro mouse "acertar" a máquina)
 DRILL_SPRITE_SIZE = (64, 80)     # 1 quadro do machine_drill.png (4 quadros na horizontal)
@@ -449,6 +468,8 @@ ORE_COLORS = {  # cor, sombra
     "copper": ("#e0703f", "#aa4a2a"),      # v0.6 Fundo: laranja do cobre (paleta da Designer, reports/design/v06_fundo_cobre_ferro)
     "magmatite": ("#ff7a2e", "#a8361a"),   # laranja-lava (a fissura da pedra), sombra de brasa
     "water_capsule": ("#59d0e6", "#2a7f96"),   # v0.5 M2: só pra pepita do drone e aviso flutuante (não é minério)
+    "iron_ingot": ("#cdb9a4", "#8a7560"),      # v0.6 M3: lingotes da Fundição (pepita do drone e aviso flutuante)
+    "copper_ingot": ("#e8905f", "#aa4a2a"),
 }
 
 # UI
@@ -500,6 +521,7 @@ POWER_USE = {
     "drill": 2,
     "drone_station": 1,  # estação de drones (Marco 3): era 3 kW quando vinha com 2 drones de graça
 }
+POWER_USE[SMELTER] = 2    # v0.6 Fundo M3: a Fundição
 POWER_GEN = {"solar": 4}  # quanto cada máquina gera (kW)
 ENERGY_TIGHT = 0.8        # consumo ≥ 80% da produção: medidor amarelo ("perto do limite")
 ENERGY_REARM_TIME = 5.0   # o som power_low só toca de novo depois de 5 s seguidos sem déficit
@@ -572,7 +594,7 @@ DRONE_PICKUP_TIME = 0.8         # segundos parado em cima da origem "pegando"
 DRONE_DROP_TIME = 0.6           # segundos parado em cima do destino "soltando"
 DRONE_IDLE_RETRY = 0.5          # drone pousado sem tarefa procura de novo a cada 0,5 s
 # Logística (baú e drill): o que os drones tiram (Envia) e trazem (Recebe), e o lote por viagem.
-LOGISTIC_ITEMS = RESOURCES + ("water_capsule",)   # itens com toggle no painel (v0.5 M2: a cápsula de água entra aqui)
+LOGISTIC_ITEMS = RESOURCES + ("water_capsule", "iron_ingot", "copper_ingot")   # itens com toggle no painel (v0.5 M2: a cápsula de água; v0.6 M3: os lingotes da Fundição)
 DRONE_BATCH_OPTIONS = (1, 5, 10, 20)
 DRONE_BATCH_DEFAULT = 10
 STATION_BUFFER = 50             # legado (save ≤ v4): o buffer não recebe mais nada, só dá pra tirar as sobras
@@ -594,6 +616,8 @@ MACHINE_ORDER.insert(MACHINE_ORDER.index("drill") + 1, "drone_station")   # no f
 MACHINES["drone"] = MachineType("drone", "Drone", "vai na estação", DRONE_COST, None, 0, DRONE_STATION_UNLOCK_TI,
                                 "drone", placeable=False)
 MACHINE_ORDER.insert(MACHINE_ORDER.index("drone_station") + 1, "drone")
+MACHINE_ORDER.remove(SMELTER)
+MACHINE_ORDER.insert(MACHINE_ORDER.index("drone") + 1, SMELTER)   # v0.6 Fundo M3: na Automação, depois dos drones
 VOLUME.update({"drone_loop": 0.5, "drone_deliver": 0.8, "solar_hum": 0.5})
 
 # ---------------------------------------------------------------------------
@@ -610,6 +634,7 @@ MACHINE_CATEGORY = {
     "chest_small": "storage", "chest": "storage", "chest_large": "storage",
     "lamp": "light",
 }
+MACHINE_CATEGORY[SMELTER] = "automation"   # v0.6 Fundo M3
 CRAFT_VISIBLE_ROWS = 4          # fabricador (só itens): 4 linhas, o resto da coluna é a área "Diagramas" (v0.5 M1)
 FAB_VISIBLE_ROWS = 6            # receitas que cabem de uma vez na aba (lista do redesign B2); com mais, rola
 
@@ -802,6 +827,10 @@ MACHINES[HAND_DRILL] = MachineType(HAND_DRILL, "Broca de mão", "segure pra mine
 for _key, _name, _desc in (("iron_ingot", "Lingote de ferro", "peça rara"), ("silicon_wafer", "Wafer de silício", "peça rara"),
                            ("circuit", "Circuito", "peça rara"), ("chip", "Chip", "peça rara"), ("wire", "Fios", "peça rara")):
     MACHINES[_key] = MachineType(_key, _name, _desc, {}, None, 0, 0, f"icon_{_key}", placeable=False)
+# v0.6 Fundo M3: lingote de cobre (só sai da Fundição; não cai de loot). Peças (loot + lingotes) empilham até STACK_LOOT.
+MACHINES["copper_ingot"] = MachineType("copper_ingot", "Lingote de cobre", "sai da Fundição", {}, None, 0, 0,
+                                       "icon_copper_ingot", placeable=False)
+PART_ITEMS = LOOT_ITEMS + ("copper_ingot",)
 # v0.6 M2: o chip (que liga a máquina aos drones) também se fabrica na Bancada T2, só com o inventário
 CHIP_COST = {"silicon_wafer": 2, "iron": 1}
 MACHINES["chip"] = _replace(MACHINES["chip"], cost=CHIP_COST)
@@ -971,7 +1000,13 @@ MACHINES["constructor"] = MachineType("constructor", "Construtor", "constrói m�
 MACHINE_ORDER.insert(0, "constructor")      # 1ª receita do fabricador
 MACHINE_CATEGORY["constructor"] = "tools"
 # Abas do fabricador (só itens). As do construtor são as FAB_TABS sem a "Traje" (equipamento não vai pro chão).
-CRAFT_TABS = (("tools", "Ferramentas"), ("automation", "Automação"), ("suit", "Traje"))
+CRAFT_TABS = (("tools", "Ferramentas"), ("automation", "Automação"), ("materials", "Materiais"), ("suit", "Traje"))
+# v0.6 Fundo M3: fios saem do lingote de cobre (aba Materiais). CRAFT_YIELD = quantos saem por fabricação (ausente = 1).
+# Libera em Ti 0: a trava real é ter cobre. Os fios continuam caindo de loot.
+MACHINES["wire"] = _replace(MACHINES["wire"], cost={"copper_ingot": 1}, desc="1 lingote de cobre → 3")
+MACHINE_ORDER.append("wire")
+MACHINE_CATEGORY["wire"] = "materials"
+CRAFT_YIELD = {"wire": 3}
 FAB_TABS = tuple(t for t in FAB_TABS if t[0] != "suit")
 BUILD_TIME = 1.35               # s da máquina "se construindo" (scanner de baixo pra cima): parada, sem Ti nem energia.
                                 # 1,35 = o clack do build.wav (Som): ela fica pronta junto com ele

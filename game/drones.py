@@ -215,24 +215,29 @@ def center(machine) -> tuple[float, float]:
 
 # ---------------------------------------------------------------- configuração (Envia / Recebe / Lote)
 def is_logistic(machine) -> bool:
-    """Baú, drill, derretedor e dispersor têm inventário que os drones atendem (os três últimos só com chip)."""
+    """Baú, drill, derretedor, Fundição e dispersor têm inventário que os drones atendem (menos o baú, só com chip)."""
     return machine.is_logistic
 
 
 def can_send(machine, item: str) -> bool:
-    """A drill só envia o minério dela, o derretedor só a cápsula, o dispersor nada (v0.6 M2); o baú, qualquer
-    item logístico."""
+    """A drill só envia o minério dela, o derretedor só a cápsula, a Fundição só os lingotes (v0.6 M3), o dispersor
+    nada (v0.6 M2); o baú, qualquer item logístico."""
     if item not in C.LOGISTIC_ITEMS or machine.is_dispenser:
         return False
+    if machine.is_smelter:
+        return item in C.SMELTER_RECIPES.values()
     if machine.is_melter:
         return item == "water_capsule"
     return not machine.is_drill or item == machine.resource
 
 
 def can_receive(machine, item: str) -> bool:
-    """v0.6 M2: o derretedor recebe gelo (na entrada), o dispersor cápsula; a drill nada; o baú, qualquer item."""
+    """v0.6 M2: o derretedor recebe gelo (na entrada), o dispersor cápsula; a drill nada; o baú, qualquer item.
+    v0.6 M3: a Fundição recebe ferro, cobre e magmatita."""
     if item not in C.LOGISTIC_ITEMS or machine.is_drill:
         return False
+    if machine.is_smelter:
+        return item in C.SMELTER_RECIPES or item == C.SMELTER_FUEL
     if machine.is_melter:
         return item == "ice"
     if machine.is_dispenser:
@@ -241,7 +246,12 @@ def can_receive(machine, item: str) -> bool:
 
 
 def receive_slot(machine, item: str) -> int | None:
-    """O slot fixo onde esse item entra (derretedor: entrada de gelo; dispersor: o da cápsula), ou None (qualquer)."""
+    """O slot fixo onde esse item entra (derretedor: entrada de gelo; Fundição: minério ou magmatita; dispersor: o da
+    cápsula), ou None (qualquer)."""
+    if machine.is_smelter:
+        if item in C.SMELTER_RECIPES:
+            return C.SMELTER_ORE_SLOT
+        return C.SMELTER_FUEL_SLOT if item == C.SMELTER_FUEL else None
     if machine.is_melter and item == "ice":
         return C.MELTER_ICE_SLOT
     if machine.is_dispenser and item == "water_capsule":

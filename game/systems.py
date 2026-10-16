@@ -84,6 +84,8 @@ class Machine:
     sealed_prev: bool | None = field(default=None, compare=False, repr=False)
     sealed_once: bool = field(default=False, compare=False)
     leak_t: float = field(default=0.0, compare=False, repr=False)
+    # v0.6 Fundo M3: só a Fundição. Fundições que ainda restam da magmatita que está queimando (vai no save).
+    fuel: int = field(default=0, compare=False)
 
     def __post_init__(self, stored_init: int = 0) -> None:
         if self.storage is None and self.is_drill:
@@ -94,6 +96,8 @@ class Machine:
             self.storage = Inventory(C.MELTER_SLOTS)
         elif self.storage is None and self.is_dispenser:
             self.storage = Inventory(C.DISPENSER_SLOTS)
+        elif self.storage is None and self.is_smelter:
+            self.storage = Inventory(C.SMELTER_SLOTS)
         if stored_init:
             self.stored = stored_init
 
@@ -113,6 +117,33 @@ class Machine:
     def is_melter(self) -> bool:
         """Derretedor (nv.1 ou nv.2): terraforma e, de brinde, faz cápsula de água do gelo do inventário dele."""
         return self.kind in C.MELTER_KINDS
+
+    @property
+    def is_smelter(self) -> bool:
+        """Fundição (v0.6 Fundo M3): minério + magmatita → lingote."""
+        return self.kind == C.SMELTER
+
+    @property
+    def smelter_output(self) -> str | None:
+        """Fundição: o lingote que o minério da entrada vira (None = entrada vazia)."""
+        ore = self.storage.slots[C.SMELTER_ORE_SLOT] if self.is_smelter else None
+        return C.SMELTER_RECIPES.get(ore.item) if ore else None
+
+    @property
+    def smelter_blocker(self) -> str | None:
+        """Por que a Fundição não funde agora: "no_ore", "out_busy" (o outro lingote na saída), "out_full",
+        "no_fuel"; None = fundindo."""
+        ingot = self.smelter_output
+        if ingot is None:
+            return "no_ore"
+        out = self.storage.slots[C.SMELTER_OUT_SLOT]
+        if out is not None and out.item != ingot:
+            return "out_busy"
+        if out is not None and out.room <= 0:
+            return "out_full"
+        if self.fuel <= 0 and self.storage.count(C.SMELTER_FUEL) <= 0:
+            return "no_fuel"
+        return None
 
     @property
     def is_dispenser(self) -> bool:
@@ -137,13 +168,13 @@ class Machine:
 
     @property
     def is_logistic(self) -> bool:
-        """Baú, drill, derretedor e dispersor (v0.6 M2): têm Envia/Recebe/Lote. Se o drone atende, é `in_network`."""
-        return self.is_chest or self.is_drill or self.is_melter or self.is_dispenser
+        """Baú, drill, derretedor, Fundição e dispersor (v0.6 M2/M3): têm Envia/Recebe/Lote. Se o drone atende, é `in_network`."""
+        return self.is_chest or self.is_drill or self.is_melter or self.is_dispenser or self.is_smelter
 
     @property
     def needs_chip(self) -> bool:
-        """v0.6 M2: drill, derretedor e dispersor só entram na rede dos drones com um chip no slot."""
-        return self.is_drill or self.is_melter or self.is_dispenser
+        """v0.6 M2/M3: drill, derretedor, Fundição e dispersor só entram na rede dos drones com um chip no slot."""
+        return self.is_drill or self.is_melter or self.is_dispenser or self.is_smelter
 
     @property
     def in_network(self) -> bool:
@@ -718,11 +749,12 @@ class GameState:
         trial = self.inventory.copy()
         for r, n in cost.items():
             trial.remove(r, n)
-        if not trial.has_space(kind):
+        made = C.CRAFT_YIELD.get(kind, 1)        # v0.6 M3: quantos saem por fabricação (fios: 3 por lingote de cobre)
+        if not trial.has_space(kind, made):
             self.events.append(("inv_full",))
             return False
         self._spend(cost, inv_only=t2)
-        self.inventory.add(kind, 1)
+        self.inventory.add(kind, made)
         self.crafted[kind] += 1
         self.events.append(("craft", kind))
         if at is not None:
@@ -1037,6 +1069,11 @@ class GameState:
         near = [m for m in self.machines if m.is_melter and m.build <= 0 and self.drill_distance(m) <= C.MELTER_REACH]
         return min(near, key=self.drill_distance, default=None)
 
+    def nearby_smelter(self) -> Machine | None:
+        """Fundição ao alcance do E (a mais perto; ainda se construindo não abre)."""
+        near = [m for m in self.machines if m.is_smelter and m.build <= 0 and self.drill_distance(m) <= C.SMELTER_REACH]
+        return min(near, key=self.drill_distance, default=None)
+
     def nearby_dispenser(self) -> Machine | None:
         """Dispersor de O₂ ao alcance do E (o mais perto)."""
         near = [m for m in self.machines if m.is_dispenser and m.build <= 0
@@ -1075,6 +1112,7 @@ class GameState:
             for kind, flag in (("drill", machine.is_drill), ("chest", machine.is_chest),
                                ("station", machine.is_station), ("bench", machine.is_bench),
                                ("melter", machine.is_melter and machine.build <= 0),
+                               ("smelter", machine.is_smelter and machine.build <= 0),
                                ("dispenser", machine.is_dispenser and machine.build <= 0)):
                 if flag:
                     return kind, machine
@@ -1110,7 +1148,7 @@ class GameState:
         if kind == "container":
             return tuple(target) in self.world.containers and self.container_distance(target) <= C.CONTAINER_REACH
         reach = {"drill": C.DRILL_REACH, "chest": C.CHEST_REACH, "station": C.STATION_REACH,
-                 "bench": C.BENCH_REACH, "melter": C.MELTER_REACH, "dispenser": C.DISPENSER_REACH}[kind]
+                 "bench": C.BENCH_REACH, "melter": C.MELTER_REACH, "smelter": C.SMELTER_REACH, "dispenser": C.DISPENSER_REACH}[kind]
         return any(m is target for m in self.machines) and self.drill_distance(target) <= reach
 
     def interaction(self, hover: tuple[str, object] | None = None) -> tuple[str, object] | None:
@@ -1138,6 +1176,9 @@ class GameState:
         melter = self.nearby_melter()
         if melter is not None:
             options.append((self.drill_distance(melter), "melter", melter))
+        smelter = self.nearby_smelter()
+        if smelter is not None:
+            options.append((self.drill_distance(smelter), "smelter", smelter))
         dispenser = self.nearby_dispenser()
         if dispenser is not None:
             options.append((self.drill_distance(dispenser), "dispenser", dispenser))
@@ -1234,6 +1275,33 @@ class GameState:
             return 0
         if have is None:
             melter.storage.slots[slot] = Stack("ice", moved)
+        else:
+            have.count += moved
+        self.inventory.remove_from_slot(index, moved)
+        return moved
+
+    def smelter_put(self, smelter: Machine, index: int, amount: int | None = None) -> int:
+        """Põe do slot `index` do inventário do player na Fundição (`amount` None = a pilha inteira, 1 = clique
+        direito): o minério da receita vai pra entrada (só se vazia ou do mesmo minério), a magmatita pro combustível.
+        Qualquer outra coisa não entra. Só até a pilha encher. Devolve quanto entrou."""
+        stack = self.inventory.slots[index]
+        if stack is None:
+            return 0
+        if stack.item in C.SMELTER_RECIPES:
+            slot = C.SMELTER_ORE_SLOT
+        elif stack.item == C.SMELTER_FUEL:
+            slot = C.SMELTER_FUEL_SLOT
+        else:
+            return 0
+        have = smelter.storage.slots[slot]
+        if have is not None and have.item != stack.item:
+            return 0
+        room = stack.max - (have.count if have else 0)
+        moved = min(room, stack.count if amount is None else min(amount, stack.count))
+        if moved <= 0:
+            return 0
+        if have is None:
+            smelter.storage.slots[slot] = Stack(stack.item, moved)
         else:
             have.count += moved
         self.inventory.remove_from_slot(index, moved)
@@ -1352,6 +1420,29 @@ class GameState:
             self.events.append(("inv_full",))
         return moved
 
+    def _update_smelter(self, smelter: Machine, dt: float) -> None:
+        """Fundição (v0.6 Fundo M3): a cada SMELTER_TIME s, 1 minério da entrada vira 1 lingote na saída. A magmatita
+        queima no começo de um lingote, quando a carga (`fuel`) acabou, e vale SMELTER_BURNS_PER_FUEL lingotes.
+        Travada (sem minério, sem combustível, saída ocupada/cheia): para, guarda o progresso e não gasta nada."""
+        while dt > 0 and smelter.smelter_blocker is None:
+            if smelter.fuel <= 0:                       # acende a próxima magmatita
+                smelter.storage.remove(C.SMELTER_FUEL, 1)
+                smelter.fuel = C.SMELTER_BURNS_PER_FUEL
+            left = C.SMELTER_TIME - smelter.timer
+            if dt < left:
+                smelter.timer += dt
+                return
+            dt -= left
+            smelter.timer = 0.0
+            ingot = smelter.smelter_output
+            smelter.storage.remove(smelter.storage.slots[C.SMELTER_ORE_SLOT].item, 1)
+            smelter.fuel -= 1
+            out = smelter.storage.slots[C.SMELTER_OUT_SLOT]
+            if out is None:
+                smelter.storage.slots[C.SMELTER_OUT_SLOT] = Stack(ingot, 1)
+            else:
+                out.count += 1
+
     def _update_melter(self, melter: Machine, dt: float) -> None:
         """Cápsulas de água (v0.5 M2): a cada MELTER_CAPSULE_TIME s gasta MELTER_ICE_PER_CAPSULE de gelo da entrada
         e põe 1 cápsula na saída. Sem gelo ou com a saída cheia, para (o progresso fica guardado) e não gasta gelo.
@@ -1402,7 +1493,7 @@ class GameState:
         out = dict(machine.type.cost)
         if machine.is_drill and machine.stored:
             out[machine.resource] = out.get(machine.resource, 0) + machine.stored
-        if machine.is_melter or machine.is_dispenser:          # v0.5 M2: o gelo e as cápsulas que ficaram dentro
+        if machine.is_melter or machine.is_dispenser or machine.is_smelter:   # v0.5 M2/v0.6 M3: o que ficou dentro (a carga acesa da Fundição some)
             for item, n in machine.storage.counts().items():
                 out[item] = out.get(item, 0) + n
         if machine.chip:                                       # v0.6 M2: o chip volta junto
@@ -1527,6 +1618,8 @@ class GameState:
                 self.indices[m.type.index] += m.type.rate * work_dt
             if m.is_melter:
                 self._update_melter(m, work_dt)
+            if m.is_smelter:
+                self._update_smelter(m, work_dt)
         if power.factor > 0:                 # v0.5 M2: o Dispersor gasta a cápsula (só vedado e ligado)
             for layer in self.layers.values():
                 for m in layer.machines:
