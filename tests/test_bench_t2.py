@@ -59,6 +59,7 @@ def test_bench_is_locked_until_the_diagram_is_read():
 
 def test_craft_diagram_at_t1_then_read_unlocks_the_bench():
     s = make_state()
+    s.debug_add_ti()                                                     # M5: o diagrama libera na Névoa (Ti 10.000)
     give(s, iron=15, silicon=8)
     assert s.recipe_status("diagram_workbench") == "ok"
     assert s.craft("diagram_workbench")
@@ -75,6 +76,7 @@ def test_craft_diagram_at_t1_then_read_unlocks_the_bench():
 
 def test_diagram_recipe_is_gone_after_reading():
     s = make_state()
+    s.debug_add_ti()                                                     # M5: o diagrama libera na Névoa (Ti 10.000)
     give(s, iron=40, silicon=20)
     s.craft("diagram_workbench")
     s.read_diagram("diagram_workbench", "t1")
@@ -82,6 +84,13 @@ def test_diagram_recipe_is_gone_after_reading():
     assert not s.craft("diagram_workbench")                         # não fabrica de novo
     assert s.craft_many("diagram_workbench") == 0
     assert s.inventory.count("diagram_workbench") == 0 and s.inventory.count("iron") == 25
+
+
+def test_bench_diagram_unlocks_at_mist():
+    s = make_state()
+    give(s, iron=15, silicon=8)
+    assert C.MACHINES["diagram_workbench"].unlock_ti == C.BENCH_DIAGRAM_UNLOCK_TI == 10_000
+    assert s.recipe_status("diagram_workbench") == "locked" and not s.craft("diagram_workbench")
 
 
 def test_diagram_is_not_in_the_wrecks():
@@ -283,7 +292,7 @@ def test_app_craft_on_t2_animates_the_open_bench(app, fake_recipe):
     app.draw()
     assert app.ui.craft_label == "FABRICAR"
     app.on_key(pygame.K_RETURN)
-    assert s.inventory.count(fake_recipe) == 1 and m.work > 0 and app.mode == "play"
+    assert s.inventory.count(fake_recipe) == 1 and m.work > 0 and app.mode == "fabricator"   # M5: o painel fica aberto
 
 
 # ---- animação com N quadros pela largura -----------------------------------------------------------
@@ -399,6 +408,7 @@ def test_t1_panel_has_diagram_recipe_ok(ui):
     from game.fabricator import craft_menu
     ui.set_layout((0, 0, 960, 540), 2.0, (480, 270))
     s = make_state()
+    s.debug_add_ti()                                                     # M5: o diagrama libera na Névoa (Ti 10.000)
     give(s, iron=15, silicon=8)
     menu = craft_menu()
     menu.select("diagram_workbench")

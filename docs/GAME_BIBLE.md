@@ -964,3 +964,7 @@ Ideia: a cadeia nova (Fundição, Bancada T2) vira **obrigatória do Ti 10.000 p
 - **Objetivos**: o tanque (diagrama e fabricação) desceu pra depois de "Receba uma entrega de drone", e entraram 3 guias depois da Névoa (Bancada T2, Fundição, circuito) antes da drill.
 - **Simulador**: `balance_sim.py` roda com as receitas do M4 congeladas (`LEGACY_RECIPES`) até a passada de balanceamento ensinar a cadeia pra ele.
 - **Testes**: `tests/test_remap_crafts.py` (novo) e ajustes nos testes que fixavam custo antigo. Prints: `tools/dev/shot_v06_fundo_m5.py` → `reports/dev/v06_fundo_m5/`.
+- **Ajustes do teste do dono (2026-10-16)**:
+  - o **diagrama da Bancada T2 libera em Ti 10.000** (`C.BENCH_DIAGRAM_UNLOCK_TI`), junto da Fundição e da drill (antes era Ti 0 e o T1 nem tinha vez);
+  - **fabricar não fecha mais o painel** (T1 e Bancada): dá pra fabricar o quanto quiser e fechar no E. O construtor continua fechando (vai pro chão);
+  - **lista que rola mostra meia linha do próximo item** embaixo (`ui.RECIPE_PEEK_H`), com o nome apagado, pra ficar óbvio que tem mais; a área Diagramas desce essa meia linha.

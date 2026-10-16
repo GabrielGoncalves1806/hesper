@@ -70,6 +70,7 @@ TAB_INV_H = 178                                  # sem a mochila; com ela soma B
 BACKPACK_ROW_H = 32                              # a linha extra da mochila: rótulo (10) + slots (20) + vão (2)
 FAB_W, FAB_H, FAB_LIST_W = 456, 258, 176         # fabricador da base
 RECIPE_ROW_H, RECIPE_ROW_STEP = 22, 24           # linha da lista de receitas
+RECIPE_PEEK_H = RECIPE_ROW_H // 2                 # v0.6 Fundo M5: a meia linha que avisa que a lista rola
 LOG_ROW_H, LOG_ROW_STEP = 15, 16                 # linha da aba LOGs e o passo entre elas
 HELP_H = 18                                      # linha de ajuda embaixo das janelas (7 de vão + tecla de 11)
 
@@ -1156,6 +1157,8 @@ class UI:
         self._recipe_list(state, menu, x + 8, list_y, FAB_LIST_W, detail.h, item_icon, mouse, inv_only=inv_only)
         if not build:
             top = list_y + menu.visible * RECIPE_ROW_STEP + 2
+            if len(menu.kinds) > menu.visible:          # a meia linha da rolagem (M5) empurra os Diagramas
+                top += RECIPE_PEEK_H + 2
             self._diagram_area(state, menu, x + 8, top, FAB_LIST_W, list_y + detail.h - top, item_icon, mouse, bench)
         kind = menu.current
         if kind is not None:
@@ -1255,6 +1258,21 @@ class UI:
             self.tx(self.fit(name, row.right - 6 - status_w - 4 - (x + 22)), x + 22, ry + 2,
                     B_DIM if locked else B_TEXT, self.body)
             self.fabricator_rows.append((row, kind))
+        below = first + menu.visible
+        if scroll and below < len(kinds):              # v0.6 Fundo M5 (dono): meia linha do próximo = "tem mais, rola"
+            peek = pygame.Rect(x, y + menu.visible * RECIPE_ROW_STEP, row_w, RECIPE_PEEK_H)
+            old_clip = self.surf.get_clip()
+            self.surf.set_clip(peek.clip(old_clip) if old_clip else peek)
+            self.round_rect((x, peek.y, row_w, RECIPE_ROW_H), B_CARD)
+            nxt = kinds[below]
+            hidden = state.recipe_status(nxt, inv_only) == "blueprint"
+            name = "???" if hidden else C.MACHINES[nxt].name
+            icon = self.dark_icon(item_icon(f"diagram_{C.RECIPE_BLUEPRINT[nxt]}" if hidden else nxt), 110)
+            cut = min(icon.get_height(), (RECIPE_PEEK_H - 3) * 2)   # o ícone também sai pela metade (nativo é 2×)
+            if cut > 0:
+                self.native.append((icon.subsurface((0, 0, icon.get_width(), cut)), ((x + 3) * 2, (peek.y + 3) * 2)))
+            self.tx(self.fit(name, row_w - 28), x + 22, peek.y + 2, B_DIM, self.body)
+            self.surf.set_clip(old_clip)
 
     def fit(self, s: str, max_w: int, font=None) -> str:
         """Corta o texto (com "..") até caber em `max_w`."""

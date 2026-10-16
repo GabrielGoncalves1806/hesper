@@ -230,9 +230,7 @@ def test_batch_selector_crafts_five_without_shift(app):
     assert app.fab.batch == C.CRAFT_BATCH
     app.draw()
     click(app, next(r for r, k in app.ui.fabricator_buttons if k == "wire"))
-    assert s.inventory.count("wire") == 5 * C.CRAFT_YIELD["wire"] and app.mode == "play"
-    app.hotbar_selected = 7
-    app.on_key(pygame.K_e)
+    assert s.inventory.count("wire") == 5 * C.CRAFT_YIELD["wire"] and app.mode == "fabricator"   # M5: continua aberto
     app.draw()
     click(app, next(r for r, n in app.ui.fabricator_batch if n == 1))
     assert app.fab.batch == 1

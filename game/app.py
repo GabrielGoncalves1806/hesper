@@ -1590,7 +1590,8 @@ class App:
 
     def try_craft(self, kind: str, batch: bool = False) -> None:
         """Fabrica 1 (ou, com Shift, até C.CRAFT_BATCH: para quando faltar recurso). O lote mostra "Drone x5".
-        Fabricou: fecha o menu e, se o item caiu na hotbar, seleciona o slot (o construtor já fica na mão)."""
+        Fabricou: o painel continua aberto pra fabricar mais (v0.6 Fundo M5, pedido do dono) e, se o item caiu na
+        hotbar, seleciona o slot."""
         bench = self.fab_bench if self.mode == "fabricator" else "t1"
         at = self.open_bench if bench == "t2" else None            # a Bancada T2 anima enquanto fabrica
         made = self.state.craft_many(kind, bench=bench, at=at) if batch else int(self.state.craft(kind, bench, at))
@@ -1598,7 +1599,6 @@ class App:
             self.show_toast(f"{item_name(kind)} x{made}")
         if made:
             self.rotation = 0
-            self.set_mode("play")
             slots = self.state.inventory.slots[:C.HOTBAR_SLOTS]
             index = next((i for i, st in enumerate(slots) if st and st.item == kind), None)
             if index is not None:

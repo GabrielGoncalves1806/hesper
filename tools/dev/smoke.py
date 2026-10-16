@@ -4668,6 +4668,9 @@ def main() -> None:
     button = next(rect for rect, kind in bot.app.ui.fabricator_buttons if kind == "constructor")
     bot.click((button.centerx * 2, button.centery * 2))
     assert bot.app.constructor_selected(), "o construtor fabricado devia ir pra mão"
+    assert bot.app.mode == "fabricator"                  # v0.6 Fundo M5: fabricar não fecha o painel
+    bot.key(pygame.K_e)                                  # E fecha
+    assert bot.app.mode == "play"
     bot.mouse_to(bot.tile_on_screen(t192(93, 98)))
     bot.key(pygame.K_e)                                  # v0.5 M1: construtor na mão, E abre o menu de construção
     assert bot.app.mode == "build"

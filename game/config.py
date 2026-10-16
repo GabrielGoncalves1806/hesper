@@ -1165,3 +1165,7 @@ T2_RECIPES = ("silicon_wafer", "circuit", "chip", "drone", "o2_tank", "backpack"
 T2_TABS = (("t2", "Bancada"),) + CRAFT_TABS      # a Bancada vê tudo do T1, com as exclusivas dela primeiro
 ONCE_ITEMS = ("constructor", "backpack", "o2_tank", "scanner", HAND_DRILL_T2)   # fabricou, fica "feito" (não se perde item)
 DIAGRAM_BENCH = {**DIAGRAM_BENCH, "o2_tank": "t2", "scanner": "t2"}   # a receita deles mora na Bancada T2
+# Dono, teste do M5: a Bancada chegava cedo demais (o T1 nem tinha vez). O diagrama dela libera na Névoa, junto da
+# Fundição e da drill: a cadeia eletrônica começa toda de uma vez.
+BENCH_DIAGRAM_UNLOCK_TI = 10_000
+MACHINES["diagram_workbench"] = _replace(MACHINES["diagram_workbench"], unlock_ti=BENCH_DIAGRAM_UNLOCK_TI)
