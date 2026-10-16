@@ -1654,10 +1654,14 @@ class Renderer:
         frames = None if index is None else self.anim_frames(name, still)
         return still if frames is None else frames[index % len(frames)]
 
-    def machine_anim_index(self, m, powered: bool, clock: float) -> int:
+    def machine_anim_index(self, m, powered: bool, clock: float) -> int | None:
         """Quadro da animação da máquina `m`. Submersa ou sem energia nenhuma: quadro 0. O painel solar anima
         sempre que está em pé (gera, não gasta; sem noite no jogo). A estação só com drone dentro. O resto anda no
-        `machine_t`, que já corre no ritmo do power.factor (déficit = mais devagar)."""
+        `machine_t`, que já corre no ritmo do power.factor (déficit = mais devagar). A Fundição parada devolve None
+        (o sprite apagado: o quadro 0 da tira dela já é acesa)."""
+        if m.is_smelter:                # v0.6 Fundo M3: só anima fundindo
+            working = powered and not m.submerged and m.smelter_blocker is None
+            return anim_frame_index(self.machine_t, tile_phase(m.tx, m.ty)) if working else None
         if m.submerged:
             return 0
         if m.is_bench:                  # v0.5 M1 B2: só anima fabricando, 1 ciclo (0 -> 7 a BENCH_FPS), sem fase por tile

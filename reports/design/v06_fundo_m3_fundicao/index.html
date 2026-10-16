@@ -1,0 +1,77 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Hesper · v0.6 Fundo M3: Fundição</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;padding:16px}
+.wrap{max-width:1320px;margin:0 auto;padding-block:32px 80px}h1{font-size:38px;margin:8px 0}
+h2{margin:44px 0 8px;border-top:1px solid var(--line);padding-top:24px}h3{margin:20px 0 6px;color:var(--gold)}
+.eyebrow{font:12px monospace;letter-spacing:.08em;color:var(--rust);text-transform:uppercase}
+.note{border-left:3px solid var(--cyan);background:var(--panel);padding:10px 16px;margin:16px 0}
+.muted{color:var(--muted)}code{background:#2a201b;padding:1px 5px}
+img{image-rendering:pixelated;display:block}
+.chk{background-color:#342c28;background-image:linear-gradient(45deg,#423835 25%,transparent 25%,transparent 75%,#423835 75%),linear-gradient(45deg,#423835 25%,transparent 25%,transparent 75%,#423835 75%);background-size:16px 16px;background-position:0 0,8px 8px;padding:8px;display:inline-block}
+.row{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end}figure{margin:0}figcaption{font:12px monospace;color:var(--muted);margin-top:4px;max-width:44ch}
+table{border-collapse:collapse}td,th{border:1px solid var(--line);padding:6px 10px;text-align:left}th{font:12px monospace;color:var(--muted)}
+@keyframes a1{to{background-position:-160px 0}}.an1{image-rendering:pixelated;animation:a1 0.8s steps(4) infinite}@keyframes a3{to{background-position:-480px 0}}.an3{image-rendering:pixelated;animation:a3 0.8s steps(4) infinite}@keyframes a6{to{background-position:-960px 0}}.an6{image-rendering:pixelated;animation:a6 0.8s steps(4) infinite}@keyframes a8{to{background-position:-1280px 0}}.an8{image-rendering:pixelated;animation:a8 0.8s steps(4) infinite}
+</style></head><body><div class="wrap">
+<div class="eyebrow">v0.6 · Fundo M3 · PRA APROVAR</div>
+<h1>Fundição (<code>smelter</code>) · v2 em 3D (r3d)</h1>
+<div class="note"><b>v2.0 · o que mudou.</b> A v1 saiu chapada, de frente. Refeita pelo pipeline r3d (<code>tools/sprites/r3d.py</code>, o mesmo do
+aquecedor, do derretedor e do O₂): volume em 3/4, tampo visível, luz em faixas, <b>sapata B</b> padrão (4 sapatas laranja, friso prata, plaqueta com LED), 40×56 com o mesmo
+pé. Mesmas ideias: boca de aço, chaminé, janela da magmatita, LED, bandeja de saída. <b>O funil espetado com pepitas saiu</b>: a entrada de minério agora é
+integrada ao corpo, e deixei <b>duas opções (A e B) pro dono escolher</b>. O ícone do lingote de cobre continua o mesmo (aprovado).</div>
+
+<h2>1 · A máquina (entrada A, a minha preferida)</h2>
+<div class="row">
+<figure><figure><div class="chk"><img src="pendentes/machine_smelter.png" width="320" height="448" alt=""></div><figcaption>apagada · machine_smelter.png · 40×56 · 8×</figcaption></figure></figure>
+<figure><div class="chk"><div class="an8" style="width:320px;height:448px;background-image:url(pendentes/anim/anim_machine_smelter.png);background-size:1280px 448px"></div></div><figcaption>acesa animada · anim_machine_smelter.png · 8× · 5 fps</figcaption></figure></div>
+<p><b>Entrada A · tremonha integrada.</b> Boca de carga rente ao tampo (aro de aço baixo com lábio laranja e fundo escuro), com minério de ferro e de cobre
+a ras da boca e a tampa articulada levantada atrás. Lê "entra minério aqui" sem nenhum acessório colado por cima.<br>
+Apagada: boca escura com brasa morta, janela de magmatita apagada, LED apagado. Acesa: massa incandescente pulsando atrás de uma grelha, magmatita acesa na janela,
+lingote quente na bandeja, LED verde, calor saindo da chaminé.</p>
+
+<h2>2 · Duas opções de entrada pro dono escolher</h2>
+<div class="row">
+<figure><div class="chk"><img src="pendentes/machine_smelter.png" width="240" height="336" alt=""></div><figcaption>A · tremonha integrada (boca de carga com anteparo)</figcaption></figure>
+<figure><div class="chk"><img src="pendentes/machine_smelter_B.png" width="240" height="336" alt=""></div><figcaption>B · calha de carga (rampa inclinada que leva o minério pra fenda)</figcaption></figure>
+<figure><div class="chk"><img src="pendentes/_f0.png" width="240" height="336" alt=""></div><figcaption>A acesa</figcaption></figure>
+<figure><div class="chk"><img src="pendentes/_f0_B.png" width="240" height="336" alt=""></div><figcaption>B acesa</figcaption></figure>
+</div>
+<p class="muted">A tira acesa da B é <code>pendentes/anim/anim_machine_smelter_B.png</code>. Só a entrada muda; o resto é igual. Escolhida a opção, descarto a outra.</p>
+
+<h3>Ao lado do derretedor e do aquecedor (1×, escala real)</h3>
+<div class="row"><figure><div class="chk"><img src="comparativo.png" width="322" height="56" alt=""></div><figcaption>derretedor, aquecedor, fundição A apagada, A acesa, B apagada, B acesa · 1×</figcaption></figure>
+<figure><div class="chk"><img src="comparativo.png" width="966" height="168" alt=""></div><figcaption>o mesmo a 3×</figcaption></figure></div>
+
+<h2>3 · Em cena (superfície e caverna)</h2>
+<p>Da esquerda pra direita: aquecedor, derretedor, fundição (entrada A). Chão primeiro, máquina ancorada no centro-baixo do tile.</p>
+<h3>superfície · morto</h3><div class="row"><figure><img src="cena_dead_apagada.png" width="864" height="288" alt=""><figcaption>apagada · aquecedor, derretedor, fundição (entrada A) · 3×</figcaption></figure><figure><img src="cena_dead_acesa.png" width="864" height="288" alt=""><figcaption>acesa (quadro 0)</figcaption></figure></div><h3>superfície · névoa</h3><div class="row"><figure><img src="cena_mist_apagada.png" width="864" height="288" alt=""><figcaption>apagada · aquecedor, derretedor, fundição (entrada A) · 3×</figcaption></figure><figure><img src="cena_mist_acesa.png" width="864" height="288" alt=""><figcaption>acesa (quadro 0)</figcaption></figure></div><h3>superfície · verde</h3><div class="row"><figure><img src="cena_green_apagada.png" width="864" height="288" alt=""><figcaption>apagada · aquecedor, derretedor, fundição (entrada A) · 3×</figcaption></figure><figure><img src="cena_green_acesa.png" width="864" height="288" alt=""><figcaption>acesa (quadro 0)</figcaption></figure></div><h3>chão da caverna (plateau)</h3><div class="row"><figure><img src="cena_cave_apagada.png" width="864" height="288" alt=""><figcaption>apagada · aquecedor, derretedor, fundição (entrada A) · 3×</figcaption></figure><figure><img src="cena_cave_acesa.png" width="864" height="288" alt=""><figcaption>acesa (quadro 0)</figcaption></figure></div>
+<h3>Entrada B em cena</h3><div class="row">
+<figure><img src="cena_mist_entradaB.png" width="864" height="288" alt=""><figcaption>névoa</figcaption></figure>
+<figure><img src="cena_cave_entradaB.png" width="864" height="288" alt=""><figcaption>caverna</figcaption></figure></div>
+
+<h2>4 · Ícone do lingote de cobre (inalterado)</h2>
+<div class="row">
+<figure><div class="chk"><img src="pendentes/icon_copper_ingot.png" width="192" height="192" alt=""></div><figcaption>icon_copper_ingot · 16×16</figcaption></figure>
+<figure><div class="chk"><img src="../../../assets/sprites/icon_iron_ingot.png" width="192" height="192" alt=""></div><figcaption>icon_iron_ingot (já no jogo)</figcaption></figure>
+<figure><div class="chk"><img src="../../../assets/sprites/icon_copper.png" width="192" height="192" alt=""></div><figcaption>icon_copper (minério)</figcaption></figure>
+<figure><div class="chk"><img src="cadeia_icones.png" width="448" height="128" alt=""></div><figcaption>minério · lingote de ferro · lingote de cobre · 8×</figcaption></figure></div>
+
+<h2>Pro Dev integrar</h2>
+<table><tr><th>arquivo (em <code>assets/sprites/</code> depois do ok)</th><th>tamanho</th><th>uso</th></tr>
+<tr><td><code>machine_smelter.png</code></td><td>40×56</td><td>fundição <b>parada</b> (sem energia, sem insumo, submersa), fantasma de colocar, ícone</td></tr>
+<tr><td><code>anim/anim_machine_smelter.png</code></td><td>160×56 (4 quadros de 40 px, horizontal)</td><td>fundição <b>acesa</b> (fundindo), 5 fps como as outras máquinas (fase por tile, mais devagar no déficit). Quadro 0 = acesa estática</td></tr>
+<tr><td><code>icon_copper_ingot.png</code></td><td>16×16</td><td>item <code>copper_ingot</code></td></tr></table>
+<ul>
+<li><b>Âncora:</b> igual ao aquecedor e ao derretedor nv.1: centrada em x no tile, base da imagem no pé do tile, 40×56. Mesma sapata B; sombra de chão não vai desenhada (como nas outras r3d).</li>
+<li><b>Convenção:</b> <code>machine_{key}.png</code> parada + <code>anim/anim_machine_{key}.png</code> acesa (sem a tira, usa o parado). Key <code>smelter</code>.</li>
+<li>Os nomes acima são da <b>opção A</b>. Se o dono escolher a B, renomeio <code>machine_smelter_B.png</code> e <code>anim_machine_smelter_B.png</code> pros nomes finais. Arquivos <code>_f*</code>, <code>_B</code> e <code>v1_flat_*</code> são prévia/descartados e não entram.</li>
+<li>Alpha só 0/255. Gerador: <code>python3 tools/sprites/v06_fundo_m3_fundicao.py</code> (determinístico).</li>
+</ul>
+
+<h2>v1 (descartada) · só pra comparar</h2>
+<div class="row">
+<figure><div class="chk"><img src="pendentes/v1_flat_machine_smelter.png" width="120" height="168" alt=""></div><figcaption>v1 chapada, apagada</figcaption></figure>
+<figure><div class="chk"><img src="pendentes/v1_flat_acesa.png" width="120" height="168" alt=""></div><figcaption>v1 chapada, acesa</figcaption></figure>
+<figure><div class="chk"><img src="pendentes/machine_smelter.png" width="120" height="168" alt=""></div><figcaption>v2 r3d, apagada</figcaption></figure>
+<figure><div class="chk"><img src="pendentes/_f0.png" width="120" height="168" alt=""></div><figcaption>v2 r3d, acesa</figcaption></figure></div>
+</div></body></html>

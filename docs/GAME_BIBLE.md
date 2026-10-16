@@ -184,6 +184,8 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 | `pod.png` | 64×72 | cápsula/base. **Freela r3d v1.2, sapata B, aprovado pelo dono** |
 | `machine_o2.png` `machine_heater.png` `machine_melter.png` | até 40×56 | nível 1. **Freela r3d v1.2, sapata B, aprovado pelo dono** |
 | `machine_o2_t2.png` `machine_heater_t2.png` `machine_melter_t2.png` | até 40×64 | nível 2. **Freela r3d v1.2, sapata B, aprovado pelo dono** |
+| `machine_smelter.png` `anim/anim_machine_smelter.png` | 40×56 · tira 160×56 (4 quadros, 5 fps) | **Fundição** (v0.6 Fundo M3), r3d, sapata B, entrada de minério em tremonha integrada (opção A). Parada usa o `machine_smelter` (apagada); a tira é toda acesa e só anima fundindo. **Aprovado pelo dono (2026-10-16)** |
+| `icon_copper_ingot.png` | 16×16 | lingote de cobre (v0.6 Fundo M3), par do `icon_iron_ingot` na paleta do cobre com verdete. **Aprovado pelo dono (2026-10-16)** |
 | `terminal.png` | 32×32 | terminal de parede. **Freela r3d v1.2, sapata B, aprovado pelo dono** |
 | `vein_iron.png` `vein_silicon.png` `vein_ice.png` | 64×64 | veio 2×2 no chão. Overlay transparente que funciona sobre o chão dos 3 estágios. **Freela, aprovado pelo dono: veio orgânico** (placas achatadas e angulosas encravadas no chão, com pepitas por cima; é o `vein_linha_*` do freela, copiado sem o sufixo) |
 | `machine_drill.png` | 256×80 | drill automática: 4 quadros de 64×80 (broca girando), ocupa 2×2 tiles, ancorada no centro da base dos 2×2. **Freela r3d v1.2, sapata B, aprovado pelo dono.** `DRILL_FILL_RECT` novo = `(12, 54, 7, 10)` (o Dev aplica; o atual `(48, 47, 7, 12)` sai) |

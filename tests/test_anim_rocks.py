@@ -189,3 +189,18 @@ def test_snowcap_is_drawn_after_the_rock_at_the_same_xy():
     expect.blit(cap1, (0, 0))
     assert pygame.image.tobytes(snowy, "RGBA") == pygame.image.tobytes(expect, "RGBA")
     assert pygame.image.tobytes(snowy, "RGBA") != pygame.image.tobytes(plain, "RGBA")
+
+
+def test_smelter_is_dark_when_idle_and_animates_only_smelting():
+    """v0.6 Fundo M3: a tira da Fundição é toda acesa, então parada ela usa o sprite apagado (None)."""
+    from game.inventory import Stack
+    r = renderer()
+    r.machine_t = 7.3
+    m = Machine("smelter", 4, 6)
+    assert r.machine_anim_index(m, True, 3.0) is None                 # sem minério
+    m.storage.slots[C.SMELTER_ORE_SLOT] = Stack("iron", 3)
+    m.storage.slots[C.SMELTER_FUEL_SLOT] = Stack("magmatite", 1)
+    assert r.machine_anim_index(m, True, 3.0) == anim_frame_index(7.3, tile_phase(4, 6))
+    assert r.machine_anim_index(m, False, 3.0) is None                # sem energia
+    m.submerged = True
+    assert r.machine_anim_index(m, True, 3.0) is None
