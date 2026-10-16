@@ -215,3 +215,10 @@ def test_each_ingot_emits_smelter_done_event(game):
     game.events.clear()
     run(game, C.SMELTER_TIME * 2 + 0.5)
     assert [e for e in game.events if e[0] == "smelter_done"] == [("smelter_done", m)] * 2
+
+
+def test_chip_on_smelter_marks_nothing(game):
+    """Dono (2026-10-16): pôr o chip na Fundição não liga Envia nem Recebe; o player escolhe."""
+    m = add_smelter(game, sends=(), chip=False)
+    assert game.chip_install(m) and m.chip and m.in_network
+    assert m.sends == set() and m.receives == set()

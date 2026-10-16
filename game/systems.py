@@ -1226,12 +1226,12 @@ class GameState:
         return moved
 
     def chip_install(self, machine: Machine) -> bool:
-        """Põe um chip na máquina (v0.6 M2): ela entra na rede e o Recebe dela liga (derretedor: gelo; dispersor:
-        cápsula). Não gasta item: quem chama tira o chip de onde ele estava. False se não leva chip ou já tem."""
+        """Põe um chip na máquina (v0.6 M2): ela entra na rede. Não liga Envia nem Recebe (dono, 2026-10-16: o player
+        escolhe o que marcar; antes o Recebe ligava sozinho). Não gasta item: quem chama tira o chip de onde ele
+        estava. False se não leva chip ou já tem."""
         if not machine.needs_chip or machine.chip:
             return False
         machine.chip = True
-        machine.receives |= {i for i in C.LOGISTIC_ITEMS if drones.can_receive(machine, i)}
         self.events.append(("chip_on", machine.anchor))
         return True
 

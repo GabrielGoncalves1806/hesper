@@ -65,11 +65,13 @@ def test_network_needs_chip_but_chest_does_not(game):
     assert drill in game.drone_logistics()
 
 
-def test_install_turns_receive_on_and_take_keeps_config(game):
+def test_install_marks_nothing_and_take_keeps_config(game):
+    """Dono (2026-10-16): o chip não liga Envia nem Recebe; o que o player marcou fica como estava."""
     melter = Machine("melter", 1, 1, sends={"water_capsule"})
     game.surface.machines.append(melter)
     assert game.chip_install(melter)
-    assert melter.chip and melter.receives == {"ice"} and melter.sends == {"water_capsule"}
+    assert melter.chip and melter.receives == set() and melter.sends == {"water_capsule"}
+    melter.receives.add("ice")
     assert ("chip_on", melter.anchor) in game.pop_events()
     assert not game.chip_install(melter)                         # 1 por máquina
     assert game.chip_take(melter)
@@ -84,7 +86,7 @@ def test_install_from_inventory_spends_one_chip(game):
     disp = Machine(C.DISPENSER, 1, 1)
     game.surface.machines.append(disp)
     assert game.chip_install_from(disp, i)
-    assert disp.chip and disp.receives == {"water_capsule"} and game.inventory.count("chip") == 2
+    assert disp.chip and disp.receives == set() and game.inventory.count("chip") == 2
 
 
 def test_chest_never_takes_a_chip(game):
@@ -129,8 +131,8 @@ def test_drones_feed_melter_with_ice_and_dispenser_with_capsules(game):
     chest = Machine("chest_large", 80, 70, sends={"ice", "water_capsule"})
     chest.storage.add("ice", 20)
     chest.storage.add("water_capsule", 5)
-    melter = Machine("melter", 66, 72)
-    disp = Machine(C.DISPENSER, 66, 66)
+    melter = Machine("melter", 66, 72, receives={"ice"})                # o player marcou o Recebe
+    disp = Machine(C.DISPENSER, 66, 66, receives={"water_capsule"})
     game.machines += [chest, melter, disp]
     assert game.chip_install(melter) and game.chip_install(disp)
     run(game, 60)
@@ -151,7 +153,7 @@ def test_chip_removed_mid_flight_drone_goes_elsewhere(game):
     st = add_station(game)
     chest = Machine("chest_large", 80, 70, sends={"ice"})
     chest.storage.add("ice", 10)
-    gone = Machine("melter", 40, 70)
+    gone = Machine("melter", 40, 70, receives={"ice"})
     other = Machine("chest_large", 30, 76, receives={"ice"})
     game.machines += [chest, gone, other]
     assert game.chip_install(gone)
