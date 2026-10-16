@@ -299,3 +299,21 @@ def test_diagram_names():
     from game.ui import item_name
     assert item_name("diagram_o2_tank") == "Diagrama: Tanque de O₂"
     assert all(f"diagram_{k}" in C.DIAGRAM_ITEMS for k in C.BLUEPRINTS)
+
+
+def test_module_terminal_reads_from_below_footprint():
+    g = GameState(seed=7)
+    module = next(w for w in g.world.wrecks if w.kind == "module")
+    rx, ry = module.reads_from
+    assert g.world.is_floor(rx, ry)
+    g.player.x, g.player.y = (rx + 0.5) * C.TILE, ry * C.TILE + 6       # pés logo abaixo da pegada
+    assert g.wreck_terminal_distance(module) <= C.TERMINAL_REACH
+    assert g.nearby_wreck_terminal() is module
+
+
+def test_wreck_at_px_covers_the_sprite_above_the_footprint():
+    world = generate_surface(7)
+    module = next(w for w in world.wrecks if w.kind == "module")
+    x, y, w, h = module.sprite_rect
+    assert world.wreck_at_px(x + w / 2, y + 4) is module           # no teto do sprite (fora da pegada)
+    assert world.wreck_at_px(x - 40, y - 40) is not module

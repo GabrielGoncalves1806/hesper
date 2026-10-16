@@ -149,6 +149,13 @@ class World:
             self._wreck_index = {t: w for w in self.wrecks for t in [*w.tiles, w.crate]}
         return self._wreck_index.get((tx, ty))
 
+    def wreck_at_px(self, px: float, py: float):
+        """Destroço cujo SPRITE (v0.7 M3: passa da pegada pra cima) tem esse ponto; o da frente (pé mais baixo) ganha."""
+        hits = [w for w in self.wrecks
+                if w.sprite_rect[0] <= px < w.sprite_rect[0] + w.sprite_rect[2]
+                and w.sprite_rect[1] <= py < w.sprite_rect[1] + w.sprite_rect[3]]
+        return max(hits, key=lambda w: w.anchor[1], default=None)
+
     # ---- consultas --------------------------------------------------------
     def in_bounds(self, tx: int, ty: int) -> bool:
         return 0 <= tx < self.width and 0 <= ty < self.height
