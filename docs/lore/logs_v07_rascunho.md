@@ -50,3 +50,15 @@ Linha do tempo de hoje: 3 (pouso), 41 (sonda S-3), 97 (índice rápido demais), 
 | 20 | 167 | Robô de reconhecimento R-2 | Dia 167. Unidade de reconhecimento R-2, relatório automático. Varredura do gelo norte: 14 pontos de calor se movendo sob a superfície, 3 metros por dia, todos na direção da colônia. Classificação: erro de sensor. Pedido de recalibração: negado. |
 
 História inteira com eles (21 LOGs): 1 pouso otimista · **2 casco da ARCA desmontado, ninguém volta** · 3 pouso perfeito · ... · 152 espécime reage ao calor · **167 pontos de calor andando sob o gelo** · 175 "ele não tem pressa, nós temos" · ...
+
+## v0.7 M4 · interior da VÉSPER-7 (RASCUNHO, esperando o dono)
+
+Índices novos em `LOGS`: 21, 22 e 23 (nunca mudam). Lidos nos terminais de parede das salas, na ordem em que o player anda (cabine fica no norte, mas o arco fecha na câmara fria). Pista só: não diz o que saiu do contêiner.
+
+| Índice | Dia | Sala · título | Texto |
+|---|---|---|---|
+| 21 | 188 | Cabine · `CABINE · VÉSPER-7` | Dia 188. Cabine da VÉSPER-7. Pane nos dois motores quarenta segundos depois de sair do chão. Pouso forçado no deserto, a vinte quilômetros da colônia. Todos vivos, carga intacta. A colônia diz que manda resgate amanhã. |
+| 22 | 190 | Alojamento · `ALOJAMENTO · VÉSPER-7` | Dia 190. O resgate não veio. O Brandt jura que a câmara fria está mais quente que ontem, e o termômetro concorda com ele. O contêiner está suando. Gelo de núcleo não sua. |
+| 23 | 193 | Câmara fria · `CAMARA FRIA · VÉSPER-7` | Dia 193. Barulho dentro do contêiner a noite inteira. Batidas lentas, sem pressa. Lacramos a câmara e vamos a pé até a colônia. Se alguém ler isso, não durma aqui. |
+
+História com eles (24 LOGs): ... 175 "ele não tem pressa, nós temos" · 188 VÉSPER-7 leva o gelo · **188 pane e pouso forçado** · **190 o contêiner sua** · **193 batidas, saem a pé** · 198 vapor azulado · 205 marca de dentro pra fora · ...
