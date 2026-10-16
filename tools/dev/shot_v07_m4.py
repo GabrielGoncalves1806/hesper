@@ -31,6 +31,8 @@ OUT = ROOT / "reports" / "dev" / "v07_m4"
 DT = 1 / 30
 T = C.TILE
 SLOTS = ("hold", "hall", "bunks", "cold", "bridge")
+PROP_SHOTS = ("prop_container_stack", "prop_repair_bench", "prop_wall_bunk", "prop_briefing_table", "prop_command_table",
+              "prop_mess_table", "prop_server_rack_open", "prop_suit_niche")
 
 
 def variant_of(seed: int, slot: str) -> str:
@@ -135,6 +137,22 @@ def main() -> None:
             break
     print(f"  faíscas: {len(app.renderer.door_fx.sparks)}  névoa: {len(app.renderer.door_fx.fog)}")
     save_shot(app, "porta_faisca.png")
+    # 4b. props novos do kit (Task 5): o jogador na frente (sul) de cada um e, nos grandes, atrás (norte) pra ver a ordem do pé
+    for kind in PROP_SHOTS:
+        seed = next(s for s in range(0, 200) if kind in vesper.compose(s).props.values())
+        app = new_app(seed)
+        inside(app)
+        ax, ay = next(p.tile for p in app.state.active.props.values() if p.kind == kind)
+        w, h = C.PROPS[kind].size
+        for side, (fx, fy) in (("sul", (ax, ay + h + 1)), ("norte", (ax, ay - 1))):
+            if side == "norte" and (w, h) == (1, 1):
+                continue
+            if app.state.world.is_solid(fx, fy) or app.state.active.props.get((fx, fy)):
+                continue
+            put_feet(app, (fx + 0.5) * T, (fy + 1) * T - 2)
+            app.mouse = (4, 4)
+            frames(app, 25)
+            save_shot(app, f"prop_{kind}_{side}.png")
     # 5-6. fora: a boca do porão e o fade
     app = new_app(seed)
     w = wrecks.vesper_wreck(app.state.world)

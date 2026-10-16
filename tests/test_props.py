@@ -45,10 +45,10 @@ def spot(s: GameState) -> tuple[int, int]:
 
 # ---- Task 1: config, Prop e assets ----------------------------------------------------------------
 def test_tabela_de_props():
-    assert len(C.PROPS) == 24
+    assert len(C.PROPS) == 42                                   # v0.7 M4: +17 do kit da VÉSPER-7
     assert set(C.PROP_STARTER) == {"prop_table", "prop_chair", "prop_crate", "prop_sign"}
-    assert set(C.PROP_SCENERY) == {"prop_chair_fallen", "prop_rubble", "prop_ice_stain"}
-    assert len(C.PLAYER_PROPS) == 21
+    assert set(C.PROP_SCENERY) == {"prop_chair_fallen", "prop_rubble", "prop_ice_stain", "prop_uniforms"}
+    assert len(C.PLAYER_PROPS) == 38
     for k in C.PROP_STARTER + C.PROP_SCENERY:
         assert not C.PROPS[k].scannable
     assert C.PROPS["prop_dead_plant"].scannable
@@ -59,7 +59,9 @@ def test_tabela_de_props():
 
 def test_custos():
     tech = {"prop_lab_bench", "prop_microscope", "prop_console", "prop_sample_tank",
-            "wall_monitor_on", "wall_monitor_off"}
+            "wall_monitor_on", "wall_monitor_off",
+            "prop_microscope_digital", "prop_command_table", "prop_server_rack", "prop_server_rack_open", "prop_workstation",
+            "prop_suit_locker", "prop_suit_niche", "prop_briefing_table", "prop_nav_table"}      # v0.7 M4
     for k in C.PLAYER_PROPS:
         want = {"iron": 2, "silicon": 1} if k in tech else {"iron": 2}
         assert C.MACHINES[k].cost == want, k
@@ -91,7 +93,8 @@ def test_assets_promovidos():
     from pathlib import Path
     sprites = Path("assets/sprites")
     for k in C.PROPS:
-        assert (sprites / f"{k}.png").exists(), k
+        for name in ((f"{k}_a", f"{k}_b") if k in C.PROP_VARIANT_KINDS else (k,)):
+            assert (sprites / f"{name}.png").exists(), name
         if k in C.PLAYER_PROPS:
             assert (sprites / f"icon_{k}.png").exists(), k
 

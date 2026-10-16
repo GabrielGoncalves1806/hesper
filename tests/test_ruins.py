@@ -280,6 +280,8 @@ def test_planta_le_props():
         assert p.props, p.key
         assert all(k in C.PROPS for k in p.props.values())
         assert not set(p.props) & set(p.machines)
+    from game import vesper
+    plans += [vesper.load(k) for ks in vesper.VARIANTS.values() for k in ks]      # v0.7 M4: o kit novo mora na nave
     seen = {k for p in plans for k in p.props.values()}
     scannable = {k for k, t in C.PROPS.items() if t.scannable}
     assert scannable <= seen

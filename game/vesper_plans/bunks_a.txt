@@ -7,15 +7,20 @@ t: prop_table
 h: prop_chair_fallen
 L: emergency_light
 1: 22
+W: prop_wall_bunk
+u: prop_uniforms
+S: prop_suit_locker
+V: prop_suit_niche
+s: prop_side_table
 ---
 ######1###L###
-#bb........kk#
+#W......W..kk#
 #............#
-#bb...t......#
-#.....h......#
+#bb...t..uu..#
+#bb...h......#
 #.............
+#............#
 #bb..........#
-#............#
-#bb.......k..#
-#............#
+#bb.....u....#
+#..S.V....s..#
 ##############

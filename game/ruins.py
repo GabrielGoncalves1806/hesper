@@ -116,7 +116,7 @@ def ok_in_plan(grid: list[str], x: int, y: int, kind: str) -> bool:
     if place == "face":
         return here == "#" and below not in WALLISH + " "
     if place == "desk":
-        return here == "." and above == "#" and below not in WALLISH
+        return all(_at(grid, x + dx, y - 1) == "#" and _at(grid, x + dx, y + 1) not in WALLISH for dx in range(w))
     return here == "."
 
 

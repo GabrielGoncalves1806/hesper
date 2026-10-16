@@ -7,10 +7,12 @@ s: prop_ice_stain
 o: prop_barrel
 l: lamp
 L: emergency_light
+p: wall_cable_panel
+O: prop_server_rack_open
 ---
-#L#.#L#
+#L#.pL#
 #.....#
-#.s...#
+#.s..O#
 #.....#
 #...k.#
 #.....#

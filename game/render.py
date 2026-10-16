@@ -729,23 +729,33 @@ class Renderer:
         self._draw_ruin_terminal(canvas, state, tile, x, y)
 
     # ---- props (v0.7 M2 · game/props.py · arte: reports/design/v07_lore) -------------------------------
-    def prop_surface(self, kind: str) -> pygame.Surface:
-        """prop_*.png / wall_*.png (chão e mesa 32×40, decal 32×32, face 32×24) ou um quadradinho se o PNG não existe."""
-        place = C.PROPS[kind].place
+    def prop_surface(self, kind: str, tile=None) -> pygame.Surface:
+        """prop_*.png / wall_*.png (chão e mesa 32×40, decal 32×32, face 32×24; prop grande: largura e altura em tiles) ou
+        um quadradinho se o PNG não existe. Kind com variantes (C.PROP_VARIANT_KINDS): _a/_b por hash do `tile`."""
+        ptype = C.PROPS[kind]
+        name = kind
+        if kind in C.PROP_VARIANT_KINDS:
+            name += "_a" if tile is None or hash01(tile[0], tile[1], 17) < 0.5 else "_b"
 
         def painter():
-            size = C.PROP_FACE_SIZE if place == "face" else (T, T) if place == "decal" else C.PROP_SPRITE_SIZE
+            w, h = ptype.size
+            if ptype.place == "face":
+                size = C.PROP_FACE_SIZE
+            elif ptype.place == "decal":
+                size = (T, T)
+            else:
+                size = (C.PROP_SPRITE_SIZE[0] * w, C.PROP_SPRITE_SIZE[1] + T * (h - 1))
             surf = pygame.Surface(size, pygame.SRCALPHA)
             surf.fill((140 + hash(kind) % 80, 120, 100, 255))
             return surf
-        return self.surface(kind, painter)[0]
+        return self.surface(name, painter)[0]
 
     def _blit_prop(self, canvas, prop: Prop, x: int, y: int) -> None:
         """Blit do prop em (x, y) (o topo do sprite, já com o deslocamento do tipo) e o contorno se é o alvo do scan."""
-        surf = self.prop_surface(prop.kind)
+        surf = self.prop_surface(prop.kind, prop.tile)
         canvas.blit(surf, (x, y))
         if self.highlight is prop:
-            canvas.blit(self.outline_of(("prop", prop.kind), surf), (x - 1, y - 1))
+            canvas.blit(self.outline_of(("prop", prop.kind, id(surf)), surf), (x - 1, y - 1))
 
     def _draw_fixture_face(self, canvas, state: GameState, tile, x: int, y: int) -> None:
         """Painel de energia, porta emperrada ou luz de emergência da VÉSPER-7 (v0.7 M4): face opaca 32×24 que troca a peça
@@ -782,23 +792,30 @@ class Renderer:
             return
         tx0, tx1, ty0, ty1 = self.base_view(cam)
         for tile, prop in props.items():                 # v0.7 M4: prop grande aparece em vários tiles; desenha pela âncora
-            if tile == prop.tile and prop.place in ("floor", "desk") and tx0 <= prop.tx <= tx1 and ty0 <= prop.ty <= ty1:
-                items.append(((prop.ty + 1) * T, lambda p=prop: self._blit_prop(
+            w, h = prop.type.size
+            if (tile == prop.tile and prop.place in ("floor", "desk")
+                    and tx0 - w <= prop.tx <= tx1 and ty0 - h <= prop.ty <= ty1):
+                items.append(((prop.ty + h) * T, lambda p=prop: self._blit_prop(
                     canvas, p, p.tx * T - cam[0], p.ty * T - cam[1] - C.PROP_LIFT)))
 
     def draw_prop_ghost(self, canvas, cam, kind, tile, valid, t) -> None:
         """Fantasma do prop: quadrado verde/vermelho no tile e o sprite translúcido (face: na face da parede)."""
         color = (127, 214, 122) if valid else (255, 106, 85)
         px, py = tile[0] * T - cam[0], tile[1] * T - cam[1]
-        tint = pygame.Surface((T, T), pygame.SRCALPHA)
+        fw, fh = C.PROPS[kind].size                        # v0.7 M4: a pegada inteira (2×1, 2×2)
+        pw, ph = fw * T, fh * T
+        tint = pygame.Surface((pw, ph), pygame.SRCALPHA)
         tint.fill((*color, 51))
         canvas.blit(tint, (px, py))
         step = int(t * 8) % 8
-        for i in range(0, T - 2, 8):
-            k = (i + step) % (T - 2)
-            for rx, ry, w, h in [(px + 1 + k, py + 1, 4, 2), (px + 1 + k, py + T - 3, 4, 2),
-                                 (px + 1, py + 1 + k, 2, 4), (px + T - 3, py + 1 + k, 2, 4)]:
-                canvas.fill(color, (rx, ry, w, h))
+        for i in range(0, pw - 2, 8):                      # formigas nas bordas de cima e de baixo
+            k = (i + step) % (pw - 2)
+            canvas.fill(color, (px + 1 + k, py + 1, 4, 2))
+            canvas.fill(color, (px + 1 + k, py + ph - 3, 4, 2))
+        for i in range(0, ph - 2, 8):                      # e nas laterais
+            k = (i + step) % (ph - 2)
+            canvas.fill(color, (px + 1, py + 1 + k, 2, 4))
+            canvas.fill(color, (px + pw - 3, py + 1 + k, 2, 4))
         sprite = self.prop_surface(kind).copy()
         sprite.set_alpha(140)
         face = C.PROPS[kind].place == "face"
@@ -2290,7 +2307,7 @@ class Renderer:
         for prop, fill, color in ((block, state.dismantle_progress, C.C_O2), (state.scanning, state.scan_progress, C.C_TI)):
             if isinstance(prop, Prop):                        # v0.7 M2: desmontando um prop / escaneando um de ruína
                 top = prop.ty * T - cam[1] + (C.BASE_FACE_Y if prop.place == "face" else -C.PROP_LIFT if prop.place != "decal" else 0)
-                self.draw_drill_bar(canvas, round((prop.tx + 0.5) * T - cam[0]), round(top) - bh - 2, fill, color, False, w=bw, h=bh)
+                self.draw_drill_bar(canvas, round((prop.tx + prop.type.size[0] / 2) * T - cam[0]), round(top) - bh - 2, fill, color, False, w=bw, h=bh)
         if isinstance(block, Crate):                          # v0.6 M1: desmontando a caixa de saque
             bw, bh = C.DISMANTLE_BAR
             ax, ay = block.anchor
