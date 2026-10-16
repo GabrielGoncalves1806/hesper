@@ -44,6 +44,7 @@ from game.perf_meter import PerfMeter
 from game.assets import Sprites
 from game.audio import Audio
 from game.equipment import is_equipment
+from game.geo import REGION_NAMES
 from game.fabricator import FabMenu, build_menu, craft_menu, t2_menu
 from game.inventory import Stack
 from game.map_view import MapView
@@ -120,6 +121,7 @@ class App:
 
         self.sprites = Sprites()
         self.audio = Audio()
+        self.cave_amb = sound.CaveRegionPicker()   # v0.6 Fundo M2: ambiente por bioma da caverna
         self.renderer = Renderer(self.sprites)
         self.ui = UI()
         self.floaters = FloatingTexts()
@@ -1811,6 +1813,7 @@ class App:
         # chiado da fumarola acordada mais perto (v11): só na superfície; dormente não entra no cálculo
         vent = state.vent_distance() if self.ambient_layer() == "surface" else None
         audio.set_vent(sound.vent_hiss_volume(vent))
+        self.update_cave_biome(dt)
         want = self.ambient_want()
         if want != audio.ambient_key and not audio.busy_with_stage:
             audio.crossfade_to(want)              # amb_{estágio} <-> amb_cave (1,5 s sai, 2,5 s entra)
@@ -1829,10 +1832,28 @@ class App:
         ramp = self.state.ramp
         return ramp.to if ramp is not None else self.state.layer
 
+    def update_cave_biome(self, dt: float) -> None:
+        """Região da caverna que manda no ambiente (histerese em audio.CaveRegionPicker). Descendo, a chegada é no
+        centro (stable None toca amb_cave); já lá embaixo, o primeiro quadro toca o bioma do ponto sem esperar."""
+        state = self.state
+        if self.ambient_layer() != "cave":
+            self.cave_amb.reset(None)
+        elif state.layer == "cave":
+            i = state.world.region_at_cave(*state.player.tile)
+            name = REGION_NAMES[i] if i is not None else None
+            if self.cave_amb.stable is None:
+                self.cave_amb.reset(name)
+            else:
+                self.cave_amb.update(name, dt)
+
     def ambient_want(self, stage: int | None = None) -> str:
         """Ambiente que deveria tocar agora (game/audio.ambient_for)."""
         key = stage_key(stage or self.state.stage)
-        return sound.ambient_for(self.ambient_layer(), key, self.audio.has("amb_cave"), self.audio.has("amb_storm"))
+        region = self.cave_amb.stable
+        if region and not self.audio.has(f"amb_cave_{region}"):
+            region = None
+        return sound.ambient_for(self.ambient_layer(), key, self.audio.has("amb_cave"), self.audio.has("amb_storm"),
+                                 cave_region=region)
 
     def update_drills_feedback(self, dt: float) -> None:
         """Som e poeira das drills: loop pelas 2 trabalhando mais perto, aviso de cheia, poeirinha na base."""

@@ -47,6 +47,8 @@ CONTRACT = {
     "leak_alert": False, "dispenser_dry": False,
     # v0.5 Marco 4 · contêiner lacrado (v14.3, D3s aprovada pelo dono)
     "container_open": False,
+    # v0.6 Fundo M2 · ambiente por bioma da caverna (aprovados pelo dono)
+    "amb_cave_salar": True, "amb_cave_basalt": True, "amb_cave_frost": True,
 }
 # entregues em _pending/ até o dono aprovar
 PENDING: dict = {}

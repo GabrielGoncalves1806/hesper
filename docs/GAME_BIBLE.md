@@ -883,3 +883,6 @@ Spec: `docs/superpowers/specs/2026-10-15-v06-fundo-design.md`. Marcos: M1 cavern
 - **Visual provisório**: chão e rocha da caverna tingidos por região (`C.CAVE_REGION_TINT`) e cores de cobre, rocha dura e regiões no mapa e minimapa. A arte de verdade é o M2. O cobre e o ferro novo usam os sprites aprovados da Designer.
 - **Simulador de balanceamento** (`tools/dev/balance_sim.py`): ignora tile duro (ele não tem a nv.2).
 - **Desempenho**: `generate_cave(seed)` leva ~1,0 s (seeds 7/1/42, 0,96 a 1,00 s). Caverna escura no zoom 0,75 com 36 luminárias: **7,2 ms por frame** (era ~5,2; orçamento 16,7); o mapa inteiro da caverna no smoke agora é 256×256 (8.371 tiles de minério em 55.302 paredes).
+
+### Marco 2 · como ficou (v0.6 Fundo)
+- **Som por bioma** (`amb_cave_salar/basalt/frost`, aprovados pelo dono): o ambiente da caverna segue a região do tile do player (`audio.CaveRegionPicker`), troca depois de **1,5 s** seguidos na região nova (`C.CAVE_AMB_HOLD_S`), em crossfade direto de bioma pra bioma (sem passar pelo centro), e quem carrega o save já dentro da caverna toca o bioma na hora. Centro e descida seguem `amb_cave`.
