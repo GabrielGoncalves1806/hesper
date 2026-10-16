@@ -157,13 +157,3 @@ def test_region_window_clips_to_the_map_edge():
     win = cave_rocks.region_window(region, -1, 2, 2, 5)
     assert win.shape == (3, 3)
     assert (win == region[[2, 2, 2]][:, [0, 0, 1]]).all()
-
-
-def test_cave_luts_region_zero_is_the_old_ramp_and_others_are_tinted():
-    lut = cave_rocks.cave_luts()[1]
-    ramp = cave_rocks.cave_ramp()
-    assert lut.shape == (80, 3)
-    assert (lut[:10] == ramp).all()                    # centro: igual à rampa de antes
-    for region in (SALAR, BASALT, FROST):
-        assert not (lut[region * 10:region * 10 + 10] == ramp).all()
-    assert len(hills.REGIONS) == 4

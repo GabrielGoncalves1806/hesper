@@ -107,11 +107,13 @@ class Glint:
 FACING_DIR = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
 
 
-def helmet_lamp(px: float, py: float, facing: str | tuple[float, float] | None = None) -> LightSource:
-    """Lanterna do capacete: ~4 tiles, centro levemente deslocado pra onde o player olha."""
+def helmet_lamp(px: float, py: float, facing: str | tuple[float, float] | None = None,
+                color: tuple[int, int, int] = WARM_WHITE, intensity: float = 1.0) -> LightSource:
+    """Lanterna do capacete: ~4 tiles, centro levemente deslocado pra onde o player olha. Na caverna a cor e a
+    intensidade vêm da região (game/cave_light.py)."""
     dx, dy = FACING_DIR.get(facing, (0, 0)) if isinstance(facing, str) or facing is None else facing
     bias = 10
-    return LightSource(px + dx * bias, py + dy * bias, 4 * T, WARM_WHITE, 1.0)
+    return LightSource(px + dx * bias, py + dy * bias, 4 * T, color, intensity)
 
 
 def lamp(tx: int, ty: int, radius_tiles: float = 5) -> LightSource:

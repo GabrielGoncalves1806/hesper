@@ -28,8 +28,20 @@ TILE_COLORS = {
 }
 VEIN_COLORS = {"iron": (185, 155, 130), "silicon": (195, 209, 226), "ice": (166, 236, 255),
                "copper": (224, 112, 63), "magmatite": (255, 122, 46)}
-# v0.6 Fundo M1: chão da caverna no mapa, por região (provisório como a tinta do render)
-CAVE_REGION_COLORS = {0: (92, 84, 80), 1: (130, 112, 88), 2: (96, 66, 60), 3: (98, 118, 134)}
+# v0.6 Fundo M2: chão da caverna no mapa, por região = a cor base (índice 3) da paleta assada (cave_ground_palettes.json)
+_CAVE_REGION_FALLBACK = {0: (92, 84, 80), 1: (130, 112, 88), 2: (96, 66, 60), 3: (98, 118, 134)}
+
+
+def _cave_region_colors() -> dict[int, tuple[int, int, int]]:
+    try:
+        meta = json.loads((C.CAVE_GROUND_DIR / "cave_ground_palettes.json").read_text(encoding="utf-8"))
+        base = meta["ramps"]["BASE"]
+        return {i: tuple(pygame.Color(base[name]["cave"][3]))[:3] for i, name in enumerate(REGION_NAMES)}
+    except (OSError, KeyError, ValueError, IndexError):
+        return dict(_CAVE_REGION_FALLBACK)
+
+
+CAVE_REGION_COLORS = _cave_region_colors()
 UNSEEN = (0, 0, 0)
 FOG_COLOR = (150, 176, 196)             # v0.5 M3.6.4: mancha de névoa no interior fechado do bolsão da criatura
 WATER_COLOR = (63, 118, 144)            # v0.4 M3.3: lago nas bacias (a água da Névoa, PALETTES["mist"]["water"])

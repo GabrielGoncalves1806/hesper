@@ -27,6 +27,8 @@ import pygame
 
 from game import art
 from game import autotile
+from game import cave_ground
+from game import cave_light
 from game import cave_rocks
 from game.base import floor_variant
 from game import config as C
@@ -43,7 +45,7 @@ from game import layers
 from game import smoke
 from game.assets import Sprites
 from game.ground import decor_layers, decor_tile_free
-from game.lighting import LightSource, Lighting, helmet_lamp, lamp as lamp_light, ore_glints
+from game.lighting import WARM_WHITE, LightSource, Lighting, helmet_lamp, lamp as lamp_light, ore_glints
 from game.minimap import Minimap
 from game.rain import RainDrops, rain_level
 from game.surfaces import opaque
@@ -142,13 +144,13 @@ MACHINE_LIGHT = {"o2": (89, 208, 230), "heater": (255, 138, 61), "melter": (159,
 DRONE_LIGHT = MACHINE_LIGHT["drone_station"]   # v0.6 M3: luzinha do drone voando na caverna (pedido do dono)
 
 
-def cave_lights(state: GameState) -> list[LightSource]:
+def cave_lights(state: GameState, helmet=WARM_WHITE, helmet_intensity: float = 1.0) -> list[LightSource]:
     """Fontes de luz da caverna (a lanterna sempre primeiro). Função pura, testada em tests/test_cave.py.
     Lanterna do capacete (~4 tiles, pra onde o player olha), luz do dia caindo pela boca da rampa (~3,5),
     luminárias (~5), luz fraca de cada máquina (~1,8; baú não tem e drill cheia está parada) e o verde
     dos terminais (~2)."""
     p = state.player
-    out = [helmet_lamp(p.x, p.y - 18, p.facing)]
+    out = [helmet_lamp(p.x, p.y - 18, p.facing, helmet, helmet_intensity)]
     world = state.world
     if world.crater is not None:                 # luz fixa na boca da rampa: (tx·32+48, ty·32+30), 3,5 tiles
         rx, ry = world.crater
@@ -217,12 +219,6 @@ class Renderer:
         self.outline_v.fill((0, 0, 0, 70))
         self.bedrock_shade = pygame.Surface((T, T), pygame.SRCALPHA)
         self.bedrock_shade.fill((0, 0, 0, 110))
-        self.region_tint = {}                               # v0.6 Fundo M1: tinta provisória do chão da caverna
-        for region, rgba in C.CAVE_REGION_TINT.items():
-            if rgba[3]:
-                s = pygame.Surface((T, T), pygame.SRCALPHA)
-                s.fill(rgba)
-                self.region_tint[region] = s
         self.player_shadow = pygame.Surface((16, 5), pygame.SRCALPHA)
         pygame.draw.ellipse(self.player_shadow, (0, 0, 0, 97), (0, 0, 16, 5))
         # Tamanho da "visão" (px do mundo que cabem na tela). Sem zoom é 960×540; com zoom muda
@@ -239,6 +235,10 @@ class Renderer:
         self._item_icons: dict[str, pygame.Surface] = {}
         self.minimap = Minimap()                 # textura do mapa (1 px por tile), incremental (game/minimap.py)
         self.ground = ground.Ground(getattr(sprites, "enabled", True))  # chão assado da superfície com geo (v0.4 M2, game/ground.py)
+        self.cave_ground = cave_ground.CaveGround(getattr(sprites, "enabled", True))  # v0.6 Fundo M2: chão assado da caverna
+        self.cave_light = cave_light.CaveLight()           # v0.6 Fundo M2: luz ambiente e do capacete por região
+        self._cave_geo: cave_ground.CaveGeo | None = None
+        self._cave_geo_world = None
         # v0.4 Marco 2 (trilha C, game/hills.py): morros orgânicos assados em blocos
         self._hills: hills.HillBlocks | None = None
         self._cave_rocks: cave_rocks.CaveRocks | None = None   # rocha da caverna com borda orgânica (v0.5 M3.4)
@@ -485,8 +485,11 @@ class Renderer:
         self.vent_smoke.draw(canvas, cam, stage_key(state.stage))
 
     def draw_cave_darkness(self, canvas, state: GameState, cam, t: float) -> None:
-        """Escuridão da caverna (game/lighting.py) e, por cima, o brilho dos minérios no escuro."""
-        self.lighting.apply(canvas, cam, cave_lights(state), ambient=0.0, t=t)
+        """Escuridão da caverna (game/lighting.py), com a luz da região do player (game/cave_light.py), e, por
+        cima, o brilho dos minérios no escuro."""
+        cl = self.cave_light
+        cl.update(state.world, *state.player.tile, t)
+        self.lighting.apply(canvas, cam, cave_lights(state, cl.helmet, cl.helmet_intensity), ambient=cl.ambient, t=t)
         tx0, tx1, ty0, ty1 = self.visible_tiles(cam)
         self.lighting.draw_glints(canvas, cam, ore_glints(state.world, tx0, tx1, ty0, ty1 + 1), t=t)
 
@@ -501,11 +504,23 @@ class Renderer:
         geo = getattr(state.active, "geo", None)
         return geo if geo is not None and self.ground.enabled else None
 
+    def cave_geo(self, world):
+        """O geo do chão assado da caverna (v0.6 Fundo M2), ou None (superfície ou sem a arte)."""
+        if world.cave_region is None or not self.cave_ground.enabled:
+            return None
+        if self._cave_geo_world is not world:
+            self._cave_geo, self._cave_geo_world = cave_ground.CaveGeo(world), world
+        return self._cave_geo
+
     def draw_floors(self, canvas, state: GameState, cam, stage: str, t: float) -> None:
         """Passada 1: todo o chão e a água visíveis (as paredes vêm depois, por cima)."""
         world = state.world
         tx0, tx1, ty0, ty1 = self.visible_tiles(cam)
         geo = self.surface_geo(state)
+        cgeo = self.cave_geo(world) if self.organic_hills(state) else None
+        if cgeo is not None:   # caverna (v0.6 Fundo M2): chão assado; sem água e sem sombra quadrada (a rocha é orgânica)
+            self.cave_ground.draw(canvas, cgeo, cam, (self.view_w, self.view_h), None)
+            return
         if geo is not None:   # chão assado em blocos de 512 px (game/ground.py); por tile só água e sombra
             self.ground.draw(canvas, geo, cam, (self.view_w, self.view_h), self.stage_map)
             self.sync_water(world)
@@ -984,9 +999,6 @@ class Renderer:
             v = int(hash01(tx, ty, 3) * 4)
             sprite = lambda st: (f"floor_{st}_{v}", lambda: art.floor(st, v))     # noqa: E731
         canvas.blit(self.surface(*sprite(stage))[0], (sx, sy))
-        tint = self.region_tint.get(world.region_at_cave(tx, ty))
-        if tint is not None:
-            canvas.blit(tint, (sx, sy))
         if self.stage_map.step > 0:
             self._blend_edges(canvas, world, tx, ty, sx, sy, stage_num, False, sprite)
         if self._wet(world, tx, ty):

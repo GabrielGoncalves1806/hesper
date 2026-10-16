@@ -2710,6 +2710,7 @@ def check_ground(bot) -> None:
     full = pygame.Surface((w.width * C.TILE // 8, w.height * C.TILE // 8), 0, 32)
     piece = pygame.Surface((1024, 1024), 0, 32)
     r.ground.sync = True
+    r.cave_ground.sync = True
     for cy in range(0, w.height * C.TILE, 1024):
         for cx in range(0, w.width * C.TILE, 1024):
             r.view_w, r.view_h = 1024, 1024
@@ -2717,6 +2718,7 @@ def check_ground(bot) -> None:
             r.draw_floors(piece, s, (cx, cy), "dead", 0.0)
             full.blit(pygame.transform.smoothscale(piece, (128, 128)), (cx // 8, cy // 8))
     r.ground.sync = False
+    r.cave_ground.sync = False
     pygame.image.save(full, str(OUT / "chao_mapa.png"))
     print("  screenshot: reports/dev/chao_mapa.png  (chão reduzido 8×)")
     # 6) desempenho: assar 1 bloco, o passeio de antes (zoom 0,75) e o pior quadro andando rápido (F3)

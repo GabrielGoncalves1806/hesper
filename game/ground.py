@@ -318,7 +318,10 @@ def bake_strip(geo, art: RegionArt, bx: int, by: int, y0: int, y1: int, depth=No
     code = np.where(m != 255, m, code)
     wt = (np.clip(tj[crop] - by * BT + 1, 0, WT_SIDE - 1) * WT_SIDE
           + np.clip(ti[crop] - bx * BT + 1, 0, WT_SIDE - 1)).astype(np.uint16)
-    cover = cover_strip(geo, depth if depth is not None else depth_field(geo.basin), xs, ys, cls, d)[crop]
+    if getattr(art, "cover", True):
+        cover = cover_strip(geo, depth if depth is not None else depth_field(geo.basin), xs, ys, cls, d)[crop]
+    else:                                          # caverna (v0.6 Fundo M2): sem grama nem umidade
+        cover = np.zeros(code.shape, np.uint8)
     return code, wt[::2, ::2], cover
 
 

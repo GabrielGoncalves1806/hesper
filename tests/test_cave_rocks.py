@@ -107,3 +107,44 @@ def test_cave_frame_draws_rock_strips_and_keeps_terminal_and_ore():
         r.draw(canvas, g, cam, 0.0)
     finally:
         C.ORGANIC_CAVE = True
+
+
+# ---- v0.6 Fundo M2: rampa por região e divisa por pixel ----------------------------------------------------------
+from game.geo import BASALT, FROST, PLATEAU, SALAR  # noqa: E402
+
+
+def test_ramps_load_and_centre_is_todays_ramp():
+    ramps = cave_rocks.load_ramps()
+    assert ramps is not None and set(ramps) == {PLATEAU, SALAR, BASALT, FROST}
+    assert np.array_equal(ramps[PLATEAU][:9], cave_rocks.cave_ramp()[:9])   # report §1: o centro não muda
+    assert tuple(ramps[BASALT][8]) == (194, 72, 31)                          # contorno de brasa
+
+
+def test_luts_use_one_ramp_per_region():
+    ramps = cave_rocks.load_ramps()
+    lut = cave_rocks.cave_luts(ramps)[1]
+    assert lut.shape == (80, 3)
+    for r in range(4):
+        assert np.array_equal(lut[r * 10:r * 10 + 10], ramps[r])
+    assert np.array_equal(lut[40:], (lut[:40] * hills.BEDROCK_SHADE).astype(np.uint8))
+
+
+def test_luts_without_file_fall_back_to_single_ramp(tmp_path):
+    lut = cave_rocks.cave_luts(cave_rocks.load_ramps(tmp_path / "nada.json"))[1]
+    for r in range(4):
+        assert np.array_equal(lut[r * 10:r * 10 + 10], cave_rocks.cave_ramp())
+
+
+def test_wall_region_border_is_curved():
+    """Muro inteiro num bloco, região 0 à esquerda da coluna 4 e 1 à direita: a troca de cor não é uma reta."""
+    region = np.zeros((64, 64), np.uint8)
+    region[:, 4:] = SALAR
+    i0, i1, j0, j1 = hills.window_bounds(0, 1)
+    kinds = np.full((j1 - j0, i1 - i0), C.ROCK, np.uint8)
+    blk = hills.bake_block(kinds, cave_rocks.region_window(region, i0, i1, j0, j1), 0, 1,
+                           hills.load_indexed("hill_top.png"), hills.load_indexed("hill_face.png"),
+                           hills.edge_noise())
+    reg = cave_rocks.pixel_regions(blk, region, seed=7)
+    top = blk["top"]
+    firsts = {int(np.argmax(reg[y] == SALAR)) for y in range(reg.shape[0]) if top[y].any() and (reg[y] == SALAR).any()}
+    assert len(firsts) > 1, "a divisa da rocha virou reta (escadinha por tile)"

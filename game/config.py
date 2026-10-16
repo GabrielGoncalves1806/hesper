@@ -262,11 +262,6 @@ CAVE_VEINS_NEAR_RANGE = (8, 20)
 CAVE_VEINS_PER_REGION = 6         # longe: 6 por região, alternando os recursos da região
 CAVE_VEINS_MIN_DIST = 24          # nenhum veio "de longe" a menos disso da chegada
 CAVE_MAGMATITE_ROCK_CHANCE = 0.03 # rochinha de magmatita num chão do basalto (não reaparece)
-# Visual PROVISÓRIO por região (até a arte do M2): tinta RGBA por cima do chão e cor da rocha orgânica.
-CAVE_REGION_TINT = {0: (0, 0, 0, 0),            # centro: a névoa de sempre
-                    1: (214, 176, 120, 46),     # salar: areia
-                    2: (24, 24, 28, 84),        # basalto: cinza-chumbo/preto, como o da superfície (dono: nada de vermelho)
-                    3: (90, 170, 255, 72)}      # gelo: mais azul (dono: estava cinza)
 
 MACHINES["drill"] = MachineType("drill", "Drill automática", "+ minério", DRILL_COST, None, 0,
                                 DRILL_UNLOCK_TI, "machine_drill", size=2)
@@ -827,6 +822,10 @@ HILL_REGION_ORE_CHANCE = {"plateau": 0.12, "salar": 0.12, "basalt": 0.16, "frost
 # A arte (texturas 512×512, decalques, rampas por estágio) mora em assets/sprites/regions/.
 # ---------------------------------------------------------------------------
 REGIONS_DIR = SPRITES_DIR / "regions"
+CAVE_GROUND_DIR = SPRITES_DIR / "cave_ground"   # v0.6 Fundo M2: chão assado, rampas da rocha e luz da caverna
+CAVE_DECAL_CLEAR = 6                             # tiles: sem decalque em volta da chegada da rampa
+CAVE_LIGHT_SAMPLE_R = 2      # tiles: a luz da caverna é a média das regiões num quadrado de 5×5 em volta do player
+CAVE_LIGHT_TAU = 0.5         # s: suavização da luz ao cruzar a fronteira (não estala)
 GROUND_BLOCK_TILES = 16          # o chão é assado em blocos de 16×16 tiles (512×512 px, o tamanho da textura)
 GROUND_CACHE_BLOCKS = 40         # LRU: blocos guardados (cada um ~1,4 MB: índice + metade do mapa de tiles + RGB)
 GROUND_BAKE_MS = 3.0             # orçamento por quadro pra assar (faixas de 32 linhas; no mínimo 1 por quadro)
