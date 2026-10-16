@@ -68,6 +68,8 @@ Design em `docs/superpowers/specs/2026-10-14-v05-base-e-expedicao-design.md`. No
 **v0.5 fechado em 2026-10-14.** Ficou pra depois: simulador: a estratégia "variado" ficou bimodal no v0.6 M1 (seeds 1 e 5 fecham em ~50 min sem máquina nv.2; o teste dela não exige mais a nv.2); ícone da broca de mão definitivo (hoje a Y provisória; as R1/R2 da referência do dono estão em `reports/design/v05_m4_broca_conteiner/`), update de melhoria de sprites, balanceamento do loot (números de partida em `C.LOOT_*`), uso das peças (v0.6).
 
 ## v0.6 · Logística e fundo
+**v0.6 fechado em 2026-10-16.** Ficou pra depois: simulador aprender a cadeia nova (Fundição, Bancada, cobre da caverna) na passada de balanceamento; tooltip de descrições e wiki (Futuro).
+
 Dividido em dois blocos (brainstorm de 2026-10-15).
 
 **Logística** (spec: `docs/superpowers/specs/2026-10-15-v06-logistica-design.md`)
@@ -80,7 +82,7 @@ Dividido em dois blocos (brainstorm de 2026-10-15).
 - [x] Marco 2 · Cara dos biomas (fechado em 2026-10-16; dono testou e pediu a luz dos biomas um tiquinho mais escura e a do centro mais clara): chão assado da caverna por região com divisa curva, rocha com rampa por região na mesma curva, luz ambiente e capacete por região (basalto avermelhado), minimapa, ambiente sonoro por bioma (salar, basalto, gelo) com troca depois de 1,5 s. Tinta provisória do M1 saiu.
 - [x] Marco 3 · Fundição (fechado em 2026-10-16; dono testou junto com o M2; sprite r3d opção A e som aprovados): magmatita de combustível (1 pedra = 4 lingotes), 1 minério → 1 lingote a cada 15 s, lingote de ferro e de cobre, fios no fabricador (aba Materiais, 1 lingote de cobre → 3), na rede com chip (lingotes entram na logística, baú com 8 toggles).
 - [x] Marco 4 · Broca nv.2 (fechado em 2026-10-16, testado e aprovado pelo dono; ícones par A): quebra rocha dura (2,25 s de base, ~1,5 s com ela), minera ×1,5, consome a nv.1 e nasce no slot dela; Fundição funde silício → wafer, circuito no fabricador (1 wafer + 2 fios); baú com 9 toggles.
-- [ ] Marco 5 · Remapear crafts.
+- [x] Marco 5 · Remapear crafts (fechado em 2026-10-16, testado e aprovado pelo dono): Fundição 3:1 (ferro e cobre, sem wafer), wafer na Bancada T2 (10 silício), receitas da tabela da bíblia §15 (Ti 0 cru, Ti 10.000 em diante refinado; Dispersor, tanque e scanner caros), Bancada vê tudo do T1 com a aba "Bancada" das exclusivas, item de uma vez só com "feito" (sem save novo), wafer fora da logística (8 toggles), objetivos-guia antes da drill; no teste do dono: diagrama da Bancada em Ti 10.000, fabricar não fecha o painel, meia linha (com ícone) na lista que rola. Simulador congelado nas receitas do M4 (passada de balanceamento).
 Ganchos: vulcão no basalto, espécie nativa, areia do salar, ruínas na caverna.
 
 ## v0.7 · Perigo e lore
