@@ -5,16 +5,25 @@ m: melter
 h: heater
 o: o2
 l: lamp
+w: prop_lab_bench
+s: prop_microscope
+e: prop_sample_shelf
+q: prop_sample_tank
+z: prop_ice_stain
+u: prop_console
+i: prop_chair
+y: wall_bp_ice
+f: wall_monitor_off
 1: 10
 2: 11
 3: 12
 ---
-####1###2####
-#...........#
-#.~~..c..~~.#
+####1#y#2#f##
+#.w..se.....#
+#.~~..c.q~~z#
 #.~~.....~~.#
 ####D###3####
-#.....#.....#
+#.....#..iu.#
 #..m..#..h..#
 #.....D.....#
 #l....#..o..#

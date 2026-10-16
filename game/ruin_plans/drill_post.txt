@@ -4,16 +4,24 @@ damage: rock
 h: heater
 o: o2
 l: lamp
+u: prop_console
+k: prop_locker
+a: prop_barrel
+j: prop_crate
+v: prop_rubble
+y: wall_bp_ship
+d: prop_wall_desk_b
+f: wall_monitor_on
 1: 16
 2: 17
 3: 18
 ---
-###1####2###
-#..........#
-#.h..~~..o.#
+###1#f##2#y#
+#....d.u..k#
+#.h.a~~..o.#
 #....~~....#
 ####D###3###
-#..........#
-#.~~....c..#
+#.j........#
+#.~~....cv.#
 #.~~.....l.#
 #####==#####

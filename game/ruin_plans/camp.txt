@@ -4,17 +4,26 @@ damage: sand
 o: o2
 h: heater
 l: lamp
+b: prop_bunk
+k: prop_locker
+j: prop_crate
+a: prop_barrel
+p: prop_dead_plant
+n: wall_notice
+i: prop_chair
+t: prop_table
+g: prop_sign
 1: 7
 2: 8
 3: 9
 ---
-###1#####2#####
-#.....#.......#
+###1#####2##n##
+#.b.k.#.....j.#
 #.....#..c....#
-#..~~.D.......#
+#..~~.D...a.p.#
 #..~~.#..~~...#
 #l....#3##D####
-#.............#
-#..o..~~...h..#
+#..........g..#
+#..o..~~it.h..#
 #.....~~......#
 ######==#######

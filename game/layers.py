@@ -39,6 +39,9 @@ class Layer:
     # save); `ruins_off` = keys das ruínas sem objetos neste mundo (save antigo com construção na pegada; derivado)
     ruin_salvaged: set = field(default_factory=set)
     ruins_off: set = field(default_factory=set)
+    # v0.7 M2 · Props (game/props.py): tile -> Prop, um por tile. Os do player vão no save; os de ruína (`ruin=True`) saem
+    # da seed no `ruins.apply_overlays`
+    props: dict = field(default_factory=dict)
     explored: Explored | None = None      # o que o jogador já viu nesta camada (Marco 3, game/explore.py)
     # v0.4 Marco 2: tampa de gelo da cratera (só a superfície usa): 0 = tampada ... CRATER_ICE_STAGES (4) = vazia,
     # com a rampa exposta. No M2 fica sempre tampada (o derretimento pelo calor é do M3); F4 abre na hora (debug).

@@ -43,12 +43,14 @@ def test_switch_tab_wraps_and_remembers_selection():
     m.switch_tab(1)
     assert m.tab_id == "energy" and m.current == "solar"
     m.switch_tab(-2)
-    assert m.tab_id == "base" and m.current == "base_floor"      # v0.5 M2: a aba "Base" é a última
+    assert m.tab_id == "decor" and m.current == "prop_table"     # v0.7 M2: a aba "Decoração" é a última
+    m.switch_tab(-1)
+    assert m.tab_id == "base" and m.current == "base_floor"      # v0.5 M2: a "Base" vem antes dela
     m.switch_tab(-1)
     assert m.tab_id == "light" and m.current == "lamp"
     m.switch_tab(-1)
     assert m.tab_id == "storage" and m.current == "chest_small"
-    m.switch_tab(3)
+    m.switch_tab(4)
     assert m.tab_id == "terraform" and m.current == "melter"   # cada aba lembra a sua seleção
 
 

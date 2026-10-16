@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Som · v0.7 M2 Scanner (proposta)</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;margin:0;padding:16px}
+.wrap{max-width:1000px;margin:0 auto;padding-block:36px 70px}
+h1{font-size:34px;margin:8px 0 12px}h2{font-size:22px;margin:44px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.eyebrow{font:12px monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--rust)}
+.note{border-left:3px solid var(--gold);background:var(--panel);padding:12px 16px;margin:18px 0}
+.ask{border:1px solid var(--gold);background:#2a1f14;padding:14px 18px;margin:18px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:8px}
+.card.rec{border-color:var(--ok)}
+.fname{font:500 14px monospace}.when{font:11px monospace;color:var(--gold);text-transform:uppercase}
+.what{margin:0;color:var(--muted);font-size:14px}.tag{font:11px monospace;color:var(--muted);border:1px solid var(--line);padding:1px 6px;margin-right:4px}
+.tag.loop{color:var(--cyan);border-color:#2c5560}.tag.rec{color:var(--ok);border-color:#2f6a2c}
+canvas{width:100%;height:44px;background:#251c18;display:block}audio{width:100%;height:36px}
+button{background:#251c18;color:var(--fg);border:1px solid var(--rust);padding:6px 12px;cursor:pointer;font:13px monospace;margin:4px 6px 4px 0}
+button:hover{background:var(--rust);color:#000}
+code{font:13px monospace;color:var(--cyan)}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+li{margin:4px 0;color:var(--muted)}li b{color:var(--fg)}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Som · v0.7 Lore M2 · props e scanner · proposta (nada entrou no jogo)</div>
+<h1>Escanear um prop: varredura e "projeto salvo"</h1>
+<div class="note"><b>v18 · o que mudou:</b> 4 arquivos novos, só nesta pasta (<code>pendentes/</code>); nada em <code>assets/audio/</code>, e o md5 de todos os WAVs oficiais é igual antes e depois. São duas versões (A/B) do <code>scan_loop</code> (toca enquanto segura o esquerdo ~1,5 s) e duas do <code>scan_done</code> (o "Projeto liberado"). Mesma família do <code>build</code> e do <code>dismantle_charge</code> (feixe de scanner e tiquinhos digitais), mas <b>mais fino e agudo, sem a serra grave</b> do desmonte, pra ficar claro que o direito é desmontar e o esquerdo é ler. O <code>scan_done</code> é uma nota só de aviso calmo: sem clack (não é o <code>dismantle_done</code>), sem varredura e sem sino de 1 s (não é o <code>diagram_read</code>), sem arpejo (não é o <code>blueprint_found</code>). Eu não ouço; validei por análise (formato, pico, loudness aproximado, bandas, emenda do loop, pico tonal) e a palavra final é do teu ouvido.</div>
+<div class="ask"><b>Pergunta pra ti:</b> qual <code>scan_loop</code> (A ou B) e qual <code>scan_done</code> (A ou B)? <b>Minha recomendação: loop A + done A.</b> O loop A é um vai-e-vem periódico, então funciona pra qualquer tempo segurando (se o jogo estender o scan, ou o player soltar e segurar de novo, nunca "reinicia" uma subida). O done A é o mais calmo e discreto, bom pra uma ruína silenciosa. Se tu quiser que a varredura tenha cara de "enchendo a barrinha", o loop B sobe do começo ao fim em ~1,6 s, casando com a barra. O done B é um acorde único que assenta (mais "cheio", um pouco mais brilhante).</div>
+
+<h2>scan_loop · enquanto segura o botão esquerdo</h2><div class="cards" id="loops"></div>
+<h2>scan_done · "Projeto liberado: &lt;nome&gt;"</h2><div class="cards" id="dones"></div>
+<h2>Simulação (nos volumes do config: loop 0,4 · done 0,6)</h2>
+<div class="note">Segura 1,5 s (corta com fade de 40 ms), solta e toca o done; repete 2 vezes, uma a cada 3,5 s. Escolhe a combinação:
+<div><button onclick="sim('A','A')">loop A + done A</button><button onclick="sim('A','B')">loop A + done B</button><button onclick="sim('B','A')">loop B + done A</button><button onclick="sim('B','B')">loop B + done B</button><button onclick="stopAll()">Parar</button></div></div>
+
+<h2>Checagens</h2><div style="overflow-x:auto"><table id="tbl"></table></div>
+<p style="color:var(--muted);font-size:13px">Bandas = % da energia em 20-150 / 150-600 / 600-2500 / 2,5-6 / 6-16 kHz. Emenda (só o loop A) = salto entre a última e a primeira amostra contra o 99,9º percentil dos saltos normais: bem menor = sem clique; o loop A é construído periódico (ciclos inteiros, reverb circular). Pico tonal alto aqui é <b>esperado</b>: são tons de seno de propósito (hum em Lá4 no loop, notas nos dones); o que evitei foi ressonância estreita de ruído (latinha) e corpo grave de tambor. Pico (−10 a −19 dBFS) fica bem abaixo de −1 porque o alvo é loudness discreto (loop −28 dB, sweep −25 dB, dones −22 dB, iguais ao <code>dismantle_done</code>), sem clipping.</p>
+
+<h2>Como pensei</h2><ul>
+<li><b>Loop A (vai-e-vem):</b> um tom fino varre 500 → 1500 → 500 Hz a cada 1,6 s, com hum em Lá4 por baixo, tremulação de 5 Hz, um véu de ar agudo que sobe com a varredura e tiquinhos de linha de scan irregulares. Pode soar um pouco "sirene eletrônica" se tu ouvir sozinho muito tempo; no jogo ele dura 1,5 s e fica por baixo (0,4).</li>
+<li><b>Loop B (sweep único):</b> triângulo filtrado Mi4 → Mi6 em 1,6 s com uma quinta entrando no meio e tiquinhos acelerando. Dura 1,66 s com rabinho de reverb; <b>não pôr em loop</b>.</li>
+<li><b>Done A:</b> Lá4 → Mi5 (uma quinta) em seno macio, 90 ms entre as notas, um brilho Mi6 curtinho, tiquinho de trava quase inaudível e reverb curto. 0,60 s.</li>
+<li><b>Done B:</b> glide curto subindo Lá4 → Lá5 que pousa num acorde aberto (Ré5 + Lá5 + Mi6) em triângulo filtrado. 0,66 s.</li></ul>
+
+<h2>Pro Dev integrar</h2><ul>
+<li><b>Nomes finais</b> (o gerente copia pra <code>assets/audio/</code> depois do ok): <code>scan_loop.wav</code> (de <code>scan_loop_A.wav</code> ou <code>scan_loop_B.wav</code>) e <code>scan_done.wav</code> (de <code>scan_done_A.wav</code> ou <code>_B.wav</code>).</li>
+<li><b>VOLUME</b>: <code>"scan_loop": 0.4</code>, <code>"scan_done": 0.6</code>, como já está no config.</li>
+<li><b>Parar o scan:</b> pare o canal do <code>scan_loop</code> com <code>fadeout(40)</code> (ou 60 ms) ao soltar, tirar o mouse ou terminar, pra não ter clique. Pro loop A isso é obrigatório (ele corta no meio da varredura); pro B também (pode ser cortado em qualquer ponto).</li>
+<li><b>Loop A:</b> toque com <code>loops=-1</code> num canal próprio e exclusivo (um scan por vez). <b>Loop B:</b> toque uma vez (<code>loops=0</code>) quando o scan começa.</li>
+<li><b>Fim do scan:</b> pare o loop (fadeout 40 ms) e toque o <code>scan_done</code> logo em seguida, junto com o aviso "Projeto liberado". Se quiser um respiro, atrase o done uns 30 ms.</li>
+<li><b>Variação:</b> não precisa de pitch aleatório; o scan é raro (uma vez por projeto). Sem limite de repetição necessário.</li>
+<li><b>Cancelar:</b> soltar antes do fim = só o fadeout do loop, <b>sem</b> done.</li></ul>
+<p style="color:var(--muted);font-size:13px">Gerado por <code>tools/audio/build_v07_m2.py</code> (seed por nome, só numpy; blocos do <code>build_audio.py</code>).</p>
+</div>
+<script src="v07m2_meta.js"></script>
+<script>
+const M=window.M2_META;
+const T={
+ scan_loop_A:["Loop · enquanto segura (periódico, 1,6 s)","Vai-e-vem fino de feixe com hum e tiquinhos. Roda quanto durar o gesto. Recomendado.",true,true],
+ scan_loop_B:["Sweep único · enquanto segura (1,66 s)","Sobe de Mi4 a Mi6 e acelera os tiquinhos, casando com a barrinha enchendo. Não loopar.",false,false],
+ scan_done_A:["Scan completo · 0,60 s","Quinta ascendente macia (Lá4 → Mi5): 'projeto salvo' calmo e discreto. Recomendado.",false,true],
+ scan_done_B:["Scan completo · 0,66 s","Glide curto pousando num acorde aberto: mais cheio e brilhante.",false,false]};
+function card(key,txt){const m=M[key];const el=document.createElement("div");el.className="card"+(txt[3]?" rec":"");
+ el.innerHTML=`<div><span class="fname">${m.file.split("/")[1]}</span> <span class="tag">${m.duration.toFixed(2)} s</span><span class="tag">pico ${m.peak_db} dBFS</span><span class="tag">loud ${m.loudness_db} dB</span>${txt[2]?'<span class="tag loop">loop</span>':''}${txt[3]?'<span class="tag rec">recomendado</span>':''}</div>
+ <div class="when">${txt[0]}</div><canvas width="320" height="44"></canvas>
+ <audio controls preload="metadata" ${txt[2]?"loop":""} src="${m.file}"></audio><p class="what">${txt[1]}</p>`;
+ const c=el.querySelector("canvas").getContext("2d");c.fillStyle="#e2733a";const w=m.wave,bw=320/w.length;
+ w.forEach((v,i)=>{const h=Math.max(1,v*42*3);c.fillRect(i*bw,22-Math.min(h,42)/2,Math.max(1,bw-0.5),Math.min(h,42))});
+ return el}
+for(const k of ["scan_loop_A","scan_loop_B"])document.getElementById("loops").append(card(k,T[k]));
+for(const k of ["scan_done_A","scan_done_B"])document.getElementById("dones").append(card(k,T[k]));
+document.getElementById("tbl").innerHTML="<tr><th>arquivo</th><th>duração</th><th>pico dBFS</th><th>RMS dB</th><th>loudness dB</th><th>clip</th><th>bandas %</th><th>emenda / ref</th><th>pico tonal</th></tr>"+
+ Object.keys(M).filter(k=>k.startsWith("scan")).map(k=>{const m=M[k];return `<tr><td><code>${m.file.split("/")[1]}</code></td><td>${m.duration.toFixed(2)} s</td><td>${m.peak_db}</td><td>${m.rms_db}</td><td>${m.loudness_db}</td><td>${m.clip}</td><td>${m.bands.join(" / ")}</td><td>${m.seam!==undefined?m.seam+" / "+m.seam_ref:"-"}</td><td>${m.tonal_db} dB @ ${m.tonal_hz} Hz</td></tr>`}).join("");
+let timers=[];
+function stopAll(){timers.forEach(clearTimeout);timers=[];document.querySelectorAll("audio").forEach(a=>a.pause());if(window._sim)window._sim.forEach(a=>a.pause())}
+function sim(l,d){stopAll();const a=new Audio(`pendentes/mix_${l}${d}.wav`);window._sim=[a];a.play()}
+document.addEventListener("play",e=>{document.querySelectorAll("audio").forEach(a=>{if(a!==e.target)a.pause()})},true);
+</script></body></html>

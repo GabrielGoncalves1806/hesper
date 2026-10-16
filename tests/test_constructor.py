@@ -80,7 +80,8 @@ def test_fabricator_lists_only_items_and_the_constructor_only_machines():
     assert sorted(fab_kinds) == sorted(["constructor", "diagram_chest_large", "diagram_workbench", "wire"])   # M5: o resto é da Bancada T2
     build = build_menu()
     build_kinds = [k for t, _ in build.tabs for k in build.kinds_of(t)]
-    assert sorted(build_kinds) == sorted(MACHINE_KINDS)
+    # v0.7 M2: os props só entram na aba Decoração depois de conhecidos (de cara, só os 4 iniciais)
+    assert sorted(build_kinds) == sorted(k for k in MACHINE_KINDS if k not in C.PLAYER_PROPS or k in C.PROP_STARTER)
     assert build.tabs == C.FAB_TABS and ("suit", "Traje") not in C.FAB_TABS
 
 

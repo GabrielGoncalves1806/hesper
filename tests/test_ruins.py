@@ -16,7 +16,7 @@ def test_plan_letters_are_declared():
     for key in ruins.PLAN_KEYS:
         plan = ruins.load_plan(key)
         used = {ch for row in plan.grid for ch in row} - set("#.D=~c ")
-        assert used <= set(plan.machines) | set(plan.logs)
+        assert used <= set(plan.machines) | set(plan.logs) | set(plan.props)
 
 
 def test_terminals_have_floor_below_in_the_drawing():
@@ -269,3 +269,113 @@ def test_opened_ruin_crate_survives_the_roundtrip():
     crate.opened = True
     t = save.state_from_dict(json.loads(json.dumps(save.state_to_dict(s))))
     assert t.crates[r.crate].opened and t.crates[r.crate].empty
+
+
+# ---- v0.7 M2 · Task 2: props nas plantas ------------------------------------------------------------
+def test_planta_le_props():
+    plans = [ruins.load_plan(k) for k in ruins.PLAN_KEYS]
+    for p in plans:
+        assert p.props, p.key
+        assert all(k in C.PROPS for k in p.props.values())
+        assert not set(p.props) & set(p.machines)
+    seen = {k for p in plans for k in p.props.values()}
+    scannable = {k for k, t in C.PROPS.items() if t.scannable}
+    assert scannable <= seen
+
+
+def test_props_validos_em_toda_orientacao():
+    for key in ruins.PLAN_KEYS:
+        plan = ruins.load_plan(key)
+        for orient in range(8):
+            for level in C.RUIN_DAMAGE_LEVELS:
+                ruin = ruins.build(plan, orient, level, random.Random(orient * 10 + level))
+                if ruin is None:
+                    continue
+                for (x, y), kind in ruin.props.items():
+                    assert ruins.ok_in_plan(ruin.grid, x, y, kind), (key, orient, (x, y), kind)
+                    if C.PROPS[kind].place == "face":
+                        assert ruin.grid[y][x] == "#", (key, orient)     # a parede com quadro não caiu
+                    else:
+                        assert ruin.grid[y][x] == ".", (key, orient)
+
+
+def test_destruicao_nao_derruba_parede_de_face_nem_de_mesa():
+    for key in ruins.PLAN_KEYS:
+        plan = ruins.load_plan(key)
+        for orient in range(8):
+            ruin = ruins.build(plan, orient, 0, random.Random(1))
+            if ruin is None:
+                continue
+            for seed in range(30):
+                hit = ruins.build(plan, orient, 3, random.Random(seed))
+                if hit is None:
+                    continue
+                for (x, y), kind in ruin.props.items():
+                    if C.PROPS[kind].place == "face":
+                        assert hit.grid[y][x] == "#"
+
+
+def test_cadeira_so_tomba_com_destruicao():
+    for key in ruins.PLAN_KEYS:
+        plan = ruins.load_plan(key)
+        for orient in range(8):
+            ruin = ruins.build(plan, orient, 0, random.Random(1))
+            assert "prop_chair_fallen" not in ruin.props.values()
+    plan = ruins.load_plan("camp")
+    tombou = {k for seed in range(40) for k in ruins.build(plan, 0, 1, random.Random(seed)).props.values()}
+    assert "prop_chair_fallen" in tombou and "prop_chair" in tombou
+
+
+def test_nivel_0_passa_com_props_em_toda_orientacao():
+    for key in ruins.PLAN_KEYS:
+        plan = ruins.load_plan(key)
+        for orient in range(8):
+            ruin = ruins.build(plan, orient, 0, random.Random(5))
+            assert ruin is not None and ruin.props, (key, orient)
+
+
+def test_mesma_seed_mesmos_props():
+    a = {t: p.kind for t, p in layers.make_surface(7).props.items()}
+    b = {t: p.kind for t, p in layers.make_surface(7).props.items()}
+    assert a == b and a
+    assert all(p.ruin for p in layers.make_surface(7).props.values())
+    cave = layers.make_cave(7)
+    assert cave.props and all(p.ruin for p in cave.props.values())
+
+
+def test_props_de_ruina_so_dentro_da_pegada_e_apply_overlays_idempotente():
+    layer = layers.make_surface(7)
+    foot = layer.world.ruin_tiles
+    assert all(t in foot for t in layer.props)
+    before = {t: p.kind for t, p in layer.props.items()}
+    ruins.apply_overlays(layer)
+    assert {t: p.kind for t, p in layer.props.items()} == before
+
+
+def test_ruina_desligada_nao_ganha_props():
+    from game import save
+    s = save.new_state(3)
+    r = next(r for r in s.world.ruins if r.key == "camp")
+    data = save.state_to_dict(s)
+    x, y = next(t for t in r.tiles if t != r.crate and t not in r.machines and t not in r.props)
+    data["layers"]["surface"]["machines"].append({"kind": "lamp", "tx": x, "ty": y, "rotation": 0})
+    t = save.state_from_dict(data)
+    assert "camp" in t.active.ruins_off
+    assert not any(tile in t.active.props for tile in r.props)
+    assert any(tile in t.active.props for ru in t.world.ruins if ru.key == "lab" for tile in ru.props)
+
+
+def test_prop_de_chao_e_decal_nunca_somem_na_rotacao():
+    """Decisão do dono: prop de chão/decal fica mesmo colado numa parede ao sul (a face cobre a parte de baixo)."""
+    for key in ruins.PLAN_KEYS:
+        plan = ruins.load_plan(key)
+        want = sum(C.PROPS[k].place in ("floor", "decal") for k in plan.props.values())
+        for orient in range(8):
+            ruin = ruins.build(plan, orient, 0, random.Random(1))
+            got = sum(C.PROPS[k].place in ("floor", "decal") for k in ruin.props.values())
+            assert got == want, (key, orient)
+
+
+def test_ok_in_plan_chao_aceita_parede_ao_sul():
+    assert ruins.ok_in_plan(["...", ".#.", "###"], 1, 1 - 1, "prop_barrel") is True   # parede logo abaixo
+    assert ruins.ok_in_plan(["#.#"], 0, 0, "prop_barrel") is False                    # tile de parede não é chão
