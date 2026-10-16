@@ -977,7 +977,7 @@ Ideia: a cadeia nova (Fundição, Bancada T2) vira **obrigatória do Ti 10.000 p
 
 ## 16. v0.7 · Lore (decisões do dono, 2026-10-16)
 Spec: `docs/superpowers/specs/2026-10-16-v07-lore-design.md`. Marcos: M1 estruturas, M2 props e scanner, M3 destroços novos, M4 interior da VÉSPER-7; a arte (Designer) corre em paralelo ao M1. **Fora da v0.7**: inimigos, combate e boss (versão futura) e o planeta reagindo (v0.8). Ninguém encosta no player: a v0.7 é só pista (canon na §2).
-- **Estruturas** da Colônia Hesper, **uma de cada por mundo**, montadas com os blocos e máquinas que já existem: **planta desenhada à mão** (`assets/structures/*.txt`, um caractere por tile, legenda no topo) **+ variação pela seed** (8 orientações, destruição 0–3, loot, LOG).
+- **Estruturas** da Colônia Hesper, **uma de cada por mundo**, montadas com os blocos e máquinas que já existem: **planta desenhada à mão** (`game/ruin_plans/*.txt`, um caractere por tile, legenda no topo) **+ variação pela seed** (8 orientações, destruição 0–3, loot, LOG).
   - **Acampamento de pouso**: superfície, 40–60 tiles da cratera (fora da vista inicial).
   - **Laboratório da Ilves**: superfície, faixa gelada, a uma distância mínima do bolsão da criatura.
   - **Estação de derretedores**: caverna, bioma do gelo, dentro da rocha dura.

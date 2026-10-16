@@ -59,7 +59,7 @@ O M1 usa **só o que já existe**; os props entram nas plantas no M2.
 
 ## M1 · Estruturas
 
-**Planta**: um arquivo de texto por estrutura em `assets/structures/` (`acampamento.txt`, `lab_ilves.txt`, `estacao_derretedores.txt`, `posto_perfuracao.txt`). Uma legenda no topo diz o que cada letra é; o resto é a grade, um caractere por tile:
+**Planta**: um arquivo de texto por estrutura em `game/ruin_plans/` (`camp.txt`, `lab.txt`, `melters.txt`, `drill_post.txt`; é dado de jogo, não arte, então fica fora de `assets/`). Uma legenda no topo diz o que cada letra é; o resto é a grade, um caractere por tile:
 
 ```
 #  parede da base        .  chão da base       D  porta      =  porta dupla
