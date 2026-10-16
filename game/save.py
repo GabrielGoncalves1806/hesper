@@ -16,6 +16,7 @@ pra cratera da superfície):
       "version": 12,
       "seed": 7,
       "layer": "surface",          # camada em que o player está
+      "scanned": ["prop_bunk", ...],   # v0.7 M2: projetos de prop liberados pelo scanner (opcional; sem o campo, nenhum)
       "layers": {                  # uma entrada por camada que já existe ("surface", e "cave" no Marco 2)
         "surface": {
           "changed_tiles": [[x, y, tipo], ...],
@@ -23,6 +24,7 @@ pra cratera da superfície):
           "rocks": {"timer": 3.5},   # relógio do reaparecimento das rochas pequenas (só superfície)
           "crates": [[x, y, slots, aberta], ...],   # Marco 3: só as caixas de destroço que mudaram
           "removed_crates": [[x, y], ...],          # v0.6 M1: caixas desmontadas (opcional; sem o campo, nenhuma)
+          "props": [[kind, x, y], ...],             # v0.7 M2: props do player (opcional). Os de ruína saem da seed
           "ruin_salvaged": [[x, y], ...],           # v0.7 M1: máquinas quebradas de ruína já desmontadas (opcional).
                                                     # A casca, as máquinas quebradas e a caixa das estruturas NUNCA vão
                                                     # no save: saem da seed (game/ruins.py); a caixa só entra em "crates"
@@ -91,6 +93,7 @@ from game.base import H as ORIENT_H, V as ORIENT_V
 from game.equipment import Equipment
 from game.explore import Explored
 from game.inventory import Inventory, Stack, max_stack
+from game.props import Prop
 from game.rock_respawn import RockRespawn
 from game.surface_gen import pristine_tiles as surface_pristine
 from game.systems import GameState, Machine, clean_chest_name
@@ -208,6 +211,9 @@ def layers_to_dict(state: GameState) -> dict:
         own = [b for b in layer.base.blocks if not b.ruin]       # v0.7 M1: a casca das ruínas sai da seed, não vai
         if own:                                                  # v9: blocos da base (a dupla é 1 objeto)
             data["base"] = [block_to_dict(b) for b in own]
+        own_props = [[p.kind, p.tx, p.ty] for p in layer.props.values() if not p.ruin]   # v0.7 M2 (o de ruína sai da seed)
+        if own_props:
+            data["props"] = own_props
         if layer.ruin_salvaged:                                  # v0.7 M1: máquinas quebradas já desmontadas (campo novo)
             data["ruin_salvaged"] = sorted([x, y] for x, y in layer.ruin_salvaged)
         out[key] = data
@@ -235,6 +241,10 @@ def layers_from_dict(state: GameState, data: dict) -> None:
         # máquina ou bloco do player na pegada (save antigo) fica sem objetos. Antes do laço das caixas.
         layer.ruin_salvaged = {(int(x), int(y)) for x, y in ldata.get("ruin_salvaged", [])}
         layer.ruins_off = set()
+        layer.props = {}                                         # v0.7 M2: os do player (campo opcional); os de ruína voltam no apply_overlays
+        for kind, x, y in ldata.get("props", []):
+            if kind in C.PLAYER_PROPS:
+                layer.props[(int(x), int(y))] = Prop(kind, int(x), int(y))
         ruins.apply_overlays(layer)
         for x, y, slots, opened in ldata.get("crates", []):      # Marco 3 (save do Marco 1/2 não tem)
             crate = layer.crates.get((int(x), int(y))) or layer.containers.get((int(x), int(y)))
@@ -493,6 +503,8 @@ def state_to_dict(state: GameState) -> dict:
     if trip is not None and not trip.switched and trip.to not in state.layers:
         state.layers[trip.to] = layers.MAKERS[trip.to](state.seed)   # 1ª descida: o destino entra no save
     data = {"version": SAVE_VERSION, "seed": state.seed, "layer": state.layer}
+    if state.scanned:                                 # v0.7 M2: campo opcional
+        data["scanned"] = sorted(state.scanned)
     for name, to_dict, _ in SECTIONS:
         data[name] = to_dict(state)
     data["world"] = world_to_dict(state)
@@ -514,6 +526,7 @@ def state_from_dict(data: dict) -> GameState:
     if layer not in state.layers:
         raise ValueError(f"camada ativa sem dados: {layer!r}")
     state.layer = layer
+    state.scanned = {k for k in data.get("scanned", []) if k in C.PLAYER_PROPS}   # v0.7 M2
     if data.get("_back_to_crater"):               # v11 -> v12: estava na caverna antiga
         state.player.x, state.player.y = layers.ramp_arrival(state.surface.world)
     state.ensure_hand_drill()     # v0.5 M4: save v10 do M3 não tem a broca de mão (mesma versão, checagem no load)

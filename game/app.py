@@ -164,7 +164,7 @@ class App:
         self.fab = craft_menu()         # aba, seleção e rolagem do fabricador (só itens · game/fabricator.py)
         self.fab_t2 = t2_menu()         # o mesmo, da Bancada T2 (receitas dela)
         self.open_bench = None          # Bancada T2 aberta (Machine): quem anima quando fabrica
-        self.build_menu = build_menu()  # v0.5 M1: menu do construtor (E com ele na mão): as máquinas
+        self.build_menu = build_menu(lambda: self.state.known_props())  # v0.5 M1: menu do construtor (E com ele na mão); v0.7 M2: props só os conhecidos
         self.terminal_index = 0
         self.inv_tab = TAB_INVENTORY    # Tab: Inventário / LOGs (a aba Fabricar saiu no v0.5 M1)
         self.log_selected = 0           # aba LOGs: linha escolhida (posição na cronologia) e a 1ª visível
@@ -544,7 +544,7 @@ class App:
                 self.audio.play("ui_close")
             elif key == pygame.K_ESCAPE:
                 self.open_pause()
-            elif key == pygame.K_r and self.placing:
+            elif key == pygame.K_r and self.placing and self.placing not in C.PLAYER_PROPS:   # v0.7 M2: prop não gira
                 self.rotation = (self.rotation + 1) % 4
             elif key == pygame.K_TAB:
                 self.placing = None
@@ -1612,9 +1612,10 @@ class App:
         mx = sum(MOVE_KEYS[k][0] for k in self.keys_down if k in MOVE_KEYS)
         my = sum(MOVE_KEYS[k][1] for k in self.keys_down if k in MOVE_KEYS)
         mine = self.mouse_tile() if self.mouse_held and not self.placing else None
-        dismantle = ((self.hovered_machine() or self.hovered_block() or self.hovered_crate())   # v0.6: só com o construtor na mão
+        scan = self.hovered_prop() if self.mouse_held and not self.placing and self.constructor_selected() else None   # v0.7 M2
+        dismantle = ((self.hovered_prop(own=True) or self.hovered_machine() or self.hovered_block() or self.hovered_crate())   # v0.6: só com o construtor na mão; v0.7 M2: prop primeiro
                      if self.right_held and not self.placing and self.constructor_selected() else None)
-        return Controls(max(-1, min(1, mx)), max(-1, min(1, my)), mine, dismantle=dismantle,
+        return Controls(max(-1, min(1, mx)), max(-1, min(1, my)), mine, dismantle=dismantle, scan=scan,
                         drill_in_hand=self.hand_drill_selected(), drill_tier=max(1, self.held_drill_tier()))
 
     # ---- update ---------------------------------------------------------------
@@ -1710,7 +1711,7 @@ class App:
             _, _, tile = event
             self.renderer.spawn_chips(tile, "#9a9086", 14)       # poeirinha
             self.renderer.spawn_chips(tile, "#c8c0b4", 8)
-            if event[1] not in C.BASE_KINDS and event[1] != "crate":
+            if event[1] not in C.BASE_KINDS and event[1] != "crate" and event[1] not in C.PLAYER_PROPS:
                 self.renderer.start_blink(tile, self.t)          # o holograma dela pisca e some (bloco da base não tem)
             # v0.5 M1: o dismantle_done (Som) entra no mesmo frame, sem cortar o charge; sem o arquivo, o place_low
             self.audio.play("dismantle_done" if self.audio.has("dismantle_done") else "place_low")
@@ -1727,6 +1728,14 @@ class App:
             self.audio.start_charge()
         elif kind == "dismantle_cancel":      # soltou antes (ou tirou o mouse): o charge sai em fadeout curto
             self.audio.stop_charge()
+        elif kind == "scan_charge":           # v0.7 M2: começou a escanear um prop de ruína (o sweep do scan_loop, 1x)
+            self.audio.start_scan()
+        elif kind == "scan_cancel":
+            self.audio.stop_scan()
+        elif kind == "scan_done":             # projeto liberado: para o loop, toca o done e avisa
+            self.audio.stop_scan()
+            self.audio.play("scan_done")
+            self.show_notice(f"Projeto liberado: {C.PROPS[event[1]].name}")
         elif kind in ("chip_on", "chip_off"):    # v0.6 M2: encaixar/tirar o chip (nunca no load do save: ele não solta evento)
             sfx = "chip_connect" if kind == "chip_on" else "chip_disconnect"
             self.audio.play(sfx if self.audio.has(sfx) else "ui_click")
@@ -1964,6 +1973,11 @@ class App:
         vein = self.state.world.vein_at(*tile)
         return (vein.tx, vein.ty) if vein else None
 
+    def hovered_prop(self, own: bool = False):
+        """Prop debaixo do mouse (v0.7 M2). `own`: só o do player (o de ruína não desmonta e não pode tapar a máquina atrás)."""
+        prop = self.state.prop_at_point(*self.mouse_world())
+        return prop if prop is not None and not (own and prop.ruin) else None
+
     def hovered_machine(self):
         return self.state.machine_at_point(*self.mouse_world())
 
@@ -2030,8 +2044,17 @@ class App:
                 return f"{missing} · Esc cancela"
         if self.placing == "drone_station":
             return "Clique para construir · drones atendem esta camada · Esc cancela"
+        if self.placing in C.PLAYER_PROPS:
+            return "Clique para construir · [E] outro projeto · Esc cancela"
         if self.placing:
             return "Clique para construir · R gira · [E] outra máquina · Esc cancela"
+        prop = self.hovered_prop()
+        if prop is not None:                               # v0.7 M2: decoração debaixo do mouse
+            if self.constructor_selected() and state.can_scan(prop):
+                return "Escanear (segure)"
+            if not prop.ruin:
+                return f"{C.PROPS[prop.kind].name} · " + (f"segure [{C.DISMANTLE_KEY}] desmontar" if self.constructor_selected()
+                                                          and state.can_dismantle(prop) else "construtor na mão pra desmontar")
         machine = self.hovered_machine()
         target = self.e_target()
         held = self.constructor_selected()                 # v0.6: desmontar só com o construtor na mão
@@ -2162,6 +2185,10 @@ class App:
         """O que ganha o contorno no mundo: o alvo do E, só jogando (sem máquina na mão)."""
         if self.mode != "play" or self.placing or self.state.fainted:
             return None
+        if self.constructor_selected():                    # v0.7 M2: o prop de ruína que o scan pode liberar
+            prop = self.hovered_prop()
+            if prop is not None and self.state.can_scan(prop):
+                return prop
         target = self.e_target()
         if target is None:
             return None
@@ -2423,6 +2450,7 @@ class App:
             self.slot = slot
             worlds.mark_played(slot)              # o "Continuar" abre este
         self.state = state
+        self.build_menu = build_menu(lambda: self.state.known_props())   # v0.7 M2: outro save, outros projetos (seleção zerada)
         self.objectives = ObjectiveTracker(state)
         self.floaters = FloatingTexts()
         self.renderer.particles.clear()

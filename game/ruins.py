@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 
 from game import config as C
+from game.props import Prop
 
 PLAN_DIR = Path(__file__).with_name("ruin_plans")
 PLAN_KEYS = ("camp", "lab", "melters", "drill_post")
@@ -31,6 +32,7 @@ class Plan:
     grid: list[str]
     machines: dict[str, str] = field(default_factory=dict)   # letra -> kind da máquina quebrada
     logs: dict[str, int] = field(default_factory=dict)       # dígito -> índice em C.LOGS
+    props: dict[str, str] = field(default_factory=dict)      # v0.7 M2: letra -> kind do prop (id em C.PROPS)
 
 
 def load_plan(key: str) -> Plan:
@@ -38,9 +40,11 @@ def load_plan(key: str) -> Plan:
     meta = dict(line.split(":", 1) for line in head.splitlines() if ":" in line)
     meta = {k.strip(): v.strip() for k, v in meta.items()}
     rows = [row for row in grid.splitlines() if row]
-    machines = {k: v for k, v in meta.items() if len(k) == 1 and k not in TERMINAL_CHARS}
+    letters = {k: v for k, v in meta.items() if len(k) == 1 and k not in TERMINAL_CHARS}
+    machines = {k: v for k, v in letters.items() if v not in C.PROPS}
+    props = {k: v for k, v in letters.items() if v in C.PROPS}      # v0.7 M2: a letra que é id de prop é prop
     logs = {k: int(v) for k, v in meta.items() if k in TERMINAL_CHARS}
-    return Plan(key, meta["name"], meta["layer"], meta["damage"], rows, machines, logs)
+    return Plan(key, meta["name"], meta["layer"], meta["damage"], rows, machines, logs, props)
 
 
 def transform(grid: list[str], orient: int) -> list[str]:
@@ -72,6 +76,7 @@ class Ruin:
     terminals: dict[tuple[int, int], int]        # tile da parede -> índice em C.LOGS
     crate: tuple[int, int]
     level: int
+    props: dict[tuple[int, int], str] = field(default_factory=dict)   # v0.7 M2: tile -> kind do prop (face: tile da parede)
 
     @property
     def tiles(self) -> list[tuple[int, int]]:
@@ -86,6 +91,7 @@ class Ruin:
         return replace(self, tx=tx, ty=ty,
                        machines={(x + dx, y + dy): k for (x, y), k in self.machines.items()},
                        terminals={(x + dx, y + dy): v for (x, y), v in self.terminals.items()},
+                       props={(x + dx, y + dy): k for (x, y), k in self.props.items()},
                        crate=(self.crate[0] + dx, self.crate[1] + dy))
 
 
@@ -94,7 +100,36 @@ def _at(grid: list[str], x: int, y: int) -> str:
 
 
 def _is_floor(ch: str, plan: Plan) -> bool:
-    return ch in FLOORISH or ch in plan.machines
+    """Chão: o desenho, a máquina quebrada e o prop que não é de face (a letra de face é uma parede)."""
+    return ch in FLOORISH or ch in plan.machines or (ch in plan.props and C.PROPS[plan.props[ch]].place != "face")
+
+
+def ok_in_plan(grid: list[str], x: int, y: int, kind: str) -> bool:
+    """O prop `kind` vale em (x, y) da grade (já girada, com `#` e `.` no lugar das letras de prop)? Chão e decal: o tile
+    é chão (decisão do dono: colado numa parede ao sul ele fica, a face cobre a parte de baixo). Mesa de parede: casca em
+    cima e não embaixo. Face: é parede e o tile de baixo não é casca nem vazio."""
+    place = C.PROPS[kind].place
+    here, below, above = _at(grid, x, y), _at(grid, x, y + 1), _at(grid, x, y - 1)
+    if place == "face":
+        return here == "#" and below not in WALLISH + " "
+    if place == "desk":
+        return here == "." and above == "#" and below not in WALLISH
+    return here == "."
+
+
+def _extract_props(grid: list[str], plan: Plan) -> tuple[list[str], dict[tuple[int, int], str]]:
+    """Troca cada letra de prop pelo caractere base (`#` na face, `.` no resto) e guarda {tile: kind}; quem não vale
+    depois do giro (ok_in_plan) some, mas o tile fica."""
+    rows = [list(r) for r in grid]
+    found = {}
+    for y, row in enumerate(grid):
+        for x, ch in enumerate(row):
+            if ch in plan.props:
+                kind = plan.props[ch]
+                rows[y][x] = "#" if C.PROPS[kind].place == "face" else "."
+                found[(x, y)] = kind
+    base = ["".join(r) for r in rows]
+    return base, {t: k for t, k in found.items() if ok_in_plan(base, *t, k)}
 
 
 def _near_door(grid: list[str], x: int, y: int) -> bool:
@@ -123,9 +158,11 @@ def _reseat_terminals(grid: list[str], plan: Plan) -> list[str]:
     return ["".join(r) for r in rows]
 
 
-def _damage(grid: list[str], level: int, rng: random.Random) -> list[str]:
+def _damage(grid: list[str], level: int, rng: random.Random, protected: frozenset = frozenset()) -> list[str]:
     """Cada `~` vira `x` (o efeito) ou chão; cada parede comum (reta, de 2 vizinhos de casca, longe de porta e de
-    terminal) pode virar `x`. Sorteio de cima pra baixo, esquerda pra direita, `~` e `#` no mesmo passe."""
+    terminal) pode virar `x`. Sorteio de cima pra baixo, esquerda pra direita, `~` e `#` no mesmo passe.
+    `protected` (v0.7 M2): paredes que não caem (a de face com prop e a de cima de uma mesa de parede); o sorteio delas
+    acontece do mesmo jeito, só o resultado é ignorado."""
     out = [list(r) for r in grid]
     for y, row in enumerate(grid):
         for x, ch in enumerate(row):
@@ -137,14 +174,15 @@ def _damage(grid: list[str], level: int, rng: random.Random) -> list[str]:
                 horiz = n[0] in WALLISH and n[1] in WALLISH
                 vert = n[2] in WALLISH and n[3] in WALLISH
                 special = any(c in DOORS or c in TERMINAL_CHARS for c in n)
-                if close == 2 and horiz != vert and not special and rng.random() < C.RUIN_DAMAGE_WALL[level]:
+                if close == 2 and horiz != vert and not special and rng.random() < C.RUIN_DAMAGE_WALL[level] \
+                        and (x, y) not in protected:
                     out[y][x] = "x"
     return ["".join(r) for r in out]
 
 
-def _connected(grid: list[str], plan: Plan) -> bool:
+def _connected(grid: list[str], plan: Plan, blocked: frozenset = frozenset()) -> bool:
     """Das portas, anda por chão (o `x` bloqueia se o efeito é gelo ou rocha) e alcança o tile de baixo de cada
-    terminal e um vizinho da caixa. Máquina e caixa não se pisa."""
+    terminal e um vizinho da caixa. Máquina e caixa não se pisa; prop que colide (`blocked`) também não."""
     walk = {".", "D", "="} | (set() if plan.damage != "sand" else {"x"})
     doors = [(x, y) for y, r in enumerate(grid) for x, ch in enumerate(r) if ch in DOORS]
     if not doors:
@@ -154,7 +192,7 @@ def _connected(grid: list[str], plan: Plan) -> bool:
     while queue:
         x, y = queue.pop()
         for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
-            if n not in seen and _at(grid, *n) in walk:
+            if n not in seen and n not in blocked and _at(grid, *n) in walk:
                 seen.add(n)
                 queue.append(n)
     if not all(d in seen for d in doors):
@@ -176,8 +214,16 @@ def _connected(grid: list[str], plan: Plan) -> bool:
 def build(plan: Plan, orient: int, level: int, rng: random.Random) -> Ruin | None:
     """Monta a ruína em (0, 0): gira, reassenta terminais, aplica a destruição `level` e confere o caminho.
     None se a destruição isolou porta, terminal ou caixa (quem chama tenta `level - 1`)."""
-    grid = _damage(_reseat_terminals(transform(plan.grid, orient), plan), level, rng)
-    if not _connected(grid, plan):
+    grid, props = _extract_props(_reseat_terminals(transform(plan.grid, orient), plan), plan)
+    protected = frozenset((x, y) for (x, y), k in props.items() if C.PROPS[k].place == "face") | \
+        frozenset((x, y - 1) for (x, y), k in props.items() if C.PROPS[k].place == "desk")
+    grid = _damage(grid, level, rng, protected)
+    if level >= 1:                                     # a cadeira tomba (sorteio depois da destruição)
+        for t in sorted(props, key=lambda t: (t[1], t[0])):
+            if props[t] == "prop_chair" and rng.random() < C.RUIN_CHAIR_FALL:
+                props[t] = "prop_chair_fallen"
+    blocked = frozenset(t for t, k in props.items() if C.PROPS[k].solid)
+    if not _connected(grid, plan, blocked):
         return None
     machines, terminals, crate = {}, {}, (0, 0)
     for y, row in enumerate(grid):
@@ -188,7 +234,7 @@ def build(plan: Plan, orient: int, level: int, rng: random.Random) -> Ruin | Non
                 terminals[(x, y)] = plan.logs[ch]
             elif ch == "c":
                 crate = (x, y)
-    return Ruin(plan.key, plan.name, plan.layer, plan.damage, 0, 0, grid, machines, terminals, crate, level)
+    return Ruin(plan.key, plan.name, plan.layer, plan.damage, 0, 0, grid, machines, terminals, crate, level, props)
 
 
 # ---------------------------------------------------------------------------
@@ -401,6 +447,8 @@ def apply_overlays(layer) -> None:
     for block in [b for b in layer.base.blocks if b.ruin]:
         layer.base.remove(block)
     layer.machines[:] = [m for m in layer.machines if not m.broken]
+    for t in [t for t, p in layer.props.items() if p.ruin]:        # v0.7 M2: os props de ruína também voltam da seed
+        del layer.props[t]
     layer.ruins_off.clear()
     broken = []
     for ruin in world.ruins:
@@ -429,4 +477,6 @@ def apply_overlays(layer) -> None:
                     layer.base.add(BaseBlock(C.BASE_FLOOR, *t, ruin=True))
                     if t in ruin.machines and t not in layer.ruin_salvaged:
                         broken.append(Machine(ruin.machines[t], *t, broken=True))
+        for t, kind in ruin.props.items():
+            layer.props.setdefault(t, Prop(kind, *t, ruin=True))
     layer.machines[:0] = broken                        # sempre na frente das do player (a ordem não muda no load)

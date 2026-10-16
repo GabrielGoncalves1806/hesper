@@ -26,9 +26,14 @@ def craft_kinds(tab_id: str) -> list[str]:
     return [k for k in tab_kinds(tab_id) if not C.MACHINES[k].placeable and k not in C.T2_RECIPES]
 
 
-def build_kinds(tab_id: str) -> list[str]:
-    """Máquinas do construtor numa aba: só o que vai pro chão."""
-    return [k for k in tab_kinds(tab_id) if C.MACHINES[k].placeable]
+def build_kinds(tab_id: str, known=None) -> list[str]:
+    """Máquinas do construtor numa aba: só o que vai pro chão. Na aba Decoração (v0.7 M2) só os props conhecidos
+    (`known`, `GameState.known_props()`); sem `known`, só os de cara."""
+    kinds = [k for k in tab_kinds(tab_id) if C.MACHINES[k].placeable]
+    if tab_id == "decor":
+        known = set(C.PROP_STARTER) if known is None else known
+        kinds = [k for k in kinds if k in known]
+    return kinds
 
 
 class FabMenu:
@@ -157,6 +162,9 @@ def t2_menu() -> FabMenu:
     return FabMenu(visible=C.CRAFT_VISIBLE_ROWS, tabs=filled_tabs(C.T2_TABS, t2_kinds), kinds_of=t2_kinds)
 
 
-def build_menu() -> FabMenu:
-    """Menu do construtor (E com ele na mão): as máquinas, nas abas de categoria."""
-    return FabMenu(tabs=C.FAB_TABS, kinds_of=build_kinds)
+def build_menu(known=None) -> FabMenu:
+    """Menu do construtor (E com ele na mão): as máquinas, nas abas de categoria. `known` = função sem argumentos que
+    devolve os props conhecidos (v0.7 M2: `lambda: state.known_props()`, lida a cada consulta, então segue o estado
+    que estiver valendo); sem ela, a aba Decoração mostra só os de cara."""
+    kinds_of = build_kinds if known is None else (lambda tab: build_kinds(tab, known()))
+    return FabMenu(tabs=C.FAB_TABS, kinds_of=kinds_of)

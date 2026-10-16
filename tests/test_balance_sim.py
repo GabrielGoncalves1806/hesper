@@ -31,7 +31,8 @@ def test_proposta_chega_no_fim_dentro_da_meta(proposal, strategy):
     # v0.4 M3: sem rocha pequena no chão de bacia (vira lago), a seed 1 do casual foi a ~53 min. Teto provisório
     # de 55 até a rodada de balanceamento do Marco 4 (o dono pediu pra tunar tudo do v0.4 de uma vez).
     # v0.4 M4: SMALL_ROCK_CHANCE 0,019 devolveu o minério solto e o casual da seed 1 fecha em ~38 min: teto de referência.
-    ceiling = 52
+    # v0.7 M2: props de ruína colidem e não somem mais atrás de parede (decisão do dono): a seed 1 do casual foi a ~52,4 min.
+    ceiling = 54
     assert 20 * 60 <= r.total <= ceiling * 60
     # Névoa por volta dos 10–12 min. Marco 2: quem só minera na caverna começa mais devagar (não pega rocha da
     # superfície e cada viagem paga ~20 tiles de rampa: base -> cratera -> fade), ~14 min na proposta.

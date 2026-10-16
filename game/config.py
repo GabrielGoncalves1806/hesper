@@ -7,6 +7,7 @@ Os valores vêm do docs/GAME_BIBLE.md (§3 paletas, §4 escopo do MVP, §6 asset
 from dataclasses import dataclass
 from dataclasses import replace as _replace
 from pathlib import Path
+from typing import NamedTuple
 
 # ---------------------------------------------------------------------------
 # Liga/desliga assets (o dono do projeto precisa aprovar antes de ligar)
@@ -1224,3 +1225,68 @@ RUIN_LOOT = {                                            # caixa da ruína: recu
     "drill_post": ({"copper_ingot": (3, 6), "magmatite": (2, 4)}, LOOT_RICH),
 }
 RUIN_BROKEN_TINT = (120, 112, 108)   # máquina quebrada: o desenho é multiplicado por essa cor (apagada)
+
+# ---------------------------------------------------------------------------
+# v0.7 M2 · Props e scanner (game/props.py · bíblia §16). Números de partida: balanceamento fica pra depois.
+# ---------------------------------------------------------------------------
+PROP_COST_SIMPLE = {"iron": 2}
+PROP_COST_TECH = {"iron": 2, "silicon": 1}
+SCAN_HOLD = 1.5                    # s segurando o esquerdo num prop de ruína desconhecido
+SCAN_REACH = PLACE_REACH           # tiles (Chebyshev) do player ao prop
+RUIN_CHAIR_FALL = 0.5              # com destruição >= 1, chance de cada cadeira de ruína virar prop_chair_fallen
+PROP_SPRITE_SIZE = (32, 40)        # chão e mesa: blit em (tx·32, ty·32 - PROP_LIFT), ordenado pelo pé
+PROP_LIFT = 8
+PROP_COLLIDE = (4, 14, 24, 18)     # caixa de colisão dentro do tile (x, y, w, h); a mesa de parede colide no tile inteiro
+PROP_FACE_SIZE = (32, 24)          # face: blit em (tx·32, ty·32 + BASE_FACE_Y) no tile da parede
+
+
+class PropType(NamedTuple):
+    kind: str
+    name: str
+    cost: dict
+    solid: bool
+    place: str          # "floor" | "desk" | "face" | "decal"
+    scannable: bool
+
+
+PROP_STARTER = ("prop_table", "prop_chair", "prop_crate", "prop_sign")
+PROP_SCENERY = ("prop_chair_fallen", "prop_rubble", "prop_ice_stain")
+_S, _T = PROP_COST_SIMPLE, PROP_COST_TECH
+# (id, nome, custo, colide, lugar); o cenário não se constrói (custo {})
+_PROP_TABLE = (
+    ("prop_table", "Mesa", _S, True, "floor"),
+    ("prop_chair", "Cadeira", _S, False, "floor"),
+    ("prop_crate", "Caixote", _S, True, "floor"),
+    ("prop_sign", "Placa de aviso", _S, False, "floor"),
+    ("prop_barrel", "Barril", _S, True, "floor"),
+    ("prop_bunk", "Beliche", _S, True, "floor"),
+    ("prop_locker", "Armário", _S, True, "floor"),
+    ("prop_sample_shelf", "Estante de amostras", _S, True, "floor"),
+    ("prop_dead_plant", "Vaso com planta seca", _S, False, "floor"),
+    ("prop_lab_bench", "Bancada de laboratório", _T, True, "floor"),
+    ("prop_microscope", "Microscópio", _T, True, "floor"),
+    ("prop_console", "Console", _T, True, "floor"),
+    ("prop_sample_tank", "Tanque de amostra", _T, True, "floor"),
+    ("prop_wall_desk_a", "Bancada de parede", _S, True, "desk"),
+    ("prop_wall_desk_b", "Escrivaninha de parede", _S, True, "desk"),
+    ("wall_monitor_on", "Monitor", _T, False, "face"),
+    ("wall_monitor_off", "Monitor apagado", _T, False, "face"),
+    ("wall_bp_plan", "Diagrama da base", _S, False, "face"),
+    ("wall_bp_ship", "Diagrama da nave", _S, False, "face"),
+    ("wall_bp_ice", "Diagrama do cristal", _S, False, "face"),
+    ("wall_notice", "Quadro de avisos", _S, False, "face"),
+    ("prop_chair_fallen", "Cadeira caída", {}, False, "floor"),
+    ("prop_rubble", "Entulho", {}, True, "floor"),
+    ("prop_ice_stain", "Mancha de gelo", {}, False, "decal"),
+)
+PROPS = {k: PropType(k, n, c, s, p, k not in PROP_STARTER and k not in PROP_SCENERY)
+         for k, n, c, s, p in _PROP_TABLE}
+PLAYER_PROPS = tuple(k for k in PROPS if k not in PROP_SCENERY)
+for _kind in PLAYER_PROPS:
+    _t = PROPS[_kind]
+    MACHINES[_kind] = MachineType(_kind, _t.name, "decoração · na parede" if _t.place in ("face", "desk") else "decoração",
+                                  dict(_t.cost), None, 0, 0, "icon_" + _kind)
+    MACHINE_ORDER.append(_kind)
+    MACHINE_CATEGORY[_kind] = "decor"
+FAB_TABS = FAB_TABS + (("decor", "Decoração"),)     # sempre a última aba: o índice das outras não muda
+VOLUME.update({"scan_loop": 0.4, "scan_done": 0.6})  # Som (os arquivos chegam depois; sem arquivo fica em silêncio)

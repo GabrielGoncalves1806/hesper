@@ -26,6 +26,7 @@ from game.energy import PowerAlert, PowerReport, power_report
 from game.geo import FROST
 from game.layers import CAVE, SURFACE, Layer
 from game.player import Player, Rect, overlaps
+from game.props import Prop, face_visible
 from game.rain import Rain
 from game.thaw import lake_level
 from game.weather import Weather
@@ -43,6 +44,7 @@ class Controls:
     dismantle: "Machine | None" = None         # v0.5 M1: máquina debaixo do mouse com o botão direito segurado
     drill_in_hand: bool = True                 # v0.5 M4: a broca de mão é o slot selecionado da hotbar (sem ela, não minera)
     drill_tier: int = 1                        # v0.6 Fundo M4: 2 = broca nv.2 na mão (×1,5 e quebra rocha dura)
+    scan: "Prop | None" = None                 # v0.7 M2: prop debaixo do mouse com o esquerdo segurado (construtor na mão, sem fantasma)
 
 
 @dataclass
@@ -411,6 +413,11 @@ class GameState:
         self.dismantling: Machine | None = None        # máquina com a barrinha enchendo
         self.dismantle_t = 0.0                         # s segurando nela
         self._dismantle_lock: Machine | None = None    # já tentou: só carrega de novo depois de soltar
+        # v0.7 M2: props. `scanned` = projetos de prop liberados pelo scanner do construtor (vai no save); o scan segurando
+        # o esquerdo (`_update_scan`) segue o molde do desmonte
+        self.scanned: set[str] = set()
+        self.scanning: Prop | None = None
+        self.scan_t = 0.0
         self.events: list[tuple] = []
         self._seal_sound_t = -99.0                     # play_time do último base_sealed (cooldown C.SEAL_SOUND_COOLDOWN)
 
@@ -558,9 +565,45 @@ class GameState:
                 return m
         return None
 
+    @property
+    def props(self) -> dict:
+        """Props da camada ativa: tile -> Prop."""
+        return self.active.props
+
+    def prop_at(self, tile: tuple[int, int]) -> Prop | None:
+        return self.active.props.get(tuple(tile))
+
+    def known_props(self) -> set[str]:
+        """Props que o construtor sabe fazer: os de cara e os já escaneados."""
+        return set(C.PROP_STARTER) | self.scanned
+
+    def prop_at_point(self, px: float, py: float) -> Prop | None:
+        """Prop desenhado no pixel (px, py) do mundo. Chão e mesa: caixa 32×40 a partir de (tx·32, ty·32 − 8); face:
+        32×24 a partir de (tx·32, ty·32 + 8); decal: o tile. Se dois se sobrepõem, o da frente (mais embaixo) ganha."""
+        props = self.active.props
+        if not props:
+            return None
+        tx, ty = int(px // C.TILE), int(py // C.TILE)
+        best = None
+        for cand in ((tx, ty), (tx, ty + 1)):
+            prop = props.get(cand)
+            if prop is None:
+                continue
+            y0 = cand[1] * C.TILE
+            if prop.place in ("floor", "desk"):
+                hit = y0 - C.PROP_LIFT <= py < y0 + C.TILE
+            elif prop.place == "face":
+                hit = y0 + C.BASE_FACE_Y <= py < y0 + C.BASE_FACE_Y + C.PROP_FACE_SIZE[1]
+            else:
+                hit = y0 <= py < y0 + C.TILE
+            if hit and (best is None or prop.ty > best.ty):
+                best = prop
+        return best
+
     def solids_near(self, box: Rect) -> list[Rect]:
         """Retângulos sólidos que podem encostar na caixa: paredes, máquinas e a cápsula."""
         solids = []
+        props = self.active.props
         x0, y0 = int(box[0] // C.TILE) - 1, int(box[1] // C.TILE) - 1
         x1, y1 = int((box[0] + box[2]) // C.TILE) + 1, int((box[1] + box[3]) // C.TILE) + 1
         for ty in range(y0, y1 + 1):
@@ -570,6 +613,9 @@ class GameState:
                     solids.append((tx * C.TILE + rx, ty * C.TILE + ry, rw, rh))
                 elif self.world.is_solid(tx, ty):
                     solids.append((tx * C.TILE, ty * C.TILE, C.TILE, C.TILE))
+                prop = props.get((tx, ty)) if props else None      # v0.7 M2: o prop que colide
+                if prop is not None and prop.rect is not None:
+                    solids.append(prop.rect)
         solids += [m.rect for m in self.machines]
         if self.active.base.blocks:                       # v0.5 M2: parede e porta da base
             solids += self.active.base.solids_in(x0, y0, x1, y1)
@@ -594,6 +640,7 @@ class GameState:
 
         if self.fainted or self.ramp is not None:   # desmaiado ou na rampa: solta o desmonte que estava segurando
             self._update_dismantle(None, dt)
+            self._update_scan(None, dt)
         if self.fainted:
             self.ramp = None                  # desmaiou no meio do fade: acorda na cápsula, sem viagem
             self._update_faint(dt)
@@ -602,6 +649,7 @@ class GameState:
             self._update_o2(sim_dt)
         else:
             self._update_dismantle(controls.dismantle, dt)
+            self._update_scan(controls.scan, dt)
             self.player.move(controls.move_x, controls.move_y, dt, self.solids_near, self.player_speed)
             if not controls.in_menu:          # rajada: o vento empurra (parado, desliza; contra, anda mais devagar)
                 self.player.drift(*self.weather.push(storm), dt, self.solids_near)
@@ -719,6 +767,8 @@ class GameState:
         só, C.ONCE_ITEMS, já fabricado ou em posse; v0.6 Fundo M5), 'locked' (Ti insuficiente), 'missing' (falta recurso) ou 'ok'.
         `inv_only`: conta só o inventário (o construtor, v0.5 M1)."""
         machine = C.MACHINES[kind]
+        if kind in C.PLAYER_PROPS and kind not in self.known_props():
+            return "blueprint"                  # v0.7 M2: prop que ainda não foi escaneado
         blueprint = C.RECIPE_BLUEPRINT.get(kind)
         if blueprint is not None and blueprint not in self.blueprints:
             return "blueprint"
@@ -809,6 +859,8 @@ class GameState:
             return False
         if kind in C.BASE_KINDS:                # v0.5 M2: bloco da base (chão, parede, porta)
             return self._can_place_base(kind, tile, rotation)
+        if kind in C.PLAYER_PROPS:              # v0.7 M2: prop de decoração
+            return self._can_place_prop(kind, tile)
         machine = Machine(kind, tx, ty)
         if any(t in self.world.ruin_tiles for t in machine.tiles):   # v0.7 M1: não constrói dentro de ruína
             return False
@@ -820,7 +872,8 @@ class GameState:
             return False
         pod = C.POD_TILES if self.active.has_base else ()
         for t in machine.tiles:
-            if not self.world.is_floor(*t) or t in pod or self.machine_at(t) or self.base.is_barrier(t):
+            if not self.world.is_floor(*t) or t in pod or self.machine_at(t) or self.base.is_barrier(t) \
+                    or t in self.active.props:                  # v0.7 M2: nem em cima de um prop
                 return False
             if self.world.is_water(*t, self.stage):     # v0.4 M3.4: não constrói na água (com geo, o estágio não entra)
                 return False
@@ -854,6 +907,8 @@ class GameState:
         self._spend(C.MACHINES[kind].cost, inv_only=True)
         if kind in C.BASE_KINDS:
             return self._build_base(kind, tile, rotation)
+        if kind in C.PLAYER_PROPS:
+            return self._build_prop(kind, tile)
         machine = Machine(kind, tile[0], tile[1], rotation)
         machine.build = C.BUILD_TIME
         if machine.is_drill:                                   # vem com Envia/Recebe vazios: o player configura
@@ -902,6 +957,8 @@ class GameState:
         for t in tiles:
             if not self.world.is_floor(*t) or t in pod or self.base.get(t) or self.world.vein_at(*t):
                 return False
+            if t in self.active.props:                      # v0.7 M2: nem bloco em tile com prop
+                return False
             if t in self.world.ruin_tiles:                  # v0.7 M1: nem bloco dentro de ruína
                 return False
             if self.world.is_water(*t, self.stage):
@@ -918,6 +975,46 @@ class GameState:
     def _build_base(self, kind: str, tile: tuple[int, int], rotation: int) -> bool:
         orient = ORIENT_H if rotation % 2 == 0 else ORIENT_V
         self.base.add(BaseBlock(kind, tile[0], tile[1], orient if kind == C.BASE_DOOR2 else ORIENT_H))
+        self.crafted[kind] += 1
+        self.events.append(("build", kind, tile))
+        return True
+
+    # ---- props (v0.7 M2 · game/props.py) ---------------------------------------------------------------
+    def _can_place_prop(self, kind: str, tile: tuple[int, int]) -> bool:
+        """O lugar serve pro prop? Todos: sem prop nem máquina no tile, ao alcance. Face: tile de uma parede da base do
+        player (não de ruína) que mostra face. Chão e mesa: chão livre (do mundo ou da base) fora de veio, água, gelo do
+        portão, cápsula e ruína, sem prender o player; a mesa também pede parede do player logo em cima."""
+        tx, ty = tile
+        t = C.PROPS[kind]
+        if tile in self.active.props or self.machine_at(tile):
+            return False
+        px, py = self.player.tile
+        if max(abs(tx - px), abs(ty - py)) > C.PLACE_REACH:
+            return False
+        block = self.base.get(tile)
+        if t.place == "face":
+            wallish = lambda x, y: self.base.is_barrier((x, y)) or self.world.is_solid(x, y)
+            return block is not None and block.is_wall and not block.ruin and face_visible(wallish, tx, ty)
+        if tile in self.world.ruin_tiles or not self.world.is_floor(tx, ty):
+            return False
+        if tile in (C.POD_TILES if self.active.has_base else ()) or self.world.vein_at(tx, ty):
+            return False
+        if (block is not None and not block.is_floor) or self.world.is_water(tx, ty, self.stage):
+            return False
+        cell = (tx * C.TILE, ty * C.TILE, C.TILE, C.TILE)
+        if any(overlaps(cell, r) for r in self.active.gate_solids):
+            return False
+        if (px, py) == tile:
+            return False
+        if t.place == "desk":
+            above = self.base.get((tx, ty - 1))
+            if above is None or not above.is_wall or above.ruin:
+                return False
+        return not (t.solid and overlaps(self.player.box, Prop(kind, tx, ty).rect))
+
+    def _build_prop(self, kind: str, tile: tuple[int, int]) -> bool:
+        tile = tuple(tile)
+        self.active.props[tile] = Prop(kind, tile[0], tile[1])
         self.crafted[kind] += 1
         self.events.append(("build", kind, tile))
         return True
@@ -1516,6 +1613,9 @@ class GameState:
 
     def can_dismantle(self, machine) -> bool:
         px, py = self.player.tile
+        if isinstance(machine, Prop):                   # v0.7 M2: prop do player (o de ruína não desmonta)
+            return (not machine.ruin and self.active.props.get(machine.tile) is machine
+                    and max(abs(machine.tx - px), abs(machine.ty - py)) <= C.PLACE_REACH)
         if isinstance(machine, Crate):                  # v0.6 M1: caixa de saque de destroço (o contêiner não desmonta)
             return self.crates.get(machine.tile) is machine and self.crate_distance(machine) <= C.CRATE_REACH
         if isinstance(machine, BaseBlock):              # v0.5 M2: bloco da base (a dupla: qualquer metade serve)
@@ -1553,6 +1653,8 @@ class GameState:
             return self.dismantle_crate(machine)
         if isinstance(machine, BaseBlock):
             return self._dismantle_block(machine)
+        if isinstance(machine, Prop):
+            return self._dismantle_prop(machine)
         if machine.is_chest and not machine.storage.is_empty():
             self.events.append(("chest_not_empty",))
             return False
@@ -1593,9 +1695,27 @@ class GameState:
         self.events.append(("dismantle", "crate", crate.tile))
         return True
 
+    def _dismantle_prop(self, prop: Prop) -> bool:
+        """Tira o prop do player e devolve a receita (tudo ou nada: inventário cheio avisa e o prop fica)."""
+        returns = dict(C.MACHINES[prop.kind].cost)
+        trial = self.inventory.copy()
+        if any(trial.add(item, n) for item, n in returns.items()):
+            self.events.append(("inv_full",))
+            return False
+        for item, n in returns.items():
+            self.inventory.add(item, n)
+        del self.active.props[prop.tile]
+        self.events.append(("dismantle", prop.kind, prop.tile))
+        return True
+
     def _dismantle_block(self, block: BaseBlock) -> bool:
-        """Tira o bloco da base e devolve 1 receita (a dupla: qualquer metade tira as duas e devolve 1)."""
+        """Tira o bloco da base e devolve 1 receita (a dupla: qualquer metade tira as duas e devolve 1). Parede com prop
+        de face leva o prop junto e devolve as duas receitas (tudo ou nada)."""
         returns = dict(block.type.cost)
+        face = self.active.props.get((block.tx, block.ty)) if block.is_wall else None
+        if face is not None:
+            for item, n in C.MACHINES[face.kind].cost.items():
+                returns[item] = returns.get(item, 0) + n
         trial = self.inventory.copy()
         if any(trial.add(item, n) for item, n in returns.items()):
             self.events.append(("inv_full",))
@@ -1603,6 +1723,8 @@ class GameState:
         for item, n in returns.items():
             self.inventory.add(item, n)
         self.base.remove(block)
+        if face is not None:
+            del self.active.props[face.tile]
         self.events.append(("dismantle", block.kind, (block.tx, block.ty)))
         return True
 
@@ -1640,6 +1762,44 @@ class GameState:
             self._dismantle_lock = machine
             if not self.dismantle(machine):                  # não coube: a máquina fica e o charge para
                 self.events.append(("dismantle_cancel",))
+
+    # ---- scanner (v0.7 M2) ---------------------------------------------------------------------------
+    def can_scan(self, prop: Prop) -> bool:
+        """Prop de ruína escaneável que o player ainda não conhece, no alcance."""
+        if not prop.ruin or not C.PROPS[prop.kind].scannable or prop.kind in self.known_props():
+            return False
+        if self.active.props.get(prop.tile) is not prop:
+            return False
+        px, py = self.player.tile
+        return max(abs(prop.tx - px), abs(prop.ty - py)) <= C.SCAN_REACH
+
+    def _update_scan(self, target: Prop | None, dt: float) -> None:
+        """Escanear segurando (v0.7 M2): o esquerdo segurado num prop de ruína desconhecido, no alcance, enche `scan_t` até
+        C.SCAN_HOLD e libera o projeto (`scanned`). Eventos: ("scan_charge",) ao começar, ("scan_cancel",) se para sem
+        completar e ("scan_done", kind) ao terminar (o prop vira conhecido e deixa de ser alvo)."""
+        if target is not None and not self.can_scan(target):
+            target = None
+        if target is not self.scanning:
+            if self.scanning is not None:
+                self.events.append(("scan_cancel",))
+            self.scanning, self.scan_t = None, 0.0
+            if target is None:
+                return
+            self.scanning = target
+            self.events.append(("scan_charge",))
+        if self.scanning is None:
+            return
+        self.scan_t += dt
+        if self.scan_t >= C.SCAN_HOLD:
+            kind = self.scanning.kind
+            self.scanning, self.scan_t = None, 0.0
+            self.scanned.add(kind)
+            self.events.append(("scan_done", kind))
+
+    @property
+    def scan_progress(self) -> float:
+        """0..1 do scan segurado agora (0 sem nenhum)."""
+        return min(1.0, self.scan_t / C.SCAN_HOLD) if self.scanning is not None else 0.0
 
     @property
     def dismantle_progress(self) -> float:

@@ -227,8 +227,8 @@ class Audio:
         try:
             if not pygame.mixer.get_init():
                 pygame.mixer.init(44100, -16, 2, 512)
-            pygame.mixer.set_num_channels(19)
-            pygame.mixer.set_reserved(16)
+            pygame.mixer.set_num_channels(20)
+            pygame.mixer.set_reserved(17)
             self.amb = [pygame.mixer.Channel(0), pygame.mixer.Channel(1)]
             self.alarm_channel = pygame.mixer.Channel(2)
             self.hum_channel = pygame.mixer.Channel(3)
@@ -249,6 +249,7 @@ class Audio:
             self.charge_channel = pygame.mixer.Channel(12)   # v0.5 M1: o "carregando" do desmonte (canal único)
             self.dispenser_channel = pygame.mixer.Channel(13)   # v0.5 M2: o zumbido do Dispersor (loop com fade)
             self._dispenser_on = [False]
+            self.scan_channel = pygame.mixer.Channel(16)   # v0.7 M2: o loop do scan (canal único)
             self.smelter_channels = [pygame.mixer.Channel(14), pygame.mixer.Channel(15)]   # v0.6 Fundo M3
             self._smelter_on = [False, False]
             self.ok = True
@@ -363,6 +364,18 @@ class Audio:
         """Soltou antes (ou tirou o mouse): o charge sai num fadeout curto, nunca num stop seco."""
         if self.ok and self.charge_channel.get_busy():
             self.charge_channel.fadeout(fade_ms)
+
+    # ---- scan do construtor (v0.7 M2) -------------------------------------------
+    def start_scan(self) -> None:
+        """Começou a escanear: o scan_loop (um sweep só de ~1,66 s que acompanha a barrinha, não é loop) no canal dele."""
+        sound = self._pick("scan_loop") if self.ok else None
+        if sound:
+            sound.set_volume(VOLUME["scan_loop"] * self.sfx_gain)
+            self.scan_channel.play(sound)
+
+    def stop_scan(self, fade_ms: int = 40) -> None:
+        if self.ok and self.scan_channel.get_busy():
+            self.scan_channel.fadeout(fade_ms)
 
     # ---- loops -----------------------------------------------------------------
     def set_alarm(self, on: bool) -> None:

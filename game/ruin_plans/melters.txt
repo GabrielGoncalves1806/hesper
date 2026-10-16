@@ -4,16 +4,24 @@ damage: ice
 m: melter
 h: heater
 l: lamp
+w: prop_lab_bench
+k: prop_locker
+a: prop_barrel
+z: prop_ice_stain
+v: prop_rubble
+n: wall_bp_plan
+d: prop_wall_desk_a
+f: wall_monitor_on
 1: 13
 2: 14
 3: 15
 ---
-####1######2####
-#..............#
+####1#f####2#n##
+#.....d........#
 #.m..m..m..m...#
-#......~~......#
-#..~~..~~...c..#
-#......~~......#
-#.h....#3#...l.#
+#.a....~~....k.#
+#..~~z.~~...c..#
+#......~~...w..#
+#.h..v.#3#...l.#
 #..............#
 #######==#######

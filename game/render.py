@@ -50,6 +50,7 @@ from game.minimap import Minimap
 from game.rain import RainDrops, rain_level
 from game.surfaces import opaque
 from game.base import BaseBlock
+from game.props import Prop
 from game.geo import FROST
 from game.systems import GameState, Mining
 from game.wrecks import Crate
@@ -363,6 +364,7 @@ class Renderer:
         self.draw_giant_frost(canvas, state, cam)
         self.draw_veins(canvas, state, cam)
         self.draw_base_floors(canvas, state, cam)
+        self.draw_prop_decals(canvas, state, cam)           # v0.7 M2: a mancha de gelo, com o chão
         if state.active.has_base:
             self.draw_zone(canvas, cam, t)
         self.draw_walls_and_objects(canvas, state, cam, stage, t)
@@ -656,6 +658,7 @@ class Renderer:
             canvas.fill((58, 62, 78), (x, y - C.BASE_WALL_LIFT, T, T))
             if not grid.is_wall((tx, ty + 1)):
                 canvas.fill((176, 160, 130), (x, y + C.BASE_FACE_Y, T, T - C.BASE_FACE_Y))
+                self._draw_face_prop(canvas, state, tile, x, y)
             self._draw_ruin_terminal(canvas, state, tile, x, y)
             return
         key = autotile.tile_key(lambda a, b: grid.is_wall((a, b)), tx, ty)
@@ -665,7 +668,75 @@ class Renderer:
             if face is not None:
                 idx = int(grid.is_wall((tx - 1, ty))) + 2 * int(grid.is_wall((tx + 1, ty)))
                 canvas.blit(face, (x, y + C.BASE_FACE_Y), (idx * T, 0, T, C.BASE_WALL_LIFT))
+            self._draw_face_prop(canvas, state, tile, x, y)
         self._draw_ruin_terminal(canvas, state, tile, x, y)
+
+    # ---- props (v0.7 M2 · game/props.py · arte: reports/design/v07_lore) -------------------------------
+    def prop_surface(self, kind: str) -> pygame.Surface:
+        """prop_*.png / wall_*.png (chão e mesa 32×40, decal 32×32, face 32×24) ou um quadradinho se o PNG não existe."""
+        place = C.PROPS[kind].place
+
+        def painter():
+            size = C.PROP_FACE_SIZE if place == "face" else (T, T) if place == "decal" else C.PROP_SPRITE_SIZE
+            surf = pygame.Surface(size, pygame.SRCALPHA)
+            surf.fill((140 + hash(kind) % 80, 120, 100, 255))
+            return surf
+        return self.surface(kind, painter)[0]
+
+    def _blit_prop(self, canvas, prop: Prop, x: int, y: int) -> None:
+        """Blit do prop em (x, y) (o topo do sprite, já com o deslocamento do tipo) e o contorno se é o alvo do scan."""
+        surf = self.prop_surface(prop.kind)
+        canvas.blit(surf, (x, y))
+        if self.highlight is prop:
+            canvas.blit(self.outline_of(("prop", prop.kind), surf), (x - 1, y - 1))
+
+    def _draw_face_prop(self, canvas, state: GameState, tile, x: int, y: int) -> None:
+        """Prop de face (32×24) na face da parede, logo depois dela: (tx·32, ty·32 + 8)."""
+        prop = state.active.props.get(tuple(tile)) if state.active.props else None
+        if prop is not None and prop.place == "face":
+            self._blit_prop(canvas, prop, x, y + C.BASE_FACE_Y)
+
+    def draw_prop_decals(self, canvas, state: GameState, cam) -> None:
+        """Decal (a mancha de gelo): 32×32 no tile, junto do chão, antes dos objetos."""
+        props = state.active.props
+        if not props:
+            return
+        tx0, tx1, ty0, ty1 = self.base_view(cam)
+        for prop in props.values():
+            if prop.place == "decal" and tx0 <= prop.tx <= tx1 and ty0 <= prop.ty <= ty1:
+                self._blit_prop(canvas, prop, prop.tx * T - cam[0], prop.ty * T - cam[1])
+
+    def collect_props(self, items: list, canvas, state: GameState, cam) -> None:
+        """Props de chão e mesas de parede na ordem de profundidade, com o pé na borda de baixo do tile (como o baú):
+        sprite 32×40 em (tx·32, ty·32 − 8)."""
+        props = state.active.props
+        if not props:
+            return
+        tx0, tx1, ty0, ty1 = self.base_view(cam)
+        for prop in props.values():
+            if prop.place in ("floor", "desk") and tx0 <= prop.tx <= tx1 and ty0 <= prop.ty <= ty1:
+                items.append(((prop.ty + 1) * T, lambda p=prop: self._blit_prop(
+                    canvas, p, p.tx * T - cam[0], p.ty * T - cam[1] - C.PROP_LIFT)))
+
+    def draw_prop_ghost(self, canvas, cam, kind, tile, valid, t) -> None:
+        """Fantasma do prop: quadrado verde/vermelho no tile e o sprite translúcido (face: na face da parede)."""
+        color = (127, 214, 122) if valid else (255, 106, 85)
+        px, py = tile[0] * T - cam[0], tile[1] * T - cam[1]
+        tint = pygame.Surface((T, T), pygame.SRCALPHA)
+        tint.fill((*color, 51))
+        canvas.blit(tint, (px, py))
+        step = int(t * 8) % 8
+        for i in range(0, T - 2, 8):
+            k = (i + step) % (T - 2)
+            for rx, ry, w, h in [(px + 1 + k, py + 1, 4, 2), (px + 1 + k, py + T - 3, 4, 2),
+                                 (px + 1, py + 1 + k, 2, 4), (px + T - 3, py + 1 + k, 2, 4)]:
+                canvas.fill(color, (rx, ry, w, h))
+        sprite = self.prop_surface(kind).copy()
+        sprite.set_alpha(140)
+        face = C.PROPS[kind].place == "face"
+        canvas.blit(sprite, (px, py + C.BASE_FACE_Y) if face else (px, py - C.PROP_LIFT))
+        if face:                                           # a face fica no tile da parede: contorno da área da face
+            pygame.draw.rect(canvas, color, (px, py + C.BASE_FACE_Y, T, C.PROP_FACE_SIZE[1]), 1)
 
     def _draw_ruin_terminal(self, canvas, state: GameState, tile, x: int, y: int) -> None:
         """v0.7 M1: o terminal de uma ruína é uma parede da casca com o sprite do terminal (o mesmo da caverna) na face,
@@ -1217,6 +1288,7 @@ class Renderer:
                 items.append((by, lambda i=info, x=bx - cam_x, y=by - cam_y: self._blit_anchored(
                     canvas, i["ghost"], x, y)))
         self.collect_base_objects(items, canvas, state, cam)
+        self.collect_props(items, canvas, state, cam)
         for m in state.machines:
             mx, my = m.anchor                                  # centro da base (drill: centro dos 2×2)
             if -64 < mx - cam_x < self.view_w + 64 and -80 < my - cam_y < self.view_h + 80:
@@ -1867,6 +1939,8 @@ class Renderer:
                 small = self.surface("icon_water_capsule", art.water_capsule_icon)[0]
             elif item in C.HAND_DRILLS or item in C.PART_ITEMS:   # v0.5 M4: icon_<item>.png (v0.6 Fundo M4: as duas brocas)
                 small = self._m4_icon(item)
+            elif item in C.PLAYER_PROPS:         # v0.7 M2: icon_<prop>.png (16×16)
+                small = self.surface(f"icon_{item}", lambda: self._placeholder(16, item))[0]
             elif item in C.BASE_KINDS or item == C.DISPENSER:   # v0.5 M2: icon_base_*.png e icon_o2_dispenser.png
                 name = C.BASE_ICON.get(item, "icon_o2_dispenser")
                 small = self.surface(name, lambda: self._placeholder(16, item))[0]
@@ -1928,6 +2002,8 @@ class Renderer:
             return pygame.transform.scale_by(self.surface("icon_water_capsule", art.water_capsule_icon)[0], 3)
         if kind in C.HAND_DRILLS or kind in C.PART_ITEMS:
             return pygame.transform.scale_by(self._m4_icon(kind), 3)
+        if kind in C.PLAYER_PROPS:       # v0.7 M2: o ícone do prop ×3
+            return pygame.transform.scale_by(self.surface(f"icon_{kind}", lambda: self._placeholder(16, kind))[0], 3)
         if kind in C.BASE_KINDS:
             return pygame.transform.scale_by(self.surface(C.BASE_ICON[kind], lambda: self._placeholder(16, kind))[0], 3)
         if kind == "drill":
@@ -2093,6 +2169,9 @@ class Renderer:
         canvas.fill("#fff3c4", (px - 2, py - 14, round(36 * prog), 1))
 
     def draw_ghost(self, canvas, cam, kind, tile, rotation, valid, t) -> None:
+        if kind in C.PLAYER_PROPS:
+            self.draw_prop_ghost(canvas, cam, kind, tile, valid, t)
+            return
         if kind in C.BASE_KINDS:
             self.draw_base_ghost(canvas, cam, kind, tile, rotation, valid, t)
             return
@@ -2133,6 +2212,11 @@ class Renderer:
             x = round((sum(xs) / len(xs) + 0.5) * T - cam[0])
             y = round(block.ty * T - cam[1]) - (0 if block.is_floor else C.BASE_WALL_LIFT) - bh - 2
             self.draw_drill_bar(canvas, x, y, state.dismantle_progress, C.C_O2, False, w=bw, h=bh)
+        bw, bh = C.DISMANTLE_BAR
+        for prop, fill, color in ((block, state.dismantle_progress, C.C_O2), (state.scanning, state.scan_progress, C.C_TI)):
+            if isinstance(prop, Prop):                        # v0.7 M2: desmontando um prop / escaneando um de ruína
+                top = prop.ty * T - cam[1] + (C.BASE_FACE_Y if prop.place == "face" else -C.PROP_LIFT if prop.place != "decal" else 0)
+                self.draw_drill_bar(canvas, round((prop.tx + 0.5) * T - cam[0]), round(top) - bh - 2, fill, color, False, w=bw, h=bh)
         if isinstance(block, Crate):                          # v0.6 M1: desmontando a caixa de saque
             bw, bh = C.DISMANTLE_BAR
             ax, ay = block.anchor
