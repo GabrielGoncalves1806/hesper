@@ -880,6 +880,14 @@ Spec: `docs/superpowers/specs/2026-10-15-v06-fundo-design.md`. Marcos: M1 cavern
 - **Rocha dura** (`C.HARD_ROCK`): toda parede de rocha do gelo e do basalto; o minério de parede dessas regiões também é duro (`World.is_hard`). Quem decide é o `GameState.can_break_hard` (no M1, só o F3; o M4 soma a broca nv.2). Dica: "Rocha dura demais · precisa da broca nv.2". Minerar leva 1,5 s (antes do multiplicador do F3). Bedrock segue inquebrável.
 - **F3** (`state.fast`) quebra rocha dura.
 - **Save v12**: o v11 carrega **sem a caverna** (`layers.cave` some inteiro, sem compensação); quem estava lá embaixo volta pra chegada da cratera na superfície. O formato não mudou.
-- **Visual provisório**: chão e rocha da caverna tingidos por região (`C.CAVE_REGION_TINT`) e cores de cobre, rocha dura e regiões no mapa e minimapa. A arte de verdade é o M2. O cobre e o ferro novo usam os sprites aprovados da Designer.
+- **Visual provisório** *(saiu no M2)*: chão e rocha da caverna tingidos por região (`C.CAVE_REGION_TINT`) e cores de cobre, rocha dura e regiões no mapa e minimapa. A arte de verdade é o M2. O cobre e o ferro novo usam os sprites aprovados da Designer.
 - **Simulador de balanceamento** (`tools/dev/balance_sim.py`): ignora tile duro (ele não tem a nv.2).
 - **Desempenho**: `generate_cave(seed)` leva ~1,0 s (seeds 7/1/42, 0,96 a 1,00 s). Caverna escura no zoom 0,75 com 36 luminárias: **7,2 ms por frame** (era ~5,2; orçamento 16,7); o mapa inteiro da caverna no smoke agora é 256×256 (8.371 tiles de minério em 55.302 paredes).
+
+### Marco 2 · como ficou na implementação (`game/cave_ground.py`, `game/cave_rocks.py`, `game/cave_light.py`, `assets/sprites/cave_ground/`)
+- **Chão assado da caverna**: o motor da superfície (`game/ground.py`) com a arte da caverna (`assets/sprites/cave_ground/`, aprovada pelo dono): 4 classes (centro, salar, basalto, gelo), sem leito nem estágio, sem cobertura (`bake_strip` pula a cobertura quando a arte tem `cover = False`), divisa curva por pixel, 1 paleta só. Sem decalque num raio de `C.CAVE_DECAL_CLEAR` = 6 tiles da chegada. Sem a arte, volta pro chão por tile sem tinta.
+- **Rocha por região**: uma rampa de 10 cores por região (`cave_rock_ramps.json`) e a região de cada pixel na mesma curva do chão (`cave_rocks.pixel_regions`): a cor troca no meio do tile, junto com o chão. A tinta provisória do M1 saiu (`C.CAVE_REGION_TINT` apagado).
+- **Luz por região** (`cave_light.json`): ambiente e cor/intensidade do capacete por região (centro `(3, 4, 6)`, salar `(16, 13, 7)`, basalto `(34, 10, 5)`, gelo `(8, 17, 32)`); vale a média das regiões num quadrado de 5×5 tiles em volta do player (`C.CAVE_LIGHT_SAMPLE_R`), suavizada com τ = 0,5 s (`C.CAVE_LIGHT_TAU`); a cor do capacete é arredondada de 8 em 8 pro cache de texturas. O basalto fica avermelhado de propósito ("ar quente").
+- **Minimapa**: o chão de cada região usa a cor base (índice 3) da paleta assada, com fallback.
+- **Save**: continua v12; nada do M2 vai pro save (região, chão e luz saem da seed).
+- **Não entrou**: soltos com altura no chão da caverna (lascas, cristais, gelo solto) e som por bioma (report separado do Som).

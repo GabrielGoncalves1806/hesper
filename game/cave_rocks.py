@@ -4,8 +4,8 @@ Só o DESENHO muda: tiles, forma, colisão e minérios da caverna (game/world.py
 ganham as bordas curvas dos morros da superfície, importando a geometria pura do game/hills.py (`bake_block`,
 `window_bounds`, `tile_window`, `edge_noise`, `colorize_block`...) sem copiar nada. O que é da caverna fica aqui:
 
-- COR: uma rampa só (sem regiões nem estágios), montada com as cores que a rocha da caverna já tinha
-  (C.PALETTES do estágio névoa = wall_mist_*.png / wall_face_mist.png). Ver `cave_ramp`.
+- COR: uma rampa por região (cave_rock_ramps.json, arte do M2), com a região por pixel na curva do chão
+  (`pixel_regions`). Sem o arquivo: a rampa única de antes (C.PALETTES do estágio névoa). Ver `cave_ramp`.
 - CACHE: blocos de 8×8 tiles assados e cortados em uma tira por linha de tiles (entra no `build_draw_list` no lugar
   das paredes da linha, como na superfície). Cada bloco guarda a assinatura das paredes em volta: minerou um tile,
   só os blocos que enxergam ele (1, ou 2 na beira) são re-assados.
@@ -15,13 +15,16 @@ ganham as bordas curvas dos morros da superfície, importando a geometria pura d
 
 from __future__ import annotations
 
+import json
 from collections import OrderedDict
 
 import numpy as np
 
 from game import config as C
+from game import geo as geo_mod
 from game import hills
 
+T = C.TILE
 TABLE = bytes(k if k in C.WALL_TILES else 0 for k in range(256))   # assinatura: só o que é parede importa
 STAGES = tuple(range(1, len(hills.STAGE_KEYS) + 1))
 
@@ -39,18 +42,46 @@ def cave_ramp(pal: dict | None = None) -> np.ndarray:
     return np.array(cols + [outline, np.zeros(3, np.int32)], dtype=np.uint8)
 
 
-def cave_luts() -> dict[int, np.ndarray]:
-    """LUT (80×3) no formato do `hills.colorize_block`: a rampa da caverna em cada região (v0.6 Fundo M1: tingida
-    pela C.CAVE_REGION_TINT, provisório até a arte do M2) e, +40, a versão escurecida (topo da borda do mapa)."""
-    base = cave_ramp().astype(np.float32)
-    rows = []
-    for region in range(len(hills.REGIONS)):
-        r, g, b, a = C.CAVE_REGION_TINT.get(region, (0, 0, 0, 0))
-        k = a / 255
-        rows.append((base * (1 - k) + np.array([r, g, b], np.float32) * k).astype(np.uint8))
-    lut = np.concatenate(rows)
+def load_ramps(path=None) -> dict[int, np.ndarray] | None:
+    """As 4 rampas da rocha (v0.6 Fundo M2, cave_rock_ramps.json: região -> 10×[r,g,b], ordem do `cave_ramp`)."""
+    path = path or C.CAVE_GROUND_DIR / "cave_rock_ramps.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return {i: np.array(data[name], np.uint8).reshape(10, 3) for i, name in enumerate(hills.REGIONS)}
+    except (OSError, KeyError, ValueError):
+        return None
+
+
+_DEFAULT = object()
+
+
+def cave_luts(ramps=_DEFAULT) -> dict[int, np.ndarray]:
+    """LUT (80×3) no formato do `hills.colorize_block`: a rampa de cada região (sem o arquivo: a de hoje nas 4) e,
+    +40, a versão escurecida (topo da borda do mapa)."""
+    if ramps is _DEFAULT:
+        ramps = load_ramps()
+    base = cave_ramp()
+    lut = np.concatenate([ramps[r] if ramps else base for r in range(len(hills.REGIONS))])
     lut = np.concatenate([lut, (lut * hills.BEDROCK_SHADE).astype(np.uint8)])
     return {n: lut for n in STAGES}
+
+
+def pixel_regions(blk: dict, region: np.ndarray, seed: int) -> np.ndarray:
+    """Região de cada pixel do bloco na MESMA curva do chão assado (game/cave_ground.py): o topo pega a região do
+    chão em (x + dx, y + LIFT + dy); a face pega a do tile dono (o y é preso no fim da linha dele). Fora da
+    silhueta fica o `reg` por tile de antes (não é desenhado)."""
+    idx = blk["idx"]
+    h, w = idx.shape
+    ys, xs = np.mgrid[blk["y0"]:blk["y0"] + h, blk["x0"]:blk["x0"] + w]
+    gy = ys + hills.LIFT
+    solid = idx != hills.TRANSPARENT
+    face = solid & ~blk["top"]
+    gy = np.where(face, np.minimum(gy, (blk["row"] + 1) * T - 1), gy)
+    dx, dy = geo_mod.warp_px(seed, xs, gy)
+    H, W = region.shape
+    tj = np.clip(np.floor((gy + dy) / T).astype(np.int64), 0, H - 1)
+    ti = np.clip(np.floor((xs + dx) / T).astype(np.int64), 0, W - 1)
+    return np.where(solid, region[tj, ti], blk["reg"]).astype(blk["reg"].dtype)
 
 
 def region_window(region: np.ndarray, i0: int, i1: int, j0: int, j1: int) -> np.ndarray:
@@ -98,6 +129,8 @@ class CaveRocks:
                        if world.cave_region is not None else np.zeros(kinds.shape, np.uint8))
             geo = hills.bake_block(kinds, regions, bx, by, self.top_tex, self.face_tex, hills.edge_noise(),
                                    height=world.height)
+            if world.cave_region is not None:
+                geo["reg"] = pixel_regions(geo, world.cave_region, world.seed)
             entry = {"sig": sig, "strips": self._cut(geo)}
             self.blocks[key] = entry
             self.bakes += 1

@@ -1,0 +1,54 @@
+{
+ "plateau": {
+  "ambient": [
+   3,
+   4,
+   6
+  ],
+  "helmet": [
+   255,
+   236,
+   206
+  ],
+  "helmet_intensity": 1.0
+ },
+ "salar": {
+  "ambient": [
+   16,
+   13,
+   7
+  ],
+  "helmet": [
+   255,
+   232,
+   190
+  ],
+  "helmet_intensity": 1.0
+ },
+ "basalt": {
+  "ambient": [
+   34,
+   10,
+   5
+  ],
+  "helmet": [
+   255,
+   214,
+   178
+  ],
+  "helmet_intensity": 0.95
+ },
+ "frost": {
+  "ambient": [
+   8,
+   17,
+   32
+  ],
+  "helmet": [
+   228,
+   240,
+   255
+  ],
+  "helmet_intensity": 1.0
+ }
+}
