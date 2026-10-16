@@ -297,6 +297,7 @@ SMELTER_BURNS_PER_FUEL = 4
 SMELTER_FUEL = "magmatite"
 SMELTER_RECIPES = {"iron": "iron_ingot", "copper": "copper_ingot"}
 SMELTER_REACH = MELTER_REACH
+VOLUME.update({"smelter_loop": 0.45, "smelter_done": 0.6})   # Som, aprovados pelo dono (2026-10-16)
 MACHINES[SMELTER] = MachineType(SMELTER, "Fundição", "minério → lingote", {"iron": 15, "silicon": 6, "magmatite": 4},
                                 None, 0, 10_000, "machine_smelter")
 

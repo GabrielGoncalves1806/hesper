@@ -199,3 +199,19 @@ def test_light_only_while_smelting(game):
     assert len(cave_lights(game)) == base + 1             # fundindo: acende (laranja, como o aquecedor)
     m.storage.slots[C.SMELTER_FUEL_SLOT] = None
     assert len(cave_lights(game)) == base                 # sem combustível: apaga
+
+
+# ---------------------------------------------------------------- som (Som, aprovado pelo dono)
+def test_smelter_sound_volumes_by_distance():
+    from game import audio as sound
+    assert sound.smelter_loop_volume(1.0) == C.VOLUME["smelter_loop"] == 0.45
+    assert sound.smelter_loop_volume(7.0) == 0.0 and 0 < sound.smelter_loop_volume(4.5) < 0.45
+    assert sound.smelter_done_gain(2.0) == 1.0 and sound.smelter_done_gain(10.0) == 0.0
+    assert (C.AUDIO_DIR / "smelter_loop.wav").exists() and (C.AUDIO_DIR / "smelter_done.wav").exists()
+
+
+def test_each_ingot_emits_smelter_done_event(game):
+    m = add_smelter(game, ore=("iron", 5), fuel_items=1)
+    game.events.clear()
+    run(game, C.SMELTER_TIME * 2 + 0.5)
+    assert [e for e in game.events if e[0] == "smelter_done"] == [("smelter_done", m)] * 2

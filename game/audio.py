@@ -13,6 +13,8 @@ Canais reservados (o pygame não usa eles pra efeitos comuns):
     9     = vento do deserto
     10    = chuva (v0.4 M3.3, amb_rain.wav: volume = intensidade da chuva)
     11    = chiado da fumarola acordada mais perto (v11, vent_hiss.wav)
+    12    = o "carregando" do desmonte · 13 = zumbido do Dispersor
+    14 e 15 = loop das 2 Fundições fundindo mais perto (v0.6 Fundo M3, smelter_loop.wav)
 """
 
 import random
@@ -39,6 +41,7 @@ PITCH_VARIANTS = {
     "dismantle_done": (0.97, 1.0, 1.03),
     "door_open": (0.95, 1.0, 1.05),        # v0.5 M2 (Som): a porta varia o pitch 0,95–1,05
     "door_close": (0.95, 1.0, 1.05),
+    "smelter_done": (0.96, 1.0, 1.04),     # v0.6 Fundo M3 (Som): várias Fundições não soam iguais
 }
 VOLUME_JITTER = {"mine_hit": 0.10}   # ±10% de volume no mine_hit
 DERIVED = {"place_low": ("place", 0.8)}   # nome -> (arquivo base, fator de pitch); 0.8 = mais grave
@@ -115,6 +118,16 @@ def fade_by_distance(distance_tiles: float, full_until: float, silent_from: floa
 def drone_loop_volume(distance_tiles: float) -> float:
     """Loop do drone: cheio (0,5) até 3 tiles, some a partir de 10."""
     return VOLUME.get("drone_loop", 0.5) * fade_by_distance(distance_tiles, 3, 10)
+
+
+def smelter_loop_volume(distance_tiles: float) -> float:
+    """Loop da Fundição fundindo: cheio (0,45) até 2 tiles, some a partir de 7 (dica do Som)."""
+    return VOLUME.get("smelter_loop", 0.45) * fade_by_distance(distance_tiles, 2, 7)
+
+
+def smelter_done_gain(distance_tiles: float) -> float:
+    """smelter_done (lingote saiu, 0,6 no VOLUME) atenuado: inteiro até 3 tiles, some a partir de 10."""
+    return fade_by_distance(distance_tiles, 3, 10)
 
 
 def drone_deliver_gain(distance_tiles: float) -> float:
@@ -214,8 +227,8 @@ class Audio:
         try:
             if not pygame.mixer.get_init():
                 pygame.mixer.init(44100, -16, 2, 512)
-            pygame.mixer.set_num_channels(17)
-            pygame.mixer.set_reserved(14)
+            pygame.mixer.set_num_channels(19)
+            pygame.mixer.set_reserved(16)
             self.amb = [pygame.mixer.Channel(0), pygame.mixer.Channel(1)]
             self.alarm_channel = pygame.mixer.Channel(2)
             self.hum_channel = pygame.mixer.Channel(3)
@@ -236,6 +249,8 @@ class Audio:
             self.charge_channel = pygame.mixer.Channel(12)   # v0.5 M1: o "carregando" do desmonte (canal único)
             self.dispenser_channel = pygame.mixer.Channel(13)   # v0.5 M2: o zumbido do Dispersor (loop com fade)
             self._dispenser_on = [False]
+            self.smelter_channels = [pygame.mixer.Channel(14), pygame.mixer.Channel(15)]   # v0.6 Fundo M3
+            self._smelter_on = [False, False]
             self.ok = True
         except pygame.error as err:
             print(f"[audio] sem áudio ({err}). Seguindo em silêncio.")
@@ -400,6 +415,11 @@ class Audio:
         """Loop do drone em até 2 canais (os 2 voando mais perto do player)."""
         if self.ok:
             self._set_loops("drone_loop", self.drone_channels, self._drone_on, volumes)
+
+    def set_smelter_loops(self, volumes: list[float]) -> None:
+        """Loop da Fundição em até 2 canais (as 2 fundindo mais perto). Volume 0 = some com fadeout(400)."""
+        if self.ok:
+            self._set_loops("smelter_loop", self.smelter_channels, self._smelter_on, volumes)
 
     def set_solar_hum(self, volume: float) -> None:
         """Um canal só, com o volume do painel solar mais perto."""

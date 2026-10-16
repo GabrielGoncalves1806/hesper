@@ -1437,6 +1437,7 @@ class GameState:
             ingot = smelter.smelter_output
             smelter.storage.remove(smelter.storage.slots[C.SMELTER_ORE_SLOT].item, 1)
             smelter.fuel -= 1
+            self.events.append(("smelter_done", smelter))   # o App toca o tink se ela estiver perto, nesta camada
             out = smelter.storage.slots[C.SMELTER_OUT_SLOT]
             if out is None:
                 smelter.storage.slots[C.SMELTER_OUT_SLOT] = Stack(ingot, 1)

@@ -1693,6 +1693,11 @@ class App:
             self.floaters.add(f"+{amount} {C.RESOURCE_LABEL[resource]}", x, y - 78, C.ORE_COLORS[resource][0])   # acima do rótulo do baú
             distance = math.hypot(x - self.state.player.x, y - self.state.player.y) / C.TILE
             self.audio.play("drone_deliver", gain=sound.drone_deliver_gain(distance))
+        elif kind == "smelter_done":            # v0.6 Fundo M3: saiu um lingote (só a Fundição desta camada soa)
+            smelter = event[1]
+            if any(m is smelter for m in self.state.machines):
+                distance = self.state.drill_distance(smelter) / C.TILE
+                self.audio.play("smelter_done", gain=sound.smelter_done_gain(distance))
         elif kind == "dismantle":
             _, _, tile = event
             self.renderer.spawn_chips(tile, "#9a9086", 14)       # poeirinha
@@ -1903,6 +1908,10 @@ class App:
         state = self.state
         working = sorted(state.drill_distance(d) / C.TILE for d in state.drills if not d.full)
         self.audio.set_drill_loops([sound.drill_loop_volume(d) for d in working[:2]])
+        smelting = sorted(state.drill_distance(m) / C.TILE for m in state.machines            # v0.6 Fundo M3
+                          if m.is_smelter and m.build <= 0 and not m.submerged and m.smelter_blocker is None)
+        on = state.power.factor > 0
+        self.audio.set_smelter_loops([sound.smelter_loop_volume(d) for d in smelting[:2]] if on else [])
         # chegou perto (~4 tiles) de uma drill cheia: avisa uma vez (no máximo a cada 10 s por drill)
         near_now = set()
         for d in state.drills:
@@ -2350,6 +2359,7 @@ class App:
         self.audio.set_hum(0.0)
         self.audio.set_drill_loops([])
         self.audio.set_drone_loops([])
+        self.audio.set_smelter_loops([])
         self.audio.set_solar_hum(0.0)
         self.audio.set_wind(False)
         self.audio.set_rain(0.0)

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Som · v0.6 Fundo M3 Fundição (proposta)</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;margin:0;padding:16px}
+.wrap{max-width:1000px;margin:0 auto;padding-block:36px 70px}
+h1{font-size:34px;margin:8px 0 12px}h2{font-size:22px;margin:44px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.eyebrow{font:12px monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--rust)}
+.note{border-left:3px solid var(--gold);background:var(--panel);padding:12px 16px;margin:18px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:8px}
+.card.nb{opacity:.85}
+.fname{font:500 14px monospace}.when{font:11px monospace;color:var(--gold);text-transform:uppercase}
+.what{margin:0;color:var(--muted);font-size:14px}.tag{font:11px monospace;color:var(--muted);border:1px solid var(--line);padding:1px 6px;margin-right:4px}
+.tag.loop{color:var(--cyan);border-color:#2c5560}
+canvas{width:100%;height:44px;background:#251c18;display:block}audio{width:100%;height:36px}
+button{background:#251c18;color:var(--fg);border:1px solid var(--rust);padding:6px 12px;cursor:pointer;font:13px monospace;margin:4px 6px 4px 0}
+button:hover{background:var(--rust);color:#000}
+code{font:13px monospace;color:var(--cyan)}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+li{margin:4px 0;color:var(--muted)}li b{color:var(--fg)}
+</style>
+</head><body><div class="wrap">
+<div class="eyebrow">Hesper · Som · v0.6 Fundo M3 · proposta (nada entrou no jogo)</div>
+<h1>Fundição: loop de fusão e lingote saindo</h1>
+<div class="note"><b>v17 · o que mudou:</b> 2 sons novos, só nesta pasta (nada em <code>assets/audio/</code>, nenhum arquivo aprovado foi tocado; md5 de todos os WAVs oficiais igual antes e depois). <code>smelter_loop</code>: ronco de máquina em Lá1 (55 Hz; a drill é Mi2, então não brigam) + fogo grave de banda larga respirando devagar + estalinhos de brasa raros e macios. Cara de máquina industrial, não de fogão a lenha: sem chiado alto, sem tambor, sem ressonância estreita. <code>smelter_done</code>: baque seco abafado, clique e tink de ruído (sem tom fixo) e um chiado curto de vapor. Validação por análise (formato, pico, loudness aproximado, bandas, emenda, pico tonal); eu não ouço, a palavra final é do teu ouvido.</div>
+<h2>Cada som sozinho</h2><div class="cards" id="solo"></div>
+<div class="note"><button onclick="stopAll()">Parar tudo</button> <button onclick="rep()">Simular 4 lingotes (1 a cada 0,9 s)</button> <span style="color:var(--muted)">O lingote real sai a cada 15 s; a simulação acelera só pra você ouvir o som repetido.</span></div>
+<h2>Mixado (16 s, nos volumes sugeridos: ambiente 0,7 · drill 0,5 · fundição 0,45)</h2><div class="cards" id="mix"></div>
+<h2>Checagens</h2><div style="overflow-x:auto"><table id="tbl"></table></div>
+<p style="color:var(--muted);font-size:13px">Bandas = % da energia em 20-150 / 150-600 / 600-2500 / 2,5-6 / 6-16 kHz. Emenda = salto entre a última e a primeira amostra (16 bit) contra o 99,9º percentil dos saltos normais do arquivo: bem menor = sem clique. Pico tonal = maior destaque estreito acima de 150 Hz sobre o piso em volta; ~7 dB é só o estalo de brasa, não apito (apito passaria de 15 dB). A energia grave domina (~50%), então em caixinha de notebook o loop soa mais fino e discreto: é de propósito, ele é fundo.</p>
+<h2>Como pensei</h2><ul>
+<li><b>Convive com a drill:</b> drill tem rosca raspando pedra em 350-2200 Hz com pulso de 2,5 Hz; a fundição fica em 70-700 Hz, sem raspar, com ronco de 55 Hz e pulsação lenta de 2 Hz. Comprimentos diferentes (4,0 s e 3,2 s): as duas não se repetem juntas.</li>
+<li><b>Convive com o amb_cave:</b> o ambiente é Lá em drone com reverb e quase sem médios; a fundição também é Lá (55 Hz é Lá1), então fica na mesma harmonia, só mais "presente" e quente.</li>
+<li><b>Loudness:</b> loop em -30 dB (a drill é -29), done em -24 dB (parecido com o <code>pickup</code>, -23).</li></ul>
+<h2>Pro Dev integrar</h2><ul>
+<li><b>Arquivos</b> (promovo pra <code>assets/audio/</code> quando o dono aprovar): <code>smelter_loop.wav</code>, <code>smelter_done.wav</code>.</li>
+<li><b>VOLUME</b>: <code>"smelter_loop": 0.45</code>, <code>"smelter_done": 0.6</code>.</li>
+<li><b>Loop por distância</b>: igual ao <code>drill_loop_volume</code>, mas com uma função própria <code>smelter_loop_volume(d) = VOLUME["smelter_loop"] * fade_by_distance(d, 2, 7)</code>: cheio até 2 tiles, some em 7. Uma fundição por canal; só toca enquanto estiver <b>fundindo</b> (tem minério e combustível e energia); parada = silêncio. Muitas fundições perto: limite a 3 canais (as mais próximas) e baixe 20% a partir da 3ª pra não virar parede de ronco.</li>
+<li><b>Fase do loop</b>: comece cada canal num offset aleatório (<code>sound.play</code> com start aleatório ou só ligue em momentos diferentes) pra duas fundições não ficarem em fase.</li>
+<li><b>Na caverna</b>: nenhum ajuste no <code>amb_cave_*</code>; os volumes já foram testados no mix acima. Se achar embolado, baixe o <code>smelter_loop</code> pra 0,35 antes de mexer no ambiente.</li>
+<li><b><code>smelter_done</code></b>: toca <b>só perto</b>, não sempre: <code>fade_by_distance(d, 3, 10)</code> (parecido com o <code>drone_deliver</code>). Um lingote a cada 15 s por máquina é raro o bastante pra não cansar; uma variação de pitch ±4% (0,96/1,0/1,04) ajuda quando houver várias. Sem canal exclusivo, pode usar o canal de sfx comum.</li>
+<li><b>Ligar/desligar</b>: pare o loop com fade-out de ~300 ms quando a máquina parar (sem corte seco).</li></ul>
+<p style="color:var(--muted);font-size:13px">Gerado por <code>tools/audio/build_v06_m3.py</code> (seed por nome, só numpy; blocos do <code>build_audio.py</code>).</p>
+</div>
+<script src="v06m3_meta.js"></script>
+<script>
+const M=window.M3_META;
+const S={smelter_loop:["Loop · enquanto funde","Ronco de máquina em Lá1, fogo grave respirando, brasa rara. Fundo, contido.",true],
+ smelter_done:["Lingote saindo · 1 a cada 15 s","Baque abafado, tink de ruído, chiado de vapor curto.",false]};
+const X={mix_fundicao_cave:["amb_cave + fundição","Dentro da caverna, perto da máquina.",false],mix_fundicao_drill:["drill + fundição","As duas coladas, sem ambiente.",false],mix_tudo:["tudo junto","Ambiente + drill + fundição + 2 lingotes (3 s e 11 s).",false]};
+function card(key,txt){const m=M[key];const loop=txt[2];const el=document.createElement("div");el.className="card";
+ el.innerHTML=`<div><span class="fname">${m.file}</span> <span class="tag">${m.duration.toFixed(2)} s</span><span class="tag">pico ${m.peak_db} dBFS</span><span class="tag">loud ${m.loudness_db} dB</span>${loop?'<span class="tag loop">loop</span>':''}</div>
+ <div class="when">${txt[0]}</div><canvas width="320" height="44"></canvas>
+ <audio controls preload="metadata" ${loop?"loop":""} src="${m.file}"></audio><p class="what">${txt[1]}</p>`;
+ const c=el.querySelector("canvas").getContext("2d");c.fillStyle="#e2733a";const w=m.wave,bw=320/w.length;
+ w.forEach((v,i)=>{const h=Math.max(1,v*42*3);c.fillRect(i*bw,22-Math.min(h,42)/2,Math.max(1,bw-0.5),Math.min(h,42))});
+ return el}
+for(const k in S)document.getElementById("solo").append(card(k,S[k]));
+for(const k in X)document.getElementById("mix").append(card(k,X[k]));
+document.getElementById("tbl").innerHTML="<tr><th>arquivo</th><th>duração</th><th>pico dBFS</th><th>RMS dB</th><th>loudness dB</th><th>bandas %</th><th>emenda / ref</th><th>pico tonal</th></tr>"+
+ Object.keys(M).map(k=>{const m=M[k];return `<tr><td><code>${m.file}</code></td><td>${m.duration.toFixed(2)} s</td><td>${m.peak_db}</td><td>${m.rms_db}</td><td>${m.loudness_db}</td><td>${m.bands.join(" / ")}</td><td>${m.seam!==undefined?m.seam+" / "+m.seam_ref:"-"}</td><td>${m.tonal_db!==undefined?m.tonal_db+" dB @ "+m.tonal_hz+" Hz":"-"}</td></tr>`}).join("");
+function stopAll(){document.querySelectorAll("audio").forEach(a=>a.pause())}
+function rep(){stopAll();for(let i=0;i<4;i++)setTimeout(()=>{const a=new Audio("smelter_done.wav");a.volume=.6;a.playbackRate=[.96,1,1.04,1][i];a.play()},i*900)}
+document.addEventListener("play",e=>{document.querySelectorAll("audio").forEach(a=>{if(a!==e.target)a.pause()})},true);
+</script></body></html>
