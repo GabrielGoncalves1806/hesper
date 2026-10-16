@@ -54,7 +54,8 @@ def test_cave_layer_has_its_own_world_and_machines_but_global_energy_and_ti():
     g = GameState(rng=random.Random(1))
     g.machines.append(Machine("solar", 90, 90))
     g.enter_layer(CAVE)
-    assert g.layer == CAVE and g.world.width == C.CAVE_W and g.machines == []
+    assert g.layer == CAVE and g.world.width == C.CAVE_W
+    assert [m for m in g.machines if not m.broken] == []                # (v0.7 M1: a caverna já tem as quebradas da ruína)
     assert not g.in_base_zone() and g.active.rocks is None
     g.machines.append(Machine("o2", 60, 60))
     assert g.power.production == C.POD_POWER + 4 and g.power.consumption == 1
@@ -62,7 +63,8 @@ def test_cave_layer_has_its_own_world_and_machines_but_global_energy_and_ti():
     g._update_machines(1.0)
     assert g.indices["o2"] == pytest.approx(3)
     g.enter_layer(SURFACE)
-    assert [m.kind for m in g.machines] == ["solar"] and len(g.all_machines) == 2
+    own = [m for m in g.machines if not m.broken]
+    assert [m.kind for m in own] == ["solar"] and len([m for m in g.all_machines if not m.broken]) == 2
 
 
 def test_machines_setter_and_world_setter_hit_the_active_layer():

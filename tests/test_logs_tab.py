@@ -20,27 +20,30 @@ from game import settings  # noqa: E402
 from game.systems import GameState  # noqa: E402
 from game.ui import TAB_INVENTORY, TAB_LOGS  # noqa: E402
 
-# índices em LOGS (nunca mudam: o save guarda índices) -> dia da história
+# índices em LOGS (nunca mudam: o save guarda índices) -> dia da história. 0..6 são os da v0.3; 7..18 são das
+# estruturas (v0.7 M1: dias 1, 9, 22, 120, 152, 175, 198, 205, 219, 61, 209, 224)
 DAY_3, DAY_97, DAY_212, DAY_188, DAY_140, DAY_41, DAY_230 = range(7)
+N_LOGS = 19
 
 
 # ---- cronologia e numeração ---------------------------------------------------------------------
 def test_log_days_match_logs():
-    assert len(C.LOG_DAYS) == len(C.LOGS) == len(C.LOG_TITLES) == 7
+    assert len(C.LOG_DAYS) == len(C.LOGS) == len(C.LOG_TITLES) == N_LOGS
     for log, day in enumerate(C.LOG_DAYS):                # o texto começa com o dia certo
         assert C.LOGS[log].startswith(f"Dia {day}. "), log
 
 
 def test_order_is_chronological():
-    assert C.LOG_ORDER == [DAY_3, DAY_41, DAY_97, DAY_140, DAY_188, DAY_212, DAY_230]
+    assert C.LOG_ORDER == [7, DAY_3, 8, 9, DAY_41, 16, DAY_97, 10, DAY_140, 11, 12, DAY_188, 13, 14, 17, DAY_212, 15, 18,
+                           DAY_230]
     days = [C.LOG_DAYS[log] for log in C.LOG_ORDER]
     assert days == sorted(days)
 
 
 def test_displayed_number_is_the_chronological_position():
     assert [C.log_label(log) for log in range(7)] == [
-        "LOG 01", "LOG 03", "LOG 06", "LOG 05", "LOG 04", "LOG 02", "LOG 07"]
-    assert sorted(C.log_number(log) for log in range(7)) == list(range(1, 8))
+        "LOG 02", "LOG 07", "LOG 16", "LOG 12", "LOG 09", "LOG 05", "LOG 19"]
+    assert sorted(C.log_number(log) for log in range(N_LOGS)) == list(range(1, N_LOGS + 1))
 
 
 def test_terminal_title_uses_the_displayed_number():
@@ -50,7 +53,7 @@ def test_terminal_title_uses_the_displayed_number():
     seen = []
     ui.text = lambda s, *a, **k: seen.append(s) or 0
     ui.draw_terminal(DAY_188, 0.0)
-    assert seen[0] == f"{C.LOG_TITLES[DAY_188]} · LOG 05"
+    assert seen[0] == f"{C.LOG_TITLES[DAY_188]} · LOG 12"
 
 
 # ---- lido / não lido / NOVO ---------------------------------------------------------------------
@@ -65,7 +68,7 @@ def test_entries_read_unread_and_new():
     s.reread_log(DAY_3)                                   # o do dia 3 já foi aberto pela aba
     entries = s.log_entries()
     assert [e[0] for e in entries] == C.LOG_ORDER
-    assert [e[1] for e in entries] == list(range(1, 8))
+    assert [e[1] for e in entries] == list(range(1, N_LOGS + 1))
     read = {e[0] for e in entries if e[2]}
     new = {e[0] for e in entries if e[3]}
     assert read == {DAY_3, DAY_188} and new == {DAY_188} and s.new_logs == 1
@@ -128,9 +131,10 @@ def test_logs_window_fits_and_rows_do_not_overlap(size):
     ui.draw_logs(s, 0, 0, (0, 0))
     assert [r.y for r, _ in ui.inv_tab_rects] == [r.y for r in inv_tabs]   # abas na mesma altura nas duas abas
     rows = [r for r, _ in ui.log_rows]
-    assert [lg for _, lg in ui.log_rows] == [DAY_3, DAY_41, DAY_188]
+    found = {DAY_3, DAY_41, DAY_188}                      # com 19 LOGs a janela rola: só os da primeira página aparecem
+    assert [lg for _, lg in ui.log_rows] == [lg for lg in C.LOG_ORDER[:ui.log_visible] if lg in found]
     w, h = ui.logs_window_size()
-    assert w <= size[0] - 8 and ui.log_visible == len(C.LOGS)
+    assert w <= size[0] - 8 and 1 <= ui.log_visible <= len(C.LOGS)
     for a, b in zip(rows, rows[1:]):
         assert a.bottom <= b.top
     for r in rows:                                        # texto mais comprido cabe na linha (com o NOVO)
@@ -193,7 +197,7 @@ def test_unread_rows_are_not_clickable(app):
     app.draw()
     assert [lg for _, lg in app.ui.log_rows] == [DAY_3]   # os ??? não entram no hit-test
     app.on_key(pygame.K_s)                                 # W/S pula os não achados (não tem outro lido)
-    assert app.log_selected == 0
+    assert app.log_selected == C.LOG_ORDER.index(DAY_3)
     app.on_key(pygame.K_RETURN)
     assert app.mode == "terminal" and app.terminal_index == DAY_3
     app.on_key(pygame.K_ESCAPE)

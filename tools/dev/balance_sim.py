@@ -549,12 +549,12 @@ class Sim:
             self.res.deficit_time += dt
         self.gs._update_machines(dt)           # regra real: soma rate*dt×fator em cada índice e checa estágio
         if self.res.crater_at is None and not self.gs.crater_frozen:   # v0.4 M3.1: o calor (thaw) abriu a cratera
-            heat_rate = sum(m.type.rate for m in self.gs.all_machines if m.type.index == "heat") * self.gs.power.factor
+            heat_rate = sum(m.type.rate for m in self.gs.all_machines if m.type.index == "heat" and not m.broken) * self.gs.power.factor
             over = self.gs.indices["heat"] - C.THAW_CRATER_HEAT[-1]
             self.res.crater_at = self.t + dt - (over / heat_rate if heat_rate > 0 else 0.0)
         if self.res.magma_at is None and self.gs.mined_total.get("magmatite", 0) > 0:
             self.res.magma_at = self.t
-        if self.res.heater_at is None and any(m.type.index == "heat" for m in self.gs.all_machines):
+        if self.res.heater_at is None and any(m.type.index == "heat" and not m.broken for m in self.gs.all_machines):
             self.res.heater_at = self.t
         for ev in self.gs.events:              # v0.4 M4: só lê o estado (portão aberto, lago subindo), não muda o jogo
             if ev[0] == "gate_thaw" and ev[2] == thaw.GATE_OPEN:
@@ -1125,8 +1125,8 @@ class Sim:
         self.res.total = self.t
         self.res.final_indices = {k: round(v) for k, v in self.gs.indices.items()}
         self.res.units = self._units() + sum(
-            sum(C.MACHINES[m.kind].cost.values()) for m in self.gs.all_machines)
-        self.res.machines = {k: sum(1 for m in self.gs.all_machines if m.kind == k) for k in C.MACHINES}
+            sum(C.MACHINES[m.kind].cost.values()) for m in self.gs.all_machines if not m.broken)
+        self.res.machines = {k: sum(1 for m in self.gs.all_machines if m.kind == k and not m.broken) for k in C.MACHINES}
         self.res.machines["drone"] = sum(len(m.station.drones) for m in self.gs.stations)   # drones nas estações
         return self.res
 

@@ -276,10 +276,10 @@ def test_map_categories_match_the_layer(ui):
     from game.systems import GameState
     g = GameState(rng=random.Random(1))
     g.surface.explored.bits[:] = b"\x01" * len(g.surface.explored.bits)
-    assert MV.categories(MV.map_entries(g, "surface")) == ["base", "crater", "wreck", "vein"]
+    assert MV.categories(MV.map_entries(g, "surface")) == ["base", "crater", "wreck", "ruin", "vein"]
     g.enter_layer("cave")
     g.active.explored.bits[:] = b"\x01" * len(g.active.explored.bits)
-    assert MV.categories(MV.map_entries(g, "cave")) == ["crater", "vein", "terminal"]
+    assert MV.categories(MV.map_entries(g, "cave")) == ["crater", "ruin", "vein", "terminal"]
     assert MV.chip_label("crater", "cave") == "Rampa" and MV.chip_label("crater", "surface") == "Cratera"
 
 

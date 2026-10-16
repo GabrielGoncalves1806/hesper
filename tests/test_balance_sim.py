@@ -98,7 +98,8 @@ def test_estrategia_caverna_minera_la_embaixo():
     # v0.4 M3: sem tubo de lava/sal o mapa da seed 1 muda um pouco (~40,7 min); teto provisório até o balanceamento do Marco 4
     assert r.finished and 25 * 60 <= r.total <= 40 * 60      # v0.4 M4: seed 1 em ~36 min, teto de volta à referência (era 42)
     cave = sim_.gs.layers["cave"]
-    assert sum(m.is_drill for m in cave.machines) == 3 and not any(m.is_drill for m in sim_.gs.surface.machines)
+    # v0.7 M1: a rocha que não reaparece na pegada das ruínas muda o sorteio do simulador (seed 1: 3 drills viraram 2 ou 3)
+    assert sum(m.is_drill for m in cave.machines) >= 2 and not any(m.is_drill for m in sim_.gs.surface.machines)
     assert r.drill_units > 0 and r.drone_units == 0 and r.faints == 0
     assert sim_.ramp_k > 15                       # a viagem até a caverna custa (cratera a 15–20 tiles)
 

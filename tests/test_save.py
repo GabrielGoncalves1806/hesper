@@ -395,7 +395,7 @@ def test_cave_with_lamps_and_drill_roundtrip(tmp_path):
     path = tmp_path / "slot1.json"
     save.write_save(state, path)
     loaded = save.load_game(path)
-    assert [m.kind for m in loaded.machines] == ["lamp", "lamp", "drill"] and loaded.drills[0].stored == 5
+    assert [m.kind for m in loaded.machines if not m.broken] == ["lamp", "lamp", "drill"] and loaded.drills[0].stored == 5
     assert snapshot(loaded) == snapshot(state)
 
 

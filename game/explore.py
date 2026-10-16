@@ -115,6 +115,8 @@ def light_circles(state) -> list[tuple[float, float, float]]:
         rx, ry = world.crater
         out.append((rx + 1.5, ry + 1, C.EXPLORE_RAMP))
     for m in state.machines:
+        if m.broken:                             # v0.7 M1: máquina quebrada de ruína não revela nada
+            continue
         if m.is_lamp:
             out.append((m.tx + 0.5, m.ty + 0.25, C.LAMP_RADIUS.get(m.kind, 5)))
         elif not m.is_chest:

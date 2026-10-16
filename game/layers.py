@@ -14,7 +14,7 @@ baixo e o player sempre chega logo abaixo dela. A caverna é criada na primeira 
 from dataclasses import dataclass, field
 
 from game import config as C
-from game import ice_blocks, pocket_fog, thaw
+from game import ice_blocks, pocket_fog, ruins, thaw
 from game.base import BaseGrid
 from game.explore import Explored
 from game.rock_respawn import RockRespawn
@@ -35,6 +35,10 @@ class Layer:
     crates: dict = field(default_factory=dict)   # caixas de saque dos destroços: tile -> Crate (Marco 3)
     containers: dict = field(default_factory=dict)   # v0.5 M4: contêineres lacrados dos bolsões: tile -> Crate (a caixa deles)
     removed_crates: set = field(default_factory=set)   # v0.6 M1: caixas de destroço desmontadas (tile); não voltam da seed
+    # v0.7 M1 · Estruturas (game/ruins.py): `ruin_salvaged` = tiles das máquinas quebradas de ruína já desmontadas (vai no
+    # save); `ruins_off` = keys das ruínas sem objetos neste mundo (save antigo com construção na pegada; derivado)
+    ruin_salvaged: set = field(default_factory=set)
+    ruins_off: set = field(default_factory=set)
     explored: Explored | None = None      # o que o jogador já viu nesta camada (Marco 3, game/explore.py)
     # v0.4 Marco 2: tampa de gelo da cratera (só a superfície usa): 0 = tampada ... CRATER_ICE_STAGES (4) = vazia,
     # com a rampa exposta. No M2 fica sempre tampada (o derretimento pelo calor é do M3); F4 abre na hora (debug).
@@ -121,12 +125,18 @@ def current_formations(layer: Layer) -> list:
 
 def make_surface(seed: int) -> Layer:
     world = generate_surface(seed)
-    return Layer(SURFACE, world, rocks=RockRespawn(), crates=make_crates(world, seed),
-                 containers=make_container_crates(world, seed))
+    layer = Layer(SURFACE, world, rocks=RockRespawn(),
+                  crates={**make_crates(world, seed), **ruins.make_ruin_crates(world, seed)},
+                  containers=make_container_crates(world, seed))
+    ruins.apply_overlays(layer)                 # v0.7 M1: casca e máquinas quebradas das ruínas (nunca vão no save)
+    return layer
 
 
 def make_cave(seed: int) -> Layer:
-    return Layer(CAVE, World.generate(seed))
+    world = World.generate(seed)
+    layer = Layer(CAVE, world, crates=ruins.make_ruin_crates(world, seed))
+    ruins.apply_overlays(layer)
+    return layer
 
 
 MAKERS = {SURFACE: make_surface, CAVE: make_cave}

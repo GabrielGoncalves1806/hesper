@@ -107,6 +107,11 @@ class World:
         # Derivado como o closed_gate_tiles (Layer.refresh_gates).
         self.hidden_tiles: frozenset[tuple[int, int]] = frozenset()
         self._geo_rows = None                                     # (altura, bacia, beira) em listas (ver _rows)
+        # v0.7 M1 · Estruturas (game/ruins.py): as ruínas da camada, a pegada de todas (trava construção e rocha que
+        # reaparece) e os terminais delas (tile da parede -> índice em C.LOGS). Saem da seed, não vão no save.
+        self.ruins: list = []
+        self.ruin_tiles: frozenset = frozenset()
+        self.ruin_terminals: dict = {}
 
     # ---- geração ----------------------------------------------------------
     @classmethod

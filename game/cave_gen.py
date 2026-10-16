@@ -17,7 +17,7 @@ import random
 import numpy as np
 
 from game import config as C
-from game import surface_gen
+from game import ruins, surface_gen
 from game.geo import BASALT, FROST, PLATEAU, SALAR, fbm
 from game.world import Vein, World, hash01, value_noise
 
@@ -103,6 +103,7 @@ def generate_cave(seed: int) -> World:
     _place_near_wall_veins(world, rng)
     _place_veins(world, rng)
     _place_magmatite_rocks(world)
+    ruins.place_cave_ruins(world, seed)                     # v0.7 M1: estação de derretedores e posto de perfuração
     return world
 
 

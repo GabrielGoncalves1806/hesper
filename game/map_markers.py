@@ -14,7 +14,7 @@ C_O2, C_ACCENT = "#59d0e6", "#e2733a"
 # cor de cada marcador (o veio sai na cor do minério)
 COLORS = {"you": "#ffd84a", "base": C_O2, "crater": "#ffffff", "ramp_up": "#7fd6a0", "wreck": "#f2a33a",
           "wreck_empty": "#7a6c62", "terminal": "#7fd6a0", "machine": "#d9dde6", "chest": "#d8b27a",
-          "formation": "#cbb79a", "container": "#efe5da", "unknown": "#d6e6f2"}
+          "ruin": "#9fc2d8", "formation": "#cbb79a", "container": "#efe5da", "unknown": "#d6e6f2"}
 VEIN_COLORS = {"iron": "#b99b82", "silicon": "#c3d1e2", "ice": "#a6ecff", "copper": "#e0703f", "magmatite": "#ff7a2e"}
 RING = "#ffd84a"                 # anel em volta de "você" (alfa 130)
 
@@ -74,7 +74,7 @@ def _draw(kind: str, color, direction: str) -> pygame.Surface:
                 if ch == "#":
                     surf.set_at((3 + x, 4 + y), c)
         return surf
-    if kind == "wreck":
+    if kind in ("wreck", "ruin"):                        # a ruína usa o pictograma do destroço, em outra cor
         return _pix(WRECK, cm)
     if kind == "wreck_empty":
         return _pix(WRECK_EMPTY, cm)

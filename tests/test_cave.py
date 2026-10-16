@@ -151,8 +151,9 @@ def test_lamp_goes_on_both_layers_and_counts():
     g.player.x, g.player.y = layers.ramp_arrival(g.world)
     px, py = g.player.tile
     assert g.build("lamp", (px + 2, py)) and g.lamps_placed == 2
-    assert g.machines[0].is_lamp and g.power.consumption == 0
-    assert g.dismantle(g.machines[0]) and g.lamps_placed == 2          # só cresce
+    lamp = g.machines[-1]                                              # (v0.7 M1: as quebradas da ruína vêm antes)
+    assert lamp.is_lamp and not lamp.broken and g.power.consumption == 0
+    assert g.dismantle(lamp) and g.lamps_placed == 2                   # só cresce
 
 
 def test_drone_station_can_be_placed_in_the_cave_and_on_the_surface():   # v0.6 M3: antes só na superfície

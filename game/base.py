@@ -30,6 +30,7 @@ class BaseBlock:
     orient: str = H            # só a dupla: H = 2 tiles lado a lado, V = um em cima do outro. A solo se deduz dos vizinhos
     frame: float = 0.0         # portas: 0 (fechada) .. 3 (aberta). Não vai no save
     opening: bool = False      # portas: indo pro aberto?
+    ruin: bool = field(default=False, compare=False)   # v0.7 M1: casca de ruína (game/ruins.py): intocável, não veda, não vai no save
     # derivado da vizinhança (BaseGrid.layout), no cache por versão da grade:
     _layout: tuple = field(default=("", "", -1), repr=False, compare=False)
 
@@ -241,7 +242,7 @@ class BaseGrid:
             for n in ((x, y - 1), (x + 1, y), (x, y + 1), (x - 1, y)):
                 watch.add(n)
                 b = self.cells.get(n)
-                if b is None or (not b.is_floor and not b.is_wall and not b.is_door):
+                if b is None or b.ruin or (not b.is_floor and not b.is_wall and not b.is_door):   # casca de ruína = vazamento
                     return Seal("leak", frozenset(floor), len(doors), n, frozenset(watch))
                 if b.is_floor:
                     if n not in floor:

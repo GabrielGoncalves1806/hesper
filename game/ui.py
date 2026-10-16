@@ -2423,7 +2423,7 @@ class UI:
         for i, line in enumerate(wrap(self.body, body, w - 40)):
             self.tx(line, self.w / 2, y + 40 + i * 13, "#d6eadf", self.body, "center")
         minutes, seconds = divmod(int(state.play_time), 60)
-        stats = [("TEMPO", f"{minutes}:{seconds:02d}"), ("MAQUINAS", str(len(state.machines))),
+        stats = [("TEMPO", f"{minutes}:{seconds:02d}"), ("MAQUINAS", str(sum(not m.broken for m in state.machines))),
                  ("TI", fmt(state.ti)), ("LOGS", f"{len(state.logs_read)}/{len(C.LOGS)}")]
         for i, (label, value) in enumerate(stats):
             sx = x + 30 + i * 74
