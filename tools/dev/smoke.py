@@ -980,7 +980,7 @@ def check_drill_feature(bot) -> None:
     Envia, tira 1 e coleta o resto com Shift+E. Prints: drill_*, logistica_drill."""
     s, app = bot.state, bot.app
     assert s.stage >= C.MIST_STAGE and s.recipe_status("drill") != "locked"
-    give(s, iron=60, silicon=40)
+    give(s, iron=60, silicon=40, iron_ingot=5, circuit=1)          # v0.6 Fundo M5: a drill pede lingote e circuito
     bot.teleport(t192(96, 97))
     bot.frames(0.1)
     cx, cy = C.BASE_TILE
@@ -1364,7 +1364,7 @@ def check_drones(bot) -> None:
     bot.teleport(t192(96, 97))
     s.o2 = C.O2_MAX
     bot.frames(0.1)
-    give(s, iron=60, silicon=40, ice=20)
+    give(s, iron=60, silicon=40, ice=20, iron_ingot=10, circuit=1, chip=1, wire=2)   # v0.6 Fundo M5: receita nova
     chest = s.chests[0]
     # canto 2×2 livre perto do baú (até 3 tiles: o alcance é o mapa todo, mas fica bonito junto), player logo abaixo
     site = None
@@ -1388,8 +1388,8 @@ def check_drones(bot) -> None:
     for r in C.RESOURCES:                                 # o baú da base recebe tudo (config. pelo painel no check_logistics)
         drones.toggle_receive(chest, r)
     # fabrica 2 drones (item) e põe na estação pelo painel (E): clique no drone do inventário
-    give(s, iron=20, silicon=10)
-    assert s.craft("drone") and s.craft("drone") and s.inventory.count("drone") == 2
+    give(s, circuit=4, wire=10, iron_ingot=4)              # v0.6 Fundo M5: o drone é da Bancada T2
+    assert s.craft("drone", bench="t2") and s.craft("drone", bench="t2") and s.inventory.count("drone") == 2
     station.station.buffer = {"iron": 12, "ice": 3}
     ax, ay = station.anchor
     s.player.x, s.player.y = ax, ay + 10
@@ -1856,20 +1856,25 @@ def check_polish(bot) -> None:
     assert app.mode == "fabricator"
     app.fab.set_tab(0)
     bot.key(pygame.K_d)
-    assert app.fab.tab_id == "automation"
+    assert app.fab.tab_id == "materials"                     # v0.6 Fundo M5: Automação e Traje saíram do T1 (vazias)
     bot.mouse_to((40, 40))
     bot.frames(0.1)
     bot.shot("fabricador_abas.png")
     tab = next(r for r, i in app.ui.fabricator_tabs if i == 0)
     bot.click((tab.centerx * 2, tab.centery * 2))            # clique na aba Ferramentas
     assert app.fab.tab_id == "tools" and app.fab.current == "constructor"
-    s.inventory.remove("constructor", s.inventory.count("constructor"))
-    shift_key(bot, pygame.K_RETURN)                          # Shift+Enter: até 5 construtores
-    assert s.inventory.count("constructor") == 5, s.inventory.counts()
-    assert app.toast == "Construtor x5", app.toast
+    # v0.6 Fundo M5: o construtor é item de uma vez só ("feito"); o lote ×5 vai nos fios (aba Materiais)
+    app.fab.set_tab([t for t, _ in app.fab.tabs].index("materials"))
+    app.fab.select("wire")
+    s.inventory.remove("wire", s.inventory.count("wire"))
+    give(s, copper_ingot=5)
+    shift_key(bot, pygame.K_RETURN)                          # Shift+Enter: até 5 fabricações (3 fios cada)
+    assert s.inventory.count("wire") == 15, s.inventory.counts()
+    assert app.toast == "Fios x5", app.toast
     bot.frames(0.1)
     bot.shot("fabricar_lote.png")
-    s.inventory.remove("constructor", 4)
+    s.inventory.remove("wire", 15)
+    app.fab.set_tab(0)
     # rolagem: no menu do construtor (a aba Terraformação tem 6 máquinas). No redesign B2 cabem as 6
     # (C.FAB_VISIBLE_ROWS): pra ver a rolagem e a barra, o smoke encolhe a lista pra 4 linhas só neste trecho
     hold_constructor(bot)
@@ -2009,7 +2014,8 @@ def check_bench_t2(bot) -> None:
         assert app.mode == "fabricator" and app.fab_bench == "t2", (app.mode, app.fab_bench)
         bot.frames(DT)
         rows = [k for _, k in app.ui.fabricator_rows]
-        assert rows == list(C.T2_RECIPES) and app.ui.diagram_buttons, ("painel da T2 com as receitas dela e o LER", rows)
+        # v0.6 Fundo M5: a aba Bancada tem 8 receitas e rola (a lista mostra uma janela delas)
+        assert rows and set(rows) <= set(C.T2_RECIPES) and app.ui.diagram_buttons, ("painel da T2 com as receitas dela e o LER", rows)
         bot.shot(f"bancada_t2_painel_{ui_size}.png")
         bot.key(pygame.K_e)
         assert app.mode == "play"
@@ -3841,13 +3847,21 @@ def check_wrecks(bot) -> None:
     bot.key(pygame.K_e)
     assert app.mode == "terminal" and app.terminal_index == 4
     bot.key(pygame.K_e)
-    # 4) fabricador: tanque e scanner "???" até ler o diagrama; a área Diagramas lista o do tanque + um do scanner
+    # 4) Bancada T2 (v0.6 Fundo M5: o tanque e o scanner moram nela e os diagramas deles só se leem nela): os dois
+    # "???" até ler o diagrama; a área Diagramas lista o do tanque + um do scanner
     bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 1))
     s.o2 = C.O2_MAX
-    give(s, iron=30, silicon=20, ice=10)
-    bot.key(pygame.K_e)
+    machines_before = list(s.surface.machines)
+    s.blueprints.add("workbench")
+    px, py = s.player.tile
+    spot_ = next((px + dx, py + dy) for dy in range(2, 9) for dx in range(-6, 6) if s.can_place("workbench", (px + dx, py + dy)))
+    bench = build_at(s, "workbench", spot_)
+    give(s, iron_ingot=5, circuit=1)
+    app.open_bench, app.fab_bench = bench, "t2"
+    app.fab_t2.diag = None
+    app.fab_t2.set_tab(0)                                       # a aba "Bancada"
+    app.set_mode("fabricator")
     assert app.mode == "fabricator"
-    app.fab.set_tab([t for t, _ in C.CRAFT_TABS].index("suit"))
     bot.mouse_to((900, 500))
     bot.frames(0.2)
     assert s.recipe_status("scanner") == "blueprint" and s.recipe_status("o2_tank") == "blueprint"
@@ -3866,11 +3880,15 @@ def check_wrecks(bot) -> None:
     read = next(r for r, d in app.ui.diagram_buttons if d == "o2_tank")
     bot.click((read.centerx * 2, read.centery * 2))            # LER: gasta o diagrama, libera a receita
     assert "o2_tank" in s.blueprints and s.inventory.count("diagram_o2_tank") == 0
-    assert s.recipe_status("o2_tank") == "ok" and s.recipe_status("scanner") == "blueprint"
+    assert s.recipe_status("o2_tank", inv_only=True) == "ok" and s.recipe_status("scanner") == "blueprint"
+    app.fab_t2.select("o2_tank")
     bot.frames(0.2)
     bot.shot("fabricador_diagrama_lido.png")
     bot.key(pygame.K_RETURN)                    # crafta o tanque (é a receita selecionada)
-    assert s.inventory.count("o2_tank") == 1 and app.mode == "play"
+    assert s.inventory.count("o2_tank") == 1
+    app.set_mode("play")
+    app.open_bench, app.fab_bench = None, "t1"
+    s.surface.machines[:] = machines_before     # a bancada do teste sai (o resto do smoke não conta com ela)
     app.fab.set_tab(0)                          # o resto do smoke espera a 1ª aba
     # 5) Tab: clique no tanque equipa (som equip)
     bot.key(pygame.K_TAB)
@@ -4638,6 +4656,8 @@ def main() -> None:
 
     print("3) fabricador")
     give(s, iron=60, silicon=30, ice=24)
+    s.inventory.remove("constructor", s.inventory.count("constructor"))   # v0.6 Fundo M5: o construtor é de uma vez só;
+    s.crafted["constructor"] = 0                                            # as cenas de antes já fabricaram/deram um
     bot.teleport(t192(96, 97))
     bot.frames(0.3)
     bot.key(pygame.K_e)
