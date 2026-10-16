@@ -79,7 +79,7 @@ Dividido em dois blocos (brainstorm de 2026-10-15).
 - [x] Marco 1 · Caverna nova (fechado em 2026-10-15; dono testou e pediu fronteiras tortas, biomas mais longe do centro, basalto cinza e gelo mais azul): 256×256, rampa sob a cratera, regiões (gelo N, basalto O, salar L maior, centro), rocha dura nos biomas trancados, veios de parede (6–8), menos minério solto, cobre no salar, magmatita em veio e rochinha no basalto, F3 quebra rocha dura, save v12 (caverna antiga descartada).
 - [x] Marco 2 · Cara dos biomas (fechado em 2026-10-16; dono testou e pediu a luz dos biomas um tiquinho mais escura e a do centro mais clara): chão assado da caverna por região com divisa curva, rocha com rampa por região na mesma curva, luz ambiente e capacete por região (basalto avermelhado), minimapa, ambiente sonoro por bioma (salar, basalto, gelo) com troca depois de 1,5 s. Tinta provisória do M1 saiu.
 - [x] Marco 3 · Fundição (fechado em 2026-10-16; dono testou junto com o M2; sprite r3d opção A e som aprovados): magmatita de combustível (1 pedra = 4 lingotes), 1 minério → 1 lingote a cada 15 s, lingote de ferro e de cobre, fios no fabricador (aba Materiais, 1 lingote de cobre → 3), na rede com chip (lingotes entram na logística, baú com 8 toggles).
-- [ ] Marco 4 · Broca nv.2: quebra rocha dura, minera ×1,5, consome a nv.1.
+- [ ] Marco 4 · Broca nv.2: quebra rocha dura, minera ×1,5, consome a nv.1; Fundição funde silício → wafer, circuito no fabricador (1 wafer + 2 fios); ícones nv.1 + nv.2 em par.
 - [ ] Marco 5 · Remapear crafts.
 Ganchos: vulcão no basalto, espécie nativa, areia do salar, ruínas na caverna.
 
@@ -91,6 +91,7 @@ Fauna e flora surgindo com o Ti, farm, música.
 
 ## Futuro
 - **Baú grande colado em outro** (dono, teste do v0.6 M1, print em `reports/design/v06_m1_baus/feedback/bau_grande_colado.png`): o sprite do contêiner tem 40 px num tile de 32, então dois Grandes lado a lado se sobrepõem 8 px. Opções: arte de 32 px de largura, Grande ocupando 2 tiles, ou proibir colar. Já tinha sido levantado pela Designer.
+- **Modal de itens no painel de logística** (dono, 2026-10-16, abrindo o v0.6 Fundo M4): a fileira de toggles Envia/Recebe do baú já está em 9 itens (recursos, cápsula, lingotes, wafer) e não escala. Trocar por um modal/lista de itens (com ícone, busca ou abas) em vez de crescer a fileira a cada item novo.
 - **Enxugar o smoke** (dono, 2026-10-16): passada no `tools/dev/smoke.py` (52 cenas, ~4,5 min, ~340 prints) pra deixar só as cenas que realmente valem (as que pegam o que o pytest não pega: tela, layout, vídeo).
 - **Prioridade dos drones** (dono, 2026-10-15, fechando o v0.6 M2): um esquema de prioridade pra quem os drones atendem primeiro (ex.: dispersor sem água antes de encher baú). Hoje o `drones.pick_task` escolhe pelo maior estoque e pela menor viagem. Conversar o desenho antes.
 - **Trefiladora** (dono, brainstorm do Fundo): lingote de cobre → fio como máquina, linha de produção fundição → trefiladora pelos drones. No Fundo o fio sai do fabricador.
