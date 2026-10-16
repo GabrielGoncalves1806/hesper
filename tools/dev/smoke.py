@@ -3805,7 +3805,7 @@ def check_wrecks(bot) -> None:
     s.o2 = C.O2_MAX
     bot.mouse_to(bot.tile_on_screen((cargo.tx + 2, cargo.ty + 1)))
     bot.frames(0.3)
-    assert app.hint().startswith("Nave de carga · destroço"), app.hint()
+    assert app.hint().startswith("VÉSPER-7 · destroço"), app.hint()
     bot.shot("destrocos_deserto.png")
     assert 0 in s.wrecks_visited
     # 2) E na caixa: 1ª vez = registro de bordo (LOG 04); o diagrama fica na caixa (não libera nada)
@@ -4633,6 +4633,7 @@ def main() -> None:
     check_cave(bot)
     check_cave_organic(bot)
     check_wrecks(bot)
+    check_vesper(bot)
     check_storm(bot)
     check_veins(bot)
     check_machine_anim(bot)
@@ -4802,6 +4803,64 @@ def main() -> None:
     p95 = ft[int(len(ft) * 0.95)]
     print(f"OK · {len(ft)} frames · média {avg * 1000:.1f} ms · p95 {p95 * 1000:.1f} ms (orçamento: 16,7 ms)")
     pygame.quit()
+
+
+def check_vesper(bot) -> None:
+    """v0.7 M4 · interior da VÉSPER-7: entra pela boca do porão (E, fade "Entrando..."), print do porão, vai até a porta
+    emperrada (faísca e névoa), abre a aba VÉSPER-7 do mapa e sai pela escotilha. Prints: m4_vesper_*.png."""
+    from game import layers, vesper, wrecks
+    s, app = bot.state, bot.app
+    assert s.layer == "surface"
+    zoom_before = app.zoom
+    app.set_zoom(1.0, notify=False)
+    w = wrecks.vesper_wreck(s.world)
+    s.o2 = C.O2_MAX
+    bot.teleport((w.tx + 3, w.ty + 3))
+    bot.mouse_to(bot.tile_on_screen((w.tx + 3, w.ty + 2)))
+    bot.frames(0.3)
+    assert app.hint() == "[E] Entrar na VÉSPER-7", app.hint()
+    bot.shot("m4_vesper_boca.png")
+    bot.key(pygame.K_e)
+    assert s.ramp is not None and s.ramp.text == "Entrando..."
+    bot.frames(C.RAMP_DURATION * 0.5)
+    bot.shot("m4_vesper_fade.png")
+    bot.frames(C.RAMP_DURATION + 0.3)
+    assert s.layer == layers.VESPER and s.ramp is None
+    bot.mouse_to((4, 4))
+    bot.frames(0.6)
+    bot.shot("m4_vesper_porao.png")
+    # a porta emperrada, na cabine: faísca e névoa
+    door = next(t for t, k in s.world.fixtures.items() if k == "jammed_door")
+    bot.teleport((door[0], door[1] + 1))                      # colado na porta (alcance do E: 48 px da base do tile)
+    bot.frames(2.5)
+    assert app.renderer.door_fx.fog, "a névoa da porta devia aparecer"
+    bot.mouse_to(bot.tile_on_screen(door))
+    bot.frames(0.3)
+    print("  dica da porta:", app.hint())
+    bot.shot("m4_vesper_porta.png")
+    bot.key(pygame.K_e)
+    assert "Porta emperrada" in app.toast
+    # o mapa na aba VÉSPER-7 (o scanner de navegação encaixado só durante a cena)
+    scanner_before = s.equipment.slots.get("scanner")
+    s.equipment.slots["scanner"] = "scanner"
+    bot.mouse_to((4, 4))
+    bot.key(pygame.K_m)
+    assert app.mode == "map" and app.map_view.layer == layers.VESPER
+    bot.frames(0.2)
+    bot.shot("m4_vesper_mapa.png")
+    bot.key(pygame.K_m)
+    assert app.mode == "play"
+    s.equipment.slots["scanner"] = scanner_before
+    # sai pela escotilha do porão
+    hx, hy = vesper.hatch_tile(s.world)
+    bot.teleport((hx, hy))
+    bot.frames(0.3)
+    bot.key(pygame.K_e)
+    assert s.ramp is not None and s.ramp.text == "Saindo..."
+    bot.frames(C.RAMP_DURATION + 0.3)
+    assert s.layer == "surface"
+    app.set_zoom(zoom_before, notify=False)
+    bot.frames(0.3)
 
 
 def check_borda_baixo(bot) -> None:

@@ -112,6 +112,16 @@ class Layer:
     def water_level(self, value: float) -> None:
         self.world.water_level = value
 
+    def add_prop(self, prop) -> None:
+        """Põe o prop em todos os tiles dele (v0.7 M4: prop maior que 1 tile aponta pro mesmo objeto)."""
+        for t in prop.tiles:
+            self.props[t] = prop
+
+    def remove_prop(self, prop) -> None:
+        for t in prop.tiles:
+            if self.props.get(t) is prop:
+                del self.props[t]
+
     @property
     def buildable(self) -> bool:
         """Dá pra construir aqui? Não dentro da VÉSPER-7 (v0.7 M4)."""

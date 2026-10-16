@@ -86,6 +86,12 @@ def floor_variant(tx: int, ty: int) -> int:
     return C.FLOOR_PICK[((tx * 73856093) ^ (ty * 19349663)) & 7]
 
 
+def hull_floor_variant(tx: int, ty: int) -> int:
+    """Chão da VÉSPER-7 (hull_floor_N, v0.7 M4): 0 (chapa limpa) em ~75% dos tiles; 1 a 3 (manchas, grelha, risco) nos outros."""
+    h = ((tx * 73856093) ^ (ty * 19349663)) & 15
+    return 0 if h < 12 else (h - 12) % 3 + 1
+
+
 @dataclass(frozen=True)
 class Seal:
     """Resultado da vedação a partir de um Dispersor."""

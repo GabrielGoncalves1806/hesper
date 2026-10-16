@@ -346,8 +346,8 @@ class MapView:
     # ---- camada -------------------------------------------------------------------
     @staticmethod
     def layers(state) -> list[str]:
-        """Camadas que dá pra abrir: a caverna só depois da primeira descida."""
-        return [k for k in ("surface", "cave") if k in state.layers]
+        """Camadas que dá pra abrir: a caverna só depois da primeira descida; a VÉSPER-7 só depois de entrar."""
+        return [k for k in ("surface", "cave", "vesper") if k in state.layers]
 
     def open(self, state) -> None:
         """M: abre na camada do player, centrado nele, no último zoom usado."""
@@ -364,7 +364,7 @@ class MapView:
         if key == state.layer:
             self.center_on(*player_tile(state))
         else:
-            self.center_on(*(ramp_center(world) or (world.width / 2, world.height / 2)))
+            self.center_on(*(ramp_center(world) or world.center or (world.width / 2, world.height / 2)))   # v0.7 M4: nave = meio dela
         return True
 
     def cycle_layer(self, state, step: int = 1) -> bool:

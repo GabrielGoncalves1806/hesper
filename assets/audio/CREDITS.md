@@ -118,3 +118,13 @@ o que o próprio NPS pede numa publicação comercial. Os CC0 não exigem nada, 
 | `candidates/container_open_D1s.wav` | `lock_open_01` (metal/wood) | mono, 44,1 kHz, passa-alta 70 Hz, passa-baixa 6,5 kHz, fade de saída; nada mais (sem reverb, sem camadas) |
 | `candidates/container_open_D3s.wav` | `lock_03` (RPG) | idem |
 | `container_open.wav` (oficial, v14.3) | `lock_03` (RPG) | igual à `candidates/container_open_D3s.wav` (gerado por `build_audio.py`) |
+
+### OpenGameArt · "Electricity Sound Effects" (v0.7 M4, `amb_vesper`)
+
+- Autor: BMacZero (Brian MacIntosh)
+- Fonte: https://opengameart.org/content/electricity-sound-effects-0 (`spark.wav`, `continuousspark.wav`)
+- Licença: **CC0 1.0**. Conferida na página.
+
+| Arquivo | Origem | Tratamento |
+|---|---|---|
+| `amb_vesper.wav` | `spark.wav` e `continuousspark.wav` | mono, 44,1 kHz, tocadas 0,5-0,7x, passa-faixa 90 Hz-1,3 kHz, entrada suave, reverb de caverna, mixadas no amb_cave sem as gotas |

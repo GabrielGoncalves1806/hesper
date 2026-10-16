@@ -101,6 +101,10 @@ def _built(seed: int) -> tuple[ruins.Ruin, tuple]:
         elif ch == "c":
             crates.append((x, y))
         rows[y][x] = base
+    for (x, y), kind in list(props.items()):       # prop grande (v0.7 M4): todos os tiles têm de ser chão
+        w, h = C.PROPS[kind].size
+        if any(rows[y + dy][x + dx] != "." for dy in range(h) for dx in range(w)):
+            del props[(x, y)]
     grid = ["".join(r) for r in rows]
     crates.sort(key=lambda t: (t[1], t[0]))
     ship = ruins.Ruin(VESPER, "VÉSPER-7", VESPER, "rock", 0, 0, grid, machines, terminals, crates[0], 0, props)
@@ -165,6 +169,11 @@ def make_crates(world, seed: int) -> dict:
             storage.add(item, n)
         out[(tx, ty)] = Crate(ruins.RuinSpot(tx, ty, VESPER, "Caixa · VÉSPER-7"), storage)
     return out
+
+
+def hold_variant(seed: int) -> str:
+    """Qual porão saiu no sorteio ("a" ou "b"): o render escolhe a escotilha (vesper_hatch_exit_a/_b) por ela."""
+    return next(plan.key[-1] for slot, plan in _pick(seed) if slot.key == "hold")
 
 
 def hatch_tile(world) -> tuple[int, int]:

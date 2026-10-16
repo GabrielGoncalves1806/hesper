@@ -124,6 +124,9 @@ def light_circles(state) -> list[tuple[float, float, float]]:
             out.append((ax / T, ay / T - 0.5, C.EXPLORE_MACHINE))
     for tx, ty in world.terminals:
         out.append((tx + 0.5, ty + 1, C.EXPLORE_TERMINAL))
+    for (tx, ty), kind in world.fixtures.items():   # v0.7 M4: luz de emergência da VÉSPER-7 (raio de render.EMERGENCY_RADIUS)
+        if kind == "emergency_light":
+            out.append((tx + 0.5, ty + 1, 1.5))
     return out
 
 

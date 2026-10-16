@@ -1656,6 +1656,11 @@ class App:
         self.floaters.update(dt)
         self.floaters.scale = self.zoom * self.ui.canvas_k     # faixas dos floaters em px da tela
         self.renderer.update_particles(dt)
+        spark = self.renderer.update_door_fx(self.state, dt)         # v0.7 M4: faísca da porta emperrada
+        if spark is not None and self.audio.has("spark"):
+            p = self.state.player
+            gain = sound.fade_by_distance(math.hypot(spark[0] - p.x, spark[1] - p.y) / C.TILE, 1.5, 5.5)
+            self.audio.play("spark", gain=gain)
         events = self.state.pop_events()
         broke = any(e[0] == "break" for e in events)
         for event in events:
@@ -2134,8 +2139,11 @@ class App:
                         else f"{rhythm} (falta energia)")
             return (f"Segure [{C.DISMANTLE_KEY}] para desmontar" if can_dis(machine)
                     else f"{far.capitalize()} desmontar")
+        hover_fx = state.interactable_at(*self.mouse_world())    # v0.7 M4: fixture/escotilha da VÉSPER-7 sob o mouse, no alcance
+        if hover_fx is not None and hover_fx[0] in ("fixture", "hatch_out") and target == hover_fx:
+            return self.e_label(target)
         block = self.hovered_block()                        # v0.5 M2: chão, parede ou porta da base
-        if block:
+        if block and not block.ruin:                        # (a casca de ruína e da nave não desmonta: sem dica)
             name = C.MACHINES[block.kind].name
             return f"{name} · " + (f"segure [{C.DISMANTLE_KEY}] desmontar" if can_dis(block)
                                    else f"{far} desmontar")

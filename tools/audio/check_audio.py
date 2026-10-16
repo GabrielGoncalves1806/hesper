@@ -49,6 +49,8 @@ CONTRACT = {
     "container_open": False,
     # v0.6 Fundo M2 · ambiente por bioma da caverna (aprovados pelo dono)
     "amb_cave_salar": True, "amb_cave_basalt": True, "amb_cave_frost": True,
+    # v0.7 Marco 4 · interior da VÉSPER-7 (aprovados pelo dono)
+    "amb_vesper": True, "door_stuck": False, "spark": False, "spark_1": False, "spark_2": False,
 }
 # entregues em _pending/ até o dono aprovar
 PENDING: dict = {}

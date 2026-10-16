@@ -891,6 +891,7 @@ CONTAINER_REACH = 48                # px dos pés até a base dele (igual à cai
 # Os itens de loot só ocupam inventário (nenhum uso ainda): empilham até STACK_LOOT e vão pra baú.
 HAND_DRILL = "hand_drill"
 VOLUME.update({"chip_connect": 0.5, "chip_disconnect": 0.45})   # v0.6 M2: bip de encaixar/tirar o chip
+VOLUME.update({"door_stuck": 0.6, "spark": 0.25})   # v0.7 M4 (Som): a trava que não cede e o estalinho da porta emperrada
 VOLUME["container_open"] = 0.9   # trava do contêiner abrindo (container_open.wav, D3s CC0, aprovado): curto e seco
 STACK_TOOL = 1
 STACK_LOOT = 20
@@ -1280,6 +1281,7 @@ class PropType(NamedTuple):
     solid: bool
     place: str          # "floor" | "desk" | "face" | "decal"
     scannable: bool
+    size: tuple[int, int] = (1, 1)   # v0.7 M4: tiles (largura, altura); a âncora é o tile de cima à esquerda
 
 
 PROP_STARTER = ("prop_table", "prop_chair", "prop_crate", "prop_sign")

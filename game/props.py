@@ -24,6 +24,12 @@ class Prop:
         return self.tx, self.ty
 
     @property
+    def tiles(self) -> list[tuple[int, int]]:
+        """Todos os tiles do prop (v0.7 M4: prop maior que 1 tile); a âncora (tx, ty) é o de cima à esquerda."""
+        w, h = self.type.size
+        return [(self.tx + dx, self.ty + dy) for dy in range(h) for dx in range(w)]
+
+    @property
     def type(self) -> C.PropType:
         return C.PROPS[self.kind]
 
@@ -44,6 +50,21 @@ class Prop:
             return self.tx * C.TILE, self.ty * C.TILE, C.TILE, C.TILE
         x, y, w, h = C.PROP_COLLIDE
         return self.tx * C.TILE + x, self.ty * C.TILE + y, w, h
+
+    def rect_at(self, tile: tuple[int, int]) -> tuple[int, int, int, int] | None:
+        """Caixa de colisão da parte do prop que está em `tile`. Prop de 1 tile: a `rect`. Maior: cada tile colide inteiro
+        na largura (as bordas de fora seguem o recuo do PROP_COLLIDE) e na altura do PROP_COLLIDE na última linha."""
+        w, h = self.type.size
+        if not self.type.solid or (w, h) == (1, 1) or tile not in self.tiles:
+            return self.rect
+        if self.place == "desk":
+            return tile[0] * C.TILE, tile[1] * C.TILE, C.TILE, C.TILE
+        cx, cy, cw, ch = C.PROP_COLLIDE
+        x0 = tile[0] * C.TILE + (cx if tile[0] == self.tx else 0)
+        x1 = tile[0] * C.TILE + (cx + cw if tile[0] == self.tx + w - 1 else C.TILE)
+        if tile[1] == self.ty + h - 1:
+            return x0, tile[1] * C.TILE + cy, x1 - x0, ch
+        return x0, tile[1] * C.TILE, x1 - x0, C.TILE
 
 
 def face_visible(is_wallish, tx: int, ty: int) -> bool:

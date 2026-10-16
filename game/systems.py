@@ -678,8 +678,10 @@ class GameState:
                 elif self.world.is_solid(tx, ty):
                     solids.append((tx * C.TILE, ty * C.TILE, C.TILE, C.TILE))
                 prop = props.get((tx, ty)) if props else None      # v0.7 M2: o prop que colide
-                if prop is not None and prop.rect is not None:
-                    solids.append(prop.rect)
+                if prop is not None:
+                    rect = prop.rect_at((tx, ty))                  # v0.7 M4: prop grande colide por tile
+                    if rect is not None:
+                        solids.append(rect)
         solids += [m.rect for m in self.machines]
         if self.active.base.blocks:                       # v0.5 M2: parede e porta da base
             solids += self.active.base.solids_in(x0, y0, x1, y1)
@@ -1052,7 +1054,8 @@ class GameState:
         portão, cápsula e ruína, sem prender o player; a mesa também pede parede do player logo em cima."""
         tx, ty = tile
         t = C.PROPS[kind]
-        if tile in self.active.props or self.machine_at(tile):
+        footprint = Prop(kind, tx, ty).tiles                      # v0.7 M4: prop grande ocupa vários tiles
+        if any(f in self.active.props or self.machine_at(f) for f in footprint):
             return False
         px, py = self.player.tile
         if max(abs(tx - px), abs(ty - py)) > C.PLACE_REACH:
@@ -1061,6 +1064,18 @@ class GameState:
         if t.place == "face":
             wallish = lambda x, y: self.base.is_barrier((x, y)) or self.world.is_solid(x, y)
             return block is not None and block.is_wall and not block.ruin and face_visible(wallish, tx, ty)
+        for fx, fy in footprint:
+            if not self._prop_floor_ok(t, (fx, fy)):
+                return False
+        prop = Prop(kind, tx, ty)
+        return not (t.solid and any(overlaps(self.player.box, r) for r in
+                                    (prop.rect_at(f) for f in footprint) if r is not None))
+
+    def _prop_floor_ok(self, t, tile: tuple[int, int]) -> bool:
+        """O tile `tile` do prop de chão/mesa serve: chão livre fora de veio, água, gelo do portão, cápsula e ruína, sem
+        o player em cima; a mesa também pede parede do player logo em cima."""
+        tx, ty = tile
+        block = self.base.get(tile)
         if tile in self.world.ruin_tiles or not self.world.is_floor(tx, ty):
             return False
         if tile in (C.POD_TILES if self.active.has_base else ()) or self.world.vein_at(tx, ty):
@@ -1070,17 +1085,17 @@ class GameState:
         cell = (tx * C.TILE, ty * C.TILE, C.TILE, C.TILE)
         if any(overlaps(cell, r) for r in self.active.gate_solids):
             return False
-        if (px, py) == tile:
+        if self.player.tile == tile:
             return False
         if t.place == "desk":
             above = self.base.get((tx, ty - 1))
             if above is None or not above.is_wall or above.ruin:
                 return False
-        return not (t.solid and overlaps(self.player.box, Prop(kind, tx, ty).rect))
+        return True
 
     def _build_prop(self, kind: str, tile: tuple[int, int]) -> bool:
         tile = tuple(tile)
-        self.active.props[tile] = Prop(kind, tile[0], tile[1])
+        self.active.add_prop(Prop(kind, tile[0], tile[1]))
         self.crafted[kind] += 1
         self.events.append(("build", kind, tile))
         return True
@@ -1703,7 +1718,7 @@ class GameState:
         px, py = self.player.tile
         if isinstance(machine, Prop):                   # v0.7 M2: prop do player (o de ruína não desmonta)
             return (not machine.ruin and self.active.props.get(machine.tile) is machine
-                    and max(abs(machine.tx - px), abs(machine.ty - py)) <= C.PLACE_REACH)
+                    and min(max(abs(a - px), abs(b - py)) for a, b in machine.tiles) <= C.PLACE_REACH)
         if isinstance(machine, Crate):                  # v0.6 M1: caixa de saque de destroço (o contêiner não desmonta)
             return self.crates.get(machine.tile) is machine and self.crate_distance(machine) <= C.CRATE_REACH
         if isinstance(machine, BaseBlock):              # v0.5 M2: bloco da base (a dupla: qualquer metade serve)
@@ -1792,7 +1807,7 @@ class GameState:
             return False
         for item, n in returns.items():
             self.inventory.add(item, n)
-        del self.active.props[prop.tile]
+        self.active.remove_prop(prop)
         self.events.append(("dismantle", prop.kind, prop.tile))
         return True
 
@@ -1812,7 +1827,7 @@ class GameState:
             self.inventory.add(item, n)
         self.base.remove(block)
         if face is not None:
-            del self.active.props[face.tile]
+            self.active.remove_prop(face)
         self.events.append(("dismantle", block.kind, (block.tx, block.ty)))
         return True
 
@@ -1859,7 +1874,7 @@ class GameState:
         if self.active.props.get(prop.tile) is not prop:
             return False
         px, py = self.player.tile
-        return max(abs(prop.tx - px), abs(prop.ty - py)) <= C.SCAN_REACH
+        return min(max(abs(a - px), abs(b - py)) for a, b in prop.tiles) <= C.SCAN_REACH
 
     def _update_scan(self, target: Prop | None, dt: float) -> None:
         """Escanear segurando (v0.7 M2): o esquerdo segurado num prop de ruína desconhecido, no alcance, enche `scan_t` até

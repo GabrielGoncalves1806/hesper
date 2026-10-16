@@ -213,7 +213,7 @@ def layers_to_dict(state: GameState) -> dict:
         own = [b for b in layer.base.blocks if not b.ruin]       # v0.7 M1: a casca das ruínas sai da seed, não vai
         if own:                                                  # v9: blocos da base (a dupla é 1 objeto)
             data["base"] = [block_to_dict(b) for b in own]
-        own_props = [[p.kind, p.tx, p.ty] for p in layer.props.values() if not p.ruin]   # v0.7 M2 (o de ruína sai da seed)
+        own_props = [[p.kind, p.tx, p.ty] for t, p in layer.props.items() if not p.ruin and t == p.tile]   # v0.7 M2 (o de ruína sai da seed)
         if own_props:
             data["props"] = own_props
         if layer.ruin_salvaged:                                  # v0.7 M1: máquinas quebradas já desmontadas (campo novo)
@@ -246,7 +246,7 @@ def layers_from_dict(state: GameState, data: dict) -> None:
         layer.props = {}                                         # v0.7 M2: os do player (campo opcional); os de ruína voltam no apply_overlays
         for kind, x, y in ldata.get("props", []):
             if kind in C.PLAYER_PROPS:
-                layer.props[(int(x), int(y))] = Prop(kind, int(x), int(y))
+                layer.add_prop(Prop(kind, int(x), int(y)))
         ruins.apply_overlays(layer)
         wrecks.settle(layer, {(int(x), int(y)) for x, y in ldata.get("removed_crates", [])})   # v0.7 M3: destroço em cima de construção (save v12) não nasce; os outros recarimbados
         for x, y, slots, opened in ldata.get("crates", []):      # Marco 3 (save do Marco 1/2 não tem)

@@ -126,3 +126,45 @@ def test_ambient_for_vesper():
     from game import audio
     assert audio.ambient_for("vesper", "dead", True, has_vesper=True) == "vesper"
     assert audio.ambient_for("vesper", "dead", True, has_vesper=False) == "cave"
+
+
+def test_emergency_lights_and_map_tab():
+    from game import render
+    from game.map_view import MapView
+    state = GameState(3)
+    at_hatch_in(state)
+    assert MapView.layers(state) == ["surface"]
+    state.start_hatch()
+    run(state, C.RAMP_DURATION)
+    lights = render.cave_lights(state)
+    n = sum(1 for k in state.world.fixtures.values() if k == "emergency_light")
+    assert n and sum(1 for l in lights if l.color == render.EMERGENCY_LIGHT) == n
+    assert all(l.radius == render.EMERGENCY_RADIUS * C.TILE for l in lights if l.color == render.EMERGENCY_LIGHT)
+    assert MapView.layers(state) == ["surface", "vesper"]
+    view = MapView()
+    assert view.show_layer(state, "surface") and view.show_layer(state, "vesper")
+
+
+def test_door_fx_only_near_and_fog_dies_before_one_tile():
+    import random
+    from game import vesper_fx
+    fx = vesper_fx.DoorFx(random.Random(5))
+    door = (20, 10)
+    near = ((door[0] + 0.5) * C.TILE, (door[1] + 3) * C.TILE)
+    far = (near[0] + 20 * C.TILE, near[1])
+    assert fx.update(0.5, door, far) is None and not fx.fog and not fx.sparks
+    bursts = 0
+    for _ in range(60 * 20):
+        if fx.update(1 / 60, door, near) is not None:
+            bursts += 1
+        sill = (door[1] + 1) * C.TILE
+        assert all(p[1] - sill < C.TILE for p in fx.fog)
+    assert 8 <= bursts <= 35          # a cada 0,6–1,8 s em 20 s
+    assert fx.fog
+
+
+def test_hull_floor_variants_are_0_to_3_and_mostly_clean():
+    from game.base import hull_floor_variant
+    vs = [hull_floor_variant(x, y) for x in range(60) for y in range(60)]
+    assert set(vs) == {0, 1, 2, 3}
+    assert 0.65 < vs.count(0) / len(vs) < 0.85
