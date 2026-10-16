@@ -90,7 +90,7 @@ Spec: `docs/superpowers/specs/2026-10-16-v07-lore-design.md` (brainstorm de 2026
 - [x] Marco 1 · Estruturas (fechado em 2026-10-16, testado e aprovado pelo dono; falta só ele conferir "mesma seed, mesmas ruínas", que o pytest já cobre): plantas à mão + variação pela seed, acampamento de pouso, laboratório da Ilves, estação de derretedores, posto de perfuração; casca intocável, máquinas quebradas, LOGs novos.
 - [x] Arte (Designer, aprovada pelo dono "por hora" em 2026-10-16, 5 rodadas, `reports/design/v07_lore/`; dá pra polir depois): 5 destroços da referência do dono, kit médio de props, construtor com scanner.
 - [x] Marco 2 · Props e scanner (fechado em 2026-10-16, testado pelo dono; som do scan loop B + done A; prop de chão colado em parede ao sul fica): aba Decoração (mesa, cadeira, caixote e placa de cara), scan no esquerdo segurado em prop de ruína, props nas 4 plantas, props de parede, ícone novo do construtor; save continua v12.
-- [ ] Marco 3 · Destroços novos: 3 sprites trocados, nave de passageiros e robô de reconhecimento.
+- [x] Marco 3 · Destroços novos (fechado em 2026-10-16, testado pelo dono "acho que tá ok"): VÉSPER-7, base de vidro (8×4, terminal lido de baixo), sonda nova, ARCA-2 (LOG dia 2) e robô R-2 (circuito sempre + chip 40%, LOG dia 167); 8 a 10 destroços por mundo; save v13 (destroço que bateria em construção não nasce).
 - [ ] Marco 4 · Interior da VÉSPER-7: camada pequena pelo porão, salas encaixadas pela seed, câmara fria.
 
 ## v0.8 · Vida
@@ -100,6 +100,8 @@ Fauna e flora surgindo com o Ti, farm, música. **O planeta reage** ao Ti e ao d
 Inimigos (larvas pelo mapa), combate, a criatura como boss (saíram da v0.7).
 
 ## Futuro
+- **Rever os destroços** (dono, 2026-10-16, fechando o v0.7 M3): tamanho das naves (deixar maiores), colisão (hoje é a pegada retangular aproximada) e afins. Junto com o "dá pra polir" da VÉSPER e da base de vidro.
+- **Código do cursor novo** (arte aprovada, opção A, contrato na bíblia §6): trocar o polígono do `UI.draw_cursor` pelos sprites e mostrar a luva em cima de coisa usável.
 - **Base de pesquisa + dungeon** (dono, 2026-10-16, "olhar com calma depois"; referência em `reports/design/ideias/base_pesquisa_dungeon.png`): base externa grande (domo central, módulos ligados por tubos, pista com nave, painéis, estufa de vidro) e por dentro uma instalação estilo dungeon, vista de cima, com salas encaixadas (laboratório, servidores, depósito, enfermaria, controle, corredor, reator) e elementos marcados (porta, terminal, baú, ponto de interesse, armadilha, parede destruída, bloqueio, loot). Conversa com o interior da VÉSPER (M4) e com as ruínas do M1.
 - **Baú grande colado em outro** (dono, teste do v0.6 M1, print em `reports/design/v06_m1_baus/feedback/bau_grande_colado.png`): o sprite do contêiner tem 40 px num tile de 32, então dois Grandes lado a lado se sobrepõem 8 px. Opções: arte de 32 px de largura, Grande ocupando 2 tiles, ou proibir colar. Já tinha sido levantado pela Designer.
 - **Modal de itens no painel de logística** (dono, 2026-10-16, abrindo o v0.6 Fundo M4): a fileira de toggles Envia/Recebe do baú já está em 9 itens (recursos, cápsula, lingotes, wafer) e não escala. Trocar por um modal/lista de itens (com ícone, busca ou abas) em vez de crescer a fileira a cada item novo.
