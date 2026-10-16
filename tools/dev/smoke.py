@@ -2144,9 +2144,10 @@ def check_inventory_logs(bot) -> None:
     pra aba. Prints: inventario_abas_<tamanho>.png e inventario_logs_<tamanho>.png."""
     s, app = bot.state, bot.app
     read_before, seen_before = set(s.logs_read), set(s.logs_seen)
-    # achados: dias 3, 41, 97 (já abertos pela aba) e 188 (NOVO); faltam 140, 212 e 230
-    s.logs_read = {0, 5, 1, 3}
-    s.logs_seen = {0, 5, 1}
+    # achados: dias 1, 3, 41 (já abertos pela aba) e 22 (NOVO); falta o dia 9 no meio. v0.7 M1: com 19 LOGs a lista
+    # rola, então a cena usa só LOGs do começo da história (todos na primeira página nos 3 tamanhos)
+    s.logs_read = {7, 0, 9, 5}
+    s.logs_seen = {7, 0, 5}
     for ui_size in ("grande", "media", "pequena"):
         app.set_ui_size(ui_size)
         bot.key(pygame.K_TAB)
@@ -2157,13 +2158,13 @@ def check_inventory_logs(bot) -> None:
         bot.click(ui_to_window(app, tab))
         assert app.inv_tab == TAB_LOGS, f"clique na aba LOGs ({ui_size})"
         bot.frames(DT)
-        assert [lg for _, lg in app.ui.log_rows] == [0, 5, 1, 3]      # só os lidos, na ordem da história
-        assert len(app.ui.log_rows) == 4 and app.ui.log_visible == len(C.LOGS)
+        assert [lg for _, lg in app.ui.log_rows] == [7, 0, 9, 5]      # só os lidos, na ordem da história
+        assert len(app.ui.log_rows) == 4 and 5 <= app.ui.log_visible <= len(C.LOGS)
         bot.shot(f"inventario_logs_{ui_size}.png")
         if ui_size == "pequena":                   # clique no NOVO: abre a leitura, fechar volta pra aba
-            row = next(r for r, lg in app.ui.log_rows if lg == 3)
+            row = next(r for r, lg in app.ui.log_rows if lg == 9)
             bot.click(ui_to_window(app, row))
-            assert app.mode == "terminal" and app.terminal_index == 3 and 3 in s.logs_seen
+            assert app.mode == "terminal" and app.terminal_index == 9 and 9 in s.logs_seen
             bot.frames(0.2)
             bot.shot("inventario_logs_leitura.png")
             bot.key(pygame.K_e)
