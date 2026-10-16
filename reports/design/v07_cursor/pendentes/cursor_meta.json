@@ -1,0 +1,56 @@
+{
+ "A": {
+  "tamanho": [
+   11,
+   16
+  ],
+  "hotspot_normal": [
+   0,
+   0
+  ],
+  "hotspot_interativo": [
+   4,
+   0
+  ],
+  "tamanho_interativo": [
+   14,
+   15
+  ]
+ },
+ "B": {
+  "tamanho": [
+   17,
+   16
+  ],
+  "hotspot_normal": [
+   0,
+   0
+  ],
+  "hotspot_interativo": [
+   0,
+   0
+  ],
+  "tamanho_interativo": [
+   17,
+   16
+  ]
+ },
+ "C": {
+  "tamanho": [
+   17,
+   17
+  ],
+  "hotspot_normal": [
+   8,
+   8
+  ],
+  "hotspot_interativo": [
+   8,
+   8
+  ],
+  "tamanho_interativo": [
+   17,
+   17
+  ]
+ }
+}

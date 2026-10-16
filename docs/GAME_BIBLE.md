@@ -215,6 +215,14 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 | `leak_blink.png` | 64×56 | **v0.5 M2, aprovado.** "Parede-fantasma" vermelha, 2 quadros de 32×56 (aceso, apagado) a ~2,5 Hz em `(x, y−24)` do tile furado, por cima dos objetos e do raio-x |
 | `plant_bush.png` `plant_tree.png` `plant_flower.png` | até 32×40 | estágio verde |
 
+### Cursor do mouse (v0.7, **aprovado pelo dono: opção A**, 2026-10-16, report `reports/design/v07_cursor/`, script `tools/sprites/build_cursor_v07.py`)
+Desenhado na camada da UI (480×270 lógicos, escala inteira k), por cima de tudo, no lugar do polígono do `UI.draw_cursor`. Esconder o cursor do sistema.
+
+| Arquivo | Tamanho | Hotspot | Quando |
+|---|---|---|---|
+| `cursor.png` | 11×16 | (0, 0), a ponta da seta | normal (menus, inventário, mundo) |
+| `cursor_interact.png` | 14×15 | (4, 0), a ponta do dedo | mouse em cima de algo usável (caixa, terminal, baú, máquina, destroço): a luva do astronauta apontando |
+
 ### Sprites da superfície do v0.4 · regiões: `assets/sprites/regions/` (proposta da Designer, **aprovado pelo dono, v8.1**; **gelo em blocos aprovado pelo dono, v9.2**; pedra de topo do hoodoo v8.3; **elementos novos e basalto aprovados pelo dono, v9**; **fumarolas aprovadas pelo dono, v9.1**)
 Report: `reports/design/regioes/index.html`. Gerados por `tools/sprites/regions_mockups.py` (volumes em `regions_volume.py`, receita do chão em `regions_scene.py`; os elementos da v9 em `regions_v9_elements.py`, prévias e cenas da v9 em `regions_v9.py`).
 
