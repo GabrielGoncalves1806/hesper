@@ -69,6 +69,7 @@ Dar um "fundo" de verdade ao jogo: a caverna cresce pro tamanho da superfície e
 
 ### M5 · Remapear crafts
 - Chip, baú grande, diagramas e o que hoje pede lingote/fio/wafer passam a usar a cadeia nova (fundição/fabricador). Brainstorm curto com o dono antes.
+- **Brainstorm feito em 2026-10-16**: as decisões e a tabela de receitas estão na bíblia §15, "Marco 5 · Remapear crafts" (Fundição 3:1, wafer na Bancada T2, Ti 0 cru, T2 vê tudo do T1, item de uma vez só com "feito", wafer fora da logística).
 
 ## Fora deste bloco (ganchos)
 - Vulcão no basalto; espécie nativa nas cavernas; areia do salar; ruínas na caverna (próximo update).

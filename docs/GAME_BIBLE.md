@@ -922,3 +922,35 @@ Spec: `docs/superpowers/specs/2026-10-15-v06-fundo-design.md`. Marcos: M1 cavern
 - **Save**: continua v12, sem migração (o item novo é só uma string no inventário; o wafer na saída da Fundição já passa pelo filtro, que usa os valores de `SMELTER_RECIPES`).
 - **Ícones**: `icon_hand_drill_t2.png` (e o novo `icon_hand_drill.png`) vêm do Designer; **pendente até o merge**. Sem o PNG da nv.2, ela usa o ícone da nv.1 (ou o fallback desenhado).
 - **Testes e ferramentas**: `tests/test_drill_t2.py` (item, receita, slot, mineração, rocha dura, ensure), wafer em `tests/test_smelter.py`, circuito em `tests/test_fabricator.py`; prints avulsos em `tools/dev/shot_v06_fundo_m4.py`.
+
+### Marco 5 · Remapear crafts (decisões do dono, 2026-10-16)
+Ideia: a cadeia nova (Fundição, Bancada T2) vira **obrigatória do Ti 10.000 pra frente**, e algumas coisas ficam caras de propósito ("lutei/farmei pra isso e agora a vida fica mais fácil"). Todos os números são de partida (balanceamento depois).
+- **Ti 0 continua cru** (o começo não trava): Gerador de O₂ nv.1 (é ele que faz o Ti subir), derretedor nv.1, aquecedor nv.1 (abre a cratera), painel solar, luminária e luminária forte, baú simples, chão/parede/portas, construtor, **Fundição** e **Bancada T2 + diagrama dela** (os dois são o começo da cadeia: ovo e galinha).
+- **Fundição 3:1**: **3 ferro → 1 lingote de ferro**, **3 cobre → 1 lingote de cobre**; a magmatita continua queimando por lingote (1 pedra = 4 lingotes). Vale fazer várias Fundições: o tempo não é o gargalo, o minério é. A Fundição **não faz mais wafer** (silício sai das receitas dela).
+- **Wafer na Bancada T2**: **10 silício → 1 wafer** (a bancada tem cara de laser/impressora 3D; o wafer é caro de propósito).
+- **Receitas** (onde · custo):
+  - Fios · fabricador, Materiais · 1 lingote de cobre → 3 (igual)
+  - Circuito · Bancada T2 · 3 fios + 5 silício
+  - Chip · Bancada T2 · 5 wafer + 5 fios + 1 circuito
+  - Drone · Bancada T2 · 2 circuitos + 5 fios + 2 lingotes de ferro (sai do T1)
+  - Tanque de O₂ · Bancada T2 · 5 lingotes de ferro + 1 circuito (continua precisando do diagrama do destroço)
+  - Scanner · Bancada T2 · 4 circuitos + 5 lingotes de ferro + 2 silício (sai do T1; continua precisando do diagrama do destroço)
+  - Mochila · Bancada T2 · 5 lingotes de ferro
+  - Construtor · fabricador · 5 ferro + 5 silício
+  - Broca de mão nv.2 · Bancada T2 · igual (nv.1 + 2 lingotes de ferro + 4 fios + 1 circuito)
+  - Dispersor de O₂ · construtor · 3 circuitos + 2 chips + 15 lingotes de ferro + 5 fios + 2 cápsulas de água
+  - Drill · construtor · 5 lingotes de ferro + 1 circuito
+  - Estação de drones · construtor · 10 lingotes de ferro + 1 circuito + 1 chip + 2 fios
+  - Gerador de O₂ nv.2 · construtor · 8 lingotes de ferro + 2 circuitos + 10 gelo
+  - Derretedor nv.2 · construtor · 6 lingotes de ferro + 4 fios + 20 gelo
+  - Aquecedor nv.2 · construtor · 8 lingotes de ferro + 3 lingotes de cobre + 10 magmatita
+  - Baú (normal, Ti 50.000) · construtor · 3 lingotes de ferro
+  - Baú grande · construtor · 6 lingotes de ferro
+  - Diagrama do Baú grande · fabricador T1 · 4 lingotes de ferro + 1 circuito
+- **Opção A**: Dispersor, Tanque e Scanner dependem da cadeia. A **base respirável vira troféu de meio de jogo** (antes da Fundição, o player respira na zona da cápsula). Tanque e Scanner são luxo: liberados, mas caros.
+- Consequência aceita: **a drill pede circuito**, ou seja, cobre do salar. Pra automatizar, o player desce na caverna antes.
+- **Loot igual** (`C.LOOT_*`): chip e circuito de destroço/contêiner viram jackpot. Os números do loot entram no balanceamento.
+- **Os dois fabricadores**: a **Bancada T2 mostra todas as receitas do T1** (é o fabricador melhorado; serve de posto avançado) **mais as dela**, com as abas do T1 + uma aba própria. O **T1 não mostra as da T2** e fica básico (construtor, diagramas, fios). Exclusivos da T2: wafer, circuito, chip, drone, tanque, mochila, scanner, broca nv.2.
+- **Item de uma vez só**: diagramas (já era assim: "lido") e **construtor, mochila, tanque de O₂, scanner e broca nv.2** (não tem como perder item, então o segundo é desperdício). Depois de fabricado, a receita **continua na lista, travada, com "feito"** (o botão "JÁ FEITO"), pra manter a sensação de "tem muita coisa pra fabricar aqui". Marca na hora de fabricar, mesmo que o item vá parar num baú. Save novo grava a lista; save antigo é marcado no load procurando esses itens no inventário, no equipamento e nos baús.
+- **Logística**: o **wafer sai dos toggles** do baú (volta pra 8), porque não sai mais da Fundição pela rede.
+- **Tooltip com descrição** de cada item: ideia aprovada, mas vai pro Futuro do ROADMAP (rascunho em `reports/dev/descricoes.html`).
