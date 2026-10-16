@@ -77,7 +77,7 @@ Dividido em dois blocos (brainstorm de 2026-10-15).
 
 **Fundo** (spec: `docs/superpowers/specs/2026-10-15-v06-fundo-design.md`)
 - [x] Marco 1 · Caverna nova (fechado em 2026-10-15; dono testou e pediu fronteiras tortas, biomas mais longe do centro, basalto cinza e gelo mais azul): 256×256, rampa sob a cratera, regiões (gelo N, basalto O, salar L maior, centro), rocha dura nos biomas trancados, veios de parede (6–8), menos minério solto, cobre no salar, magmatita em veio e rochinha no basalto, F3 quebra rocha dura, save v12 (caverna antiga descartada).
-- [ ] Marco 2 · Cara dos biomas: chão, parede, luz e som por região (arte e som com o dono).
+- [x] Marco 2 · Cara dos biomas (implementado em 2026-10-16; falta o dono testar): chão assado da caverna por região com divisa curva, rocha com rampa por região na mesma curva, luz ambiente e capacete por região (basalto avermelhado), minimapa, ambiente sonoro por bioma (salar, basalto, gelo) com troca depois de 1,5 s. Tinta provisória do M1 saiu.
 - [ ] Marco 3 · Fornalha: magmatita de combustível, lingote de ferro e de cobre, fios no fabricador, na rede com chip.
 - [ ] Marco 4 · Broca nv.2: quebra rocha dura, minera ×1,5, consome a nv.1.
 - [ ] Marco 5 · Remapear crafts.
