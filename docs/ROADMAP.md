@@ -85,11 +85,19 @@ Dividido em dois blocos (brainstorm de 2026-10-15).
 - [x] Marco 5 · Remapear crafts (fechado em 2026-10-16, testado e aprovado pelo dono): Fundição 3:1 (ferro e cobre, sem wafer), wafer na Bancada T2 (10 silício), receitas da tabela da bíblia §15 (Ti 0 cru, Ti 10.000 em diante refinado; Dispersor, tanque e scanner caros), Bancada vê tudo do T1 com a aba "Bancada" das exclusivas, item de uma vez só com "feito" (sem save novo), wafer fora da logística (8 toggles), objetivos-guia antes da drill; no teste do dono: diagrama da Bancada em Ti 10.000, fabricar não fecha o painel, meia linha (com ícone) na lista que rola. Simulador congelado nas receitas do M4 (passada de balanceamento).
 Ganchos: vulcão no basalto, espécie nativa, areia do salar, ruínas na caverna.
 
-## v0.7 · Perigo e lore
-Inimigos, combate, primeiro boss, ruínas da Colônia Hesper.
+## v0.7 · Lore
+Spec: `docs/superpowers/specs/2026-10-16-v07-lore-design.md` (brainstorm de 2026-10-16). Inimigos, combate e boss saíram (versão futura); o planeta reagindo foi pra v0.8.
+- [ ] Marco 1 · Estruturas: plantas à mão + variação pela seed, acampamento de pouso, laboratório da Ilves, estação de derretedores, posto de perfuração; casca intocável, máquinas quebradas, LOGs novos.
+- [ ] Arte (Designer, em paralelo ao M1): 5 destroços da referência do dono, kit médio de props, construtor com scanner.
+- [ ] Marco 2 · Props e scanner: aba Decoração, scan no esquerdo segurado, props nas plantas.
+- [ ] Marco 3 · Destroços novos: 3 sprites trocados, nave de passageiros e robô de reconhecimento.
+- [ ] Marco 4 · Interior da VÉSPER-7: camada pequena pelo porão, salas encaixadas pela seed, câmara fria.
 
 ## v0.8 · Vida
-Fauna e flora surgindo com o Ti, farm, música.
+Fauna e flora surgindo com o Ti, farm, música. **O planeta reage** ao Ti e ao derretimento (saiu da v0.7). Genes do gelo (canon na bíblia §2).
+
+## Depois · Perigo
+Inimigos (larvas pelo mapa), combate, a criatura como boss (saíram da v0.7).
 
 ## Futuro
 - **Baú grande colado em outro** (dono, teste do v0.6 M1, print em `reports/design/v06_m1_baus/feedback/bau_grande_colado.png`): o sprite do contêiner tem 40 px num tile de 32, então dois Grandes lado a lado se sobrepõem 8 px. Opções: arte de 32 px de largura, Grande ocupando 2 tiles, ou proibir colar. Já tinha sido levantado pela Designer.

@@ -29,6 +29,12 @@ e vê o planeta **mudar visualmente** conforme o índice de terraformação (Ti)
 
 O mistério do gelo **não se resolve no MVP**. É gancho pro futuro.
 
+**A verdade da história** (canon do dono, 2026-10-16; a equipe segue isto, o player descobre aos poucos):
+- O que tem no gelo é uma **espécie nativa** do planeta. A criatura do **Grande gelo** (bolsão da faixa gelada, Larva ou Casulo, §13 M3.6.2) é ela: uma "minhoca".
+- O gelo guarda a vida do planeta. O erro da colônia foi **acordar o gelo rápido demais**: a diretoria apressou o cronograma, a coisa reagiu, a colônia desligou os derretedores e sumiu.
+- O player está repetindo o que a colônia fez (derrete a cratera, acorda as fumarolas). A dúvida "tô salvando o planeta ou repetindo o erro?" é o motor da lore.
+- Futuro (não é v0.7): larvas pelo mapa; **genes do gelo** pra gerar vida (mobs pacíficos e agressivos, espécies vindas do gelo derretido); a criatura vira inimigo e boss.
+
 **Numeração = cronologia da história** (v0.3): o número que o jogador vê ("LOG 01".."LOG 07") é a posição do LOG na linha do tempo, não a ordem em que ele acha. Cada LOG tem um dia (`LOG_DAYS` no `config.py`, mesma ordem de `LOGS`) e `LOG_ORDER` ordena por ele. Os índices em `LOGS` nunca mudam (o save guarda índices). Com os 4 dos destroços (ver §9, Marco 3): dias 3, 41, 97, 140, 188, 212 e 230. Todo texto de LOG começa com "Dia N.". Os lidos ficam na **aba LOGs** do inventário (Tab) pra reler.
 
 ## 3. Direção visual
@@ -968,3 +974,16 @@ Ideia: a cadeia nova (Fundição, Bancada T2) vira **obrigatória do Ti 10.000 p
   - o **diagrama da Bancada T2 libera em Ti 10.000** (`C.BENCH_DIAGRAM_UNLOCK_TI`), junto da Fundição e da drill (antes era Ti 0 e o T1 nem tinha vez);
   - **fabricar não fecha mais o painel** (T1 e Bancada): dá pra fabricar o quanto quiser e fechar no E. O construtor continua fechando (vai pro chão);
   - **lista que rola mostra meia linha do próximo item** embaixo (`ui.RECIPE_PEEK_H`), com o nome apagado, pra ficar óbvio que tem mais; a área Diagramas desce essa meia linha.
+
+## 16. v0.7 · Lore (decisões do dono, 2026-10-16)
+Spec: `docs/superpowers/specs/2026-10-16-v07-lore-design.md`. Marcos: M1 estruturas, M2 props e scanner, M3 destroços novos, M4 interior da VÉSPER-7; a arte (Designer) corre em paralelo ao M1. **Fora da v0.7**: inimigos, combate e boss (versão futura) e o planeta reagindo (v0.8). Ninguém encosta no player: a v0.7 é só pista (canon na §2).
+- **Estruturas** da Colônia Hesper, **uma de cada por mundo**, montadas com os blocos e máquinas que já existem: **planta desenhada à mão** (`assets/structures/*.txt`, um caractere por tile, legenda no topo) **+ variação pela seed** (8 orientações, destruição 0–3, loot, LOG).
+  - **Acampamento de pouso**: superfície, 40–60 tiles da cratera (fora da vista inicial).
+  - **Laboratório da Ilves**: superfície, faixa gelada, a uma distância mínima do bolsão da criatura.
+  - **Estação de derretedores**: caverna, bioma do gelo, dentro da rocha dura.
+  - **Posto de perfuração**: caverna, basalto, dentro da rocha dura.
+- **Casca intocável** (`BaseBlock` com marca `ruin`: a broca não quebra, desmontar ignora, fora da vedação do player); entra pela porta. Caixas e terminais funcionam. **Máquinas quebradas** (`broken`: não ligam, não somam nada) desmontam **uma vez** com o direito e devolvem umas peças.
+- **LOGs novos** (8–12) com rascunho aprovado pelo dono antes de entrar (`docs/lore/logs_v07_rascunho.md`).
+- **Destroços**: 5 tipos a partir da referência do dono (`reports/design/v07_destrocos/referencia.png`): nave de passageiros (nova), base espacial (vira o módulo, maior), transportador de carga (vira a VÉSPER-7, porão aberto = porta do interior), sonda, robô de reconhecimento (novo).
+- **Props**: kit médio (14–16) que serve ruína, interior e a **base do player** (aba Decoração do construtor; 3–4 liberados de cara). O resto libera pelo **scanner do construtor**: segura o **esquerdo** num prop de ruína desconhecido (~1,5 s). Só decoração escaneia. O **direito** segurado continua sendo desmontar. Construtor ganha sprite novo com módulo de scanner.
+- **Interior** só na nave de carga: camada pequena (~48×48) por transportador, salas desenhadas encaixadas pela seed, câmara fria com o contêiner de gelo arrombado por dentro; O₂ continua descendo.
