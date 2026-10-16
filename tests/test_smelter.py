@@ -59,12 +59,12 @@ def test_three_slots_and_needs_chip():
 
 
 def test_smelts_iron_and_burns_one_magmatite_per_four(game):
-    m = add_smelter(game, ore=("iron", 10), fuel_items=2)
+    m = add_smelter(game, ore=("iron", 30), fuel_items=2)
     run(game, C.SMELTER_TIME + 0.5)
     assert m.storage.slots[C.SMELTER_OUT_SLOT] == Stack("iron_ingot", 1)
     assert m.storage.count("magmatite") == 1 and m.fuel == C.SMELTER_BURNS_PER_FUEL - 1
     run(game, C.SMELTER_TIME * 4)
-    assert m.storage.count("iron_ingot") == 5 and m.storage.count("iron") == 5
+    assert m.storage.count("iron_ingot") == 5 and m.storage.count("iron") == 15
     assert m.storage.count("magmatite") == 0 and m.fuel == 3     # a 2ª magmatita acendeu no 5º lingote
 
 
@@ -75,11 +75,11 @@ def test_copper_makes_copper_ingot(game):
 
 
 def test_stops_without_fuel_and_keeps_progress(game):
-    m = add_smelter(game, ore=("iron", 5), fuel=1)
+    m = add_smelter(game, ore=("iron", 15), fuel=1)
     run(game, C.SMELTER_TIME + 0.5)
     assert m.storage.count("iron_ingot") == 1 and m.fuel == 0
     run(game, C.SMELTER_TIME * 2)
-    assert m.storage.count("iron_ingot") == 1 and m.storage.count("iron") == 4   # parou: sem magmatita
+    assert m.storage.count("iron_ingot") == 1 and m.storage.count("iron") == 12   # parou: sem magmatita
     assert m.smelter_blocker == "no_fuel"
 
 
@@ -121,7 +121,7 @@ def test_logistic_items_include_ingots():
 def test_drones_rules():
     m = Machine("smelter", 5, 5)
     assert drones.can_receive(m, "iron") and drones.can_receive(m, "copper") and drones.can_receive(m, "magmatite")
-    assert drones.can_receive(m, "silicon") and not drones.can_receive(m, "iron_ingot")   # v0.6 Fundo M4: silício entra
+    assert not drones.can_receive(m, "silicon") and not drones.can_receive(m, "iron_ingot")   # v0.6 Fundo M5: silício saiu
     assert drones.can_send(m, "iron_ingot") and drones.can_send(m, "copper_ingot")
     assert not drones.can_send(m, "iron") and not drones.can_send(m, "magmatite")
     assert drones.receive_slot(m, "iron") == drones.receive_slot(m, "copper") == C.SMELTER_ORE_SLOT
@@ -194,7 +194,7 @@ def test_light_only_while_smelting(game):
     base = len(cave_lights(game))
     m = add_smelter(game)                                 # vazia: sem minério, apagada
     assert len(cave_lights(game)) == base
-    m.storage.slots[C.SMELTER_ORE_SLOT] = Stack("iron", 2)
+    m.storage.slots[C.SMELTER_ORE_SLOT] = Stack("iron", 3)
     m.storage.slots[C.SMELTER_FUEL_SLOT] = Stack("magmatite", 1)
     assert len(cave_lights(game)) == base + 1             # fundindo: acende (laranja, como o aquecedor)
     m.storage.slots[C.SMELTER_FUEL_SLOT] = None
@@ -211,7 +211,7 @@ def test_smelter_sound_volumes_by_distance():
 
 
 def test_each_ingot_emits_smelter_done_event(game):
-    m = add_smelter(game, ore=("iron", 5), fuel_items=1)
+    m = add_smelter(game, ore=("iron", 6), fuel_items=1)
     game.events.clear()
     run(game, C.SMELTER_TIME * 2 + 0.5)
     assert [e for e in game.events if e[0] == "smelter_done"] == [("smelter_done", m)] * 2
@@ -224,24 +224,33 @@ def test_chip_on_smelter_marks_nothing(game):
     assert m.sends == set() and m.receives == set()
 
 
-# ---------------------------------------------------------------- v0.6 Fundo M4: silício vira wafer
-def test_silicon_makes_wafer(game):
-    m = add_smelter(game, ore=("silicon", 2), fuel_items=1)
-    run(game, C.SMELTER_TIME * 2 + 1)
-    assert m.storage.slots[C.SMELTER_OUT_SLOT] == Stack("silicon_wafer", 2)
-    assert m.storage.slots[C.SMELTER_ORE_SLOT] is None
+# ---------------------------------------------------------------- v0.6 Fundo M5: 3:1, sem wafer
+def test_three_ore_make_one_ingot(game):
+    m = add_smelter(game, ore=("iron", 6), fuel_items=1)
+    run(game, C.SMELTER_TIME + 0.1)
+    assert m.storage.slots[C.SMELTER_OUT_SLOT] == Stack("iron_ingot", 1)
+    assert m.storage.slots[C.SMELTER_ORE_SLOT] == Stack("iron", 3)
 
 
-def test_wafer_is_logistic_and_drones_route_silicon(game):
+def test_less_than_three_ore_does_not_smelt(game):
+    m = add_smelter(game, ore=("copper", 2), fuel_items=1)
+    assert m.smelter_blocker == "no_ore"
+    run(game, C.SMELTER_TIME * 2)
+    assert m.storage.slots[C.SMELTER_OUT_SLOT] is None
+    assert m.storage.count("magmatite") == 1                 # parada não acende combustível
+
+
+def test_silicon_no_longer_smelts(game):
+    assert "silicon" not in C.SMELTER_RECIPES
+    assert "silicon_wafer" not in C.LOGISTIC_ITEMS
     m = add_smelter(game)
-    assert "silicon_wafer" in C.LOGISTIC_ITEMS
-    assert drones.can_send(m, "silicon_wafer") and drones.can_receive(m, "silicon")
-    assert drones.receive_slot(m, "silicon") == C.SMELTER_ORE_SLOT
+    assert not drones.can_receive(m, "silicon") and not drones.can_send(m, "silicon_wafer")
 
 
-def test_save_keeps_silicon_and_wafer():
+def test_old_save_keeps_silicon_and_wafer_in_smelter():
     data = {"kind": "smelter", "tx": 1, "ty": 1, "rotation": 0, "timer": 0, "fuel": 0,
             "storage": [["silicon", 3], None, ["silicon_wafer", 2]]}
     m = save.machine_from_dict(data)
     assert m.storage.slots[C.SMELTER_ORE_SLOT] == Stack("silicon", 3)
     assert m.storage.slots[C.SMELTER_OUT_SLOT] == Stack("silicon_wafer", 2)
+    assert m.smelter_blocker == "no_ore"

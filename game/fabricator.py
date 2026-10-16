@@ -136,19 +136,25 @@ class FabMenu:
         self.first[self.tab] = max(0, min(self.max_first, f))
 
 
+def filled_tabs(tabs, kinds_of) -> tuple:
+    """Só as abas com alguma receita (v0.6 Fundo M5: o drone e o equipamento foram pra Bancada T2 e esvaziaram abas)."""
+    return tuple(t for t in tabs if kinds_of(t[0]))
+
+
 def craft_menu() -> FabMenu:
     """Menu do fabricador da cápsula: só itens (e, embaixo, os diagramas)."""
-    return FabMenu(visible=C.CRAFT_VISIBLE_ROWS, tabs=C.CRAFT_TABS, kinds_of=craft_kinds)
+    return FabMenu(visible=C.CRAFT_VISIBLE_ROWS, tabs=filled_tabs(C.CRAFT_TABS, craft_kinds), kinds_of=craft_kinds)
 
 
 def t2_kinds(tab_id: str) -> list[str]:
-    """Receitas da Bancada T2 (C.T2_RECIPES); vazia, o painel mostra o estado vazio."""
-    return list(C.T2_RECIPES)
+    """Receitas da Bancada T2 numa aba (v0.6 Fundo M5): "t2" = as exclusivas dela (C.T2_RECIPES); as outras abas
+    são as mesmas do fabricador T1."""
+    return list(C.T2_RECIPES) if tab_id == "t2" else craft_kinds(tab_id)
 
 
 def t2_menu() -> FabMenu:
     """Menu da Bancada T2: mesmas regras do fabricador, receitas dela (v0.5 M1 B2)."""
-    return FabMenu(visible=C.CRAFT_VISIBLE_ROWS, tabs=C.T2_TABS, kinds_of=t2_kinds)
+    return FabMenu(visible=C.CRAFT_VISIBLE_ROWS, tabs=filled_tabs(C.T2_TABS, t2_kinds), kinds_of=t2_kinds)
 
 
 def build_menu() -> FabMenu:

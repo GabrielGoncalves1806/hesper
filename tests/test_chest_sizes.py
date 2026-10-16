@@ -40,7 +40,7 @@ def test_small_builds_from_the_start_normal_at_ti_50k_and_large_needs_the_diagra
     s = make_state()
     for kind in ("chest_small", "chest"):
         assert s.build_status(kind) == "no_constructor"
-    give(s, constructor=1, iron=30, silicon=5)
+    give(s, constructor=1, iron=30, silicon=5, iron_ingot=10)      # M5: o baú e o baú grande pedem lingote
     assert s.build_status("chest_small") == "ok" and s.build_status("chest") == "locked"
     s.indices["o2"] = C.CHEST_UNLOCK_TI - 1
     assert s.build_status("chest") == "locked"
@@ -56,7 +56,7 @@ def test_small_builds_from_the_start_normal_at_ti_50k_and_large_needs_the_diagra
 
 
 def test_chest_diagram_is_locked_by_ti_then_read_unlocks_the_large_chest():
-    cost = {"iron": 10, "silicon": 4, "iron_ingot": 2}
+    cost = {"iron_ingot": 4, "circuit": 1}                # v0.6 Fundo M5
     assert C.MACHINES["diagram_chest_large"].cost == cost and not C.MACHINES["diagram_chest_large"].placeable
     assert C.DIAGRAM_BENCH["chest_large"] == "t1"
     s = make_state(ti=89_999)
@@ -78,12 +78,13 @@ def test_dismantle_returns_the_cost_and_only_when_empty(kind):
     s.blueprints.add("chest_large")
     c = build_now(s, kind, spot(s))
     assert c is not None
-    spent = s.inventory.count("iron")
+    res, n = next(iter(C.CHEST_COST[kind].items()))      # M5: o baú e o baú grande custam lingote
+    spent = s.inventory.count(res)
     c.storage.slots[0] = Stack("iron", 5)
     assert not s.dismantle(c) and c in s.machines
     c.storage.slots[0] = None
     assert s.dismantle(c) and c not in s.machines
-    assert s.inventory.count("iron") == spent + C.CHEST_COST[kind]["iron"]
+    assert s.inventory.count(res) == spent + n
 
 
 @pytest.mark.parametrize("kind", SIZES)

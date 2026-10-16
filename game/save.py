@@ -295,8 +295,9 @@ def melter_storage(data: list) -> Inventory:
 def smelter_storage(data: list) -> Inventory:
     """Inventário da Fundição do save: [0] minério da receita, [1] magmatita, [2] lingote (outra coisa vira vazio)."""
     inv = Inventory(C.SMELTER_SLOTS)
-    allowed = {C.SMELTER_ORE_SLOT: set(C.SMELTER_RECIPES), C.SMELTER_FUEL_SLOT: {C.SMELTER_FUEL},
-               C.SMELTER_OUT_SLOT: set(C.SMELTER_RECIPES.values())}
+    allowed = {C.SMELTER_ORE_SLOT: set(C.SMELTER_RECIPES) | C.SMELTER_LEGACY[C.SMELTER_ORE_SLOT],
+               C.SMELTER_FUEL_SLOT: {C.SMELTER_FUEL},
+               C.SMELTER_OUT_SLOT: set(C.SMELTER_RECIPES.values()) | C.SMELTER_LEGACY[C.SMELTER_OUT_SLOT]}   # M5: legado do M4 fica parado
     for slot, items in allowed.items():
         d = data[slot] if slot < len(data) else None
         if d and d[0] in items and int(d[1]) > 0:

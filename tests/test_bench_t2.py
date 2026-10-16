@@ -99,15 +99,15 @@ def test_diagram_reads_at_t1_and_t2_because_it_is_a_machine_diagram():
     assert s.inventory.count("diagram_workbench") == 1
 
 
-def test_t2_reads_only_t2_diagrams_and_machine_ones(monkeypatch):
+def test_t2_reads_every_diagram_and_t1_only_its_own():
+    """v0.6 Fundo M5: a Bancada T2 lê todos; os do tanque e do scanner (receita na T2) só se leem nela."""
     s = make_state()
     give(s, diagram_o2_tank=1, diagram_scanner=1, diagram_lamp_t2=1)
-    assert s.read_diagram("diagram_scanner", "t2") == "wrong_bench"   # diagrama de item do T1
-    assert s.read_diagram("diagram_o2_tank", "t2") == "wrong_bench"
-    assert s.read_diagram("diagram_lamp_t2", "t2") == "ok"            # luminária forte é máquina: lê em qualquer uma
-    monkeypatch.setitem(C.DIAGRAM_BENCH, "scanner", "t2")             # um diagrama de item da T2
+    assert s.read_diagram("diagram_scanner", "t1") == "wrong_bench"   # receita da Bancada T2
+    assert s.read_diagram("diagram_o2_tank", "t1") == "wrong_bench"
+    assert s.read_diagram("diagram_lamp_t2", "t1") == "ok"            # luminária forte é máquina: lê em qualquer uma
     assert s.read_diagram("diagram_scanner", "t2") == "ok"
-    assert s.read_diagram("diagram_o2_tank", "t1") == "ok"
+    assert s.read_diagram("diagram_o2_tank", "t2") == "ok"
 
 
 # ---- construir e desmontar ----------------------------------------------------------------------
@@ -348,11 +348,10 @@ def test_empty_t2_panel_is_clean(ui, size, monkeypatch):
     ui.begin()
     ui.draw_fabricator(s, t2_menu(), lambda kind: art.icon("iron"), 0.0, bench="t2")
     panel = ui.fabricator_panel
-    assert ui.fabricator_rows == [] and ui.fabricator_buttons == [] and ui.fabricator_batch == []
-    assert [d for _, d in ui.diagram_buttons] == ["workbench"]          # só a de máquina; a do scanner é do T1
+    assert t2_menu().tab_id == "tools"                                  # M5: a aba "Bancada" vazia some, sobram as do T1
+    assert [d for _, d in ui.diagram_buttons] == ["scanner", "workbench"]          # M5: a T2 lê a do scanner também
     for row, _ in ui.diagram_rows:
         assert panel.contains(row)
-    assert t2_menu().current is None
 
 
 @pytest.mark.parametrize("size", SIZES)
@@ -422,10 +421,10 @@ def test_bench_roundtrips_in_the_save_without_a_new_field():
 def test_backpack_is_a_t2_recipe_and_not_t1():
     s = unlocked_state()
     m = build_now(s, "workbench", spot(s, 1))
-    give(s, iron=12, silicon=6)
+    give(s, iron_ingot=5)
     assert not s.craft("backpack")                                    # o T1 não fabrica a mochila
     assert s.craft("backpack", "t2", m) and s.inventory.count("backpack") == 1
-    assert "backpack" not in craft_kinds("suit") and t2_kinds("t2") == ["backpack", "chip", "hand_drill_t2"]
+    assert "backpack" not in craft_kinds("suit") and t2_kinds("t2") == list(C.T2_RECIPES)
 
 
 @pytest.mark.parametrize("bench", ["t1", "t2"])

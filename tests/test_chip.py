@@ -208,9 +208,9 @@ def test_ui_chip_slot_and_hint(ui):
 # ---- v0.6 M2 Task 2: receita do chip e save v11 ----------------------------------------------------
 def test_chip_is_a_t2_recipe(game):
     from game import fabricator
-    assert C.MACHINES["chip"].cost == {"silicon_wafer": 2, "iron": 1}
+    assert C.MACHINES["chip"].cost == {"silicon_wafer": 5, "wire": 5, "circuit": 1}      # v0.6 Fundo M5
     assert "chip" in fabricator.t2_kinds("t2") and "chip" not in fabricator.craft_kinds("t2")
-    give(game, silicon_wafer=2, iron=1)
+    give(game, silicon_wafer=5, wire=5, circuit=1)
     assert game.craft("chip", bench="t2") and game.inventory.count("chip") == 1
     assert game.inventory.count("silicon_wafer") == 0
 

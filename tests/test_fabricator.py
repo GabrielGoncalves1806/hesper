@@ -4,7 +4,7 @@ scroll. v0.5 M1: o fabricador (`craft_menu`) só tem itens; as máquinas estão 
 import random
 
 from game import config as C
-from game.fabricator import FabMenu, build_kinds, build_menu, craft_kinds, craft_menu, tab_kinds
+from game.fabricator import FabMenu, build_kinds, build_menu, craft_kinds, craft_menu, t2_kinds, tab_kinds
 from game.inventory import Stack
 from game.systems import GameState
 
@@ -25,9 +25,9 @@ def test_every_recipe_has_a_tab():
 
 def test_craft_tabs_have_only_items_and_build_tabs_only_machines():
     assert craft_kinds("tools") == ["constructor", "diagram_workbench", "diagram_chest_large"]
-    assert craft_kinds("automation") == ["drone"]
-    assert craft_kinds("materials") == ["wire", "circuit"]
-    assert craft_kinds("suit") == ["o2_tank", "scanner"]
+    assert craft_kinds("automation") == []                   # v0.6 Fundo M5: o drone, o circuito, o tanque e o scanner
+    assert craft_kinds("materials") == ["wire"]              # são da Bancada T2 (o T1 não mostra)
+    assert craft_kinds("suit") == []
     assert build_kinds("automation") == ["drill", "drone_station", "smelter", "workbench"]
     for tab, _ in C.CRAFT_TABS:
         assert all(not C.MACHINES[k].placeable for k in craft_kinds(tab))
@@ -55,12 +55,11 @@ def test_switch_tab_wraps_and_remembers_selection():
 def test_craft_menu_starts_on_the_constructor():
     m = craft_menu()
     assert m.tab_id == "tools" and m.current == "constructor"
-    m.switch_tab(1)
-    assert m.current == "drone"
+    assert [t for t, _ in m.tabs] == ["tools", "materials"]    # v0.6 Fundo M5: Automação e Traje esvaziaram (Bancada T2) e somem
     m.switch_tab(1)
     assert m.tab_id == "materials" and m.current == "wire"
     m.switch_tab(1)
-    assert m.tab_id == "suit" and m.current == "o2_tank"
+    assert m.tab_id == "tools"
 
 
 def test_move_wraps_and_scroll_follows_selection():
@@ -126,15 +125,16 @@ def test_crafting_wire_needs_room_for_all_three():
 
 def test_circuit_recipe_in_materials():
     m = C.MACHINES["circuit"]
-    assert m.cost == {"silicon_wafer": 1, "wire": 2} and m.unlock_ti == 0
+    assert m.cost == {"wire": 3, "silicon": 5} and m.unlock_ti == 0     # v0.6 Fundo M5: 3 fios + 5 silício, na Bancada T2
     assert C.MACHINE_CATEGORY["circuit"] == "materials"
-    assert "circuit" in craft_kinds("materials")
+    assert "circuit" not in craft_kinds("materials") and "circuit" in t2_kinds("t2")
 
 
-def test_crafting_circuit_from_wafer_and_wire():
-    g = GameState(rng=random.Random(1))                                  # nasce na base (o craft exige in_base_zone)
-    g.inventory.add("silicon_wafer", 1)
-    g.inventory.add("wire", 2)
-    assert g.craft("circuit")
+def test_crafting_circuit_from_silicon_and_wire_on_the_bench():
+    g = GameState(rng=random.Random(1))
+    g.inventory.add("silicon", 5)
+    g.inventory.add("wire", 3)
+    assert not g.craft("circuit")                                        # o T1 não fabrica o circuito
+    assert g.craft("circuit", bench="t2")
     assert g.inventory.count("circuit") == 1
-    assert g.inventory.count("silicon_wafer") == 0 and g.inventory.count("wire") == 0
+    assert g.inventory.count("silicon") == 0 and g.inventory.count("wire") == 0

@@ -92,8 +92,6 @@ OBJECTIVES = [
     Objective("Construa uma luminária", lambda s: s.lamps_placed >= 1),
     # v0.3 Marco 3: os destroços do deserto (o mais perto, a ~30 tiles, tem o diagrama do tanque de O₂)
     Objective("Ache um destroço", lambda s: len(s.wrecks_visited) >= 1),
-    Objective("Ache e leia o diagrama do tanque de O₂", lambda s: "o2_tank" in s.blueprints),
-    Objective("Fabrique e equipe o tanque de O₂", lambda s: "o2_tank" in s.equipped_ever),
     # energia (bíblia §8): o aquecedor é o ponto em que os 5 kW da cápsula começam a apertar
     Objective("Construa um painel solar", lambda s: crafted(s, "solar") >= 1),
     # v0.3: os terminais ficam na caverna (a 19, 31 e 45 tiles da rampa)
@@ -101,6 +99,10 @@ OBJECTIVES = [
     # v0.4 Marco 1: o jogo começa na tempestade de poeira; o Árido é o céu limpando
     Objective("Limpe o céu (Árido)", lambda s: s.stage >= C.ARID_STAGE),
     Objective("Chegue ao estágio Névoa", lambda s: s.stage >= C.MIST_STAGE),
+    # v0.6 Fundo M5: a drill pede circuito (cobre do salar → Fundição → fios → Bancada T2). Os três guiam a cadeia.
+    Objective("Construa a Bancada T2", lambda s: crafted(s, "workbench") >= 1),
+    Objective("Construa uma Fundição", lambda s: crafted(s, C.SMELTER) >= 1),
+    Objective("Fabrique um circuito na Bancada T2", lambda s: crafted(s, "circuit") >= 1),
     Objective("Construa uma drill num veio", lambda s: s.drills_placed >= 1),
     Objective("Colete minério de uma drill", lambda s: sum(s.drill_collected.values()) >= 1),
     # drones (bíblia §8, Marco 3): a estação busca o minério das drills sozinha
@@ -109,6 +111,9 @@ OBJECTIVES = [
     Objective("Fabrique um drone", lambda s: crafted(s, "drone") >= 1 or s.drones_docked >= 1),
     Objective("Coloque o drone na estação [E]", lambda s: s.drones_docked >= 1),
     Objective("Receba uma entrega de drone", lambda s: s.drone_deliveries >= 1),
+    # v0.6 Fundo M5: o tanque pede circuito e o diagrama dele só se lê na Bancada T2, então os dois descem pra cá
+    Objective("Ache e leia o diagrama do tanque de O₂", lambda s: "o2_tank" in s.blueprints),
+    Objective("Fabrique e equipe o tanque de O₂", lambda s: "o2_tank" in s.equipped_ever),
     Objective("Construa uma máquina nv.2", lambda s: any(crafted(s, k) >= 1 for k in ("o2_t2", "melter_t2", "heater_t2"))),
     Objective("Deixe o planeta verde", lambda s: s.stage >= C.GREEN_STAGE),
 ]

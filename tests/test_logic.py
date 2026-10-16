@@ -158,7 +158,7 @@ def test_craft_consumes_resources(game):
     give(game, iron=12, silicon=5)
     assert game.recipe_status("constructor") == "ok"
     assert game.craft("constructor")
-    assert game.inventory.counts() == {"iron": 7, "silicon": 5, "constructor": 1, "hand_drill": 1}
+    assert game.inventory.counts() == {"iron": 7, "constructor": 1, "hand_drill": 1}   # M5: o construtor pede 5 silício também
 
 
 def test_craft_fails_without_resources(game):
@@ -185,7 +185,7 @@ def test_build_fails_without_resources(game):
 
 
 def test_recipes_locked_by_ti(game):
-    give(game, constructor=1, iron=100, silicon=100, ice=100, magmatite=20)
+    give(game, constructor=1, iron=100, silicon=100, ice=100, magmatite=20, iron_ingot=20, circuit=5)   # M5: nv.2 pede lingote e circuito
     assert game.recipe_status("heater") == "locked"
     px, py = game.player.tile
     assert not game.build("heater", (px + 2, py))

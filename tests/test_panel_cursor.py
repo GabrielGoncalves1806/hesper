@@ -189,7 +189,7 @@ def test_smelter_slots_ore_fuel_and_output_only_takes(app):
     click(app, s.inventory, 11)                               # devolve o cobre
     click(app, s.inventory, 12)
     click(app, m.storage, C.SMELTER_ORE_SLOT)                 # gelo (v0.6 Fundo M4: o silício agora entra): recusa
-    assert app.held == Stack("ice", 2) and app.notice == "A Fundição só aceita ferro, cobre, silício e magmatita"
+    assert app.held == Stack("ice", 2) and app.notice == "A Fundição só aceita ferro, cobre e magmatita"
     click(app, s.inventory, 12)
     click(app, m.storage, C.SMELTER_OUT_SLOT)                 # a saída só tira
     assert app.held == Stack("iron_ingot", 2)
@@ -203,7 +203,7 @@ def test_smelter_status_and_take_all(app):
     m.storage.slots[C.SMELTER_ORE_SLOT] = Stack("iron", 3)
     assert app.smelter_status() == "SEM MAGMATITA"
     m.storage.slots[C.SMELTER_FUEL_SLOT] = Stack("magmatite", 1)
-    assert app.smelter_status() == f"1 A CADA {C.SMELTER_TIME:g} S"
+    assert app.smelter_status() == f"3:1 A CADA {C.SMELTER_TIME:g} S"
     m.storage.slots[C.SMELTER_OUT_SLOT] = Stack("copper_ingot", 1)
     assert app.smelter_status() == "SAÍDA OCUPADA"
     m.storage.slots[C.SMELTER_OUT_SLOT] = Stack("iron_ingot", 20)

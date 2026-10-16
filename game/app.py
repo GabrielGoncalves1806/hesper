@@ -1005,7 +1005,7 @@ class App:
                 return None if have is None or have.item == item else "Tire o minério que está na Fundição antes"
             if index == C.SMELTER_FUEL_SLOT and item == C.SMELTER_FUEL:
                 return None
-            return "A Fundição só aceita ferro, cobre, silício e magmatita"
+            return "A Fundição só aceita ferro, cobre e magmatita"
         if self.open_dispenser is not None and inv is self.open_dispenser.storage:
             return None if item == "water_capsule" else "O Dispersor só aceita cápsula de água"
         return None
@@ -1123,7 +1123,7 @@ class App:
             if inv is smelter.storage:
                 moved = state.melter_take(smelter, i, amount)
             elif item not in C.SMELTER_RECIPES and item != C.SMELTER_FUEL:
-                self.show_notice("A Fundição só aceita ferro, cobre, silício e magmatita")
+                self.show_notice("A Fundição só aceita ferro, cobre e magmatita")
                 return
             else:
                 moved = state.smelter_put(smelter, i, amount)
@@ -1313,12 +1313,12 @@ class App:
         return text
 
     def smelter_status(self) -> str:
-        """Linha de estado no painel da Fundição: "1 A CADA 15 S", "SEM MINÉRIO", "SEM MAGMATITA", "SAÍDA OCUPADA"..."""
+        """Linha de estado no painel da Fundição: "3:1 A CADA 15 S", "SEM MINÉRIO", "SEM MAGMATITA", "SAÍDA OCUPADA"..."""
         label = {"no_ore": "SEM MINÉRIO", "no_fuel": "SEM MAGMATITA", "out_busy": "SAÍDA OCUPADA",
                  "out_full": "SAÍDA CHEIA"}.get(self.open_smelter.smelter_blocker)
         if label is not None:
             return label
-        text = f"1 A CADA {C.SMELTER_TIME:g} S"
+        text = f"{C.SMELTER_ORE_PER_INGOT}:1 A CADA {C.SMELTER_TIME:g} S"
         if self.state.power.deficit:
             text += f" · RITMO {self.power_percent()}%"
         return text

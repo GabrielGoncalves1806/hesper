@@ -17,28 +17,33 @@ def game() -> GameState:
 
 
 # ---------------------------------------------------------------- fabricar em lote (v0.5 M1: só itens; o construtor)
+# v0.6 Fundo M5: o construtor virou item de uma vez só (não repete), então o lote usa os fios (1 lingote de cobre → 3).
 def test_craft_many_makes_up_to_five(game):
-    give(game, iron=100)
-    assert game.craft_many("constructor") == C.CRAFT_BATCH == 5
-    assert game.inventory.count("constructor") == 5
-    assert game.inventory.count("iron") == 100 - 5 * C.MACHINES["constructor"].cost["iron"]
+    give(game, copper_ingot=40)
+    assert game.craft_many("wire") == C.CRAFT_BATCH == 5
+    assert game.inventory.count("wire") == 5 * C.CRAFT_YIELD["wire"]
+    assert game.inventory.count("copper_ingot") == 40 - 5 * C.MACHINES["wire"].cost["copper_ingot"]
 
 
 def test_craft_many_stops_when_resources_run_out(game):
-    cost = C.MACHINES["constructor"].cost
-    give(game, **{r: n * 3 + 1 for r, n in cost.items()})   # dá pra 3 e sobra 1 de cada
-    assert game.craft_many("constructor") == 3
-    assert game.inventory.count("constructor") == 3
-    assert all(game.inventory.count(r) == 1 for r in cost)
+    give(game, copper_ingot=3)                              # dá pra 3 (o lote é 5)
+    assert game.craft_many("wire") == 3
+    assert game.inventory.count("wire") == 9 and game.inventory.count("copper_ingot") == 0
 
 
 def test_craft_many_emits_a_single_craft_event(game):
-    give(game, iron=100)
+    give(game, copper_ingot=40)
     game.pop_events()
-    game.craft_many("constructor")
+    game.craft_many("wire")
     crafts = [e for e in game.pop_events() if e[0] == "craft"]
-    assert crafts == [("craft", "constructor", 5)]                     # um som só, com a quantidade
-    assert game.crafted["constructor"] == 5
+    assert crafts == [("craft", "wire", 5)]                            # um som só, com a quantidade
+    assert game.crafted["wire"] == 5
+
+
+def test_craft_many_does_not_repeat_a_once_item(game):
+    give(game, iron=100, silicon=100)
+    assert game.craft_many("constructor") == 1                         # feito: o segundo não sai
+    assert game.recipe_status("constructor") == "made"
 
 
 def test_craft_many_without_resources(game):

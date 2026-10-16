@@ -92,8 +92,9 @@ def test_desmaio_usa_a_regra_real_e_o_jogo_continua(proposal):
 def test_estrategia_caverna_minera_la_embaixo():
     """Marco 2: a estratégia "caverna" minera na caverna (drills nos veios de lá, sem drones, sem rochas da superfície) e
     fecha a partida na referência do v0.3 (25–40 min) com os números atuais."""
-    sim_ = sim.Sim(sim.STRATEGIES["caverna"], seed=1)
-    r = sim_.run()
+    with sim.patched_config(sim.with_legacy(None)):          # v0.6 Fundo M5: o simulador roda com as receitas do M4
+        sim_ = sim.Sim(sim.STRATEGIES["caverna"], seed=1)
+        r = sim_.run()
     # v0.4 M3: sem tubo de lava/sal o mapa da seed 1 muda um pouco (~40,7 min); teto provisório até o balanceamento do Marco 4
     assert r.finished and 25 * 60 <= r.total <= 40 * 60      # v0.4 M4: seed 1 em ~36 min, teto de volta à referência (era 42)
     cave = sim_.gs.layers["cave"]

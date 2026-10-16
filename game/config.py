@@ -215,9 +215,9 @@ MACHINES = {
         MachineType("melter", "Derretedor de gelo", "+ água", {"iron": 6, "ice": 10}, "water", 2, 0, "machine_melter"),
         MachineType("heater", "Aquecedor", "+ calor", {"iron": 12, "silicon": 8, "magmatite": 3}, "heat", 4, 500,
                     "machine_heater"),
-        MachineType("o2_t2", "Gerador de O₂ nv.2", "+ oxigênio", {"iron": 30, "silicon": 20, "ice": 10}, "o2", 25, 10_000, "machine_o2_t2"),
-        MachineType("melter_t2", "Derretedor nv.2", "+ água", {"iron": 25, "ice": 30}, "water", 20, 10_000, "machine_melter_t2"),
-        MachineType("heater_t2", "Aquecedor nv.2", "+ calor", {"iron": 35, "silicon": 25, "magmatite": 10}, "heat", 30,
+        MachineType("o2_t2", "Gerador de O₂ nv.2", "+ oxigênio", {"iron_ingot": 8, "circuit": 2, "ice": 10}, "o2", 25, 10_000, "machine_o2_t2"),
+        MachineType("melter_t2", "Derretedor nv.2", "+ água", {"iron_ingot": 6, "wire": 4, "ice": 20}, "water", 20, 10_000, "machine_melter_t2"),
+        MachineType("heater_t2", "Aquecedor nv.2", "+ calor", {"iron_ingot": 8, "copper_ingot": 3, "magmatite": 10}, "heat", 30,
                     10_000, "machine_heater_t2"),
     ]
 }
@@ -228,7 +228,7 @@ MACHINES = {
 # Veio = depósito de minério 2×2 no CHÃO (não dá pra minerar na mão). A drill é colocada em
 # cima dele e extrai pra sempre, devagar, até encher (inventário de 1 slot); E abre o painel, Shift+E coleta.
 # Custo e ritmo são chute inicial: quem calibra é o tools/dev/balance_sim.py.
-DRILL_COST = {"iron": 12, "silicon": 6}   # balance_sim: com 20/10 + 20 s a drill não se pagava (aprovado pelo dono)
+DRILL_COST = {"iron_ingot": 5, "circuit": 1}   # v0.6 Fundo M5 (era 12 ferro + 6 silício; balance_sim: com 20/10 + 20 s a drill não se pagava)
 DRILL_UNLOCK_TI = 10_000        # libera no estágio Névoa
 DRILL_INTERVAL = 12.0           # segundos por unidade extraída (era 20; ver reports/dev/balance.md)
 DRILL_CAPACITY = 20             # cheia, para
@@ -288,7 +288,7 @@ MELTER_REACH = 56               # px entre os pés do player e a base do derrete
 # ---------------------------------------------------------------------------
 # v0.6 Fundo M3 · Fundição (bíblia §15, spec 2026-10-15-v06-fundo-design.md). Números de partida.
 # Molde do derretedor: 3 slots, [0] minério (ferro/cobre), [1] combustível (só magmatita), [2] lingote. Uma magmatita
-# acende uma carga de SMELTER_BURNS_PER_FUEL fundições (`Machine.fuel`), gasta no começo de um lingote. 1 minério = 1
+# acende uma carga de SMELTER_BURNS_PER_FUEL fundições (`Machine.fuel`), gasta no começo de um lingote. M5: 3 minérios = 1
 # lingote a cada SMELTER_TIME s (× fator da energia). Saída com o outro lingote ou cheia: para, sem gastar nada.
 # ---------------------------------------------------------------------------
 SMELTER = "smelter"
@@ -297,8 +297,9 @@ SMELTER_SLOTS = 3
 SMELTER_TIME = 15.0
 SMELTER_BURNS_PER_FUEL = 4
 SMELTER_FUEL = "magmatite"
-SMELTER_RECIPES = {"iron": "iron_ingot", "copper": "copper_ingot",
-                   "silicon": "silicon_wafer"}   # v0.6 Fundo M4: o silício vira wafer (mesmo tempo e magmatita)
+SMELTER_ORE_PER_INGOT = 3                      # v0.6 Fundo M5: 3 minérios → 1 lingote (o tempo e a magmatita são por lingote)
+SMELTER_RECIPES = {"iron": "iron_ingot", "copper": "copper_ingot"}   # M5: o silício saiu (o wafer é da Bancada T2)
+SMELTER_LEGACY = {SMELTER_ORE_SLOT: {"silicon"}, SMELTER_OUT_SLOT: {"silicon_wafer"}}   # save do M4: não some no load
 SMELTER_REACH = MELTER_REACH
 VOLUME.update({"smelter_loop": 0.45, "smelter_done": 0.6})   # Som, aprovados pelo dono (2026-10-16)
 MACHINES[SMELTER] = MachineType(SMELTER, "Fundição", "minério → lingote", {"iron": 15, "silicon": 6, "magmatite": 4},
@@ -563,8 +564,8 @@ CHEST_SPRITES = {"chest_small": ("loot_crate", "loot_crate_empty"), "chest": ("c
                  "chest_large": ("container_sealed", "container_open")}          # (fechado, aberto)
 CHEST_SPRITE_SIZES = {"chest_small": (32, 32), "chest": CHEST_SPRITE_SIZE, "chest_large": (40, 44)}
 CHEST_ICONS = {"chest_small": "icon_chest_small", "chest": "icon_chest", "chest_large": "icon_chest_large"}
-CHEST_COST = {"chest_small": {"iron": 3}, "chest": {"iron": 6}, "chest_large": {"iron": 10, "silicon": 2}}
-CHEST_DIAGRAM_COST = {"iron": 10, "silicon": 4, "iron_ingot": 2}   # o item diagram_chest_large, no fabricador T1
+CHEST_COST = {"chest_small": {"iron": 3}, "chest": {"iron_ingot": 3}, "chest_large": {"iron_ingot": 6}}   # v0.6 Fundo M5: baú e baú grande em lingote
+CHEST_DIAGRAM_COST = {"iron_ingot": 4, "circuit": 1}   # v0.6 Fundo M5   # o item diagram_chest_large, no fabricador T1
 CHEST_UNLOCK_TI = 50_000         # Baú normal (decisão do dono, 2026-10-15)
 CHEST_DIAGRAM_UNLOCK_TI = 90_000
 CHEST_ROW = 8                   # slots por linha no painel de qualquer baú
@@ -587,10 +588,10 @@ VOLUME.update({"inv_move": 0.5, "chest_open": 0.7, "chest_close": 0.7, "inv_full
 # A estação (2×2, em chão livre fora de veio) é a casa dos drones: eles voam em linha reta, por cima das
 # paredes, de um inventário que Envia um item pra outro que Recebe esse item (baús e drills, mapa inteiro).
 # ---------------------------------------------------------------------------
-DRONE_STATION_COST = {"iron": 12, "silicon": 8, "ice": 3}   # vem VAZIA: os drones são fabricados à parte
+DRONE_STATION_COST = {"iron_ingot": 10, "circuit": 1, "chip": 1, "wire": 2}   # v0.6 Fundo M5   # vem VAZIA: os drones são fabricados à parte
 DRONE_STATION_UNLOCK_TI = 10_000   # libera na Névoa, junto com a drill
 STATION_DRONE_SLOTS = 4         # slots de drone da estação (1 drone por slot = 1 drone ativo)
-DRONE_COST = {"iron": 6, "silicon": 4}   # o item drone (fabricador), libera junto com a estação
+DRONE_COST = {"circuit": 2, "wire": 5, "iron_ingot": 2}   # v0.6 Fundo M5 (Bancada T2)   # o item drone (fabricador), libera junto com a estação
 CRAFT_BATCH = 5                 # Shift+Enter / Shift+clique no fabricador: fabrica até 5 de uma vez
 # Sem alcance: os drones atendem a camada inteira (logística estilo Planet Crafter, bíblia §8).
 DRONE_SPEED = 6.0               # tiles por segundo (× fator da energia). Era 4: com o mapa todo, ~13 s numa viagem de 80 tiles
@@ -598,7 +599,7 @@ DRONE_PICKUP_TIME = 0.8         # segundos parado em cima da origem "pegando"
 DRONE_DROP_TIME = 0.6           # segundos parado em cima do destino "soltando"
 DRONE_IDLE_RETRY = 0.5          # drone pousado sem tarefa procura de novo a cada 0,5 s
 # Logística (baú e drill): o que os drones tiram (Envia) e trazem (Recebe), e o lote por viagem.
-LOGISTIC_ITEMS = RESOURCES + ("water_capsule", "iron_ingot", "copper_ingot", "silicon_wafer")   # itens com toggle no painel (v0.5 M2: a cápsula de água; v0.6 M3: os lingotes da Fundição; M4: o wafer)
+LOGISTIC_ITEMS = RESOURCES + ("water_capsule", "iron_ingot", "copper_ingot")   # itens com toggle no painel (v0.5 M2: a cápsula de água; v0.6 M3: os lingotes da Fundição; M5: o wafer saiu)
 DRONE_BATCH_OPTIONS = (1, 5, 10, 20)
 DRONE_BATCH_DEFAULT = 10
 STATION_BUFFER = 50             # legado (save ≤ v4): o buffer não recebe mais nada, só dá pra tirar as sobras
@@ -693,13 +694,13 @@ MACHINES["lamp_t2"] = MachineType("lamp_t2", "Luminária forte", "luz maior", {"
                                   None, 0, 0, "lamp_t2")
 MACHINE_ORDER.append("lamp_t2")
 # Equipamento (game/equipment.py): itens que vão num slot do traje (tela do Tab), não na hotbar nem no chão.
-MACHINES["o2_tank"] = MachineType("o2_tank", "Tanque de O₂", "O₂ dura 220 s", {"iron": 10, "silicon": 6, "ice": 4},
+MACHINES["o2_tank"] = MachineType("o2_tank", "Tanque de O₂", "O₂ dura 220 s", {"iron_ingot": 5, "circuit": 1},   # v0.6 Fundo M5
                                   None, 0, 0, "icon_o2_tank", placeable=False)
-MACHINES["scanner"] = MachineType("scanner", "Scanner de navegação", "mapa [M]", {"iron": 4, "silicon": 4},
+MACHINES["scanner"] = MachineType("scanner", "Scanner de navegação", "mapa [M]", {"circuit": 4, "iron_ingot": 5, "silicon": 2},   # v0.6 Fundo M5
                                   None, 0, 0, "icon_scanner", placeable=False)
 # v0.5 M1 B3: a mochila é equipamento do traje e dá +1 linha de BACKPACK_SLOTS no inventário (GameState.sync_backpack).
 # A receita mora na Bancada T2 (T2_RECIPES, mais abaixo): o fabricador T1 não mostra ela.
-MACHINES["backpack"] = MachineType("backpack", "Mochila", "+1 linha de slots", {"iron": 12, "silicon": 6},
+MACHINES["backpack"] = MachineType("backpack", "Mochila", "+1 linha de slots", {"iron_ingot": 5},   # v0.6 Fundo M5
                                    None, 0, 0, "icon_backpack", placeable=False)
 MACHINE_ORDER += ["o2_tank", "scanner", "backpack"]
 FAB_TABS = FAB_TABS + (("suit", "Traje"),)
@@ -836,7 +837,7 @@ MACHINES["copper_ingot"] = MachineType("copper_ingot", "Lingote de cobre", "sai 
                                        "icon_copper_ingot", placeable=False)
 PART_ITEMS = LOOT_ITEMS + ("copper_ingot",)
 # v0.6 M2: o chip (que liga a máquina aos drones) também se fabrica na Bancada T2, só com o inventário
-CHIP_COST = {"silicon_wafer": 2, "iron": 1}
+CHIP_COST = {"silicon_wafer": 5, "wire": 5, "circuit": 1}   # v0.6 Fundo M5 (Bancada T2)
 MACHINES["chip"] = _replace(MACHINES["chip"], cost=CHIP_COST)
 # Chance de cair e quantidade (mín, máx) de cada item, por tipo de saque. Sorteado pela seed, depois dos recursos.
 LOOT_COMMON = {"wire": (0.60, (1, 3)), "iron_ingot": (0.40, (1, 2)), "silicon_wafer": (0.15, (1, 1))}   # destroço de fora
@@ -999,7 +1000,7 @@ LAKE_WATER = (2500, 7000, 15000)   # era (3000, 15000, 40000): L1 junto com a N�
 # inventário (travas de Ti e diagrama iguais). O fabricador da cápsula fica só com itens (o que não é `placeable`).
 # A aba "Fabricar" do Tab (fabricar em campo, FIELD_RECIPES) saiu: as receitas dela eram todas máquinas.
 # ---------------------------------------------------------------------------
-MACHINES["constructor"] = MachineType("constructor", "Construtor", "constrói máquinas [E]", {"iron": 5}, None, 0, 0,
+MACHINES["constructor"] = MachineType("constructor", "Construtor", "constrói máquinas [E]", {"iron": 5, "silicon": 5}, None, 0, 0,
                                       "icon_constructor", placeable=False)
 MACHINE_ORDER.insert(0, "constructor")      # 1ª receita do fabricador
 MACHINE_CATEGORY["constructor"] = "tools"
@@ -1011,11 +1012,10 @@ MACHINES["wire"] = _replace(MACHINES["wire"], cost={"copper_ingot": 1}, desc="1 
 MACHINE_ORDER.append("wire")
 MACHINE_CATEGORY["wire"] = "materials"
 CRAFT_YIELD = {"wire": 3}
-# v0.6 Fundo M4 · circuito: 1 wafer (da Fundição) + 2 fios → 1 circuito (aba Materiais, Ti 0). Continua caindo de loot.
-MACHINES["circuit"] = _replace(MACHINES["circuit"], cost={"silicon_wafer": 1, "wire": 2}, desc="1 wafer + 2 fios")
+# v0.6 Fundo M4 · circuito (M5: 3 fios + 5 silício, só na Bancada T2). Continua caindo de loot.
+MACHINES["circuit"] = _replace(MACHINES["circuit"], cost={"wire": 3, "silicon": 5}, desc="3 fios + 5 silício")
 MACHINE_ORDER.append("circuit")
 MACHINE_CATEGORY["circuit"] = "materials"
-MACHINES["silicon_wafer"] = _replace(MACHINES["silicon_wafer"], desc="sai da Fundição (silício)")
 FAB_TABS = tuple(t for t in FAB_TABS if t[0] != "suit")
 BUILD_TIME = 1.35               # s da máquina "se construindo" (scanner de baixo pra cima): parada, sem Ti nem energia.
                                 # 1,35 = o clack do build.wav (Som): ela fica pronta junto com ele
@@ -1143,7 +1143,8 @@ for _kind in BASE_KINDS:
     MACHINES[_kind] = MachineType(_kind, _name, _desc, BASE_COST[_kind], None, 0, 0, BASE_ICON[_kind])
     MACHINE_ORDER.append(_kind)
     MACHINE_CATEGORY[_kind] = "base"
-MACHINES[DISPENSER] = MachineType(DISPENSER, "Dispersor de O₂", "base respirável", {"iron": 14, "silicon": 8},
+MACHINES[DISPENSER] = MachineType(DISPENSER, "Dispersor de O₂", "base respirável", {"circuit": 3, "chip": 2, "iron_ingot": 15, "wire": 5, "water_capsule": 2},   # v0.6 Fundo M5
+                                  
                                   None, 0, 0, "machine_o2_dispenser")
 MACHINE_ORDER.append(DISPENSER)
 MACHINE_CATEGORY[DISPENSER] = "base"
@@ -1153,3 +1154,14 @@ FAB_TABS = FAB_TABS + (("base", "Base"),)  # o menu do construtor ganha a aba "B
 VOLUME.update({"door_open": 0.45, "door_close": 0.45, "base_sealed": 0.6, "dispenser_hum": 0.35,
                "leak_alert": 0.55, "dispenser_dry": 0.5})
 DISPENSER_HUM_FADE_MS, DISPENSER_HUM_DRY_FADE_MS = 800, 300
+
+# ---------------------------------------------------------------------------
+# v0.6 Fundo M5 · Remapear crafts (bíblia §15 "Marco 5"). Números de partida; balanceamento depois.
+# ---------------------------------------------------------------------------
+# O wafer é feito na Bancada T2 (10 silício); a cadeia nova (Fundição + Bancada T2) vira obrigatória do Ti 10.000 em diante.
+MACHINES["silicon_wafer"] = _replace(MACHINES["silicon_wafer"], cost={"silicon": 10}, desc="10 silício viram 1 wafer")
+# Receitas só da Bancada T2 (o T1 não mostra). A T2 mostra também todas as do T1 (T2_TABS).
+T2_RECIPES = ("silicon_wafer", "circuit", "chip", "drone", "o2_tank", "backpack", "scanner", HAND_DRILL_T2)
+T2_TABS = (("t2", "Bancada"),) + CRAFT_TABS      # a Bancada vê tudo do T1, com as exclusivas dela primeiro
+ONCE_ITEMS = ("constructor", "backpack", "o2_tank", "scanner", HAND_DRILL_T2)   # fabricou, fica "feito" (não se perde item)
+DIAGRAM_BENCH = {**DIAGRAM_BENCH, "o2_tank": "t2", "scanner": "t2"}   # a receita deles mora na Bancada T2

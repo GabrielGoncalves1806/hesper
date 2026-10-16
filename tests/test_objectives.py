@@ -68,12 +68,13 @@ def test_normal_sequence_walks_every_objective(game):
     game.lamps_placed = 1; step()               # colocou uma luminária (lá embaixo ou em qualquer lugar)
     game.enter_layer("surface")
     game.wrecks_visited.add(0); step()          # Marco 3: chegou perto de um destroço
-    game.blueprints.add("o2_tank"); step()      # leu o diagrama do tanque
-    game.equipped_ever.add("o2_tank"); step()   # fabricou e equipou
     craft_free(game, "solar"); step()
     game.read_terminal(0); step()               # terminal da caverna
     game.indices["o2"] = C.STAGES[C.ARID_STAGE - 1].ti; game._check_stage(); step()   # -> Árido
     game.debug_add_ti(); step()                 # -> Névoa
+    craft_free(game, "workbench"); step()       # v0.6 Fundo M5: os três guias da cadeia, antes da drill
+    craft_free(game, "smelter"); step()
+    craft_free(game, "circuit"); step()
     vein = game.world.veins[0]                  # drill de verdade num veio de verdade
     game.player.x, game.player.y = (vein.tx + 0.5) * C.TILE, (vein.ty + 3) * C.TILE - 4
     assert build_now(game, "drill", (vein.tx, vein.ty)); step()
@@ -84,6 +85,8 @@ def test_normal_sequence_walks_every_objective(game):
     craft_free(game, "drone"); step()
     game.drones_docked = 1; step()
     game.drone_deliveries = 1; step()
+    game.blueprints.add("o2_tank"); step()      # M5: o tanque desceu pra depois dos drones (pede circuito)
+    game.equipped_ever.add("o2_tank"); step()
     craft_free(game, "melter_t2"); step()
     game.debug_add_ti(100_000); step()          # -> Verde
 
@@ -103,18 +106,21 @@ def test_normal_sequence_walks_every_objective(game):
         "Desça na caverna pela cratera [E]",
         "Construa uma luminária",
         "Ache um destroço",
-        "Ache e leia o diagrama do tanque de O₂",
-        "Fabrique e equipe o tanque de O₂",
         "Construa um painel solar",
         "Leia um terminal",
         "Limpe o céu (Árido)",
         "Chegue ao estágio Névoa",
+        "Construa a Bancada T2",
+        "Construa uma Fundição",
+        "Fabrique um circuito na Bancada T2",
         "Construa uma drill num veio",
         "Colete minério de uma drill",
         "Construa uma estação de drones",
         "Fabrique um drone",
         "Coloque o drone na estação [E]",
         "Receba uma entrega de drone",
+        "Ache e leia o diagrama do tanque de O₂",
+        "Fabrique e equipe o tanque de O₂",
         "Construa uma máquina nv.2",
         "Deixe o planeta verde",
         None,
@@ -205,7 +211,7 @@ def test_tracker_flashes_completed_objective(game):
 def test_everything_done_list_disappears(game):
     game.mined_total.update(iron=10, silicon=4, ice=10)
     game.fabricator_opened = True
-    for kind in ("constructor", "o2", "chest", "melter", "heater", "solar", "o2_t2", "drone_station"):
+    for kind in ("constructor", "o2", "chest", "melter", "heater", "solar", "o2_t2", "drone_station", "workbench", "smelter", "circuit"):
         craft_free(game, kind)
     place_at(game, "o2", from_192(93, 98))
     game.read_terminal(0)
@@ -261,3 +267,13 @@ def test_terminal_objective_needs_reading_one(game):
 def test_small_rocks_count_as_mined(game):
     got = mine_one(game, C.SMALL_IRON)
     assert game.mined_total["iron"] == got and 2 <= got <= 4
+
+
+def test_m5_chain_guides_before_drill():
+    texts = [o.text for o in OBJECTIVES]
+    i_mist = texts.index("Chegue ao estágio Névoa")
+    i_drill = texts.index("Construa uma drill num veio")
+    guide = ["Construa a Bancada T2", "Construa uma Fundição", "Fabrique um circuito na Bancada T2"]
+    assert texts[i_mist + 1:i_drill] == guide
+    assert texts.index("Fabrique e equipe o tanque de O₂") > texts.index("Receba uma entrega de drone")
+    assert texts.index("Ache e leia o diagrama do tanque de O₂") > texts.index("Receba uma entrega de drone")

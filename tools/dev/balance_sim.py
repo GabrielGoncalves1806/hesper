@@ -105,6 +105,41 @@ def load_overrides(path: Path = PROPOSAL_PATH) -> dict:
     return data.get("overrides", data)
 
 
+# v0.6 Fundo M5: o simulador ainda não sabe fazer a cadeia (Fundição, Bancada T2, cobre da caverna). Até a passada de
+# balanceamento (ROADMAP Futuro), ele roda com as receitas do M4. Os overrides de uma proposta vêm por cima.
+LEGACY_RECIPES = {
+    "MACHINES": {
+        "drill": {"cost": {"iron": 12, "silicon": 6}},
+        "drone_station": {"cost": {"iron": 12, "silicon": 8, "ice": 3}},
+        "drone": {"cost": {"iron": 6, "silicon": 4}},
+        "o2_tank": {"cost": {"iron": 10, "silicon": 6, "ice": 4}},
+        "scanner": {"cost": {"iron": 4, "silicon": 4}},
+        "backpack": {"cost": {"iron": 12, "silicon": 6}},
+        "constructor": {"cost": {"iron": 5}},
+        "o2_dispenser": {"cost": {"iron": 14, "silicon": 8}},
+        "o2_t2": {"cost": {"iron": 30, "silicon": 20, "ice": 10}},
+        "melter_t2": {"cost": {"iron": 25, "ice": 30}},
+        "heater_t2": {"cost": {"iron": 35, "silicon": 25, "magmatite": 10}},
+        "chest": {"cost": {"iron": 6}},
+        "chest_large": {"cost": {"iron": 10, "silicon": 2}},
+    },
+    "T2_RECIPES": ("backpack", "chip", "hand_drill_t2"),
+    "DIAGRAM_BENCH": {"o2_tank": "t1", "scanner": "t1", "lamp_t2": "t1", "workbench": "t1", "chest_large": "t1"},
+}
+
+
+def with_legacy(overrides: dict | None) -> dict:
+    """As receitas do M4 por baixo; os overrides da proposta por cima (MACHINES mesclado por máquina)."""
+    merged = copy.deepcopy(LEGACY_RECIPES)
+    for key, value in (overrides or {}).items():
+        if key == "MACHINES":
+            for kind, fields in value.items():
+                merged["MACHINES"].setdefault(kind, {}).update(fields)
+        else:
+            merged[key] = value
+    return merged
+
+
 @contextlib.contextmanager
 def patched_config(overrides: dict | None):
     """Aplica overrides no módulo `game.config` e desfaz tudo na saída.
@@ -1105,7 +1140,7 @@ class Sim:
 # ---------------------------------------------------------------------------
 def simulate(strategy="guloso", seed=1, overrides=None, max_time=6 * 3600) -> Result:
     strat = STRATEGIES[strategy] if isinstance(strategy, str) else strategy
-    with patched_config(overrides):
+    with patched_config(with_legacy(overrides)):
         return Sim(strat, seed, max_time).run()
 
 

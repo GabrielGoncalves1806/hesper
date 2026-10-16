@@ -1247,8 +1247,8 @@ class UI:
                 status_w = 9
             elif status == "missing":
                 status_w = self.tx("falta", right, ry + 2, ALERT_TEXT, self.body, "right")
-            elif status == "known":                    # diagrama que já foi lido
-                status_w = self.tx("lido", right, ry + 2, B_DIM, self.body, "right")
+            elif status in ("known", "made"):          # diagrama lido / item de uma vez só já fabricado (M5)
+                status_w = self.tx("lido" if status == "known" else "feito", right, ry + 2, B_DIM, self.body, "right")
             else:
                 self.draw_lock(right - 7, ry + 7, B_DIM)
                 status_w = 9
@@ -1338,11 +1338,12 @@ class UI:
             for k, line in enumerate(wrap(self.body, where, w - 12)[:3]):
                 self.tx(line, x + 6, cy + 11 + k * 12, B_MUTED, self.body)
         else:
+            done = locked or status in ("known", "made")   # v0.6 Fundo M5: lido/feito não pinta o custo de vermelho
             for i, (res, n) in enumerate(m.cost.items()):
                 yy = cy + 11 + i * step
                 have = state.available(res, inv_only)
                 ok = have >= n
-                if locked:
+                if done:
                     bg, border, num_color, bar_color = B_CARD2, B_LINE, B_DIM, B_DIM
                 else:
                     bg, border = (OK_BG, OK_BORDER) if ok else (BAD_BG, BAD_BORDER)
@@ -1350,12 +1351,12 @@ class UI:
                 row = pygame.Rect(x + 6, yy, w - 12, row_h)
                 self.round_rect(row, bg, border)
                 icon = item_icon(res)
-                self.native.append((self.dark_icon(icon, 110) if locked else icon,
+                self.native.append((self.dark_icon(icon, 110) if done else icon,
                                     ((x + 8) * 2, (yy + (row_h - 16) // 2) * 2)))
                 text_y = yy + (row_h - 20) // 2 + 1
-                self.tx(item_name(res), x + 27, text_y, B_TEXT if not locked else B_DIM, self.body)
+                self.tx(item_name(res), x + 27, text_y, B_TEXT if not done else B_DIM, self.body)
                 self.tx(f"{have}/{n}", x + w - 21, text_y, num_color, self.body, "right")
-                if not locked:
+                if not done:
                     if ok:
                         self.draw_check(x + w - 17, yy + row_h // 2 - 3, C.C_OK)
                     else:
@@ -1382,8 +1383,8 @@ class UI:
                 self.fabricator_buttons.append((button, kind))
         elif hidden:
             label, kind_b = "SEM DIAGRAMA", "off"
-        elif status == "known":
-            label, kind_b = "JÁ LIDO", "off"
+        elif status in ("known", "made"):
+            label, kind_b = ("JÁ LIDO" if status == "known" else "JÁ FEITO"), "off"
         else:
             label, kind_b = f"LIBERA EM TI {fmt(m.unlock_ti)}", "off"
         self.button(button, label, kind_b, hover=kind_b == "primary" and button.collidepoint(mouse))

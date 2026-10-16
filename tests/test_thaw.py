@@ -91,9 +91,10 @@ def test_heater_trio_comes_right_after_the_chest_and_before_the_crater():
     assert texts[i + 1:i + 7] == ["Minere gelo e construa um Derretedor", "Chegue a Ti 500",
                                   "Encontre magmatita no basalto (oeste)", "Construa um Aquecedor",
                                   "Derreta o gelo da cratera", "Desça na caverna pela cratera [E]"]
+    # v0.6 Fundo M5: o diagrama e o tanque desceram pra depois dos drones (o tanque pede circuito)
     j = texts.index("Fabrique e equipe o tanque de O₂")
     assert texts.index("Desça na caverna pela cratera [E]") < texts.index("Ache um destroço") < j
-    assert texts[j + 1] == "Construa um painel solar"
+    assert texts[texts.index("Ache um destroço") + 1] == "Construa um painel solar"
 
 
 # ---------------------------------------------------------------- fumarolas
