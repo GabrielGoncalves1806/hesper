@@ -87,8 +87,8 @@ Ganchos: vulcão no basalto, espécie nativa, areia do salar, ruínas na caverna
 
 ## v0.7 · Lore
 Spec: `docs/superpowers/specs/2026-10-16-v07-lore-design.md` (brainstorm de 2026-10-16). Inimigos, combate e boss saíram (versão futura); o planeta reagindo foi pra v0.8.
-- [ ] Marco 1 · Estruturas: plantas à mão + variação pela seed, acampamento de pouso, laboratório da Ilves, estação de derretedores, posto de perfuração; casca intocável, máquinas quebradas, LOGs novos.
-- [ ] Arte (Designer, em paralelo ao M1): 5 destroços da referência do dono, kit médio de props, construtor com scanner.
+- [x] Marco 1 · Estruturas (fechado em 2026-10-16, testado e aprovado pelo dono; falta só ele conferir "mesma seed, mesmas ruínas", que o pytest já cobre): plantas à mão + variação pela seed, acampamento de pouso, laboratório da Ilves, estação de derretedores, posto de perfuração; casca intocável, máquinas quebradas, LOGs novos.
+- [x] Arte (Designer, aprovada pelo dono "por hora" em 2026-10-16, 5 rodadas, `reports/design/v07_lore/`; dá pra polir depois): 5 destroços da referência do dono, kit médio de props, construtor com scanner.
 - [ ] Marco 2 · Props e scanner: aba Decoração, scan no esquerdo segurado, props nas plantas.
 - [ ] Marco 3 · Destroços novos: 3 sprites trocados, nave de passageiros e robô de reconhecimento.
 - [ ] Marco 4 · Interior da VÉSPER-7: camada pequena pelo porão, salas encaixadas pela seed, câmara fria.
