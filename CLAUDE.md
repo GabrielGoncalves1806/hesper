@@ -15,7 +15,7 @@ A sessão principal é o **gerente/orquestrador**: conversa com o dono, distribu
 - **Arte e som passam pelo dono antes de entrar no jogo.** Mostre o report (`reports/design/index.html` ou `reports/audio/index.html`) e espere a aprovação.
 - **Não abra o jogo em janela real sozinho** depois de mudanças. Avise que está pronto e espere o ok. O smoke headless (`uv run python tools/dev/smoke.py`) está liberado.
 - **Os agentes não commitam.** Quem commita é o gerente, como **Gabriel Oliveira <gabrielgoncalves1806@gmail.com>** (já fixado no `.git/config` local). Nunca use a identidade de trabalho do `~/.gitconfig` global.
-- Antes de commitar: `uv run pytest` passando e os screenshots do smoke olhados.
+- Antes de commitar: `uv run pytest` passando. O **smoke completo** (~4,5 min) só roda no **merge de marco** ou quando a mudança mexe em **UI/render/tela**, e aí os screenshots são olhados. Ajuste pequeno (número num JSON/config, volume, regra de lógica coberta por teste) fica só no pytest (dono, 2026-10-16).
 - Mudou alguma decisão de jogo? Atualize a bíblia primeiro.
 
 ## Comandos
