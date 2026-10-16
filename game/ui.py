@@ -45,10 +45,15 @@ GRID_W = 8 * SLOT_STEP - SLOT_GAP                # 8 colunas = 174
 LOGI_ROW = 25                                    # passo entre as linhas Envia / Recebe
 LOGI_BTN = 22                                    # botão de drone: o ícone do material é o botão (22×22)
 LOGI_BATCH_H = 16                                # botões do lote: 1 / 5 / 10 / 20 (22×16)
+SMELT_COLOR = "#ff8a3d"                                # laranja da Fundição (o do aquecedor)
 SHORT_NAME = {"water_capsule": "cápsula"}          # só no resumo do título da seção DRONES (C.RESOURCE_NAME fica como está)
 LOGI_COL = 52                                    # onde começam os botões (depois de "Recebe")
+SMELT_LOGI_Y = 102                               # ...e nela, a da Fundição (3 slots, barra, carga e ajuda em cima)
 DISP_LOGI_Y = 92                                 # onde a seção DRONES começa nos painéis da drill, derretedor e dispersor
-LOGI_H = 14 + 2 * LOGI_ROW + 2 + LOGI_BATCH_H    # altura da seção com Envia e Recebe (82)
+LOGI_H = 14 + 2 * LOGI_ROW + 2 + LOGI_BATCH_H    # altura da seção com Envia e Recebe, 1 linha de botões cada (82)
+LOGI_WIDE_AFTER = 5                              # com mais materiais que isso (o baú tem 8), a fileira vira "larga":
+LOGI_WIDE_BTN, LOGI_WIDE_GAP = 20, 2             # o rótulo (Envia/Recebe) sobe pra uma linha própria e os botões
+LOGI_WIDE_ROW = 9 + LOGI_WIDE_BTN + 2            # (20×20) ocupam a grade toda: 8 × 20 + 7 × 2 = 174 = GRID_W
 # painéis lado a lado (baú, drill, estação, caixa): inventário | botões do meio | o outro lado
 HELP_CURSOR = [("CLIQUE", "pega/solta"), ("DIR", "metade/1"), ("SHIFT+CLIQUE", "manda direto"), ("ESC", "fecha")]
 SIDE_W = GRID_W + 16                             # 8 de margem dos dois lados da grade
@@ -324,7 +329,7 @@ def item_category(item: str) -> tuple[str, str]:
         return "ITEM", C.C_TI
     if item == C.HAND_DRILL:
         return "FERRAMENTA", C.C_TI
-    if item in C.LOOT_ITEMS:
+    if item in C.PART_ITEMS:
         return "PEÇA", C.C_TERMINAL
     return "MÁQUINA", C.C_ACCENT
 
@@ -1306,7 +1311,8 @@ class UI:
             self.tx("???", tx, y + 4, B_TEXT, self.body)
             self.tx("precisa do diagrama", tx, y + 15, B_MUTED, self.body)
         else:
-            self.tx(self.fit(m.name, text_w), tx, y + 4, B_TEXT, self.body)
+            made = C.CRAFT_YIELD.get(kind, 1)                # fabricar rende mais de 1 (fios): "Fios ×3"
+            self.tx(self.fit(m.name if build or made == 1 else f"{m.name} ×{made}", text_w), tx, y + 4, B_TEXT, self.body)
             self.tx(self.fit(m.desc, text_w), tx, y + 15, C.C_TI, self.body)
             use, gen = energy.machine_use(kind), energy.machine_gen(kind)
             if use or gen:
@@ -1680,9 +1686,11 @@ class UI:
         if isinstance(side, Crate):
             side_h = 100
         elif side.is_chest:
-            side_h = self._chest_logi_y(side) + LOGI_H + 14
+            side_h = self._chest_logi_y(side) + self.logistics_height(side) + 14
         elif side.is_drill or side.is_melter or side.is_dispenser:
             side_h = 92 + self.logistics_height(side) + 10
+        elif side.is_smelter:
+            side_h = SMELT_LOGI_Y + self.logistics_height(side) + 10
         else:
             side_h = 164
         hb = C.HOTBAR_SLOTS
@@ -1715,6 +1723,9 @@ class UI:
             pairs = HELP_CURSOR
         elif side.is_melter:
             self._melter_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, mid)
+            pairs = HELP_CURSOR
+        elif side.is_smelter:
+            self._smelter_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, mid)
             pairs = HELP_CURSOR
         elif side.is_dispenser:
             self._dispenser_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, info, mid)
@@ -1955,6 +1966,32 @@ class UI:
         self._button(mid, "<<\nPEGAR\nTUDO", "take_melter", mouse, not melter.storage.is_empty(), "ghost")
         self.draw_logistics(gx, y + 92, GRID_W, melter, item_icon, mouse)
 
+    def _smelter_panel(self, smelter, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str,
+                       mid: pygame.Rect) -> None:
+        """Fundição (v0.6 Fundo M3): minério e magmatita (entram), lingote (só tira), a barra do lingote atual, 4
+        pontinhos da carga de magmatita acesa, o estado, "<< PEGAR TUDO" no meio e a seção DRONES."""
+        out = smelter.storage.slots[C.SMELTER_OUT_SLOT]
+        self.window(cx, y, pw, h, "Fundição", f"{out.count if out else 0} ling.", SMELT_COLOR)
+        gx, sy = cx + 8, y + SIDE_GRID_Y
+        for label, slot, dx, color in (("MINÉRIO", C.SMELTER_ORE_SLOT, 0, B_MUTED),
+                                       ("MAGMATITA", C.SMELTER_FUEL_SLOT, 50, B_MUTED),
+                                       ("LINGOTE", C.SMELTER_OUT_SLOT, 112, SMELT_COLOR)):
+            self._section_label(label, gx + dx, y + 16, color)
+            self._grid(smelter.storage, [slot], gx + dx, sy, item_icon, mouse)
+        self.tx(">", gx + 88, sy + 3, B_MUTED)
+        working = smelter.smelter_blocker is None
+        by = sy + SLOT + 6
+        bw = GRID_W - 44
+        self.bar(gx, by, bw, smelter.timer / C.SMELTER_TIME if working else 0.0, SMELT_COLOR, h=4)
+        for k in range(C.SMELTER_BURNS_PER_FUEL):                       # a carga acesa: fuel pontinhos de 4
+            self.fill(SMELT_COLOR if k < smelter.fuel else B_TRACK, (gx + bw + 8 + k * 9, by, 6, 4))
+        self.tx(self.fit(status, GRID_W), gx, by + 6, B_MUTED if working else C.C_ALERT)
+        for k, line in enumerate(wrap(self.body, "Ponha minério e magmatita. Drones levam os lingotes.",
+                                      GRID_W)[:2]):
+            self.tx(line, gx, by + 20 + k * 12, B_MUTED, self.body)
+        self._button(mid, "<<\nPEGAR\nTUDO", "take_smelter", mouse, not smelter.storage.is_empty(), "ghost")
+        self.draw_logistics(gx, y + SMELT_LOGI_Y, GRID_W, smelter, item_icon, mouse)
+
     def _dispenser_panel(self, m, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str, info: str | None,
                          mid: pygame.Rect) -> None:
         """Dispersor de O₂ (v0.5 M2): o slot da cápsula de água, a barra da cápsula que está sendo gasta, o estado
@@ -2058,10 +2095,12 @@ class UI:
         """Altura da seção DRONES dessa máquina: uma linha por Envia/Recebe que ela tem, mais o Lote se ela envia.
         Quem precisa de chip nunca fica abaixo de 2 linhas, pro painel não pular de tamanho quando o chip entra."""
         from game import drones
-        rows = sum(1 for allowed in (drones.can_send, drones.can_receive)
-                   if any(allowed(machine, i) for i in C.LOGISTIC_ITEMS))
+        rows = 0
+        for allowed in (drones.can_send, drones.can_receive):
+            n = len([i for i in C.LOGISTIC_ITEMS if allowed(machine, i)])
+            rows += 0 if n == 0 else LOGI_WIDE_ROW if n > LOGI_WIDE_AFTER else LOGI_ROW
         batch = 2 + LOGI_BATCH_H if any(drones.can_send(machine, i) for i in C.LOGISTIC_ITEMS) else 0
-        height = 14 + rows * LOGI_ROW + batch
+        height = 14 + rows + batch
         return max(height, 14 + 2 * LOGI_ROW) if machine.needs_chip else height
 
     def chip_at(self, pos):
@@ -2086,6 +2125,8 @@ class UI:
             Lote     [1][5][10][20]
 
         Só entra a linha que a máquina pode ter (a drill não tem Recebe, o dispersor não tem Envia nem Lote).
+        Com mais de LOGI_WIDE_AFTER materiais (o baú tem 8, com os lingotes) a fileira vira larga: o rótulo sobe pra
+        uma linha própria e os botões (20×20) ocupam a grade toda.
         Quem precisa de chip mostra o slot dele à direita; sem chip, no lugar das linhas vai o texto
         "Coloque um chip pra ligar aos drones". Guarda os botões em `logistics_buttons`."""
         from game import drones                      # (import local: a UI não depende da lógica no topo)
@@ -2119,12 +2160,18 @@ class UI:
             items = [i for i in C.LOGISTIC_ITEMS if allowed(machine, i)]
             if not items:
                 continue
-            self.tx(label, x, ry + 2, B_MUTED, self.body)
-            for k, item in enumerate(items):
-                rect = pygame.Rect(col + k * (LOGI_BTN + 3), ry, LOGI_BTN, LOGI_BTN)
+            wide = len(items) > LOGI_WIDE_AFTER
+            if wide:                                     # o baú: rótulo em cima, botões 20×20 na largura da grade
+                self.tx(label, x, ry - 3, B_MUTED, self.body)
+                row = [pygame.Rect(x + k * (LOGI_WIDE_BTN + LOGI_WIDE_GAP), ry + 9, LOGI_WIDE_BTN, LOGI_WIDE_BTN)
+                       for k in range(len(items))]
+            else:
+                self.tx(label, x, ry + 2, B_MUTED, self.body)
+                row = [pygame.Rect(col + k * (LOGI_BTN + 3), ry, LOGI_BTN, LOGI_BTN) for k in range(len(items))]
+            for rect, item in zip(row, items):
                 self._toggle(rect, item, item in chosen, color, item_icon, mouse)
                 self.logistics_buttons.append((rect, (kind, item)))
-            ry += LOGI_ROW
+            ry += LOGI_WIDE_ROW if wide else LOGI_ROW
         if not any(drones.can_send(machine, i) for i in C.LOGISTIC_ITEMS):
             return                                   # quem só recebe não tem Lote ("quanto o drone tira daqui")
         ry += 2

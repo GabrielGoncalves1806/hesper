@@ -140,7 +140,7 @@ CAVE_STAGE = C.MIST_STAGE          # a caverna é desenhada sempre com a arte do
 RAMP_LIGHT = (255, 240, 214)       # luz do dia caindo pela boca da rampa de subida (cor da Designer, v5.0)
 TERMINAL_LIGHT = (111, 227, 160)
 MACHINE_LIGHT = {"o2": (89, 208, 230), "heater": (255, 138, 61), "melter": (159, 230, 255),
-                 "solar": (255, 216, 74), "drill": (255, 210, 140), "drone_station": (150, 210, 230)}
+                 "smelter": (255, 138, 61), "solar": (255, 216, 74), "drill": (255, 210, 140), "drone_station": (150, 210, 230)}
 DRONE_LIGHT = MACHINE_LIGHT["drone_station"]   # v0.6 M3: luzinha do drone voando na caverna (pedido do dono)
 
 
@@ -158,8 +158,8 @@ def cave_lights(state: GameState, helmet=WARM_WHITE, helmet_intensity: float = 1
     for m in state.machines:
         if m.is_lamp:
             out.append(lamp_light(m.tx, m.ty, C.LAMP_RADIUS.get(m.kind, 5)))
-        elif m.is_chest or (m.is_drill and m.full):
-            continue
+        elif m.is_chest or (m.is_drill and m.full) or (m.is_smelter and m.smelter_blocker is not None):
+            continue                              # (Fundição apagada parece desligada: só acende enquanto funde)
         else:
             ax, ay = m.anchor
             color = MACHINE_LIGHT.get(m.kind.removesuffix("_t2"), MACHINE_LIGHT["drone_station"])
@@ -1831,7 +1831,7 @@ class Renderer:
                 small = self.surface("icon_backpack", art.backpack_icon)[0]
             elif item == "water_capsule":        # v0.5 M2: icon_water_capsule.png (aprovado)
                 small = self.surface("icon_water_capsule", art.water_capsule_icon)[0]
-            elif item == C.HAND_DRILL or item in C.LOOT_ITEMS:   # v0.5 M4: icon_<item>.png (a broca ainda aguarda o dono)
+            elif item == C.HAND_DRILL or item in C.PART_ITEMS:   # v0.5 M4: icon_<item>.png (a broca ainda aguarda o dono)
                 small = self._m4_icon(item)
             elif item in C.BASE_KINDS or item == C.DISPENSER:   # v0.5 M2: icon_base_*.png e icon_o2_dispenser.png
                 name = C.BASE_ICON.get(item, "icon_o2_dispenser")
@@ -1888,7 +1888,7 @@ class Renderer:
             return pygame.transform.scale_by(self.surface("icon_constructor", art.constructor_icon)[0], 3)
         if kind == "water_capsule":
             return pygame.transform.scale_by(self.surface("icon_water_capsule", art.water_capsule_icon)[0], 3)
-        if kind == C.HAND_DRILL or kind in C.LOOT_ITEMS:
+        if kind == C.HAND_DRILL or kind in C.PART_ITEMS:
             return pygame.transform.scale_by(self._m4_icon(kind), 3)
         if kind in C.BASE_KINDS:
             return pygame.transform.scale_by(self.surface(C.BASE_ICON[kind], lambda: self._placeholder(16, kind))[0], 3)
@@ -2176,7 +2176,8 @@ class Renderer:
                 bx, by = spots["beacon"]
                 lights.append((pod_x + bx, pod_y + by, 44, (255, 90, 74), 0.5, 0.5))
         machine_light = {"o2": ((89, 208, 230), 80, -30, 0.2), "heater": ((255, 138, 61), 100, -20, 0.3),
-                         "melter": ((159, 230, 255), 70, -36, 0.18), "lamp": ((255, 222, 184), 96, -26, 0.22)}
+                         "melter": ((159, 230, 255), 70, -36, 0.18), "smelter": ((255, 138, 61), 90, -22, 0.26),
+                         "lamp": ((255, 222, 184), 96, -26, 0.22)}
         # no déficit de energia o brilho das máquinas fica mais fraco (metade com fator 0)
         dim = 0.5 + 0.5 * state.power.factor
         for m in state.machines:
@@ -2187,6 +2188,8 @@ class Renderer:
                     continue
                 ax, ay = m.anchor
                 lights.append((ax - cam_x, ay - 66 - cam_y, 56, (255, 210, 140), round(0.14 * dim, 2), 1.0))
+                continue
+            if m.is_smelter and m.smelter_blocker is not None:    # v0.6 M3: só acende enquanto funde
                 continue
             if m.kind.removesuffix("_t2") not in machine_light:   # painel solar e baú: sem luz própria
                 continue

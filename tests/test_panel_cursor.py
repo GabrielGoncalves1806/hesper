@@ -44,7 +44,7 @@ def fresh(app):
 
 def open_panel(app, mode, obj):
     setattr(app, {"chest": "open_chest", "drill": "open_drill", "melter": "open_melter",
-                  "dispenser": "open_dispenser", "station": "open_station", "crate": "open_crate"}[mode], obj)
+                  "smelter": "open_smelter", "dispenser": "open_dispenser", "station": "open_station", "crate": "open_crate"}[mode], obj)
     app.mode = mode
     app.draw()
 
@@ -158,6 +158,59 @@ def test_melter_ice_in_only_ice_and_output_only_takes(app):
     assert app.held is None and m.storage.slots[C.MELTER_ICE_SLOT] == Stack("ice", 6)
     click(app, m.storage, C.MELTER_CAPSULE_SLOT)              # a saída só tira
     assert app.held == Stack("water_capsule", 2)
+
+
+def test_smelter_slots_ore_fuel_and_output_only_takes(app):
+    s = fresh(app)
+    m = build_now(s, "smelter", (s.player.tile[0] + 3, s.player.tile[1]))
+    s.inventory.slots[:] = [None] * len(s.inventory)
+    s.inventory.slots[9] = Stack("iron", 6)
+    s.inventory.slots[10] = Stack("magmatite", 3)
+    s.inventory.slots[11] = Stack("copper", 2)
+    s.inventory.slots[12] = Stack("silicon", 2)
+    m.storage.slots[C.SMELTER_OUT_SLOT] = Stack("iron_ingot", 2)
+    open_panel(app, "smelter", m)
+    click(app, s.inventory, 9)
+    click(app, m.storage, C.SMELTER_FUEL_SLOT)                # ferro no combustível: recusa
+    assert app.held == Stack("iron", 6) and m.storage.slots[C.SMELTER_FUEL_SLOT] is None
+    click(app, m.storage, C.SMELTER_ORE_SLOT)                 # ferro na entrada: entra
+    assert app.held is None and m.storage.slots[C.SMELTER_ORE_SLOT] == Stack("iron", 6)
+    click(app, s.inventory, 10)
+    click(app, m.storage, C.SMELTER_ORE_SLOT)                 # magmatita na entrada: recusa
+    assert app.held == Stack("magmatite", 3)
+    click(app, m.storage, C.SMELTER_FUEL_SLOT)
+    assert app.held is None and m.storage.slots[C.SMELTER_FUEL_SLOT] == Stack("magmatite", 3)
+    click(app, s.inventory, 11)
+    click(app, m.storage, C.SMELTER_ORE_SLOT)                 # cobre com ferro no slot: recusa e explica
+    assert app.held == Stack("copper", 2) and m.storage.slots[C.SMELTER_ORE_SLOT] == Stack("iron", 6)
+    assert app.notice == "Tire o minério que está na Fundição antes"
+    click(app, m.storage, C.SMELTER_OUT_SLOT)                 # a saída não aceita nada
+    assert app.held == Stack("copper", 2) and m.storage.slots[C.SMELTER_OUT_SLOT] == Stack("iron_ingot", 2)
+    click(app, s.inventory, 11)                               # devolve o cobre
+    click(app, s.inventory, 12)
+    click(app, m.storage, C.SMELTER_ORE_SLOT)                 # silício: "só aceita ferro, cobre e magmatita"
+    assert app.held == Stack("silicon", 2) and app.notice == "A Fundição só aceita ferro, cobre e magmatita"
+    click(app, s.inventory, 12)
+    click(app, m.storage, C.SMELTER_OUT_SLOT)                 # a saída só tira
+    assert app.held == Stack("iron_ingot", 2)
+
+
+def test_smelter_status_and_take_all(app):
+    s = fresh(app)
+    m = build_now(s, "smelter", (s.player.tile[0] + 3, s.player.tile[1]))
+    open_panel(app, "smelter", m)
+    assert app.smelter_status() == "SEM MINÉRIO"
+    m.storage.slots[C.SMELTER_ORE_SLOT] = Stack("iron", 3)
+    assert app.smelter_status() == "SEM MAGMATITA"
+    m.storage.slots[C.SMELTER_FUEL_SLOT] = Stack("magmatite", 1)
+    assert app.smelter_status() == f"1 A CADA {C.SMELTER_TIME:g} S"
+    m.storage.slots[C.SMELTER_OUT_SLOT] = Stack("copper_ingot", 1)
+    assert app.smelter_status() == "SAÍDA OCUPADA"
+    m.storage.slots[C.SMELTER_OUT_SLOT] = Stack("iron_ingot", 20)
+    assert app.smelter_status() == "SAÍDA CHEIA"
+    app.on_panel_button("take_smelter")
+    assert s.inventory.count("iron") == 3 and s.inventory.count("magmatite") == 1 and s.inventory.count("iron_ingot") == 20
+    assert m.storage.is_empty()
 
 
 def test_dispenser_only_capsule(app):

@@ -475,7 +475,21 @@ def _melter(s, x, y):
     _r(s, "#6b717a", x + 28, y - 14, 4, 3); _r(s, "#6b717a", x + 30, y - 14, 2, 7)
 
 
-_MACHINE_PAINTERS = {"o2": _o2gen, "heater": _heater, "melter": _melter}
+def _smelter(s, x, y):
+    """Fundição (v0.6 Fundo M3, fallback até a Designer entregar o machine_smelter.png): bloco de pedra escura com a
+    boca do forno na frente e uma chaminé curta."""
+    _ellipse(s, (0, 0, 0, 100), x + 16, y - 2, 17, 5)
+    _r(s, "#1a1418", x + 1, y - 35, 30, 33)
+    _bands(s, x + 2, y - 34, 28, [("#6a6470", 3), ("#4c4752", 17), ("#3a363f", 7), ("#2b282f", 3)])
+    _r(s, "#1a1418", x + 1, y - 36, 30, 2); _r(s, "#6a6470", x + 2, y - 35, 28, 1)
+    _r(s, "#1a1418", x + 7, y - 24, 18, 15)                          # boca do forno
+    _r(s, "#2a1712", x + 8, y - 23, 16, 13)
+    for i in range(5):                                               # tijolinhos do arco
+        _r(s, "#6a6470", x + 6 + i * 4, y - 26, 3, 2)
+    _r(s, "#1a1418", x + 21, y - 46, 7, 11); _r(s, "#4c4752", x + 22, y - 45, 5, 10); _r(s, "#6a6470", x + 20, y - 47, 9, 2)
+
+
+_MACHINE_PAINTERS = {"o2": _o2gen, "heater": _heater, "melter": _melter, "smelter": _smelter}
 MACHINE_SIZE = {1: (40, 58), 2: (40, 66)}
 T2_LIFT = 7   # quanto o corpo do nv.2 fica "levantado" em cima do pedestal
 
@@ -561,6 +575,10 @@ def machine_anim(target: pygame.Surface, kind: str, ax: int, ay: int, t: float) 
         for i in range(4):
             f = math.sin(tick * 0.7 + i * 1.3)
             _r(target, "#ffd27a" if f > 0.3 else "#ff9a3d" if f > -0.3 else "#e0602a", x + 8, y - 29 + i * 5, 16, 2)
+    elif base_kind == "smelter":
+        for i in range(3):                                         # brasa piscando na boca do forno
+            f = math.sin(tick * 0.6 + i * 2.1)
+            _r(target, "#ffd27a" if f > 0.4 else "#ff9a3d" if f > -0.2 else "#e0602a", x + 9 + i * 5, y - 14 - (i % 2) * 2, 4, 3)
     elif base_kind == "melter":
         level = 6 + round(4 + math.sin(tick * 0.25) * 3)
         _r(target, "#4aa8d8", x + 10, y - 7 - level, 5, level)
