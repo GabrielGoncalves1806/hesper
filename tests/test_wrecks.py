@@ -122,11 +122,11 @@ def first_crate(g):
 
 def test_recipe_locked_until_diagram_is_read():
     g = GameState(7)
-    give(g, iron=50, silicon=50, ice=50)
-    assert g.recipe_status("o2_tank") == "blueprint" and not g.craft("o2_tank")
+    give(g, iron_ingot=50, circuit=10)
+    assert g.recipe_status("o2_tank") == "blueprint" and not g.craft("o2_tank", bench="t2")
     assert g.recipe_status("scanner") == "blueprint" and g.recipe_status("lamp_t2") == "blueprint"
     g.blueprints.add("o2_tank")
-    assert g.recipe_status("o2_tank") == "ok" and g.craft("o2_tank")
+    assert g.recipe_status("o2_tank") == "ok" and g.craft("o2_tank", bench="t2")     # v0.6 Fundo M5: receita da Bancada T2
     assert g.inventory.count("o2_tank") == 1
 
 
@@ -203,10 +203,10 @@ def test_visiting_a_wreck_counts():
 def test_read_diagram_spends_one_and_unlocks_forever():
     g = GameState(7)
     give(g, diagram_o2_tank=2)
-    assert g.read_diagram("diagram_o2_tank", "t1") == "ok"
+    assert g.read_diagram("diagram_o2_tank", "t2") == "ok"          # v0.6 Fundo M5: o tanque se lê na Bancada T2
     assert g.inventory.count("diagram_o2_tank") == 1 and "o2_tank" in g.blueprints
     assert ("diagram_read", "o2_tank") in g.pop_events()
-    give(g, iron=50, silicon=50, ice=50)
+    give(g, iron_ingot=50, circuit=10)
     assert g.recipe_status("o2_tank") == "ok"
 
 
@@ -214,14 +214,14 @@ def test_read_repeated_diagram_does_not_spend():
     g = GameState(7)
     g.blueprints.add("scanner")
     give(g, diagram_scanner=1)
-    assert g.read_diagram("diagram_scanner", "t1") == "known"
+    assert g.read_diagram("diagram_scanner", "t2") == "known"
     assert g.inventory.count("diagram_scanner") == 1 and not g.pop_events()
 
 
 def test_read_diagram_on_wrong_bench_or_without_it():
     g = GameState(7)
     give(g, diagram_o2_tank=1)
-    assert g.read_diagram("diagram_o2_tank", "t2") == "wrong_bench"      # o tanque é da T1 (item)
+    assert g.read_diagram("diagram_o2_tank", "t1") == "wrong_bench"      # o tanque é da Bancada T2 (v0.6 Fundo M5)
     assert g.inventory.count("diagram_o2_tank") == 1 and "o2_tank" not in g.blueprints
     assert g.read_diagram("diagram_scanner", "t1") == "none"             # não tem
     assert g.read_diagram("iron", "t1") == "none"                        # nem é diagrama

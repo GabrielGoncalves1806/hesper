@@ -68,7 +68,7 @@ def test_vein_is_floor_not_minable_no_water_no_plants(world):
 def mist_game() -> GameState:
     game = GameState(rng=random.Random(5))
     game.debug_add_ti()                                   # Ti 10.000: drill liberada
-    give(game, iron=200, silicon=200, ice=200)
+    give(game, iron=100, silicon=100, ice=100, iron_ingot=20, circuit=5)   # v0.6 Fundo M5: a drill pede lingote e circuito (100 em vez de 200: sobra slot pro resto)
     return game
 
 
@@ -78,7 +78,7 @@ def stand_below(game, vein):
 
 def test_drill_unlocks_in_mist():
     game = GameState(rng=random.Random(5))
-    give(game, iron=200, silicon=200)
+    give(game, iron_ingot=20, circuit=5)
     assert game.recipe_status("drill") == "locked"
     game.debug_add_ti()
     assert game.recipe_status("drill") == "ok"

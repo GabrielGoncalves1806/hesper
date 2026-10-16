@@ -218,26 +218,26 @@ def test_batch_selector_crafts_five_without_shift(app):
     """Fabricador: ×5 faz o FABRICAR (e o Enter) fazer até 5 sem segurar Shift; ×1 volta a fazer 1."""
     s = reset(app)
     s.player.x, s.player.y = C.BASE_CENTER[0], C.BASE_CENTER[1] + 40
-    give(s, iron=100)
+    give(s, copper_ingot=40)                              # v0.6 Fundo M5: lote com os fios (o construtor é de uma vez só)
     app.hotbar_selected = 7                               # a mão vazia (o E não abre o construtor)
     app.mode = "play"
     app.on_key(pygame.K_e)
     assert app.mode == "fabricator"
-    app.fab.select("constructor")
+    app.fab.select("wire")
     app.draw()
     assert [n for _, n in app.ui.fabricator_batch] == [1, C.CRAFT_BATCH]
     click(app, next(r for r, n in app.ui.fabricator_batch if n == C.CRAFT_BATCH))
     assert app.fab.batch == C.CRAFT_BATCH
     app.draw()
-    click(app, next(r for r, k in app.ui.fabricator_buttons if k == "constructor"))
-    assert s.inventory.count("constructor") == 5 and app.mode == "play"
+    click(app, next(r for r, k in app.ui.fabricator_buttons if k == "wire"))
+    assert s.inventory.count("wire") == 5 * C.CRAFT_YIELD["wire"] and app.mode == "play"
     app.hotbar_selected = 7
     app.on_key(pygame.K_e)
     app.draw()
     click(app, next(r for r, n in app.ui.fabricator_batch if n == 1))
     assert app.fab.batch == 1
     app.on_key(pygame.K_RETURN)
-    assert s.inventory.count("constructor") == 6
+    assert s.inventory.count("wire") == 6 * C.CRAFT_YIELD["wire"]
     app.set_mode("play")
 
 
@@ -441,7 +441,7 @@ def test_diagram_area_fits_and_has_read_buttons(ui, size):
     give(s, diagram_o2_tank=2, diagram_scanner=1, diagram_lamp_t2=1)
     ui.begin()
     menu = craft_menu()
-    ui.draw_fabricator(s, menu, lambda kind: art.icon("iron"), 0.0)
+    ui.draw_fabricator(s, menu, lambda kind: art.icon("iron"), 0.0, bench="t2")   # v0.6 Fundo M5: a T2 lê todos
     assert [d for _, d in ui.diagram_rows] == ["o2_tank", "scanner", "lamp_t2"]
     assert [d for _, d in ui.diagram_buttons] == ["o2_tank", "scanner", "lamp_t2"]
     panel = ui.fabricator_panel
@@ -452,10 +452,10 @@ def test_diagram_area_fits_and_has_read_buttons(ui, size):
         assert any(row.contains(btn) for row, _ in ui.diagram_rows)
     s.blueprints.add("scanner")                        # já liberada: o botão apaga (não gasta)
     ui.begin()
-    ui.draw_fabricator(s, menu, lambda kind: art.icon("iron"), 0.0)
+    ui.draw_fabricator(s, menu, lambda kind: art.icon("iron"), 0.0, bench="t2")
     assert "scanner" not in [d for _, d in ui.diagram_buttons]
     ui.begin()
-    ui.draw_fabricator(s, menu, lambda kind: art.icon("iron"), 0.0, bench="t2")   # o tanque é da T1: sem LER na T2
+    ui.draw_fabricator(s, menu, lambda kind: art.icon("iron"), 0.0)               # o tanque é da T2: sem LER no T1
     assert [d for _, d in ui.diagram_buttons] == ["lamp_t2"]
 
 
@@ -474,25 +474,25 @@ def test_diagram_area_empty_and_hidden_in_build_menu(ui):
 
 def test_locked_recipe_says_diagram(ui):
     ui.set_layout((0, 0, 960, 540), 2.0, (480, 270))
-    from game.fabricator import craft_menu
+    from game.fabricator import t2_menu
     s = GameState(rng=random.Random(1))
     ui.begin()
-    menu = craft_menu()
-    menu.set_tab([t for t, _ in C.CRAFT_TABS].index("suit"))
-    ui.draw_fabricator(s, menu, lambda kind: art.icon("iron"), 0.0)
+    menu = t2_menu()                                    # v0.6 Fundo M5: o tanque mora na Bancada T2
+    menu.select("o2_tank")
+    ui.draw_fabricator(s, menu, lambda kind: art.icon("iron"), 0.0, bench="t2")
     assert ui.craft_label == "SEM DIAGRAMA"
 
 
 def test_click_read_spends_diagram_and_unlocks(app):
     s = reset(app)
-    give(s, diagram_o2_tank=1)
-    s.blueprints.discard("o2_tank")
+    give(s, diagram_lamp_t2=1)                          # v0.6 Fundo M5: o do tanque só se lê na Bancada T2
+    s.blueprints.discard("lamp_t2")
     app.fab.diag = None
     app.mode = "fabricator"
     app.draw()
-    button = next(r for r, d in app.ui.diagram_buttons if d == "o2_tank")
+    button = next(r for r, d in app.ui.diagram_buttons if d == "lamp_t2")
     click(app, button)
-    assert "o2_tank" in s.blueprints and s.inventory.count("diagram_o2_tank") == 0
+    assert "lamp_t2" in s.blueprints and s.inventory.count("diagram_lamp_t2") == 0
     app.draw()
     assert app.ui.diagram_rows == []
     app.mode = "play"
@@ -500,8 +500,8 @@ def test_click_read_spends_diagram_and_unlocks(app):
 
 def test_keyboard_reads_diagram_from_the_list(app):
     s = reset(app)
-    give(s, diagram_scanner=1)
-    s.blueprints.discard("scanner")
+    give(s, diagram_lamp_t2=1)                          # v0.6 Fundo M5: o do scanner só se lê na Bancada T2
+    s.blueprints.discard("lamp_t2")
     app.fab.diag = None
     app.fab.tab = 0
     app.mode = "fabricator"
@@ -510,7 +510,7 @@ def test_keyboard_reads_diagram_from_the_list(app):
     app.on_key(pygame.K_s)                              # fim da lista -> foco no 1º diagrama
     assert app.fab.diag == 0
     app.on_key(pygame.K_RETURN)
-    assert "scanner" in s.blueprints and s.inventory.count("diagram_scanner") == 0
+    assert "lamp_t2" in s.blueprints and s.inventory.count("diagram_lamp_t2") == 0
     assert app.fab.diag is None                         # acabaram os diagramas: o foco volta pra lista
     app.mode = "play"
 

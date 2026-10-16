@@ -527,7 +527,8 @@ def test_dispenser_returns_its_water_when_dismantled(game):
     stand_at(game, x0 + 1, y0 + 1)
     before = game.inventory.count("water_capsule")
     assert game.dismantle(d)
-    assert game.inventory.count("water_capsule") == before + 2
+    # a água de dentro (2) + as cápsulas da receita (v0.6 Fundo M5: o Dispersor custa 2)
+    assert game.inventory.count("water_capsule") == before + 2 + C.MACHINES[C.DISPENSER].cost["water_capsule"]
 
 
 # ---------------------------------------------------------------- sons (eventos)

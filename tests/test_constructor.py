@@ -70,14 +70,14 @@ def hold(s: GameState, machine, seconds: float, step: float = 0.05) -> None:
 def test_constructor_is_the_first_cheap_iron_recipe():
     m = C.MACHINES["constructor"]
     assert C.MACHINE_ORDER[0] == "constructor" and not m.placeable
-    assert set(m.cost) == {"iron"} and m.cost["iron"] <= 6 and m.unlock_ti == 0
+    assert set(m.cost) == {"iron", "silicon"} and max(m.cost.values()) <= 6 and m.unlock_ti == 0   # v0.6 Fundo M5: + 5 silício
     assert craft_menu().current == "constructor"                       # 1ª aba, 1ª linha
 
 
 def test_fabricator_lists_only_items_and_the_constructor_only_machines():
     fab = craft_menu()
     fab_kinds = [k for t, _ in fab.tabs for k in fab.kinds_of(t)]
-    assert sorted(fab_kinds) == sorted(["constructor", "diagram_chest_large", "diagram_workbench", "drone", "o2_tank", "scanner", "wire", "circuit"])
+    assert sorted(fab_kinds) == sorted(["constructor", "diagram_chest_large", "diagram_workbench", "wire"])   # M5: o resto é da Bancada T2
     build = build_menu()
     build_kinds = [k for t, _ in build.tabs for k in build.kinds_of(t)]
     assert sorted(build_kinds) == sorted(MACHINE_KINDS)
@@ -95,9 +95,9 @@ def test_fabricator_does_not_make_machines(kind):
 
 def test_craft_the_constructor_at_the_base():
     s = make_state()
-    give(s, iron=C.MACHINES["constructor"].cost["iron"])
+    give(s, **C.MACHINES["constructor"].cost)
     assert s.craft("constructor") and s.has_constructor
-    assert s.inventory.count("iron") == 0 and s.crafted["constructor"] == 1
+    assert s.inventory.count("iron") == 0 and s.inventory.count("silicon") == 0 and s.crafted["constructor"] == 1
 
 
 # ---- construir: só o inventário, travas, sem material ---------------------------------------------
@@ -145,7 +145,7 @@ def test_lamp_t2_locked_without_diagram():
 
 def test_drill_locked_by_ti():
     s = make_state(ti=0)
-    give(s, constructor=1, iron=20, silicon=20)
+    give(s, constructor=1, iron_ingot=20, circuit=5)
     assert s.build_status("drill") == "locked"
     set_ti(s, C.DRILL_UNLOCK_TI)
     assert s.build_status("drill") == "ok"

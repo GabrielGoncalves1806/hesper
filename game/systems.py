@@ -137,6 +137,8 @@ class Machine:
         ingot = self.smelter_output
         if ingot is None:
             return "no_ore"
+        if self.storage.slots[C.SMELTER_ORE_SLOT].count < C.SMELTER_ORE_PER_INGOT:
+            return "no_ore"                             # v0.6 Fundo M5: 3:1
         out = self.storage.slots[C.SMELTER_OUT_SLOT]
         if out is not None and out.item != ingot:
             return "out_busy"
@@ -704,9 +706,13 @@ class GameState:
         """Quanto dá pra gastar desse recurso: inventário + baús da base (fabricador) ou só o inventário (construtor)."""
         return self.inventory.count(resource) + sum(c.storage.count(resource) for c in self.craft_sources(inv_only))
 
+    def owns(self, kind: str) -> bool:
+        """Tem um desses no inventário ou no traje (v0.6 Fundo M5: item de uma vez só)."""
+        return self.inventory.count(kind) > 0 or self.equipment.has(kind)
+
     def recipe_status(self, kind: str, inv_only: bool = False) -> str:
-        """'blueprint' (diagrama não lido), 'known' (a receita é um diagrama que já foi lido), 'locked' (Ti
-        insuficiente), 'missing' (falta recurso) ou 'ok'.
+        """'blueprint' (diagrama não lido), 'known' (a receita é um diagrama que já foi lido), 'made' (item de uma vez
+        só, C.ONCE_ITEMS, já fabricado ou em posse; v0.6 Fundo M5), 'locked' (Ti insuficiente), 'missing' (falta recurso) ou 'ok'.
         `inv_only`: conta só o inventário (o construtor, v0.5 M1)."""
         machine = C.MACHINES[kind]
         blueprint = C.RECIPE_BLUEPRINT.get(kind)
@@ -714,6 +720,8 @@ class GameState:
             return "blueprint"
         if kind in C.DIAGRAM_ITEMS and C.DIAGRAM_ITEMS[kind] in self.blueprints:
             return "known"                      # o diagrama dessa receita já foi lido: não se fabrica de novo
+        if kind in C.ONCE_ITEMS and (self.crafted[kind] > 0 or self.owns(kind)):
+            return "made"                       # v0.6 Fundo M5: item de uma vez só, já fabricado
         if self.ti < machine.unlock_ti:
             return "locked"
         if any(self.available(r, inv_only) < n for r, n in machine.cost.items()):
@@ -738,10 +746,10 @@ class GameState:
     def craft(self, kind: str, bench: str = "t1", at: Machine | None = None) -> bool:
         """Fabrica 1 item no fabricador da base (v0.5 M1: só itens; máquina vem do construtor). Gasta primeiro o
         inventário, depois os baús da base. O item vai pro inventário (falha com aviso se não couber).
-        `bench` "t2" = a Bancada T2 (`at`, a máquina): só receitas C.T2_RECIPES, em qualquer lugar, gastando SÓ o
-        inventário, e ela anima por C.BENCH_WORK_TIME."""
+        `bench` "t2" = a Bancada T2 (`at`, a máquina): as receitas dela (C.T2_RECIPES) e as do T1 (v0.6 Fundo M5), em
+        qualquer lugar, gastando SÓ o inventário, e ela anima por C.BENCH_WORK_TIME. O T1 não faz as da T2."""
         t2 = bench == "t2"
-        if C.MACHINES[kind].placeable or (kind in C.T2_RECIPES) != t2:
+        if C.MACHINES[kind].placeable or (kind in C.T2_RECIPES and not t2):
             return False
         if not t2 and not self.in_base_zone():
             return False
@@ -1429,7 +1437,7 @@ class GameState:
         return moved
 
     def _update_smelter(self, smelter: Machine, dt: float) -> None:
-        """Fundição (v0.6 Fundo M3): a cada SMELTER_TIME s, 1 minério da entrada vira 1 lingote na saída. A magmatita
+        """Fundição (v0.6 Fundo M3): a cada SMELTER_TIME s, 3 minérios da entrada (v0.6 Fundo M5: SMELTER_ORE_PER_INGOT) viram 1 lingote na saída. A magmatita
         queima no começo de um lingote, quando a carga (`fuel`) acabou, e vale SMELTER_BURNS_PER_FUEL lingotes.
         Travada (sem minério, sem combustível, saída ocupada/cheia): para, guarda o progresso e não gasta nada."""
         while dt > 0 and smelter.smelter_blocker is None:
@@ -1443,7 +1451,7 @@ class GameState:
             dt -= left
             smelter.timer = 0.0
             ingot = smelter.smelter_output
-            smelter.storage.remove(smelter.storage.slots[C.SMELTER_ORE_SLOT].item, 1)
+            smelter.storage.remove(smelter.storage.slots[C.SMELTER_ORE_SLOT].item, C.SMELTER_ORE_PER_INGOT)
             smelter.fuel -= 1
             self.events.append(("smelter_done", smelter))   # o App toca o tink se ela estiver perto, nesta camada
             out = smelter.storage.slots[C.SMELTER_OUT_SLOT]
@@ -1859,7 +1867,12 @@ class GameState:
 
     @staticmethod
     def bench_reads(diagram: str, bench: str) -> bool:
-        """A `bench` ("t1"/"t2") lê esse diagrama? Os de máquina (placeable) leem em qualquer bancada."""
+        """A `bench` ("t1"/"t2") lê esse diagrama? A Bancada T2 lê todos (é o fabricador melhorado, v0.6 Fundo M5); o T1
+        lê os de máquina (placeable) e os de C.DIAGRAM_BENCH == "t1"."""
+        if diagram not in C.BLUEPRINTS:
+            return False
+        if bench == "t2":
+            return True
         machine = C.MACHINES.get(C.RECIPE_BLUEPRINT.get(diagram, ""))
         return bool(machine and machine.placeable) or C.DIAGRAM_BENCH.get(diagram) == bench
 

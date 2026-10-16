@@ -36,7 +36,7 @@ def fill_base(g: GameState, item: str = "silicon") -> None:
 # ---- equipar ----------------------------------------------------------------------------------
 def test_recipe_is_a_suit_item_and_slots_start_at_16():
     m = C.MACHINES["backpack"]
-    assert m.cost == {"iron": 12, "silicon": 6} and not m.placeable and C.MACHINE_CATEGORY["backpack"] == "suit"
+    assert m.cost == {"iron_ingot": 5} and not m.placeable and C.MACHINE_CATEGORY["backpack"] == "suit"
     assert "backpack" in C.EQUIP_SLOTS and C.EQUIP_LABEL["backpack"] == "MOCHILA" and C.BACKPACK_SLOTS == 8
     g = GameState(rng=random.Random(3))
     assert len(g.inventory) == BASE and not g.has_backpack
@@ -44,7 +44,7 @@ def test_recipe_is_a_suit_item_and_slots_start_at_16():
 
 def test_craft_and_equip_gives_eight_slots():
     g = GameState(rng=random.Random(3))
-    give(g, iron=12, silicon=6)
+    give(g, iron_ingot=5)
     assert not g.craft("backpack")                       # a receita é da Bancada T2, não do fabricador T1
     assert g.craft("backpack", "t2")
     i = next(k for k, s in enumerate(g.inventory.slots) if s and s.item == "backpack")

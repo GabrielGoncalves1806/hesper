@@ -194,23 +194,23 @@ def test_mining_with_room_for_part_of_the_drop(game):
 
 
 def test_craft_turns_into_an_item(game):
-    give(game, iron=5)
+    give(game, iron=5, silicon=5)                        # v0.6 Fundo M5: o construtor pede 5 ferro + 5 silício
     assert game.craft("constructor")
     assert game.inventory.counts() == {"constructor": 1, "hand_drill": 1}
 
 
 def test_craft_counts_the_slot_freed_by_the_recipe(game):
     fill_with_ice(game)
-    game.inventory.remove("ice", 50)                    # libera o último slot...
-    give(game, iron=5)                                  # ...e o ferro ocupa ele: inventário lotado
+    game.inventory.remove("ice", 100)                   # libera os dois últimos slots...
+    give(game, iron=5, silicon=5)                       # ...e o ferro e o silício ocupam eles: inventário lotado
     assert not game.inventory.has_space("constructor")
-    assert game.craft("constructor")                    # o ferro é gasto todo: o slot dele vira o construtor
+    assert game.craft("constructor")                    # tudo é gasto: um dos slots vira o construtor
     assert game.inventory.count("constructor") == 1 and game.inventory.count("iron") == 0
 
 
 def test_craft_with_full_inventory_warns(game):
     fill_with_ice(game)
-    chest = place_chest_with(game, iron=10, silicon=4)  # recurso só no baú
+    chest = place_chest_with(game, iron=10, silicon=5)  # recurso só no baú
     assert game.recipe_status("constructor") == "ok"
     assert not game.craft("constructor")                # o item não teria onde ficar
     assert ("inv_full",) in game.pop_events()
@@ -233,19 +233,20 @@ def place_chest_with(game: GameState, **content) -> object:
 def test_chest_is_a_machine_without_index(game):
     chest = place_chest_with(game)
     assert chest.is_chest and len(chest.storage) == C.CHEST_SIZES["chest"] == 16
-    assert C.MACHINES["chest"].cost == {"iron": 6} and C.MACHINES["chest"].unlock_ti == C.CHEST_UNLOCK_TI
+    assert C.MACHINES["chest"].cost == {"iron_ingot": 3} and C.MACHINES["chest"].unlock_ti == C.CHEST_UNLOCK_TI
     ti = game.ti
     game._update_machines(100)
     assert game.ti == ti and game.ti_rate == 0          # não soma Ti
 
 
 def test_fabricator_uses_inventory_first_then_base_chests(game):
-    chest = place_chest_with(game, iron=20)
+    chest = place_chest_with(game, iron=20, silicon=5)
     give(game, iron=2)
     assert game.available("iron") == 22
-    assert game.craft("constructor")                    # 5 ferro
+    assert game.craft("constructor")                    # 5 ferro + 5 silício (v0.6 Fundo M5)
     assert game.inventory.count("iron") == 0            # gastou os 2 do inventário primeiro
     assert chest.storage.count("iron") == 17            # e 3 do baú
+    assert chest.storage.count("silicon") == 0
 
 
 def test_chests_outside_the_base_do_not_count(game):
@@ -270,7 +271,7 @@ def test_chest_with_content_cannot_be_dismantled(game):
     assert chest in game.machines and ("chest_not_empty",) in game.pop_events()
     chest.storage.clear()
     assert game.dismantle(chest)
-    assert game.inventory.count("chest") == 0 and game.inventory.count("iron") == 6   # v0.5 M1: a receita
+    assert game.inventory.count("chest") == 0 and game.inventory.count("iron_ingot") == 3   # v0.5 M1: a receita (M5: lingote)
 
 
 def test_dismantle_needs_room_for_the_recipe(game):

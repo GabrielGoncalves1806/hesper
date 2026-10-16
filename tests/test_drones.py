@@ -55,7 +55,7 @@ def run(game, seconds: float, step: float = 1 / 30) -> None:
 # ---------------------------------------------------------------- receita
 def test_station_recipe_and_power():
     m = C.MACHINES["drone_station"]
-    assert m.cost == {"iron": 12, "silicon": 8, "ice": 3} and m.unlock_ti == 10_000
+    assert m.cost == {"iron_ingot": 10, "circuit": 1, "chip": 1, "wire": 2} and m.unlock_ti == 10_000
     assert m.size == 2 and m.index is None and m.rate == 0          # não soma Ti
     assert C.POWER_USE["drone_station"] == 1
     assert C.MACHINE_ORDER.index("drone_station") == C.MACHINE_ORDER.index("drill") + 1
@@ -63,7 +63,7 @@ def test_station_recipe_and_power():
 
 def test_drone_is_an_item_recipe_unlocked_with_the_station():
     d = C.MACHINES["drone"]
-    assert d.cost == {"iron": 6, "silicon": 4} and d.unlock_ti == C.MACHINES["drone_station"].unlock_ti
+    assert d.cost == {"circuit": 2, "wire": 5, "iron_ingot": 2} and d.unlock_ti == C.MACHINES["drone_station"].unlock_ti
     assert not d.placeable and d.index is None and "drone" not in C.POWER_USE
     assert C.MACHINE_ORDER.index("drone") == C.MACHINE_ORDER.index("drone_station") + 1
     from game.inventory import max_stack
@@ -73,9 +73,10 @@ def test_drone_is_an_item_recipe_unlocked_with_the_station():
 def test_craft_drone_goes_to_the_inventory_and_cannot_be_placed(game):
     game.player.x, game.player.y = C.SPAWN_POS
     assert game.recipe_status("drone") == "missing"
-    give(game, iron=6, silicon=4)
-    assert game.craft("drone")
-    assert game.inventory.count("drone") == 1 and game.inventory.count("iron") == 0
+    give(game, circuit=2, wire=5, iron_ingot=2)
+    assert not game.craft("drone")                                  # v0.6 Fundo M5: o drone é da Bancada T2
+    assert game.craft("drone", bench="t2")
+    assert game.inventory.count("drone") == 1 and game.inventory.count("iron_ingot") == 0
     assert game.crafted["drone"] == 1
     assert not game.can_place("drone", (60, 66))                    # não vai pro chão
 
@@ -258,8 +259,8 @@ def test_dismantle_returns_buffer_cargo_drones_and_recipe(game):
     assert game.dismantle(st)
     assert st not in game.machines
     cost = C.MACHINES["drone_station"].cost                          # v0.5 M1: a receita volta, não a estação
-    assert game.inventory.count("iron") == 30 + cost["iron"] and game.inventory.count("ice") == 8 + cost["ice"]
-    assert game.inventory.count("silicon") == cost["silicon"]
+    assert game.inventory.count("iron") == 30 and game.inventory.count("ice") == 8
+    assert all(game.inventory.count(r) == n for r, n in cost.items())          # v0.6 Fundo M5: a receita nova (lingote, circuito...)
     assert game.inventory.count("drone_station") == 0
     assert game.inventory.count("drone") == 2                       # os 2, até o que estava voando
 

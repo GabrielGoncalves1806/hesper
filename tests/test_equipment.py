@@ -21,8 +21,8 @@ def test_slots_start_empty_and_roundtrip():
 def test_tank_raises_o2_max_and_refill_goes_to_220():
     g = GameState(7)
     g.blueprints.add("o2_tank")
-    give(g, iron=10, silicon=6, ice=4)
-    assert g.craft("o2_tank")
+    give(g, iron_ingot=5, circuit=1)
+    assert g.craft("o2_tank", bench="t2")           # v0.6 Fundo M5: o tanque é receita da Bancada T2
     i = next(k for k, s in enumerate(g.inventory.slots) if s and s.item == "o2_tank")
     assert g.equip_from(i) and g.inventory.count("o2_tank") == 0
     assert g.o2_max == 220 and "o2_tank" in g.equipped_ever
