@@ -4,7 +4,7 @@ Aprovado pelo dono no brainstorm de 2026-10-15. É o segundo bloco do v0.6 (o pr
 
 ## Objetivo
 
-Dar um "fundo" de verdade ao jogo: a caverna cresce pro tamanho da superfície e ganha regiões, dois biomas ficam trancados atrás de uma rocha que só a broca nv.2 quebra, e entra a primeira cadeia de processamento (cobre → fornalha → lingote → fios → broca nv.2).
+Dar um "fundo" de verdade ao jogo: a caverna cresce pro tamanho da superfície e ganha regiões, dois biomas ficam trancados atrás de uma rocha que só a broca nv.2 quebra, e entra a primeira cadeia de processamento (cobre → fundição → lingote → fios → broca nv.2).
 
 ## Decisões do dono
 
@@ -18,7 +18,7 @@ Dar um "fundo" de verdade ao jogo: a caverna cresce pro tamanho da superfície e
 | Trava | Toda a rocha do **gelo** e do **basalto** é **rocha dura**: a broca nv.1 não quebra. **Centro e salar são livres** (o cobre do salar destrava a cadeia) |
 | Entradas | Sem muralha e sem entrada garantida: a fronteira é só uma linha torta; caverna natural que por sorte cruza a fronteira deixa o player "pôr a pontinha do pé" no bioma, e tá tudo bem |
 | Magmatita | **Não nasce na parede** (o sprite `ore_magmatite` fica guardado). Sai das **fumarolas** (como hoje), de **veios** e de **rochinhas no chão do basalto** da caverna |
-| Fornalha | **Magmatita é o combustível** ("o carvão de Hesper"). Ferro → lingote de ferro; cobre → **lingote de cobre** (item novo) |
+| Fundição | **Magmatita é o combustível** ("o carvão de Hesper"). Ferro → lingote de ferro; cobre → **lingote de cobre** (item novo) |
 | Fios | Lingote de cobre → fios no **fabricador** (receita de partida). Os crafts são remapeados no M5 |
 | Broca nv.2 | Quebra a rocha dura **e minera ×1,5** mais rápido. O craft **consome a nv.1**. Bedrock continua inquebrável |
 | Save | **v12**. A superfície carrega igual; a caverna antiga é **descartada inteira** (tiles, máquinas, baús, o que tiver lá). Sem baú de compensação |
@@ -55,7 +55,7 @@ Dar um "fundo" de verdade ao jogo: a caverna cresce pro tamanho da superfície e
 - Chão e parede por região (centro: a névoa de hoje; salar: arenoso com manchas de infiltração; gelo; basalto/fogo), rocha dura com leitura clara de "não dá", tom da luz por região. Ambiente sonoro por bioma, se o dono quiser.
 - Designer e Som entregam report; nada entra sem aprovação.
 
-### M3 · Fornalha
+### M3 · Fundição
 - Máquina no molde do derretedor: 3 slots (**minério**, **combustível** só magmatita, **saída**). Ferro → `iron_ingot`; cobre → `copper_ingot` (item novo).
 - Partida: 1 lingote a cada 15 s (nv.1, × fator da energia); 1 magmatita queima por 4 fundições. Custo partida: 15 ferro + 6 silício + 4 magmatita.
 - Entra na rede com chip: **Recebe** minério (ferro/cobre) e magmatita, **Envia** lingote.
@@ -68,9 +68,9 @@ Dar um "fundo" de verdade ao jogo: a caverna cresce pro tamanho da superfície e
 - Ícone novo (aprovação do dono).
 
 ### M5 · Remapear crafts
-- Chip, baú grande, diagramas e o que hoje pede lingote/fio/wafer passam a usar a cadeia nova (fornalha/fabricador). Brainstorm curto com o dono antes.
+- Chip, baú grande, diagramas e o que hoje pede lingote/fio/wafer passam a usar a cadeia nova (fundição/fabricador). Brainstorm curto com o dono antes.
 
 ## Fora deste bloco (ganchos)
 - Vulcão no basalto; espécie nativa nas cavernas; areia do salar; ruínas na caverna (próximo update).
-- **Trefiladora** (lingote → fio como máquina, linha de produção fornalha → trefiladora pelos drones): Futuro.
+- **Trefiladora** (lingote → fio como máquina, linha de produção fundição → trefiladora pelos drones): Futuro.
 - Minério exclusivo dentro dos biomas trancados: por ora não.

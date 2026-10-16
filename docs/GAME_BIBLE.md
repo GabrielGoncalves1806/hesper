@@ -858,12 +858,12 @@ Spec: `docs/superpowers/specs/2026-10-15-v06-logistica-design.md`. O v0.6 virou 
 - **Testes e ferramentas**: `tests/test_drones_cave.py` (rede por camada, as duas rodando com o player na outra, redes que não se misturam, energia, save com carga no ar); `tools/dev/shot_v06_m3.py`.
 
 ## 15. v0.6 · Fundo (decisões do dono, 2026-10-15)
-Spec: `docs/superpowers/specs/2026-10-15-v06-fundo-design.md`. Marcos: M1 caverna nova, M2 cara dos biomas, M3 fornalha, M4 broca nv.2, M5 remapear crafts.
+Spec: `docs/superpowers/specs/2026-10-15-v06-fundo-design.md`. Marcos: M1 caverna nova, M2 cara dos biomas, M3 fundição, M4 broca nv.2, M5 remapear crafts.
 - **Caverna 256×256** (igual à superfície; espaço pras ruínas de um update próximo). A rampa fica **na mesma coordenada da cratera**.
 - **Regiões** pela direção, sem copiar a geometria de cima: **gelo ao norte, basalto a oeste, salar a leste** (maior que o da superfície, arenoso, cara de infiltração), centro em volta da rampa. Fronteira torta (noise), sem muralha nem entrada garantida: caverna natural que cruza a fronteira deixa o player "pôr a pontinha do pé" no bioma.
 - **Trava**: toda a rocha do gelo e do basalto é **rocha dura** (a broca nv.1 não quebra; dica "Rocha dura demais · precisa da broca nv.2"). Centro e salar livres. Bioma muda visual, minério e trava; **sem dano de ambiente** (v0.7).
 - **Minério**: **veios de parede** de 6 a 8 tiles e bem menos minério solto. **Cobre** no salar (parede e veio). Gelo em volume no gelo. **A magmatita não nasce na parede**: só fumarolas, veios e rochinhas no chão do basalto da caverna.
-- **Fornalha** (molde do derretedor): minério + **magmatita como combustível** → ferro vira lingote de ferro, cobre vira **lingote de cobre**. Fios: lingote de cobre no **fabricador**. Entra na rede com chip.
+- **Fundição** (molde do derretedor): minério + **magmatita como combustível** → ferro vira lingote de ferro, cobre vira **lingote de cobre**. Fios: lingote de cobre no **fabricador**. Entra na rede com chip. Nome "Fundição" (o dono achou "fornalha" rústico; key `smelter`); libera em **Ti 10.000** (junto da drill), aba **Automação** do construtor, **2 kW** (dono, 2026-10-16).
 - **Broca nv.2**: quebra rocha dura e minera ×1,5; o craft consome a nv.1. Bedrock continua inquebrável.
 - **Save v12**: a caverna antiga é **descartada inteira** (sem compensação, decisão do dono); a superfície carrega igual.
 - **F3** passa a quebrar rocha dura (testar os biomas antes da nv.2).
