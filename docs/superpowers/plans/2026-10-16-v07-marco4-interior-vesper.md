@@ -802,3 +802,4 @@ A Designer fez props novos (rodada 4, `reports/design/v07_m4/index.html`, **aind
 - Na planta (ruínas e nave), a letra do prop 2×1 vai **só na âncora** e o tile da direita é `.`. O `ruins._extract_props`/`ok_in_plan` e o `vesper._built` conferem que os 2 tiles são chão.
 - Testes: um prop fake 2×1 em `C.PROPS` via monkeypatch (põe, colide nos 2 tiles, não põe com 1 tile ocupado, desmonta inteiro, salva e carrega).
 - **Os 11 props novos NÃO entram no `config.py` nem nas plantas na Task 4** (esperam o ok do dono). Entram na Task 5.
+- **Escotilha aprovada (as duas)**: `vesper_hatch_exit_A` e `_B` (rodada 4). O dono mandou guardar as duas, então elas viram **variantes**: a planta `hold_a` usa a A e a `hold_b` usa a B. Na integração entram como `vesper_hatch_exit_a.png` e `vesper_hatch_exit_b.png`, e o render escolhe pela variante do porão sorteada (`vesper` expõe qual).
