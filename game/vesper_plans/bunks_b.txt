@@ -9,15 +9,21 @@ r: prop_rubble
 n: wall_notice
 L: emergency_light
 1: 22
+W: prop_wall_bunk
+M: prop_mess_table
+u: prop_uniforms
+S: prop_suit_locker
+V: prop_suit_niche
+s: prop_side_table
 ---
 ###1###L##n###
-#kk..........#
+#kk..W.....W.#
 #............#
-#b..bb..tt...#
+#b..bb..M....#
 #b..bb..i....#
 #.............
 #b..bb.......#
 #b..bb...r...#
-#............#
-#kk.......kk.#
+#.....u.u....#
+#VV.......Ss.#
 ##############

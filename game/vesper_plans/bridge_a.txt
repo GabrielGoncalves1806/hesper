@@ -10,14 +10,20 @@ J: jammed_door
 P: power_panel
 L: emergency_light
 1: 21
+R: prop_server_rack
+O: prop_server_rack_open
+g: prop_pilot_chair
+w: prop_workstation
+T: prop_command_table
+N: prop_nav_table
 ---
 ##f#f#1##J##f#P#L#
 #................#
-#.uuu..i..i..uuu.#
+#R.O.R.g..g...w.w#
 #................#
-#.i.i..........i.#
+#....T...T.......#
 #................#
-#.uuu........r...#
-#.......h........#
-#.u.............r#
+#.N.........r....#
+#................#
+#..h.........g...#
 #########.########

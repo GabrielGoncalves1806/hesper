@@ -7,6 +7,7 @@ o: o2
 l: lamp
 w: prop_lab_bench
 s: prop_microscope
+d: prop_microscope_digital
 e: prop_sample_shelf
 q: prop_sample_tank
 z: prop_ice_stain
@@ -19,7 +20,7 @@ f: wall_monitor_off
 3: 12
 ---
 ####1#y#2#f##
-#.w..se.....#
+#.w.dse.....#
 #.~~..c.q~~z#
 #.~~.....~~.#
 ####D###3####

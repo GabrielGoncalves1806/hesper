@@ -6,8 +6,10 @@ r: prop_rubble
 h: prop_chair_fallen
 s: prop_ice_stain
 L: emergency_light
+p: wall_cable_panel
+O: prop_server_rack_open
 ---
-##L.L##
+#pL.L##
 #.....#
 #r....#
 #..h..#
@@ -19,7 +21,7 @@ L: emergency_light
 #..s..#
 #.....#
 #k....#
-#..r..#
+#.Or..#
 #.....#
 #.....#
 ###.###

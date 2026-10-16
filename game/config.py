@@ -1285,9 +1285,9 @@ class PropType(NamedTuple):
 
 
 PROP_STARTER = ("prop_table", "prop_chair", "prop_crate", "prop_sign")
-PROP_SCENERY = ("prop_chair_fallen", "prop_rubble", "prop_ice_stain")
+PROP_SCENERY = ("prop_chair_fallen", "prop_rubble", "prop_ice_stain", "prop_uniforms")
 _S, _T = PROP_COST_SIMPLE, PROP_COST_TECH
-# (id, nome, custo, colide, lugar); o cenário não se constrói (custo {})
+# (id, nome, custo, colide, lugar[, tamanho em tiles]); o cenário não se constrói (custo {})
 _PROP_TABLE = (
     ("prop_table", "Mesa", _S, True, "floor"),
     ("prop_chair", "Cadeira", _S, False, "floor"),
@@ -1300,6 +1300,7 @@ _PROP_TABLE = (
     ("prop_dead_plant", "Vaso com planta seca", _S, False, "floor"),
     ("prop_lab_bench", "Bancada de laboratório", _T, True, "floor"),
     ("prop_microscope", "Microscópio", _T, True, "floor"),
+    ("prop_microscope_digital", "Microscópio digital", _T, True, "floor"),
     ("prop_console", "Console", _T, True, "floor"),
     ("prop_sample_tank", "Tanque de amostra", _T, True, "floor"),
     ("prop_wall_desk_a", "Bancada de parede", _S, True, "desk"),
@@ -1313,9 +1314,28 @@ _PROP_TABLE = (
     ("prop_chair_fallen", "Cadeira caída", {}, False, "floor"),
     ("prop_rubble", "Entulho", {}, True, "floor"),
     ("prop_ice_stain", "Mancha de gelo", {}, False, "decal"),
+    # v0.7 M4: o kit da nave VÉSPER-7 (rodadas 4 a 7 da Designer, aprovadas pelo dono)
+    ("prop_container_stack", "Pilha de contêineres", _S, True, "floor", (2, 1)),
+    ("prop_command_table", "Mesa de comando", _T, True, "floor", (2, 1)),
+    ("prop_o2_cylinders", "Cilindros de O₂", _S, True, "floor"),
+    ("prop_server_rack", "Rack de servidor", _T, True, "floor"),
+    ("prop_server_rack_open", "Rack de servidor aberto", _T, True, "floor"),
+    ("prop_workstation", "Estação de computador", _T, True, "floor"),
+    ("prop_pilot_chair", "Cadeira de piloto", _S, False, "floor"),
+    ("wall_cable_panel", "Painel de cabos soltos", _S, False, "face"),
+    ("prop_wall_bunk", "Beliche de parede", _S, True, "desk", (2, 1)),
+    ("prop_suit_locker", "Armário de traje", _T, True, "floor"),
+    ("prop_suit_niche", "Nicho de traje", _T, True, "floor"),
+    ("prop_uniforms", "Macacão largado", {}, False, "decal"),           # 2 variantes de sprite (_a/_b) por hash do tile
+    ("prop_briefing_table", "Mesa de briefing", _T, True, "floor", (2, 2)),
+    ("prop_mess_table", "Mesa de refeitório", _S, True, "floor", (2, 1)),
+    ("prop_repair_bench", "Bancada de manutenção", _S, True, "floor", (2, 1)),
+    ("prop_nav_table", "Mesa de navegação", _T, True, "floor"),
+    ("prop_side_table", "Mesinha de canto", _S, True, "floor"),
 )
-PROPS = {k: PropType(k, n, c, s, p, k not in PROP_STARTER and k not in PROP_SCENERY)
-         for k, n, c, s, p in _PROP_TABLE}
+PROPS = {k: PropType(k, n, c, s, p, k not in PROP_STARTER and k not in PROP_SCENERY, *size)
+         for k, n, c, s, p, *size in _PROP_TABLE}
+PROP_VARIANT_KINDS = ("prop_uniforms",)    # sprite com variantes: <id>_a.png / <id>_b.png, por hash do tile
 PLAYER_PROPS = tuple(k for k in PROPS if k not in PROP_SCENERY)
 for _kind in PLAYER_PROPS:
     _t = PROPS[_kind]
