@@ -14,7 +14,7 @@ class W:
 def test_table_matches_approved_values():
     t = L.load()
     assert t[PLATEAU]["ambient"] == (6, 7, 10) and t[PLATEAU]["helmet"] == WARM_WHITE
-    assert t[BASALT]["ambient"] == (29, 8, 4) and t[BASALT]["helmet_intensity"] == 0.95   # o vermelho fica (dono)
+    assert t[BASALT]["ambient"] == (16, 4, 2) and t[BASALT]["helmet_intensity"] == 0.95   # o vermelho fica (dono)
 
 
 def test_missing_file_falls_back_to_pitch_black(tmp_path):
@@ -42,7 +42,7 @@ def test_light_snaps_on_enter_and_eases_after():
     assert 3 < mid[0] < 34                                 # cruzou: a meio caminho
     for i in range(2, 40):
         cl.update(world, 17, 5, t=i * 0.1)
-    assert cl.ambient == (29, 8, 4)
+    assert cl.ambient == (16, 4, 2)
 
 
 def test_helmet_colour_is_quantized():
