@@ -91,6 +91,7 @@ Fauna e flora surgindo com o Ti, farm, música.
 
 ## Futuro
 - **Baú grande colado em outro** (dono, teste do v0.6 M1, print em `reports/design/v06_m1_baus/feedback/bau_grande_colado.png`): o sprite do contêiner tem 40 px num tile de 32, então dois Grandes lado a lado se sobrepõem 8 px. Opções: arte de 32 px de largura, Grande ocupando 2 tiles, ou proibir colar. Já tinha sido levantado pela Designer.
+- **Enxugar o smoke** (dono, 2026-10-16): passada no `tools/dev/smoke.py` (52 cenas, ~4,5 min, ~340 prints) pra deixar só as cenas que realmente valem (as que pegam o que o pytest não pega: tela, layout, vídeo).
 - **Prioridade dos drones** (dono, 2026-10-15, fechando o v0.6 M2): um esquema de prioridade pra quem os drones atendem primeiro (ex.: dispersor sem água antes de encher baú). Hoje o `drones.pick_task` escolhe pelo maior estoque e pela menor viagem. Conversar o desenho antes.
 - **Trefiladora** (dono, brainstorm do Fundo): lingote de cobre → fio como máquina, linha de produção fundição → trefiladora pelos drones. No Fundo o fio sai do fabricador.
 - **Elevador de carga** (saiu do v0.6): ligar a rede de drones da caverna com a da superfície.
