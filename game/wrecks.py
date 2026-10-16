@@ -1,15 +1,17 @@
-"""Destroços da superfície (v0.3 Marco 3 · bíblia §9): nave de carga, módulo da colônia e sonda.
+"""Destroços da superfície (v0.3 Marco 3 · bíblia §9): nave de carga, base espacial, sonda,
+robô de reconhecimento e nave de passageiros (ARCA-2; v0.7 M3: 5 tipos).
 
 Duas partes:
-    - GEOMETRIA (fixa, sai da seed): `place_wrecks(world, rng)` sorteia 6 a 8 destroços a distâncias
+    - GEOMETRIA (fixa, sai da seed): `place_wrecks(world, rng)` sorteia 8 a 10 destroços (v0.7 M3) a distâncias
       crescentes da base e carimba no mapa: os tiles do destroço viram `WRECK` (sólido baixo, o sprite é
       desenhado como objeto) e a caixa vira `LOOT_CRATE`. Cada `Wreck` sabe onde fica a caixa, o terminal
       (só o módulo tem), qual LOG ele guarda e qual diagrama vem na caixa.
     - ESTADO (muda jogando): `make_crates(world, seed)` cria uma `Crate` por destroço, com o saque sorteado
       pela seed (fixo, não reabastece). Quem guarda é a camada (`Layer.crates`).
 
-Ordem por distância (rank 0 = o mais perto): nave (tanque de O₂ + LOGS[3]), sonda, módulo (scanner + LOGS[4]),
-nave (luminária forte), sonda (LOGS[5]), [nave, sonda extras quando há 7 ou 8] e módulo (LOGS[6], o mais longe).
+Ordem por distância (rank 0 = o mais perto; v0.7 M3, ver kinds_for): nave (tanque de O₂ + LOGS[3]), sonda,
+base (scanner + LOGS[4]), ARCA-2 (LOGS[19]), nave (luminária forte), sonda (LOGS[5]), robô (LOGS[20]),
+[robô, nave extras quando há 9 ou 10] e base (LOGS[6], a mais longe).
 O número que o jogador vê ("LOG 05") é a posição na cronologia (config.LOG_ORDER), não o índice.
 
 v0.4 Marco 3 · M3.2: atrás de cada gelo-portão vai um destroço RICO (`pocket_wrecks`, `rich=True`, depois dos de fora
@@ -33,23 +35,39 @@ class WreckSpec:
     name: str
     size: tuple[int, int]               # tiles (largura, altura) da área sólida
     sprite: str
-    sprite_size: tuple[int, int]
+    sprite_size: tuple[int, int]        # largura = pegada × 32; passa da pegada só pra cima (lift)
     lift: int                           # px que o sprite sobe acima da área (antena, teto)
     crate: tuple[int, int]              # tile da caixa, relativo ao canto do destroço
     terminal: tuple[int, int] | None    # tile do terminal (dentro da área), relativo ao canto
     loot: dict                          # recurso -> (mín, máx) na caixa
+    parts: dict | None = None           # v0.7 M3: peças de bônus {item: (chance, (mín, máx))}; None = C.LOOT_COMMON
+    reads_from: tuple[int, int] | None = None     # v0.7 M3: tile de onde se lê o terminal; None = logo abaixo dele
+    terminal_rect: tuple[int, int, int, int] | None = None   # v0.7 M3: contorno do alvo do E, px dentro do sprite
 
 
-SPECS = {
-    "cargo": WreckSpec("Nave de carga", (4, 3), "wreck_cargo", (128, 112), 16, (1, 3), None,
+SPECS = {   # v0.7 M3: arte nova (bíblia §16, "Marco 3 · Destroços novos")
+    "cargo": WreckSpec("Nave de carga", (5, 3), "wreck_cargo", (160, 128), 32, (1, 3), None,
                        {"iron": (14, 20), "silicon": (8, 12), "ice": (6, 10)}),
-    "module": WreckSpec("Módulo da colônia", (3, 2), "wreck_module", (96, 88), 24, (0, 2), (2, 1),
-                        {"iron": (8, 12), "silicon": (4, 7), "ice": (3, 5)}),
+    "module": WreckSpec("Base espacial", (8, 4), "wreck_module", (256, 168), 40, (5, 4), (4, 2),
+                        {"iron": (8, 12), "silicon": (4, 7), "ice": (3, 5)},
+                        reads_from=(4, 4), terminal_rect=(138, 117, 20, 17)),
     "probe": WreckSpec("Sonda", (2, 2), "wreck_probe", (64, 64), 0, (2, 1), None,
                        {"iron": (2, 4), "silicon": (1, 3), "ice": (0, 2)}),
+    "robot": WreckSpec("Robô de reconhecimento", (3, 2), "wreck_robot", (96, 64), 0, (3, 1), None,
+                       {"iron": (4, 6), "silicon": (2, 4)},
+                       parts={"circuit": (1.0, (1, 2)), "chip": (0.40, (1, 1))}),
+    "liner": WreckSpec("Nave de passageiros", (5, 3), "wreck_liner", (160, 120), 24, (2, 3), None,
+                       {"iron": (10, 14), "silicon": (4, 6), "ice": (4, 8)},
+                       parts={"wire": (0.80, (2, 4)), "iron_ingot": (0.40, (1, 2)), "silicon_wafer": (0.35, (1, 1))}),
 }
-# Retângulo do terminal desenhado no wreck_module.png (contorno do alvo do E vai só nele)
-MODULE_TERMINAL_RECT = (62, 59, 18, 16)
+
+
+def _read_tile(tx: int, ty: int, spec: WreckSpec) -> tuple[int, int] | None:
+    """Tile absoluto de onde o player lê o terminal (o `reads_from` ou o tile logo abaixo do terminal)."""
+    if spec.terminal is None:
+        return None
+    dx, dy = spec.reads_from or (spec.terminal[0], spec.terminal[1] + 1)
+    return tx + dx, ty + dy
 
 
 @dataclass(frozen=True)
@@ -88,6 +106,16 @@ class Wreck:
         return self.tx + dx, self.ty + dy
 
     @property
+    def reads_from(self) -> tuple[int, int] | None:
+        return _read_tile(self.tx, self.ty, self.spec)
+
+    @property
+    def sprite_rect(self) -> tuple[int, int, int, int]:
+        """Retângulo do sprite no mundo (px): o mouse em cima dele é "em cima do destroço"."""
+        x, y = self.blit_pos
+        return x, y, *self.spec.sprite_size
+
+    @property
     def center(self) -> tuple[float, float]:
         """Centro da área sólida, em tiles."""
         w, h = self.spec.size
@@ -106,9 +134,10 @@ class Wreck:
 
 
 def kinds_for(n: int) -> list[str]:
-    """Tipo de cada destroço, do mais perto pro mais longe (n de 6 a 8)."""
-    extras = ["cargo", "probe"][:max(0, n - 6)]
-    return ["cargo", "probe", "module", "cargo", "probe", *extras, "module"]
+    """Tipo de cada destroço, do mais perto pro mais longe (n de 8 a 10, v0.7 M3). Uma ARCA-2 (liner) por mundo;
+    robô só do rank 6 pra frente (o circuito grátis chega quando o player já está perto de fabricar o dele)."""
+    extras = ["robot", "cargo"][:max(0, n - 8)]
+    return ["cargo", "probe", "module", "liner", "cargo", "probe", "robot", *extras, "module"]
 
 
 def extras_for(rank: int, n: int) -> tuple[int | None, str | None]:
@@ -118,9 +147,13 @@ def extras_for(rank: int, n: int) -> tuple[int | None, str | None]:
     if rank == 2:
         return 4, "scanner"            # dia 140 (exibido LOG 04) · o segundo
     if rank == 3:
-        return None, "lamp_t2"
+        return 19, None                # v0.7 M3: ARCA-2, dia 2
     if rank == 4:
+        return None, "lamp_t2"
+    if rank == 5:
         return 5, None                 # sonda S-3 (exibido LOG 02) · sonda longe
+    if rank == 6:
+        return 20, None                # v0.7 M3: robô R-2, dia 167
     if rank == n - 1:
         return 6, None                 # dia 230 (exibido LOG 07) · o mais longe de todos
     return None, None
@@ -212,6 +245,35 @@ def keep_free(wrecks: list[Wreck]) -> set[tuple[int, int]]:
     return out
 
 
+def settle(layer, removed: set = frozenset()) -> None:
+    """v0.7 M3 (save antigo, opção A do dono): roda em todo load. Destroço com máquina, bloco ou prop do player na
+    pegada ou na caixa sai deste mundo (tiles viram chão, a caixa some, sai de `world.wrecks`). Os outros têm a
+    pegada e a caixa recarimbadas: um `changed_tiles` de save v12, cuja posição velha agora cai num destroço novo,
+    não abre buraco. Antes do laço das caixas e do `removed_crates` (a caixa desmontada continua sumindo).
+    `removed`: tiles das caixas desmontadas (do save). O tile delas não conta: o player pode ter construído ali."""
+    world = layer.world
+    if not getattr(world, "wrecks", None):
+        return
+    taken = {t for m in layer.machines for t in m.tiles} | set(layer.base.cells)
+    taken |= {t for t, p in layer.props.items() if not p.ruin}
+    live = []
+    for wreck in world.wrecks:
+        area = [*wreck.tiles] + ([] if wreck.crate in removed else [wreck.crate])
+        if any(t in taken for t in area):
+            for t in area:
+                if world.get(*t) in (C.WRECK, C.LOOT_CRATE):
+                    world.set(*t, world.floor_kind)
+            layer.crates.pop(wreck.crate, None)
+            continue
+        for t in wreck.tiles:
+            world.set(*t, C.WRECK)
+        if wreck.crate not in removed:
+            world.set(*wreck.crate, C.LOOT_CRATE)
+        live.append(wreck)
+    world.wrecks = live
+    world._wreck_index = None
+
+
 # ---------------------------------------------------------------------------
 # Caixa de saque (estado que muda)
 # ---------------------------------------------------------------------------
@@ -255,7 +317,8 @@ def crate_loot(wreck: Wreck, seed: int) -> list[tuple[str, int]]:
         n = rng.randint(lo, hi)
         if n > 0:
             items.append((resource, n))
-    items += _roll_parts(rng, C.LOOT_RICH if wreck.rich else C.LOOT_COMMON)
+    parts = C.LOOT_RICH if wreck.rich else (wreck.spec.parts or C.LOOT_COMMON)
+    items += _roll_parts(rng, parts)
     return items
 
 

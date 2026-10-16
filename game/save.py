@@ -7,7 +7,7 @@ surface_gen.py, a caverna do cave_gen.py), então o save não guarda as casas da
 tiles que ficaram diferentes do mapa gerado (paredes mineradas, rochas pequenas quebradas ou reaparecidas). Pra carregar,
 gera o mapa da seed de novo e aplica as diferenças.
 
-Formato do arquivo (JSON, v12 · v0.6 Fundo M1; o formato é o do v10 (v0.5 M3.1, mapa 256; o v9 e anteriores não
+Formato do arquivo (JSON, v13 · v0.7 M3: destroços novos, o formato é o do v12; v12 · v0.6 Fundo M1; o formato é o do v10 (v0.5 M3.1, mapa 256; o v9 e anteriores não
 carregam). O v11 só ganhou o "chip" das máquinas; o v12 não muda o formato: a caverna nova (256×256, regiões)
 sai de outro gerador (game/cave_gen.py), então o v11 carrega SEM a caverna (layers.cave some e quem estava lá volta
 pra cratera da superfície):
@@ -88,6 +88,7 @@ from game import config as C
 from game import drones
 from game import layers
 from game import ruins
+from game import wrecks
 from game.base import BaseBlock, BaseGrid
 from game.base import H as ORIENT_H, V as ORIENT_V
 from game.equipment import Equipment
@@ -100,7 +101,7 @@ from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 from game.wrecks import loot_for
 
-SAVE_VERSION = 12  # v12 (v0.6 Fundo M1): caverna nova 256×256 (a do v11 é descartada) · v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
+SAVE_VERSION = 13  # v13 (v0.7 M3): destroços novos (a mesma seed põe os destroços em outro lugar; wrecks.settle) · v12 (v0.6 Fundo M1): caverna nova 256×256 (a do v11 é descartada) · v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
 FIRST_VERSION = 10  # saves com versão menor que essa são de outra época do jogo: "save antigo" (v1–v9, não migram)
 # Numeração dos estágios dentro do "progress": 2 = v0.4 (Tempestade, Árido, Névoa, Verde). O 1 (os 3 estágios do
 # v0.3) só existia no save v6, que não carrega mais.
@@ -246,6 +247,7 @@ def layers_from_dict(state: GameState, data: dict) -> None:
             if kind in C.PLAYER_PROPS:
                 layer.props[(int(x), int(y))] = Prop(kind, int(x), int(y))
         ruins.apply_overlays(layer)
+        wrecks.settle(layer, {(int(x), int(y)) for x, y in ldata.get("removed_crates", [])})   # v0.7 M3: destroço em cima de construção (save v12) não nasce; os outros recarimbados
         for x, y, slots, opened in ldata.get("crates", []):      # Marco 3 (save do Marco 1/2 não tem)
             crate = layer.crates.get((int(x), int(y))) or layer.containers.get((int(x), int(y)))
             if crate is not None:
@@ -563,7 +565,13 @@ def _v11_to_v12(data: dict) -> dict:
     return data
 
 
-MIGRATIONS: dict = {10: _v10_to_v11, 11: _v11_to_v12}   # o v10 recomeçou do zero (v7–v9 viraram "save antigo")
+def _v12_to_v13(data: dict) -> dict:
+    """v0.7 M3: os destroços mudaram (8–10, 5 tipos, pegadas maiores) e saem da seed em outro lugar. Nada no dict
+    muda: o `wrecks.settle` do load tira o destroço que bateria em construção do player e ignora as caixas velhas."""
+    return data
+
+
+MIGRATIONS: dict = {10: _v10_to_v11, 11: _v11_to_v12, 12: _v12_to_v13}   # o v10 recomeçou do zero (v7–v9 viraram "save antigo")
 
 
 class SaveError(Exception):

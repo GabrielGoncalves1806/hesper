@@ -1469,7 +1469,7 @@ class Renderer:
             canvas.blit(self.outline_of(("ramp", key), surf), (x - 1, y - 1))
 
     def wreck_surface(self, kind: str) -> pygame.Surface:
-        """wreck_{cargo,module,probe}.png ou o desenho de fallback (art.wreck)."""
+        """wreck_{cargo,module,probe,robot,liner}.png ou o desenho de fallback (art.wreck)."""
         from game.wrecks import SPECS
         return self.surface(SPECS[kind].sprite, lambda: art.wreck(kind))[0]
 
@@ -1481,9 +1481,8 @@ class Renderer:
         canvas.blit(self.wreck_surface(wreck.kind), (x, y))
         if wreck.kind == "probe" and (self.machine_t * 1.2) % 2 < 1:   # LED da sonda piscando (apagado: #3b3f46)
             canvas.fill((59, 63, 70), (x + 23, y + 37, 2, 1))
-        if self.highlight == ("wreck_log", wreck):         # alvo do E: contorno só no terminal (spec da Designer)
-            from game.wrecks import MODULE_TERMINAL_RECT
-            rx, ry, rw, rh = MODULE_TERMINAL_RECT
+        if self.highlight == ("wreck_log", wreck) and wreck.spec.terminal_rect:   # alvo do E: contorno só no terminal
+            rx, ry, rw, rh = wreck.spec.terminal_rect
             pygame.draw.rect(canvas, self.HIGHLIGHT_RGBA[:3], (x + rx - 1, y + ry - 1, rw + 2, rh + 2), 1)
 
     def draw_crate(self, canvas, crate, x: int, y: int) -> None:

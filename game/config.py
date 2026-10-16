@@ -438,16 +438,28 @@ LOGS += [
     "Dia 224. Voltaram 3 dos 7 que desceram. Não falam muito. Um deles só repete que lá embaixo o chão respira. "
     "Lacramos a passagem do nível 2 e não vamos abrir de novo.",
 ]
+# v0.7 M3 · destroços novos (aprovados pelo dono · docs/lore/logs_v07_rascunho.md). Índices 19 e 20, nunca mudam.
+LOGS += [
+    # 19 · nave de passageiros ARCA-2
+    "Dia 2. ARCA-2, diário de bordo. Ordem da diretoria: desmontar o casco pra virar gerador e tenda. "
+    "Ninguém volta, então não vai precisar de nave. O comandante assinou sem ler.",
+    # 20 · robô de reconhecimento R-2
+    "Dia 167. Unidade de reconhecimento R-2, relatório automático. Varredura do gelo norte: 14 pontos de calor "
+    "se movendo sob a superfície, 3 metros por dia, todos na direção da colônia. Classificação: erro de sensor. "
+    "Pedido de recalibração: negado.",
+]
 # Título da tela de leitura de cada LOG (mesma ordem do LOGS)
 LOG_TITLES = ["TERMINAL · COLONIA HESPER"] * 3 + [
     "REGISTRO DE BORDO · VÉSPER-7", "TERMINAL · MODULO DA COLONIA",
     "SONDA S-3 · LEITURA AUTOMATICA", "TERMINAL · MODULO DA COLONIA"]
 LOG_TITLES += (["TERMINAL · ACAMPAMENTO"] * 3 + ["DIARIO · DRA. ILVES"] * 3
                + ["TERMINAL · ESTACAO DE DERRETEDORES"] * 3 + ["TERMINAL · POSTO DE PERFURACAO"] * 3)
+LOG_TITLES += ["DIARIO DE BORDO · ARCA-2", "ROBO R-2 · RELATORIO AUTOMATICO"]
 # Dia da história de cada LOG (mesma ordem do LOGS). A aba LOGs do inventário lista nessa ordem, e o
-# "LOG 01".."LOG 19" exibido é a posição cronológica (não o índice em LOGS).
+# "LOG 01".."LOG 21" exibido é a posição cronológica (não o índice em LOGS).
 LOG_DAYS = [3, 97, 212, 188, 140, 41, 230]
 LOG_DAYS += [1, 9, 22, 120, 152, 175, 198, 205, 219, 61, 209, 224]
+LOG_DAYS += [2, 167]
 LOG_ORDER = sorted(range(len(LOGS)), key=LOG_DAYS.__getitem__)   # índices em LOGS, do dia mais cedo pro mais tarde
 
 
@@ -698,8 +710,8 @@ CAVE_AMB_HOLD_S = 1.5           # s seguidos na região nova da caverna antes do
 # ---------------------------------------------------------------------------
 # v0.3 Marco 3 · destroços, projetos, equipamento e scanner (bíblia §9)
 # ---------------------------------------------------------------------------
-# Destroços (game/wrecks.py): 6 a 8 no deserto, do mais perto (~30 tiles da base) ao mais longe (perto da borda).
-WRECK_COUNT = (6, 8)
+# Destroços (game/wrecks.py): 8 a 10 no deserto, do mais perto (~30 tiles da base) ao mais longe (perto da borda).
+WRECK_COUNT = (8, 10)           # 8 a 10 no deserto (v0.7 M3)
 WRECK_DIST = (30, 84)           # distância (tiles) do centro do 1º e do último destroço até a base
 WRECK_SPACING = 14              # distância mínima entre destroços (tiles, centro a centro)
 WRECK_MARGIN = 2                # folga de areia livre em volta do destroço e da caixa (sem rocha pequena)
