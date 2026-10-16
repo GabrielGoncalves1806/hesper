@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Som · v0.6 Fundo M2 Ambiente por bioma (proposta)</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;margin:0;padding:16px}
+.wrap{max-width:1000px;margin:0 auto;padding-block:36px 70px}
+h1{font-size:34px;margin:8px 0 12px}h2{font-size:22px;margin:44px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.eyebrow{font:12px monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--rust)}
+.note{border-left:3px solid var(--gold);background:var(--panel);padding:12px 16px;margin:18px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:8px}
+.card.nb{opacity:.85}
+.fname{font:500 14px monospace}.when{font:11px monospace;color:var(--gold);text-transform:uppercase}
+.what{margin:0;color:var(--muted);font-size:14px}.tag{font:11px monospace;color:var(--muted);border:1px solid var(--line);padding:1px 6px;margin-right:4px}
+.tag.loop{color:var(--cyan);border-color:#2c5560}
+canvas{width:100%;height:44px;background:#251c18;display:block}audio{width:100%;height:36px}
+button{background:#251c18;color:var(--fg);border:1px solid var(--rust);padding:6px 12px;cursor:pointer;font:13px monospace;margin:4px 6px 4px 0}
+button:hover{background:var(--rust);color:#000}
+code{font:13px monospace;color:var(--cyan)}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+li{margin:4px 0;color:var(--muted)}li b{color:var(--fg)}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Som · v0.6 Fundo M2 · proposta (nada entrou no jogo)</div>
+<h1>Ambiente sonoro por bioma da caverna</h1>
+<div class="note"><b>v16 · o que mudou:</b> 3 loops novos, um por bioma, na mesma família do <code>amb_cave</code> (Lá, drone grave com reverb de caverna, brilhos raros, sem bicho, sem dano). O centro/planalto continua sendo o <code>amb_cave.wav</code> de hoje, intocado (md5 igual). Todos os loops estão na mesma loudness do centro (-28 dB), então trocar de bioma não muda o volume. Os WAVs estão só aqui nesta pasta; nada foi pra <code>assets/audio/</code>. Validação por análise (formato, pico, loudness aproximado, bandas, emenda, picos tonais); eu não ouço, a palavra final é do teu ouvido.</div>
+<h2>Os 4 loops</h2><div class="cards" id="loops"></div>
+<div class="note"><button onclick="stopAll()">Parar tudo</button> <span style="color:var(--muted)">Dica: toque um de cada vez com o mesmo volume do player pra comparar o quão perto estão em volume.</span></div>
+<h2>Crossfade centro para cada bioma (como o jogo: sai em 1,5 s, entra em 2,5 s, 0,5 s depois)</h2><div class="cards" id="xf"></div>
+<h2>Loudness e checagens</h2>
+<div style="overflow-x:auto"><table id="tbl"></table></div>
+<p style="color:var(--muted);font-size:13px">Bandas = % da energia em 20-150 / 150-600 / 600-2500 / 2,5-6 / 6-16 kHz. Emenda = salto entre a última e a primeira amostra (em unidades de 16 bit) contra o 99,9º percentil dos saltos normais do próprio arquivo: menor que a referência é emenda sem clique. Pico tonal = o mais forte destaque estreito acima de 1,2 kHz (dB sobre o piso em volta); os de ~20 dB são os brilhos de Lá, que são notas de propósito, não apito de ruído.</p>
+<h2>O que cada um tem</h2><ul>
+<li><b>Centro (<code>amb_cave</code>, existente, 28 s):</b> Lá1/Mi2/Lá2/Mi3 em quinta, gotas esparsas com eco de caverna, rumor grave. A névoa de sempre.</li>
+<li><b>Salar (<code>amb_cave_salar</code>, 30 s):</b> Lá sus2 aberto e seco (Lá1, Mi2, Si2, Lá2, Mi3) com reverb mais curta: mais claro, "ar de sal". Infiltração úmida: ~18 gotas por volta, mais leves e agudas que as do centro, com eco curto de poço. Chiado seco de grão: rajadinhas irregulares de grãos minúsculos (areia/sal escorrendo), bem no fundo. Brilhos de cristal de sal (Mi4 a Mi5, suaves).</li>
+<li><b>Basalto (<code>amb_cave_basalt</code>, 26 s):</b> o mais grave e quente: drone com mais harmônicos e corpo, um rumor de rocha respirando, ar morno e abafado, estalos de brasa esparsos (~14 por volta, pop curto de banda larga mais grãozinhos; sem tom). Quase sem brilho agudo (só Lá3 e Mi4, escuros). O ouvido sente "ar abafado".</li>
+<li><b>Gelo (<code>amb_cave_frost</code>, 34 s):</b> quinta vazia fria, vento fino e largo em fenda subindo e descendo devagar, brilhos cristalinos mais presentes (Lá4 a Si5, 6 por volta, reverb brilhante) e um rangido de gelo raro (2 por volta: varredura larga descendo e uns estalinhos). Sem apito: o vento é banda larga.</li></ul>
+<p style="color:var(--muted)">Comprimentos diferentes (28, 30, 26, 34 s) de propósito: nenhum repete na mesma hora que o outro, e dá pra reconhecer o bioma sem olhar.</p>
+
+<h2>Pro Dev integrar</h2><ul>
+<li><b>Arquivos</b> (quando o dono aprovar eu promovo; ficam em <code>assets/audio/</code>): <code>amb_cave_salar.wav</code>, <code>amb_cave_basalt.wav</code>, <code>amb_cave_frost.wav</code>. O <code>amb_cave.wav</code> segue sendo o centro (região 0, PLATEAU). Mapa: <code>REGION_NAMES = (plateau, salar, basalt, frost)</code> para chaves <code>cave</code>, <code>cave_salar</code>, <code>cave_basalt</code>, <code>cave_frost</code> (o <code>_start_on_channel</code> já monta <code>amb_{key}</code>). Se o arquivo da região não existir, cai pro <code>amb_cave</code>.</li>
+<li><b>Volume</b>: o mesmo do ambiente de hoje, sem entrada nova no <code>VOLUME</code>. Os 4 têm loudness igual (-28 dB), então o <code>AMBIENT_VOLUME</code> (0,7) vale pra todos.</li>
+<li><b>Escolha por região</b>: a região do <b>tile do player</b> (não da câmera). Use o mesmo <code>crossfade_to</code> da descida (1,5 s sai, 2,5 s entra, 0,5 s de atraso), nada de som novo no cruzamento.</li>
+<li><b>Histerese</b>: só troca quando o player ficar <b>~1,5 s seguidos</b> na nova região (timer que zera se voltar), e/ou ficar a mais de ~3 tiles pra dentro da fronteira. Sem isso, andar na borda dispara crossfades em sequência. Enquanto um crossfade está rolando (<code>_fade_busy</code>), ignore novos pedidos e reavalie no fim. Ao descer pra caverna, já toque o bioma do ponto de chegada, sem passar pelo centro.</li>
+<li><b>Entre biomas</b>: não precisa passar pelo centro; é crossfade direto A para B. Nada de efeito de jogo aqui (dano e calor ficam pro v0.7).</li>
+<li><b>Fundo</b>: toca por minutos; os loops são sutis, sem pico alto (pico por volta de -15 dBFS) e sem som repetitivo que enjoe.</li></ul>
+<p style="color:var(--muted);font-size:13px">Gerado por <code>tools/audio/build_v06_m2.py</code> (seed por nome, só numpy; blocos do <code>build_audio.py</code>).</p>
+</div>
+<script src="v06_meta.js"></script>
+<script>
+const M=window.V06_META;
+const L={amb_cave:["Centro / planalto · existente","Névoa de hoje, aprovada. Referência de volume."],
+ amb_cave_salar:["Salar · NOVO","Gotejo de infiltração, chiado seco de grão, sus2 claro e seco, cristais de sal."],
+ amb_cave_basalt:["Basalto · NOVO","Rumor grave quente, ar abafado, estalos de brasa esparsos."],
+ amb_cave_frost:["Gelo · NOVO","Vento fino em fenda, brilho cristalino, rangido de gelo raro."]};
+const X={xf_salar:["Centro para salar","12 s: centro, troca, salar."],xf_basalt:["Centro para basalto","12 s: centro, troca, basalto."],xf_frost:["Centro para gelo","12 s: centro, troca, gelo."],xf_tour:["Passeio completo","Centro, salar, basalto, gelo, centro, 8 s em cada, trocando como o jogo."]};
+function card(key,txt,loop){const m=M[key];const el=document.createElement("div");el.className="card";
+ el.innerHTML=`<div><span class="fname">${m.file.split("/").pop()}</span> <span class="tag">${m.duration.toFixed(1)} s</span><span class="tag">pico ${m.peak_db} dBFS</span><span class="tag">loud ${m.loudness_db} dB</span>${loop?'<span class="tag loop">loop</span>':''}</div>
+ <div class="when">${txt[0]}</div><canvas width="320" height="44"></canvas>
+ <audio controls preload="metadata" ${loop?"loop":""} src="${m.file}"></audio><p class="what">${txt[1]}</p>`;
+ const c=el.querySelector("canvas").getContext("2d");c.fillStyle="#e2733a";const w=m.wave,bw=320/w.length;
+ w.forEach((v,i)=>{const h=Math.max(1,v*42*3);c.fillRect(i*bw,22-Math.min(h,42)/2,Math.max(1,bw-0.5),Math.min(h,42))});
+ return el}
+for(const k in L)document.getElementById("loops").append(card(k,L[k],true));
+for(const k in X)document.getElementById("xf").append(card(k,X[k],false));
+const t=document.getElementById("tbl");
+t.innerHTML="<tr><th>arquivo</th><th>duração</th><th>pico dBFS</th><th>RMS dB</th><th>loudness dB</th><th>bandas %</th><th>emenda / ref</th><th>pico tonal</th></tr>"+
+ Object.keys(L).map(k=>{const m=M[k];return `<tr><td><code>${k}</code></td><td>${m.duration.toFixed(1)} s</td><td>${m.peak_db}</td><td>${m.rms_db}</td><td>${m.loudness_db}</td><td>${m.bands.join(" / ")}</td><td>${m.seam} / ${m.seam_ref}</td><td>${m.tonal_db} dB @ ${m.tonal_hz} Hz</td></tr>`}).join("");
+function stopAll(){document.querySelectorAll("audio").forEach(a=>a.pause())}
+document.addEventListener("play",e=>{document.querySelectorAll("audio").forEach(a=>{if(a!==e.target)a.pause()})},true);
+</script></body></html>
