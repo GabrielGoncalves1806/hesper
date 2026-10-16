@@ -806,8 +806,20 @@ def _sand_pile(s, cx, cy, rx, ry):
 
 
 def wreck(kind: str) -> pygame.Surface:
-    """Destroço `kind` ("cargo", "module", "probe") no tamanho do sprite do contrato."""
-    return {"cargo": _wreck_cargo, "module": _wreck_module, "probe": _wreck_probe}[kind]()
+    """Destroço `kind` ("cargo", "module", "probe", "robot", "liner"), fallback do sprite (só aparece se o PNG faltar)."""
+    return {"cargo": _wreck_cargo, "module": _wreck_module, "probe": _wreck_probe,
+            "robot": lambda: _wreck_box("robot"), "liner": lambda: _wreck_box("liner")}[kind]()
+
+
+def _wreck_box(kind: str) -> pygame.Surface:
+    """Fallback genérico (v0.7 M3): bloco na área da pegada, no tamanho do contrato."""
+    from game.wrecks import SPECS
+    spec = SPECS[kind]
+    surf = pygame.Surface(spec.sprite_size, pygame.SRCALPHA)
+    rect = pygame.Rect(0, spec.lift, spec.size[0] * 32, spec.size[1] * 32)
+    surf.fill(pygame.Color("#5a5f6a"), rect)
+    pygame.draw.rect(surf, pygame.Color("#1b1630"), rect, 1)
+    return surf
 
 
 def _wreck_cargo() -> pygame.Surface:

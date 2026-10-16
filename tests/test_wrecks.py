@@ -51,8 +51,7 @@ def test_tiles_and_free_access(seed):
         cx, cy = w.crate
         assert any(n in reach for n in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)))
         if w.terminal is not None:
-            tx, ty = w.terminal
-            assert (tx, ty + 1) in reach
+            assert w.reads_from in reach
         assert world.wreck_at(*w.tiles[0]) is w and world.wreck_at(*w.crate) is w
 
 
@@ -89,14 +88,55 @@ def test_loot_is_fixed_by_seed_and_scales_with_size():
 
 
 def test_specs_match_sprite_contract():
-    cargo, module, probe = (wrecks.SPECS[k] for k in ("cargo", "module", "probe"))
-    assert cargo.size == (4, 3) and cargo.sprite_size == (128, 112) and cargo.crate == (1, 3)
-    assert module.size == (3, 2) and module.sprite_size == (96, 88) and module.crate == (0, 2)
-    assert module.terminal == (2, 1)
-    assert probe.size == (2, 2) and probe.sprite_size == (64, 64) and probe.crate == (2, 1)
+    s = wrecks.SPECS
+    assert set(s) == {"cargo", "module", "probe", "robot", "liner"}
+    contract = {   # kind: (pegada, sprite_size, lift, caixa)
+        "cargo": ((5, 3), (160, 128), 32, (1, 3)),
+        "module": ((8, 4), (256, 168), 40, (5, 4)),
+        "probe": ((2, 2), (64, 64), 0, (2, 1)),
+        "robot": ((3, 2), (96, 64), 0, (3, 1)),
+        "liner": ((5, 3), (160, 120), 24, (2, 3)),
+    }
+    for kind, (size, sprite_size, lift, crate) in contract.items():
+        spec = s[kind]
+        assert (spec.size, spec.sprite_size, spec.lift, spec.crate) == (size, sprite_size, lift, crate), kind
+        assert spec.sprite == f"wreck_{kind}"
+        assert spec.sprite_size == (size[0] * 32, size[1] * 32 + lift), kind   # só passa da pegada pra cima
+        assert (spec.terminal is None) == (kind != "module")
+    assert s["module"].terminal == (4, 2) and s["module"].reads_from == (4, 4)
+    assert s["module"].terminal_rect == (138, 117, 20, 17)
     w = wrecks.Wreck("cargo", 10, 20, 0)
-    assert w.blit_pos == (320, 640 - 16) and w.anchor == ((10 + 2) * 32, (20 + 3) * 32)
-    assert wrecks.Wreck("module", 10, 20, 0).blit_pos == (320, 640 - 24)
+    assert w.blit_pos == (320, 640 - 32) and w.anchor == ((10 + 2.5) * 32, (20 + 3) * 32)
+    assert w.sprite_rect == (320, 640 - 32, 160, 128)
+    m = wrecks.Wreck("module", 10, 20, 0)
+    assert m.terminal == (14, 22) and m.reads_from == (14, 24)
+
+
+def test_reads_from_defaults_to_tile_below_terminal():
+    spec = wrecks.WreckSpec("x", (2, 2), "x", (64, 64), 0, (2, 1), (1, 0), {})
+    assert spec.reads_from is None
+    # sem reads_from: terminal relativo (1, 0) no canto (5, 7) -> lê de (6, 8)
+    assert wrecks._read_tile(5, 7, spec) == (6, 8)
+    assert wrecks._read_tile(5, 7, wrecks.SPECS["probe"]) is None
+
+
+@pytest.mark.parametrize("seed", [1, 7, 42, 99, 1234])
+def test_robot_always_gives_circuit(seed):
+    robot = wrecks.Wreck("robot", 50, 50, 6)
+    items = dict(wrecks.crate_loot(robot, seed))
+    assert 1 <= items["circuit"] <= 2
+    assert set(items) <= {"iron", "silicon", "circuit", "chip"}
+    assert "ice" not in items
+
+
+def test_robot_chip_chance_is_about_40_percent():
+    hits = sum("chip" in dict(wrecks.crate_loot(wrecks.Wreck("robot", 50, 50, 6), s)) for s in range(400))
+    assert 120 <= hits <= 200
+
+
+def test_liner_resources_are_between_cargo_and_probe():
+    liner = dict(wrecks.crate_loot(wrecks.Wreck("liner", 50, 50, 3), 7))
+    assert 10 <= liner["iron"] <= 14 and 4 <= liner["silicon"] <= 6 and 4 <= liner["ice"] <= 8
 
 
 # ---------------------------------------------------------------------------
