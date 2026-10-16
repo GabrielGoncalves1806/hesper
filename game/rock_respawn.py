@@ -54,7 +54,7 @@ def blocked_tiles(world, machines=()) -> set[tuple[int, int]]:
 
 def can_spawn(world, tx: int, ty: int, blocked=()) -> bool:
     """Areia livre, longe da base, fora de veio/lago futuro/`blocked` e sem nada sólido nos 8 vizinhos."""
-    if world.get(tx, ty) != C.SAND or (tx, ty) in blocked:
+    if world.get(tx, ty) != C.SAND or (tx, ty) in blocked or (tx, ty) in world.ruin_tiles:   # v0.7 M1: nem na pegada de ruína
         return False
     if world.dist_from_center(tx, ty) < C.ROCK_BASE_DIST or world.vein_at(tx, ty) is not None:
         return False

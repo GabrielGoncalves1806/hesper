@@ -133,7 +133,9 @@ def test_sand_variants_follow_the_designer_distribution():
 
 
 def _hill_walls(w):
-    return {(x, y) for y in range(3, w.height - 3) for x in range(3, w.width - 3) if w.get(x, y) in HILL_TILES}
+    # v0.7 M1: o gelo da destruição das ruínas (lab) é tile de parede mas não é morro: fica fora da conta
+    return {(x, y) for y in range(3, w.height - 3) for x in range(3, w.width - 3)
+            if w.get(x, y) in HILL_TILES and (x, y) not in w.ruin_tiles}
 
 
 def test_hills_have_no_loose_diagonals_or_spurs():

@@ -492,6 +492,8 @@ class App:
                     self.mode = "terminal"
                 elif target and target[0] == "wreck_log":          # terminal do módulo da colônia
                     self.show_log(target[1].log)
+                elif target and target[0] == "ruin_log":           # v0.7 M1: terminal de uma estrutura
+                    self.show_log(state.world.ruin_terminals[tuple(target[1])])
                 elif target and target[0] == "crate":
                     self.open_loot(target[1])
                 elif target and target[0] == "container":          # v0.5 M4: abre de graça, mesma tela da caixa de saque
@@ -1845,7 +1847,7 @@ class App:
         audio.set_alarm(not state.fainted and sound.alarm_should_play(audio.alarm_on, o2_percent))
         # zumbido pela máquina mais próxima
         nearest = min((math.hypot((m.tx + 0.5) * C.TILE - state.player.x, (m.ty + 1) * C.TILE - state.player.y) / C.TILE
-                       for m in state.machines if m.type.index is not None), default=None)
+                       for m in state.machines if m.type.index is not None and not m.broken), default=None)
         in_sealed = state.in_sealed_base()
         audio.set_hum(0.0 if in_sealed else sound.hum_volume(nearest))   # dentro da base vedada, o hum do Dispersor entra no lugar
         self.dry_fade_t = max(0.0, self.dry_fade_t - dt)
@@ -1948,7 +1950,7 @@ class App:
         dt = dt * self.state.power.factor
         for i, m in enumerate(self.state.machines):
             phase = (i * 1.37) % period
-            if m.type.index is not None and not m.submerged and (t - dt + phase) % period > (t + phase) % period:
+            if m.type.index is not None and not m.submerged and not m.broken and (t - dt + phase) % period > (t + phase) % period:
                 key = m.type.index
                 self.floaters.add(f"+{C.INDEX_LABEL[key]}", (m.tx + 0.5) * C.TILE, m.ty * C.TILE - 30, C.INDEX_COLOR[key])
 
@@ -2109,7 +2111,7 @@ class App:
             return self.e_label(target)
         if hover is not None and hover[0] == "crate":                   # caixa debaixo do mouse, longe
             return "Caixa vazia" if hover[1].empty else "Caixa de saque · chegue mais perto"
-        if hover is not None and hover[0] == "wreck_log":
+        if hover is not None and hover[0] in ("wreck_log", "ruin_log"):
             return "Terminal · chegue mais perto"
         if hover is not None and hover[0] == "container":
             box = state.container_crate(hover[1])
@@ -2169,6 +2171,8 @@ class App:
             return "ramp", target[1]
         if target[0] == "wreck_log":
             return "wreck_log", target[1]
+        if target[0] == "ruin_log":
+            return "ruin_log", tuple(target[1])
         if target[0] == "container":
             return "container", target[1]
         return target[1]                          # máquina ou caixa de saque
@@ -2190,7 +2194,7 @@ class App:
             return "[E] Descer pela rampa" if self.state.active.has_base else "[E] Subir pela rampa"
         if kind == "crate":
             return "[E] Abrir caixa" if obj.empty else "[E] Abrir caixa de saque"
-        if kind == "wreck_log":
+        if kind in ("wreck_log", "ruin_log"):
             return "[E] Ler terminal"
         if kind == "container":                       # v0.5 M4
             box = self.state.container_crate(obj)

@@ -361,7 +361,7 @@ def test_double_door_one_item_two_tiles_rotates_and_dismantles_as_one(game):
     cost = C.MACHINES[C.BASE_DOOR2].cost
     assert game.inventory.count("iron") == iron0 - cost["iron"] and game.inventory.count("silicon") == si0 - cost["silicon"]
     block = game.base.get((x0, y0))
-    assert block is game.base.get((x0 + 1, y0)) and block.orient == "h" and len(game.base.blocks) == 1
+    assert block is game.base.get((x0 + 1, y0)) and block.orient == "h" and len([b for b in game.base.blocks if not b.ruin]) == 1
     assert not game.can_place(C.BASE_DOOR2, (x0 + 1, y0), 0)    # a metade de leste já é porta
     assert game.build(C.BASE_DOOR2, (x0, y0 + 2), 1)             # rotação 1: um em cima do outro
     assert game.base.get((x0, y0 + 3)).orient == "v"
@@ -385,7 +385,7 @@ def test_dismantle_block_by_holding_the_right_button(game):
         game.update(0.05, Controls(dismantle=wall))
         t += 0.05
     assert game.base.get((x0 + 2, y0)) is None and game.inventory.count("iron") == 10
-    assert game.base.blocks == []
+    assert [b for b in game.base.blocks if not b.ruin] == []      # (v0.7 M1: a casca das ruínas não conta)
 
 
 def test_dismantle_block_needs_room_in_the_inventory(game):
@@ -609,7 +609,7 @@ def test_save_version_is_10_and_blocks_roundtrip(game, tmp_path):
     entries = data["layers"]["surface"]["base"]
     double = [e for e in entries if e["kind"] == C.BASE_DOOR2]
     assert double == [{"kind": C.BASE_DOOR2, "tx": dd.tx, "ty": dd.ty, "orient": "v"}]    # um objeto só, com âncora e orientação
-    assert len(entries) == len(game.base.blocks)
+    assert len(entries) == len([b for b in game.base.blocks if not b.ruin])    # (v0.7 M1: a casca das ruínas não vai no save)
     path = tmp_path / "slot1.json"
     assert save.write_save(game, path)
     loaded = save.load_game(path)

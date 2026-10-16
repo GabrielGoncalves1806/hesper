@@ -413,7 +413,7 @@ def test_map_layout_fits_every_interface_size(app, ui_size, window):
     for r, _ in ui.map_buttons:
         assert area.contains(r)
     chips = [r for r, _ in ui.map_chips]
-    assert len(chips) == 7                                       # Base, Cratera, Destroço, Vazio, Veios, Máquinas, Baús
+    assert len(chips) == 8                                       # Base, Cratera, Destroço, Vazio, Ruínas, Veios, Máquinas, Baús
     for r in chips:
         assert win.contains(r) and r.top >= area.bottom
     assert all(a.right < b.left for a, b in zip(chips, chips[1:]))

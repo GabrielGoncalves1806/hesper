@@ -298,7 +298,7 @@ def check_directions_and_order(bot) -> None:
     print("  screenshot: reports/dev/player_direcoes.png  (colunas: baixo, cima, direita, esquerda · linha 1 andando, 2 parado)")
 
     # ordem de desenho: pés acima da base da máquina = atrás; abaixo = na frente
-    m = s.machines[0]
+    m = next(m for m in s.machines if not m.broken)       # v0.7 M1: as quebradas das ruínas vêm na frente da lista
     order = pygame.Surface((96 * 2, 80))
     for i, feet_y in enumerate(((m.ty + 1) * C.TILE - 14, (m.ty + 1) * C.TILE + 10)):
         s.player.x, s.player.y = (m.tx + 0.5) * C.TILE + 6, feet_y
@@ -441,7 +441,7 @@ def check_pause(bot) -> None:
     """Esc pausa (mundo congela), menu com mouse e teclado, sliders de volume, controles."""
     s, app = bot.state, bot.app
     settings.SETTINGS_PATH.unlink(missing_ok=True)
-    assert s.machines, "precisa de máquina pra ver o Ti congelar"
+    assert any(not m.broken for m in s.machines), "precisa de máquina pra ver o Ti congelar"
     bot.key(pygame.K_ESCAPE)
     assert app.mode == "pause"
     ti_before, o2_before = s.ti, s.o2
@@ -511,7 +511,7 @@ def check_zoom_and_fullscreen(bot) -> None:
     bot.teleport(t192(96, 98))
     s.o2 = C.O2_MAX
     bot.frames(0.2)
-    machine = s.machines[0]
+    machine = next(m for m in s.machines if not m.broken)
 
     def hover_machine_check():
         ax, ay = machine.anchor
@@ -3495,7 +3495,7 @@ def check_cave(bot) -> None:
     if not cave.is_floor(*s.player.tile):
         s.player.x, s.player.y = (spot[0] + 0.5) * C.TILE, (spot[1] + 1) * C.TILE - 2
     bot.click(bot.tile_on_screen(first))
-    assert any(m.is_lamp for m in s.machines), "a luminária devia ter sido colocada pelo clique"
+    assert any(m.is_lamp and not m.broken for m in s.machines), "a luminária devia ter sido colocada pelo clique"
     for t in lamps[1:]:
         s.machines.append(Machine("lamp", *t))
     release_constructor(bot)
@@ -3561,11 +3561,11 @@ def check_cave(bot) -> None:
         bot.key(key, hold=0.75)
     ft = bot.frame_times[start:]
     avg = sum(ft) / len(ft)
-    lit = sum(1 for m in s.machines if m.is_lamp)
+    lit = sum(1 for m in s.machines if m.is_lamp and not m.broken)
     print(f"  perf caverna escura, {lit} luminárias, zoom 0,75×: média {avg * 1000:.1f} ms · pior {max(ft) * 1000:.1f} ms "
           f"({len(ft)} frames, orçamento 16,7 ms)")
     assert avg < 1 / 60, "caverna escura no zoom 0,75 passou do orçamento de 16,7 ms"
-    for m in [m for m in s.machines if m.is_lamp][6:]:
+    for m in [m for m in s.machines if m.is_lamp and not m.broken][6:]:
         s.machines.remove(m)
     app.set_zoom(zoom_before, notify=False)
 
@@ -3609,7 +3609,7 @@ def check_cave_organic(bot) -> None:
     s.enter_layer("cave", layers.ramp_arrival(cave))
     bot.frames(0.2)
     # 2) lugar longe das luminárias de antes, com minério
-    lamps = [(m.tx, m.ty) for m in s.machines if m.is_lamp]
+    lamps = [(m.tx, m.ty) for m in s.machines if m.is_lamp and not m.broken]
 
     def score(x, y):
         return sum(cave.get(xx, yy) in C.ORE_TILES for yy in range(y - 5, y + 6) for xx in range(x - 8, x + 9))
@@ -3988,7 +3988,7 @@ def check_wrecks(bot) -> None:
     bot.shot("mapa_pan_outra_camada.png")
     bot.key(pygame.K_ESCAPE)
     bot.shot("caverna_escura_marco3.png")
-    for m in [m for m in s.machines if m.is_lamp][-3:]:
+    for m in [m for m in s.machines if m.is_lamp and not m.broken][-3:]:
         s.machines.remove(m)
     # volta pra superfície e deixa o resto do smoke como estava (sem equipamento)
     s.enter_layer("surface")
@@ -4684,7 +4684,7 @@ def main() -> None:
     bot.frames(0.3)
     bot.shot("placing.png")
     bot.click(bot.tile_on_screen(t192(93, 98)))
-    assert len(s.machines) == 1
+    assert len([m for m in s.machines if not m.broken]) == 1
     # mais duas máquinas pelo teclado: S (desce) + Enter
     for target, steps in [(t192(99, 98), 1), (t192(92, 96), 0)]:
         bot.key(pygame.K_e)
@@ -4692,7 +4692,7 @@ def main() -> None:
             bot.key(pygame.K_s)
         bot.key(pygame.K_RETURN)
         bot.click(bot.tile_on_screen(target))
-    print(f"  máquinas colocadas: {[m.kind for m in s.machines]}")
+    print(f"  máquinas colocadas: {[m.kind for m in s.machines if not m.broken]}")
     bot.frames(2.0)
     bot.shot("base.png")
     check_objectives_midway(bot)

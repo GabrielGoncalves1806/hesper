@@ -153,7 +153,7 @@ def test_save_roundtrip_keeps_melter_inventory():
     m.storage.slots[0], m.storage.slots[1], m.timer = Stack("ice", 9), Stack("water_capsule", 4), 3.5
     state.machines.append(m)
     loaded = save.state_from_dict(save.migrate(save.state_to_dict(state)))
-    got = next(x for x in loaded.machines if x.is_melter)
+    got = next(x for x in loaded.machines if x.is_melter and not x.broken)
     assert got.kind == "melter_t2" and got.ice == 9 and got.capsules == 4
     assert got.timer == pytest.approx(3.5) and got.sends == {"water_capsule"}
 
@@ -168,7 +168,7 @@ def test_v8_save_without_melter_storage_loads_empty():
         entry.pop(key, None)
     assert data["version"] == save.SAVE_VERSION
     loaded = save.state_from_dict(save.migrate(data))
-    got = next(x for x in loaded.machines if x.is_melter)
+    got = next(x for x in loaded.machines if x.is_melter and not x.broken)
     assert got.storage.is_empty() and got.timer == 0 and not got.sends
 
 

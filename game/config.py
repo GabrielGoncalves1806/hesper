@@ -406,13 +406,47 @@ LOGS += [
     "Dia 230. Última mensagem da Colônia Hesper. Desligamos os derretedores. Todos. Se alguém achar isto: "
     "o planeta não está morto. Ele está esperando. Não acorde o gelo.",
 ]
+# LOGs das estruturas (v0.7 M1, aprovados pelo dono · docs/lore/logs_v07_rascunho.md). Índices 7 a 18, nunca mudam.
+LOGS += [
+    # 7-9 · acampamento de pouso
+    "Dia 1. Primeira noite fora da nave. O vento não para e a poeira entra em tudo, até no café. "
+    "O pessoal tá rindo à toa. Daqui a dez anos isso aqui vai ser um jardim.",
+    "Dia 9. Inventário do acampamento: 40 tendas, 6 geradores, 2 derretedores de teste. A diretoria mandou a meta do "
+    "primeiro ano: índice cinco vezes maior que o planejado. Ninguém achou estranho. Ainda.",
+    "Dia 22. A Dra. Ilves pediu uma tenda só pra ela, longe do resto, perto do gelo do norte. Disse que precisa de "
+    "silêncio pras amostras. Levou mais termômetro do que roupa.",
+    # 10-12 · laboratório da Ilves
+    "Dia 120. A amostra 14 derreteu na bancada e congelou de novo sozinha, numa sala a 20 graus. Repeti três vezes. "
+    "Não é defeito do equipamento.",
+    "Dia 152. O espécime reage ao calor. Quando ligam os aquecedores lá fora, ele se mexe. Pouco, mas se mexe. "
+    "Mandei o relatório. Responderam pedindo pra eu não assustar a equipe.",
+    "Dia 175. Ele não tem pressa. Nós temos. Passei a noite olhando pra ele e entendi uma coisa que não tenho coragem "
+    "de pôr no relatório. Amanhã peço de novo pra desacelerar. Vão dizer não de novo.",
+    # 13-15 · estação de derretedores
+    "Dia 198. Turno da noite. Os derretedores do nível 1 bateram recorde. O gelo daqui solta um vapor azulado que "
+    "gruda na roupa. O chefe mandou não pôr isso no relatório.",
+    "Dia 205. O derretedor 4 travou com alguma coisa dentro. Abrimos a câmara e não tinha nada. Só uma marca no "
+    "metal, redonda, como se algo tivesse empurrado de dentro pra fora.",
+    "Dia 219. Ordem da diretoria: os derretedores continuam ligados, todos, 24 horas. Metade da equipe pediu "
+    "transferência pra superfície. A outra metade parou de dormir.",
+    # 16-18 · posto de perfuração
+    "Dia 61. Furo 3 a 80 metros. A broca saiu quente demais pra rocha dessa profundidade. A sonda já tinha avisado. "
+    "Seguimos furando, ordem de cima.",
+    "Dia 209. Achamos uma passagem pro nível 2. Lisa demais pra ser natural, larga demais pra ser nossa. Ninguém da "
+    "equipe cavou isso. A diretoria quer descer ainda essa semana.",
+    "Dia 224. Voltaram 3 dos 7 que desceram. Não falam muito. Um deles só repete que lá embaixo o chão respira. "
+    "Lacramos a passagem do nível 2 e não vamos abrir de novo.",
+]
 # Título da tela de leitura de cada LOG (mesma ordem do LOGS)
 LOG_TITLES = ["TERMINAL · COLONIA HESPER"] * 3 + [
     "REGISTRO DE BORDO · VÉSPER-7", "TERMINAL · MODULO DA COLONIA",
     "SONDA S-3 · LEITURA AUTOMATICA", "TERMINAL · MODULO DA COLONIA"]
+LOG_TITLES += (["TERMINAL · ACAMPAMENTO"] * 3 + ["DIARIO · DRA. ILVES"] * 3
+               + ["TERMINAL · ESTACAO DE DERRETEDORES"] * 3 + ["TERMINAL · POSTO DE PERFURACAO"] * 3)
 # Dia da história de cada LOG (mesma ordem do LOGS). A aba LOGs do inventário lista nessa ordem, e o
-# "LOG 01".."LOG 07" exibido é a posição cronológica (não o índice em LOGS).
+# "LOG 01".."LOG 19" exibido é a posição cronológica (não o índice em LOGS).
 LOG_DAYS = [3, 97, 212, 188, 140, 41, 230]
+LOG_DAYS += [1, 9, 22, 120, 152, 175, 198, 205, 219, 61, 209, 224]
 LOG_ORDER = sorted(range(len(LOGS)), key=LOG_DAYS.__getitem__)   # índices em LOGS, do dia mais cedo pro mais tarde
 
 
@@ -1169,3 +1203,24 @@ DIAGRAM_BENCH = {**DIAGRAM_BENCH, "o2_tank": "t2", "scanner": "t2"}   # a receit
 # Fundição e da drill: a cadeia eletrônica começa toda de uma vez.
 BENCH_DIAGRAM_UNLOCK_TI = 10_000
 MACHINES["diagram_workbench"] = _replace(MACHINES["diagram_workbench"], unlock_ti=BENCH_DIAGRAM_UNLOCK_TI)
+
+# ---------------------------------------------------------------------------
+# v0.7 M1 · Estruturas (game/ruins.py · bíblia §16). Números de partida: balanceamento fica pra depois.
+# ---------------------------------------------------------------------------
+RUIN_CAMP_DIST = (40, 60)        # tiles do centro da cratera (+1,5) até o centro do acampamento
+RUIN_LAB_GIANT_MIN = 28          # tiles do centro do laboratório até o pé do gelo gigante (sem gelo gigante, sem regra)
+RUIN_MARGIN = 2                  # folga de areia livre em volta da pegada (superfície)
+RUIN_CAVE_MARGIN = 3             # na caverna: tudo até 3 tiles da pegada é rocha sólida da mesma região
+RUIN_SPACING = 20                # distância mínima do centro da ruína ao centro de qualquer destroço
+RUIN_DAMAGE_LEVELS = (0, 1, 2, 3)
+RUIN_DAMAGE_FLOOR = {0: 0.0, 1: 0.35, 2: 0.65, 3: 1.0}   # chance de cada "~" virar o efeito da destruição
+RUIN_DAMAGE_WALL = {0: 0.0, 1: 0.0, 2: 0.08, 3: 0.16}    # chance de cada parede "comum" cair
+RUIN_SALVAGE = {"o2": {"iron": 3}, "heater": {"iron": 3, "silicon": 1}, "melter": {"iron": 4},
+                "lamp": {"iron": 1, "silicon": 1}}       # o que desmontar uma máquina quebrada devolve
+RUIN_LOOT = {                                            # caixa da ruína: recursos {item: (mín, máx)} + peças
+    "camp": ({"iron": (6, 10), "silicon": (4, 8)}, LOOT_COMMON),
+    "lab": ({"silicon": (6, 10), "ice": (5, 10)}, LOOT_RICH),
+    "melters": ({"iron_ingot": (3, 6), "ice": (10, 16)}, LOOT_RICH),
+    "drill_post": ({"copper_ingot": (3, 6), "magmatite": (2, 4)}, LOOT_RICH),
+}
+RUIN_BROKEN_TINT = (120, 112, 108)   # máquina quebrada: o desenho é multiplicado por essa cor (apagada)

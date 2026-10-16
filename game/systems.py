@@ -87,6 +87,9 @@ class Machine:
     leak_t: float = field(default=0.0, compare=False, repr=False)
     # v0.6 Fundo M3: só a Fundição. Fundições que ainda restam da magmatita que está queimando (vai no save).
     fuel: int = field(default=0, compare=False)
+    # v0.7 M1: máquina quebrada de ruína (game/ruins.py). Não liga: sem índice, Ti, energia, luz, animação nem painel (o
+    # E não abre). Só desmonta (devolve C.RUIN_SALVAGE). Nunca vai no save (a ruína sai da seed).
+    broken: bool = field(default=False, compare=False)
 
     def __post_init__(self, stored_init: int = 0) -> None:
         if self.storage is None and self.is_drill:
@@ -362,7 +365,8 @@ class GameState:
         # A hotbar são os slots 0 a 7 (a primeira linha).
         self.inventory = Inventory(C.INVENTORY_SLOTS)
         self.inventory.add(C.HAND_DRILL, 1)                # v0.5 M4: nasce com a broca de mão, no 1º slot da hotbar
-        self.machines: list[Machine] = []                  # colocadas no mundo
+        # (as máquinas colocadas moram em `self.machines` = a lista da camada ativa; v0.7 M1: a camada já nasce com as
+        # máquinas quebradas das ruínas, então aqui não se zera)
         # Tiles onde já existiu máquina: fontes da mancha de transição (game/transition.py).
         # Só cresce: desmontar a máquina NÃO tira daqui, senão a terra em volta "desconverteria".
         self.transition_sources: set[tuple[int, int]] = set()
@@ -510,7 +514,7 @@ class GameState:
     def working_machines(self) -> list:
         """As máquinas das duas camadas que estão funcionando (a submersa parou: v0.4 M3.4; a que ainda está se
         construindo também não conta: v0.5 M1)."""
-        return [m for m in self.all_machines if not m.submerged and m.build <= 0]
+        return [m for m in self.all_machines if not m.submerged and m.build <= 0 and not m.broken]   # v0.7 M1: quebrada não funciona
 
     @property
     def ti_rate(self) -> float:
@@ -806,6 +810,8 @@ class GameState:
         if kind in C.BASE_KINDS:                # v0.5 M2: bloco da base (chão, parede, porta)
             return self._can_place_base(kind, tile, rotation)
         machine = Machine(kind, tx, ty)
+        if any(t in self.world.ruin_tiles for t in machine.tiles):   # v0.7 M1: não constrói dentro de ruína
+            return False
         vein = self.world.vein_at(tx, ty)
         if kind == "drill":
             if vein is None or (vein.tx, vein.ty) != tile:
@@ -895,6 +901,8 @@ class GameState:
         ice = self.active.gate_solids
         for t in tiles:
             if not self.world.is_floor(*t) or t in pod or self.base.get(t) or self.world.vein_at(*t):
+                return False
+            if t in self.world.ruin_tiles:                  # v0.7 M1: nem bloco dentro de ruína
                 return False
             if self.world.is_water(*t, self.stage):
                 return False
@@ -1082,7 +1090,8 @@ class GameState:
 
     def nearby_melter(self) -> Machine | None:
         """Derretedor ao alcance do E (o mais perto)."""
-        near = [m for m in self.machines if m.is_melter and m.build <= 0 and self.drill_distance(m) <= C.MELTER_REACH]
+        near = [m for m in self.machines if m.is_melter and m.build <= 0 and not m.broken
+                and self.drill_distance(m) <= C.MELTER_REACH]
         return min(near, key=self.drill_distance, default=None)
 
     def nearby_smelter(self) -> Machine | None:
@@ -1125,6 +1134,8 @@ class GameState:
         máquina) ou ("terminal", índice). Sem checar alcance (isso é com o `in_reach`)."""
         machine = self.machine_at_point(px, py)
         if machine is not None:
+            if machine.broken:                           # v0.7 M1: quebrada, o E não abre nada
+                return None
             for kind, flag in (("drill", machine.is_drill), ("chest", machine.is_chest),
                                ("station", machine.is_station), ("bench", machine.is_bench),
                                ("melter", machine.is_melter and machine.build <= 0),
@@ -1141,6 +1152,9 @@ class GameState:
             wreck = self.world.wreck_at(*tile)
             if wreck is not None and wreck.terminal == tile:
                 return "wreck_log", wreck
+        block = self.block_at_point(px, py)              # v0.7 M1: terminal de ruína = parede da casca com o terminal na face
+        if block is not None and block.is_wall and self.ruin_of_tile((block.tx, block.ty), terminal=True) is not None:
+            return "ruin_log", (block.tx, block.ty)
         for tile in tiles:                               # v0.4 M3.2: contêiner lacrado (v0.5 M4: abre como a caixa)
             if self.world.get(*tile) == C.CONTAINER:
                 return "container", tile
@@ -1161,6 +1175,8 @@ class GameState:
             return self.crates.get(target.tile) is target and self.crate_distance(target) <= C.CRATE_REACH
         if kind == "wreck_log":
             return target in self.world.wrecks and self.wreck_terminal_distance(target) <= C.TERMINAL_REACH
+        if kind == "ruin_log":
+            return self.ruin_of_tile(target, terminal=True) is not None and self.ruin_terminal_distance(target) <= C.TERMINAL_REACH
         if kind == "container":
             return tuple(target) in self.world.containers and self.container_distance(target) <= C.CONTAINER_REACH
         reach = {"drill": C.DRILL_REACH, "chest": C.CHEST_REACH, "station": C.STATION_REACH,
@@ -1204,6 +1220,9 @@ class GameState:
         wreck = self.nearby_wreck_terminal()
         if wreck is not None:
             options.append((self.wreck_terminal_distance(wreck), "wreck_log", wreck))
+        ruin_term = self.nearby_ruin_terminal()
+        if ruin_term is not None:
+            options.append((self.ruin_terminal_distance(ruin_term), "ruin_log", ruin_term))
         box = self.nearby_container()
         if box is not None:
             options.append((self.container_distance(box), "container", box))
@@ -1500,13 +1519,15 @@ class GameState:
         if isinstance(machine, Crate):                  # v0.6 M1: caixa de saque de destroço (o contêiner não desmonta)
             return self.crates.get(machine.tile) is machine and self.crate_distance(machine) <= C.CRATE_REACH
         if isinstance(machine, BaseBlock):              # v0.5 M2: bloco da base (a dupla: qualquer metade serve)
-            return machine in self.base.blocks and min(
+            return not machine.ruin and machine in self.base.blocks and min(
                 max(abs(x - px), abs(y - py)) for x, y in machine.tiles) <= C.PLACE_REACH
         return machine in self.machines and max(abs(machine.tx - px), abs(machine.ty - py)) <= C.PLACE_REACH
 
     def dismantle_returns(self, machine: Machine) -> dict[str, int]:
         """O que volta pro inventário desmontando: os materiais da receita (v0.5 M1: a máquina não é item), mais o
         que a drill guardou e, na estação, as sobras do buffer, a carga e os próprios drones."""
+        if machine.broken:                                     # v0.7 M1: ruína devolve a tabelinha de peças, não a receita
+            return dict(C.RUIN_SALVAGE[machine.kind])
         out = dict(machine.type.cost)
         if machine.is_drill and machine.stored:
             out[machine.resource] = out.get(machine.resource, 0) + machine.stored
@@ -1547,6 +1568,8 @@ class GameState:
         for item, n in returns.items():
             self.inventory.add(item, n)
         self.machines.remove(machine)
+        if machine.broken:                                 # v0.7 M1: desmontada, não volta da seed (vai no save)
+            self.active.ruin_salvaged.add((machine.tx, machine.ty))
         self.events.append(("dismantle", machine.kind, (machine.tx, machine.ty)))
         return True
 
@@ -1566,7 +1589,7 @@ class GameState:
             self.inventory.add(item, n)
         del self.crates[crate.tile]
         self.active.removed_crates.add(crate.tile)
-        self.world.set(*crate.tile, C.SAND)
+        self.world.set(*crate.tile, self.world.floor_kind)   # v0.7 M1: na caverna o chão é FLOOR
         self.events.append(("dismantle", "crate", crate.tile))
         return True
 
@@ -1832,6 +1855,27 @@ class GameState:
         near = [w for w in self.world.wrecks
                 if w.terminal is not None and self.wreck_terminal_distance(w) <= C.TERMINAL_REACH]
         return min(near, key=self.wreck_terminal_distance, default=None)
+
+    def ruin_of_tile(self, tile, terminal: bool = False):
+        """A ruína (game/ruins.py · Ruin) da camada ativa que tem esse tile (com `terminal`, só se o tile é um terminal
+        dela). None se não tem, ou se a ruína está sem objetos neste mundo (`ruins_off`)."""
+        tile = tuple(tile)
+        for ruin in self.world.ruins:
+            if ruin.key in self.active.ruins_off:
+                continue
+            if tile in (ruin.terminals if terminal else ruin.tiles):
+                return ruin
+        return None
+
+    def ruin_terminal_distance(self, tile) -> float:
+        """Dos pés até a base do terminal da ruína (a parede encosta no chão logo abaixo)."""
+        tx, ty = tile
+        return math.hypot(self.player.x - (tx + 0.5) * C.TILE, self.player.y - (ty + 1) * C.TILE)
+
+    def nearby_ruin_terminal(self) -> tuple[int, int] | None:
+        near = [t for t in self.world.ruin_terminals
+                if self.ruin_of_tile(t, terminal=True) is not None and self.ruin_terminal_distance(t) <= C.TERMINAL_REACH]
+        return min(near, key=self.ruin_terminal_distance, default=None)
 
     @property
     def containers(self) -> dict:

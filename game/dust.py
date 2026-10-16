@@ -156,7 +156,7 @@ def vision_lights(state, cam, view_px: float) -> list[tuple[float, float, float]
     px, py = C.POD_ANCHOR
     out.append((*viewport.world_to_canvas((px, py - T), cam, 1.0), POD_VIEW_TILES * T))
     for m in state.machines:
-        if m.is_chest:
+        if m.is_chest or m.broken:               # v0.7 M1: máquina quebrada de ruína não ilumina
             continue
         tiles = C.LAMP_RADIUS.get(m.kind, MACHINE_VIEW_TILES) if m.is_lamp else MACHINE_VIEW_TILES
         ax, ay = m.anchor

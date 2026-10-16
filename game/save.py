@@ -23,6 +23,9 @@ pra cratera da superfície):
           "rocks": {"timer": 3.5},   # relógio do reaparecimento das rochas pequenas (só superfície)
           "crates": [[x, y, slots, aberta], ...],   # Marco 3: só as caixas de destroço que mudaram
           "removed_crates": [[x, y], ...],          # v0.6 M1: caixas desmontadas (opcional; sem o campo, nenhuma)
+          "ruin_salvaged": [[x, y], ...],           # v0.7 M1: máquinas quebradas de ruína já desmontadas (opcional).
+                                                    # A casca, as máquinas quebradas e a caixa das estruturas NUNCA vão
+                                                    # no save: saem da seed (game/ruins.py); a caixa só entra em "crates"
           "explored": "eJzt...",    # Marco 3: tiles vistos (bitset, zlib, base64)
           "crater_ice": 0,          # v0.4 M2: tampa de gelo da cratera, 0 (tampada) a 4 (vazia); só superfície
           "base": [...]             # v9: blocos da base (chão, parede, portas), ver abaixo; ausente = sem base
@@ -82,6 +85,7 @@ from pathlib import Path
 from game import config as C
 from game import drones
 from game import layers
+from game import ruins
 from game.base import BaseBlock, BaseGrid
 from game.base import H as ORIENT_H, V as ORIENT_V
 from game.equipment import Equipment
@@ -191,7 +195,7 @@ def layers_to_dict(state: GameState) -> dict:
     out = {}
     for key, layer in state.layers.items():
         data = {"changed_tiles": tiles_to_list(state, key),
-                "machines": [machine_to_dict(m) for m in layer.machines],
+                "machines": [machine_to_dict(m) for m in layer.machines if not m.broken],   # v0.7 M1: a ruína sai da seed
                 "explored": layer.explored.to_data()}
         if layer.rocks is not None:
             data["rocks"] = layer.rocks.to_data()
@@ -201,8 +205,11 @@ def layers_to_dict(state: GameState) -> dict:
             data["removed_crates"] = sorted([x, y] for x, y in layer.removed_crates)
         if layer.has_base:                                       # v0.4 M2: a tampa de gelo da cratera (0..4)
             data["crater_ice"] = layer.crater_ice
-        if layer.base.blocks:                                    # v9: blocos da base (a dupla é 1 objeto)
-            data["base"] = [block_to_dict(b) for b in layer.base.blocks]
+        own = [b for b in layer.base.blocks if not b.ruin]       # v0.7 M1: a casca das ruínas sai da seed, não vai
+        if own:                                                  # v9: blocos da base (a dupla é 1 objeto)
+            data["base"] = [block_to_dict(b) for b in own]
+        if layer.ruin_salvaged:                                  # v0.7 M1: máquinas quebradas já desmontadas (campo novo)
+            data["ruin_salvaged"] = sorted([x, y] for x, y in layer.ruin_salvaged)
         out[key] = data
     return out
 
@@ -224,6 +231,11 @@ def layers_from_dict(state: GameState, data: dict) -> None:
                     layer.world.set(*t, C.SAND)
         if layer.rocks is not None and "rocks" in ldata:     # save v6 antigo: "rocks" falta e "pickups"
             layer.rocks = RockRespawn.from_data(ldata["rocks"])  # (os soltos, que saíram do jogo) é ignorado
+        # v0.7 M1: as ruínas voltam da seed (casca e máquinas quebradas) menos o que o player já desmontou; a ruína com
+        # máquina ou bloco do player na pegada (save antigo) fica sem objetos. Antes do laço das caixas.
+        layer.ruin_salvaged = {(int(x), int(y)) for x, y in ldata.get("ruin_salvaged", [])}
+        layer.ruins_off = set()
+        ruins.apply_overlays(layer)
         for x, y, slots, opened in ldata.get("crates", []):      # Marco 3 (save do Marco 1/2 não tem)
             crate = layer.crates.get((int(x), int(y))) or layer.containers.get((int(x), int(y)))
             if crate is not None:
@@ -234,7 +246,7 @@ def layers_from_dict(state: GameState, data: dict) -> None:
             layer.crates.pop(tile, None)
             layer.removed_crates.add(tile)
             if layer.world.get(*tile) == C.LOOT_CRATE:
-                layer.world.set(*tile, C.SAND)
+                layer.world.set(*tile, layer.world.floor_kind)    # (v0.7 M1: na caverna o chão é FLOOR)
         world = layer.world
         layer.explored = Explored.from_data(world.width, world.height, ldata.get("explored"))
         layer.crater_ice = max(0, min(C.CRATER_ICE_STAGES, int(ldata.get("crater_ice", 0))))

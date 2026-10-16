@@ -288,7 +288,12 @@ def container_loot(spot: ContainerSpot, seed: int) -> list[tuple[str, int]]:
 
 def loot_for(wreck, seed: int) -> list[tuple[str, int]]:
     """Saque inicial de qualquer caixa (destroço ou contêiner): o save usa pra saber se ela mudou."""
-    return container_loot(wreck, seed) if isinstance(wreck, ContainerSpot) else crate_loot(wreck, seed)
+    if isinstance(wreck, ContainerSpot):
+        return container_loot(wreck, seed)
+    from game import ruins                      # v0.7 M1: a caixa das estruturas (import aqui dentro: ruins importa wrecks)
+    if isinstance(wreck, ruins.RuinSpot):
+        return ruins.ruin_loot(wreck, seed)
+    return crate_loot(wreck, seed)
 
 
 def make_container_crates(world, seed: int) -> dict[tuple[int, int], Crate]:

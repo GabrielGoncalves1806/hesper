@@ -30,15 +30,15 @@ ZOOM_DEFAULT = 2
 DRAG_THRESHOLD = 3            # px da UI até o clique virar arrasto
 KEY_PAN_SCREENS = 1.0         # WASD/setas: ~1 área do mapa por segundo
 # filtros, na ordem dos chips. "crater" vale pra cratera (superfície) e rampa (caverna). "Você" não é filtro.
-FILTERS = ("base", "crater", "wreck", "wreck_empty", "vein", "terminal", "machine", "chest")
+FILTERS = ("base", "crater", "wreck", "wreck_empty", "ruin", "vein", "terminal", "machine", "chest")
 # "formation" (v0.4 Marco 2) é marcador fixo de paisagem: aparece sempre que foi visto, sem chip de filtro.
 # "container" (v0.4 Marco 3 · M3.2): o contêiner lacrado de um bolsão, também sem chip (aparece quando visto).
 # prioridade do hover quando o mouse encosta em dois: você › base › destroço › terminal › rampa › veio › máquina › baú
 # › formação
-PRIORITY = {"you": 0, "base": 1, "wreck": 2, "wreck_empty": 2, "container": 2, "terminal": 3, "crater": 4, "vein": 5,
+PRIORITY = {"you": 0, "base": 1, "wreck": 2, "wreck_empty": 2, "ruin": 2, "container": 2, "terminal": 3, "crater": 4, "vein": 5,
             "machine": 6, "chest": 7, "formation": 8}
 # ordem do desenho (de baixo pra cima), igual ao mockup; a formação fica por baixo de tudo
-DRAW_ORDER = ("formation", "unknown", "chest", "machine", "vein", "container", "wreck", "wreck_empty", "terminal", "crater", "base",
+DRAW_ORDER = ("formation", "unknown", "chest", "machine", "vein", "container", "wreck", "wreck_empty", "ruin", "terminal", "crater", "base",
               "you")
 CARDINALS = ("a leste", "a sudeste", "ao sul", "a sudoeste", "a oeste", "a noroeste", "ao norte", "a nordeste")
 # agrupamento (cluster) de máquinas e baús: dois marcadores da mesma categoria a menos de N tiles (na maior
@@ -59,7 +59,7 @@ FACING = {"up": "olhando ao norte", "down": "olhando ao sul", "left": "olhando a
 
 def chip_label(category: str, layer_key: str) -> str:
     return {"base": "Base", "crater": "Cratera" if layer_key == "surface" else "Rampa", "wreck": "Destroço",
-            "wreck_empty": "Vazio", "vein": "Veios", "terminal": "Terminal", "machine": "Máquinas",
+            "wreck_empty": "Vazio", "ruin": "Ruínas", "vein": "Veios", "terminal": "Terminal", "machine": "Máquinas",
             "chest": "Baús"}[category]
 
 
@@ -174,6 +174,10 @@ def map_entries(state, key: str) -> list[Entry]:
             cat = "wreck_empty" if empty else "wreck"
             entries.append(Entry(cat, cat, *wreck.center, f"Destroço · {wreck.name}",
                                  "caixa vazia" if empty else "caixa cheia"))
+    for ruin in world.ruins:                                 # v0.7 M1: estrutura da colônia ("Ruína" até ler um LOG dela)
+        if ruin.key not in layer.ruins_off and seen_any(ruin.tiles):
+            known = bool(state.logs_read & set(ruin.terminals.values()))
+            entries.append(Entry("ruin", "ruin", *ruin.center, ruin.name if known else "Ruína", "estrutura da colônia"))
     geo = getattr(world, "geo", None)
     fogged = bool(world.hidden_tiles) and not state.fast     # v0.5 M3.6.4: bolsão na névoa (o F3 mostra tudo)
     gates = {id(p.gate): i for i, p in enumerate(geo.pockets)} if geo is not None else {}
@@ -205,7 +209,7 @@ def map_entries(state, key: str) -> list[Entry]:
             entries.append(Entry("terminal", "terminal", tx + 0.5, ty + 0.5, "Terminal da colônia",
                                  f"{C.log_label(i)} · {read}"))
     for m in layer.machines:
-        if m.is_lamp:                       # luminária é luz, não ponto de interesse: fica fora do mapa
+        if m.is_lamp or m.broken:           # luminária é luz, não ponto de interesse: fica fora do mapa (a quebrada é da ruína)
             continue
         if not seen_any((m.tx + i, m.ty + j) for i in range(m.size) for j in range(m.size)):
             continue

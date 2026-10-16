@@ -156,6 +156,8 @@ def cave_lights(state: GameState, helmet=WARM_WHITE, helmet_intensity: float = 1
         rx, ry = world.crater
         out.append(LightSource(rx * T + 48, ry * T + 30, 3.5 * T, RAMP_LIGHT))
     for m in state.machines:
+        if m.broken:                              # v0.7 M1: máquina quebrada de ruína não acende
+            continue
         if m.is_lamp:
             out.append(lamp_light(m.tx, m.ty, C.LAMP_RADIUS.get(m.kind, 5)))
         elif m.is_chest or (m.is_drill and m.full) or (m.is_smelter and m.smelter_blocker is not None):
@@ -654,6 +656,7 @@ class Renderer:
             canvas.fill((58, 62, 78), (x, y - C.BASE_WALL_LIFT, T, T))
             if not grid.is_wall((tx, ty + 1)):
                 canvas.fill((176, 160, 130), (x, y + C.BASE_FACE_Y, T, T - C.BASE_FACE_Y))
+            self._draw_ruin_terminal(canvas, state, tile, x, y)
             return
         key = autotile.tile_key(lambda a, b: grid.is_wall((a, b)), tx, ty)
         canvas.blit(self.base_wall_tiles.get("base_wall", atlas, key), (x, y - C.BASE_WALL_LIFT))
@@ -662,6 +665,13 @@ class Renderer:
             if face is not None:
                 idx = int(grid.is_wall((tx - 1, ty))) + 2 * int(grid.is_wall((tx + 1, ty)))
                 canvas.blit(face, (x, y + C.BASE_FACE_Y), (idx * T, 0, T, C.BASE_WALL_LIFT))
+        self._draw_ruin_terminal(canvas, state, tile, x, y)
+
+    def _draw_ruin_terminal(self, canvas, state: GameState, tile, x: int, y: int) -> None:
+        """v0.7 M1: o terminal de uma ruína é uma parede da casca com o sprite do terminal (o mesmo da caverna) na face,
+        quando tem chão embaixo (a planta garante). O alvo do E ganha o contorno claro."""
+        if tile in state.world.ruin_terminals and not state.base.is_wall((tile[0], tile[1] + 1)):
+            self._draw_terminal(canvas, tile[0], tile[1], x, y, "ruin_log")
 
     def draw_base_door(self, canvas, state: GameState, door: BaseBlock, tile, cam) -> None:
         """Quadro de 32×56 da porta em (x, y−24): moldura, folha e soleira (o tile não desenha chão à parte). O
@@ -983,10 +993,10 @@ class Renderer:
             if kind == C.TERMINAL:   # o terminal fica pendurado na face
                 self._draw_terminal(canvas, tx, ty, sx, sy)
 
-    def _draw_terminal(self, canvas, tx, ty, sx, sy) -> None:
+    def _draw_terminal(self, canvas, tx, ty, sx, sy, target: str = "terminal") -> None:
         term = self.surface("terminal", art.terminal)[0]
         canvas.blit(self.anim_surface("terminal", term, anim_frame_index(self.clock, tile_phase(tx, ty))), (sx, sy))
-        if self.highlight is not None and self.highlight == ("terminal", (tx, ty)):
+        if self.highlight is not None and self.highlight == (target, (tx, ty)):
             canvas.blit(self.outline_of("terminal", term), (sx - 1, sy - 1))
 
     def _draw_floor(self, canvas, world, tx, ty, sx, sy, stage, stage_num, t, wall_shadows=True) -> None:
@@ -1218,6 +1228,9 @@ class Renderer:
                 if m.submerged:                                # v0.4 M3.4: só da metade pra cima, parada
                     items.append((my, lambda m=m, mx=mx, my=my: self._blit_anchored(
                         canvas, self.submerged_surface(m), mx - cam_x, my - cam_y)))
+                elif m.broken:                                 # v0.7 M1: ruína, parada no quadro 0 e escurecida
+                    items.append((my, lambda m=m, mx=mx, my=my: self._blit_anchored(
+                        canvas, self.broken_surface(m.kind), mx - cam_x, my - cam_y)))
                 elif m.is_drill:
                     items.append((my, lambda m=m, mx=mx, my=my: self.draw_drill(canvas, m, mx - cam_x, my - cam_y, self.machine_t)))
                 elif m.is_chest:
@@ -1674,6 +1687,23 @@ class Renderer:
             working = powered and bool(m.station is not None and m.station.drones)
         return anim_frame_index(self.machine_t, phase, working)
 
+    def broken_surface(self, kind: str) -> pygame.Surface:
+        """Máquina quebrada de ruína (v0.7 M1): o quadro 0 do sprite que já existe, escurecido por C.RUIN_BROKEN_TINT."""
+        cache = self.__dict__.setdefault("_broken_surfaces", {})
+        surf = cache.get(kind)
+        if surf is None:
+            if kind in C.LAMP_RADIUS:
+                base = self.lamp_surface(kind)
+            else:
+                name = C.MACHINES[kind].sprite
+                base, fallback = self.surface(name, lambda: art.machine(kind))
+                if not fallback:
+                    base = self.anim_surface(name, base, 0)
+            surf = base.copy()
+            surf.fill(C.RUIN_BROKEN_TINT, special_flags=pygame.BLEND_RGB_MULT)
+            cache[kind] = surf
+        return surf
+
     def _blit_anchored(self, canvas, surf, ax, ay, flip=False):
         if flip:
             surf = pygame.transform.flip(surf, True, False)
@@ -2118,7 +2148,7 @@ class Renderer:
                 bw, bh = C.DISMANTLE_BAR
                 self.draw_drill_bar(canvas, x, top - bh - 2, state.dismantle_progress, C.C_O2, False, w=bw, h=bh)
                 continue
-            if m.submerged or m.build > 0:        # parada (ou se construindo): sem barra e sem raio
+            if m.submerged or m.build > 0 or m.broken:   # parada (ou se construindo, ou quebrada): sem barra e sem raio
                 continue
             if m.is_drill:
                 top -= 2
@@ -2189,7 +2219,7 @@ class Renderer:
         # no déficit de energia o brilho das máquinas fica mais fraco (metade com fator 0)
         dim = 0.5 + 0.5 * state.power.factor
         for m in state.machines:
-            if m.submerged or m.build > 0:  # v0.4 M3.4: debaixo d'água não acende (v0.5: nem se construindo)
+            if m.submerged or m.build > 0 or m.broken:  # v0.4 M3.4: debaixo d'água não acende (v0.5: nem se construindo; v0.7: nem quebrada)
                 continue
             if m.is_drill:   # luzinha quente na cabeça da drill, só enquanto ela trabalha
                 if m.full:
