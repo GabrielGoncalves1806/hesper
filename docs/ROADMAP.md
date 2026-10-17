@@ -97,9 +97,9 @@ Spec: `docs/superpowers/specs/2026-10-16-v07-lore-design.md` (brainstorm de 2026
 
 ## v0.8 · Plantas
 Spec: `docs/superpowers/specs/2026-10-16-v08-plantas-design.md` (bíblia §17). 4º índice **Biomassa**, estágios TEMPESTADE → ÁRIDO → ÚMIDO → ALGAS → MUSGO → VERDE (os novos pedem Ti + biomassa), o lab da Ilves trancado no gelo, cultivador, microscópio, centrífuga, cápsula vazia e coletor de água.
-- [ ] M1 · Biomassa e estágios
-- [ ] M2 · Água (Dispersor proporcional à base, cápsula vazia, coletor)
-- [ ] M3 · Lab e cultivador
+- [x] M1 · Biomassa e estágios
+- [x] M2 · Água (Dispersor proporcional à base, cápsula vazia, coletor)
+- [x] M3 · Lab e cultivador
 - [ ] M4 · Microscópio e centrífuga
 - [ ] M5 · Objetivos e fechamento
 

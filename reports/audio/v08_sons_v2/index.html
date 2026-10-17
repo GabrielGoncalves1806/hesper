@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Som · v0.8 Sons v2 (coletor e cultivador)</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;margin:0;padding:16px}
+.wrap{max-width:1000px;margin:0 auto;padding-block:36px 70px}
+h1{font-size:34px;margin:8px 0 12px}h2{font-size:22px;margin:44px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.eyebrow{font:12px monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--rust)}
+.note{border-left:3px solid var(--gold);background:var(--panel);padding:12px 16px;margin:18px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:8px}
+.card.old{opacity:.8;border-style:dashed}.card.rec{border-color:var(--gold)}
+.fname{font:500 14px monospace}.when{font:11px monospace;color:var(--gold);text-transform:uppercase}
+.what{margin:0;color:var(--muted);font-size:14px}.tag{font:11px monospace;color:var(--muted);border:1px solid var(--line);padding:1px 6px;margin-right:4px}
+.tag.loop{color:var(--cyan);border-color:#2c5560}
+canvas{width:100%;height:44px;background:#251c18;display:block}audio{width:100%;height:36px}
+button{background:#251c18;color:var(--fg);border:1px solid var(--rust);padding:6px 12px;cursor:pointer;font:13px monospace}
+button:hover{background:var(--rust);color:#000}
+code{font:13px monospace;color:var(--cyan)}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+li{margin:4px 0;color:var(--muted)}li b{color:var(--fg)}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Som · v0.8 · coletor e cultivador · v2 (nada entrou no jogo)</div>
+<h1>Sem sapo na lagoa</h1>
+<div class="note"><b>v22 · o que mudou:</b> refiz por síntese os dois loops, 3 opções (A/B/C) de cada, sem amostras. O coaxar vinha de bolhas feitas com <b>seno e pitch subindo</b> (chirp) numa grade quase regular, com tom na faixa da voz. Agora <b>não existe oscilador nas bolhas nem nas gotas</b>: tudo é ruído filtrado em banda larga (sem ressonância estreita), sem varredura de pitch, com instantes de <b>Poisson</b> (intervalos exponenciais, então não há ritmo). Os únicos tons são os zumbidos de bomba/motor, em 55/110 Hz, bem baixos. Loops continuam em 6,1 s (cultivador) e 5,0 s (coletor), emenda sem salto, loudness -34 e -31 dB como antes. <b>Recomendo C nos dois.</b> Nada em <code>assets/audio/</code>. Validação por análise: eu não ouço, a palavra final é do teu ouvido.</div>
+
+<h2>Cultivador (dentro da base: aquário / biorreator)</h2><div class="cards" id="cult"></div>
+<div class="note"><button onclick="stopAll()">Parar tudo</button> <span style="color:var(--muted)">Os mixes de 3 juntos têm 20 s: <code>amb_mist</code> 0,7 + 3 instâncias do loop com defasagem de 0 / 2,3 / 4,1 s e ganhos 1,0 / 0,8 / 0,6, vezes 0,4 (como o jogo toca). O "3 sementes" usa 3 arquivos gerados com seeds diferentes (bônus: se quiser, entrego <code>cultivator_loop</code>, <code>_2</code> e <code>_3</code>).</span></div>
+<div class="cards" id="cult3"></div>
+
+<h2>Coletor de água (fora, na chuva)</h2><div class="cards" id="coll"></div>
+<p class="what">Mix de 20 s: <code>amb_mist</code> 0,7 (não tenho o som de chuva do jogo aqui, uso o ambiente como proxy) + coletor 0,4.</p>
+<div class="cards" id="coll3"></div>
+
+<h2>Checagens</h2><div style="overflow-x:auto"><table id="tbl"></table></div>
+<p style="color:var(--muted);font-size:13px">Bandas = % da energia em 20-150 / 150-600 / 600-2500 / 2,5-6 / 6-16 kHz. Emenda = salto entre última e primeira amostra contra o 99,9º percentil dos saltos normais. "Pico tonal" = o quanto a banda mais estreita sobressai do entorno (o v1 tinha 23,5 dB em 220 Hz; os novos ficam em 12-16 dB, que é só o relevo normal de ruído com poucos eventos). "Regularidade" = maior pico da autocorrelação do envelope entre 0,12 s e metade do loop: perto de 1 seria ritmo marcado; aqui é 0,2-0,4.</p>
+
+<h2>Como pensei</h2><ul>
+<li><b>Bolha = estalinho de ruído:</b> 7-22 ms de decaimento, ataque suave de 2 ms, bandpass largo (Q ~0,5) com centro de 450 a 2400 Hz sorteado por bolha. Sem pitch, sem formante forte, então o ouvido lê "água" e não "sopro vocal".</li>
+<li><b>Glub (cultivador):</b> ruído grave (45-290 Hz) com contorno que abre e fecha, ~100 ms, raro e baixo. Sem seno, então não vira tambor nem sapo.</li>
+<li><b>Gota (coletor):</b> clique de 1 ms + toc de ruído banda média (Q ~1,4) de ~15-30 ms, centro contínuo entre 0,9 e 3,3 kHz, sem escala, e reverb pequeno de reservatório. Às vezes uma segunda gota menor logo depois.</li>
+<li><b>Motor e bomba:</b> ruído grave suave que respira devagar, mais um fio de 55 Hz (e 110 no coletor), em ciclos inteiros. Dão corpo sem soar como nota. O escorrer é ruído de 1,6-5 kHz modulado por ruído lento.</li>
+<li><b>Somar 3:</b> como o caráter é ruído e os instantes são aleatórios, defasar as cópias só espalha os eventos, não cria acorde. O único tom em comum é 55 Hz, grave demais pra virar coro.</li>
+<li><b>Convivência:</b> cultivador fica dentro da base e o coletor fora; o coletor concentra em 0,6-6 kHz com gotas esparsas, e rola em cima da chuva sem competir se ficar em 0,28-0,3 de volume.</li></ul>
+
+<h2>Pro Dev integrar (depois da aprovação)</h2><ul>
+<li>Nomes finais (o gerente copia): <code>assets/audio/cultivator_loop.wav</code> e <code>assets/audio/collector_loop.wav</code>, mesma duração dos antigos (6,1 s e 5,0 s), então nada muda no código.</li>
+<li><b>Volumes:</b> manter <code>cultivator_loop</code> 0,4 por instância (máx. 3 canais) e <code>collector_loop</code> 0,4 com <code>fade_by_distance</code> e, se pesar sobre a chuva, 0,3.</li>
+<li><b>Fase:</b> começar cada cultivador em um offset aleatório do loop (<code>set_pos</code> ou delay) e ganho ±20%.</li>
+<li>Se o dono gostar, dá pra ter 2 ou 3 arquivos de cultivador com seeds diferentes e sortear um por instância (aí os eventos não repetem juntos).</li></ul>
+<p style="color:var(--muted);font-size:13px">Gerado por <code>tools/audio/v08_sons_v2.py</code> (seed por nome, numpy + blocos do <code>build_audio.py</code>).</p>
+</div>
+<script src="v08sons2_meta.js"></script><script src="v08sons2_desc.js"></script>
+<script>
+const M=window.META,D=window.DESC;
+function card(key,when,txt,loop,cls){const m=M[key];const el=document.createElement("div");el.className="card "+(cls||"");
+ el.innerHTML=`<div><span class="fname">${m.file}</span> <span class="tag">${m.duration.toFixed(2)} s</span><span class="tag">pico ${m.peak_db} dBFS</span><span class="tag">loud ${m.loudness_db} dB</span>${loop?'<span class="tag loop">loop</span>':''}</div>
+ <div class="when">${when}</div><canvas width="320" height="44"></canvas>
+ <audio controls preload="metadata" ${loop?"loop":""} src="${m.file}"></audio><p class="what">${txt}</p>`;
+ const c=el.querySelector("canvas").getContext("2d");c.fillStyle="#59d0e6";const w=m.wave,bw=320/w.length;
+ w.forEach((v,i)=>{const h=Math.max(1,v*42*3);c.fillRect(i*bw,22-Math.min(h,42)/2,Math.max(1,bw-0.5),Math.min(h,42))});return el}
+const add=(id,e)=>document.getElementById(id).append(e);
+for(const k of "ABC"){const rc=k==="C"?"rec":"";
+ add("cult",card("cultivator_v2_"+k,k+" · "+D.cult[k][0],D.cult[k][1],true,rc));
+ add("coll",card("collector_v2_"+k,k+" · "+D.coll[k][0],D.coll[k][1],true,rc));
+ add("cult3",card("mix3_cult_"+k,"3 juntos · opção "+k,"3 instâncias defasadas sobre o ambiente.",false,rc));
+ add("coll3",card("mix_coll_"+k,"Com ambiente · opção "+k,"Coletor sobre o ambiente.",false,rc));}
+add("cult",card("old_cultivator_C","Versão antiga (os sapos)","cultivator_loop do v0.8 M3 (variante C), pra comparar.",true,"old"));
+add("cult3",card("mix3_cult_C_seeds","3 juntos · C com 3 sementes diferentes","Bônus: cada canal com um arquivo diferente.",false,"rec"));
+add("cult3",card("mix3_cult_old","3 juntos · versão antiga","Como estava na base do dono.",false,"old"));
+add("coll",card("old_collector_C","Versão antiga (os sapos)","collector_loop do v0.8 M2 (variante C), pra comparar.",true,"old"));
+add("coll3",card("mix_coll_old","Com ambiente · versão antiga","Pra comparar.",false,"old"));
+document.getElementById("tbl").innerHTML="<tr><th>arquivo</th><th>duração</th><th>pico dBFS</th><th>loudness dB</th><th>bandas %</th><th>emenda / ref</th><th>pico tonal</th><th>regularid.</th></tr>"+
+ Object.keys(M).filter(k=>M[k].loop).map(k=>{const m=M[k];return `<tr><td><code>${m.file}</code></td><td>${m.duration.toFixed(2)} s</td><td>${m.peak_db}</td><td>${m.loudness_db}</td><td>${m.bands.join(" / ")}</td><td>${m.seam} / ${m.seam_ref}</td><td>${m.tonal_db} dB @ ${m.tonal_hz} Hz</td><td>${m.regularity}</td></tr>`}).join("");
+function stopAll(){document.querySelectorAll("audio").forEach(a=>a.pause())}
+document.addEventListener("play",e=>{document.querySelectorAll("audio").forEach(a=>{if(a!==e.target)a.pause()})},true);
+</script></body></html>
