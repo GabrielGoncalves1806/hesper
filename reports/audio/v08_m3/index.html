@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Som · v0.8 M3 Cultivador (proposta)</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;margin:0;padding:16px}
+.wrap{max-width:1000px;margin:0 auto;padding-block:36px 70px}
+h1{font-size:34px;margin:8px 0 12px}h2{font-size:22px;margin:44px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.eyebrow{font:12px monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--rust)}
+.note{border-left:3px solid var(--gold);background:var(--panel);padding:12px 16px;margin:18px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:8px}
+.card.nb{opacity:.85}
+.fname{font:500 14px monospace}.when{font:11px monospace;color:var(--gold);text-transform:uppercase}
+.what{margin:0;color:var(--muted);font-size:14px}.tag{font:11px monospace;color:var(--muted);border:1px solid var(--line);padding:1px 6px;margin-right:4px}
+.tag.loop{color:var(--cyan);border-color:#2c5560}
+canvas{width:100%;height:44px;background:#251c18;display:block}audio{width:100%;height:36px}
+button{background:#251c18;color:var(--fg);border:1px solid var(--rust);padding:6px 12px;cursor:pointer;font:13px monospace;margin:4px 6px 4px 0}
+button:hover{background:var(--rust);color:#000}
+code{font:13px monospace;color:var(--cyan)}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+li{margin:4px 0;color:var(--muted)}li b{color:var(--fg)}
+</style>
+</head><body><div class="wrap">
+<div class="eyebrow">Hesper · Som · v0.8 M3 · Cultivador · proposta (nada entrou no jogo)</div>
+<h1>Cultivador: borbulhar de aquário</h1>
+<div class="note"><b>v21 · o que mudou:</b> 3 variantes do <code>cultivator_loop</code>, só nesta pasta (nada em <code>assets/audio/</code>; md5 dos WAVs oficiais igual antes e depois). Loop de <b>6,1 s</b> (coletor 5,0, fundição 4,0, drill 3,2: nenhum múltiplo do outro), loudness -34 dB, 3 dB abaixo do coletor, porque vão tocar vários juntos. Bolha = glissando curto e macio de seno (280-1100 Hz, sobe devagar, sem tick, sem grave, cada uma com altura diferente, reverb pequeno de tubo de vidro). Bomba = zumbido bem baixo em Lá2 (110 Hz, mais 220/165) com respiração lenta e um sopro abafado. <b>A</b> borbulhar leve (7 bolhas esparsas), <b>B</b> bomba em destaque (3 bolhas), <b>C</b> rajadas de 2-4 bolhas com vazios entre elas (mais "aquário", menos "panela fervendo"). <b>Recomendo C</b>, volume 0,4. Validação por análise, eu não ouço: a palavra final é do teu ouvido.</div>
+<h2>Variantes (loop)</h2><div class="cards" id="solo"></div>
+<div class="note"><button onclick="stopAll()">Parar tudo</button> <span style="color:var(--muted)">Mixes de 20 s: <code>amb_mist</code> 0,7 · coletor C 0,28 (a 70% de distância) · cultivador 0,4 por instância. Na base, 3 cópias com fase deslocada (0 / 2,3 / 4,1 s) e ganhos 1,0 / 0,8 / 0,6 (distâncias diferentes).</span></div>
+<h2>Base com 3 cultivadores + coletor + amb_mist</h2><div class="cards" id="mixb"></div>
+<h2>Um cultivador sozinho + amb_mist</h2><div class="cards" id="mixs"></div>
+<h2>Checagens</h2><div style="overflow-x:auto"><table id="tbl"></table></div>
+<p style="color:var(--muted);font-size:13px">Bandas = % da energia em 20-150 / 150-600 / 600-2500 / 2,5-6 / 6-16 kHz. Emenda = salto entre última e primeira amostra contra o 99,9º percentil dos saltos normais. Pico tonal em 220 Hz é o zumbido da bomba, de propósito (harmonia em Lá); as bolhas não têm frequência fixa.</p>
+<h2>Como pensei</h2><ul>
+<li><b>Convivência com o coletor:</b> as bolhas ficam mais graves (280-1100 Hz) que as gotas do coletor (700-2600 Hz), mas ainda sobrepõem um pouco em 600-1100 Hz. Por isso as bolhas são macias e lentas, e os períodos (6,1 e 5,0 s) não casam. Se ainda competir, abaixe o coletor, não o cultivador.</li>
+<li><b>Vários juntos:</b> a variante A, com 7 bolhas, vira "panela" quando somada três vezes (21 bolhas em 6 s). C concentra em rajadas com silêncio entre elas, então 3 cópias defasadas ainda deixam respiros. B é o mais seguro em quantidade, mas parece máquina/geladeira.</li></ul>
+<h2>Pro Dev integrar</h2><ul>
+<li><b>Arquivo final</b> (o gerente copia depois da aprovação): <code>assets/audio/cultivator_loop.wav</code> (variante escolhida, renomeada).</li>
+<li><b>VOLUME</b>: <code>"cultivator_loop": 0.4</code> por instância, com <code>fade_by_distance(d, 2, 6)</code>.</li>
+<li><b>Limite de canais:</b> no máximo <b>3</b> cultivadores tocando ao mesmo tempo (os mais próximos); o resto fica mudo. Passar disso só soma zumbido de 110 Hz sem ganho.</li>
+<li><b>Quando toca:</b> só com cultivador <b>crescendo</b> (com água e planta); seco ou quebrado = silêncio, com fadeout(400). Colheita pronta pode manter o loop.</li>
+<li><b>Fase:</b> começar cada cultivador num offset aleatório do loop (<code>play(loops=-1)</code> + <code>set_pos</code> ou delay aleatório) pra os zumbidos não ficarem em fase; ganhos individuais um pouco diferentes (±20%) ajudam.</li>
+<li><b>Dentro da base:</b> mistura bem com <code>amb_mist</code>. Ainda não testei com <code>amb_green</code>/<code>amb_cave</code>.</li></ul>
+<p style="color:var(--muted);font-size:13px">Gerado por <code>tools/audio/v08_cultivator.py</code> (seed por nome, só numpy; blocos do <code>build_audio.py</code>).</p>
+</div>
+<script src="v08m3_meta.js"></script>
+<script>
+const M=window.M3_META;
+const D={A:"Poucas bolhas esparsas sobre um zumbido baixo.",B:"Bomba em destaque, bolhas raras.",C:"Rajadas de bolhas com silêncio entre elas. Recomendada."};
+function card(key,t,loop){const m=M[key];const el=document.createElement("div");el.className="card";
+ el.innerHTML=`<div><span class="fname">${m.file}</span> <span class="tag">${m.duration.toFixed(2)} s</span><span class="tag">pico ${m.peak_db} dBFS</span><span class="tag">loud ${m.loudness_db} dB</span>${loop?'<span class="tag loop">loop</span>':''}</div>
+ <div class="when">${t[0]}</div><canvas width="320" height="44"></canvas>
+ <audio controls preload="metadata" ${loop?"loop":""} src="${m.file}"></audio><p class="what">${t[1]}</p>`;
+ const c=el.querySelector("canvas").getContext("2d");c.fillStyle="#59d0e6";const w=m.wave,bw=320/w.length;
+ w.forEach((v,i)=>{const h=Math.max(1,v*42*3);c.fillRect(i*bw,22-Math.min(h,42)/2,Math.max(1,bw-0.5),Math.min(h,42))});
+ return el}
+for(const k of "ABC"){document.getElementById("solo").append(card("cultivator_loop_"+k,[k+" · "+M["cultivator_loop_"+k].label+" · enquanto o cultivador cresce",D[k]],true));
+ document.getElementById("mixb").append(card("mix_base3_"+k,["Base com 3 · variante "+k,"20 s de mix."],false));
+ document.getElementById("mixs").append(card("mix_solo_"+k,["Sozinho · variante "+k,"20 s de mix."],false));}
+document.getElementById("tbl").innerHTML="<tr><th>arquivo</th><th>duração</th><th>pico dBFS</th><th>RMS dB</th><th>loudness dB</th><th>bandas %</th><th>emenda / ref</th><th>pico tonal</th></tr>"+
+ Object.keys(M).map(k=>{const m=M[k];return `<tr><td><code>${m.file}</code></td><td>${m.duration.toFixed(2)} s</td><td>${m.peak_db}</td><td>${m.rms_db}</td><td>${m.loudness_db}</td><td>${m.bands.join(" / ")}</td><td>${m.seam!==undefined?m.seam+" / "+m.seam_ref:"-"}</td><td>${m.tonal_db!==undefined?m.tonal_db+" dB @ "+m.tonal_hz+" Hz":"-"}</td></tr>`}).join("");
+function stopAll(){document.querySelectorAll("audio").forEach(a=>a.pause())}
+document.addEventListener("play",e=>{document.querySelectorAll("audio").forEach(a=>{if(a!==e.target)a.pause()})},true);
+</script></body></html>
