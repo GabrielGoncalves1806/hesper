@@ -547,11 +547,11 @@ def test_cultivator_panel_draws_and_has_the_drone_section(fresh):
 
 
 def test_chest_toggles_wrap_with_the_crops(fresh):
-    """O baú passou de 8 materiais: os botões quebram em linhas de 8 e continuam dentro da grade."""
+    """O baú passou de 8 materiais (v0.8 M4: 16, com as amostras): os botões quebram em linhas de 8 e continuam dentro da grade."""
     from game import ui as ui_mod
     chest = Machine("chest", 70, 70)
     n = len(C.LOGISTIC_ITEMS)
-    assert n == 13 and ui_mod.wide_row_height(8) == ui_mod.LOGI_WIDE_ROW
+    assert n == 16 and ui_mod.wide_row_height(8) == ui_mod.LOGI_WIDE_ROW
     ui = fresh.ui
     ui.begin()
     ui.logistics_buttons.clear()

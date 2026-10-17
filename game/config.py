@@ -213,6 +213,7 @@ class MachineType:
     sprite: str         # nome do sprite (§6)
     size: int = 1       # quantos tiles de lado ela ocupa (drill = 2, em cima de um veio 2×2)
     placeable: bool = True   # False = item que sai do fabricador mas não vai pro chão (ex.: o drone)
+    unlock_stage: int = 0    # v0.8 M4: estágio necessário pra liberar a receita (0 = sem trava; a Centrífuga = Algas)
 
 
 MACHINES = {
@@ -1317,6 +1318,21 @@ MACHINE_CATEGORY[CULTIVATOR] = "automation"
 # tanque dá o diagrama do Cultivador; o microscópio só escaneia a partir do M4 (quando a máquina existir).
 PROP_MACHINE_ART = {"prop_sample_tank": "machine_cultivator_broken", "prop_microscope_digital": "machine_microscope_broken"}
 SCAN_BLUEPRINT = {"prop_sample_tank": CULTIVATOR}
+
+# ---------------------------------------------------------------------------
+# v0.8 M4 · Amostras do Microscópio (bíblia §17, plano 2026-10-17-v08-marco4-microscopio-centrifuga.md). Item de loot que
+# empilha, vai pros drones e entra na Centrífuga com a alga. Ícones aprovados: icon_sample_{basic,mutant,rare}.png.
+# ---------------------------------------------------------------------------
+SAMPLE_ITEMS = ("sample_basic", "sample_mutant", "sample_rare")
+SAMPLE_NAME = {"sample_basic": "Amostra simples", "sample_mutant": "Amostra com mutação", "sample_rare": "Amostra rara"}
+SAMPLE_DESC = {"sample_basic": "gelo de Hesper ao microscópio", "sample_mutant": "o gelo guardava uma mutação",
+               "sample_rare": "raríssima: o que a Ilves procurava"}
+for _sample in SAMPLE_ITEMS:
+    MACHINES[_sample] = MachineType(_sample, SAMPLE_NAME[_sample], SAMPLE_DESC[_sample], {}, None, 0, 0, f"icon_{_sample}",
+                                    placeable=False)
+RESOURCE_NAME.update({"sample_basic": "amostra simples", "sample_mutant": "amostra com mutação", "sample_rare": "amostra rara"})
+RESOURCE_LABEL.update({"sample_basic": "AMOSTRA", "sample_mutant": "MUTAÇÃO", "sample_rare": "RARA"})
+LOGISTIC_ITEMS = LOGISTIC_ITEMS + SAMPLE_ITEMS
 
 # ---------------------------------------------------------------------------
 # v0.6 Fundo M5 · Remapear crafts (bíblia §15 "Marco 5"). Números de partida; balanceamento depois.

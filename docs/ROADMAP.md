@@ -101,15 +101,19 @@ Spec: `docs/superpowers/specs/2026-10-16-v08-plantas-design.md` (bíblia §17). 
 - [x] M2 · Água (Dispersor proporcional à base, cápsula vazia, coletor)
 - [x] M3 · Lab e cultivador
 - [ ] M4 · Microscópio e centrífuga
-- [ ] M5 · Objetivos e fechamento
+- [ ] M5 · Materiais e itens (dono, 2026-10-17; bíblia §17 "Plantas viram material"): fibra sintética, gel hídrico, resina de geada e essência de Lírio na Bancada T2; Mochila T2 (A ou B a decidir), Tanque de O₂ nv.2, Botas de tração, Luminária bio, Adubo e Drone nv.2. Arte passa pelo dono.
+- [ ] M6 · Objetivos e fechamento
+  - Rebalancear o ritmo da alga (dono, 2026-10-17: com 3 cultivadores parecia render demais, mas o F1 tava ligado). Conta sem F1: ~6 algas por cultivador a cada 5 min. Decidir junto com o consumo da centrífuga e dos materiais do M5.
+  - `balance_sim` passa a conhecer a trava de receita por estágio (M4).
 
 ## v0.9 · Vida
-Fauna surgindo com o Ti, farm, música. **O planeta reage** ao Ti e ao derretimento (saiu da v0.7). Genes do gelo pra fauna (canon na bíblia §2).
+Fauna surgindo com o Ti, farm, música. **Fim da história da Ilves** (dono, 2026-10-17): o Lírio-de-Ilves e o **Semeador** (essência de Lírio → verde ao ar livre); depois disso não entra lore nova. **O planeta reage** ao Ti e ao derretimento (saiu da v0.7). Genes do gelo pra fauna (canon na bíblia §2).
 
 ## Depois · Perigo
 Inimigos (larvas pelo mapa), combate, a criatura como boss (saíram da v0.7).
 
 ## Futuro
+- **Atualização do basalto: ar ruim** (dono, 2026-10-17): no basalto, as cinzas e os gases das fumarolas dão um debuff no player (ideia: O₂ cai mais rápido). O **filtro do traje**, feito com o gel hídrico da Folha-gota, deixa a região "safe". Saiu do brainstorm das plantas da v0.8; não entra agora.
 - **Colisão dos destroços** (sobrou do "Rever os destroços" do M3; o tamanho foi feito no v0.7 M4): hoje é a pegada retangular aproximada, então o player bate no ar em volta do casco isométrico.
 - **Abrir a porta emperrada da VÉSPER-7** (gancho do v0.7 M4): bateria no painel de energia da cabine + o crachá da Dra. Ilves (achado em outro lugar) abrem a sala norte. Atrás dela ainda não existe nada (a sala é gerada quando entrar).
 - **Prop multi-tile em planta que gira** (v0.7 M4): o `ruins` não rotaciona o `size`, então os props 2×1/2×2 só moram nas plantas da nave. Girar a pegada pra poder usar nas ruínas da superfície e da caverna.

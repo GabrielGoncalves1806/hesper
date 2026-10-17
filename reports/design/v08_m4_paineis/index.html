@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>v0.8 M4 · Painéis do Microscópio e da Centrífuga</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;padding:0 16px}
+.wrap{max-width:1020px;margin:0 auto;padding:40px 0 80px}
+.eyebrow{font:12px ui-monospace,monospace;letter-spacing:.08em;color:var(--rust);text-transform:uppercase}
+h1{font:600 38px/1.1 ui-monospace,monospace;margin:10px 0 14px}h2{margin:44px 0 6px;color:var(--gold)}h3{margin:22px 0 6px}
+.note{background:var(--panel);border-left:4px solid var(--cyan);padding:12px 16px;margin:16px 0;border-radius:4px}
+.rec{border-left-color:var(--ok)}
+img.full{display:block;width:960px;max-width:100%;height:auto;image-rendering:pixelated;border:1px solid var(--line);border-radius:4px}
+.chk{display:inline-block;padding:10px;background:repeating-conic-gradient(#2a211c 0 25%,#221a16 0 50%) 0 0/16px 16px;border-radius:4px}
+.anim{image-rendering:pixelated;width:160px;height:224px;background-size:640px 224px;animation:a .4s steps(4) infinite;margin:0}
+@keyframes a{to{background-position:-640px 0}}
+table{border-collapse:collapse;width:100%}td,th{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}th{background:var(--panel)}
+code{background:var(--panel);padding:1px 5px;border-radius:3px}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Designer · v0.8 M4 · mock de UI</div>
+<h1>Painéis do Microscópio e da Centrífuga</h1>
+<div class="note"><b>v1.0 · o que é isto:</b> 4 mocks (2 por máquina) pro dono aprovar antes do Dev integrar. Nada foi pro jogo: só PNGs e este report. Mesma moldura do Cultivador aprovado, mas com as <b>medidas reais</b> de <code>game/ui.py</code> (painel 190 de largura, slot 20, botão de drone 22, seção DRONES com Envia / Recebe / Lote e o slot do CHIP). Cada mock está no estado "trabalhando", com itens nos slots. Referência de estilo: só o próprio padrão dos painéis do jogo; nada copiado de fora.</div>
+
+<h2>Microscópio</h2>
+<p>Entrada: 1 slot de gelo. Trabalho: barra da análise (20 s por gelo). Saída: 3 slots fixos (SIMPLES 30%, MUTAÇÃO 15%, RARA 5%) e uma faixa de chances com <b>NADA 50%</b> em cinza, pra ficar claro que metade das análises não dá nada.</p>
+<h3>A · máquina ampliada no meio (como o Cultivador)</h3>
+<img class="full" src="ui_microscopio_A.png" width="960" height="540" alt="Microscópio A">
+<h3>B · fluxo esquerda → direita, compacto</h3>
+<img class="full" src="ui_microscopio_B.png" width="960" height="540" alt="Microscópio B">
+
+<h2>Centrífuga</h2>
+<p>Entradas: ALGA e AMOSTRA (qualquer uma das 3). Trabalho: barra do ciclo (30 s). Saída: 3 slots fixos (FOLHA, ESPIRAL, LÍRIO). Um cartão de resultado diz qual planta e qual chance a amostra do slot dá, e <b>só a planta daquela amostra fica acesa</b> nas saídas (as outras ficam apagadas com a chance delas). O texto "Falhou: gasta alga e amostra." avisa do custo.</p>
+<h3>A · máquina ampliada no meio, amostra simples (60% Folha-gota)</h3>
+<img class="full" src="ui_centrifuga_A.png" width="960" height="540" alt="Centrífuga A">
+<h3>B · fluxo esquerda → direita, amostra de mutação (45% Espiral-de-geada)</h3>
+<img class="full" src="ui_centrifuga_B.png" width="960" height="540" alt="Centrífuga B">
+
+<h2>O que muda entre A e B</h2>
+<table>
+<tr><th></th><th>A (máquina no meio)</th><th>B (fluxo compacto)</th></tr>
+<tr><td>Leitura</td><td>Entradas à esquerda, máquina ampliada ×2 no centro, saídas empilhadas à direita com nome e chance ao lado. Barra de progresso vertical (igual CRESCE do Cultivador).</td><td>Linha de cima é o fluxo entrada → barra horizontal → máquina em miniatura (×1). Embaixo, as 3 saídas em colunas com o nome em cima e a chance ao lado.</td></tr>
+<tr><td>Altura</td><td>Mais alta (parte de cima com 66 de altura pela máquina grande)</td><td>Mais baixa no microscópio; na centrífuga fica parecida por causa do cartão de resultado</td></tr>
+<tr><td>Máquina</td><td>Ganha destaque, com a mesma moldura do Cultivador (família visual)</td><td>Vira um selo pequeno; o foco é o fluxo e os números</td></tr>
+<tr><td>Chances</td><td>Pilha vertical: leitura rápida de cima pra baixo</td><td>Em fileira: dá pra comparar as três de relance</td></tr>
+</table>
+<div class="note rec"><b>Recomendação: A nos dois.</b> Combina com o Cultivador já aprovado (o jogador reconhece a máquina pelo desenho dela no meio), a barra vertical segue o padrão CRESCE, e o ritmo de leitura é igual entre as três máquinas do lab. O B é melhor só se o dono preferir painéis mais baixos; o ganho de altura é pequeno e a máquina vira um ícone minúsculo.</div>
+
+<h2>As máquinas (quadros usados no mock)</h2>
+<div class="chk"><div class="anim" style="background-image:url(../v08_plantas/pendentes/anim/anim_machine_microscope.png)"></div></div>
+<div class="chk"><div class="anim" style="background-image:url(../v08_plantas/pendentes/anim/anim_machine_centrifuge.png)"></div></div>
+<p style="color:var(--muted)">Microscópio e Centrífuga animados (tiras de 4 quadros, aqui a 10 fps, ×4). Vêm de <code>v08_plantas/pendentes/anim/</code>.</p>
+
+<h2>Pro Dev integrar</h2>
+<ul>
+<li><b>Moldura:</b> igual a <code>_cultivator_panel</code>: janela <code>SIDE_W</code> (190) à direita, inventário à esquerda, "<< PEGAR TUDO" no meio (<code>SIDE_MID</code>), linha de ajuda embaixo. Título colorido: Microscópio em ciano (<code>C_O2</code>), Centrífuga em dourado; texto à direita ("4 AMOSTRAS", "5 PLANTAS") = soma das saídas.</li>
+<li><b>Posições (A, relativas ao topo da janela <code>y</code>, <code>gx = cx + 8</code>):</b> rótulos em <code>y+17</code>, slots em <code>y+28</code>; coluna de entrada em <code>gx</code>; barra vertical em <code>gx+40</code> (9×56, rótulo "ANÁLISE" ou "CICLO"); cartão da máquina em <code>gx+68</code> (44×66, <code>y+22</code>) com o sprite 40×56 ampliado ×2 nativo (mesmo esquema do <code>cultivator_art</code>); saída em <code>gx+114</code>, passo 23 (slot + 2 linhas de texto em <code>x+24</code>).</li>
+<li><b>Faixa de chances (Microscópio):</b> 174×10 em <code>y+108</code>: NADA 50 / SIMPLES 30 / MUTAÇÃO 15 / RARA 5, cores <code>#4f566b</code>, <code>#7fd6b0</code>, <code>#5f7ee0</code>, <code>#f2c46d</code> (as cores dominantes dos ícones das amostras).</li>
+<li><b>Cartão de resultado (Centrífuga):</b> 174×26 em <code>y+96</code>, borda na cor da amostra; linha 1 "Amostra simples/mutação/rara", linha 2 "dá Folha-gota / Espiral-de-geada / Lírio-de-Ilves", chance à direita (60% / 45% / 30%). Sem amostra no slot: esconder o cartão e mostrar as 3 chances apagadas. A planta acesa (borda na cor da amostra, texto na cor) é só a da amostra atual.</li>
+<li><b>Status:</b> verde (<code>#7fd67a</code>) quando trabalhando, <code>C_ALERT</code> quando parado (Sem gelo, Sem alga, Sem amostra, Saída cheia).</li>
+<li><b>DRONES:</b> seção padrão <code>draw_logistics</code> a partir de <code>y+156</code> (A do microscópio) / <code>y+152</code> (A da centrífuga): Microscópio recebe gelo e envia as 3 amostras; Centrífuga recebe alga + 3 amostras e envia as 3 plantas (4 botões em Recebe cabem com o chip graças ao <code>logi_row_cap</code>). Chip no canto direito.</li>
+<li><b>Altura da janela:</b> A do microscópio 240, A da centrífuga 238 (<code>LOGI_Y + 82 + 10</code>, com <code>LOGI_Y</code> 156 e 152), parecido com o Cultivador (244). Cabe nos 270 de altura lógica.</li>
+<li><b>Ícones usados:</b> <code>icon_ice</code>, <code>icon_algae</code>, <code>icon_sample_basic/mutant/rare</code>, <code>icon_plant_1/2/3</code>, <code>icon_chip</code>. Nenhum sprite novo.</li>
+</ul>
+<p style="color:var(--muted)">Gerado por <code>tools/sprites/v08_m4_paineis.py</code> (determinístico).</p>
+</div></body></html>

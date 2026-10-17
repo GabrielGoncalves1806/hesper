@@ -28,6 +28,7 @@ e vê o planeta **mudar visualmente** conforme o índice de terraformação (Ti)
 | LOG 06 | "Dia 212. O derretedor 4 parou de novo. A Dra. Ilves jura que o gelo daqui não é só água, que tem alguma coisa dentro dele. Ninguém quis ouvir. Amanhã a gente desce pro nível 2 de qualquer jeito." |
 
 O mistério do gelo **não se resolve no MVP**. É gancho pro futuro.
+- **Limite da lore** (dono, 2026-10-17): a história da Dra. Ilves **fecha na v0.9** (junto do Lírio-de-Ilves e do Semeador). Depois disso não entra lore nova: o jogo segue com boss, perigo e sistemas, pra não virar "um livro".
 
 **A verdade da história** (canon do dono, 2026-10-16; a equipe segue isto, o player descobre aos poucos):
 - O que tem no gelo é uma **espécie nativa** do planeta. A criatura do **Grande gelo** (bolsão da faixa gelada, Larva ou Casulo, §13 M3.6.2) é ela: uma "minhoca".
@@ -1150,7 +1151,20 @@ Detalhe e números de partida: `docs/superpowers/specs/2026-10-16-v08-plantas-de
 - **Cultivador**: só dentro da base vedada; tanque de 5 cápsulas + reserva de 5; cresce em 4 etapas (UI e sprite mostram); perene; colheita = item da cultura (muda e ingrediente).
 - **Microscópio**: gelo → amostra simples 30% / mutação 15% / rara 5%. **Centrífuga** (libera no estágio Algas): alga + amostra → planta 1, 2 ou 3 por chance. 4 culturas: alga + 3 plantas.
 - **Água**: o Dispersor gasta proporcional ao chão da base (5×5 = 3 min; limites 30–360 s; vários Dispersores não dividem a demanda). Dispersor e cultivador soltam **cápsula vazia**; o **coletor de água** enche vazias com a umidade do ar (superfície, do Úmido em diante, mais rápido na chuva). O derretedor continua criando cápsula sem vazia.
-- **Fora**: Verde funcional (respirar lá fora), fauna (v0.9 · Vida), farm ao ar livre, receitas com as plantas fora do ciclo.
+- **Fora**: Verde funcional (respirar lá fora), fauna (v0.9 · Vida), farm ao ar livre. (As receitas com as plantas saíram daqui: ver "Plantas viram material" abaixo.)
+- **Painéis do Microscópio e da Centrífuga: A** (dono, 2026-10-17; report `reports/design/v08_m4_paineis/`): a máquina ampliada no meio, a barra vertical do trabalho e as saídas empilhadas, como o Cultivador. Microscópio com a faixa "CHANCE POR GELO" (NADA 50% em cinza); Centrífuga com o cartão da amostra atual e só a planta dela acesa na saída.
+- **Plantas viram material** (dono, 2026-10-17, troca a decisão da spec): cada planta vira um material na Bancada T2, e os materiais viram itens. Entra num marco próprio depois do M4 ("Materiais e itens"); números e arte decididos lá.
+
+  | Planta | Material | Itens que usam |
+  |---|---|---|
+  | Alga | Fibra sintética | Mochila T2, Tanque de O₂ nv.2, Botas de tração, Drone nv.2 |
+  | Folha-gota | Gel hídrico | Tanque de O₂ nv.2, Adubo |
+  | Espiral-de-geada | Resina de geada | Botas de tração, Luminária bio (sem energia), Drone nv.2 |
+  | Lírio-de-Ilves | Essência de Lírio | nenhum na v0.8; o Semeador e o fim da história da Ilves vêm na v0.9 |
+
+  - **Adubo**: consumível no Cultivador, cresce 2× por um tempo.
+  - **Mochila T2**: hoje a mochila é +1 linha de 8 e a janela do Tab já está no limite na escala Grande. Opção A (+1 linha, refaz o layout do Tab e dos painéis laterais) ou B (dobra as pilhas): **a decidir**.
+  - **Descartados**: parede isolada. O **filtro do traje** (gel hídrico) fica pra atualização do basalto (ROADMAP, Futuro).
 - **Arte rodada 1, decisões do dono (2026-10-17)** (report `reports/design/v08_plantas/`): **cultivador B** (base cheia, corpo + miolo da cultura por cima); **nomes**: planta 1 **Folha-gota**, planta 2 **Espiral-de-geada**, planta 3 **Lírio-de-Ilves**; **UI do cultivador A** (inventário à esquerda, painel da máquina à direita: água + crescimento, cilindro, colheita, cheias/vazias, drones).
 - **Gelo da porta do lab: A** (dono, 2026-10-17): os blocos dos gelos-portão (`ice_block_*`, mesmo derretimento e mesma arte) amontoados na frente da porta; o `lab_ice_door2_*` da rodada 1 não entra. **Centrífuga a 10 fps** ("rapidão"); as outras máquinas seguem a ~5 fps.
 
