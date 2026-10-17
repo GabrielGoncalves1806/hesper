@@ -226,6 +226,10 @@ def can_send(machine, item: str) -> bool:
         return item == C.EMPTY_CAPSULE
     if machine.is_cultivator:                               # v0.8 M3: o cultivador manda as vazias e a colheita (nunca a muda)
         return item == C.EMPTY_CAPSULE or item in C.CROP_ITEMS
+    if machine.is_microscope:                               # v0.8 M4: o microscópio só manda as amostras (nunca o gelo)
+        return item in C.SAMPLE_ITEMS
+    if machine.is_centrifuge:                               # v0.8 M4: a centrífuga só manda as plantas (nunca a alga nem a amostra)
+        return item in C.CENT_OUT_SLOTS
     if item not in C.LOGISTIC_ITEMS:
         return False
     if machine.is_smelter:
@@ -242,6 +246,10 @@ def can_receive(machine, item: str) -> bool:
     v0.6 M3: a Fundição recebe ferro, cobre e magmatita."""
     if item not in C.LOGISTIC_ITEMS or machine.is_drill:
         return False
+    if machine.is_microscope:                               # v0.8 M4: o microscópio só recebe gelo
+        return item == "ice"
+    if machine.is_centrifuge:                               # v0.8 M4: a centrífuga recebe alga e amostra
+        return item == "algae" or item in C.SAMPLE_ITEMS
     if machine.is_smelter:
         return item in C.SMELTER_RECIPES or item == C.SMELTER_FUEL
     if machine.is_melter:
@@ -268,12 +276,23 @@ def receive_slot(machine, item: str) -> int | None:
         return C.COLLECTOR_IN_SLOT
     if machine.is_cultivator and item == "water_capsule":
         return C.CULT_WATER_SLOT
+    if machine.is_microscope and item == "ice":
+        return C.MIC_ICE_SLOT
+    if machine.is_centrifuge:
+        if item == "algae":
+            return C.CENT_ALGAE_SLOT
+        if item in C.SAMPLE_ITEMS:
+            return C.CENT_SAMPLE_SLOT
     return None
 
 
 def stock(machine, item: str) -> int:
     """Quanto desse item os drones podem tirar da máquina. No cultivador só a saída conta (a colheita e as vazias): a muda
-    do slot 2 e a reserva de água ficam."""
+    do slot 2 e a reserva de água ficam. Microscópio e centrífuga: só a saída (nunca o gelo, a alga nem a amostra da entrada)."""
+    if machine.is_microscope and item not in C.MIC_OUT_SLOTS:
+        return 0
+    if machine.is_centrifuge and item not in C.CENT_OUT_SLOTS:
+        return 0
     if machine.is_cultivator:
         return sum(machine.storage.slots[i].count for i in _send_slots(item)
                    if machine.storage.slots[i] is not None and machine.storage.slots[i].item == item)
