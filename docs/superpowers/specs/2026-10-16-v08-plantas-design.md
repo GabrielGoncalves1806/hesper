@@ -32,7 +32,7 @@ A v0.8 enche esse meio com **plantas**: um 4º índice (Biomassa), 2 estágios n
 - Os números são de partida. O `tools/dev/balance_sim.py` acerta eles no M5.
 - A chave `mist` continua. Muda só o texto: o nome curto vira **ÚMIDO** e o título continua "ESTÁGIO 3 · PRIMEIRAS CHUVAS".
 - O estágio passa a exigir **as duas coisas**: o Ti total (O₂ + Calor + Água + Biomassa) e a biomassa mínima. Senão o player chega no Verde só com aquecedor.
-- O HUD de "PRÓXIMO" mostra o que falta das duas, por exemplo "PRÓXIMO: ALGAS · Ti 18k/25k · biomassa 120/500".
+- O HUD de "PRÓXIMO" usa o progresso do gargalo (o menor entre Ti e biomassa) e diz o que falta: "faltam 7.5k · ~2 min", "faltam 7.5k · biomassa 380" ou "falta biomassa 380".
 - Save antigo: o estágio 4 (`green`) vira 6. O estágio é recalculado pelo Ti e pela biomassa no load, e quem tinha Verde sem biomassa volta pro estágio que os números mandam.
 
 ## Biomassa (4º índice)
