@@ -109,7 +109,7 @@ from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 from game.wrecks import loot_for
 
-SAVE_VERSION = 16  # v16 (v0.8 M3): Cultivador (growth, tank e 7 slots fixos) e o diagrama dele em blueprints · v15 (v0.8 M2): Dispersor com slot de cápsula vazia e Coletor de água · v14 (v0.8 M1): biomassa (4º índice) e 6 estágios (o Verde antigo volta pro Úmido) · v13 (v0.7 M3): destroços novos (a mesma seed põe os destroços em outro lugar; wrecks.settle) · v12 (v0.6 Fundo M1): caverna nova 256×256 (a do v11 é descartada) · v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
+SAVE_VERSION = 16  # v16 (v0.8 M3; o v0.8 M4 entrou sem versão nova: Microscópio/Centrífuga/amostras/diagrama só usam campos já existentes): Cultivador (growth, tank e 7 slots fixos) e o diagrama dele em blueprints · v15 (v0.8 M2): Dispersor com slot de cápsula vazia e Coletor de água · v14 (v0.8 M1): biomassa (4º índice) e 6 estágios (o Verde antigo volta pro Úmido) · v13 (v0.7 M3): destroços novos (a mesma seed põe os destroços em outro lugar; wrecks.settle) · v12 (v0.6 Fundo M1): caverna nova 256×256 (a do v11 é descartada) · v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
 FIRST_VERSION = 10  # saves com versão menor que essa são de outra época do jogo: "save antigo" (v1–v9, não migram)
 # Numeração dos estágios dentro do "progress": 2 = v0.4 (Tempestade, Árido, Névoa, Verde), 3 = v0.8 (Tempestade,
 # Árido, Úmido, Algas, Musgo, Verde). O 1 (os 3 estágios do v0.3) só existia no save v6, que não carrega mais.
@@ -376,6 +376,32 @@ def cultivator_storage(data: list) -> Inventory:
     return inv
 
 
+def _fixed_slots_storage(data: list, size: int, allowed: dict) -> Inventory:
+    """Inventário de slots fixos: allowed[slot] = o único item que aquele slot aceita. Outra coisa vira vazio."""
+    inv = Inventory(size)
+    for slot, item in allowed.items():
+        d = data[slot] if slot < len(data) else None
+        if d and d[0] == item and int(d[1]) > 0:
+            inv.slots[slot] = Stack(item, min(int(d[1]), max_stack(item)))
+    return inv
+
+
+def microscope_storage(data: list) -> Inventory:
+    """Inventário do Microscópio do save (v0.8 M4): [0] só gelo; [1..3] só a amostra do slot (MIC_OUT_SLOTS)."""
+    allowed = {C.MIC_ICE_SLOT: "ice", **{slot: sample for sample, slot in C.MIC_OUT_SLOTS.items()}}
+    return _fixed_slots_storage(data, C.MIC_SLOTS, allowed)
+
+
+def centrifuge_storage(data: list) -> Inventory:
+    """Inventário da Centrífuga do save (v0.8 M4): [0] só alga; [1] a amostra (qualquer tipo); [2..4] só a planta do slot."""
+    inv = _fixed_slots_storage(data, C.CENT_SLOTS, {C.CENT_ALGAE_SLOT: "algae",
+                                                    **{slot: plant for plant, slot in C.CENT_OUT_SLOTS.items()}})
+    d = data[C.CENT_SAMPLE_SLOT] if C.CENT_SAMPLE_SLOT < len(data) else None
+    if d and d[0] in C.SAMPLE_ITEMS and int(d[1]) > 0:
+        inv.slots[C.CENT_SAMPLE_SLOT] = Stack(d[0], min(int(d[1]), max_stack(d[0])))
+    return inv
+
+
 def machine_to_dict(m: Machine) -> dict:
     data = {"kind": m.kind, "tx": m.tx, "ty": m.ty, "rotation": m.rotation}
     if m.is_drill:
@@ -385,6 +411,8 @@ def machine_to_dict(m: Machine) -> dict:
     if m.is_smelter:                     # v0.6 Fundo M3: progresso do lingote e a carga de magmatita acesa
         data.update(timer=m.timer, fuel=m.fuel)
     if m.is_collector:                   # v0.8 M2: progresso da cápsula (o inventário vai com o resto do logístico)
+        data["timer"] = m.timer
+    if m.is_microscope or m.is_centrifuge:   # v0.8 M4: progresso do ciclo (o inventário vai com o resto do logístico)
         data["timer"] = m.timer
     if m.is_cultivator:                  # v0.8 M3: a planta (o inventário vai com o resto do logístico)
         data.update(growth=m.growth, tank=m.tank)
@@ -436,6 +464,14 @@ def machine_from_dict(data: dict) -> Machine:
         # v0.8 M2: [0] cápsula vazia, [1] cápsula cheia
         machine.storage = collector_storage(data.get("storage", []))
         machine.timer = min(max(machine.timer, 0.0), C.COLLECTOR_TIME)
+    if machine.is_microscope:
+        # v0.8 M4: [0] gelo, [1..3] amostras
+        machine.storage = microscope_storage(data.get("storage", []))
+        machine.timer = min(max(machine.timer, 0.0), C.MICROSCOPE_TIME)
+    if machine.is_centrifuge:
+        # v0.8 M4: [0] alga, [1] amostra, [2..4] plantas
+        machine.storage = centrifuge_storage(data.get("storage", []))
+        machine.timer = min(max(machine.timer, 0.0), C.CENTRIFUGE_TIME)
     if machine.is_cultivator:
         # v0.8 M3: [0] cheias, [1] vazias, [2] a muda, [3..6] colheita. Planta e tanque dentro dos limites
         machine.storage = cultivator_storage(data.get("storage", []))
