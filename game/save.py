@@ -415,7 +415,7 @@ def machine_to_dict(m: Machine) -> dict:
     if m.is_microscope or m.is_centrifuge:   # v0.8 M4: progresso do ciclo (o inventário vai com o resto do logístico)
         data["timer"] = m.timer
     if m.is_cultivator:                  # v0.8 M3: a planta (o inventário vai com o resto do logístico)
-        data.update(growth=m.growth, tank=m.tank)
+        data.update(growth=m.growth, tank=m.tank, boost=m.boost)
     if m.is_dispenser:                   # v9
         data.update(storage=m.storage.to_data(), burn=m.burn, sealed_once=m.sealed_once)
     if m.is_chest:
@@ -478,6 +478,7 @@ def machine_from_dict(data: dict) -> Machine:
         machine.grow_crop = machine.crop
         machine.growth = min(max(float(data.get("growth", 0.0)), 0.0), 1.0) if machine.crop else 0.0
         machine.tank = min(max(float(data.get("tank", 0.0)), 0.0), C.CULTIVATOR_TANK)
+        machine.boost = min(max(float(data.get("boost", 0.0)), 0.0), C.FERTILIZER_MAX)
     if machine.is_dispenser:
         machine.storage = dispenser_storage(data.get("storage", []))
         machine.burn = min(max(float(data.get("burn", 0.0)), 0.0), C.DISPENSER_TIME_MAX)   # v0.8 M2: a cápsula pode durar até o teto

@@ -100,6 +100,7 @@ class Machine:
     # `grow_blocker` = por que não cresce agora (None = crescendo): recalculados a cada tick, não vão no save.
     growth: float = field(default=0.0, compare=False)
     tank: float = field(default=0.0, compare=False)
+    boost: float = field(default=0.0, compare=False)   # v0.8 M5: segundos de adubo que restam (0..C.FERTILIZER_MAX); vai no save
     grow_crop: str | None = field(default=None, compare=False, repr=False)
     grow_blocker: str | None = field(default="no_seed", compare=False, repr=False)
     # v0.8 M4: só o Microscópio. Analisando agora (o render anima só assim); recalculado a cada tick, não vai no save.
@@ -1741,10 +1742,17 @@ class GameState:
     def cultivator_put(self, cult: Machine, index: int, amount: int | None = None) -> int:
         """Põe do slot `index` do inventário do player no Cultivador: a cápsula cheia vai pra reserva (`amount` None = a
         pilha inteira, 1 = clique direito, até encher); uma cultura vai pro slot da muda (1 só: se já tem outra, troca e a
-        antiga volta pro inventário; a planta recomeça). O resto não entra. Devolve quanto entrou."""
+        antiga volta pro inventário; a planta recomeça). O adubo (v0.8 M5) gasta 1 por vez e soma `FERTILIZER_TIME` s em
+        `boost`, até `FERTILIZER_MAX` (cheio: recusa e não gasta). O resto não entra. Devolve quanto entrou."""
         stack = self.inventory.slots[index]
         if stack is None:
             return 0
+        if stack.item == C.FERTILIZER:
+            if cult.boost + 1e-9 >= C.FERTILIZER_MAX:
+                return 0
+            cult.boost = min(C.FERTILIZER_MAX, cult.boost + C.FERTILIZER_TIME)
+            self.inventory.remove_from_slot(index, 1)
+            return 1
         if stack.item == "water_capsule":
             slot = C.CULT_WATER_SLOT
             have = cult.storage.slots[slot]
@@ -2137,9 +2145,14 @@ class GameState:
             # a água que dura até o tanque pedir a próxima cápsula da reserva (ou até secar, sem reserva)
             reserve = m.storage.count("water_capsule") > 0 and m.tank > C.CULTIVATOR_TANK - 1
             usable = m.tank - (C.CULTIVATOR_TANK - 1) if reserve else m.tank
-            need = (1 - m.growth) * spec.cycle
+            rate = C.FERTILIZER_BOOST if m.boost > 1e-9 else 1.0        # v0.8 M5: o adubo acelera só o growth
+            need = (1 - m.growth) * spec.cycle / rate
             step = min(dt, need, max(usable * spec.water_s, 1e-6))
-            m.growth = 1.0 if step >= need - 1e-9 else m.growth + step / spec.cycle
+            if rate > 1.0:
+                step = min(step, m.boost)
+            m.growth = 1.0 if step >= need - 1e-9 else m.growth + step * rate / spec.cycle
+            if rate > 1.0:
+                m.boost = 0.0 if step >= m.boost - 1e-9 else m.boost - step
             m.tank = max(0.0, m.tank - step / spec.water_s)
             if m.tank < 1e-9:
                 m.tank = 0.0

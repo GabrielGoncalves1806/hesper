@@ -2133,6 +2133,9 @@ class UI:
         spec = C.CROPS.get(m.crop)
         rate = spec.biomass if spec is not None and status == "Crescendo" else 0.0
         self.tx(f"{rate:g} BIO/S".replace(".", ","), cyl_x + cyl_w / 2, y + 79, "#7fd67a" if rate else B_MUTED, align="center")
+        if m.boost > 0:                                                    # v0.8 M5: selo do adubo (min:s) sob o ritmo de biomassa
+            sec = int(m.boost + 0.999)
+            self.tx(f"ADUBO {sec // 60}:{sec % 60:02d}", cyl_x + cyl_w / 2, y + 90, "#7fd67a", align="center")
         hx = cx + pw - 8 - 2 * SLOT_STEP + 2                              # COLHEITA: 2×2 slots à direita
         self._section_label("COLHEITA", hx, y + 16, C.C_ACCENT)
         self._grid(m.storage, [C.CULT_HARVEST_SLOTS[0], C.CULT_HARVEST_SLOTS[1]], hx, top, item_icon, mouse)
