@@ -18,7 +18,7 @@ def test_every_recipe_has_a_tab():
     assert tab_kinds("automation") == ["drill", "drone_station", "drone", "drone_t2", "smelter", "water_collector", "cultivator", "microscope", "centrifuge", "workbench"]   # v0.6 M3: a Fundição; v0.8 M2: o Coletor de água; M3: o Cultivador; M4: o Microscópio e a Centrífuga; M5: o drone nv.2
     assert tab_kinds("storage") == ["chest_small", "chest", "chest_large"]
     assert tab_kinds("light") == ["lamp", "lamp_t2", "lamp_bio"]   # v0.8 M5: a luminária bio
-    assert tab_kinds("materials") == ["wire", "circuit", "fiber", "hydrogel", "frost_resin", "lily_essence", "fertilizer"]   # v0.8 M5: os materiais das plantas e o adubo;                         # v0.6 M3: fios saem do lingote de cobre
+    assert tab_kinds("materials") == ["wire", "circuit", C.EMPTY_CAPSULE, "fiber", "hydrogel", "frost_resin", "lily_essence", "fertilizer"]   # v0.8 M5: os materiais das plantas e o adubo;                         # v0.6 M3: fios saem do lingote de cobre
     assert tab_kinds("suit") == ["o2_tank", "o2_tank_t2", "scanner", "backpack", "backpack_t2", "boots"]   # v0.8 M5: os nv.2 e as botas;       # Marco 3: aba "Traje" (a mochila é da T2)
     assert tab_kinds("tools") == ["constructor", "diagram_workbench", "diagram_chest_large"]                         # v0.5 M1
 
@@ -26,7 +26,7 @@ def test_every_recipe_has_a_tab():
 def test_craft_tabs_have_only_items_and_build_tabs_only_machines():
     assert craft_kinds("tools") == ["constructor", "diagram_workbench", "diagram_chest_large"]
     assert craft_kinds("automation") == []                   # v0.6 Fundo M5: o drone, o circuito, o tanque e o scanner
-    assert craft_kinds("materials") == ["wire"]              # são da Bancada T2 (o T1 não mostra)
+    assert craft_kinds("materials") == ["wire", C.EMPTY_CAPSULE]   # v0.8 M6: a vazia; o resto é da Bancada T2 (o T1 não mostra)
     assert craft_kinds("suit") == []
     assert build_kinds("automation") == ["drill", "drone_station", "smelter", "water_collector", "cultivator", "microscope", "centrifuge", "workbench"]
     for tab, _ in C.CRAFT_TABS:

@@ -270,7 +270,8 @@ def can_send(machine, item: str) -> bool:
 
 
 def can_receive(machine, item: str) -> bool:
-    """v0.6 M2: o derretedor recebe gelo (na entrada), o dispersor cápsula; a drill nada; o baú, qualquer item.
+    """v0.6 M2: o derretedor recebe gelo (na entrada; v0.8 M6: e vazia no slot VAZIAS), o dispersor cápsula; a drill
+    nada; o baú, qualquer item.
     v0.6 M3: a Fundição recebe ferro, cobre e magmatita."""
     if item not in C.LOGISTIC_ITEMS or machine.is_drill:
         return False
@@ -280,8 +281,8 @@ def can_receive(machine, item: str) -> bool:
         return item == "algae" or item in C.SAMPLE_ITEMS
     if machine.is_smelter:
         return item in C.SMELTER_RECIPES or item == C.SMELTER_FUEL
-    if machine.is_melter:
-        return item == "ice"
+    if machine.is_melter:                                   # v0.8 M6: gelo e cápsula vazia (a garrafa é recurso)
+        return item in ("ice", C.EMPTY_CAPSULE)
     if machine.is_collector:                                # v0.8 M2: o coletor só recebe cápsula vazia
         return item == C.EMPTY_CAPSULE
     if machine.is_dispenser or machine.is_cultivator:       # v0.8 M3: o cultivador só recebe cápsula cheia (a reserva)
@@ -298,6 +299,8 @@ def receive_slot(machine, item: str) -> int | None:
         return C.SMELTER_FUEL_SLOT if item == C.SMELTER_FUEL else None
     if machine.is_melter and item == "ice":
         return C.MELTER_ICE_SLOT
+    if machine.is_melter and item == C.EMPTY_CAPSULE:
+        return C.MELTER_EMPTY_SLOT
     if machine.is_dispenser and item == "water_capsule":
         return C.DISPENSER_CAPSULE_SLOT
     if machine.is_collector and item == C.EMPTY_CAPSULE:
@@ -320,6 +323,8 @@ def stock(machine, item: str) -> int:
     if machine.is_microscope and item not in C.MIC_OUT_SLOTS:
         return 0
     if machine.is_centrifuge and item not in C.CENT_OUT_SLOTS:
+        return 0
+    if machine.is_melter and item != "water_capsule":       # v0.8 M6: o gelo e as vazias ficam no derretedor
         return 0
     if machine.is_cultivator:
         return sum(machine.storage.slots[i].count for i in _send_slots(item)

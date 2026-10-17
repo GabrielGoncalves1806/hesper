@@ -58,6 +58,8 @@ CULT_ROW_STEP = 36                               # v0.8 M6: passo CHEIAS → VAZ
 CULT_STATUS_X = 2 * CULT_ROW_STEP + 28           # ...e o estado (até 2 linhas) começa depois do rótulo MUDA (25 px)
 CULT_STATUS_W = GRID_W - CULT_STATUS_X           # 74: "Fora da base" tem 74
 DISP_LOGI_Y = 92                                 # onde a seção DRONES começa nos painéis da drill, derretedor e dispersor
+MELT_SLOT_X = (0, 36, 74)                        # v0.8 M6: x dos slots GELO, VAZIAS e CHEIAS do derretedor (rótulo em cima)
+MELT_BAR_X = MELT_SLOT_X[2] + SLOT + 8           # ...e a barra + o estado à direita deles (72 de largura)
 LOGI_H = 14 + 2 * LOGI_ROW + 2 + LOGI_BATCH_H    # altura da seção com Envia e Recebe, 1 linha de botões cada (82)
 LOGI_WIDE_AFTER = 5                              # com mais materiais que isso (o baú tem 8), a fileira vira "larga":
 LOGI_WIDE_BTN, LOGI_WIDE_GAP = 16, 1             # o rótulo (Envia/Recebe) sobe pra uma linha própria e os botões
@@ -2096,26 +2098,31 @@ class UI:
 
     def _melter_panel(self, melter, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str,
                       mid: pygame.Rect) -> None:
-        """Derretedor (v0.5 M2): entrada de gelo e saída de cápsulas de água, a barra da próxima cápsula, o estado,
-        "<< PEGAR TUDO" no meio e a seção DRONES (só Envia: os drones tiram as cápsulas)."""
+        """Derretedor (v0.5 M2; v0.8 M6: a garrafa é recurso): GELO e VAZIAS (entram) e CHEIAS (saem), a barra da
+        próxima cápsula, o estado (SEM VAZIA no molde do Coletor), a linha de ajuda (o motivo, sem vazia), "<< PEGAR
+        TUDO" no meio e a seção DRONES (Envia as cheias, Recebe gelo e vazias)."""
         t2 = melter.kind.endswith("_t2")
         self.window(cx, y, pw, h, "Derretedor nv.2" if t2 else "Derretedor", f"{melter.capsules} cáps.", C.C_O2)
-        gx = cx + 8
-        self._section_label("GELO", gx, y + 16)
-        self._section_label("CÁPSULA", gx + SLOT_STEP + 18, y + 16, C.C_O2)
-        self._grid(melter.storage, [C.MELTER_ICE_SLOT], gx, y + SIDE_GRID_Y, item_icon, mouse)
-        self.tx(">", gx + SLOT + 6, y + SIDE_GRID_Y + 3, B_MUTED)
-        self._grid(melter.storage, [C.MELTER_CAPSULE_SLOT], gx + SLOT_STEP + 18, y + SIDE_GRID_Y, item_icon, mouse)
-        bx = gx + 2 * SLOT_STEP + 26
-        bw = GRID_W - (bx - gx)
-        working = melter.ice >= C.MELTER_ICE_PER_CAPSULE and melter.capsule_room > 0
-        fill = melter.timer / C.MELTER_CAPSULE_TIME[melter.kind] if working else 0.0
-        self.bar(bx, y + SIDE_GRID_Y + 3, bw, fill, "#7ad46a" if melter.capsules_full else C.C_O2, h=4)
-        self.tx(self.fit(status, bw), bx, y + SIDE_GRID_Y + 7, C.C_ALERT if melter.capsules_full else B_MUTED)
-        for k, line in enumerate(wrap(self.body, "Clique no gelo pra pôr. Drones levam as cápsulas.", GRID_W)[:2]):
-            self.tx(line, gx, y + SIDE_GRID_Y + 22 + k * 12, B_MUTED, self.body)
+        gx, sy = cx + 8, y + SIDE_GRID_Y
+        for label, slot, dx, color in (("GELO", C.MELTER_ICE_SLOT, MELT_SLOT_X[0], B_MUTED),
+                                       ("VAZIAS", C.MELTER_EMPTY_SLOT, MELT_SLOT_X[1], B_MUTED),
+                                       ("CHEIAS", C.MELTER_CAPSULE_SLOT, MELT_SLOT_X[2], C.C_O2)):
+            self._section_label(label, gx + dx, y + 16, color)
+            self._grid(melter.storage, [slot], gx + dx, sy, item_icon, mouse)
+        self.tx(">", gx + (MELT_SLOT_X[1] + SLOT + MELT_SLOT_X[2]) // 2 - 2, sy + 3, B_MUTED)
+        bx = gx + MELT_BAR_X
+        bw = GRID_W - MELT_BAR_X
+        blocker = melter.melter_blocker
+        fill = melter.timer / C.MELTER_CAPSULE_TIME[melter.kind] if blocker is None else 0.0
+        self.bar(bx, sy + 3, bw, fill, "#7ad46a" if blocker == "out_full" else C.C_O2, h=4)
+        alert = blocker in ("out_full", "no_empty")
+        self.tx(self.fit(status, bw), bx, sy + 7, C.C_ALERT if alert else B_MUTED)
+        help_text = ("Fabrique cápsulas vazias (silício) e ponha aqui." if blocker == "no_empty"
+                     else "Gelo + 1 vazia = 1 cheia. Drones levam as cheias.")
+        for k, line in enumerate(wrap(self.body, help_text, GRID_W)[:2]):
+            self.tx(line, gx, sy + 22 + k * 12, B_MUTED, self.body)
         self._button(mid, "<<\nPEGAR\nTUDO", "take_melter", mouse, not melter.storage.is_empty(), "ghost")
-        self.draw_logistics(gx, y + 92, GRID_W, melter, item_icon, mouse)
+        self.draw_logistics(gx, y + DISP_LOGI_Y, GRID_W, melter, item_icon, mouse)
 
     def _smelter_panel(self, smelter, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str,
                        mid: pygame.Rect) -> None:
