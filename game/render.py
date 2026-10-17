@@ -1560,19 +1560,22 @@ class Renderer:
         if lit:                                   # alvo do E: contorno igual ao das máquinas
             canvas.blit(self.outline_of(("ramp", key), surf), (x - 1, y - 1))
 
-    def wreck_surface(self, kind: str) -> pygame.Surface:
-        """wreck_{cargo,module,probe,robot,liner}.png ou o desenho de fallback (art.wreck)."""
+    def wreck_surface(self, kind: str, variant: str = "") -> pygame.Surface:
+        """wreck_<kind>_<variante>.png, senão wreck_<kind>.png, senão o desenho de fallback (art.wreck)."""
         from game.wrecks import SPECS
-        return self.surface(SPECS[kind].sprite, lambda: art.wreck(kind))[0]
+        base = SPECS[kind].sprite
+        name = f"{base}_{variant}" if variant and self.sprites.get(f"{base}_{variant}") is not None else base
+        return self.surface(name, lambda: art.wreck(kind))[0]
 
     def crate_surface(self, empty: bool) -> pygame.Surface:
         name = "loot_crate_empty" if empty else "loot_crate"
         return self.surface(name, lambda: art.loot_crate(empty))[0]
 
     def draw_wreck(self, canvas, wreck, x: int, y: int) -> None:
-        canvas.blit(self.wreck_surface(wreck.kind), (x, y))
-        if wreck.kind == "probe" and (self.machine_t * 1.2) % 2 < 1:   # LED da sonda piscando (apagado: #3b3f46)
-            canvas.fill((59, 63, 70), (x + 23, y + 37, 2, 1))
+        canvas.blit(self.wreck_surface(wreck.kind, wreck.variant), (x, y))
+        if wreck.spec.led_rect and (self.machine_t * 1.2) % 2 < 1:   # LED da sonda piscando (apagado: #3b3f46)
+            lx, ly, lw, lh = wreck.spec.led_rect
+            canvas.fill((59, 63, 70), (x + lx, y + ly, lw, lh))
         if self.highlight == ("wreck_log", wreck) and wreck.spec.terminal_rect:   # alvo do E: contorno só no terminal
             rx, ry, rw, rh = wreck.spec.terminal_rect
             pygame.draw.rect(canvas, self.HIGHLIGHT_RGBA[:3], (x + rx - 1, y + ry - 1, rw + 2, rh + 2), 1)

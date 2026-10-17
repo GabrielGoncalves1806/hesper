@@ -43,22 +43,28 @@ class WreckSpec:
     parts: dict | None = None           # v0.7 M3: peças de bônus {item: (chance, (mín, máx))}; None = C.LOOT_COMMON
     reads_from: tuple[int, int] | None = None     # v0.7 M3: tile de onde se lê o terminal; None = logo abaixo dele
     terminal_rect: tuple[int, int, int, int] | None = None   # v0.7 M3: contorno do alvo do E, px dentro do sprite
+    hatch: tuple[int, int] | None = None          # v0.7 M4: boca do porão (tile, na última fileira da pegada); só a VÉSPER
+    hatch_from: tuple[int, int] | None = None     # v0.7 M4: tile de onde o player chega na boca (logo abaixo, fora da pegada)
+    led_rect: tuple[int, int, int, int] | None = None   # v0.7 M4: LED piscante da sonda, px dentro do sprite
+    variants: tuple[str, ...] = ()                # v0.7 M4: sufixos dos PNGs (wreck_<kind>_a/_b), sorteados por destroço
 
 
-SPECS = {   # v0.7 M3: arte nova (bíblia §16, "Marco 3 · Destroços novos")
-    "cargo": WreckSpec("VÉSPER-7", (5, 3), "wreck_cargo", (160, 128), 32, (1, 3), None,
-                       {"iron": (14, 20), "silicon": (8, 12), "ice": (6, 10)}),
-    "module": WreckSpec("Base espacial", (8, 4), "wreck_module", (256, 168), 40, (5, 4), (4, 2),
+SPECS = {   # v0.7 M4: destroços maiores (bíblia §16, "v0.7 M4 · destroços maiores")
+    "cargo": WreckSpec("VÉSPER-7", (14, 7), "wreck_cargo", (448, 272), 48, (7, 7), None,
+                       {"iron": (14, 20), "silicon": (8, 12), "ice": (6, 10)},
+                       hatch=(12, 6), hatch_from=(12, 7), variants=("a", "b")),
+    "module": WreckSpec("Base espacial", (14, 5), "wreck_module", (448, 294), 134, (10, 5), (8, 4),
                         {"iron": (8, 12), "silicon": (4, 7), "ice": (3, 5)},
-                        reads_from=(4, 4), terminal_rect=(138, 117, 20, 17)),
-    "probe": WreckSpec("Sonda", (2, 2), "wreck_probe", (64, 64), 0, (2, 1), None,
-                       {"iron": (2, 4), "silicon": (1, 3), "ice": (0, 2)}),
-    "robot": WreckSpec("Robô de reconhecimento", (3, 2), "wreck_robot", (96, 64), 0, (3, 1), None,
+                        reads_from=(8, 5), terminal_rect=(251, 224, 32, 26)),
+    "probe": WreckSpec("Sonda", (3, 2), "wreck_probe", (96, 96), 32, (3, 1), None,
+                       {"iron": (2, 4), "silicon": (1, 3), "ice": (0, 2)}, led_rect=(34, 55, 3, 2)),
+    "robot": WreckSpec("Robô de reconhecimento", (3, 2), "wreck_robot", (96, 72), 8, (3, 1), None,
                        {"iron": (4, 6), "silicon": (2, 4)},
-                       parts={"circuit": (1.0, (1, 2)), "chip": (0.40, (1, 1))}),
-    "liner": WreckSpec("Nave de passageiros", (5, 3), "wreck_liner", (160, 120), 24, (2, 3), None,
+                       parts={"circuit": (1.0, (1, 2)), "chip": (0.40, (1, 1))}, variants=("a", "b")),
+    "liner": WreckSpec("Nave de passageiros", (9, 4), "wreck_liner", (288, 208), 80, (3, 4), None,
                        {"iron": (10, 14), "silicon": (4, 6), "ice": (4, 8)},
-                       parts={"wire": (0.80, (2, 4)), "iron_ingot": (0.40, (1, 2)), "silicon_wafer": (0.35, (1, 1))}),
+                       parts={"wire": (0.80, (2, 4)), "iron_ingot": (0.40, (1, 2)), "silicon_wafer": (0.35, (1, 1))},
+                       variants=("a", "b")),
 }
 
 
@@ -87,6 +93,24 @@ class Wreck:
     @property
     def name(self) -> str:
         return self.spec.name
+
+    @property
+    def variant(self) -> str:
+        """v0.7 M4: "a"/"b" (ou "" se o tipo não tem variantes), por hash da posição: fixo por destroço, não usa o
+        rng da geração (não mexe no sorteio dos outros) e não vai pro save."""
+        vs = self.spec.variants
+        return vs[((self.tx * 73856093) ^ (self.ty * 19349663)) % len(vs)] if vs else ""
+
+    @property
+    def hatch(self) -> tuple[int, int] | None:
+        """Tile absoluto da boca do porão (só a VÉSPER-7)."""
+        h = self.spec.hatch
+        return None if h is None else (self.tx + h[0], self.ty + h[1])
+
+    @property
+    def hatch_from(self) -> tuple[int, int] | None:
+        h = self.spec.hatch_from
+        return None if h is None else (self.tx + h[0], self.ty + h[1])
 
     @property
     def tiles(self) -> list[tuple[int, int]]:

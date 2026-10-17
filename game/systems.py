@@ -512,14 +512,14 @@ class GameState:
 
     # ---- escotilha da VÉSPER-7 (v0.7 M4 · game/vesper.py) --------------------
     def hatch_in_target(self) -> tuple[int, int] | None:
-        """O tile da boca do porão da VÉSPER (3,2 da pegada), na superfície; None fora dela."""
+        """O tile da boca do porão da VÉSPER (`spec.hatch`), na superfície; None fora dela."""
         if self.layer != SURFACE:
             return None
         w = wrecks.vesper_wreck(self.world)
-        return None if w is None else (w.tx + 3, w.ty + 2)
+        return None if w is None else w.hatch
 
     def hatch_in_distance(self) -> float:
-        """Dos pés até a borda de baixo da boca (quem está no (3,3) já está no alcance)."""
+        """Dos pés até a borda de baixo da boca (quem está no `hatch_from` já está no alcance)."""
         t = self.hatch_in_target()
         if t is None:
             return math.inf
@@ -533,7 +533,8 @@ class GameState:
 
     def surface_exit(self) -> tuple[float, float]:
         w = wrecks.vesper_wreck(self.surface.world)
-        return (w.tx + 3.5) * C.TILE, (w.ty + 3) * C.TILE + 24
+        fx, fy = w.hatch_from
+        return (fx + 0.5) * C.TILE, fy * C.TILE + 24
 
     def start_hatch(self) -> bool:
         """E na boca do porão (entra) ou na escotilha do porão (sai): começa o fade, como a rampa."""

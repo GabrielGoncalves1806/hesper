@@ -175,6 +175,8 @@ def map_entries(state, key: str) -> list[Entry]:
             entries.append(Entry(cat, cat, *wreck.center, f"Destroço · {wreck.name}",
                                  "caixa vazia" if empty else "caixa cheia"))
     for ruin in world.ruins:                                 # v0.7 M1: estrutura da colônia ("Ruína" até ler um LOG dela)
+        if ruin.key == "vesper":                             # v0.7 M4: dentro da nave, ela mesma não ganha marcador
+            continue
         if ruin.key not in layer.ruins_off and seen_any(ruin.tiles):
             known = bool(state.logs_read & set(ruin.terminals.values()))
             entries.append(Entry("ruin", "ruin", *ruin.center, ruin.name if known else "Ruína", "estrutura da colônia"))

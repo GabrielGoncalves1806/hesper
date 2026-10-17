@@ -74,7 +74,7 @@ def build_wrecks(state) -> dict[str, Wreck]:
     for rank, kind in enumerate(KINDS):
         w, h = SPECS[kind].size
         for x, y in spots:
-            box = (x - 3, y - 4, w + 6, h + 9)            # sobra em cima (lift), embaixo e nos lados pro player
+            box = (x - 3, y - 6, w + 6, h + 11)            # sobra em cima (lift), embaixo e nos lados pro player
             if any(box[0] < t[0] + t[2] and t[0] < box[0] + box[2] and box[1] < t[1] + t[3] and t[1] < box[1] + box[3]
                    for t in taken):
                 continue
@@ -113,7 +113,7 @@ def main() -> None:
     put_feet(app, (m.tx + 1.5) * T, (m.ty + h + 1) * T - 2)    # embaixo da pegada: na frente do sprite
     frames(app, 20)
     save_shot(app, "module_frente.png")
-    put_feet(app, (m.tx + 3.85) * T, m.ty * T - 1)            # em cima: atrás do teto
+    put_feet(app, (m.tx + 6.5) * T, m.ty * T - 1)            # em cima: atrás do teto
     frames(app, 20)
     save_shot(app, "module_atras.png")
 
