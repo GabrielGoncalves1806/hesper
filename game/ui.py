@@ -51,6 +51,8 @@ LOGI_COL = 52                                    # onde começam os botões (dep
 SMELT_LOGI_Y = 102                               # ...e nela, a da Fundição (3 slots, barra, carga e ajuda em cima)
 COLLECT_LOGI_Y = 92                              # v0.8 M2: ...e a do Coletor de água (2 slots, barra, estado e o ritmo)
 CULT_LOGI_Y = 152                                # v0.8 M3: ...e a do Cultivador (barras, cilindro, colheita e a fileira dos slots)
+MIC_LOGI_Y = 156                                 # v0.8 M4: ...a do Microscópio (mock A: máquina, faixa de chances, estado)
+CENT_LOGI_Y = 152                                # v0.8 M4: ...e a da Centrífuga (mock A: máquina, cartão da amostra, estado)
 DISP_LOGI_Y = 92                                 # onde a seção DRONES começa nos painéis da drill, derretedor e dispersor
 LOGI_H = 14 + 2 * LOGI_ROW + 2 + LOGI_BATCH_H    # altura da seção com Envia e Recebe, 1 linha de botões cada (82)
 LOGI_WIDE_AFTER = 5                              # com mais materiais que isso (o baú tem 8), a fileira vira "larga":
@@ -107,6 +109,9 @@ B_TRACK = "#262b3b"              # trilho das barras
 B_SLOT_OUT, B_SLOT_IN, B_SLOT_LIGHT = "#0c0e15", "#181c28", "#22273a"
 B_DARK_TEXT = "#1b1411"          # texto em cima do laranja
 B_SCREEN_DIM = (8, 5, 4, 130)    # escurece o mundo atrás das janelas
+LAB_OK = "#7fd67a"               # v0.8 M4: o verde de "trabalhando" (barra e estado do Microscópio/Centrífuga)
+SAMPLE_SHORT = {"sample_basic": "SIMPLES", "sample_mutant": "MUTAÇÃO", "sample_rare": "RARA"}   # a legenda curta (mock A)
+SAMPLE_COLOR = {"sample_basic": "#7fd6b0", "sample_mutant": "#5f7ee0", "sample_rare": "#f2c46d"}   # a cor de cada amostra (do ícone)
 OK_TEXT, ALERT_TEXT = "#b6f0b0", "#ff8a7a"
 OK_BG, OK_BORDER = (127, 214, 122, 18), "#2f4a33"
 BAD_BG, BAD_BORDER = (255, 106, 85, 30), "#6a302b"
@@ -1748,6 +1753,10 @@ class UI:
             side_h = COLLECT_LOGI_Y + self.logistics_height(side) + 10
         elif side.is_cultivator:
             side_h = CULT_LOGI_Y + self.logistics_height(side) + 10
+        elif side.is_microscope:
+            side_h = MIC_LOGI_Y + max(LOGI_H, self.logistics_height(side)) + 10
+        elif side.is_centrifuge:
+            side_h = CENT_LOGI_Y + max(LOGI_H, self.logistics_height(side)) + 10
         else:
             side_h = 164
         hb = C.HOTBAR_SLOTS
@@ -1789,6 +1798,12 @@ class UI:
             pairs = HELP_CURSOR
         elif side.is_cultivator:
             self._cultivator_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, mid)
+            pairs = HELP_CURSOR
+        elif side.is_microscope:
+            self._microscope_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, info, mid)
+            pairs = HELP_CURSOR
+        elif side.is_centrifuge:
+            self._centrifuge_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, info, mid)
             pairs = HELP_CURSOR
         elif side.is_dispenser:
             self._dispenser_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, info, mid)
@@ -2134,6 +2149,117 @@ class UI:
         self._button(mid, "<<\nPEGAR\nTUDO", "take_cultivator", mouse,
                      any(m.storage.slots[i] is not None for i in (C.CULT_EMPTY_SLOT, *C.CULT_HARVEST_SLOTS)), "ghost")
         self.draw_logistics(gx, y + CULT_LOGI_Y, GRID_W, m, item_icon, mouse)
+
+    machine_art: pygame.Surface | None = None   # v0.8 M4: o sprite 40×56 do Microscópio/Centrífuga aberto (App.panel_machine_art)
+
+    def _lab_machine(self, gx: int, y: int) -> None:
+        """O cartão do meio com a máquina ×2 (v0.8 M4, mock A): 44×66 em gx+68, o sprite 40×56 ampliado no nativo."""
+        x = gx + 68
+        self.card(x, y + 22, 44, 66, B_WELL, B_LINE2, shadow=False)
+        if self.machine_art is not None:
+            self.native.append((pygame.transform.scale_by(self.machine_art, 2), ((x + 2) * 2, (y + 26) * 2)))
+
+    def _lab_bar(self, gx: int, y: int, label: str, frac: float, working: bool) -> None:
+        """A barra vertical do trabalho (9×56) em gx+44, com o rótulo em cima e o % embaixo (v0.8 M4, mock A; o mock
+        punha em gx+40, mas o "AMOSTRA" da Centrífuga na fonte do jogo encostava nela)."""
+        top = y + SIDE_GRID_Y + 1
+        self._section_label(label, max(gx + 27, gx + 48 - self.font.size(label)[0] // 2), y + 16, LAB_OK)
+        self._vbar(gx + 44, top, 9, 56, frac, LAB_OK if working else B_DIM)
+        self.tx(f"{frac * 100:.0f}%", gx + 48, top + 59, B_TEXT if working else B_MUTED, align="center")
+
+    def _lab_output(self, inv, slot: int, x: int, y: int, name: str, pct: str, color, item_icon, mouse,
+                    lit: bool = True, ring: bool = True) -> None:
+        """Um slot de saída com a legenda de 2 linhas ao lado (nome e chance). `lit` False: tudo apagado; `ring`: a borda
+        do slot na cor (a planta que a amostra atual dá)."""
+        self._grid(inv, [slot], x, y, item_icon, mouse)
+        if lit and ring and color is not None:
+            self.round_rect((x - 1, y - 1, SLOT + 2, SLOT + 2), (0, 0, 0, 0), color)
+        self.tx(name, x + 24, y + 1, (color or B_MUTED) if lit else B_MUTED)
+        self.tx(pct, x + 24, y + 10, (color or B_MUTED) if lit else B_DIM)
+
+    def _microscope_panel(self, m, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str, info: str | None,
+                          mid: pygame.Rect) -> None:
+        """Microscópio (v0.8 M4, mock reports/design/v08_m4_paineis/ui_microscopio_A.png). Esquerda: GELO e o tempo da
+        análise; a barra ANÁLISE; no meio a máquina ×2; à direita as 3 amostras (slot fixo cada) com a chance. Embaixo a
+        faixa CHANCE POR GELO (NADA 50% em cinza), o estado, a explicação, "<< PEGAR TUDO" (só as amostras) e DRONES."""
+        samples = sum(m.storage.count(s) for s in C.MIC_OUT_SLOTS)
+        self.window(cx, y, pw, h, "Microscópio", f"{samples} AMOSTRA{'S' if samples != 1 else ''}", C.C_O2)
+        gx = cx + 8
+        top = y + SIDE_GRID_Y + 1
+        working = status == "Analisando"
+        self._section_label("GELO", gx, y + 16, C.C_O2)
+        self._grid(m.storage, [C.MIC_ICE_SLOT], gx, top, item_icon, mouse)
+        self.tx(f"{C.MICROSCOPE_TIME:g} S", gx, top + 24, B_TEXT)
+        self._lab_bar(gx, y, "ANÁLISE", m.timer / C.MICROSCOPE_TIME, working)
+        self._lab_machine(gx, y)
+        hx = gx + 114
+        self._section_label("SAÍDA", hx, y + 16, C.C_TI)
+        odds = dict(C.MICROSCOPE_ODDS)
+        for k, item in enumerate(C.MIC_OUT_SLOTS):
+            self._lab_output(m.storage, C.MIC_OUT_SLOTS[item], hx, top + k * 23, SAMPLE_SHORT[item],
+                             f"{odds[item] * 100:.0f}%", SAMPLE_COLOR[item], item_icon, mouse, ring=False)
+        self._section_label("CHANCE POR GELO", gx, y + 98)
+        nothing = 1.0 - sum(odds.values())
+        segs = [(nothing, B_DIM)] + [(odds[i], SAMPLE_COLOR[i]) for i in C.MIC_OUT_SLOTS]
+        sx, sy = gx, y + 108
+        for k, (frac, color) in enumerate(segs):
+            sw = round(GRID_W * frac) if k < len(segs) - 1 else gx + GRID_W - sx
+            self.fill(color, (sx, sy, sw, 10))
+            self.fill(pygame.Color(color).lerp((255, 255, 255), 0.3), (sx, sy, sw, 1))
+            if k:
+                self.fill(B_WELL, (sx, sy, 1, 10))
+            sx += sw
+        self.tx(f"NADA {nothing * 100:.0f}%", gx + 4, sy, B_TEXT)
+        self.tx(self.fit(status, GRID_W), gx, y + 121, LAB_OK if working else C.C_ALERT, self.body)
+        self.tx(self.fit(info or "", GRID_W), gx, y + 134, B_MUTED, self.body)
+        self._button(mid, "<<\nPEGAR\nTUDO", "take_microscope", mouse, samples > 0, "ghost")
+        self.draw_logistics(gx, y + MIC_LOGI_Y, GRID_W, m, item_icon, mouse)
+
+    def _centrifuge_panel(self, m, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str, info: str | None,
+                          mid: pygame.Rect) -> None:
+        """Centrífuga (v0.8 M4, mock reports/design/v08_m4_paineis/ui_centrifuga_A.png). Esquerda: ALGA e AMOSTRA; a
+        barra CICLO; no meio a máquina ×2; à direita as 3 plantas, acesa só a que a amostra atual dá. Embaixo o cartão da
+        amostra (some sem amostra), o estado, a explicação, "<< PEGAR TUDO" (só as plantas) e DRONES."""
+        plants = sum(m.storage.count(p) for p in C.CENT_OUT_SLOTS)
+        self.window(cx, y, pw, h, "Centrífuga", f"{plants} PLANTA{'S' if plants != 1 else ''}", C.C_TI)
+        gx = cx + 8
+        top = y + SIDE_GRID_Y + 1
+        working = status == "Girando"
+        stack = m.storage.slots[C.CENT_SAMPLE_SLOT]
+        sample = stack.item if stack is not None and stack.item in C.CENTRIFUGE_RECIPES else None
+        self._section_label("ALGA", gx, y + 16, LAB_OK)
+        self._grid(m.storage, [C.CENT_ALGAE_SLOT], gx, top, item_icon, mouse)
+        self._section_label("AMOSTRA", gx, y + 51, C.C_O2)
+        self._grid(m.storage, [C.CENT_SAMPLE_SLOT], gx, y + 61, item_icon, mouse)
+        if sample is not None:
+            self.round_rect((gx - 1, y + 60, SLOT + 2, SLOT + 2), (0, 0, 0, 0), C.C_ACCENT)
+        self._lab_bar(gx, y, "CICLO", m.timer / C.CENTRIFUGE_TIME, working)
+        self._lab_machine(gx, y)
+        hx = gx + 114
+        self._section_label("SAÍDA", hx, y + 16, C.C_TI)
+        chance = {plant: pct for plant, pct in C.CENTRIFUGE_RECIPES.values()}
+        active = C.CENTRIFUGE_RECIPES[sample][0] if sample else None
+        for k, plant in enumerate(C.CENT_OUT_SLOTS):
+            lit = plant == active
+            self._lab_output(m.storage, C.CENT_OUT_SLOTS[plant], hx, top + k * 23, C.RESOURCE_LABEL[plant],
+                             f"{chance[plant] * 100:.0f}%", SAMPLE_COLOR[sample] if lit else None, item_icon, mouse, lit)
+        if sample is not None:                       # o cartão da amostra atual: o que ela dá e a chance
+            plant, pct = C.CENTRIFUGE_RECIPES[sample]
+            color = SAMPLE_COLOR[sample]
+            ry = y + 96
+            self.round_rect((gx, ry, GRID_W, 26), B_CARD, pygame.Color(B_CARD).lerp(pygame.Color(color), 0.6))
+            self.native.append((item_icon(sample), ((gx + 5) * 2, (ry + 5) * 2)))
+            pct_w = self.font.size(f"{pct * 100:.0f}%")[0]
+            self.tx(self.fit(f"Amostra {SAMPLE_SHORT[sample].lower()}", GRID_W - 34 - pct_w), gx + 26, ry + 1, color, self.body)
+            self.tx(self.fit(f"dá {C.CROP_NAME[plant]}", GRID_W - 34 - pct_w), gx + 26, ry + 12, B_TEXT, self.body)
+            self.tx(f"{pct * 100:.0f}%", gx + GRID_W - 6, ry + 9, color, align="right")
+        sw = self.tx(self.fit(status, GRID_W), gx, y + 121, LAB_OK if working else C.C_ALERT, self.body)
+        rate = f"{C.CENTRIFUGE_TIME:g} s por ciclo"
+        if sw + 12 + self.body.size(rate)[0] <= GRID_W:
+            self.tx(rate, gx + max(56, sw + 12), y + 121, B_MUTED, self.body)
+        self.tx(self.fit(info or "", GRID_W), gx, y + 135, B_MUTED, self.body)
+        self._button(mid, "<<\nPEGAR\nTUDO", "take_centrifuge", mouse, plants > 0, "ghost")
+        self.draw_logistics(gx, y + CENT_LOGI_Y, GRID_W, m, item_icon, mouse)
 
     def _dispenser_panel(self, m, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str, info: str | None,
                          mid: pygame.Rect) -> None:
