@@ -91,7 +91,7 @@ Spec: `docs/superpowers/specs/2026-10-16-v07-lore-design.md` (brainstorm de 2026
 - [x] Arte (Designer, aprovada pelo dono "por hora" em 2026-10-16, 5 rodadas, `reports/design/v07_lore/`; dá pra polir depois): 5 destroços da referência do dono, kit médio de props, construtor com scanner.
 - [x] Marco 2 · Props e scanner (fechado em 2026-10-16, testado pelo dono; som do scan loop B + done A; prop de chão colado em parede ao sul fica): aba Decoração (mesa, cadeira, caixote e placa de cara), scan no esquerdo segurado em prop de ruína, props nas 4 plantas, props de parede, ícone novo do construtor; save continua v12.
 - [x] Marco 3 · Destroços novos (fechado em 2026-10-16, testado pelo dono "acho que tá ok"): VÉSPER-7, base de vidro (8×4, terminal lido de baixo), sonda nova, ARCA-2 (LOG dia 2) e robô R-2 (circuito sempre + chip 40%, LOG dia 167); 8 a 10 destroços por mundo; save v13 (destroço que bateria em construção não nasce).
-- [ ] Marco 4 · Interior da VÉSPER-7: camada pequena pelo porão, salas encaixadas pela seed, câmara fria.
+- [x] Marco 4 · Interior da VÉSPER-7 (fechado em 2026-10-16, testado pelo dono: "tudo ok"): uma VÉSPER por mundo; camada `vesper` 48×48 com 5 salas (2 plantas cada, pela seed); entra pela rampa da traseira, sai pela escotilha do porão; câmara fria com o contêiner aberto por dentro; painel sem bateria e porta emperrada no norte (faísca e névoa, gancho bateria + crachá da Ilves); LOGs 21–23; 17 props novos + microscópio digital, prop multi-tile (2×1, 2×2); som `amb_vesper`, `door_stuck`, `spark`; os 5 destroços maiores (VÉSPER 14×7, base 14×5, variantes A/B); aba VÉSPER-7 no mapa. Save v13.
 
 ## v0.8 · Vida
 Fauna e flora surgindo com o Ti, farm, música. **O planeta reage** ao Ti e ao derretimento (saiu da v0.7). Genes do gelo (canon na bíblia §2).
@@ -100,7 +100,10 @@ Fauna e flora surgindo com o Ti, farm, música. **O planeta reage** ao Ti e ao d
 Inimigos (larvas pelo mapa), combate, a criatura como boss (saíram da v0.7).
 
 ## Futuro
-- **Rever os destroços** (dono, 2026-10-16, fechando o v0.7 M3): tamanho das naves (deixar maiores), colisão (hoje é a pegada retangular aproximada) e afins. Junto com o "dá pra polir" da VÉSPER e da base de vidro.
+- **Colisão dos destroços** (sobrou do "Rever os destroços" do M3; o tamanho foi feito no v0.7 M4): hoje é a pegada retangular aproximada, então o player bate no ar em volta do casco isométrico.
+- **Abrir a porta emperrada da VÉSPER-7** (gancho do v0.7 M4): bateria no painel de energia da cabine + o crachá da Dra. Ilves (achado em outro lugar) abrem a sala norte. Atrás dela ainda não existe nada (a sala é gerada quando entrar).
+- **Prop multi-tile em planta que gira** (v0.7 M4): o `ruins` não rotaciona o `size`, então os props 2×1/2×2 só moram nas plantas da nave. Girar a pegada pra poder usar nas ruínas da superfície e da caverna.
+- **`tools/sprites/build_sprites.py` ainda gera os `wreck_*.png` antigos** (cargo, module, probe): não rodar sem a Designer tirar isso, senão a arte do v0.7 M4 é sobrescrita.
 - **Código do cursor novo** (arte aprovada, opção A, contrato na bíblia §6): trocar o polígono do `UI.draw_cursor` pelos sprites e mostrar a luva em cima de coisa usável.
 - **Base de pesquisa + dungeon** (dono, 2026-10-16, "olhar com calma depois"; referência em `reports/design/ideias/base_pesquisa_dungeon.png`): base externa grande (domo central, módulos ligados por tubos, pista com nave, painéis, estufa de vidro) e por dentro uma instalação estilo dungeon, vista de cima, com salas encaixadas (laboratório, servidores, depósito, enfermaria, controle, corredor, reator) e elementos marcados (porta, terminal, baú, ponto de interesse, armadilha, parede destruída, bloqueio, loot). Conversa com o interior da VÉSPER (M4) e com as ruínas do M1.
 - **Baú grande colado em outro** (dono, teste do v0.6 M1, print em `reports/design/v06_m1_baus/feedback/bau_grande_colado.png`): o sprite do contêiner tem 40 px num tile de 32, então dois Grandes lado a lado se sobrepõem 8 px. Opções: arte de 32 px de largura, Grande ocupando 2 tiles, ou proibir colar. Já tinha sido levantado pela Designer.
