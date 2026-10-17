@@ -1148,3 +1148,11 @@ Detalhe e números de partida: `docs/superpowers/specs/2026-10-16-v08-plantas-de
 - **Arte rodada 1, decisões do dono (2026-10-17)** (report `reports/design/v08_plantas/`): **cultivador B** (base cheia, corpo + miolo da cultura por cima); **nomes**: planta 1 **Folha-gota**, planta 2 **Espiral-de-geada**, planta 3 **Lírio-de-Ilves**; **UI do cultivador A** (inventário à esquerda, painel da máquina à direita: água + crescimento, cilindro, colheita, cheias/vazias, drones).
 - **Gelo da porta do lab: A** (dono, 2026-10-17): os blocos dos gelos-portão (`ice_block_*`, mesmo derretimento e mesma arte) amontoados na frente da porta; o `lab_ice_door2_*` da rodada 1 não entra. **Centrífuga a 10 fps** ("rapidão"); as outras máquinas seguem a ~5 fps.
 
+### Marco 1 · como ficou na implementação (`game/config.py` `Stage`/`STAGES`, `game/systems.py`, `game/transition.py`, `game/save.py`, `game/ui.py`, `game/render.py`, `game/ground.py`)
+- **`Stage`** ganhou `biomass` (mínimo), `look` (visual dos 4 antigos) e `water` (paleta da água). Algas e Musgo: `look="mist"`, `water="algae"` (`PALETTES["algae"]` = Névoa com água `#3f8a72`/`#2f6e5a`, aprovada pelo dono no print). `render.stage_key`/`ground.stage_key`/`hills.STAGE_KEYS` leem o `look`; `render.water_key` a água.
+- **Trava dupla**: `stage_for_ti(ti, biomass)` sobe em sequência só quando os dois mínimos batem; `stage_progress` devolve (próximo, fração do gargalo, Ti que falta, biomassa que falta). A mancha da transição anda pelo mesmo gargalo (com biomassa 0 ela fica parada).
+- **HUD**: 4 índices; linha "faltam X · ~eta", "faltam X · biomassa Y" ou "falta biomassa Y" (`ui.next_stage_line`).
+- **Musgo**: overlay de musgo nas pedras soltas (`boulder`, `column_stub`) e no topo das paredes a partir do estágio 5 (era só no Verde). A cobertura do chão assado (grama/musgo) continua só no Verde.
+- **Debug**: F7 +500 de biomassa. **Save v14** (`STAGE_SCHEME` 3): v13 ganha biomassa 0 e o Verde antigo volta pro Úmido.
+- **Números**: pytest 2001 passed, 2 skipped; smoke exit 0 (média 6,4 ms, p95 11,5 ms). balance_sim mede só as marcas de Ti até o M5.
+
