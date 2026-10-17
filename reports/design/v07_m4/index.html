@@ -20,8 +20,65 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid 
 </style></head><body><div class="wrap">
 <div class="eyebrow">Designer · pra aprovar</div>
 <h1>v0.7 M4 · Interior da VÉSPER-7</h1>
-<div class="note"><b>v1.5 · rodada 6: beliche de parede na horizontal (2×1, com cabos de aço) e o traje caprichado (macacão no chão e traje EVA no armário, A/B).</b> <b>v1.4 · rodada 5: props com mais volume (r3d), cama que sai da parede.</b> <b>v1.3 · rodada 4: pilha 2×1, kit de 10 props da nave e saída refeita (A/B).</b> <b>v1.2 · rodada 3: pilha de contêineres A/B (contêiner arrombado cancelado, usa o container_open).</b> <b>v1.1 · rodada 2 (seção abaixo): contêiner r3d, escotilha de saída e luz menor, A/B.</b> <b>v1.0 · o que mudou:</b> primeira rodada da arte do interior da cargueira: parede (topo A2 + face), 4 pisos de chapa, escotilha do porão, contêiner arrombado por dentro, painel de energia, porta emperrada com leitor de crachá (silhueta do rascunho do dono) e luz de emergência. Tudo gerado por <code>tools/sprites/build_vesper_v07.py</code>. PNGs em <code>reports/design/v07_m4/pendentes/</code> (nada foi pra <code>assets/sprites/</code>). Do rascunho do dono aproveitei só a ideia do ícone (cordão em laço + crachá com cabeça e ombros, amarelo); o desenho é redesenhado em pixel, 6×9 px.</div>
+<div class="note"><b>v1.6 · rodada 7: cama do beliche caprichada (travesseiro, lençol, cobertor), 5 mesas novas (incluindo a redonda de briefing 2×2) e o microscópio refeito (A/B).</b> <b>v1.5 · rodada 6: beliche de parede na horizontal (2×1, com cabos de aço) e o traje caprichado (macacão no chão e traje EVA no armário, A/B).</b> <b>v1.4 · rodada 5: props com mais volume (r3d), cama que sai da parede.</b> <b>v1.3 · rodada 4: pilha 2×1, kit de 10 props da nave e saída refeita (A/B).</b> <b>v1.2 · rodada 3: pilha de contêineres A/B (contêiner arrombado cancelado, usa o container_open).</b> <b>v1.1 · rodada 2 (seção abaixo): contêiner r3d, escotilha de saída e luz menor, A/B.</b> <b>v1.0 · o que mudou:</b> primeira rodada da arte do interior da cargueira: parede (topo A2 + face), 4 pisos de chapa, escotilha do porão, contêiner arrombado por dentro, painel de energia, porta emperrada com leitor de crachá (silhueta do rascunho do dono) e luz de emergência. Tudo gerado por <code>tools/sprites/build_vesper_v07.py</code>. PNGs em <code>reports/design/v07_m4/pendentes/</code> (nada foi pra <code>assets/sprites/</code>). Do rascunho do dono aproveitei só a ideia do ícone (cordão em laço + crachá com cabeça e ombros, amarelo); o desenho é redesenhado em pixel, 6×9 px.</div>
 
+<section><h2>Rodada 7 · roupa de cama, mesas novas e microscópio</h2>
+<div class="note"><b>Aprovado na rodada 6:</b> trajes A e B, macacões A e B, e o resto do kit (cilindros, racks, mesa de comando, estação, cadeira, pilha, painel de cabos). <b>Agora:</b> roupa de cama do beliche, 5 mesas pra nave e pras bases, e o microscópio da v0.7 M2 refeito. Script: <code>tools/sprites/build_vesper_v07_r7.py</code> (r3d), arquivos <code>*_r7*.png</code> em <code>pendentes/</code>. Nada das rodadas anteriores foi sobrescrito, e os destroços não foram tocados.</div>
+
+<h3 style="color:var(--gold)">1 · Beliche (prop_wall_bunk): antes (r6) × depois (r7)</h3>
+<div class="grid" id="r7bunk"></div>
+<ul style="color:var(--muted)">
+<li><b>Ficou igual (aprovado):</b> plataforma, cabos com esticador, ancoragens, sombra e ícone (<code>icon_prop_wall_bunk_r7</code> é cópia do r6).</li>
+<li><b>Travesseiro:</b> forma de almofada (cheio no meio, cai nas bordas), afundado onde a cabeça ficou, fronha creme (separa do lençol branco) com a ponta aberta mais escura e a aba da fronha dobrada pra fora, caída no lençol.</li>
+<li><b>Lençol:</b> branco frio, com rugas no tampo, e cai pela frente do colchão até a borda da plataforma, com a barra ondulada e as pregas na frente. A dobra virada fica por cima da cabeceira do cobertor (faixa branca acompanhando a borda torta).</li>
+<li><b>Cobertor:</b> laranja desbotado por cima, acolchoado em gomos (a textura vem da forma, não de pontinhos), dobras largas, barra mais escura perto da cabeceira e a aba na frente mais curta que o lençol (a barra branca aparece embaixo).</li></ul>
+
+<h3 style="color:var(--gold)">2 · Mesas novas</h3>
+<div class="grid" id="r7tables"></div>
+<ul style="color:var(--muted)">
+<li><b>prop_briefing_table · Mesa de briefing (redonda, 2×2):</b> pé central com faixa laranja, tampo grosso com friso laranja na borda, 6 telas embutidas em anel (com uma linha fraca acesa), 4 consoles na borda com LEDs e o emissor do holo no centro, apagado (vidro escuro com um brilhinho e as lentes ciano em volta). <b>Sprite 64×72</b>: mantive a mesma regra dos outros props (altura = tiles·32 + 8, blit em (x, y−8), pé na base do 2º tile). Em 64×56 a mesa não cabia com essa regra, e uma âncora diferente só pra ela complicaria o Dev. As linhas de cima ficam transparentes.</li>
+<li><b>prop_mess_table · Mesa de refeitório (2×1):</b> tampo claro, cavaletes e travessa, banco na frente e atrás, 2 bandejas com comida, caneca e copo.</li>
+<li><b>prop_repair_bench · Bancada de manutenção (2×1):</b> tampo de aço grosso com borda laranja, prateleira com caixa de ferramentas laranja e gaveteiro, morsa, chave, chave de fenda, peça desmontada com parafusos e luminária articulada acesa.</li>
+<li><b>prop_nav_table · Mesa de navegação (1×1):</b> gabinete com tampo inclinado pra quem usa; tela com a rota acesa em ciano e o destino âmbar, carta de papel meio dobrada por cima e compasso dourado.</li>
+<li><b>prop_side_table · Mesinha de canto (1×1):</b> tampo redondo com borda laranja, pé central, caneca creme com faixa laranja e café, tablet apagado.</li></ul>
+
+<h3 style="color:var(--gold)">3 · Microscópio (prop_microscope): antes (v0.7 M2) × A × B</h3>
+<div class="grid" id="r7micro"></div>
+<ul style="color:var(--muted)">
+<li><b>As duas:</b> de perfil, girado ~16° (a silhueta clássica): base pesada, braço em C atrás com os 2 botões de foco, platina escura com a lâmina e a presilha, luz acesa embaixo, revólver com 3 objetivas (a do meio com anel dourado), cabeça e tubo com a ocular inclinada pra frente. Cada peça é desenhada numa camada com contorno próprio: em 32 px, sem isso, tudo virava uma massa só.</li>
+<li><b>A:</b> microscópio branco com braço ardósia, num balcão baixo creme (família da <code>prop_lab_bench</code>) com gaveta, LED e caixinha de lâminas.</li>
+<li><b>B:</b> microscópio digital ardósia com o <b>braço laranja</b>, câmera em cima e telinha com a amostra, num pedestal redondo baixo. Mais "nave", menos "base".</li>
+<li>Mesmo contrato da v0.7 M2: floor 1×1, 32×40, colide, ícone 16×16. O antigo está guardado em <code>reports/design/before/prop_microscope_v07m2.png</code>.</li></ul>
+
+<h3 style="color:var(--gold)">Montagens</h3>
+<p style="color:var(--muted)">Cabine com a mesa de briefing 2×2 no meio (cadeiras dos lados), mesa de navegação ao lado da estação e mesinha no canto. Alojamento com o beliche novo e a mesinha entre as camas. "Apoio" (refeitório/oficina/lab) com a mesa de refeitório, a bancada de manutenção e os dois microscópios (A à esquerda, B à direita). Halos coloridos são só da montagem.</p>
+<div class="row"><img class="big" src="sala_r7_cabine_escura.png" style="width:576px"><img class="big" src="sala_r7_cabine_clara.png" style="width:576px"></div>
+<div class="row" style="margin-top:12px"><img class="big" src="sala_r7_alojamento_escura.png" style="width:576px"><img class="big" src="sala_r7_alojamento_clara.png" style="width:576px"></div>
+<div class="row" style="margin-top:12px"><img class="big" src="sala_r7_apoio_escura.png" style="width:576px"><img class="big" src="sala_r7_apoio_clara.png" style="width:576px"></div>
+
+<h3 style="color:var(--gold)">Pro Dev (rodada 7)</h3>
+<table><tr><th>id</th><th>nome</th><th>lugar</th><th>tiles</th><th>colide</th><th>sprite</th><th>ícone</th><th>arquivo (pendentes/)</th></tr>
+<tr><td><code>prop_wall_bunk</code></td><td>Beliche de parede</td><td>desk</td><td>2×1</td><td>sim</td><td>64×40</td><td><code>icon_prop_wall_bunk</code> 16×16</td><td><code>prop_wall_bunk_r7</code></td></tr>
+<tr><td><code>prop_briefing_table</code></td><td>Mesa de briefing</td><td>floor</td><td><b>2×2</b></td><td>sim</td><td><b>64×72</b></td><td><code>icon_prop_briefing_table</code> 16×16</td><td><code>prop_briefing_table_r7</code></td></tr>
+<tr><td><code>prop_mess_table</code></td><td>Mesa de refeitório</td><td>floor</td><td>2×1</td><td>sim</td><td>64×40</td><td><code>icon_prop_mess_table</code> 16×16</td><td><code>prop_mess_table_r7</code></td></tr>
+<tr><td><code>prop_repair_bench</code></td><td>Bancada de manutenção</td><td>floor</td><td>2×1</td><td>sim</td><td>64×40</td><td><code>icon_prop_repair_bench</code> 16×16</td><td><code>prop_repair_bench_r7</code></td></tr>
+<tr><td><code>prop_nav_table</code></td><td>Mesa de navegação</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_nav_table</code> 16×16</td><td><code>prop_nav_table_r7</code></td></tr>
+<tr><td><code>prop_side_table</code></td><td>Mesinha de canto</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_side_table</code> 16×16</td><td><code>prop_side_table_r7</code></td></tr>
+<tr><td><code>prop_microscope</code></td><td>Microscópio (já existe)</td><td>floor</td><td>1×1</td><td>sim</td><td>32×40</td><td><code>icon_prop_microscope</code> 16×16</td><td><code>prop_microscope_r7_A</code> / <code>_B</code> (escolher)</td></tr></table>
+<ul style="color:var(--muted)">
+<li>Nomes finais sem o sufixo <code>_r7</code>. O microscópio escolhido substitui <code>assets/sprites/prop_microscope.png</code> (e o ícone), sem mudar <code>_PROP_TABLE</code>.</li>
+<li>As mesas novas entram no <code>_PROP_TABLE</code> como as outras. Custo é decisão de jogo, mas a sugestão é <code>_S</code> (ferro) pra refeitório, mesinha e bancada, e <code>_T</code> (ferro + silício) pra briefing e navegação, que têm telas.</li>
+<li><b>Âncora padrão pra todo prop de chão/mesa:</b> sprite = (tiles_w·32) × (tiles_h·32 + 8), blit em (tx·32, ty·32 − 8) no tile de cima à esquerda, ordenado pelo pé ((ty + tiles_h)·32), e colide em todos os tiles. O 2×2 é o primeiro com 2 linhas de tiles: o prop guarda o tile de cima à esquerda e ocupa os 4.</li>
+<li>Sombra embaixo de cada mesa com alpha 90, como o resto do kit.</li></ul>
+</section>
+<script>
+const card7=(id,label,items,z)=>{document.getElementById(id).insertAdjacentHTML("beforeend",`<div class="card"><b>${label}</b><span>${items.map(i=>i[3]).join(" × ")}</span><div class="chk">${items.map(([f,w,h])=>`<img src="${f}.png" width="${w*z}" height="${h*z}">`).join("")}${items.map(([f,w,h])=>`<img src="${f}.png" width="${w}" height="${h}">`).join("")}</div></div>`)};
+card7("r7bunk","prop_wall_bunk · r6 × r7",[["pendentes/prop_wall_bunk_r6",64,40,"antes"],["pendentes/prop_wall_bunk_r7",64,40,"depois"]],5);
+for(const [n,w,h] of [["prop_briefing_table",64,72],["prop_mess_table",64,40],["prop_repair_bench",64,40],["prop_nav_table",32,40],["prop_side_table",32,40]])
+  card7("r7tables",n,[[`pendentes/${n}_r7`,w,h,`${w}×${h}`],[`pendentes/icon_${n}_r7`,16,16,"ícone 16×16"]],w>32?4:6);
+card7("r7micro","prop_microscope · antes × A × B",[["../before/prop_microscope_v07m2",32,40,"antes"],["pendentes/prop_microscope_r7_A",32,40,"A"],["pendentes/prop_microscope_r7_B",32,40,"B"]],6);
+card7("r7micro","ícones · antes × A × B",[["../before/icon_prop_microscope_v07m2",16,16,"antes"],["pendentes/icon_prop_microscope_r7_A",16,16,"A"],["pendentes/icon_prop_microscope_r7_B",16,16,"B"]],6);
+</script>
 <section><h2>Rodada 6 · cama horizontal com cabos e o traje caprichado</h2>
 <div class="note"><b>Pedido do dono:</b> a cama deitada ao longo da parede norte, no comprido, presa por dois cabos que saem dos cantos da frente e sobem até a parede (rascunho em amarelo sobre a montagem da rodada 5 + foto de cama suspensa por cabo de aço). E "arrumar o traje" com capricho: o macacão no chão e o traje EVA do armário. Script novo: <code>tools/sprites/build_vesper_v07_r6.py</code>; arquivos <code>*_r6*.png</code> (as rodadas anteriores ficam intactas e aparecem como "antes").<br>
 <b>Da referência, só o estilo:</b> o cabo fino de aço com o esticador no meio, a plataforma grossa de chapa com o colchão por cima e o travesseiro na cabeceira. O desenho é nosso, no r3d, com a paleta da VÉSPER (ardósia, laranja desbotado, contorno <code>#1b1630</code>).</div>
