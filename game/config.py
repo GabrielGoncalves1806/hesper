@@ -1506,3 +1506,67 @@ for _kind in PLAYER_PROPS:
     MACHINE_CATEGORY[_kind] = "decor"
 FAB_TABS = FAB_TABS + (("decor", "Decoração"),)     # sempre a última aba: o índice das outras não muda
 VOLUME.update({"scan_loop": 0.4, "scan_done": 0.6})  # Som (os arquivos chegam depois; sem arquivo fica em silêncio)
+
+# ---------------------------------------------------------------------------
+# v0.8 M5 · Materiais e itens (bíblia §17 "Plantas viram material"; plano 2026-10-17-v08-marco5-materiais-itens.md).
+# Cada planta vira um material na Bancada T2; os materiais viram itens. Números de partida (balanceamento no M6).
+# Arte aprovada: reports/design/v08_m5_itens (rodada 1) e v08_m5_itens_r2 (gel slime, equipáveis 3D); botas na rodada 3.
+# ---------------------------------------------------------------------------
+FIBER, HYDROGEL, FROST_RESIN, LILY_ESSENCE = "fiber", "hydrogel", "frost_resin", "lily_essence"
+MATERIAL_ITEMS = (FIBER, HYDROGEL, FROST_RESIN, LILY_ESSENCE)
+for _key, _name, _desc, _cost in (
+        (FIBER, "Fibra sintética", "tecido da alga", {"algae": 2}),
+        (HYDROGEL, "Gel hídrico", "a Folha-gota segura água", {"plant_1": 2}),
+        (FROST_RESIN, "Resina de geada", "a Espiral endurece e brilha no frio", {"plant_2": 2}),
+        (LILY_ESSENCE, "Essência de Lírio", "a Ilves sabia o que fazer com isso", {"plant_3": 1})):
+    MACHINES[_key] = MachineType(_key, _name, _desc, _cost, None, 0, 0, f"icon_{_key}", placeable=False)
+    MACHINE_ORDER.append(_key)
+    MACHINE_CATEGORY[_key] = "materials"
+PART_ITEMS = PART_ITEMS + MATERIAL_ITEMS          # empilham como peça (STACK_LOOT) e aparecem como "PEÇA" no detalhe
+
+# Equipáveis nv.2 e as botas. A nv.2 não consome a nv.1 (a nv.1 está no traje): equipar a nv.2 troca e a nv.1 volta pro
+# inventário. EQUIP_SLOT_OF diz em que slot do traje cada item entra (o slot tem o nome do item nv.1).
+BACKPACK_T2, O2_TANK_T2, BOOTS = "backpack_t2", "o2_tank_t2", "boots"
+MACHINES[BACKPACK_T2] = MachineType(BACKPACK_T2, "Mochila T2", "+2 linhas de slots", {FIBER: 6, "iron_ingot": 4},
+                                    None, 0, 0, "icon_backpack_t2", placeable=False)
+MACHINES[O2_TANK_T2] = MachineType(O2_TANK_T2, "Tanque de O₂ nv.2", "O₂ dura 400 s", {FIBER: 3, HYDROGEL: 2, "iron_ingot": 3},
+                                   None, 0, 0, "icon_o2_tank_t2", placeable=False)
+MACHINES[BOOTS] = MachineType(BOOTS, "Botas de tração", "anda 30% mais rápido", {FIBER: 3, FROST_RESIN: 2},
+                              None, 0, 0, "icon_boots", placeable=False)
+BACKPACK_T2_SLOTS = 16                    # a T2 dá 2 linhas de 8 (a nv.1 dá 1): inventário de 32
+O2_TANK_T2_MAX = 400.0                    # s de O₂ com o tanque nv.2 (nv.1: O2_TANK_MAX 220)
+BOOTS_SPEED = 1.3                         # × PLAYER_SPEED com as botas no traje
+EQUIP_SLOT_OF = {"o2_tank": "o2_tank", O2_TANK_T2: "o2_tank", "scanner": "scanner",
+                 "backpack": "backpack", BACKPACK_T2: "backpack", BOOTS: "boots"}
+
+# Adubo: consumível. Posto no Cultivador, some na hora e soma FERTILIZER_TIME s de crescimento ×FERTILIZER_BOOST (só a
+# velocidade da planta: a água e a biomassa por segundo não mudam), até FERTILIZER_MAX s guardados.
+FERTILIZER = "fertilizer"
+MACHINES[FERTILIZER] = MachineType(FERTILIZER, "Adubo", "Cultivador cresce 2× por 2 min", {"algae": 1, HYDROGEL: 1},
+                                   None, 0, 0, "icon_fertilizer", placeable=False)
+FERTILIZER_TIME, FERTILIZER_BOOST, FERTILIZER_MAX = 120.0, 2.0, 600.0
+CRAFT_YIELD = {**CRAFT_YIELD, FERTILIZER: 2}
+
+# Drone nv.2: vai na estação como o drone; voa mais rápido e pega/solta mais depressa.
+DRONE_T2 = "drone_t2"
+MACHINES[DRONE_T2] = MachineType(DRONE_T2, "Drone nv.2", "voa 50% mais rápido", {"drone": 1, FIBER: 2, FROST_RESIN: 2, "circuit": 1},
+                                 None, 0, DRONE_STATION_UNLOCK_TI, "drone_t2", placeable=False)
+DRONE_T2_SPEED = 9.0                      # tiles/s (nv.1: DRONE_SPEED 6)
+DRONE_T2_HANDLING = 0.5                   # × DRONE_PICKUP_TIME e DRONE_DROP_TIME
+
+# Luminária bio: luz fria da resina, sem energia (como as outras luminárias), sem diagrama.
+LAMP_BIO = "lamp_bio"
+MACHINES[LAMP_BIO] = MachineType(LAMP_BIO, "Luminária bio", "luz da resina", {FROST_RESIN: 2, "silicon": 1}, None, 0, 0, "lamp_bio")
+MACHINE_ORDER.insert(MACHINE_ORDER.index("lamp_t2") + 1, LAMP_BIO)
+MACHINE_CATEGORY[LAMP_BIO] = "light"
+MACHINE_FEMININE.add(LAMP_BIO)
+LAMP_RADIUS[LAMP_BIO] = 6
+LAMP_BIO_COLOR = (150, 245, 215)
+
+for _key, _after in ((O2_TANK_T2, "o2_tank"), (BACKPACK_T2, "backpack"), (BOOTS, BACKPACK_T2), (DRONE_T2, "drone"),
+                     (FERTILIZER, LILY_ESSENCE)):   # na lista, o nv.2 logo depois do nv.1
+    MACHINE_ORDER.insert(MACHINE_ORDER.index(_after) + 1, _key)
+MACHINE_CATEGORY.update({BACKPACK_T2: "suit", O2_TANK_T2: "suit", BOOTS: "suit", FERTILIZER: "materials",
+                         DRONE_T2: "automation"})
+T2_RECIPES = T2_RECIPES + MATERIAL_ITEMS + (FERTILIZER, O2_TANK_T2, BACKPACK_T2, BOOTS, DRONE_T2)
+ONCE_ITEMS = ONCE_ITEMS + (BACKPACK_T2, O2_TANK_T2, BOOTS)

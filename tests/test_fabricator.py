@@ -15,11 +15,11 @@ def test_every_recipe_has_a_tab():
     assert set(C.MACHINE_CATEGORY.values()) <= ids
     assert tab_kinds("terraform") == ["o2", "melter", "heater", "o2_t2", "melter_t2", "heater_t2"]
     assert tab_kinds("energy") == ["solar"]
-    assert tab_kinds("automation") == ["drill", "drone_station", "drone", "smelter", "water_collector", "cultivator", "microscope", "centrifuge", "workbench"]   # v0.6 M3: a Fundição; v0.8 M2: o Coletor de água; M3: o Cultivador; M4: o Microscópio e a Centrífuga
+    assert tab_kinds("automation") == ["drill", "drone_station", "drone", "drone_t2", "smelter", "water_collector", "cultivator", "microscope", "centrifuge", "workbench"]   # v0.6 M3: a Fundição; v0.8 M2: o Coletor de água; M3: o Cultivador; M4: o Microscópio e a Centrífuga; M5: o drone nv.2
     assert tab_kinds("storage") == ["chest_small", "chest", "chest_large"]
-    assert tab_kinds("light") == ["lamp", "lamp_t2"]
-    assert tab_kinds("materials") == ["wire", "circuit"]                         # v0.6 M3: fios saem do lingote de cobre
-    assert tab_kinds("suit") == ["o2_tank", "scanner", "backpack"]       # Marco 3: aba "Traje" (a mochila é da T2)
+    assert tab_kinds("light") == ["lamp", "lamp_t2", "lamp_bio"]   # v0.8 M5: a luminária bio
+    assert tab_kinds("materials") == ["wire", "circuit", "fiber", "hydrogel", "frost_resin", "lily_essence", "fertilizer"]   # v0.8 M5: os materiais das plantas e o adubo;                         # v0.6 M3: fios saem do lingote de cobre
+    assert tab_kinds("suit") == ["o2_tank", "o2_tank_t2", "scanner", "backpack", "backpack_t2", "boots"]   # v0.8 M5: os nv.2 e as botas;       # Marco 3: aba "Traje" (a mochila é da T2)
     assert tab_kinds("tools") == ["constructor", "diagram_workbench", "diagram_chest_large"]                         # v0.5 M1
 
 

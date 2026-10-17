@@ -29,6 +29,8 @@ NEW_COSTS = {
     "diagram_chest_large": {"iron_ingot": 4, "circuit": 1},
 }
 T2_ONLY = {"silicon_wafer", "circuit", "chip", "drone", "o2_tank", "backpack", "scanner", "hand_drill_t2"}
+T2_ONLY |= {"fiber", "hydrogel", "frost_resin", "lily_essence", "fertilizer", "o2_tank_t2", "backpack_t2", "boots",
+            "drone_t2"}   # v0.8 M5: os materiais das plantas e o que se faz com eles, só na Bancada
 RAW_AT_TI0 = ("o2", "melter", "heater", "solar", "lamp", "lamp_t2", "chest_small", "smelter", "workbench",
               "diagram_workbench", "base_floor", "base_wall", "base_door", "base_door2")
 
@@ -107,7 +109,8 @@ def test_once_item_made_when_owned_or_equipped():
 
 
 def test_once_items_list():
-    assert set(C.ONCE_ITEMS) == {"constructor", "backpack", "o2_tank", "scanner", "hand_drill_t2"}
+    assert set(C.ONCE_ITEMS) == {"constructor", "backpack", "o2_tank", "scanner", "hand_drill_t2",
+                                "backpack_t2", "o2_tank_t2", "boots"}   # v0.8 M5
 
 
 def test_made_survives_save_roundtrip():
