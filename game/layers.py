@@ -61,6 +61,11 @@ class Layer:
     # v0.4 Marco 3 · M3.1: fumarola i (geo.vents[i]) acordada pelo calor. Derivado dos índices (thaw.fumarole_active),
     # NÃO vai no save: o load reaplica. Fica na camada porque a geo é dividida entre estados da mesma seed.
     vents_awake: list = field(default_factory=list)
+    # v0.8 M3: o gelo da porta do laboratório da Ilves (só a superfície). Derivado do calor (thaw.lab_ice_progress), não vai
+    # no save: `lab_ice_p` 0 = inteiro .. 1 = sem gelo; `lab_ice_open` = a fresta já deixa o player passar.
+    lab_ice_p: float = 0.0
+    lab_ice_open: bool = False
+    lab_ice_opens_at: float = 1.0      # o `p` em que a fresta abre (derivado da planta do laboratório: ice_blocks.lab_opens_at)
 
     def __post_init__(self) -> None:
         if self.explored is None:
@@ -87,6 +92,13 @@ class Layer:
             blocks += ice_blocks.blocks_at(ice_blocks.gate_base_px(geo, i), recipe, p, i)
             if self.gate_ice[i] < thaw.GATE_OPEN:
                 closed.update(ice_blocks.gate_tiles(geo, i))
+        door = ruins.lab_door_px(self.world)             # v0.8 M3: o gelo da porta do laboratório
+        if door is not None:
+            blocks += ice_blocks.blocks_at(door, C.LAB_ICE_RECIPE, self.lab_ice_p, ice_blocks.LAB_GATE)
+            self.lab_ice_opens_at = ice_blocks.lab_opens_at(C.LAB_ICE_RECIPE, ruins.lab_blockers(self.world))
+            self.lab_ice_open = self.lab_ice_p >= self.lab_ice_opens_at
+            if not self.lab_ice_open:
+                closed.update(ruins.lab_door_tiles(self.world))
         self.gate_blocks = blocks
         self.world.closed_gate_tiles = frozenset(closed)
         self.world.hidden_tiles = pocket_fog.hidden_tiles(geo) if pocket_fog.closed(self) else frozenset()   # M3.6.4

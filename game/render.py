@@ -39,6 +39,7 @@ from game import ground
 from game import hills
 from game import ice_blocks
 from game import ice_giant
+from game import ruins
 from game.pocket_fog import PocketFog
 from game import lake
 from game import layers
@@ -148,11 +149,20 @@ RAMP_LIGHT = (255, 240, 214)       # luz do dia caindo pela boca da rampa de sub
 TERMINAL_LIGHT = (111, 227, 160)
 MACHINE_LIGHT = {"o2": (89, 208, 230), "heater": (255, 138, 61), "melter": (159, 230, 255),
                  "smelter": (255, 138, 61), "solar": (255, 216, 74), "drill": (255, 210, 140), "drone_station": (150, 210, 230),
-                 "water_collector": (89, 208, 230)}
+                 "water_collector": (89, 208, 230), "cultivator": (140, 230, 170)}
 EMERGENCY_LIGHT = (255, 96, 72)     # v0.7 M4: luz de emergência da VÉSPER-7 (vermelha, fraca)
 EMERGENCY_RADIUS = 1.5              # tiles (decisão do dono: era 2,5 no plano)
 EMERGENCY_INTENSITY = 0.6
 DRONE_LIGHT = MACHINE_LIGHT["drone_station"]   # v0.6 M3: luzinha do drone voando na caverna (pedido do dono)
+
+
+def cultivator_layers(m, blocker: str | None) -> list[str]:
+    """v0.8 M3: os desenhos do Cultivador, de baixo pra cima: o corpo (o seco quando falta água) e, com muda, o miolo da
+    cultura na etapa atual, no mesmo (x, y) de âncora. O corpo animado (crescendo) troca o quadro, não o nome."""
+    layers_ = ["machine_cultivator_dry" if blocker == "dry" else "machine_cultivator"]
+    if m.crop is not None:
+        layers_.append(f"cultivator_crop_{m.crop}_{m.crop_stage}")
+    return layers_
 
 
 def cave_lights(state: GameState, helmet=WARM_WHITE, helmet_intensity: float = 1.0) -> list[LightSource]:
@@ -175,6 +185,8 @@ def cave_lights(state: GameState, helmet=WARM_WHITE, helmet_intensity: float = 1
             continue                              # (Fundição apagada parece desligada: só acende enquanto funde)
         elif m.is_collector and state.collector_blocker(m, state.active) is not None:
             continue                              # v0.8 M2: o Coletor só acende coletando
+        elif m.is_cultivator and m.grow_blocker is not None:
+            continue                              # v0.8 M3: o Cultivador só acende crescendo
         else:
             ax, ay = m.anchor
             color = MACHINE_LIGHT.get(m.kind.removesuffix("_t2"), MACHINE_LIGHT["drone_station"])
@@ -741,13 +753,15 @@ class Renderer:
         """prop_*.png / wall_*.png (chão e mesa 32×40, decal 32×32, face 32×24; prop grande: largura e altura em tiles) ou
         um quadradinho se o PNG não existe. Kind com variantes (C.PROP_VARIANT_KINDS): _a/_b por hash do `tile`."""
         ptype = C.PROPS[kind]
-        name = kind
+        name = C.PROP_MACHINE_ART.get(kind, kind)          # v0.8 M3: tanque e microscópio do lab desenham a máquina quebrada
         if kind in C.PROP_VARIANT_KINDS:
             name += "_a" if tile is None or hash01(tile[0], tile[1], 17) < 0.5 else "_b"
 
         def painter():
             w, h = ptype.size
-            if ptype.place == "face":
+            if kind in C.PROP_MACHINE_ART:
+                size = C.MACHINE_SPRITE_SIZE[1]
+            elif ptype.place == "face":
                 size = C.PROP_FACE_SIZE
             elif ptype.place == "decal":
                 size = (T, T)
@@ -761,6 +775,8 @@ class Renderer:
     def _blit_prop(self, canvas, prop: Prop, x: int, y: int) -> None:
         """Blit do prop em (x, y) (o topo do sprite, já com o deslocamento do tipo) e o contorno se é o alvo do scan."""
         surf = self.prop_surface(prop.kind, prop.tile)
+        if prop.kind in C.PROP_MACHINE_ART:        # v0.8 M3: sprite de máquina (40×56) ancorado no pé, não no 32×40 do prop
+            x, y = x - (surf.get_width() - T) // 2, y + C.PROP_SPRITE_SIZE[1] - surf.get_height()
         canvas.blit(surf, (x, y))
         if self.highlight is prop:
             canvas.blit(self.outline_of(("prop", prop.kind, id(surf)), surf), (x - 1, y - 1))
@@ -1072,7 +1088,9 @@ class Renderer:
                 if visible(surf, x, y):
                     out.append((b, surf, x, y))
         for b in state.active.gate_blocks:
-            if ice_blocks.is_giant_gate(geo, b.gate):                    # M3.6.3: o portão grande: o tile do meio da entrada
+            if b.gate == ice_blocks.LAB_GATE:                            # v0.8 M3: o gelo da porta do laboratório
+                stage = self.stage_map.stage_at(*ruins.lab_door_tiles(state.world)[0])
+            elif ice_blocks.is_giant_gate(geo, b.gate):                    # M3.6.3: o portão grande: o tile do meio da entrada
                 stage = self.stage_map.stage_at(*geo.giant.entry[len(geo.giant.entry) // 2])
             else:
                 stage = self.stage_map.stage_at(*hills.foot_tile(geo.pockets[b.gate].gate))
@@ -1413,6 +1431,9 @@ class Renderer:
                 elif m.is_dispenser:
                     items.append((my, lambda m=m, mx=mx, my=my: self.draw_dispenser(
                         canvas, state, m, mx - cam_x, my - cam_y, t)))
+                elif m.is_cultivator:
+                    items.append((my, lambda m=m, mx=mx, my=my: self.draw_cultivator(
+                        canvas, m, mx - cam_x, my - cam_y)))
                 else:
                     items.append((my, lambda m=m, mx=mx, my=my: self.draw_machine(
                         canvas, m.kind, mx - cam_x, my - cam_y, self.machine_t, m.rotation,
@@ -1864,6 +1885,24 @@ class Renderer:
             working = powered and bool(m.station is not None and m.station.drones)
         return anim_frame_index(self.machine_t, phase, working)
 
+    def cultivator_surfaces(self, m, powered: bool) -> list[pygame.Surface]:
+        """As surfaces do Cultivador na ordem de `cultivator_layers`. O corpo anda na tira só crescendo e com energia."""
+        names = cultivator_layers(m, m.grow_blocker)
+        out = []
+        for i, name in enumerate(names):
+            surf, fallback = self.surface(name, (lambda: art.machine(C.CULTIVATOR)) if i == 0
+                                          else (lambda: pygame.Surface((1, 1), pygame.SRCALPHA)))   # sem o miolo, nada
+            if i == 0 and name == "machine_cultivator" and not fallback and powered and m.grow_blocker is None \
+                    and not m.submerged:
+                surf = self.anim_surface(name, surf, anim_frame_index(self.machine_t, tile_phase(m.tx, m.ty)))
+            out.append(surf)
+        return out
+
+    def draw_cultivator(self, canvas, m, ax, ay) -> None:
+        """Cultivador: corpo (parado, animado crescendo ou seco) e o miolo da cultura por cima, na mesma âncora."""
+        for surf in self.cultivator_surfaces(m, self.powered):
+            self._blit_anchored(canvas, surf, ax, ay)
+
     def broken_surface(self, kind: str) -> pygame.Surface:
         """Máquina quebrada de ruína (v0.7 M1): o quadro 0 do sprite que já existe, escurecido por C.RUIN_BROKEN_TINT."""
         cache = self.__dict__.setdefault("_broken_surfaces", {})
@@ -2045,6 +2084,8 @@ class Renderer:
             elif item in (C.EMPTY_CAPSULE, C.COLLECTOR):   # v0.8 M2: icon_water_capsule_empty.png e icon_water_collector.png
                 name = "icon_water_capsule_empty" if item == C.EMPTY_CAPSULE else "icon_water_collector"
                 small = self.surface(name, lambda: self._placeholder(16, item))[0]
+            elif item == C.CULTIVATOR or item in C.CROP_ITEMS:   # v0.8 M3: icon_cultivator.png, icon_algae.png, icon_plant_N.png
+                small = self.surface(f"icon_{item}", lambda: self._placeholder(16, item))[0]
             elif item in C.HAND_DRILLS or item in C.PART_ITEMS:   # v0.5 M4: icon_<item>.png (v0.6 Fundo M4: as duas brocas)
                 small = self._m4_icon(item)
             elif item in C.PLAYER_PROPS:         # v0.7 M2: icon_<prop>.png (16×16)
@@ -2110,6 +2151,8 @@ class Renderer:
             return pygame.transform.scale_by(self.surface("icon_water_capsule", art.water_capsule_icon)[0], 3)
         if kind == C.EMPTY_CAPSULE:      # v0.8 M2
             return pygame.transform.scale_by(self.surface("icon_water_capsule_empty", lambda: self._placeholder(16, kind))[0], 3)
+        if kind in C.CROP_ITEMS:         # v0.8 M3: a cultura (item que não se coloca)
+            return pygame.transform.scale_by(self.surface(f"icon_{kind}", lambda: self._placeholder(16, kind))[0], 3)
         if kind in C.HAND_DRILLS or kind in C.PART_ITEMS:
             return pygame.transform.scale_by(self._m4_icon(kind), 3)
         if kind in C.PLAYER_PROPS:       # v0.7 M2: o ícone do prop ×3
@@ -2326,6 +2369,8 @@ class Renderer:
         for prop, fill, color in ((block, state.dismantle_progress, C.C_O2), (state.scanning, state.scan_progress, C.C_TI)):
             if isinstance(prop, Prop):                        # v0.7 M2: desmontando um prop / escaneando um de ruína
                 top = prop.ty * T - cam[1] + (C.BASE_FACE_Y if prop.place == "face" else -C.PROP_LIFT if prop.place != "decal" else 0)
+                if prop.kind in C.PROP_MACHINE_ART:           # v0.8 M3: o sprite é mais alto (56 em vez de 40)
+                    top -= C.MACHINE_SPRITE_SIZE[1][1] - C.PROP_SPRITE_SIZE[1]
                 self.draw_drill_bar(canvas, round((prop.tx + prop.type.size[0] / 2) * T - cam[0]), round(top) - bh - 2, fill, color, False, w=bw, h=bh)
         if isinstance(block, Crate):                          # v0.6 M1: desmontando a caixa de saque
             bw, bh = C.DISMANTLE_BAR
@@ -2419,6 +2464,7 @@ class Renderer:
                 lights.append((pod_x + bx, pod_y + by, 44, (255, 90, 74), 0.5, 0.5))
         machine_light = {"o2": ((89, 208, 230), 80, -30, 0.2), "heater": ((255, 138, 61), 100, -20, 0.3),
                          "melter": ((159, 230, 255), 70, -36, 0.18), "smelter": ((255, 138, 61), 90, -22, 0.26), "water_collector": ((89, 208, 230), 80, -24, 0.2),
+                         "cultivator": ((140, 230, 170), 80, -24, 0.2),
                          "lamp": ((255, 222, 184), 96, -26, 0.22)}
         # no déficit de energia o brilho das máquinas fica mais fraco (metade com fator 0)
         dim = 0.5 + 0.5 * state.power.factor
@@ -2434,6 +2480,8 @@ class Renderer:
             if m.is_smelter and m.smelter_blocker is not None:    # v0.6 M3: só acende enquanto funde
                 continue
             if m.is_collector and state.collector_blocker(m, state.active) is not None:   # v0.8 M2: idem, coletando
+                continue
+            if m.is_cultivator and m.grow_blocker is not None:    # v0.8 M3: idem, crescendo
                 continue
             if m.kind.removesuffix("_t2") not in machine_light:   # painel solar e baú: sem luz própria
                 continue
