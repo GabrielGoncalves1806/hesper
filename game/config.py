@@ -780,16 +780,18 @@ LOOT_CRATE_SIZE = (32, 32)
 # (GameState.read_diagram) gasta 1 e libera a receita pra sempre (state.blueprints). O save antigo tinha "bp_<id>".
 BLUEPRINTS = {"o2_tank": "Tanque de O₂", "scanner": "Scanner de navegação", "lamp_t2": "Luminária forte",
               "workbench": "Bancada T2", "chest_large": "Baú grande",
-              "cultivator": "Cultivador"}                  # v0.8 M3: o do Cultivador sai do scan do tanque quebrado do lab
+              "cultivator": "Cultivador",                  # v0.8 M3: o do Cultivador sai do scan do tanque quebrado do lab
+              "microscope": "Microscópio"}                 # v0.8 M4: o do Microscópio, do scan do microscópio quebrado
 WRECK_DIAGRAMS = ("o2_tank", "scanner", "lamp_t2")   # os que dão nos destroços (o da Bancada T2 se fabrica no T1)
 DIAGRAM_ITEMS = {f"diagram_{k}": k for k in BLUEPRINTS}
 LEGACY_DIAGRAM_ITEMS = {f"bp_{k}": f"diagram_{k}" for k in BLUEPRINTS}   # item do save antigo -> item de hoje
 RECIPE_BLUEPRINT = {"o2_tank": "o2_tank", "scanner": "scanner", "lamp_t2": "lamp_t2",
-                    "workbench": "workbench", "chest_large": "chest_large", "cultivator": "cultivator"}   # receita -> diagrama
+                    "workbench": "workbench", "chest_large": "chest_large", "cultivator": "cultivator",
+                    "microscope": "microscope"}   # receita -> diagrama
 # Bancada que lê cada diagrama ("t1" = o fabricador da cápsula, "t2" = a Bancada T2 do Dev B2). Diagrama de máquina
 # (placeable) é lido em qualquer bancada (spec); os de item só na bancada daqui.
 DIAGRAM_BENCH = {"o2_tank": "t1", "scanner": "t1", "lamp_t2": "t1", "workbench": "t1", "chest_large": "t1",
-                 "cultivator": "t1"}
+                 "cultivator": "t1", "microscope": "t1"}
 BENCH_LABEL = {"t1": "FABRICADOR", "t2": "BANCADA T2"}
 
 # Luminária forte (diagrama): raio 7 tiles. A luminária comum tem 5.
@@ -1333,6 +1335,25 @@ for _sample in SAMPLE_ITEMS:
 RESOURCE_NAME.update({"sample_basic": "amostra simples", "sample_mutant": "amostra com mutação", "sample_rare": "amostra rara"})
 RESOURCE_LABEL.update({"sample_basic": "AMOSTRA", "sample_mutant": "MUTAÇÃO", "sample_rare": "RARA"})
 LOGISTIC_ITEMS = LOGISTIC_ITEMS + SAMPLE_ITEMS
+
+# ---------------------------------------------------------------------------
+# v0.8 M4 · Microscópio (bíblia §17, plano 2026-10-17-v08-marco4-microscopio-centrifuga.md, Task 3). Máquina de slots
+# fixos, no molde do Coletor: 1 gelo a cada MICROSCOPE_TIME s, sorteia uma amostra (ou nada) no slot fixo do tipo dela.
+# Funciona em qualquer camada e estágio. Trava pelo diagrama (scan do microscópio quebrado do lab). Números de partida (M5).
+# ---------------------------------------------------------------------------
+MICROSCOPE = "microscope"
+MIC_ICE_SLOT = 0
+MIC_OUT_SLOTS = {"sample_basic": 1, "sample_mutant": 2, "sample_rare": 3}   # um slot fixo por tipo de amostra
+MIC_SLOTS = 4
+MICROSCOPE_TIME = 20.0                    # s por análise (× fator da energia), 1 gelo por análise
+MICROSCOPE_ODDS = (("sample_basic", 0.30), ("sample_mutant", 0.15), ("sample_rare", 0.05))   # o resto (50%) é nada
+MICROSCOPE_REACH = MELTER_REACH
+MACHINES[MICROSCOPE] = MachineType(MICROSCOPE, "Microscópio", "gelo → amostra", {"iron_ingot": 4, "silicon": 6, "circuit": 1},
+                                   None, 0, 0, "machine_microscope")
+POWER_USE[MICROSCOPE] = 1
+MACHINE_ORDER.insert(MACHINE_ORDER.index(CULTIVATOR) + 1, MICROSCOPE)   # Automação, depois do Cultivador
+MACHINE_CATEGORY[MICROSCOPE] = "automation"
+SCAN_BLUEPRINT["prop_microscope_digital"] = MICROSCOPE
 
 # ---------------------------------------------------------------------------
 # v0.6 Fundo M5 · Remapear crafts (bíblia §15 "Marco 5"). Números de partida; balanceamento depois.
