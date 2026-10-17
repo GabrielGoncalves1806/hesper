@@ -205,25 +205,41 @@ def _assert_clear(ui, size, bottom):
     assert ui.notice_y + ui.NOTICE_H < ui.hotbar_y - 11
 
 
+def with_t2() -> GameState:
+    """Mochila T2 (32 slots), tanque nv.2 e botas (v0.8 M5)."""
+    g = GameState(rng=random.Random(3))
+    for item in (C.BACKPACK_T2, C.O2_TANK_T2, C.BOOTS):
+        give(g, **{item: 1})
+        assert g.equip_from(next(i for i, s in enumerate(g.inventory.slots) if s and s.item == item))
+    return g
+
+
 @pytest.mark.parametrize("size", SIZES)
-@pytest.mark.parametrize("backpack", [False, True])
-def test_tab_inventory_layout(ui, size, backpack):
+@pytest.mark.parametrize("suit", ["none", "nv1", "t2"])
+def test_tab_inventory_layout(ui, size, suit):
+    """Tab A (v0.8 M5): grades | TRAJE (4 slots em 2×2) | detalhe, com 16, 24 e 32 slots."""
     ui.set_layout((0, 0, size[0] * 2, size[1] * 2), 2.0, size)
-    s = with_backpack() if backpack else GameState(rng=random.Random(1))
+    s = {"none": lambda: GameState(rng=random.Random(1)), "nv1": with_backpack, "t2": with_t2}[suit]()
     ui.begin()
     ui.draw_inventory(s.inventory, None, 0, _icon, (0, 0), equipment=s.equipment, state=s)
     assert sorted(i for _, _, i in ui.slot_rects) == list(range(len(s.inventory)))
     assert [k for _, k in ui.equip_rects] == ["o2_tank", "scanner", "backpack", "boots"]
-    assert (len(s.inventory) == FULL) == backpack
+    assert len(s.inventory) == {"none": BASE, "nv1": FULL, "t2": FULL + 8}[suit]
 
     def row_top(lo):
         return min(r.top for r, _, i in ui.slot_rects if lo <= i < lo + 8)
 
-    if backpack:                                              # a linha da mochila (16–23) fica em cima da 8–15
+    if suit != "none":                                        # a(s) linha(s) da mochila (16–31) ficam em cima da 8–15
         assert row_top(16) < row_top(8) < row_top(0)
-        assert row_top(8) - row_top(16) == BACKPACK_ROW_H
+        assert row_top(8) - row_top(16) == BACKPACK_ROW_H * (len(s.inventory) - BASE) // 8
+    # 3 colunas: as grades, o TRAJE e o detalhe, nessa ordem e sem encostar
+    grids_right = max(r.right for r, _, _ in ui.slot_rects)
+    assert grids_right < ui.suit_rect.left < ui.suit_rect.right < ui.detail_rect.left
+    for r, _ in ui.equip_rects:
+        assert ui.suit_rect.contains(r)
     # janela + linha de ajuda nunca passam da moldura da hotbar
     _assert_clear(ui, size, ui.hotbar_y - 11 - 1 - HELP_H - 8)
+    assert ui.inv_window.bottom + HELP_H <= ui.hotbar_y - 11 - 1
 
 
 @pytest.mark.parametrize("size", SIZES)
