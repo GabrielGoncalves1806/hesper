@@ -15,7 +15,7 @@ def test_every_recipe_has_a_tab():
     assert set(C.MACHINE_CATEGORY.values()) <= ids
     assert tab_kinds("terraform") == ["o2", "melter", "heater", "o2_t2", "melter_t2", "heater_t2"]
     assert tab_kinds("energy") == ["solar"]
-    assert tab_kinds("automation") == ["drill", "drone_station", "drone", "smelter", "water_collector", "cultivator", "workbench"]   # v0.6 M3: a Fundição; v0.8 M2: o Coletor de água; M3: o Cultivador
+    assert tab_kinds("automation") == ["drill", "drone_station", "drone", "smelter", "water_collector", "cultivator", "centrifuge", "workbench"]   # v0.6 M3: a Fundição; v0.8 M2: o Coletor de água; M3: o Cultivador; M4: a Centrífuga
     assert tab_kinds("storage") == ["chest_small", "chest", "chest_large"]
     assert tab_kinds("light") == ["lamp", "lamp_t2"]
     assert tab_kinds("materials") == ["wire", "circuit"]                         # v0.6 M3: fios saem do lingote de cobre
@@ -28,7 +28,7 @@ def test_craft_tabs_have_only_items_and_build_tabs_only_machines():
     assert craft_kinds("automation") == []                   # v0.6 Fundo M5: o drone, o circuito, o tanque e o scanner
     assert craft_kinds("materials") == ["wire"]              # são da Bancada T2 (o T1 não mostra)
     assert craft_kinds("suit") == []
-    assert build_kinds("automation") == ["drill", "drone_station", "smelter", "water_collector", "cultivator", "workbench"]
+    assert build_kinds("automation") == ["drill", "drone_station", "smelter", "water_collector", "cultivator", "centrifuge", "workbench"]
     for tab, _ in C.CRAFT_TABS:
         assert all(not C.MACHINES[k].placeable for k in craft_kinds(tab))
     for tab, _ in C.FAB_TABS:
