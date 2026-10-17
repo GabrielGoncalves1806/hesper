@@ -95,8 +95,16 @@ Spec: `docs/superpowers/specs/2026-10-16-v07-lore-design.md` (brainstorm de 2026
 
 **v0.7 fechado em 2026-10-16.** Ficou pra depois (ver "Futuro"): código do cursor novo, abrir a porta emperrada (bateria + crachá da Ilves), colisão dos destroços, prop multi-tile em planta que gira, base de pesquisa + dungeon.
 
-## v0.8 · Vida
-Fauna e flora surgindo com o Ti, farm, música. **O planeta reage** ao Ti e ao derretimento (saiu da v0.7). Genes do gelo (canon na bíblia §2).
+## v0.8 · Plantas
+Spec: `docs/superpowers/specs/2026-10-16-v08-plantas-design.md` (bíblia §17). 4º índice **Biomassa**, estágios TEMPESTADE → ÁRIDO → ÚMIDO → ALGAS → MUSGO → VERDE (os novos pedem Ti + biomassa), o lab da Ilves trancado no gelo, cultivador, microscópio, centrífuga, cápsula vazia e coletor de água.
+- [ ] M1 · Biomassa e estágios
+- [ ] M2 · Água (Dispersor proporcional à base, cápsula vazia, coletor)
+- [ ] M3 · Lab e cultivador
+- [ ] M4 · Microscópio e centrífuga
+- [ ] M5 · Objetivos e fechamento
+
+## v0.9 · Vida
+Fauna surgindo com o Ti, farm, música. **O planeta reage** ao Ti e ao derretimento (saiu da v0.7). Genes do gelo pra fauna (canon na bíblia §2).
 
 ## Depois · Perigo
 Inimigos (larvas pelo mapa), combate, a criatura como boss (saíram da v0.7).

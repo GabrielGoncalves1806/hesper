@@ -1135,3 +1135,14 @@ Os 5 destroços foram redesenhados maiores (`reports/design/v07_m4_destrocos/`).
   - correção de um bug da Task 2: os props de face (monitor, quadro de aviso) das plantas da nave sumiam.
 - **Destroços maiores**: as variantes A/B saem por hash da posição do destroço (sem rng e sem save). Os `wreck_cargo/robot/liner.png` antigos saíram de `assets/`.
 - **Números**: pytest 1980 passed, 2 skipped; smoke exit 0, média 6,5 ms; `real_video_check` com 16 telas iguais. Save continua **v13**.
+
+## 17. v0.8 · Plantas (decisões do dono, 2026-10-16)
+Detalhe e números de partida: `docs/superpowers/specs/2026-10-16-v08-plantas-design.md`. Referências: `reports/design/ideias/v08_plantas/`.
+- **Estágios**: TEMPESTADE → ÁRIDO → **ÚMIDO** (a Névoa só muda de nome; a chave continua `mist`) → **ALGAS** → **MUSGO** → VERDE. Algas, Musgo e Verde pedem Ti total **e** biomassa mínima.
+- **Biomassa** é o 4º índice (soma no Ti). Sobe por segundo com cultivador crescendo e com água; a colheita dá itens, não índice.
+- **Lab da Ilves** nasce com a porta tampada de gelo que derrete com o calor (entre Úmido e Algas). Dentro: o microscópio e o tanque viram máquinas quebradas; escanear dá o diagrama (vai pra máquinas, não pra decoração). A caixa traz a **cultura-controle**: alga da Terra que a Ilves comparava com o gelo.
+- **Cultivador**: só dentro da base vedada; tanque de 5 cápsulas + reserva de 5; cresce em 4 etapas (UI e sprite mostram); perene; colheita = item da cultura (muda e ingrediente).
+- **Microscópio**: gelo → amostra simples 30% / mutação 15% / rara 5%. **Centrífuga** (libera no estágio Algas): alga + amostra → planta 1, 2 ou 3 por chance. 4 culturas: alga + 3 plantas.
+- **Água**: o Dispersor gasta proporcional ao chão da base (5×5 = 3 min; limites 30–360 s; vários Dispersores não dividem a demanda). Dispersor e cultivador soltam **cápsula vazia**; o **coletor de água** enche vazias com a umidade do ar (superfície, do Úmido em diante, mais rápido na chuva). O derretedor continua criando cápsula sem vazia.
+- **Fora**: Verde funcional (respirar lá fora), fauna (v0.9 · Vida), farm ao ar livre, receitas com as plantas fora do ciclo.
+
