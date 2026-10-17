@@ -216,6 +216,10 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 | `plant_bush.png` `plant_tree.png` `plant_flower.png` | até 32×40 | estágio verde |
 | `machine_water_collector.png` `anim/anim_machine_water_collector.png` | 40×56 · tira 160×56 (4 quadros, ~5 fps) | **v0.8 M2, aprovado pelo dono (rodada 1, `reports/design/v08_plantas/`).** Coletor de água: anima só coletando, âncora padrão das máquinas nv.1 |
 | `icon_water_capsule_empty.png` `icon_water_collector.png` | 16×16 | **v0.8 M2, aprovados.** Cápsula vazia (par do `icon_water_capsule`, com vidro no lugar da água) e o ícone do Coletor no construtor |
+| `machine_cultivator.png` `machine_cultivator_dry.png` `machine_cultivator_broken.png` `anim/anim_machine_cultivator.png` | 40×56 · tira 160×56 | **v0.8, aprovado pelo dono (cultivador B, base cheia).** Corpo: parado, seco (sem líquido, LED vermelho) e quebrado (já apagado: **sem** `RUIN_BROKEN_TINT`). Anima crescendo |
+| `cultivator_crop_{algae,plant_1,plant_2,plant_3}_{0..3}.png` | 40×56 | **v0.8, aprovados.** Miolo da cultura (etapa 0 muda .. 3 madura), desenhado por cima do corpo no mesmo (x, y) |
+| `machine_microscope.png` `machine_microscope_broken.png` `anim/anim_machine_microscope.png` `machine_centrifuge.png` `anim/anim_machine_centrifuge.png` | 40×56 · tira 160×56 | **v0.8, aprovados.** Microscópio (inteiro e quebrado, sem tint) e Centrífuga (tira a **10 fps**) |
+| `icon_{algae,plant_1,plant_2,plant_3,sample_basic,sample_mutant,sample_rare,cultivator,microscope,centrifuge}.png` | 16×16 | **v0.8, aprovados.** Alga, Folha-gota, Espiral-de-geada, Lírio-de-Ilves, as 3 amostras e as 3 máquinas |
 
 ### Cursor do mouse (v0.7, **aprovado pelo dono: opção A**, 2026-10-16, report `reports/design/v07_cursor/`, script `tools/sprites/build_cursor_v07.py`)
 Desenhado na camada da UI (480×270 lógicos, escala inteira k), por cima de tudo, no lugar do polígono do `UI.draw_cursor`. Esconder o cursor do sistema.
