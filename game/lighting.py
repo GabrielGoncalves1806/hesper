@@ -116,9 +116,10 @@ def helmet_lamp(px: float, py: float, facing: str | tuple[float, float] | None =
     return LightSource(px + dx * bias, py + dy * bias, 4 * T, color, intensity)
 
 
-def lamp(tx: int, ty: int, radius_tiles: float = 5) -> LightSource:
-    """Luminária no tile (tx, ty): ~5 tiles (a forte, do Marco 3: 7), quente, com uma tremidinha bem leve."""
-    return LightSource(tx * T + T / 2, ty * T + T / 2 - 8, radius_tiles * T, LAMP_COLOR, 1.0, flicker=0.06)
+def lamp(tx: int, ty: int, radius_tiles: float = 5, color: tuple[int, int, int] = LAMP_COLOR) -> LightSource:
+    """Luminária no tile (tx, ty): ~5 tiles (a forte, do Marco 3: 7; a bio, do M5 da v0.8: 6 e verde-água),
+    quente por padrão, com uma tremidinha bem leve."""
+    return LightSource(tx * T + T / 2, ty * T + T / 2 - 8, radius_tiles * T, color, 1.0, flicker=0.06)
 
 
 def machine_light(tx: int, ty: int, color: tuple[int, int, int] = (150, 210, 230)) -> LightSource:

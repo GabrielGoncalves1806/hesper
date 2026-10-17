@@ -47,7 +47,7 @@ from game import vesper, vesper_fx
 from game import smoke
 from game.assets import Sprites
 from game.ground import decor_layers, decor_tile_free
-from game.lighting import WARM_WHITE, LightSource, Lighting, helmet_lamp, lamp as lamp_light, ore_glints
+from game.lighting import LAMP_COLOR, WARM_WHITE, LightSource, Lighting, helmet_lamp, lamp as lamp_light, ore_glints
 from game.minimap import Minimap
 from game.rain import RainDrops, rain_level
 from game.surfaces import opaque
@@ -181,7 +181,8 @@ def cave_lights(state: GameState, helmet=WARM_WHITE, helmet_intensity: float = 1
         if m.broken:                              # v0.7 M1: máquina quebrada de ruína não acende
             continue
         if m.is_lamp:
-            out.append(lamp_light(m.tx, m.ty, C.LAMP_RADIUS.get(m.kind, 5)))
+            out.append(lamp_light(m.tx, m.ty, C.LAMP_RADIUS.get(m.kind, 5),
+                                  C.LAMP_BIO_COLOR if m.kind == C.LAMP_BIO else LAMP_COLOR))
         elif m.is_chest or (m.is_drill and m.full) or (m.is_smelter and m.smelter_blocker is not None):
             continue                              # (Fundição apagada parece desligada: só acende enquanto funde)
         elif m.is_collector and state.collector_blocker(m, state.active) is not None:
@@ -2081,6 +2082,8 @@ class Renderer:
                 small = self.surface("icon_lamp", art.lamp_icon)[0]
             elif item == "lamp_t2":
                 small = self.surface("icon_lamp_t2", art.lamp_strong_icon)[0]
+            elif item == C.LAMP_BIO:            # v0.8 M5
+                small = self.surface("icon_lamp_bio", lambda: art.reduced_icon(self.lamp_surface(item)))[0]
             elif item == "chip_slot_empty":     # v0.6 M2: a silhueta do slot de chip vazio (UI), não é item
                 small = self.surface("chip_slot_empty", art.chip_slot_empty)[0]
             elif item == "o2_tank":
@@ -2179,9 +2182,16 @@ class Renderer:
             return frame.subsurface((0, 16, 64, 64))              # sem a cabeça, pra caber na caixinha
         return self.surface(C.MACHINES[kind].sprite, lambda: art.machine(kind))[0]
 
+    def _tinted_lamp(self) -> pygame.Surface:
+        surf = self.surface("lamp", art.lamp)[0].copy()
+        surf.fill((*C.LAMP_BIO_COLOR, 255), special_flags=pygame.BLEND_RGBA_MULT)
+        return surf
+
     def lamp_surface(self, kind: str = "lamp") -> pygame.Surface:
         if kind == "lamp_t2":                    # luminária forte (Marco 3): sem sprite ainda, fallback próprio
             return self.surface("lamp_t2", art.lamp_strong)[0]
+        if kind == C.LAMP_BIO:                   # v0.8 M5: lamp_bio.png (fallback: a luminária comum tingida de verde-água)
+            return self.surface("lamp_bio", lambda: self._tinted_lamp(), "lamp_bio")[0]
         return self.surface("lamp", art.lamp)[0]
 
     def draw_machine(self, canvas, kind, ax, ay, t, rotation=0, alpha=None, frame: int | None = None) -> None:
@@ -2478,7 +2488,8 @@ class Renderer:
                          "melter": ((159, 230, 255), 70, -36, 0.18), "smelter": ((255, 138, 61), 90, -22, 0.26), "water_collector": ((89, 208, 230), 80, -24, 0.2),
                          "cultivator": ((140, 230, 170), 80, -24, 0.2),
                          "microscope": ((170, 210, 255), 80, -24, 0.2), "centrifuge": ((190, 255, 160), 80, -24, 0.2),
-                         "lamp": ((255, 222, 184), 96, -26, 0.22)}
+                         "lamp": ((255, 222, 184), 96, -26, 0.22),
+                         "lamp_bio": (C.LAMP_BIO_COLOR, 96, -26, 0.22)}
         # no déficit de energia o brilho das máquinas fica mais fraco (metade com fator 0)
         dim = 0.5 + 0.5 * state.power.factor
         for m in state.machines:
