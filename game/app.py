@@ -1235,13 +1235,14 @@ class App:
             cult = self.open_cultivator
             if inv is cult.storage:
                 moved = state.melter_take(cult, i, amount)
-            elif item != "water_capsule" and item not in C.CROP_ITEMS:
-                self.show_notice("O Cultivador só aceita cápsula de água e muda")
+            elif item not in ("water_capsule", C.FERTILIZER) and item not in C.CROP_ITEMS:
+                self.show_notice("O Cultivador só aceita cápsula de água, muda e adubo")
                 return
             else:
-                moved = state.cultivator_put(cult, i, amount)
+                moved = state.cultivator_put(cult, i, 1 if item == C.FERTILIZER else amount)   # adubo: 1 por vez
                 if not moved:
-                    self.show_notice("Reserva de água cheia" if item == "water_capsule" else "Essa muda já está plantada")
+                    self.show_notice("Reserva de água cheia" if item == "water_capsule"
+                                     else "Adubo no máximo (10 min)" if item == C.FERTILIZER else "Essa muda já está plantada")
             if moved:
                 self.audio.play("inv_move")
             return
