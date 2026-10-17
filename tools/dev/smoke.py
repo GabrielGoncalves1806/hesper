@@ -4815,8 +4815,8 @@ def check_vesper(bot) -> None:
     app.set_zoom(1.0, notify=False)
     w = wrecks.vesper_wreck(s.world)
     s.o2 = C.O2_MAX
-    bot.teleport((w.tx + 3, w.ty + 3))
-    bot.mouse_to(bot.tile_on_screen((w.tx + 3, w.ty + 2)))
+    bot.teleport(w.hatch_from)                          # v0.7 M4: a boca e o tile de chegar vêm do WreckSpec
+    bot.mouse_to(bot.tile_on_screen(w.hatch))
     bot.frames(0.3)
     assert app.hint() == "[E] Entrar na VÉSPER-7", app.hint()
     bot.shot("m4_vesper_boca.png")
