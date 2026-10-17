@@ -156,9 +156,9 @@ def main() -> None:
     # 5-6. fora: a boca do porão e o fade
     app = new_app(seed)
     w = wrecks.vesper_wreck(app.state.world)
-    put_feet(app, (w.tx + 3.5) * T, (w.ty + 3) * T + 24)
+    put_feet(app, (w.hatch_from[0] + 0.5) * T, w.hatch_from[1] * T + 24)
     frames(app, 20)
-    hover(app, (w.tx + 3, w.ty + 2))
+    hover(app, w.hatch)
     print("  dica da boca:", app.hint())
     save_shot(app, "fora_boca.png")
     app.mouse = (4, 4)

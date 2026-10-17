@@ -528,9 +528,13 @@ Rochas usam `mine_hit`/`mine_break` e, ao dar o minério, o `pickup.wav` já apr
 
 | Sprite | Tamanho | Observação |
 |---|---|---|
-| `wreck_cargo.png` | 128×112 | nave de carga caída, ocupa 4×3 tiles, meio enterrada na areia, ancorada no centro da base |
-| `wreck_module.png` | 96×88 | módulo da colônia, 3×2 tiles, com um terminal visível |
-| `wreck_probe.png` | 64×64 | sonda pequena, 2×2 tiles |
+| `wreck_cargo_a.png` `_b.png` | 448×272 | VÉSPER-7, 14×7 tiles (v0.7 M4; a seed sorteia a variante) |
+| `wreck_module.png` | 448×294 | base espacial, 14×5 tiles, com um terminal visível (v0.7 M4) |
+| `wreck_probe.png` | 96×96 | sonda, 3×2 tiles (v0.7 M4) |
+| `wreck_robot_a.png` `_b.png` | 96×72 | robô R-2, 3×2 tiles (v0.7 M4; variantes) |
+| `wreck_liner_a.png` `_b.png` | 288×208 | ARCA-2, 9×4 tiles (v0.7 M4; variantes) |
+
+(Os tamanhos e marcas valem pela tabela "v0.7 M4 · destroços maiores", §16. Os antigos `wreck_cargo/robot/liner.png` foram apagados.)
 | `loot_crate.png` `loot_crate_empty.png` | 32×32 | caixa de saque (fechada/cheia e aberta/vazia) · **r3d v1.1, aprovado pelo dono** |
 | `icon_blueprint.png` | 16×16 | item de projeto |
 | `icon_o2_tank.png` | 16×16 | tanque de O₂ (equipamento) |
@@ -1078,7 +1082,7 @@ Spec: `docs/superpowers/specs/2026-10-16-v07-lore-design.md`. Marcos: M1 estrutu
 
 ### Marco 4 · Interior da VÉSPER-7 (decisões do dono, 2026-10-16)
 - **Uma VÉSPER-7 por mundo**, no rank 0. Os outros `cargo` trocam de tipo: o rank 4 vira **probe** (leva o diagrama da luminária forte), o extra de n=10 vira **module** e o destroço rico do bolsão (`WRECK_RICH_KIND`) vira **module**. Save antigo: sem cuidado especial (só o dono joga); os destroços que trocam de tipo trocam também no save antigo.
-- **Camada `vesper`** (~48×48, `layers.MAKERS`), gerada pela seed. **Entrada**: E na boca do porão (tile (3,2) da pegada, chegando por (3,3)), fade "Entrando...", o player aparece no porão. **Saída**: tile de saída no porão, fade "Saindo...", volta pra (3,3) da superfície.
+- **Camada `vesper`** (~48×48, `layers.MAKERS`), gerada pela seed. **Entrada**: E na boca do porão (`spec.hatch`, hoje (12,6) da pegada 14×7, chegando por `hatch_from` (12,7)), fade "Entrando...", o player aparece no porão. **Saída**: tile de saída no porão, fade "Saindo...", volta pra `hatch_from` da superfície.
 - **Montagem**: esqueleto fixo **sem giro** (a planta não usa as 8 orientações das ruínas). Cada sala tem 2–3 plantas `.txt` no formato de `game/ruin_plans/`; a seed escolhe a variante, as caixas e os props. De sul pra norte:
   - **porão**: entrada/saída e **2 caixas** com loot no nível do destroço rico do bolsão;
   - **corredor**: liga tudo;
@@ -1092,3 +1096,19 @@ Spec: `docs/superpowers/specs/2026-10-16-v07-lore-design.md`. Marcos: M1 estrutu
 - **Arte (Designer, passa pelo dono)**: piso e parede da nave; boca do porão vista por dentro (saída); contêiner arrombado; painel de energia com silhueta de bateria; porta emperrada; leitor de crachá (cordão + foto, amarelo, do rascunho do dono).
 - **Som (Som, passa pelo dono)**: novos `amb_vesper` (casco rangendo + zumbido elétrico morto, baixo), `door_stuck` (trava que não cede), `spark` (estalinho junto da partícula, só perto). Reaproveita `ramp_down`/`ramp_up` na entrada e saída e `power_low` no painel.
 - **Props do kit da nave (Task 5, integrado)**: 17 props novos em `C.PROPS` (o macacão é cenário, `PROP_SCENERY`; os outros 16 são do player e escaneáveis) + `prop_microscope_digital` (microscópio digital, no laboratório da Ilves; o `prop_microscope` ganhou a arte nova). Tamanhos: 2×1 (pilha de contêineres, mesa de comando, mesa de refeitório, bancada de manutenção, beliche de parede), 2×2 (mesa de briefing), o resto 1×1. O beliche de parede é `desk` (os 2 tiles pedem parede ao norte). O macacão tem 2 sprites (`_a`/`_b`), sorteados por hash do tile. Na planta, a letra do prop grande vai só na âncora. Prop 2×1/2×2 não entra nas ruínas de superfície (a planta delas gira e o prop não); mora só nas plantas da nave, que não giram.
+
+### v0.7 M4 · destroços maiores (aprovados pelo dono, 2026-10-16; Task 6)
+Os 5 destroços foram redesenhados maiores (`reports/design/v07_m4_destrocos/`). Esta tabela **substitui** a do "Marco 3 · Destroços novos" (tile relativo ao canto de cima à esquerda da pegada; sprite = (w·32, h·32 + lift), blit em (tx·32, ty·32 − lift), ordenado pelo pé da pegada):
+
+| Tipo | Sprites | Pegada | Tamanho | Lift | Caixa | Outras marcas |
+|---|---|---|---|---|---|---|
+| `cargo` VÉSPER-7 | `wreck_cargo_a/_b` | 14×7 | 448×272 | 48 | (7,7) | boca do porão `hatch` (12,6), chega por `hatch_from` (12,7) |
+| `module` Base espacial | `wreck_module` | 14×5 | 448×294 | 134 | (10,5) | terminal (8,4), lido de (8,5), contorno (251,224,32,26) px; porta (2,4) só arte |
+| `probe` Sonda | `wreck_probe` | 3×2 | 96×96 | 32 | (3,1) | LED em (34,55,3,2) px |
+| `robot` R-2 | `wreck_robot_a/_b` | 3×2 | 96×72 | 8 | (3,1) | |
+| `liner` ARCA-2 | `wreck_liner_a/_b` | 9×4 | 288×208 | 80 | (3,4) | |
+
+- **Variantes**: cargo, robô e ARCA-2 têm `_a`/`_b`. A escolha é `Wreck.variant`, hash determinístico de (tx, ty) (não usa o rng da geração e não vai pro save). O render tenta `wreck_<kind>_<v>.png`, depois `wreck_<kind>.png`, depois o `art.wreck` (retângulo simples no tamanho do contrato).
+- **Boca da VÉSPER** virou campo do `WreckSpec` (`hatch`, `hatch_from`); `hatch_in_target` e `surface_exit` leem dele. O LED da sonda também (`led_rect`).
+- **Mapa**: dentro da nave (camada `vesper`) a própria nave não gera marcador "Ruína", nem no mapa nem no minimapa. Na superfície nada muda.
+- **Geração**: `WRECK_DIST`/`WRECK_SPACING`/`WRECK_MARGIN` intactos; o destroço rico do bolsão é o robô 3×2. Save continua v13 (o `wrecks.settle` cuida de destroço que cairia em cima de construção).

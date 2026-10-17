@@ -14,14 +14,15 @@ def run(state, seconds):
 
 def at_hatch_in(state):
     w = wrecks.vesper_wreck(state.surface.world)
-    state.player.x, state.player.y = (w.tx + 3.5) * C.TILE, (w.ty + 3) * C.TILE + 20
+    fx, fy = w.hatch_from
+    state.player.x, state.player.y = (fx + 0.5) * C.TILE, fy * C.TILE + 20
     return w
 
 
 def test_enter_and_exit():
     state = GameState(3)
     w = at_hatch_in(state)
-    assert state.interaction() == ("hatch_in", (w.tx + 3, w.ty + 2))
+    assert state.interaction() == ("hatch_in", w.hatch)
     assert state.start_hatch()
     run(state, C.RAMP_DURATION)
     assert state.layer == layers.VESPER and state.ramp is None
@@ -168,3 +169,17 @@ def test_hull_floor_variants_are_0_to_3_and_mostly_clean():
     vs = [hull_floor_variant(x, y) for x in range(60) for y in range(60)]
     assert set(vs) == {0, 1, 2, 3}
     assert 0.65 < vs.count(0) / len(vs) < 0.85
+
+
+def test_ship_has_no_ruin_marker_inside_but_surface_keeps_its_ruins():
+    from game import map_view
+    state = GameState(3)
+    at_hatch_in(state)
+    state.start_hatch()
+    run(state, C.RAMP_DURATION)
+    state.fast = True                                  # F3: tudo visível
+    inside = map_view.map_entries(state, "vesper")
+    assert not any(e.category == "ruin" for e in inside)
+    assert any(r.key == "vesper" for r in state.layers["vesper"].world.ruins)
+    outside = map_view.map_entries(state, "surface")
+    assert any(e.category == "ruin" for e in outside)

@@ -108,11 +108,11 @@ def test_specs_match_sprite_contract():
     s = wrecks.SPECS
     assert set(s) == {"cargo", "module", "probe", "robot", "liner"}
     contract = {   # kind: (pegada, sprite_size, lift, caixa)
-        "cargo": ((5, 3), (160, 128), 32, (1, 3)),
-        "module": ((8, 4), (256, 168), 40, (5, 4)),
-        "probe": ((2, 2), (64, 64), 0, (2, 1)),
-        "robot": ((3, 2), (96, 64), 0, (3, 1)),
-        "liner": ((5, 3), (160, 120), 24, (2, 3)),
+        "cargo": ((14, 7), (448, 272), 48, (7, 7)),
+        "module": ((14, 5), (448, 294), 134, (10, 5)),
+        "probe": ((3, 2), (96, 96), 32, (3, 1)),
+        "robot": ((3, 2), (96, 72), 8, (3, 1)),
+        "liner": ((9, 4), (288, 208), 80, (3, 4)),
     }
     for kind, (size, sprite_size, lift, crate) in contract.items():
         spec = s[kind]
@@ -120,13 +120,18 @@ def test_specs_match_sprite_contract():
         assert spec.sprite == f"wreck_{kind}"
         assert spec.sprite_size == (size[0] * 32, size[1] * 32 + lift), kind   # só passa da pegada pra cima
         assert (spec.terminal is None) == (kind != "module")
-    assert s["module"].terminal == (4, 2) and s["module"].reads_from == (4, 4)
-    assert s["module"].terminal_rect == (138, 117, 20, 17)
+    assert s["module"].terminal == (8, 4) and s["module"].reads_from == (8, 5)
+    assert s["module"].terminal_rect == (251, 224, 32, 26)
+    assert s["probe"].led_rect == (34, 55, 3, 2)
+    assert (s["cargo"].hatch, s["cargo"].hatch_from) == ((12, 6), (12, 7))
+    assert all(s[k].hatch is None for k in s if k != "cargo")
+    assert {k for k in s if s[k].variants} == {"cargo", "robot", "liner"}
     w = wrecks.Wreck("cargo", 10, 20, 0)
-    assert w.blit_pos == (320, 640 - 32) and w.anchor == ((10 + 2.5) * 32, (20 + 3) * 32)
-    assert w.sprite_rect == (320, 640 - 32, 160, 128)
+    assert w.blit_pos == (320, 640 - 48) and w.anchor == ((10 + 7) * 32, (20 + 7) * 32)
+    assert w.sprite_rect == (320, 640 - 48, 448, 272)
+    assert w.hatch == (22, 26) and w.hatch_from == (22, 27)
     m = wrecks.Wreck("module", 10, 20, 0)
-    assert m.terminal == (14, 22) and m.reads_from == (14, 24)
+    assert m.terminal == (18, 24) and m.reads_from == (18, 25)
 
 
 def test_reads_from_defaults_to_tile_below_terminal():
@@ -345,3 +350,29 @@ def test_rich_wreck_is_not_cargo():
         world = make_surface(seed).world
         rich = [w for w in world.wrecks if w.rich]
         assert all(w.kind == C.WRECK_RICH_KIND != "cargo" for w in rich)
+
+
+def test_variants_are_deterministic_and_both_show_up():
+    w = wrecks.Wreck("robot", 40, 50, 6)
+    assert w.variant == wrecks.Wreck("robot", 40, 50, 9).variant in ("a", "b")
+    assert wrecks.Wreck("probe", 40, 50, 1).variant == "" and wrecks.Wreck("module", 3, 3, 1).variant == ""
+    seen = {wrecks.Wreck("liner", x, 7, 3).variant for x in range(30, 60)}
+    assert seen == {"a", "b"}
+
+
+def test_variant_does_not_touch_generation():
+    a = [(w.kind, w.tx, w.ty, w.log, w.blueprint) for w in generate_surface(11).wrecks]
+    [w.variant for w in generate_surface(11).wrecks]
+    assert a == [(w.kind, w.tx, w.ty, w.log, w.blueprint) for w in generate_surface(11).wrecks]
+
+
+@pytest.mark.parametrize("seed", list(range(0, 200, 7)))
+def test_big_footprints_lose_no_wreck(seed):
+    """v0.7 M4: com as pegadas maiores todo mundo ainda recebe todos os destroços (a Designer rodou 0-199)."""
+    world = generate_surface(seed)
+    outside = [w for w in world.wrecks if not w.rich]
+    assert len(outside) >= C.WRECK_COUNT[0]
+    assert [w.kind for w in outside] == wrecks.kinds_for(len(outside))
+    assert wrecks.vesper_wreck(world) is outside[0]
+    for w in outside:
+        assert w.hatch is None or world.is_floor(*w.hatch_from)
