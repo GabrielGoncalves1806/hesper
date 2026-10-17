@@ -1038,7 +1038,15 @@ class App:
         if self.open_drill is not None and inv is self.open_drill.storage:
             return "A drill só produz: não guarda nada"
         if self.open_melter is not None and inv is self.open_melter.storage:
-            return None if (index == C.MELTER_ICE_SLOT and item == "ice") else "O derretedor só aceita gelo"
+            # v0.8 M6: [0] gelo, [2] vazias (a garrafa é recurso), [1] as cheias só saem
+            if index == C.MELTER_CAPSULE_SLOT:
+                return "A saída do derretedor só dá pra tirar"
+            want = "ice" if index == C.MELTER_ICE_SLOT else C.EMPTY_CAPSULE
+            if item == want:
+                return None
+            if item in ("ice", C.EMPTY_CAPSULE):
+                return "A vazia vai no slot VAZIAS" if item == C.EMPTY_CAPSULE else "O gelo vai no slot GELO"
+            return "O derretedor só aceita gelo e cápsula vazia"
         if self.open_smelter is not None and inv is self.open_smelter.storage:
             smelter = self.open_smelter                  # v0.6 Fundo M3: [0] ferro/cobre, [1] magmatita, [2] só tira
             if index == C.SMELTER_ORE_SLOT and item in C.SMELTER_RECIPES:
@@ -1092,7 +1100,7 @@ class App:
             return True
         refusal = self.panel_refusal(inv, index, held.item)
         if refusal is None and inv is not state.inventory and self.open_melter is not None                 and inv is self.open_melter.storage and slot is not None and slot.item != held.item:
-            refusal = "O derretedor só aceita gelo"
+            refusal = "O derretedor só aceita gelo e cápsula vazia"
         if refusal is not None:
             self.show_notice(refusal)
             return False
@@ -1188,17 +1196,17 @@ class App:
             else:
                 self.show_notice("A drill só produz: não guarda nada")
             return
-        if self.open_melter is not None:                 # gelo entra na entrada, a cápsula (e o gelo) sai
+        if self.open_melter is not None:                 # gelo e vazias entram (v0.8 M6), a cápsula (e o resto) sai
             melter = self.open_melter
             if inv is melter.storage:
                 moved = state.melter_take(melter, i, amount)
-            elif item != "ice":
-                self.show_notice("O derretedor só aceita gelo")
+            elif item not in ("ice", C.EMPTY_CAPSULE):
+                self.show_notice("O derretedor só aceita gelo e cápsula vazia")
                 return
             else:
                 moved = state.melter_put(melter, i, amount)
                 if not moved:
-                    self.show_notice("Entrada de gelo cheia")
+                    self.show_notice("Entrada de gelo cheia" if item == "ice" else "Slot de vazias cheio")
             if moved:
                 self.audio.play("inv_move")
             return
@@ -1461,12 +1469,11 @@ class App:
         return text
 
     def melter_status(self) -> str:
-        """Linha de estado no painel do derretedor: "1 A CADA 20 S", "SEM GELO", "SAÍDA CHEIA"."""
+        """Linha de estado no painel do derretedor: "1 A CADA 20 S", "SEM VAZIA" (v0.8 M6), "SEM GELO", "SAÍDA CHEIA"."""
         melter = self.open_melter
-        if melter.capsules_full:
-            return "SAÍDA CHEIA"
-        if melter.ice < C.MELTER_ICE_PER_CAPSULE:
-            return "SEM GELO"
+        label = {"out_full": "SAÍDA CHEIA", "no_empty": "SEM VAZIA", "no_ice": "SEM GELO"}.get(melter.melter_blocker)
+        if label is not None:
+            return label
         text = f"1 A CADA {C.MELTER_CAPSULE_TIME[melter.kind]:g} S"
         if self.state.power.deficit:
             text += f" · RITMO {self.power_percent()}%"
@@ -2368,7 +2375,8 @@ class App:
                 content += f" · ritmo {self.power_percent()}%"
             return content + (" · [E] abrir · [Shift+E] coletar" if target and target[1] is machine else other)
         if machine and machine.is_melter:                  # v0.5 M2: gelo dentro, cápsulas prontas
-            content = f"{C.MACHINES[machine.kind].name}: {machine.ice} gelo · {machine.capsules} cápsula(s)"
+            content = (f"{C.MACHINES[machine.kind].name}: {machine.ice} gelo"           # v0.8 M6: + as vazias
+                       f" · {machine.storage.count(C.EMPTY_CAPSULE)} vazia(s) · {machine.capsules} cheia(s)")
             return content + (" · [E] abrir" if target and target[1] is machine else other)
         if machine and machine.is_smelter:                 # v0.6 Fundo M3: minério, magmatita e lingotes dentro
             ore = machine.storage.slots[C.SMELTER_ORE_SLOT]

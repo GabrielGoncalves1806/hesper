@@ -53,6 +53,7 @@ def found_magmatite(state: GameState) -> bool:
 
 
 COLLECTOR_HINT = "Pouco gelo? O coletor de água puxa a umidade do ar."
+MELTER_HINT = "O derretedor enche cápsulas vazias: fabrique algumas (silício) e ponha nele."   # v0.8 M6: a garrafa é recurso
 SCAN_HINT = "Use o construtor pra escanear as máquinas quebradas do lab: com ele na mão, segure o clique nelas."
 
 
@@ -96,7 +97,7 @@ OBJECTIVES = [
     Objective("Construa um baú", lambda s: any(crafted(s, k) >= 1 for k in C.CHEST_KINDS)),
     # v0.4 Marco 3 (ordem decidida pelo dono): o calor só sai do aquecedor, que libera no Ti 500. Então o trio
     # Derretedor -> Ti 500 -> Aquecedor vem antes da cratera.
-    Objective("Minere gelo e construa um Derretedor", lambda s: crafted(s, "melter") >= 1),
+    Objective("Minere gelo e construa um Derretedor", lambda s: crafted(s, "melter") >= 1, hint=MELTER_HINT),
     Objective("Chegue a Ti 500", lambda s: s.ti >= 500),
     # v0.4 (bíblia §12 "Magmatita"): o Aquecedor custa magmatita, que só nasce em volta das fumarolas do basalto.
     # Quem já fabricou um Aquecedor (save de antes dela) não volta pra cá.

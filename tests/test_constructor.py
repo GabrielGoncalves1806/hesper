@@ -77,7 +77,8 @@ def test_constructor_is_the_first_cheap_iron_recipe():
 def test_fabricator_lists_only_items_and_the_constructor_only_machines():
     fab = craft_menu()
     fab_kinds = [k for t, _ in fab.tabs for k in fab.kinds_of(t)]
-    assert sorted(fab_kinds) == sorted(["constructor", "diagram_chest_large", "diagram_workbench", "wire"])   # M5: o resto é da Bancada T2
+    assert sorted(fab_kinds) == sorted(["constructor", "diagram_chest_large", "diagram_workbench", "wire",
+                                                 C.EMPTY_CAPSULE])   # v0.8 M6: a cápsula vazia   # M5: o resto é da Bancada T2
     build = build_menu()
     build_kinds = [k for t, _ in build.tabs for k in build.kinds_of(t)]
     # v0.7 M2: os props só entram na aba Decoração depois de conhecidos (de cara, só os 4 iniciais)

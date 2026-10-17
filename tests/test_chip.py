@@ -100,7 +100,7 @@ def test_what_each_machine_accepts():
     assert [i for i in C.LOGISTIC_ITEMS if drones.can_send(drill, i)] == ["iron"]
     assert [i for i in C.LOGISTIC_ITEMS if drones.can_receive(drill, i)] == []
     assert [i for i in C.LOGISTIC_ITEMS if drones.can_send(melter, i)] == ["water_capsule"]
-    assert [i for i in C.LOGISTIC_ITEMS if drones.can_receive(melter, i)] == ["ice"]
+    assert [i for i in C.LOGISTIC_ITEMS if drones.can_receive(melter, i)] == ["ice", C.EMPTY_CAPSULE]   # v0.8 M6: + as vazias
     assert [i for i in C.LOGISTIC_ITEMS if drones.can_send(disp, i)] == [C.EMPTY_CAPSULE]   # v0.8 M2: as vazias
     assert [i for i in C.LOGISTIC_ITEMS if drones.can_receive(disp, i)] == ["water_capsule"]
 
@@ -196,7 +196,8 @@ def test_ui_chip_slot_and_hint(ui):
     s.chip_install(melter)
     ui.begin()
     ui.draw_inventory(s.inventory, melter, 0, icon, (0, 0))
-    assert [v for _, v in ui.logistics_buttons if v[0] != "batch"] == [("send", "water_capsule"), ("recv", "ice")]
+    assert [v for _, v in ui.logistics_buttons if v[0] != "batch"] == [("send", "water_capsule"), ("recv", "ice"),
+                                                                          ("recv", C.EMPTY_CAPSULE)]   # v0.8 M6
     disp = Machine(C.DISPENSER, 0, 0, chip=True)
     ui.begin()
     ui.draw_inventory(s.inventory, disp, 0, icon, (0, 0))

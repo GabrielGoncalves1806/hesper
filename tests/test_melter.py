@@ -21,13 +21,15 @@ def game() -> GameState:
 
 
 def add_melter(game, kind="melter", tile=(64, 70), ice=0, capsules=0, sends=("water_capsule",), receives=(),
-               chip=True) -> Machine:
+               chip=True, empties=0) -> Machine:
     """Derretedor na rede (v0.6 M2: com chip, por padrão). `receives` ligado só quando o teste pedir."""
     m = Machine(kind, *tile, sends=set(sends), receives=set(receives), chip=chip)
     if ice:
         m.storage.slots[C.MELTER_ICE_SLOT] = Stack("ice", ice)
     if capsules:
         m.storage.slots[C.MELTER_CAPSULE_SLOT] = Stack("water_capsule", capsules)
+    if empties:                                    # v0.8 M6: o derretedor só enche vazia
+        m.storage.slots[C.MELTER_EMPTY_SLOT] = Stack(C.EMPTY_CAPSULE, empties)
     game.machines.append(m)
     return m
 
@@ -47,14 +49,14 @@ def test_item_is_registered_not_craftable_and_stacks():
 
 
 # ---------------------------------------------------------------- produção
-def test_melter_has_two_slots(game):
+def test_melter_has_its_slots(game):            # v0.8 M6: 3 (gelo, cheias, vazias)
     m = Machine("melter", 5, 5)
     assert len(m.storage) == C.MELTER_SLOTS and m.is_logistic and m.needs_chip and not m.in_network
     assert Machine("melter_t2", 5, 5).is_melter
 
 
 def test_makes_capsule_from_ice(game):
-    m = add_melter(game, ice=10)
+    m = add_melter(game, ice=10, empties=1)
     run(game, C.MELTER_CAPSULE_TIME["melter"] + 0.5)
     assert m.capsules == 1 and m.ice == 10 - C.MELTER_ICE_PER_CAPSULE
 
@@ -67,7 +69,7 @@ def test_no_ice_no_capsule(game):
 
 def test_full_output_stops_capsules_and_keeps_ice_but_terraforms(game):
     full = max_stack("water_capsule")
-    m = add_melter(game, ice=20, capsules=full)
+    m = add_melter(game, ice=20, capsules=full, empties=1)
     assert m.capsules_full
     water = game.indices["water"]
     run(game, C.MELTER_CAPSULE_TIME["melter"] * 2)

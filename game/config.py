@@ -283,12 +283,14 @@ MACHINES["drill"] = MachineType("drill", "Drill automática", "+ minério", DRIL
 # ---------------------------------------------------------------------------
 # A cápsula é um item (empilha como máquina, STACK_MACHINE) que só sai do derretedor: não tem receita nem categoria
 # (registrada DEPOIS do MACHINE_ORDER, que fica sem ela), então nenhum menu de fabricar mostra. O Dispersor de O₂ (Dev C) vai gastar.
-# Derretedor (nv.1 e nv.2): inventário de 2 slots, [0] entrada de gelo e [1] saída de cápsulas. Terraforma como
-# sempre; em paralelo gasta MELTER_ICE_PER_CAPSULE de gelo a cada MELTER_CAPSULE_TIME s e põe 1 cápsula na saída.
-# Saída cheia (1 pilha): não faz cápsula e NÃO gasta gelo; a terraformação segue igual. Números provisórios (balanceamento depois).
+# Derretedor (nv.1 e nv.2): inventário de 3 slots, [0] entrada de gelo, [1] saída de cápsulas e [2] vazias (v0.8 M6).
+# Terraforma como sempre; em paralelo gasta MELTER_ICE_PER_CAPSULE de gelo + 1 vazia a cada MELTER_CAPSULE_TIME s e põe
+# 1 cápsula na saída. Sem vazia ou com a saída cheia (1 pilha): não faz cápsula e NÃO gasta gelo; a terraformação segue
+# igual. Números provisórios (balanceamento depois).
 MELTER_KINDS = ("melter", "melter_t2")
 MELTER_ICE_SLOT, MELTER_CAPSULE_SLOT = 0, 1
-MELTER_SLOTS = 2
+MELTER_EMPTY_SLOT = 2           # v0.8 M6: VAZIAS. A garrafa é recurso: o derretedor só enche vazia (gelo + 1 vazia → 1 cheia)
+MELTER_SLOTS = 3
 MELTER_ICE_PER_CAPSULE = 2
 MELTER_CAPSULE_TIME = {"melter": 20.0, "melter_t2": 10.0}   # segundos por cápsula (× fator da energia)
 MELTER_REACH = 56               # px entre os pés do player e a base do derretedor pro E (igual à drill)
@@ -1551,6 +1553,13 @@ MACHINES[FERTILIZER] = MachineType(FERTILIZER, "Adubo", "Cultivador cresce 2× p
                                    None, 0, 0, "icon_fertilizer", placeable=False)
 FERTILIZER_TIME, FERTILIZER_BOOST, FERTILIZER_MAX = 120.0, 2.0, 600.0
 CRAFT_YIELD = {**CRAFT_YIELD, FERTILIZER: 2}
+
+# v0.8 M6 · A garrafa é recurso (bíblia §17, dono 2026-10-17): a cápsula vazia é fabricada (fabricador, aba Materiais, onde
+# estão os fios; 1 silício → 2, número de partida) e o derretedor só enche vazia. Ninguém ganha vazia de graça.
+MACHINES[EMPTY_CAPSULE] = _replace(MACHINES[EMPTY_CAPSULE], cost={"silicon": 1}, desc="o derretedor e o Coletor enchem")
+MACHINE_ORDER.insert(MACHINE_ORDER.index("circuit") + 1, EMPTY_CAPSULE)
+MACHINE_CATEGORY[EMPTY_CAPSULE] = "materials"
+CRAFT_YIELD = {**CRAFT_YIELD, EMPTY_CAPSULE: 2}
 
 # Drone nv.2: vai na estação como o drone; voa mais rápido e pega/solta mais depressa.
 DRONE_T2 = "drone_t2"

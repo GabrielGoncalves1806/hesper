@@ -148,7 +148,7 @@ class Machine:
 
     @property
     def is_melter(self) -> bool:
-        """Derretedor (nv.1 ou nv.2): terraforma e, de brinde, faz cápsula de água do gelo do inventário dele."""
+        """Derretedor (nv.1 ou nv.2): terraforma e, de brinde, enche cápsula vazia com o gelo do inventário dele."""
         return self.kind in C.MELTER_KINDS
 
     @property
@@ -277,6 +277,18 @@ class Machine:
             return 0
         stack = self.storage.slots[C.MELTER_CAPSULE_SLOT]
         return stack.room if stack else max_stack("water_capsule")
+
+    @property
+    def melter_blocker(self) -> str | None:
+        """Derretedor: por que não enche cápsula agora (v0.8 M6): "out_full" (saída cheia), "no_empty" (sem vazia: a
+        garrafa é recurso), "no_ice"; None = enchendo. A terraformação não depende disso."""
+        if self.capsule_room <= 0:
+            return "out_full"
+        if self.storage.slots[C.MELTER_EMPTY_SLOT] is None:
+            return "no_empty"
+        if self.ice < C.MELTER_ICE_PER_CAPSULE:
+            return "no_ice"
+        return None
 
     @property
     def stored(self) -> int:
@@ -1650,19 +1662,20 @@ class GameState:
         return self.chip_remove(machine)
 
     def melter_put(self, melter: Machine, index: int, amount: int | None = None) -> int:
-        """Põe gelo do slot `index` do inventário do player na entrada do derretedor (`amount` None = a pilha
-        inteira, 1 = clique direito). Só entra gelo, e só até a pilha encher. Devolve quanto entrou."""
+        """Põe do slot `index` do inventário do player no derretedor (`amount` None = a pilha inteira, 1 = clique
+        direito): o gelo na entrada, a cápsula vazia no slot VAZIAS (v0.8 M6). Outra coisa não entra; só até a pilha
+        encher. Devolve quanto entrou."""
         stack = self.inventory.slots[index]
-        if stack is None or stack.item != "ice":
+        slot = {"ice": C.MELTER_ICE_SLOT, C.EMPTY_CAPSULE: C.MELTER_EMPTY_SLOT}.get(stack.item) if stack else None
+        if slot is None:
             return 0
-        slot = C.MELTER_ICE_SLOT
         have = melter.storage.slots[slot]
         room = stack.max - (have.count if have else 0)
         moved = min(room, stack.count if amount is None else min(amount, stack.count))
         if moved <= 0:
             return 0
         if have is None:
-            melter.storage.slots[slot] = Stack("ice", moved)
+            melter.storage.slots[slot] = Stack(stack.item, moved)
         else:
             have.count += moved
         self.inventory.remove_from_slot(index, moved)
@@ -2197,11 +2210,12 @@ class GameState:
         m.grow_blocker = self.cultivator_blocker(m, layer, factor)
 
     def _update_melter(self, melter: Machine, dt: float) -> None:
-        """Cápsulas de água (v0.5 M2): a cada MELTER_CAPSULE_TIME s gasta MELTER_ICE_PER_CAPSULE de gelo da entrada
-        e põe 1 cápsula na saída. Sem gelo ou com a saída cheia, para (o progresso fica guardado) e não gasta gelo.
-        A terraformação não passa por aqui: segue em _update_machines como sempre."""
+        """Cápsulas de água (v0.5 M2; v0.8 M6: a garrafa é recurso): a cada MELTER_CAPSULE_TIME s gasta
+        MELTER_ICE_PER_CAPSULE de gelo da entrada e 1 vazia do slot VAZIAS e põe 1 cápsula na saída. Sem gelo, sem vazia
+        ou com a saída cheia, para (o progresso fica guardado) e não gasta nada. A terraformação não passa por aqui:
+        segue em _update_machines como sempre."""
         need_time = C.MELTER_CAPSULE_TIME[melter.kind]
-        while dt > 0 and melter.ice >= C.MELTER_ICE_PER_CAPSULE and melter.capsule_room > 0:
+        while dt > 0 and melter.melter_blocker is None:
             left = need_time - melter.timer
             if dt < left:
                 melter.timer += dt
@@ -2209,6 +2223,7 @@ class GameState:
             dt -= left
             melter.timer = 0.0
             melter.storage.remove("ice", C.MELTER_ICE_PER_CAPSULE)
+            melter.storage.remove_from_slot(C.MELTER_EMPTY_SLOT, 1)
             stack = melter.storage.slots[C.MELTER_CAPSULE_SLOT]
             if stack is None:
                 melter.storage.slots[C.MELTER_CAPSULE_SLOT] = Stack("water_capsule", 1)

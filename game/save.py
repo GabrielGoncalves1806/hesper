@@ -62,7 +62,8 @@ Cultivador (v16): {"kind": "cultivator", ..., "growth": 0.55, "tank": 3.4, "stor
         O gelo da porta do laboratório NÃO vai no save: sai do calor (`progress.indices.heat`), como os gelos-portão.
 Derretedor (v0.5 M2, ainda v8): {"kind": "melter", ..., "timer": 4.0, "storage": [["ice", 12], ["water_capsule", 2]],
         "sends": ["water_capsule"], "receives": [], "batch": 10}. Slot 0 = gelo, slot 1 = cápsulas. Sem "storage"
-        (derretedor de antes) carrega vazio: não precisou subir a versão.
+        (derretedor de antes) carrega vazio: não precisou subir a versão. v0.8 M6 (ainda v17): slot 2 = cápsulas vazias
+        (a garrafa é recurso); o derretedor de 2 slots carrega com o slot 2 livre (sem vazia de presente).
 Fundição (v0.6 Fundo M3, ainda v12): {"kind": "smelter", ..., "timer": 7.5, "fuel": 3, "storage": [["copper", 6],
         ["magmatite", 2], ["copper_ingot", 3]], "sends": [...], "receives": [...], "batch": 10, "chip": true}.
         Slot 0 = minério, 1 = magmatita, 2 = lingote; `fuel` = fundições que restam da magmatita acesa. Save sem
@@ -319,9 +320,11 @@ def inventory_from_dict(state: GameState, data: dict) -> None:
 
 
 def melter_storage(data: list) -> Inventory:
-    """Inventário do derretedor do save: slot 0 só gelo, slot 1 só cápsula (outra coisa vira vazio)."""
+    """Inventário do derretedor do save: slot 0 só gelo, slot 1 só cápsula, slot 2 só vazia (v0.8 M6; o save v17 de
+    antes só tem 2 slots: o das vazias carrega livre, sem presente). Outra coisa vira vazio."""
     inv = Inventory(C.MELTER_SLOTS)
-    for slot, item in ((C.MELTER_ICE_SLOT, "ice"), (C.MELTER_CAPSULE_SLOT, "water_capsule")):
+    for slot, item in ((C.MELTER_ICE_SLOT, "ice"), (C.MELTER_CAPSULE_SLOT, "water_capsule"),
+                       (C.MELTER_EMPTY_SLOT, C.EMPTY_CAPSULE)):
         d = data[slot] if slot < len(data) else None
         if d and d[0] == item and int(d[1]) > 0:
             inv.slots[slot] = Stack(item, min(int(d[1]), max_stack(item)))

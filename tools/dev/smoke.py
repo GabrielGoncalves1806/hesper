@@ -1111,7 +1111,7 @@ def check_melter(bot) -> None:
     bot.shot("derretedor_sem_chip.png")
     put_chip_in_machine(bot, melter)
     assert melter.chip and melter.receives == set() and melter in s.drone_logistics()   # o chip não marca nada (dono)
-    assert [v for _, v in app.ui.logistics_buttons if v[0] == "recv"] == [("recv", "ice")]
+    assert [v for _, v in app.ui.logistics_buttons if v[0] == "recv"] == [("recv", "ice"), ("recv", C.EMPTY_CAPSULE)]
     recv = next(r for r, v in app.ui.logistics_buttons if v == ("recv", "ice"))
     bot.click((recv.centerx * 2, recv.centery * 2))                   # o player marca o Recebe do gelo
     assert melter.receives == {"ice"}
@@ -1119,7 +1119,7 @@ def check_melter(bot) -> None:
     iron_slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == "iron")
     bot.click(slot_pos(bot, s.inventory, iron_slot))                  # ferro no cursor, solta na entrada: recusa
     bot.click(slot_pos(bot, melter.storage, C.MELTER_ICE_SLOT))
-    assert app.notice == "O derretedor só aceita gelo" and melter.ice == 0 and app.held is not None
+    assert app.notice == "O derretedor só aceita gelo e cápsula vazia" and melter.ice == 0 and app.held is not None
     bot.click(slot_pos(bot, s.inventory, iron_slot))
     bot.click(slot_pos(bot, s.inventory, ice_slot))                   # gelo no cursor, solta na entrada
     bot.click(slot_pos(bot, melter.storage, C.MELTER_ICE_SLOT))
@@ -1127,6 +1127,15 @@ def check_melter(bot) -> None:
     send = next(r for r, v in app.ui.logistics_buttons if v == ("send", "water_capsule"))
     bot.click((send.centerx * 2, send.centery * 2))
     assert melter.sends == {"water_capsule"}
+    s._update_melter(melter, C.MELTER_CAPSULE_TIME["melter"] * 3)
+    assert melter.capsules == 0 and app.melter_status() == "SEM VAZIA"   # v0.8 M6: a garrafa é recurso
+    bot.frames(0.2)
+    bot.shot("derretedor_sem_vazia.png")
+    give(s, **{C.EMPTY_CAPSULE: max_stack_capsule()})
+    empty_slot = next(i for i, st in enumerate(s.inventory.slots) if st and st.item == C.EMPTY_CAPSULE)
+    bot.click(slot_pos(bot, s.inventory, empty_slot))                 # vazias no cursor, solta no slot VAZIAS
+    bot.click(slot_pos(bot, melter.storage, C.MELTER_EMPTY_SLOT))
+    assert melter.storage.count(C.EMPTY_CAPSULE) == max_stack_capsule() and app.held is None
     s._update_melter(melter, C.MELTER_CAPSULE_TIME["melter"] * 3)
     assert melter.capsules == 3
     bot.frames(0.2)
