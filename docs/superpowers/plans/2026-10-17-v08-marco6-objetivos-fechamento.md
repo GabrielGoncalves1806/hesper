@@ -46,7 +46,8 @@
 |---|---|---|
 | 1 (paralelo) | 1 Objetivos · 2 DRONES no Grande · 3 Plantas no `balance_sim` | arquivos diferentes (`objectives`/`systems`/`save` · `ui` · `tools/dev`) |
 | 2 (dono + gerente) | 4 Ritmo das plantas | o dono decide os números com o report da Task 3 |
-| 3 | 5 Prints, report e merge de marco | depende de tudo |
+| 3 | 6 O derretedor enche vazia | entrou no meio do M6 (dono) |
+| 4 | 5 Prints, report e merge de marco | depende de tudo |
 
 Cada task tem o seu arquivo de teste: `tests/test_m6_objectives_v08.py`, `test_m6_drones_fit_v08.py` e `test_m6_balance_v08.py`.
 
@@ -222,6 +223,46 @@ Rode também `tests/test_objectives.py`, `tests/test_save.py` e os testes do Cul
 4. `uv run pytest` passando, lido no `tail -1` do log.
 
 Ajuste de número fica só no pytest, sem smoke (regra do dono, 2026-10-16).
+
+---
+
+### Task 6: O derretedor enche vazia (entrou no meio do M6, dono 2026-10-17)
+
+**Por quê:** o derretedor cria cápsula do zero e o Dispersor e o Cultivador transformam cada cheia gasta em 1 vazia. Então toda cápsula do derretedor vira uma vazia a mais pra sempre, e o único jeito de uma vazia sumir é o Coletor (ou a saída cheia). Decisão na bíblia §17, "O derretedor enche vazia".
+
+**Files:** `game/config.py` (`MELTER_EMPTY_SLOT`, `MELTER_SLOTS`), `game/systems.py` (`_update_melter`, o storage do derretedor, `capsule_room` se precisar), `game/drones.py` (o derretedor recebe vazia), `game/app.py` (o slot aceita vazia; dica do E), `game/ui.py` (painel do derretedor), `game/save.py`, `tests/test_m6_melter_empty_v08.py`
+
+**Interfaces:**
+- Produces: `C.MELTER_EMPTY_SLOT = 2`, `C.MELTER_SLOTS = 3`. Os slots 0 (gelo) e 1 (cheias) **não mudam de índice**, pra o save antigo continuar batendo.
+
+**Regras:**
+1. A cada `MELTER_CAPSULE_TIME` o derretedor gasta `MELTER_ICE_PER_CAPSULE` de gelo, como hoje. Se tiver vazia no slot 2, gasta 1 vazia também. Sem vazia, a cápsula nasce do zero, como hoje. O tempo e o gelo são os mesmos nos dois casos.
+2. O slot 2 só aceita `C.EMPTY_CAPSULE`, pelo clique, pelo shift+clique e pelos drones. Pilha normal da vazia.
+3. **Drones:**
+   - o derretedor **recebe** gelo e vazia;
+   - vazia entra no slot 2;
+   - o derretedor continua mandando só cheias;
+   - os drones nunca tiram a vazia do derretedor.
+   - Confira o `can_receive`/`can_send` e o roteamento das vazias: hoje elas vão pro Coletor. Com Coletor e derretedor querendo vazia, os dois recebem pela regra que já existe (maior falta e menor viagem). Não invente prioridade nova (a prioridade dos drones está no Futuro).
+4. **Painel do derretedor:**
+   - o slot VAZIAS ao lado do gelo, com rótulo;
+   - o estado diz se está enchendo vazia ou criando nova (texto curto);
+   - a seção DRONES ganha a vazia no Recebe.
+   - Teste de altura nos 3 tamanhos, com a mochila nv.1 e com a T2 (molde: `tests/test_m6_drones_fit_v08.py`): nada passa da moldura da hotbar nem da linha de ajuda. **Não** use o `*_LOGI_Y` das máquinas do lab: o derretedor tem o dele (`DISP_LOGI_Y`).
+5. **Save:** o derretedor de save v17 tem 2 slots. Se o load já completar o storage de slots fixos (confira `save.py` ~324 e ~412), não precisa de versão nova. Se precisar, `SAVE_VERSION = 18`, com `_v17_to_v18`. Conte no report qual dos dois.
+6. **Desmontar** o derretedor devolve as vazias junto do resto, como as outras máquinas fazem com o storage.
+
+**Testes** (no mínimo):
+- [ ] com vazia no slot 2, 1 ciclo gasta 1 vazia + o gelo e põe 1 cheia;
+- [ ] sem vazia, a cheia nasce do zero e não gasta nada além do gelo;
+- [ ] **conservação:** derretedor + Dispersor com 1 drone, rodando N ciclos: o total de cápsulas (cheias + vazias, em todo lugar) não cresce enquanto houver vazia voltando;
+- [ ] o slot 2 recusa outro item; o slot 0 continua recusando vazia;
+- [ ] o drone leva vazia pro derretedor e nunca tira de lá;
+- [ ] round-trip do save com vazias no derretedor; um derretedor de save v17 (2 slots) carrega;
+- [ ] desmontar devolve as vazias;
+- [ ] altura do painel nos 3 tamanhos × nv.1/T2.
+
+Rode também os testes do derretedor, do Dispersor, do Coletor, dos drones e do save (`grep -l "melter\|dispenser\|collector\|drone" tests/`). Print headless do painel do derretedor no Grande com vazias, em `reports/dev/v08_m6_derretedor.png`; abra com Read. Report `reports/dev/v08_m6_task6.md`.
 
 ---
 
