@@ -63,6 +63,13 @@ def wide_row_height(n: int) -> int:
     """Altura de uma fileira larga (rótulo em cima e os botões 20×20 em linhas de 8) com `n` materiais."""
     lines = -(-n // LOGI_WIDE_COLS)
     return 9 + lines * (LOGI_WIDE_BTN + 2)
+
+
+def logi_row_cap(machine) -> int:
+    """Quantos botões cabem numa fileira normal (não larga) da seção DRONES: com chip, o slot dele ocupa a ponta
+    direita (o Cultivador manda 5 itens: o 5º ficava debaixo do chip), então a fileira quebra antes."""
+    room = GRID_W - LOGI_COL - (SLOT + 4 if machine.needs_chip else 0)
+    return max(1, (room + 3) // (LOGI_BTN + 3))
 # painéis lado a lado (baú, drill, estação, caixa): inventário | botões do meio | o outro lado
 HELP_CURSOR = [("CLIQUE", "pega/solta"), ("DIR", "metade/1"), ("SHIFT+CLIQUE", "manda direto"), ("ESC", "fecha")]
 SIDE_W = GRID_W + 16                             # 8 de margem dos dois lados da grade
@@ -2230,7 +2237,7 @@ class UI:
         rows = 0
         for allowed in (drones.can_send, drones.can_receive):
             n = len([i for i in C.LOGISTIC_ITEMS if allowed(machine, i)])
-            rows += 0 if n == 0 else wide_row_height(n) if n > LOGI_WIDE_AFTER else LOGI_ROW
+            rows += 0 if n == 0 else wide_row_height(n) if n > LOGI_WIDE_AFTER else -(-n // logi_row_cap(machine)) * LOGI_ROW
         batch = 2 + LOGI_BATCH_H if any(drones.can_send(machine, i) for i in C.LOGISTIC_ITEMS) else 0
         height = 14 + rows + batch
         return max(height, 14 + 2 * LOGI_ROW) if machine.needs_chip else height
@@ -2300,11 +2307,13 @@ class UI:
                        for k in range(len(items))]
             else:
                 self.tx(label, x, ry + 2, B_MUTED, self.body)
-                row = [pygame.Rect(col + k * (LOGI_BTN + 3), ry, LOGI_BTN, LOGI_BTN) for k in range(len(items))]
+                cap = logi_row_cap(machine)
+                row = [pygame.Rect(col + (k % cap) * (LOGI_BTN + 3), ry + (k // cap) * LOGI_ROW, LOGI_BTN, LOGI_BTN)
+                       for k in range(len(items))]
             for rect, item in zip(row, items):
                 self._toggle(rect, item, item in chosen, color, item_icon, mouse)
                 self.logistics_buttons.append((rect, (kind, item)))
-            ry += wide_row_height(len(items)) if wide else LOGI_ROW
+            ry += wide_row_height(len(items)) if wide else -(-len(items) // logi_row_cap(machine)) * LOGI_ROW
         if not any(drones.can_send(machine, i) for i in C.LOGISTIC_ITEMS):
             return                                   # quem só recebe não tem Lote ("quanto o drone tira daqui")
         ry += 2

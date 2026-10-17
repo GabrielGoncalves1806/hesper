@@ -705,3 +705,31 @@ def test_v16_roundtrip_does_not_add_more_algae():
     _lab_crate(twice).storage.remove("algae", 1)                      # o jogador tirou: um v16 não devolve
     again = save.state_from_dict(save.migrate(save.state_to_dict(twice)))
     assert _lab_crate(again).storage.count("algae") == 0
+
+
+def test_cultivator_send_row_does_not_run_under_the_chip(fresh):
+    """O Cultivador manda 5 itens e tem chip: o 5º botão do Envia ficava debaixo do slot do chip (print do dono)."""
+    from game import ui as ui_mod
+    m = Machine(C.CULTIVATOR, 70, 70, chip=True)
+    ui = fresh.ui
+    ui.begin()
+    ui.logistics_buttons.clear()
+    ui.chip_rects.clear()
+    ui.draw_logistics(0, 0, ui_mod.GRID_W, m, fresh.renderer.item_icon, (0, 0))
+    chip = ui.chip_rects[0][0].inflate(0, 10)                                    # o slot e a legenda CHIP embaixo
+    rects = [r for r, (kind, *_x) in ui.logistics_buttons if kind in ("send", "recv")]
+    assert rects and not any(r.colliderect(chip) for r in rects)
+    assert all(r.right <= ui_mod.GRID_W for r in rects)
+    bottom = max(r.bottom for r, _ in ui.logistics_buttons)
+    assert bottom <= ui.logistics_height(m)                                      # a altura acompanha a quebra
+
+
+def test_chest_label_has_an_icon_for_every_logistic_item(fresh):
+    """Baú configurado pra mandar alga e cápsula vazia: o rótulo no mundo dava KeyError (o jogo fechava)."""
+    icons = fresh.chest_label_icons()
+    assert set(C.LOGISTIC_ITEMS) <= set(icons)
+    chest = Machine("chest", 70, 70)
+    chest.sends = {"algae", C.EMPTY_CAPSULE}
+    chest.receives = set(C.CROP_ITEMS)
+    fresh.ui.begin()
+    fresh.ui.draw_chest_labels([chest], (0, 0), 1.0, icons)

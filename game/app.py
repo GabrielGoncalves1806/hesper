@@ -1483,6 +1483,15 @@ class App:
                 out.append((m, st, m is hovered))
         return out
 
+    def chest_label_icons(self) -> dict:
+        """Ícones 16×16 do rótulo flutuante do baú, um pra cada item com toggle de drone."""
+        icons = {r: self.renderer.surface(f"icon_{r}", lambda r=r: art.icon(r))[0] for r in C.RESOURCES}
+        icons["water_capsule"] = self.renderer.surface("icon_water_capsule", art.water_capsule_icon)[0]
+        for r in C.LOGISTIC_ITEMS + ("silicon_wafer",):   # lingotes, o wafer (save antigo) e, no v0.8, a cápsula vazia e as culturas (faltavam: KeyError e o jogo fechava)
+            if r not in icons:
+                icons[r] = self.renderer._m4_icon(r)
+        return icons
+
     def labeled_chests(self) -> list:
         """Baús que mostram o rótulo flutuante (↓recebe ↑envia Nome): só o que está debaixo do mouse."""
         chest = self.hovered_machine()
@@ -2477,9 +2486,7 @@ class App:
 
         # camada 1: HUD e textos flutuantes
         ui.begin()
-        icons = {r: self.renderer.surface(f"icon_{r}", lambda r=r: art.icon(r))[0] for r in C.RESOURCES}
-        icons["water_capsule"] = self.renderer.surface("icon_water_capsule", art.water_capsule_icon)[0]   # rótulo do baú
-        icons.update({r: self.renderer._m4_icon(r) for r in ("iron_ingot", "copper_ingot", "silicon_wafer")})   # v0.6 M3: lingotes (M4: e o wafer) no rótulo
+        icons = self.chest_label_icons()
         labels = []
         if self.mode == "play":
             ui.draw_chest_labels(self.labeled_chests(), cam, self.zoom, icons)
