@@ -1145,4 +1145,5 @@ Detalhe e números de partida: `docs/superpowers/specs/2026-10-16-v08-plantas-de
 - **Microscópio**: gelo → amostra simples 30% / mutação 15% / rara 5%. **Centrífuga** (libera no estágio Algas): alga + amostra → planta 1, 2 ou 3 por chance. 4 culturas: alga + 3 plantas.
 - **Água**: o Dispersor gasta proporcional ao chão da base (5×5 = 3 min; limites 30–360 s; vários Dispersores não dividem a demanda). Dispersor e cultivador soltam **cápsula vazia**; o **coletor de água** enche vazias com a umidade do ar (superfície, do Úmido em diante, mais rápido na chuva). O derretedor continua criando cápsula sem vazia.
 - **Fora**: Verde funcional (respirar lá fora), fauna (v0.9 · Vida), farm ao ar livre, receitas com as plantas fora do ciclo.
+- **Arte rodada 1, decisões do dono (2026-10-17)** (report `reports/design/v08_plantas/`): **cultivador B** (base cheia, corpo + miolo da cultura por cima); **nomes**: planta 1 **Folha-gota**, planta 2 **Espiral-de-geada**, planta 3 **Lírio-de-Ilves**; **UI do cultivador A** (inventário à esquerda, painel da máquina à direita: água + crescimento, cilindro, colheita, cheias/vazias, drones).
 
