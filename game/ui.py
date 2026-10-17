@@ -577,6 +577,7 @@ class UI:
         if surf is None:
             if len(self._text_cache) > 900:
                 self._text_cache.clear()
+            text = text.replace("→", ">")   # v0.8 M4: as fontes não têm a seta (saía um quadrado: "minério [] lingote")
             if font in (self.body, self.body_big):
                 # A Pixelify Sans junta "fi"/"fl" numa ligadura que fica ilegível em 10 px.
                 # Um "zero-width non-joiner" (invisível) entre as letras impede isso.

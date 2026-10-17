@@ -268,3 +268,13 @@ def test_hover_text_of_the_machines(fresh, monkeypatch):
         monkeypatch.setattr(fresh, "e_target", lambda m=m, kind=kind: (kind, m))
         text = fresh.hint()
         assert text.startswith(head) and text.endswith("· [E] abrir"), text
+
+
+def test_arrow_in_text_is_drawn_as_a_glyph_the_font_has(fresh):
+    """A seta "→" das descrições (Fundição, Coletor, Centrífuga...) saía como quadrado: o UI troca por ">"."""
+    import pygame
+    ui = fresh.ui
+    arrow = ui._render(ui.body, "alga → planta", "#ffffff")
+    plain = ui._render(ui.body, "alga > planta", "#ffffff")
+    assert arrow.get_size() == plain.get_size()
+    assert pygame.image.tobytes(arrow, "RGBA") == pygame.image.tobytes(plain, "RGBA")
