@@ -50,7 +50,7 @@ from game.inventory import Stack
 from game.map_view import MapView
 from game.objectives import ObjectiveTracker
 from game.rain import rain_level
-from game.render import Renderer, art_key, stage_key
+from game.render import MACHINE_ANIM_FPS, Renderer, anim_frame_index, art_key, stage_key
 from game.surfaces import opaque
 from game.systems import Controls, GameState, collector_time, dispenser_capsule_time
 from game.textedit import TextField
@@ -65,8 +65,11 @@ MOVE_KEYS = {
     pygame.K_s: (0, 1), pygame.K_DOWN: (0, 1),
 }
 NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8]
-INVENTORY_MODES = ("inventory", "chest", "drill", "melter", "smelter", "collector", "cultivator", "dispenser", "station", "crate")
-PANEL_MODES = ("chest", "drill", "melter", "smelter", "collector", "cultivator", "dispenser", "station", "crate")          # dois painéis: clique transfere pro outro lado (Planet Crafter)
+B_FAIL_GRAY = "#8b93a8"                               # v0.8 M4: o "falhou" da Centrífuga (o cinza do texto apagado)
+INVENTORY_MODES = ("inventory", "chest", "drill", "melter", "smelter", "collector", "cultivator", "microscope", "centrifuge",
+                   "dispenser", "station", "crate")
+PANEL_MODES = ("chest", "drill", "melter", "smelter", "collector", "cultivator", "microscope", "centrifuge", "dispenser",
+               "station", "crate")          # dois painéis: clique transfere pro outro lado (Planet Crafter)
 ZOOM_IN_KEYS = (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS)     # "=" é a tecla do "+" sem Shift
 ZOOM_OUT_KEYS = (pygame.K_MINUS, pygame.K_KP_MINUS)
 BANNER_TIME = 3.5          # banner de estágio: entra em 0,4 s, fica, sai em 0,8 s
@@ -153,6 +156,8 @@ class App:
         self.open_smelter = None                          # Fundição aberta (Machine), no modo "smelter" (v0.6 Fundo M3)
         self.open_collector = None                        # Coletor de água aberto (Machine), no modo "collector" (v0.8 M2)
         self.open_cultivator = None                       # Cultivador aberto (Machine), no modo "cultivator" (v0.8 M3)
+        self.open_microscope = None                       # Microscópio aberto (Machine), no modo "microscope" (v0.8 M4)
+        self.open_centrifuge = None                       # Centrífuga aberta (Machine), no modo "centrifuge" (v0.8 M4)
         self.open_dispenser = None                        # Dispersor de O₂ aberto (Machine), no modo "dispenser" (v0.5 M2)
         self.dry_fade_t = 0.0                             # s desde o dispenser_dry: o zumbido sai em 0,3 s em vez de 0,8
         self.open_crate = None                            # caixa de saque aberta (Crate), no modo "crate"
@@ -535,6 +540,14 @@ class App:
                     self.open_cultivator = target[1]
                     self.placing = None
                     self.set_mode("cultivator")
+                elif target and target[0] == "microscope":
+                    self.open_microscope = target[1]
+                    self.placing = None
+                    self.set_mode("microscope")
+                elif target and target[0] == "centrifuge":
+                    self.open_centrifuge = target[1]
+                    self.placing = None
+                    self.set_mode("centrifuge")
                 elif target and target[0] == "dispenser":
                     self.open_dispenser = target[1]
                     self.placing = None
@@ -857,7 +870,8 @@ class App:
 
     def other_side(self, inv):
         """Shift+clique: o inventário do outro lado (player <-> baú/drill). None se só o Tab estiver aberto."""
-        side = self.open_chest or self.open_drill or self.open_melter or self.open_smelter or self.open_collector or self.open_cultivator or self.open_dispenser
+        side = (self.open_chest or self.open_drill or self.open_melter or self.open_smelter or self.open_collector
+                or self.open_cultivator or self.open_microscope or self.open_centrifuge or self.open_dispenser)
         if side is None:
             return None
         return side.storage if inv is self.state.inventory else self.state.inventory
@@ -1041,6 +1055,19 @@ class App:
             if index == C.CULT_SEED_SLOT:
                 return None if item in C.CROP_ITEMS else "O Cultivador só aceita uma muda: alga ou planta"
             return "A saída só dá pra tirar" if index != C.CULT_EMPTY_SLOT else "As vazias só dá pra tirar"
+        if self.open_microscope is not None and inv is self.open_microscope.storage:     # v0.8 M4: [0] gelo, o resto só sai
+            if index == C.MIC_ICE_SLOT:
+                return None if item == "ice" else "O Microscópio só aceita gelo"
+            return "A saída só dá pra tirar"
+        if self.open_centrifuge is not None and inv is self.open_centrifuge.storage:     # v0.8 M4: alga e amostra; plantas só saem
+            if index == C.CENT_ALGAE_SLOT:
+                return None if item == "algae" else "A Centrífuga só aceita alga e amostra"
+            if index == C.CENT_SAMPLE_SLOT:
+                if item not in C.CENTRIFUGE_RECIPES:
+                    return "A Centrífuga só aceita alga e amostra"
+                have = inv.slots[index]
+                return None if have is None or have.item == item else "Tire a amostra que está na Centrífuga antes"
+            return "A saída só dá pra tirar"
         if self.open_dispenser is not None and inv is self.open_dispenser.storage:
             if index == C.DISPENSER_EMPTY_SLOT:
                 return "A saída de vazias só dá pra tirar"      # v0.8 M2
@@ -1143,7 +1170,7 @@ class App:
         inv, i = hit
         item = inv.slots[i].item
         target = (self.open_drill or self.open_melter or self.open_smelter or self.open_collector or self.open_cultivator
-                  or self.open_dispenser)
+                  or self.open_microscope or self.open_centrifuge or self.open_dispenser)
         if item == "chip" and inv is state.inventory and target is not None:
             if target.chip:                              # v0.6 M2: Shift+clique no chip encaixa na máquina aberta
                 self.show_notice("Essa máquina já tem chip")
@@ -1218,6 +1245,37 @@ class App:
             if moved:
                 self.audio.play("inv_move")
             return
+        if self.open_microscope is not None:             # v0.8 M4: só entra gelo; o gelo e as amostras saem
+            mic = self.open_microscope
+            if inv is mic.storage:
+                moved = state.melter_take(mic, i, amount)
+            elif item != "ice":
+                self.show_notice("O Microscópio só aceita gelo")
+                return
+            else:
+                moved = state.microscope_put(mic, i, amount)
+                if not moved:
+                    self.show_notice("Entrada de gelo cheia")
+            if moved:
+                self.audio.play("inv_move")
+            return
+        if self.open_centrifuge is not None:             # v0.8 M4: alga e amostra entram; tudo sai
+            cent = self.open_centrifuge
+            if inv is cent.storage:
+                moved = state.melter_take(cent, i, amount)
+            elif item != "algae" and item not in C.CENTRIFUGE_RECIPES:
+                self.show_notice("A Centrífuga só aceita alga e amostra")
+                return
+            else:
+                moved = state.centrifuge_put(cent, i, amount)
+                if not moved:
+                    have = cent.storage.slots[C.CENT_SAMPLE_SLOT]
+                    self.show_notice("Tire a amostra que está na Centrífuga antes"
+                                     if item in C.CENTRIFUGE_RECIPES and have is not None and have.item != item
+                                     else "Slot da Centrífuga cheio")
+            if moved:
+                self.audio.play("inv_move")
+            return
         if self.open_dispenser is not None:              # só entra cápsula de água; a que está no slot volta pro player
             dispenser = self.open_dispenser
             if inv is dispenser.storage:
@@ -1268,6 +1326,10 @@ class App:
             moved = state.melter_take(self.open_collector)
         elif action == "take_cultivator" and self.open_cultivator is not None:
             moved = state.cultivator_take_all(self.open_cultivator)       # a colheita e as vazias; a muda e a água ficam
+        elif action == "take_microscope" and self.open_microscope is not None:
+            moved = self.take_outputs(self.open_microscope, C.MIC_OUT_SLOTS.values())     # as amostras; o gelo fica
+        elif action == "take_centrifuge" and self.open_centrifuge is not None:
+            moved = self.take_outputs(self.open_centrifuge, C.CENT_OUT_SLOTS.values())    # as plantas; alga e amostra ficam
         elif action == "take_dispenser" and self.open_dispenser is not None:
             moved = state.melter_take(self.open_dispenser)
         elif action == "take_buffer" and self.open_station is not None:
@@ -1281,6 +1343,10 @@ class App:
             return
         if moved:
             self.audio.play("inv_move")
+
+    def take_outputs(self, m, slots) -> int:
+        """"Pegar tudo" de uma máquina com entrada (v0.8 M4): só os slots de saída `slots` vão pro inventário."""
+        return sum(self.state.melter_take(m, slot) for slot in slots if m.storage.slots[slot] is not None)
 
     # ---- nome do baú ------------------------------------------------------------
     def start_name_edit(self) -> None:
@@ -1341,7 +1407,7 @@ class App:
         # seção DRONES só existe no baú/drill (na estação a lista podia vir do painel aberto antes)
         hit = (ui.logistics_at(mouse_ui)
                if (self.open_chest or self.open_drill or self.open_melter or self.open_smelter or self.open_collector
-                   or self.open_cultivator) is not None else None)
+                   or self.open_cultivator or self.open_microscope or self.open_centrifuge) is not None else None)
         if hit is not None:
             kind, value = hit
             if kind == "batch":
@@ -1365,7 +1431,7 @@ class App:
         True se acertou um botão."""
         hit = self.ui.logistics_at(pos)
         side = (self.open_chest or self.open_drill or self.open_melter or self.open_smelter or self.open_collector
-                or self.open_cultivator or self.open_dispenser)
+                or self.open_cultivator or self.open_microscope or self.open_centrifuge or self.open_dispenser)
         if hit is None or side is None:
             return False
         kind, value = hit
@@ -1421,6 +1487,30 @@ class App:
     def cultivator_status(self) -> str:
         """Linha de estado no painel do Cultivador: "Crescendo" ou o que trava."""
         return self.cultivator_label(self.open_cultivator)
+
+    def microscope_status(self) -> str:
+        """Linha de estado no painel do Microscópio (v0.8 M4): "Analisando" ou o que trava."""
+        return {None: "Analisando", "no_ice": "Sem gelo",
+                "out_full": "Saída cheia"}[self.state.microscope_blocker(self.open_microscope)]
+
+    def microscope_info(self) -> str:
+        """Embaixo do estado do Microscópio: a metade que não dá nada (e o ritmo no déficit)."""
+        if self.state.power.deficit:
+            return f"Metade: nada · ritmo {self.power_percent()}%"
+        return "Metade do gelo não dá nada."
+
+    def centrifuge_status(self) -> str:
+        """Linha de estado no painel da Centrífuga (v0.8 M4): "Girando" ou o que trava."""
+        return {None: "Girando", "no_algae": "Sem alga", "no_sample": "Sem amostra",
+                "out_full": "Saída cheia"}[self.state.centrifuge_blocker(self.open_centrifuge)]
+
+    def centrifuge_info(self) -> str:
+        """Embaixo do estado da Centrífuga: com amostra, o que acontece quando falha (a chance já está no cartão dela);
+        sem amostra, a receita."""
+        sample = self.open_centrifuge.storage.slots[C.CENT_SAMPLE_SLOT]
+        if sample is None or sample.item not in C.CENTRIFUGE_RECIPES:
+            return "Alga + amostra = planta nova"
+        return "Falhou: gasta alga e amostra."
 
     def collector_status(self) -> str:
         """Linha de estado no painel do Coletor: "COLETANDO" ou o que trava (curto: a barra é estreita; v0.8 M2)."""
@@ -1701,7 +1791,7 @@ class App:
             self.finish_name_edit(confirm=True)
             self.stash_held()            # devolve a pilha da mão (se não couber, ela espera o próximo Tab)
             self.open_station = self.open_drill = self.open_melter = self.open_smelter = self.open_dispenser = None
-            self.open_collector = self.open_cultivator = None
+            self.open_collector = self.open_cultivator = self.open_microscope = self.open_centrifuge = None
             if self.mode == "crate":     # fechou a caixa de saque: o som do baú fechando
                 self.audio.play("chest_close")
                 self.open_crate = None
@@ -1716,7 +1806,8 @@ class App:
                 return
         if mode != self.mode:
             self.audio.play("ui_open" if mode in ("fabricator", "build", "pause", "inventory", "station", "drill", "melter",
-                                                  "smelter", "collector", "cultivator", "dispenser")
+                                                  "smelter", "collector", "cultivator", "microscope", "centrifuge",
+                                                  "dispenser")
                             else "ui_close")
         self.mode = mode
         self.mouse_held = False
@@ -1867,6 +1958,18 @@ class App:
             if n and any(m is machine for m in self.state.machines):
                 ax, ay = machine.anchor
                 self.floaters.add(f"+{n} {C.RESOURCE_LABEL[crop]}", ax, ay - 64, C.ORE_COLORS[crop][0])
+        elif kind in ("sample_found", "centrifuge_done"):   # v0.8 M4: aviso flutuante em cima da máquina (desta camada)
+            _, machine, item = event
+            if any(m is machine for m in self.state.machines):
+                ax, ay = machine.anchor
+                if item is None:
+                    self.floaters.add("falhou", ax, ay - 64, B_FAIL_GRAY)
+                else:
+                    name = C.RESOURCE_NAME[item] if item in C.SAMPLE_ITEMS else C.CROP_NAME.get(item, C.RESOURCE_NAME[item])
+                    self.floaters.add(f"+1 {name}", ax, ay - 64, C.ORE_COLORS[item][0])
+                sfx = "sample_found" if kind == "sample_found" else "centrifuge_done"
+                if item is not None and self.audio.has(sfx):    # sem som novo neste marco: só toca se o arquivo existir
+                    self.audio.play(sfx, gain=self.sound_gain_at(machine.anchor, 6, 20))
         elif kind == "dismantle_charge":      # começou a encher a barrinha do desmonte
             self.audio.start_charge()
         elif kind == "dismantle_cancel":      # soltou antes (ou tirou o mouse): o charge sai em fadeout curto
@@ -2278,6 +2381,16 @@ class App:
             plant = (f"{C.CROP_NAME[machine.crop]} · etapa {machine.crop_stage + 1}/4" if machine.crop else "sem muda")
             content = f"Cultivador: {plant} · {self.cultivator_label(machine).lower()}"
             return content + (" · [E] abrir" if target and target[1] is machine else other)
+        if machine and machine.is_microscope:              # v0.8 M4: gelo e amostras dentro
+            samples = sum(machine.storage.count(s) for s in C.SAMPLE_ITEMS)
+            content = f"Microscópio: {machine.storage.count('ice')} gelo · {samples} amostra(s)"
+            return content + (" · [E] abrir" if target and target[1] is machine else other)
+        if machine and machine.is_centrifuge:              # v0.8 M4: alga, amostra e plantas dentro
+            plants = sum(machine.storage.count(p) for p in C.CENT_OUT_SLOTS)
+            samples = sum(machine.storage.count(s) for s in C.SAMPLE_ITEMS)
+            content = (f"Centrífuga: {machine.storage.count('algae')} alga · {samples} amostra(s)"
+                       f" · {plants} planta(s)")
+            return content + (" · [E] abrir" if target and target[1] is machine else other)
         if machine and machine.is_dispenser:               # v0.5 M2: estado da vedação e da água
             content = f"Dispersor de O₂: {C.STATE_LABEL[state.dispenser_state(machine)]}"
             return content + (" · [E] abrir" if target and target[1] is machine else other) + (
@@ -2450,10 +2563,24 @@ class App:
             return "[E] Abrir Coletor de água"
         if kind == "cultivator":
             return "[E] Abrir Cultivador"
+        if kind == "microscope":
+            return "[E] Microscópio"
+        if kind == "centrifuge":
+            return "[E] Centrífuga"
         if kind == "station":
             return "[E] Estação de drones" if obj.station.drones else "[E] Estação: coloque drones"
         return (f"[E] Drill · [Shift+E] coletar {obj.stored} {C.RESOURCE_NAME[obj.resource]}" if obj.stored
                 else "[E] Abrir drill")
+
+    def panel_machine_art(self, m) -> pygame.Surface:
+        """O sprite 40×56 do Microscópio/Centrífuga aberto, pro painel (v0.8 M4): a tira anda só trabalhando e com
+        energia (o Microscópio a ~5 fps, a Centrífuga a CENTRIFUGE_FPS), como no mundo."""
+        r = self.renderer
+        name = C.MACHINES[m.kind].sprite
+        still = r.surface(name, lambda: art.machine(m.kind))[0]
+        working = r.powered and not m.submerged and (m.analyzing if m.is_microscope else m.spinning)
+        fps = C.CENTRIFUGE_FPS if m.is_centrifuge else MACHINE_ANIM_FPS
+        return r.anim_surface(name, still, anim_frame_index(r.machine_t, 0, fps=fps) if working else None)
 
     def power_percent(self) -> int:
         """Ritmo atual das máquinas em % (arredondado pra baixo: 62,5% vira 62%)."""
@@ -2540,18 +2667,26 @@ class App:
             ui.draw_logs(state, self.log_selected, self.log_first, mouse_ui)
         elif self.mode in INVENTORY_MODES:
             side = (self.open_chest or self.open_drill or self.open_melter or self.open_smelter or self.open_collector
-                    or self.open_cultivator or self.open_dispenser or self.open_station or self.open_crate)
+                    or self.open_cultivator or self.open_microscope or self.open_centrifuge or self.open_dispenser
+                    or self.open_station or self.open_crate)
             if self.open_cultivator is not None:         # v0.8 M3: o cilindro do painel é o do mundo, ×2
                 ui.cultivator_art = self.renderer.cultivator_surfaces(self.open_cultivator, self.renderer.powered)
+            lab = self.open_microscope or self.open_centrifuge
+            if lab is not None:                          # v0.8 M4: a máquina do painel é a do mundo, ×2
+                ui.machine_art = self.panel_machine_art(lab)
             status = (self.station_status() if self.open_station is not None
                       else self.drill_status() if self.open_drill is not None
                       else self.melter_status() if self.open_melter is not None
                       else self.smelter_status() if self.open_smelter is not None
                       else self.collector_status() if self.open_collector is not None
                       else self.cultivator_status() if self.open_cultivator is not None
+                      else self.microscope_status() if self.open_microscope is not None
+                      else self.centrifuge_status() if self.open_centrifuge is not None
                       else self.dispenser_status() if self.open_dispenser is not None else "")
             station_info = (self.hovered_slot_label(mouse_ui) if self.open_station is not None
                             else self.collector_info() if self.open_collector is not None
+                            else self.microscope_info() if self.open_microscope is not None
+                            else self.centrifuge_info() if self.open_centrifuge is not None
                             else self.dispenser_info() if self.open_dispenser is not None else None)
             ui.draw_inventory(state.inventory, side, self.hotbar_selected, self.renderer.item_icon, mouse_ui,
                               self.t, self.name_edit, status, station_info,
@@ -2674,6 +2809,7 @@ class App:
         self.open_chest = self.renderer.open_chest = None
         self.open_station, self.open_drill, self.open_melter, self.name_edit = None, None, None, None
         self.open_dispenser = self.open_smelter = self.open_collector = self.open_cultivator = None
+        self.open_microscope = self.open_centrifuge = None
         self.open_crate = self.after_terminal = None
         self.renderer.minimap.reset()
         self.blueprint_notice, self.blueprint_notice_time, self.blueprint_duck = None, 0.0, 0.0
