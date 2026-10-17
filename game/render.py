@@ -2084,7 +2084,7 @@ class Renderer:
             elif item in (C.EMPTY_CAPSULE, C.COLLECTOR):   # v0.8 M2: icon_water_capsule_empty.png e icon_water_collector.png
                 name = "icon_water_capsule_empty" if item == C.EMPTY_CAPSULE else "icon_water_collector"
                 small = self.surface(name, lambda: self._placeholder(16, item))[0]
-            elif item == C.CULTIVATOR or item in C.CROP_ITEMS:   # v0.8 M3: icon_cultivator.png, icon_algae.png, icon_plant_N.png
+            elif item == C.CULTIVATOR or item in C.CROP_ITEMS or item in C.SAMPLE_ITEMS:   # v0.8 M3/M4: icon_cultivator.png, icon_algae.png, icon_plant_N.png, icon_sample_*.png
                 small = self.surface(f"icon_{item}", lambda: self._placeholder(16, item))[0]
             elif item in C.HAND_DRILLS or item in C.PART_ITEMS:   # v0.5 M4: icon_<item>.png (v0.6 Fundo M4: as duas brocas)
                 small = self._m4_icon(item)

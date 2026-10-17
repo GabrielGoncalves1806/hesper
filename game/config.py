@@ -1333,6 +1333,8 @@ for _sample in SAMPLE_ITEMS:
 RESOURCE_NAME.update({"sample_basic": "amostra simples", "sample_mutant": "amostra com mutação", "sample_rare": "amostra rara"})
 RESOURCE_LABEL.update({"sample_basic": "AMOSTRA", "sample_mutant": "MUTAÇÃO", "sample_rare": "RARA"})
 LOGISTIC_ITEMS = LOGISTIC_ITEMS + SAMPLE_ITEMS
+ORE_COLORS.update({"sample_basic": ("#bfe3ee", "#7fb0c4"), "sample_mutant": ("#c9a6f0", "#8a5fc0"),   # pepita do drone e aviso flutuante
+                   "sample_rare": ("#ffd36e", "#c28a2a")})
 
 # ---------------------------------------------------------------------------
 # v0.6 Fundo M5 · Remapear crafts (bíblia §15 "Marco 5"). Números de partida; balanceamento depois.
