@@ -336,7 +336,7 @@ class Sim:
         self.max_time = max_time
         self.tw = C.TILE / C.PLAYER_SPEED                 # segundos por tile andado
         self.final_ti = C.STAGES[-1].ti
-        self.marks = [("Ti 500", 500.0)] + [(s.name.capitalize(), float(s.ti)) for s in C.STAGES[1:]]
+        self.marks = [("Ti 500", 500.0)] + [(mark_label(s), float(s.ti)) for s in C.STAGES[1:]]   # v0.8 M1: só o Ti conta (o sim não produz biomassa)
         self.res = Result(strategy.name, seed)
         self.sec_per_unit = 1.5                           # estimativa do jogador (EMA), atualizada a cada viagem
         self.plan: str | None = None
@@ -1154,7 +1154,7 @@ def fmt(sec):
 
 
 def table(title, results, markdown=False):
-    marks = ["Ti 500"] + [s.name.capitalize() for s in C.STAGES[1:]]
+    marks = ["Ti 500"] + [mark_label(s) for s in C.STAGES[1:]]
     kinds = list(C.MACHINES)
     head = ["estratégia", "seed", *marks, "total", "espera total", "maior espera", "desm.", "drill un.",
             "drone un.", "déficit", "tanque", "saque", "magmat.", "aquec.", "cratera", "portão 1", "portão 2", "portão 3", "grande", "L1", "L2", "L3",
@@ -1308,6 +1308,11 @@ def without_energy(overrides):
     ov = copy.deepcopy(overrides or {})
     ov["POWER_USE"] = {}
     return ov
+
+
+def mark_label(stage) -> str:
+    """Rótulo da marca de um estágio. v0.8 M1: os que pedem biomassa levam " (Ti)", porque o sim só mede o Ti."""
+    return stage.name.capitalize() + (" (Ti)" if stage.biomass else "")
 
 
 def without_t2(overrides):

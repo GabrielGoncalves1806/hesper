@@ -11,32 +11,34 @@ from tests.helpers import build_now
 
 def test_progress_stage1_goes_from_0_to_arid():
     arid = C.STAGES[1].ti
-    nxt, frac, left = stage_progress(0)
+    nxt, frac, left, _ = stage_progress(0)
     assert nxt.name == "ÁRIDO" and frac == 0 and left == arid
-    nxt, frac, left = stage_progress(arid / 4)
+    nxt, frac, left, _ = stage_progress(arid / 4)
     assert frac == pytest.approx(0.25) and left == pytest.approx(arid * 3 / 4)
 
 
 def test_progress_arid_goes_to_10k():
     arid = C.STAGES[1].ti
-    nxt, frac, left = stage_progress(arid)
-    assert nxt.name == "NÉVOA" and frac == 0 and left == 10_000 - arid
+    nxt, frac, left, _ = stage_progress(arid)
+    assert nxt.name == "ÚMIDO" and frac == 0 and left == 10_000 - arid
 
 
 def test_progress_is_relative_to_current_stage():
-    nxt, frac, left = stage_progress(12_914)          # exemplo do dono
-    assert nxt.name == "VERDE"
-    assert frac == pytest.approx((12_914 - 10_000) / 90_000)   # ~3%
-    assert round(frac * 100) == 3
-    assert left == 87_086
+    nxt, frac, left, _ = stage_progress(12_914, 500)   # exemplo do dono (v0.8 M1: biomassa cheia, o gargalo é o Ti)
+    assert nxt.name == "ALGAS"
+    assert frac == pytest.approx((12_914 - 10_000) / 15_000)   # ~19%
+    assert round(frac * 100) == 19
+    assert left == 12_086
+    assert stage_progress(12_914)[1] == 0              # sem biomassa o gargalo é ela: a barra não anda
 
 
 def test_progress_at_thresholds():
-    assert stage_progress(10_000)[0].name == "VERDE"
+    assert stage_progress(10_000)[0].name == "ALGAS"
     assert stage_progress(10_000)[1] == 0
-    assert stage_progress(9_999.9)[0].name == "NÉVOA"
-    assert stage_progress(100_000) == (None, 1.0, 0.0)          # estágio 3: acabou
-    assert stage_progress(250_000) == (None, 1.0, 0.0)
+    assert stage_progress(9_999.9)[0].name == "ÚMIDO"
+    assert stage_progress(100_000) == (C.STAGES[3], 0.0, 0.0, 500.0)   # Ti de sobra, falta biomassa: ainda nas Algas
+    assert stage_progress(100_000, 15_000) == (None, 1.0, 0.0, 0.0)    # estágio 6: acabou
+    assert stage_progress(250_000, 99_999) == (None, 1.0, 0.0, 0.0)
 
 
 def test_eta_with_zero_rate():

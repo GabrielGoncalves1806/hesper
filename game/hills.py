@@ -47,7 +47,7 @@ LIFT = C.WALL_LIFT
 FACE = C.HILL_FACE
 TEX = 512                                  # textura do topo e da face: emenda a cada 512 px
 REGIONS = geo.REGION_NAMES                                  # PLATEAU, SALAR, BASALT, FROST (0..3)
-STAGE_KEYS = ("storm", "arid", "mist", "green")             # estágio 1..4 -> rampa
+STAGE_KEYS = tuple(s.look for s in C.STAGES)                # estágio 1..6 -> rampa (v0.8 M1: Algas e Musgo = "mist")
 OUTLINE = (0x1B, 0x16, 0x30)                                # índice 8 dos sprites indexados
 SHADOW_ALPHA = 80                                           # índice 9: sombra preta com alfa fixo
 TRANSPARENT = 255

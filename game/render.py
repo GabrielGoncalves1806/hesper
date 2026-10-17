@@ -129,13 +129,18 @@ def build_draw_list(world, objects, tx0: int, tx1: int, ty0: int, ty1: int,
 
 
 def stage_key(stage: int) -> str:
-    """Chave do estágio `stage` (1 a 4): "storm", "arid", "mist" ou "green"."""
-    return C.STAGES[stage - 1].key
+    """Visual do estágio `stage` (1 a 6): "storm", "arid", "mist" ou "green". Algas e Musgo usam o da Névoa (look)."""
+    return C.STAGES[stage - 1].look
 
 
 def art_key(stage: int) -> str:
     """Arte (sprites e paleta) do estágio `stage`: "dead", "mist" ou "green". Tempestade e Árido usam a do Morto."""
     return C.STAGE_ART[stage_key(stage)]
+
+
+def water_key(stage: int) -> str:
+    """Paleta da água do estágio `stage` (v0.8 M1): a da arte, menos Algas e Musgo ("algae", esverdeada)."""
+    return C.STAGES[stage - 1].water
 
 
 CAVE_STAGE = C.MIST_STAGE          # a caverna é desenhada sempre com a arte do estágio névoa (rocha fria)
@@ -365,7 +370,7 @@ class Renderer:
         else:
             self.stage_map = self.surface_map
             stage = art_key(state.stage)
-            self.stage_map.update(state.ti, [BASE_SOURCE, *state.transition_sources])
+            self.stage_map.update(state.ti, [BASE_SOURCE, *state.transition_sources], state.indices["biomass"])
         self.draw_floors(canvas, state, cam, stage, t)
         self.draw_crater_ejecta(canvas, state, cam)
         self.draw_gate_frost(canvas, state, cam)
@@ -1129,7 +1134,7 @@ class Renderer:
                 canvas.fill(P["edge"], (sx, top_y, 1, T))
             if open_right:
                 canvas.fill(P["rock_dot"], (sx + T - 1, top_y, 1, T))
-            if stage == "green" and hash01(tx, ty, 70) < 0.5:
+            if self.stage_map.stage_at(tx, ty) >= C.MOSS_STAGE and hash01(tx, ty, 70) < 0.5:   # v0.8 M1: do Musgo em diante
                 canvas.blit(self.surface(None, lambda: art.moss(v), f"moss#{v}")[0], (sx, top_y))
         else:          # contorno escuro fininho: separa o topo elevado do chão atrás dele
             if open_up:
@@ -1168,7 +1173,7 @@ class Renderer:
         if self.stage_map.step > 0:
             self._blend_edges(canvas, world, tx, ty, sx, sy, stage_num, False, sprite)
         if self._wet(world, tx, ty):
-            self._draw_water(canvas, world, tx, ty, sx, sy, stage, t)
+            self._draw_water(canvas, world, tx, ty, sx, sy, water_key(stage_num), t)   # v0.8 M1: Algas e Musgo têm água própria
         # sombra que a parede projeta no chão
         if wall_shadows and world.is_wall(tx, ty - 1):
             canvas.blit(self.shadow_top, (sx, sy))
@@ -1179,7 +1184,7 @@ class Renderer:
         """Por cima do chão assado: a água por tile (só onde o lago orgânico ainda não foi assado) e a sombra das
         paredes."""
         if water and self._wet(world, tx, ty):
-            self._draw_water(canvas, world, tx, ty, sx, sy, art_key(self.stage_map.stage_at(tx, ty)), t)
+            self._draw_water(canvas, world, tx, ty, sx, sy, water_key(self.stage_map.stage_at(tx, ty)), t)
         if wall_shadows and world.is_wall(tx, ty - 1):
             canvas.blit(self.shadow_top, (sx, sy))
         if wall_shadows and world.is_wall(tx - 1, ty):
@@ -1204,13 +1209,13 @@ class Renderer:
         """(etiqueta, estágios) do bloco do lago: a arte do estágio do mapa inteiro, ou por tile na transição."""
         m = self.stage_map
         if m.step == 0:
-            return ("all", m.stage), art_key(m.stage)
+            return ("all", m.stage), water_key(m.stage)
         key = (m.stage, m.step, m._sources)
         memo = self._lake_stage_tags.get((bx, by))
         if memo is not None and memo[0] == key:
             return memo[1], memo[2]
         n = lake.BT
-        grid = np.array([[art_key(m.stage_at(bx * n + i, by * n + j)) for i in range(n)] for j in range(n)])
+        grid = np.array([[water_key(m.stage_at(bx * n + i, by * n + j)) for i in range(n)] for j in range(n)])
         if (grid == grid.flat[0]).all():
             tag, stages = ("all", str(grid.flat[0])), str(grid.flat[0])
         else:

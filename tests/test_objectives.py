@@ -88,6 +88,7 @@ def test_normal_sequence_walks_every_objective(game):
     game.blueprints.add("o2_tank"); step()      # M5: o tanque desceu pra depois dos drones (pede circuito)
     game.equipped_ever.add("o2_tank"); step()
     craft_free(game, "melter_t2"); step()
+    game.indices["biomass"] = 15_000.0          # v0.8 M1: o Verde pede biomassa também
     game.debug_add_ti(100_000); step()          # -> Verde
 
     assert seen == [
@@ -109,7 +110,7 @@ def test_normal_sequence_walks_every_objective(game):
         "Construa um painel solar",
         "Leia um terminal",
         "Limpe o céu (Árido)",
-        "Chegue ao estágio Névoa",
+        "Chegue ao estágio Úmido",
         "Construa a Bancada T2",
         "Construa uma Fundição",
         "Fabrique um circuito na Bancada T2",
@@ -186,11 +187,12 @@ def test_next_line_skips_done_objectives(game):
 
 
 def test_big_jump_completes_many_at_once(game):
-    game.debug_add_ti(100_000)                  # F2 até o verde: Ti, Névoa e Verde de uma vez
+    game.indices["biomass"] = 15_000.0          # v0.8 M1: o Verde pede biomassa também
+    game.debug_add_ti(100_000)                  # F2 até o verde: Ti, Úmido e Verde de uma vez
     assert current_text(game) == "Minere ferro (0/10)"
     remaining = [o.text for o in OBJECTIVES if not o.done(game)]
     assert "Chegue a Ti 500" not in remaining
-    assert "Chegue ao estágio Névoa" not in remaining
+    assert "Chegue ao estágio Úmido" not in remaining
     assert "Deixe o planeta verde" not in remaining
 
 
@@ -227,6 +229,7 @@ def test_everything_done_list_disappears(game):
     game.drones_docked = 1
     tracker = ObjectiveTracker(game)
     assert current_text(game) == "Chegue a Ti 500"
+    game.indices["biomass"] = 15_000.0
     game.debug_add_ti(100_000)
     tracker.update(game, 0.016)
     assert current_index(game) is None
@@ -271,7 +274,7 @@ def test_small_rocks_count_as_mined(game):
 
 def test_m5_chain_guides_before_drill():
     texts = [o.text for o in OBJECTIVES]
-    i_mist = texts.index("Chegue ao estágio Névoa")
+    i_mist = texts.index("Chegue ao estágio Úmido")
     i_drill = texts.index("Construa uma drill num veio")
     guide = ["Construa a Bancada T2", "Construa uma Fundição", "Fabrique um circuito na Bancada T2"]
     assert texts[i_mist + 1:i_drill] == guide

@@ -265,8 +265,9 @@ def test_stage_thresholds():
     assert stage_for_ti(arid) == C.ARID_STAGE == 2
     assert stage_for_ti(9_999) == 2
     assert stage_for_ti(10_000) == C.MIST_STAGE == 3
-    assert stage_for_ti(99_999) == 3
-    assert stage_for_ti(100_000) == C.GREEN_STAGE == 4
+    assert stage_for_ti(99_999) == 3                                  # v0.8 M1: sem biomassa o Ti para no Úmido
+    assert stage_for_ti(100_000) == 3
+    assert stage_for_ti(100_000, 15_000) == C.GREEN_STAGE == 6
 
 
 def test_stage_changes_and_emits_event(game):
@@ -281,8 +282,11 @@ def test_stage_changes_and_emits_event(game):
     for _ in range(9):
         game.debug_add_ti()
     assert game.ti == pytest.approx(100_000)
-    assert game.stage == 4
-    assert ("stage_up", 4) in game.pop_events()
+    assert game.stage == 3                                            # v0.8 M1: falta a biomassa das Algas
+    game.indices["biomass"] = 15_000.0                                # só biomassa: o Ti passa de 100.000 e o Verde vem
+    game._check_stage()
+    assert game.stage == C.GREEN_STAGE
+    assert ("stage_up", C.GREEN_STAGE) in game.pop_events()
 
 
 # ---------------------------------------------------------------- player e terminais

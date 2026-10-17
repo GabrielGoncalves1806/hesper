@@ -75,7 +75,7 @@ DECOR = {BASALT: "shards", SALAR: "salt_crystals", FROST: "ice_chunks"}   # deco
 
 
 def stage_key(stage: int) -> str:
-    return C.STAGES[stage - 1].key
+    return C.STAGES[stage - 1].look         # v0.8 M1: Algas e Musgo usam as rampas da Névoa
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -655,8 +655,9 @@ def decor_tile_free(world, tx: int, ty: int, machine_at) -> bool:
 
 
 def decor_layers(name: str, stage: int, moss_on) -> list[str]:
-    """O que desenhar no lugar do solto, em ordem: a pedra e, só no Verde, o overlay de musgo de mesmo N."""
-    if stage >= C.GREEN_STAGE and name in moss_on:
+    """O que desenhar no lugar do solto, em ordem: a pedra e, do Musgo em diante (v0.8 M1; era só no Verde), o
+    overlay de musgo de mesmo N."""
+    if stage >= C.MOSS_STAGE and name in moss_on:
         return [name, f"{name}_moss"]
     return [name]
 

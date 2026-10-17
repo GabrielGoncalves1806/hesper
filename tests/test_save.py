@@ -139,7 +139,7 @@ def test_loaded_game_keeps_running(tmp_path):
 def test_save_only_stores_what_changed(tmp_path):
     state = rich_state()
     data = save.state_to_dict(state)
-    assert data["version"] == save.SAVE_VERSION == 13
+    assert data["version"] == save.SAVE_VERSION == 14
     assert set(data) == {"version", "seed", "layer", "layers", "player", "inventory", "progress", "world"}
     assert set(data["layers"]) == {"surface"} and data["layer"] == "surface"
     assert len(data["layers"]["surface"]["changed_tiles"]) == 6   # 5 minérios + 1 cavado na marra
@@ -226,19 +226,19 @@ def test_missing_version_is_no_save(tmp_path):
 
 
 def test_migration_hook_runs(tmp_path, monkeypatch):
-    """Uma migração registrada leva um save antigo até a versão atual (passando também pelas migrações reais v10 -> v13)."""
+    """Uma migração registrada leva um save antigo até a versão atual (passando também pelas migrações reais v10 -> v14)."""
     data = save.state_to_dict(rich_state())
     data["version"] = 10
     data["progress"]["play_time"] = 1.0
 
-    def v13_to_v14(d):
+    def v14_to_v15(d):
         d["progress"]["play_time"] = 99.0
         return d
 
-    monkeypatch.setattr(save, "SAVE_VERSION", 14)
-    monkeypatch.setattr(save, "MIGRATIONS", {**save.MIGRATIONS, 13: v13_to_v14})
+    monkeypatch.setattr(save, "SAVE_VERSION", 15)
+    monkeypatch.setattr(save, "MIGRATIONS", {**save.MIGRATIONS, 14: v14_to_v15})
     migrated = save.migrate(data)
-    assert migrated["version"] == 14 and migrated["progress"]["play_time"] == 99.0
+    assert migrated["version"] == 15 and migrated["progress"]["play_time"] == 99.0
 
 
 def test_atomic_write_keeps_old_save_on_crash(tmp_path, monkeypatch):
@@ -329,7 +329,7 @@ def test_save_with_old_pickups_field_still_loads(tmp_path):
     surface["pickups"] = {"items": [["iron", 2, 3200.5, 3300.0], ["ice", 1, 100.0, 200.0]], "timer": 3.5}
     path = tmp_path / "slot1.json"
     path.write_text(json.dumps(data), encoding="utf-8")
-    assert data["version"] == save.SAVE_VERSION == 13
+    assert data["version"] == save.SAVE_VERSION == 14
     status, loaded = save.probe(path)
     assert status == "ok" and loaded.surface.rocks.timer == 0.0
     assert not hasattr(loaded.surface, "pickups")
@@ -462,7 +462,7 @@ def test_load_converts_bp_items_to_diagram_items():
 
 def test_v9_save_is_refused_as_old_and_backed_up(tmp_path, capsys):
     """v0.5 M3.1: a mesma seed gera outro mundo (256×256), então o v9 não carrega nem migra: aviso + backup."""
-    assert save.SAVE_VERSION == 13 and save.FIRST_VERSION == 10
+    assert save.SAVE_VERSION == 14 and save.FIRST_VERSION == 10
     data = save.state_to_dict(rich_state())
     data["version"] = 9
     path = tmp_path / "slot1.json"
@@ -516,7 +516,7 @@ def test_v12_round_trip_keeps_the_new_cave():
     g.world.set(*tile, C.FLOOR)
     loaded = save.state_from_dict(save.migrate(save.state_to_dict(g)))
     assert loaded.layers[layers.CAVE].world.get(*tile) == C.FLOOR
-    assert save.SAVE_VERSION == 13
+    assert save.SAVE_VERSION == 14
 
 
 # ---- v0.7 M3: destroços novos, save v12 -> v13 ------------------------------------------------------
@@ -559,9 +559,9 @@ def test_v12_old_crate_position_is_ignored():
     assert all(not c.opened for c in loaded.surface.crates.values())
 
 
-def test_save_version_is_13():
-    assert save.SAVE_VERSION == 13
-    assert save.migrate({"version": 12, "layers": {}})["version"] == 13
+def test_save_version_is_14():
+    assert save.SAVE_VERSION == 14
+    assert save.migrate({"version": 12, "layers": {}})["version"] == 14
 
 
 def test_settle_does_not_leak_into_the_world_cache():
@@ -589,3 +589,28 @@ def test_build_on_dismantled_crate_tile_keeps_the_wreck():
     assert wreck.crate not in loaded.surface.crates
     assert loaded.world.get(*wreck.crate) != C.LOOT_CRATE
     assert all(loaded.world.get(*t) == C.WRECK for t in wreck.tiles)
+
+
+# ---- v0.8 M1: biomassa e 6 estágios (save v14) ----
+def test_v13_save_gets_biomass_and_loses_the_old_green():
+    data = {"version": 13, "progress": {"indices": {"o2": 60_000.0, "heat": 30_000.0, "water": 20_000.0},
+                                        "stage": 4, "stage_scheme": 2}}
+    out = save._v13_to_v14(data)
+    assert out["progress"]["indices"]["biomass"] == 0.0
+    assert out["progress"]["stage"] == C.MIST_STAGE            # o Verde antigo (4) volta pro Úmido: falta biomassa
+    assert out["progress"]["stage_scheme"] == 3
+
+
+def test_v13_early_stage_is_kept():
+    data = {"version": 13, "progress": {"indices": {"o2": 1.0, "heat": 0.0, "water": 0.0}, "stage": 2,
+                                        "stage_scheme": 2}}
+    assert save._v13_to_v14(data)["progress"]["stage"] == 2
+
+
+def test_biomass_round_trips(tmp_path):
+    state = save.new_state()
+    state.indices["biomass"] = 321.0
+    path = tmp_path / "slot1.json"
+    assert save.write_save(state, path)
+    loaded = save.load_game(path)
+    assert loaded is not None and loaded.indices["biomass"] == 321.0
