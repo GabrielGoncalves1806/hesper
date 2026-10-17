@@ -1304,8 +1304,8 @@ class Crop(NamedTuple):
     cycle: float        # s da muda à planta madura
 
 
-CROPS = {"algae": Crop(0.5, 120.0, 90.0), "plant_1": Crop(1.5, 90.0, 120.0),
-         "plant_2": Crop(4.0, 60.0, 150.0), "plant_3": Crop(10.0, 45.0, 180.0)}
+CROPS = {"algae": Crop(0.5, 120.0, 150.0), "plant_1": Crop(1.5, 90.0, 240.0),   # v0.8 M6: mais lentas por raridade
+         "plant_2": Crop(4.0, 60.0, 360.0), "plant_3": Crop(10.0, 45.0, 540.0)}
 CROP_ITEMS = tuple(CROPS)
 CROP_NAME = {"algae": "Alga", "plant_1": "Folha-gota", "plant_2": "Espiral-de-geada", "plant_3": "Lírio-de-Ilves"}
 CROP_DESC = {"algae": "cultura-controle da Ilves", "plant_1": "planta de Hesper", "plant_2": "planta de Hesper",

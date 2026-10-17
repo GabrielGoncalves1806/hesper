@@ -53,8 +53,8 @@ def test_cultivator_is_registered():
     assert (C.CULT_WATER_SLOT, C.CULT_EMPTY_SLOT, C.CULT_SEED_SLOT, C.CULT_HARVEST_SLOTS, C.CULT_SLOTS) == \
         (0, 1, 2, (3, 4, 5, 6), 7)
     assert C.CULTIVATOR_TANK == 5.0 and C.CROP_ITEMS == ("algae", "plant_1", "plant_2", "plant_3")
-    assert C.CROPS["algae"] == C.Crop(0.5, 120.0, 90.0) and C.CROPS["plant_3"] == C.Crop(10.0, 45.0, 180.0)
-    assert (C.CROPS["plant_1"].biomass, C.CROPS["plant_2"].water_s, C.CROPS["plant_2"].cycle) == (1.5, 60.0, 150.0)
+    assert C.CROPS["algae"] == C.Crop(0.5, 120.0, 150.0) and C.CROPS["plant_3"] == C.Crop(10.0, 45.0, 540.0)
+    assert (C.CROPS["plant_1"].biomass, C.CROPS["plant_2"].water_s, C.CROPS["plant_2"].cycle) == (1.5, 60.0, 360.0)
 
 
 def test_cultivator_needs_the_diagram_then_can_be_built(game):
@@ -248,7 +248,7 @@ def test_harvest_is_deterministic_with_the_state_rng():
 def test_removing_the_seed_resets_growth(base_with_cultivator):
     state, cult = base_with_cultivator
     plant(cult)
-    tick(state, 20.0)
+    tick(state, 0.25 * C.CROPS["algae"].cycle)        # v0.8 M6: o ciclo mudou (90 -> 150 s); conta em fração dele
     assert cult.growth > 0.2
     cult.storage.slots[C.CULT_SEED_SLOT] = None
     tick(state, 0.1)
