@@ -1,5 +1,6 @@
 """v0.8 M5: o painel do baú (com a seção DRONES de 16 materiais) cabe na tela nos 3 tamanhos, com a mochila nv.1
-e com a T2: nem os botões nem a linha de ajuda passam da moldura da hotbar. As máquinas não mudam (fileira normal)."""
+e com a T2: nem os botões nem a linha de ajuda passam da moldura da hotbar. As máquinas não mudam (fileira normal),
+fora as do lab (v0.8 M6: Cultivador, Microscópio e Centrífuga usam a fileira compacta; tests/test_m6_drones_fit_v08.py)."""
 
 import os
 import random
@@ -70,3 +71,14 @@ def test_machine_rows_stay_normal(ui):
     ui.draw_logistics(0, 0, GRID_W, m, lambda _i: art.icon("iron"), (0, 0))
     widths = {r.w for r, (k, *_x) in ui.logistics_buttons if k in ("send", "recv")}
     assert widths == {ui_mod.LOGI_BTN}
+
+
+def test_lab_machine_rows_are_compact(ui):
+    """v0.8 M6: o Cultivador (e o lab) usa a fileira compacta do baú, 16×16, pra caber no Grande."""
+    ui.begin()
+    ui.logistics_buttons.clear()
+    m = Machine(C.CULTIVATOR, 10, 10)
+    m.chip = "chip"
+    ui.draw_logistics(0, 0, GRID_W, m, lambda _i: art.icon("iron"), (0, 0))
+    sizes = {(r.w, r.h) for r, (k, *_x) in ui.logistics_buttons if k in ("send", "recv")}
+    assert sizes == {(ui_mod.LOGI_WIDE_BTN, ui_mod.LOGI_WIDE_BTN)}

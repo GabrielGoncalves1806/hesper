@@ -1501,8 +1501,8 @@ class App:
     def microscope_info(self) -> str:
         """Embaixo do estado do Microscópio: a metade que não dá nada (e o ritmo no déficit)."""
         if self.state.power.deficit:
-            return f"Metade: nada · ritmo {self.power_percent()}%"
-        return "Metade do gelo não dá nada."
+            return f"Ritmo {self.power_percent()}%"           # v0.8 M6: curto, cabe ao lado do estado (a faixa já diz NADA 50%)
+        return "Metade: nada"
 
     def centrifuge_status(self) -> str:
         """Linha de estado no painel da Centrífuga (v0.8 M4): "Girando" ou o que trava."""
@@ -1514,8 +1514,8 @@ class App:
         sem amostra, a receita."""
         sample = self.open_centrifuge.storage.slots[C.CENT_SAMPLE_SLOT]
         if sample is None or sample.item not in C.CENTRIFUGE_RECIPES:
-            return "Alga + amostra = planta nova"
-        return "Falhou: gasta alga e amostra."
+            return "Alga + amostra"                     # v0.8 M6: curtos, cabem ao lado do estado no Grande
+        return "Falha: perde as 2"
 
     def collector_status(self) -> str:
         """Linha de estado no painel do Coletor: "COLETANDO" ou o que trava (curto: a barra é estreita; v0.8 M2)."""
