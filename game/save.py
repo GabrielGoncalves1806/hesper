@@ -430,7 +430,7 @@ def machine_to_dict(m: Machine) -> dict:
     if m.is_station:
         data["buffer"] = dict(m.station.buffer)
         slots = [m.station.drone_in(i) for i in range(C.STATION_DRONE_SLOTS)]
-        data["drones"] = [None if d is None else [d.resource if d.cargo else None, d.cargo] for d in slots]
+        data["drones"] = [None if d is None else [d.resource if d.cargo else None, d.cargo, d.tier] for d in slots]   # v0.8 M5: + tier
     return data
 
 
@@ -499,7 +499,8 @@ def machine_from_dict(data: dict) -> Machine:
         for slot, cargo in enumerate(data.get("drones", [])[:C.STATION_DRONE_SLOTS]):
             if cargo is None:
                 continue
-            drone = drones.dock(machine, machine.station, slot)
+            tier = cargo[2] if len(cargo) > 2 and cargo[2] in drones.TIER_ITEMS else 1   # v0.8 M5: o antigo (2 elementos) é nv.1
+            drone = drones.dock(machine, machine.station, slot, tier=tier)
             if cargo[0] in C.RESOURCES and int(cargo[1]) > 0:
                 drone.resource, drone.cargo = cargo[0], int(cargo[1])
     return machine

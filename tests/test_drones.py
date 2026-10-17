@@ -305,7 +305,7 @@ def test_save_roundtrip_keeps_buffer_slots_and_cargo(tmp_path):
     assert data["version"] == save.SAVE_VERSION
     saved = next(m for m in data["layers"]["surface"]["machines"] if m["kind"] == "drone_station")
     assert saved["buffer"] == {"iron": 11, "silicon": 4}
-    assert saved["drones"] == [["ice", 9], None, [None, 0], None]
+    assert saved["drones"] == [["ice", 9, 1], None, [None, 0, 1], None]   # v0.8 M5: [recurso, carga, tier]
     loaded = save.load_game(path)
     st = loaded.stations[0]
     assert st.station.buffer == {"iron": 11, "silicon": 4}

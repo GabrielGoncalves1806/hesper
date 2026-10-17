@@ -1984,10 +1984,13 @@ class Renderer:
         name = "drone_station" if C.DRONE_SPRITES_APPROVED else None
         return self.surface(name, art.drone_station, "drone_station#fallback" if name is None else None)[0]
 
-    def drone_frame(self, t: float, offset: int = 0) -> pygame.Surface:
-        """Quadro do drone (16×16) com as hélices girando a ~15 fps. `offset` desencontra os drones."""
+    def drone_frame(self, t: float, offset: int = 0, tier: int = 1) -> pygame.Surface:
+        """Quadro do drone (16×16) com as hélices girando a ~15 fps. `offset` desencontra os drones.
+        v0.8 M5: o tier 2 usa o drone_t2.png (mesma tira de 4 quadros); sem ele, o do drone."""
         name = "drone" if C.DRONE_SPRITES_APPROVED else None
         sheet = self.surface(name, art.drone_sheet, "drone#fallback" if name is None else None)[0]
+        if tier == 2:
+            sheet = self.surface("drone_t2", lambda: sheet)[0]
         size = C.DRONE_SPRITE
         frame = (int(t * C.DRONE_FPS) + offset) % (sheet.get_width() // size)
         return sheet.subsurface((frame * size, 0, size, size))
@@ -2010,7 +2013,7 @@ class Renderer:
             if drone.in_air:
                 continue
             x, y = round(drone.x - cam[0]), round(drone.y - cam[1])
-            canvas.blit(self.drone_frame(0), (x - 8, y - 8))      # pousado: hélices paradas
+            canvas.blit(self.drone_frame(0, tier=drone.tier), (x - 8, y - 8))      # pousado: hélices paradas
             if drone.cargo:
                 self._draw_nugget(canvas, drone, x, y)
 
@@ -2053,7 +2056,7 @@ class Renderer:
                 drop = round(LANDED_SHADOW_DROP + (C.DRONE_SHADOW_DROP - LANDED_SHADOW_DROP) * lift)
                 canvas.blit(shadow, (x - shadow.get_width() // 2, y + drop - shadow.get_height() // 2))
                 bob = round(math.sin(t * 5 + drone.pad * 1.7) * 1.5 * lift - drones.altitude(drone) * lift)
-                canvas.blit(self.drone_frame(t, drone.pad), (x - 8, y - 8 + bob))
+                canvas.blit(self.drone_frame(t, drone.pad, drone.tier), (x - 8, y - 8 + bob))
                 if drone.cargo:
                     self._draw_nugget(canvas, drone, x, y + bob)
         self._drone_offsets = offsets
@@ -2078,6 +2081,8 @@ class Renderer:
                                      "icon_drone_station#fallback" if name is None else None)[0]
             elif item == "drone":
                 small = self.drone_icon()
+            elif item == C.DRONE_T2:             # v0.8 M5: icon_drone_t2.png; sem ele, o 1º quadro do drone nv.2
+                small = self.drone_icon(2)
             elif item == "lamp":
                 small = self.surface("icon_lamp", art.lamp_icon)[0]
             elif item == "lamp_t2":
@@ -2140,15 +2145,19 @@ class Renderer:
             return self.surface("icon_hand_drill", fallback)[0]
         return self.surface(f"icon_{item}", lambda: self._placeholder(16, item))[0]
 
-    def drone_icon(self) -> pygame.Surface:
+    def drone_icon(self, tier: int = 1) -> pygame.Surface:
         """Ícone 16×16 do item drone: assets/sprites/icon_drone.png assim que for aprovado (é só ele
         existir na pasta oficial); até lá, o 1º quadro do drone.png (ou do drone de fallback)."""
+        if tier == 2:                            # v0.8 M5: icon_drone_t2.png; sem ele, o 1º quadro do drone nv.2
+            return self.surface("icon_drone_t2", lambda: self.drone_frame(0, tier=2).copy())[0]
         return self.surface("icon_drone", lambda: self.drone_frame(0).copy())[0]
 
     def machine_preview(self, kind: str) -> pygame.Surface:
         """Imagem da máquina pro fabricador (resolução cheia, sem redimensionar com suavização)."""
         if kind == "drone":
             return pygame.transform.scale_by(self.drone_icon(), 3)   # 16×16 → 48×48, pixel a pixel
+        if kind == C.DRONE_T2:
+            return pygame.transform.scale_by(self.drone_icon(2), 3)   # 16×16 → 48×48, pixel a pixel
         if kind in C.CHEST_KINDS:
             return self.chest_surface(kind)
         if kind in C.DIAGRAM_ITEMS:      # o item do diagrama (receita no fabricador): o ícone ×3, pixel a pixel

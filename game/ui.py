@@ -364,7 +364,7 @@ def item_category(item: str) -> tuple[str, str]:
         return "DIAGRAMA", "#9fd0ff"
     if item in C.EQUIP_SLOTS:
         return "TRAJE", C.C_TERMINAL
-    if item in ("drone", "constructor"):
+    if item in ("drone", C.DRONE_T2, "constructor"):
         return "ITEM", C.C_TI
     if item in C.HAND_DRILLS:
         return "FERRAMENTA", C.C_TI
@@ -2290,6 +2290,7 @@ class UI:
     def _station_panel(self, machine, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str,
                        info: str | None, mid: pygame.Rect) -> None:
         """Estação: os 4 slots de drone (travados em voo), o buffer como slots (só tirar) e o estado."""
+        from game import drones                      # (import local, como os outros da UI)
         st = machine.station
         self.window(cx, y, pw, h, "Estação de drones", f"{len(st.drones)}/{C.STATION_DRONE_SLOTS}", C.C_O2)
         self._section_label("DRONES", cx + 8, y + 16, C.C_O2)
@@ -2303,7 +2304,7 @@ class UI:
             drone = st.drone_in(slot)
             self.draw_slot(sx, sy, None, item_icon, hover=rect.collidepoint(mouse))
             if drone is not None:
-                icon = item_icon("drone")
+                icon = item_icon(drones.item_of(drone))     # v0.8 M5: o ícone do tier
                 if drone.busy:                         # em viagem: travado, ícone apagado e moldura azul
                     icon = icon.copy()
                     icon.set_alpha(90)

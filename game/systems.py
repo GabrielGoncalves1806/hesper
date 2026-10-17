@@ -1859,13 +1859,14 @@ class GameState:
     # ---- estação: painel (slots de drone e buffer) -----------------------------------
     def station_dock(self, machine: Machine, index: int, amount: int | None = None) -> int:
         """Põe drones do slot `index` do inventário na estação: `amount` (None = quantos couberem
-        nos slots livres). Só aceita o item drone. Devolve quantos entraram."""
+        nos slots livres). Só aceita o item drone (nv.1 ou nv.2). Devolve quantos entraram."""
         stack = self.inventory.slots[index]
-        if stack is None or stack.item != "drone":
+        tier = drones.tier_of(stack.item) if stack is not None else None
+        if tier is None:
             return 0
         want = stack.count if amount is None else min(amount, stack.count)
         placed = 0
-        while placed < want and drones.dock(machine, machine.station) is not None:
+        while placed < want and drones.dock(machine, machine.station, tier=tier) is not None:
             placed += 1
         self.inventory.remove_from_slot(index, placed)
         if placed:
@@ -1873,9 +1874,11 @@ class GameState:
             self.events.append(("drone_dock", placed))
         return placed
 
-    def station_dock_slot(self, machine: Machine, slot: int) -> bool:
-        """Pousa 1 drone (que o player segura no cursor, já fora do inventário) na baia `slot`. False se a baia não está livre."""
-        if drones.dock(machine, machine.station, slot) is None:
+    def station_dock_slot(self, machine: Machine, slot: int, item: str = "drone") -> bool:
+        """Pousa 1 drone `item` (que o player segura no cursor, já fora do inventário) na baia `slot`.
+        False se a baia não está livre ou o item não é drone."""
+        tier = drones.tier_of(item)
+        if tier is None or drones.dock(machine, machine.station, slot, tier=tier) is None:
             return False
         self.drones_docked += 1
         self.events.append(("drone_dock", 1))
@@ -1887,12 +1890,13 @@ class GameState:
         drone = machine.station.drone_in(slot)
         if drone is None or drone.busy:
             return False
+        item = drones.item_of(drone)
         trial = self.inventory.copy()
-        if trial.add("drone", 1) or (drone.cargo and trial.add(drone.resource, drone.cargo)):
+        if trial.add(item, 1) or (drone.cargo and trial.add(drone.resource, drone.cargo)):
             self.events.append(("inv_full",))
             return False
         drones.undock(machine.station, slot)
-        self.inventory.add("drone", 1)
+        self.inventory.add(item, 1)
         if drone.cargo:
             self.inventory.add(drone.resource, drone.cargo)
         self.events.append(("drone_undock",))
@@ -2227,8 +2231,9 @@ class GameState:
         if machine.is_station:
             for r, n in drones.recall_cargo(machine.station).items():
                 out[r] = out.get(r, 0) + n
-            if machine.station.drones:
-                out["drone"] = len(machine.station.drones)
+            for drone in machine.station.drones:              # v0.8 M5: cada tier volta como o item dele
+                item = drones.item_of(drone)
+                out[item] = out.get(item, 0) + 1
         return out
 
     def dismantle(self, machine: Machine) -> bool:
