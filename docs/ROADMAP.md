@@ -105,6 +105,7 @@ Spec: `docs/superpowers/specs/2026-10-16-v08-plantas-design.md` (bíblia §17). 
 - [ ] M6 · Objetivos e fechamento
   - Rebalancear o ritmo da alga (dono, 2026-10-17: com 3 cultivadores parecia render demais, mas o F1 tava ligado). Conta sem F1: ~6 algas por cultivador a cada 5 min. Decidir junto com o consumo da centrífuga e dos materiais do M5.
   - `balance_sim` passa a conhecer a trava de receita por estágio (M4).
+  - **Seção DRONES das máquinas no Grande** (achado no M5): Cultivador, Microscópio e Centrífuga passam da linha de ajuda; resolver junto do modal de logística ou com o remendo do baú.
   - **Plantas mais lentas por raridade** (dono, 2026-10-17: agora que tem adubo, ele é o atalho). Proposta de partida pro `CROPS.cycle`: alga 90 → 150 s (×1,7), Folha-gota 120 → 240 s (×2), Espiral 150 → 360 s (×2,4), Lírio 180 → 540 s (×3). Conferir no `balance_sim` com o estágio Musgo/Verde (biomassa/s não muda) e com o consumo de fibra, gel e resina.
 
 ## v0.9 · Vida

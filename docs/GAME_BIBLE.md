@@ -1203,3 +1203,15 @@ Detalhe e números de partida: `docs/superpowers/specs/2026-10-16-v08-plantas-de
 - **Fabricador**: Automação = … Cultivador → Microscópio → Centrífuga. A seta "→" das descrições virava quadrado (a fonte não tem o glifo): o `ui._render` troca por ">" (vale pra Fundição, Coletor etc.).
 - **Save continua v16** (só campos que já existiam: `timer` e storage de slots fixos).
 - **Números**: pytest 2218 passed, 2 skipped; smoke exit 0 (média 7,2 ms, p95 12,7 ms); `real_video_check` 16 telas iguais.
+
+### Marco 5 · como ficou na implementação (`game/config.py` bloco "v0.8 M5", `game/equipment.py`, `game/systems.py`, `game/drones.py`, `game/save.py`, `game/ui.py`, `game/app.py`, `game/render.py`, `game/lighting.py`; 6 tasks, a onda 1 (1–4) em paralelo)
+- **Materiais** (Bancada T2, empilham 20, categoria PEÇA): 2 algas → 1 fibra; 2 Folha-gota → 1 gel hídrico; 2 Espiral → 1 resina de geada; 1 Lírio → 1 essência ("a Ilves sabia o que fazer com isso", sem uso). Fora da logística dos drones de propósito.
+- **Traje** (`EQUIP_SLOT_OF`): o slot aceita o nv.1 ou o nv.2 (o nv.2 não consome o nv.1; equipar troca). Tanque nv.2 (3 fibras + 2 géis + 3 lingotes de ferro) = 400 s de O₂. Mochila T2 (6 fibras + 4 lingotes de ferro) = +2 linhas (inventário 32); trocar pra menor só com as linhas que somem vazias. Botas (3 fibras + 2 resinas) = ×1,3 na velocidade (o F3 multiplica junto). Slot novo BOTAS.
+- **Tab** em 3 colunas (mock A): grades · TRAJE 2×2 (tanque, scanner, mochila, botas) · detalhe com "USADO EM". 446×174, a mesma altura com qualquer mochila; rótulo "MOCHILA T2". Painéis laterais crescem 32 px por linha da mochila.
+- **Adubo** (1 alga + 1 gel → 2): posto no Cultivador some e soma 120 s (teto 600) em que só a planta cresce ×2 (água e biomassa/s iguais); só gasta crescendo. Selo "ADUBO m:ss" no painel.
+- **Drone nv.2** (1 drone + 2 fibras + 2 resinas + 1 circuito): `Drone.tier`, voa a 9 tiles/s (nv.1: 6) e pega/solta na metade do tempo. A estação aceita os dois; tirar/desmontar devolve o item certo. **Não carrega mais** (cortado: o lote é da máquina).
+- **Luminária bio** (2 resinas + 1 silício, construtor, aba Luz): luz `(150, 245, 215)`, raio 6, sem energia, halo próprio na superfície.
+- **Baú**: os toggles de drone na fileira larga viraram 16×16, 10 por linha, com o rótulo Envia/Recebe no vão da 2ª linha (o baú grande passava da hotbar no Grande depois das amostras do M4). As máquinas (Cultivador, Microscópio, Centrífuga) ainda passam da linha de ajuda no Grande: fica pro M6/modal.
+- **Arte**: materiais, adubo, drone nv.2, luminária bio, tanque nv.1/nv.2, Mochila T2 e scanner 3D; mochila nv.1 = C da rodada 4; botas = 2D da rodada 1 (provisória).
+- **Save v17** (inventário de 32, traje com botas e nv.2, `boost` do cultivador, tier do drone; v16 carrega).
+- **Números**: pytest 2376 passed, 2 skipped; smoke exit 0 (média 6,6 ms, p95 11,7 ms); `real_video_check` 16 telas iguais.
