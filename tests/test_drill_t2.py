@@ -35,7 +35,7 @@ def test_item_registered():
     assert m.name == "Broca de mão nv.2" and not m.placeable
     assert m.cost == T2_COST and m.unlock_ti == 0
     assert C.HAND_DRILLS == ("hand_drill", "hand_drill_t2")
-    assert C.T2_RECIPES[-1] == "hand_drill_t2"
+    assert "hand_drill_t2" in C.T2_RECIPES                # v0.8 M5: os materiais e itens das plantas vêm depois
     assert max_stack("hand_drill_t2") == 1
     assert C.HAND_DRILL_T2 not in C.MACHINE_ORDER
 
