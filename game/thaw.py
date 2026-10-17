@@ -27,6 +27,12 @@ def gate_progress(heat: float, i: int, giant: bool = False) -> float:
     return min(1.0, max(0.0, (heat - lo) / (hi - lo)))
 
 
+def lab_ice_progress(heat: float) -> float:
+    """v0.8 M3: degelo da porta do laboratório da Ilves (0 = inteiro .. 1 = sem gelo), linear em C.LAB_ICE_HEAT."""
+    lo, hi = C.LAB_ICE_HEAT
+    return min(1.0, max(0.0, (heat - lo) / (hi - lo)))
+
+
 def gate_stage(p: float, opens_at: float) -> int:
     """Etapa derivada do progresso (M3.5): 0 inteiro, GATE_MELTING derretendo e fechado, GATE_OPEN com a fresta
     aberta (`opens_at` = game/ice_blocks.py · opens_at da receita do portão). A etapa 2 do M3.2 não existe mais."""

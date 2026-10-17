@@ -55,6 +55,11 @@ Dispersor de O₂ (v9): {"kind": "o2_dispenser", ..., "storage": [["water_capsul
 Coletor de água (v15): {"kind": "water_collector", ..., "timer": 12.5, "storage": [["water_capsule_empty", 3],
         ["water_capsule", 1]], "sends": [...], "receives": [...], "batch": 10, "chip": true}. Slot 0 = vazias, 1 = cheias.
         `burn` = segundos que faltam da cápsula que está sendo gasta (já saiu do slot).
+Cultivador (v16): {"kind": "cultivator", ..., "growth": 0.55, "tank": 3.4, "storage": [["water_capsule", 2],
+        ["water_capsule_empty", 1], ["algae", 1], ["algae", 3], null, null, null], "sends": [...], "receives": [...],
+        "batch": 10, "chip": true}. Slots fixos: 0 = reserva de cápsulas cheias, 1 = vazias, 2 = a muda (1 só, uma cultura),
+        3 a 6 = colheita. `growth` 0..1 (1 = madura) e `tank` 0..5 cápsulas. Sem cultivador, o save é igual ao v15.
+        O gelo da porta do laboratório NÃO vai no save: sai do calor (`progress.indices.heat`), como os gelos-portão.
 Derretedor (v0.5 M2, ainda v8): {"kind": "melter", ..., "timer": 4.0, "storage": [["ice", 12], ["water_capsule", 2]],
         "sends": ["water_capsule"], "receives": [], "batch": 10}. Slot 0 = gelo, slot 1 = cápsulas. Sem "storage"
         (derretedor de antes) carrega vazio: não precisou subir a versão.
@@ -104,7 +109,7 @@ from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 from game.wrecks import loot_for
 
-SAVE_VERSION = 15  # v15 (v0.8 M2): Dispersor com slot de cápsula vazia e Coletor de água · v14 (v0.8 M1): biomassa (4º índice) e 6 estágios (o Verde antigo volta pro Úmido) · v13 (v0.7 M3): destroços novos (a mesma seed põe os destroços em outro lugar; wrecks.settle) · v12 (v0.6 Fundo M1): caverna nova 256×256 (a do v11 é descartada) · v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
+SAVE_VERSION = 16  # v16 (v0.8 M3): Cultivador (growth, tank e 7 slots fixos) e o diagrama dele em blueprints · v15 (v0.8 M2): Dispersor com slot de cápsula vazia e Coletor de água · v14 (v0.8 M1): biomassa (4º índice) e 6 estágios (o Verde antigo volta pro Úmido) · v13 (v0.7 M3): destroços novos (a mesma seed põe os destroços em outro lugar; wrecks.settle) · v12 (v0.6 Fundo M1): caverna nova 256×256 (a do v11 é descartada) · v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
 FIRST_VERSION = 10  # saves com versão menor que essa são de outra época do jogo: "save antigo" (v1–v9, não migram)
 # Numeração dos estágios dentro do "progress": 2 = v0.4 (Tempestade, Árido, Névoa, Verde), 3 = v0.8 (Tempestade,
 # Árido, Úmido, Algas, Musgo, Verde). O 1 (os 3 estágios do v0.3) só existia no save v6, que não carrega mais.
@@ -354,6 +359,23 @@ def collector_storage(data: list) -> Inventory:
     return inv
 
 
+def cultivator_storage(data: list) -> Inventory:
+    """Inventário do Cultivador do save (v0.8 M3): cada slot só aceita o que pode. [0] cápsula cheia, [1] vazia, [2] a muda
+    (1 só, uma cultura), [3..6] colheita (só culturas, a mesma da muda ou qualquer). Outra coisa vira vazio."""
+    inv = Inventory(C.CULT_SLOTS)
+    for slot in range(C.CULT_SLOTS):
+        d = data[slot] if slot < len(data) else None
+        if not d or int(d[1]) <= 0:
+            continue
+        item = d[0]
+        ok = {C.CULT_WATER_SLOT: item == "water_capsule", C.CULT_EMPTY_SLOT: item == C.EMPTY_CAPSULE,
+              C.CULT_SEED_SLOT: item in C.CROP_ITEMS}.get(slot, item in C.CROP_ITEMS)
+        if ok:
+            count = 1 if slot == C.CULT_SEED_SLOT else min(int(d[1]), max_stack(item))
+            inv.slots[slot] = Stack(item, count)
+    return inv
+
+
 def machine_to_dict(m: Machine) -> dict:
     data = {"kind": m.kind, "tx": m.tx, "ty": m.ty, "rotation": m.rotation}
     if m.is_drill:
@@ -364,6 +386,8 @@ def machine_to_dict(m: Machine) -> dict:
         data.update(timer=m.timer, fuel=m.fuel)
     if m.is_collector:                   # v0.8 M2: progresso da cápsula (o inventário vai com o resto do logístico)
         data["timer"] = m.timer
+    if m.is_cultivator:                  # v0.8 M3: a planta (o inventário vai com o resto do logístico)
+        data.update(growth=m.growth, tank=m.tank)
     if m.is_dispenser:                   # v9
         data.update(storage=m.storage.to_data(), burn=m.burn, sealed_once=m.sealed_once)
     if m.is_chest:
@@ -412,6 +436,12 @@ def machine_from_dict(data: dict) -> Machine:
         # v0.8 M2: [0] cápsula vazia, [1] cápsula cheia
         machine.storage = collector_storage(data.get("storage", []))
         machine.timer = min(max(machine.timer, 0.0), C.COLLECTOR_TIME)
+    if machine.is_cultivator:
+        # v0.8 M3: [0] cheias, [1] vazias, [2] a muda, [3..6] colheita. Planta e tanque dentro dos limites
+        machine.storage = cultivator_storage(data.get("storage", []))
+        machine.grow_crop = machine.crop
+        machine.growth = min(max(float(data.get("growth", 0.0)), 0.0), 1.0) if machine.crop else 0.0
+        machine.tank = min(max(float(data.get("tank", 0.0)), 0.0), C.CULTIVATOR_TANK)
     if machine.is_dispenser:
         machine.storage = dispenser_storage(data.get("storage", []))
         machine.burn = min(max(float(data.get("burn", 0.0)), 0.0), C.DISPENSER_TIME_MAX)   # v0.8 M2: a cápsula pode durar até o teto
@@ -540,6 +570,16 @@ def state_to_dict(state: GameState) -> dict:
     return data
 
 
+def _give_lab_algae(state: GameState, data: dict) -> None:
+    """Só se a caixa do lab veio do save (alterada): põe 1 alga nela se couber. Sem ela no save, a caixa nasce da seed já com
+    a alga. A marca vive só no dict migrado: o próximo save não a escreve."""
+    lab = ruins.lab_of(state.surface.world)
+    saved = {(int(x), int(y)) for x, y, *_ in data.get("layers", {}).get(layers.SURFACE, {}).get("crates", [])}
+    crate = state.surface.crates.get(lab.crate) if lab is not None and lab.crate in saved else None
+    if crate is not None and crate.storage.count("algae") == 0:
+        crate.storage.add("algae", 1)
+
+
 def state_from_dict(data: dict) -> GameState:
     """Gera o mundo da seed e aplica cada seção por cima. Dado estranho levanta erro (quem chama trata)."""
     state = new_state(int(data["seed"]))
@@ -551,6 +591,8 @@ def state_from_dict(data: dict) -> GameState:
         raise ValueError(f"camada ativa sem dados: {layer!r}")
     state.layer = layer
     state.scanned = {k for k in data.get("scanned", []) if k in C.PLAYER_PROPS}   # v0.7 M2
+    if data.get("_lab_algae"):                    # v15 -> v16: a caixa do lab já saqueada ganha a cultura-controle (1 vez)
+        _give_lab_algae(state, data)
     if data.get("_back_to_crater"):               # v11 -> v12: estava na caverna antiga
         state.player.x, state.player.y = layers.ramp_arrival(state.surface.world)
     state.ensure_hand_drill()     # v0.5 M4: save v10 do M3 não tem a broca de mão (mesma versão, checagem no load)
@@ -609,7 +651,15 @@ def _v14_to_v15(data: dict) -> dict:
     return data
 
 
-MIGRATIONS: dict = {10: _v10_to_v11, 11: _v11_to_v12, 12: _v12_to_v13, 13: _v13_to_v14, 14: _v14_to_v15}   # o v10 recomeçou do zero (v7–v9 viraram "save antigo")
+def _v15_to_v16(data: dict) -> dict:
+    """v0.8 M3: o Cultivador é máquina nova (growth, tank e os slots dele) e o diagrama "cultivator" entra em
+    `blueprints` (a lista já existe). O gelo do laboratório sai do calor. O save v15 pode ter a caixa do lab saqueada (salva
+    como alterada, sem a alga que nasce da seed agora): marca `_lab_algae` pro load pôr 1 alga nela, uma vez."""
+    data["_lab_algae"] = True
+    return data
+
+
+MIGRATIONS: dict = {10: _v10_to_v11, 11: _v11_to_v12, 12: _v12_to_v13, 13: _v13_to_v14, 14: _v14_to_v15, 15: _v15_to_v16}   # o v10 recomeçou do zero (v7–v9 viraram "save antigo")
 
 
 class SaveError(Exception):

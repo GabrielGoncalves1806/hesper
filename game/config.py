@@ -180,6 +180,9 @@ RESOURCE_LABEL["silicon_wafer"] = "WAFER"
 RESOURCE_LABEL["water_capsule"] = "CÁPSULA"   # (idem: não é recurso, RESOURCES não tem ela)
 RESOURCE_NAME["water_capsule_empty"] = "cápsula vazia"      # v0.8 M2
 RESOURCE_LABEL["water_capsule_empty"] = "VAZIA"
+for _crop, _name, _label in (("algae", "alga", "ALGA"), ("plant_1", "folha-gota", "FOLHA"),            # v0.8 M3: as culturas (toggles
+                             ("plant_2", "espiral-de-geada", "ESPIRAL"), ("plant_3", "lírio-de-Ilves", "LÍRIO")):   # dos drones)
+    RESOURCE_NAME[_crop], RESOURCE_LABEL[_crop] = _name, _label
 
 # ---------------------------------------------------------------------------
 # Sobrevivência (§4 Sobrevivência)
@@ -568,6 +571,10 @@ ORE_COLORS = {  # cor, sombra
     "water_capsule_empty": ("#b8e2ee", "#59d0e6"),   # v0.8 M2: a mesma cor, mais clara
     "iron_ingot": ("#cdb9a4", "#8a7560"),      # v0.6 M3: lingotes da Fundição (pepita do drone e aviso flutuante)
     "copper_ingot": ("#e8905f", "#aa4a2a"),
+    "algae": ("#6fcf8a", "#3f8a5a"),           # v0.8 M3: as culturas (pepita do drone e aviso flutuante)
+    "plant_1": ("#a6e07a", "#5fa04a"),
+    "plant_2": ("#bfe8ff", "#7fb0d0"),
+    "plant_3": ("#f0b8e8", "#b070a8"),
 }
 
 # UI
@@ -771,15 +778,17 @@ LOOT_CRATE_SIZE = (32, 32)
 # Diagramas (v0.5 M1, antes "projetos"): item "diagram_<id>" que fica no inventário como item normal. Ler na bancada
 # (GameState.read_diagram) gasta 1 e libera a receita pra sempre (state.blueprints). O save antigo tinha "bp_<id>".
 BLUEPRINTS = {"o2_tank": "Tanque de O₂", "scanner": "Scanner de navegação", "lamp_t2": "Luminária forte",
-              "workbench": "Bancada T2", "chest_large": "Baú grande"}
+              "workbench": "Bancada T2", "chest_large": "Baú grande",
+              "cultivator": "Cultivador"}                  # v0.8 M3: o do Cultivador sai do scan do tanque quebrado do lab
 WRECK_DIAGRAMS = ("o2_tank", "scanner", "lamp_t2")   # os que dão nos destroços (o da Bancada T2 se fabrica no T1)
 DIAGRAM_ITEMS = {f"diagram_{k}": k for k in BLUEPRINTS}
 LEGACY_DIAGRAM_ITEMS = {f"bp_{k}": f"diagram_{k}" for k in BLUEPRINTS}   # item do save antigo -> item de hoje
 RECIPE_BLUEPRINT = {"o2_tank": "o2_tank", "scanner": "scanner", "lamp_t2": "lamp_t2",
-                    "workbench": "workbench", "chest_large": "chest_large"}   # receita -> diagrama
+                    "workbench": "workbench", "chest_large": "chest_large", "cultivator": "cultivator"}   # receita -> diagrama
 # Bancada que lê cada diagrama ("t1" = o fabricador da cápsula, "t2" = a Bancada T2 do Dev B2). Diagrama de máquina
 # (placeable) é lido em qualquer bancada (spec); os de item só na bancada daqui.
-DIAGRAM_BENCH = {"o2_tank": "t1", "scanner": "t1", "lamp_t2": "t1", "workbench": "t1", "chest_large": "t1"}
+DIAGRAM_BENCH = {"o2_tank": "t1", "scanner": "t1", "lamp_t2": "t1", "workbench": "t1", "chest_large": "t1",
+                 "cultivator": "t1"}
 BENCH_LABEL = {"t1": "FABRICADOR", "t2": "BANCADA T2"}
 
 # Luminária forte (diagrama): raio 7 tiles. A luminária comum tem 5.
@@ -1271,6 +1280,45 @@ MACHINE_CATEGORY[COLLECTOR] = "automation"
 VOLUME["collector_loop"] = 0.4            # Som (gotejar, loop baixo e perto); o arquivo ainda espera o dono: sem ele, mudo
 
 # ---------------------------------------------------------------------------
+# v0.8 M3 · Cultivador e culturas (bíblia §17, spec 2026-10-16-v08-plantas-design.md). Máquina grande de slots fixos,
+# no molde da Fundição e do Coletor: só dentro da base vedada (Dispersor soprando), com água, a muda cresce em 4 etapas,
+# soma biomassa por segundo e dá colheita. Números de partida (balanceamento no M5). Arte aprovada: reports/design/v08_plantas.
+# ---------------------------------------------------------------------------
+CULTIVATOR = "cultivator"
+CULT_WATER_SLOT, CULT_EMPTY_SLOT, CULT_SEED_SLOT = 0, 1, 2     # reserva de cápsulas cheias, vazias que saem, a muda
+CULT_HARVEST_SLOTS = (3, 4, 5, 6)
+CULT_SLOTS = 7
+CULTIVATOR_TANK = 5.0                     # cápsulas no tanque interno
+CULTIVATOR_REACH = MELTER_REACH
+CULTIVATOR_HARVEST_AFTER = 1 / 3          # perene: colheu, volta pra etapa 1 ("pequena"); growth = 1/3
+
+
+class Crop(NamedTuple):
+    biomass: float      # biomassa por segundo enquanto cresce com água
+    water_s: float      # s que 1 cápsula de água dura
+    cycle: float        # s da muda à planta madura
+
+
+CROPS = {"algae": Crop(0.5, 120.0, 90.0), "plant_1": Crop(1.5, 90.0, 120.0),
+         "plant_2": Crop(4.0, 60.0, 150.0), "plant_3": Crop(10.0, 45.0, 180.0)}
+CROP_ITEMS = tuple(CROPS)
+CROP_NAME = {"algae": "Alga", "plant_1": "Folha-gota", "plant_2": "Espiral-de-geada", "plant_3": "Lírio-de-Ilves"}
+CROP_DESC = {"algae": "cultura-controle da Ilves", "plant_1": "planta de Hesper", "plant_2": "planta de Hesper",
+             "plant_3": "planta de Hesper"}
+for _crop in CROP_ITEMS:                  # item que empilha como peça de loot e vai de muda pro Cultivador
+    MACHINES[_crop] = MachineType(_crop, CROP_NAME[_crop], CROP_DESC[_crop], {}, None, 0, 0, f"icon_{_crop}", placeable=False)
+LOGISTIC_ITEMS = LOGISTIC_ITEMS + CROP_ITEMS
+MACHINES[CULTIVATOR] = MachineType(CULTIVATOR, "Cultivador", "planta → biomassa", {"iron_ingot": 4, "silicon": 6, "ice": 4},
+                                   None, 0, 0, "machine_cultivator")
+POWER_USE[CULTIVATOR] = 1
+MACHINE_ORDER.insert(MACHINE_ORDER.index(COLLECTOR) + 1, CULTIVATOR)   # Automação, depois do Coletor
+MACHINE_CATEGORY[CULTIVATOR] = "automation"
+# Os dois props do lab viram máquinas quebradas (a arte muda; o scan, o alcance e o save continuam de prop). Escanear o
+# tanque dá o diagrama do Cultivador; o microscópio só escaneia a partir do M4 (quando a máquina existir).
+PROP_MACHINE_ART = {"prop_sample_tank": "machine_cultivator_broken", "prop_microscope_digital": "machine_microscope_broken"}
+SCAN_BLUEPRINT = {"prop_sample_tank": CULTIVATOR}
+
+# ---------------------------------------------------------------------------
 # v0.6 Fundo M5 · Remapear crafts (bíblia §15 "Marco 5"). Números de partida; balanceamento depois.
 # ---------------------------------------------------------------------------
 # O wafer é feito na Bancada T2 (10 silício); a cadeia nova (Fundição + Bancada T2) vira obrigatória do Ti 10.000 em diante.
@@ -1305,6 +1353,12 @@ RUIN_LOOT = {                                            # caixa da ruína: recu
     "drill_post": ({"copper_ingot": (3, 6), "magmatite": (2, 4)}, LOOT_RICH),
 }
 RUIN_BROKEN_TINT = (120, 112, 108)   # máquina quebrada: o desenho é multiplicado por essa cor (apagada)
+
+# v0.8 M3 · Laboratório da Ilves: a porta dupla nasce tampada por gelo (blocos dos gelos-portão), que derrete com o calor.
+# Números de partida (o balanceamento é no M5): começa a derreter em 5.000 pK e some em 8.000.
+LAB_ICE_HEAT = (5_000, 8_000)
+LAB_ICE_RECIPE = "A"               # a receita de blocos (assets/sprites/regions/regions_palettes.json) do gelo da porta
+LAB_ICE_NOTICE = "O gelo do laboratório cedeu"
 
 # ---------------------------------------------------------------------------
 # v0.7 M2 · Props e scanner (game/props.py · bíblia §16). Números de partida: balanceamento fica pra depois.
@@ -1382,7 +1436,7 @@ _PROP_TABLE = (
 PROPS = {k: PropType(k, n, c, s, p, k not in PROP_STARTER and k not in PROP_SCENERY, *size)
          for k, n, c, s, p, *size in _PROP_TABLE}
 PROP_VARIANT_KINDS = ("prop_uniforms",)    # sprite com variantes: <id>_a.png / <id>_b.png, por hash do tile
-PLAYER_PROPS = tuple(k for k in PROPS if k not in PROP_SCENERY)
+PLAYER_PROPS = tuple(k for k in PROPS if k not in PROP_SCENERY and k not in PROP_MACHINE_ART)   # v0.8 M3: os 2 do lab viram máquina, não decoração
 for _kind in PLAYER_PROPS:
     _t = PROPS[_kind]
     MACHINES[_kind] = MachineType(_kind, _t.name, "decoração · na parede" if _t.place in ("face", "desk") else "decoração",

@@ -113,7 +113,7 @@ def test_dispenser_save_does_not_accept_a_full_capsule_in_the_empty_slot():
 
 
 def test_v14_to_v15_migration_registered():
-    assert save.SAVE_VERSION == 15 and 14 in save.MIGRATIONS
+    assert save.SAVE_VERSION >= 15 and 14 in save.MIGRATIONS     # (o v16 é do M3, ver test_cultivator_v08)
     data = {"version": 14, "x": 1}
     assert save.MIGRATIONS[14](dict(data)) == data
 

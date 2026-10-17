@@ -224,6 +224,8 @@ def can_send(machine, item: str) -> bool:
     só a cápsula vazia (v0.8 M2); o baú, qualquer item logístico."""
     if machine.is_dispenser:                                # v0.8 M2: o dispersor só manda as vazias
         return item == C.EMPTY_CAPSULE
+    if machine.is_cultivator:                               # v0.8 M3: o cultivador manda as vazias e a colheita (nunca a muda)
+        return item == C.EMPTY_CAPSULE or item in C.CROP_ITEMS
     if item not in C.LOGISTIC_ITEMS:
         return False
     if machine.is_smelter:
@@ -246,7 +248,7 @@ def can_receive(machine, item: str) -> bool:
         return item == "ice"
     if machine.is_collector:                                # v0.8 M2: o coletor só recebe cápsula vazia
         return item == C.EMPTY_CAPSULE
-    if machine.is_dispenser:
+    if machine.is_dispenser or machine.is_cultivator:       # v0.8 M3: o cultivador só recebe cápsula cheia (a reserva)
         return item == "water_capsule"
     return True
 
@@ -264,7 +266,34 @@ def receive_slot(machine, item: str) -> int | None:
         return C.DISPENSER_CAPSULE_SLOT
     if machine.is_collector and item == C.EMPTY_CAPSULE:
         return C.COLLECTOR_IN_SLOT
+    if machine.is_cultivator and item == "water_capsule":
+        return C.CULT_WATER_SLOT
     return None
+
+
+def stock(machine, item: str) -> int:
+    """Quanto desse item os drones podem tirar da máquina. No cultivador só a saída conta (a colheita e as vazias): a muda
+    do slot 2 e a reserva de água ficam."""
+    if machine.is_cultivator:
+        return sum(machine.storage.slots[i].count for i in _send_slots(item)
+                   if machine.storage.slots[i] is not None and machine.storage.slots[i].item == item)
+    return machine.storage.count(item)
+
+
+def _send_slots(item: str) -> tuple[int, ...]:
+    return (C.CULT_EMPTY_SLOT,) if item == C.EMPTY_CAPSULE else C.CULT_HARVEST_SLOTS
+
+
+def pick_up(machine, item: str, amount: int) -> int:
+    """Tira até `amount` do item da máquina pro drone (no cultivador, só dos slots de saída). Devolve quanto tirou."""
+    if not machine.is_cultivator:
+        return machine.storage.remove(item, amount)
+    taken = 0
+    for i in reversed(_send_slots(item)):
+        stack = machine.storage.slots[i]
+        if stack is not None and stack.item == item and taken < amount:
+            taken += machine.storage.remove_from_slot(i, amount - taken)
+    return taken
 
 
 def slot_room(storage, slot: int, item: str) -> int:
@@ -350,7 +379,7 @@ class Ledger:
 
     def available(self, source, item: str) -> int:
         """Estoque que ninguém reservou ainda."""
-        return max(0, source.storage.count(item) - self.taking.get((id(source), item), 0))
+        return max(0, stock(source, item) - self.taking.get((id(source), item), 0))
 
     def room(self, dest, item: str) -> int:
         """Espaço livre pro item, como se o que já está vindo pra cá tivesse chegado (no slot dele, se tiver)."""
@@ -518,7 +547,7 @@ def update_drone(machine, drone: Drone, logistics, ledger: Ledger, dt: float, ev
         drone.timer -= dt
         if drone.timer <= 0:
             src, item = drone.source, drone.resource
-            got = src.storage.remove(item, drone.planned) if _exists(src, logistics) else 0
+            got = pick_up(src, item, drone.planned) if _exists(src, logistics) else 0
             drone.source, drone.planned = None, 0
             if got:
                 drone.cargo = got

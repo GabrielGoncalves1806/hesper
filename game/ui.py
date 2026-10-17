@@ -50,11 +50,19 @@ SHORT_NAME = {"water_capsule": "cápsula"}          # só no resumo do título d
 LOGI_COL = 52                                    # onde começam os botões (depois de "Recebe")
 SMELT_LOGI_Y = 102                               # ...e nela, a da Fundição (3 slots, barra, carga e ajuda em cima)
 COLLECT_LOGI_Y = 92                              # v0.8 M2: ...e a do Coletor de água (2 slots, barra, estado e o ritmo)
+CULT_LOGI_Y = 152                                # v0.8 M3: ...e a do Cultivador (barras, cilindro, colheita e a fileira dos slots)
 DISP_LOGI_Y = 92                                 # onde a seção DRONES começa nos painéis da drill, derretedor e dispersor
 LOGI_H = 14 + 2 * LOGI_ROW + 2 + LOGI_BATCH_H    # altura da seção com Envia e Recebe, 1 linha de botões cada (82)
 LOGI_WIDE_AFTER = 5                              # com mais materiais que isso (o baú tem 8), a fileira vira "larga":
 LOGI_WIDE_BTN, LOGI_WIDE_GAP = 20, 2             # o rótulo (Envia/Recebe) sobe pra uma linha própria e os botões
 LOGI_WIDE_ROW = 9 + LOGI_WIDE_BTN + 2            # (20×20) ocupam a grade toda: 8 × 20 + 7 × 2 = 174 = GRID_W
+LOGI_WIDE_COLS = 8                               # v0.8 M3: passou de 8 materiais (as culturas), a fileira larga quebra em mais linhas
+
+
+def wide_row_height(n: int) -> int:
+    """Altura de uma fileira larga (rótulo em cima e os botões 20×20 em linhas de 8) com `n` materiais."""
+    lines = -(-n // LOGI_WIDE_COLS)
+    return 9 + lines * (LOGI_WIDE_BTN + 2)
 # painéis lado a lado (baú, drill, estação, caixa): inventário | botões do meio | o outro lado
 HELP_CURSOR = [("CLIQUE", "pega/solta"), ("DIR", "metade/1"), ("SHIFT+CLIQUE", "manda direto"), ("ESC", "fecha")]
 SIDE_W = GRID_W + 16                             # 8 de margem dos dois lados da grade
@@ -1723,6 +1731,8 @@ class UI:
             side_h = SMELT_LOGI_Y + self.logistics_height(side) + 10
         elif side.is_collector:
             side_h = COLLECT_LOGI_Y + self.logistics_height(side) + 10
+        elif side.is_cultivator:
+            side_h = CULT_LOGI_Y + self.logistics_height(side) + 10
         else:
             side_h = 164
         hb = C.HOTBAR_SLOTS
@@ -1761,6 +1771,9 @@ class UI:
             pairs = HELP_CURSOR
         elif side.is_collector:
             self._collector_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, info, mid)
+            pairs = HELP_CURSOR
+        elif side.is_cultivator:
+            self._cultivator_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, mid)
             pairs = HELP_CURSOR
         elif side.is_dispenser:
             self._dispenser_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, info, mid)
@@ -2049,6 +2062,64 @@ class UI:
         self._button(mid, "<<\nPEGAR\nTUDO", "take_collector", mouse, not m.storage.is_empty(), "ghost")
         self.draw_logistics(gx, y + COLLECT_LOGI_Y, GRID_W, m, item_icon, mouse)
 
+    def _vbar(self, x: int, y: int, w: int, h: int, frac: float, color: str) -> None:
+        """Barra vertical (v0.8 M3): trilho e a parte cheia de baixo pra cima, com 1 px de brilho no topo dela."""
+        self.fill(B_TRACK, (x, y, w, h))
+        fh = round(h * max(0.0, min(1.0, frac)))
+        if fh > 0:
+            self.fill(color, (x, y + h - fh, w, fh))
+            if fh > 1:
+                self.fill(pygame.Color(color).lerp((255, 255, 255), 0.35), (x, y + h - fh, w, 1))
+
+    cultivator_art: list | None = None      # as surfaces do Cultivador aberto (App: Renderer.cultivator_surfaces), de baixo pra cima
+
+    def _cultivator_panel(self, m, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str,
+                          mid: pygame.Rect) -> None:
+        """Cultivador (v0.8 M3, mock reports/design/v08_plantas/ui_cultivador_A.png). Esquerda: barras ÁGUA (tanque) e CRESCE.
+        Centro: o cilindro ×2 com a planta na etapa de agora e o ritmo de biomassa. Direita: COLHEITA (4 slots). Embaixo:
+        CHEIAS, VAZIAS e MUDA, a linha de estado, "<< PEGAR TUDO" no meio e a seção DRONES."""
+        m.sync_crop()
+        crop = C.CROP_NAME.get(m.crop, "").upper() if m.crop else None
+        right = f"{crop} · ETAPA {m.crop_stage + 1}/4" if crop else "SEM MUDA"
+        self.window(cx, y, pw, h, "Cultivador", right, C.C_ACCENT)
+        gx = cx + 8
+        top = y + SIDE_GRID_Y + 1
+        bar_h = 56
+        self._section_label("ÁGUA", gx, y + 16, C.C_O2)
+        self._section_label("CRESCE", gx + 30, y + 16, C.C_TI)
+        self._vbar(gx, top, 18, bar_h, m.tank / C.CULTIVATOR_TANK, C.C_O2)
+        for k in range(1, int(C.CULTIVATOR_TANK)):                         # um risquinho por cápsula
+            self.fill(B_WINDOW, (gx, top + round(bar_h * k / C.CULTIVATOR_TANK), 18, 1))
+        self._vbar(gx + 34, top, 8, bar_h, m.growth, C.C_TI)
+        self.tx(f"{m.tank:.0f}/{C.CULTIVATOR_TANK:.0f}", gx + 9, top + bar_h + 3, B_MUTED, align="center")
+        self.tx(f"{m.growth * 100:.0f}%", gx + 38, top + bar_h + 3, B_MUTED, align="center")
+        cyl_x, cyl_w = cx + 68, 40                                        # o cilindro: sprite 40×56 ampliado ×2 (nativo)
+        if self.cultivator_art:
+            art = pygame.Surface((40, 56), pygame.SRCALPHA)
+            for surf in self.cultivator_art:
+                art.blit(surf, (20 - surf.get_width() // 2, 56 - surf.get_height()))
+            self.native.append((pygame.transform.scale_by(art, 2), (cyl_x * 2, (y + 22) * 2)))
+        spec = C.CROPS.get(m.crop)
+        rate = spec.biomass if spec is not None and status == "Crescendo" else 0.0
+        self.tx(f"{rate:g} BIO/S".replace(".", ","), cyl_x + cyl_w / 2, y + 79, "#7fd67a" if rate else B_MUTED, align="center")
+        hx = cx + pw - 8 - 2 * SLOT_STEP + 2                              # COLHEITA: 2×2 slots à direita
+        self._section_label("COLHEITA", hx, y + 16, C.C_ACCENT)
+        self._grid(m.storage, [C.CULT_HARVEST_SLOTS[0], C.CULT_HARVEST_SLOTS[1]], hx, top, item_icon, mouse)
+        self._grid(m.storage, [C.CULT_HARVEST_SLOTS[2], C.CULT_HARVEST_SLOTS[3]], hx, top + SLOT_STEP, item_icon, mouse)
+        self.tx("1-2 POR", hx, y + 76, B_MUTED)
+        self.tx("COLHEITA", hx, y + 85, B_MUTED)
+        ry = y + 104
+        self._section_label("CHEIAS", gx, ry, C.C_O2)
+        self._section_label("VAZIAS", gx + SLOT_STEP + 18, ry, B_MUTED)
+        self._section_label("MUDA", gx + 2 * SLOT_STEP + 36, ry, C.C_ACCENT)
+        self._grid(m.storage, [C.CULT_WATER_SLOT], gx, ry + 10, item_icon, mouse)
+        self._grid(m.storage, [C.CULT_EMPTY_SLOT], gx + SLOT_STEP + 18, ry + 10, item_icon, mouse)
+        self._grid(m.storage, [C.CULT_SEED_SLOT], gx + 2 * SLOT_STEP + 36, ry + 10, item_icon, mouse)
+        self.tx(self.fit(status, GRID_W), gx, y + 138, "#7fd67a" if status == "Crescendo" else C.C_ALERT, self.body)
+        self._button(mid, "<<\nPEGAR\nTUDO", "take_cultivator", mouse,
+                     any(m.storage.slots[i] is not None for i in (C.CULT_EMPTY_SLOT, *C.CULT_HARVEST_SLOTS)), "ghost")
+        self.draw_logistics(gx, y + CULT_LOGI_Y, GRID_W, m, item_icon, mouse)
+
     def _dispenser_panel(self, m, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str, info: str | None,
                          mid: pygame.Rect) -> None:
         """Dispersor de O₂ (v0.5 M2): o slot da cápsula de água, o das vazias (v0.8 M2, só tira), a barra da cápsula que
@@ -2159,7 +2230,7 @@ class UI:
         rows = 0
         for allowed in (drones.can_send, drones.can_receive):
             n = len([i for i in C.LOGISTIC_ITEMS if allowed(machine, i)])
-            rows += 0 if n == 0 else LOGI_WIDE_ROW if n > LOGI_WIDE_AFTER else LOGI_ROW
+            rows += 0 if n == 0 else wide_row_height(n) if n > LOGI_WIDE_AFTER else LOGI_ROW
         batch = 2 + LOGI_BATCH_H if any(drones.can_send(machine, i) for i in C.LOGISTIC_ITEMS) else 0
         height = 14 + rows + batch
         return max(height, 14 + 2 * LOGI_ROW) if machine.needs_chip else height
@@ -2224,7 +2295,8 @@ class UI:
             wide = len(items) > LOGI_WIDE_AFTER
             if wide:                                     # o baú: rótulo em cima, botões 20×20 na largura da grade
                 self.tx(label, x, ry - 3, B_MUTED, self.body)
-                row = [pygame.Rect(x + k * (LOGI_WIDE_BTN + LOGI_WIDE_GAP), ry + 9, LOGI_WIDE_BTN, LOGI_WIDE_BTN)
+                row = [pygame.Rect(x + (k % LOGI_WIDE_COLS) * (LOGI_WIDE_BTN + LOGI_WIDE_GAP),
+                                   ry + 9 + (k // LOGI_WIDE_COLS) * (LOGI_WIDE_BTN + 2), LOGI_WIDE_BTN, LOGI_WIDE_BTN)
                        for k in range(len(items))]
             else:
                 self.tx(label, x, ry + 2, B_MUTED, self.body)
@@ -2232,7 +2304,7 @@ class UI:
             for rect, item in zip(row, items):
                 self._toggle(rect, item, item in chosen, color, item_icon, mouse)
                 self.logistics_buttons.append((rect, (kind, item)))
-            ry += LOGI_WIDE_ROW if wide else LOGI_ROW
+            ry += wide_row_height(len(items)) if wide else LOGI_ROW
         if not any(drones.can_send(machine, i) for i in C.LOGISTIC_ITEMS):
             return                                   # quem só recebe não tem Lote ("quanto o drone tira daqui")
         ry += 2

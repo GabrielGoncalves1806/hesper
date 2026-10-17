@@ -139,7 +139,7 @@ def test_loaded_game_keeps_running(tmp_path):
 def test_save_only_stores_what_changed(tmp_path):
     state = rich_state()
     data = save.state_to_dict(state)
-    assert data["version"] == save.SAVE_VERSION == 15
+    assert data["version"] == save.SAVE_VERSION == 16
     assert set(data) == {"version", "seed", "layer", "layers", "player", "inventory", "progress", "world"}
     assert set(data["layers"]) == {"surface"} and data["layer"] == "surface"
     assert len(data["layers"]["surface"]["changed_tiles"]) == 6   # 5 minérios + 1 cavado na marra
@@ -231,14 +231,14 @@ def test_migration_hook_runs(tmp_path, monkeypatch):
     data["version"] = 10
     data["progress"]["play_time"] = 1.0
 
-    def v15_to_v16(d):
+    def v16_to_v17(d):
         d["progress"]["play_time"] = 99.0
         return d
 
-    monkeypatch.setattr(save, "SAVE_VERSION", 16)
-    monkeypatch.setattr(save, "MIGRATIONS", {**save.MIGRATIONS, 15: v15_to_v16})
+    monkeypatch.setattr(save, "SAVE_VERSION", 17)
+    monkeypatch.setattr(save, "MIGRATIONS", {**save.MIGRATIONS, 16: v16_to_v17})
     migrated = save.migrate(data)
-    assert migrated["version"] == 16 and migrated["progress"]["play_time"] == 99.0
+    assert migrated["version"] == 17 and migrated["progress"]["play_time"] == 99.0
 
 
 def test_atomic_write_keeps_old_save_on_crash(tmp_path, monkeypatch):
@@ -329,7 +329,7 @@ def test_save_with_old_pickups_field_still_loads(tmp_path):
     surface["pickups"] = {"items": [["iron", 2, 3200.5, 3300.0], ["ice", 1, 100.0, 200.0]], "timer": 3.5}
     path = tmp_path / "slot1.json"
     path.write_text(json.dumps(data), encoding="utf-8")
-    assert data["version"] == save.SAVE_VERSION == 15
+    assert data["version"] == save.SAVE_VERSION == 16
     status, loaded = save.probe(path)
     assert status == "ok" and loaded.surface.rocks.timer == 0.0
     assert not hasattr(loaded.surface, "pickups")
@@ -462,7 +462,7 @@ def test_load_converts_bp_items_to_diagram_items():
 
 def test_v9_save_is_refused_as_old_and_backed_up(tmp_path, capsys):
     """v0.5 M3.1: a mesma seed gera outro mundo (256×256), então o v9 não carrega nem migra: aviso + backup."""
-    assert save.SAVE_VERSION == 15 and save.FIRST_VERSION == 10
+    assert save.SAVE_VERSION == 16 and save.FIRST_VERSION == 10
     data = save.state_to_dict(rich_state())
     data["version"] = 9
     path = tmp_path / "slot1.json"
@@ -516,7 +516,7 @@ def test_v12_round_trip_keeps_the_new_cave():
     g.world.set(*tile, C.FLOOR)
     loaded = save.state_from_dict(save.migrate(save.state_to_dict(g)))
     assert loaded.layers[layers.CAVE].world.get(*tile) == C.FLOOR
-    assert save.SAVE_VERSION == 15
+    assert save.SAVE_VERSION == 16
 
 
 # ---- v0.7 M3: destroços novos, save v12 -> v13 ------------------------------------------------------
@@ -559,9 +559,9 @@ def test_v12_old_crate_position_is_ignored():
     assert all(not c.opened for c in loaded.surface.crates.values())
 
 
-def test_save_version_is_15():
-    assert save.SAVE_VERSION == 15
-    assert save.migrate({"version": 12, "layers": {}})["version"] == 15
+def test_save_version_is_16():
+    assert save.SAVE_VERSION == 16
+    assert save.migrate({"version": 12, "layers": {}})["version"] == 16
 
 
 def test_settle_does_not_leak_into_the_world_cache():

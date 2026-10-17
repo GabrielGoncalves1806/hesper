@@ -35,6 +35,8 @@ def _load() -> tuple[dict, dict]:
 
 BLOCKS, RECIPES = _load()
 GIANT_RECIPE = "G"                              # v0.5 M3.6.3: o portão grande (entrada de 8 tiles do bolsão da criatura)
+LAB_GATE = -1                                   # v0.8 M3: o `gate` dos blocos do gelo da porta do laboratório (não é um dos portões)
+LAB_CORRIDOR = 2 * C.TILE                       # a porta dupla do laboratório: 2 tiles (os portões têm 4)
 RECIPE_KEYS = tuple(sorted(k for k in RECIPES if k != GIANT_RECIPE))   # ("A", "B", "C"): os sorteados pela seed
 
 
@@ -226,5 +228,15 @@ def opens_at(recipe: str) -> float:
     """O primeiro `p` em que a fresta abre (a caixa do player passa). Exato: só testa os `p` em que a colisão muda."""
     for p in breakpoints(recipe):
         if passable(rel_rects(recipe, p), corridor=corridor_of(recipe)):
+            return p
+    return 1.0
+
+
+@lru_cache(maxsize=64)
+def lab_opens_at(recipe: str, blockers: tuple = ()) -> float:
+    """v0.8 M3: o primeiro `p` em que a caixa do player passa pela porta dupla do laboratório (corredor de 2 tiles).
+    `blockers` = o resto que bate na caixa em volta da porta (ruins.lab_blockers: paredes e a máquina colada nela)."""
+    for p in breakpoints(recipe):
+        if passable(rel_rects(recipe, p) + list(blockers), walls=False, corridor=LAB_CORRIDOR):
             return p
     return 1.0

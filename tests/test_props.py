@@ -48,7 +48,7 @@ def test_tabela_de_props():
     assert len(C.PROPS) == 42                                   # v0.7 M4: +17 do kit da VÉSPER-7
     assert set(C.PROP_STARTER) == {"prop_table", "prop_chair", "prop_crate", "prop_sign"}
     assert set(C.PROP_SCENERY) == {"prop_chair_fallen", "prop_rubble", "prop_ice_stain", "prop_uniforms"}
-    assert len(C.PLAYER_PROPS) == 38
+    assert len(C.PLAYER_PROPS) == 36                            # v0.8 M3: o tanque e o microscópio digital do lab viraram máquina
     for k in C.PROP_STARTER + C.PROP_SCENERY:
         assert not C.PROPS[k].scannable
     assert C.PROPS["prop_dead_plant"].scannable
@@ -260,7 +260,7 @@ def test_save_props_e_scanned(state_with_constructor):
     s.build("prop_table", tile)
     s.scanned.add("prop_bunk")
     data = json.loads(json.dumps(save.state_to_dict(s)))
-    assert data["version"] == 15 and data["scanned"] == ["prop_bunk"]
+    assert data["version"] == 16 and data["scanned"] == ["prop_bunk"]
     assert data["layers"]["surface"]["props"] == [["prop_table", *tile]]
     t = save.state_from_dict(data)
     assert t.scanned == {"prop_bunk"}

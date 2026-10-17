@@ -19,6 +19,7 @@ from game import explore
 from game import ice_blocks
 from game import layers
 from game import magmatite
+from game import ruins
 from game import vesper
 from game import wrecks
 from game import thaw
@@ -94,6 +95,13 @@ class Machine:
     # v0.8 M2: só o Coletor de água. Coletando agora (o render anima só assim); recalculado a cada tick, não vai no save.
     collecting: bool = field(default=False, compare=False, repr=False)
     cycle: float = field(default=C.COLLECTOR_TIME, compare=False, repr=False)   # s da cápsula agora (com a chuva), pra barra do painel
+    # v0.8 M3: só o Cultivador. `growth` 0..1 (1 = madura, esperando a colheita), `tank` = cápsulas no tanque interno
+    # (0..C.CULTIVATOR_TANK); os dois vão no save. `grow_crop` = a cultura a que o `growth` pertence (trocou a muda, zera) e
+    # `grow_blocker` = por que não cresce agora (None = crescendo): recalculados a cada tick, não vão no save.
+    growth: float = field(default=0.0, compare=False)
+    tank: float = field(default=0.0, compare=False)
+    grow_crop: str | None = field(default=None, compare=False, repr=False)
+    grow_blocker: str | None = field(default="no_seed", compare=False, repr=False)
     # v0.7 M1: máquina quebrada de ruína (game/ruins.py). Não liga: sem índice, Ti, energia, luz, animação nem painel (o
     # E não abre). Só desmonta (devolve C.RUIN_SALVAGE). Nunca vai no save (a ruína sai da seed).
     broken: bool = field(default=False, compare=False)
@@ -111,6 +119,9 @@ class Machine:
             self.storage = Inventory(C.SMELTER_SLOTS)
         elif self.storage is None and self.is_collector:
             self.storage = Inventory(C.COLLECTOR_SLOTS)
+        elif self.storage is None and self.is_cultivator:
+            self.storage = Inventory(C.CULT_SLOTS)
+        self.grow_crop = self.crop
         if stored_init:
             self.stored = stored_init
 
@@ -166,6 +177,27 @@ class Machine:
         return self.kind == C.COLLECTOR
 
     @property
+    def is_cultivator(self) -> bool:
+        """Cultivador (v0.8 M3): muda + água, dentro da base vedada → 4 etapas, biomassa por segundo e colheita."""
+        return self.kind == C.CULTIVATOR
+
+    @property
+    def crop(self) -> str | None:
+        """Cultivador: a cultura que está plantada (o item do slot da muda), None sem muda."""
+        seed = self.storage.slots[C.CULT_SEED_SLOT] if self.is_cultivator else None
+        return seed.item if seed is not None and seed.item in C.CROPS else None
+
+    @property
+    def crop_stage(self) -> int:
+        """Cultivador: etapa da planta, 0 (muda) .. 3 (madura). 0 até 1/3 do ciclo, 1 até 2/3, 2 até o fim, 3 madura."""
+        return 3 if self.growth >= 1 else int(self.growth * 3)
+
+    def sync_crop(self) -> None:
+        """Cultivador: trocou ou tirou a muda (de qualquer jeito: painel, mouse, teste) = a planta recomeça do zero."""
+        if self.crop != self.grow_crop:
+            self.grow_crop, self.growth = self.crop, 0.0
+
+    @property
     def is_dispenser(self) -> bool:
         """Dispersor de O₂ (v0.5 M2): 1 slot de cápsula de água, vedação da base e O₂ lá dentro."""
         return self.kind == C.DISPENSER
@@ -191,12 +223,13 @@ class Machine:
         """Baú, drill, derretedor, Fundição, dispersor e Coletor (v0.6 M2/M3, v0.8 M2): têm Envia/Recebe/Lote. Se o drone
         atende, é `in_network`."""
         return (self.is_chest or self.is_drill or self.is_melter or self.is_dispenser or self.is_smelter
-                or self.is_collector)
+                or self.is_collector or self.is_cultivator)
 
     @property
     def needs_chip(self) -> bool:
         """v0.6 M2/M3, v0.8 M2: drill, derretedor, Fundição, dispersor e Coletor só entram na rede dos drones com um chip."""
-        return self.is_drill or self.is_melter or self.is_dispenser or self.is_smelter or self.is_collector
+        return (self.is_drill or self.is_melter or self.is_dispenser or self.is_smelter or self.is_collector
+                or self.is_cultivator)
 
     @property
     def in_network(self) -> bool:
@@ -1321,6 +1354,12 @@ class GameState:
                 and self.drill_distance(m) <= C.COLLECTOR_REACH]
         return min(near, key=self.drill_distance, default=None)
 
+    def nearby_cultivator(self) -> Machine | None:
+        """Cultivador ao alcance do E (o mais perto; ainda se construindo não abre)."""
+        near = [m for m in self.machines if m.is_cultivator and m.build <= 0 and not m.broken
+                and self.drill_distance(m) <= C.CULTIVATOR_REACH]
+        return min(near, key=self.drill_distance, default=None)
+
     def nearby_dispenser(self) -> Machine | None:
         """Dispersor de O₂ ao alcance do E (o mais perto)."""
         near = [m for m in self.machines if m.is_dispenser and m.build <= 0
@@ -1363,6 +1402,7 @@ class GameState:
                                ("melter", machine.is_melter and machine.build <= 0),
                                ("smelter", machine.is_smelter and machine.build <= 0),
                                ("collector", machine.is_collector and machine.build <= 0),
+                               ("cultivator", machine.is_cultivator and machine.build <= 0),
                                ("dispenser", machine.is_dispenser and machine.build <= 0)):
                 if flag:
                     return kind, machine
@@ -1418,7 +1458,7 @@ class GameState:
             return tuple(target) in self.world.containers and self.container_distance(target) <= C.CONTAINER_REACH
         reach = {"drill": C.DRILL_REACH, "chest": C.CHEST_REACH, "station": C.STATION_REACH,
                  "bench": C.BENCH_REACH, "melter": C.MELTER_REACH, "smelter": C.SMELTER_REACH, "dispenser": C.DISPENSER_REACH,
-                 "collector": C.COLLECTOR_REACH}[kind]
+                 "collector": C.COLLECTOR_REACH, "cultivator": C.CULTIVATOR_REACH}[kind]
         return any(m is target for m in self.machines) and self.drill_distance(target) <= reach
 
     def interaction(self, hover: tuple[str, object] | None = None) -> tuple[str, object] | None:
@@ -1455,6 +1495,9 @@ class GameState:
         collector = self.nearby_collector()
         if collector is not None:
             options.append((self.drill_distance(collector), "collector", collector))
+        cultivator = self.nearby_cultivator()
+        if cultivator is not None:
+            options.append((self.drill_distance(cultivator), "cultivator", cultivator))
         crate = self.nearby_crate()
         if crate is not None:
             options.append((self.crate_distance(crate), "crate", crate))
@@ -1610,6 +1653,53 @@ class GameState:
         self.inventory.remove_from_slot(index, moved)
         return moved
 
+    def cultivator_put(self, cult: Machine, index: int, amount: int | None = None) -> int:
+        """Põe do slot `index` do inventário do player no Cultivador: a cápsula cheia vai pra reserva (`amount` None = a
+        pilha inteira, 1 = clique direito, até encher); uma cultura vai pro slot da muda (1 só: se já tem outra, troca e a
+        antiga volta pro inventário; a planta recomeça). O resto não entra. Devolve quanto entrou."""
+        stack = self.inventory.slots[index]
+        if stack is None:
+            return 0
+        if stack.item == "water_capsule":
+            slot = C.CULT_WATER_SLOT
+            have = cult.storage.slots[slot]
+            room = stack.max - (have.count if have else 0)
+            moved = min(room, stack.count if amount is None else min(amount, stack.count))
+            if moved <= 0:
+                return 0
+            if have is None:
+                cult.storage.slots[slot] = Stack("water_capsule", moved)
+            else:
+                have.count += moved
+            self.inventory.remove_from_slot(index, moved)
+            return moved
+        if stack.item not in C.CROP_ITEMS:
+            return 0
+        have = cult.storage.slots[C.CULT_SEED_SLOT]
+        if have is not None and have.item == stack.item:
+            return 0                                     # a mesma muda já está lá
+        if have is not None:                             # troca: a antiga volta pro inventário (sem lugar, nada muda)
+            trial = self.inventory.copy()
+            trial.remove_from_slot(index, 1)
+            if trial.add(have.item, have.count):
+                self.events.append(("inv_full",))
+                return 0
+        old = have
+        self.inventory.remove_from_slot(index, 1)
+        if old is not None:
+            self.inventory.add(old.item, old.count)
+        cult.storage.slots[C.CULT_SEED_SLOT] = Stack(stack.item, 1)
+        cult.sync_crop()
+        return 1
+
+    def cultivator_take_all(self, cult: Machine) -> int:
+        """"Pegar tudo" do Cultivador: a colheita e as cápsulas vazias, nunca a muda nem a reserva de água. Devolve quanto saiu."""
+        moved = 0
+        for slot in (C.CULT_EMPTY_SLOT, *C.CULT_HARVEST_SLOTS):
+            if cult.storage.slots[slot] is not None:
+                moved += self.melter_take(cult, slot)
+        return moved
+
     def dispenser_put(self, dispenser: Machine, index: int, amount: int | None = None) -> int:
         """Põe cápsulas de água do slot `index` do inventário do player no slot do Dispersor (`amount` None = a pilha
         inteira, 1 = clique direito). Só entra cápsula, e só até a pilha encher. Devolve quanto entrou."""
@@ -1643,6 +1733,8 @@ class GameState:
         moved = before - sum(melter.storage.counts().values())
         if moved < want:
             self.events.append(("inv_full",))
+        if melter.is_cultivator:
+            melter.sync_crop()                           # v0.8 M3: tirou a muda, a planta zera
         return moved
 
     def collect_station(self, machine: Machine) -> int:
@@ -1789,6 +1881,103 @@ class GameState:
                 out.count += 1
             self.events.append(("collector_done", m))
 
+    # ---- Cultivador (v0.8 M3) ----------------------------------------------------------------------
+    def in_breathing_base(self, tile: tuple[int, int], layer: Layer, factor: float | None = None) -> bool:
+        """O tile está dentro de uma base vedada da `layer` com um Dispersor soprando (ligado, vedado, com água)?"""
+        factor = self.power.factor if factor is None else factor
+        return any(self.air_ok(d, factor) and tile in self.seal_of(d, layer).inside
+                   for d in layer.machines if d.is_dispenser)
+
+    @staticmethod
+    def cultivator_room(m: Machine, item: str) -> int:
+        """Quanto da colheita `item` ainda cabe nos 4 slots de saída do Cultivador."""
+        room = 0
+        for slot in C.CULT_HARVEST_SLOTS:
+            stack = m.storage.slots[slot]
+            room += max_stack(item) if stack is None else stack.room if stack.item == item else 0
+        return room
+
+    def cultivator_blocker(self, m: Machine, layer: Layer, factor: float | None = None) -> str | None:
+        """Por que o Cultivador não cresce agora: "no_seed" (sem muda), "no_base" (fora da base vedada com o Dispersor
+        soprando), "full" (madura e a colheita não cabe), "dry" (tanque e reserva sem água); None = crescendo."""
+        m.sync_crop()
+        if m.crop is None:
+            return "no_seed"
+        if not self.in_breathing_base((m.tx, m.ty), layer, factor):
+            return "no_base"
+        if m.growth >= 1 and self.cultivator_room(m, m.crop) <= 0:
+            return "full"
+        if m.tank <= 1e-9 and m.storage.count("water_capsule") <= 0:
+            return "dry"
+        return None
+
+    @staticmethod
+    def _cultivator_refill(m: Machine) -> None:
+        """Tanque com uma cápsula de espaço: puxa da reserva (1 cheia vira 1 vazia na saída; saída cheia, a vazia some)."""
+        while m.tank <= C.CULTIVATOR_TANK - 1 + 1e-9 and m.storage.count("water_capsule") > 0:
+            m.storage.remove("water_capsule", 1)
+            m.tank = min(C.CULTIVATOR_TANK, m.tank + 1)
+            out = m.storage.slots[C.CULT_EMPTY_SLOT]
+            if out is None:
+                m.storage.slots[C.CULT_EMPTY_SLOT] = Stack(C.EMPTY_CAPSULE, 1)
+            elif out.room > 0:
+                out.count += 1
+
+    def _cultivator_harvest(self, m: Machine) -> bool:
+        """Madura: põe 1 ou 2 da cultura na colheita e volta pra etapa 1 (perene). False = não coube nada (fica madura)."""
+        crop = m.crop
+        if self.cultivator_room(m, crop) <= 0:
+            return False
+        n = 1 if self.rng.random() < 0.5 else 2
+        left = n
+        for slot in C.CULT_HARVEST_SLOTS:                # completa as pilhas iguais, depois abre nos vazios
+            stack = m.storage.slots[slot]
+            if stack is not None and stack.item == crop and stack.room > 0:
+                moved = min(stack.room, left)
+                stack.count += moved
+                left -= moved
+        for slot in C.CULT_HARVEST_SLOTS:
+            if left <= 0:
+                break
+            if m.storage.slots[slot] is None:
+                moved = min(max_stack(crop), left)
+                m.storage.slots[slot] = Stack(crop, moved)
+                left -= moved
+        m.growth = C.CULTIVATOR_HARVEST_AFTER
+        self.events.append(("harvest", m, crop, n - left))   # a parte que não coube some
+        return True
+
+    def _update_cultivator(self, m: Machine, layer: Layer, dt: float, factor: float | None = None) -> None:
+        """Cultivador (v0.8 M3), `dt` já com o ritmo da energia. Cresce só com muda, na base vedada e com água: gasta o tanque
+        (1 cápsula = `water_s` s da cultura), avança o ciclo e soma `biomass` por segundo no índice. Madura, colhe e volta
+        pra etapa 1; sem lugar na colheita, fica madura parada (sem gastar água nem somar). Seco: para, a planta não morre."""
+        blocker = self.cultivator_blocker(m, layer, factor)
+        if blocker in ("no_seed", "no_base"):
+            m.grow_blocker = blocker
+            return
+        spec = C.CROPS[m.crop]
+        while dt > 1e-9:
+            self._cultivator_refill(m)
+            if m.growth >= 1:
+                if not self._cultivator_harvest(m):
+                    break
+                continue
+            if m.tank <= 1e-9:
+                break
+            # a água que dura até o tanque pedir a próxima cápsula da reserva (ou até secar, sem reserva)
+            reserve = m.storage.count("water_capsule") > 0 and m.tank > C.CULTIVATOR_TANK - 1
+            usable = m.tank - (C.CULTIVATOR_TANK - 1) if reserve else m.tank
+            need = (1 - m.growth) * spec.cycle
+            step = min(dt, need, max(usable * spec.water_s, 1e-6))
+            m.growth = 1.0 if step >= need - 1e-9 else m.growth + step / spec.cycle
+            m.tank = max(0.0, m.tank - step / spec.water_s)
+            if m.tank < 1e-9:
+                m.tank = 0.0
+            self.indices["biomass"] += spec.biomass * step
+            dt -= step
+        self._cultivator_refill(m)
+        m.grow_blocker = self.cultivator_blocker(m, layer, factor)
+
     def _update_melter(self, melter: Machine, dt: float) -> None:
         """Cápsulas de água (v0.5 M2): a cada MELTER_CAPSULE_TIME s gasta MELTER_ICE_PER_CAPSULE de gelo da entrada
         e põe 1 cápsula na saída. Sem gelo ou com a saída cheia, para (o progresso fica guardado) e não gasta gelo.
@@ -1844,9 +2033,11 @@ class GameState:
         out = dict(machine.type.cost)
         if machine.is_drill and machine.stored:
             out[machine.resource] = out.get(machine.resource, 0) + machine.stored
-        if machine.is_melter or machine.is_dispenser or machine.is_smelter or machine.is_collector:   # v0.5 M2/v0.6 M3/v0.8 M2: o que ficou dentro (a carga acesa da Fundição some)
+        if machine.is_melter or machine.is_dispenser or machine.is_smelter or machine.is_collector or machine.is_cultivator:   # v0.5 M2/v0.6 M3/v0.8 M2/M3: o que ficou dentro (a carga acesa da Fundição some)
             for item, n in machine.storage.counts().items():
                 out[item] = out.get(item, 0) + n
+        if machine.is_cultivator and int(machine.tank) > 0:    # v0.8 M3: a água do tanque interno volta em cápsulas cheias
+            out["water_capsule"] = out.get("water_capsule", 0) + int(machine.tank)
         if machine.chip:                                       # v0.6 M2: o chip volta junto
             out["chip"] = out.get("chip", 0) + 1
         if machine.is_station:
@@ -1978,8 +2169,14 @@ class GameState:
 
     # ---- scanner (v0.7 M2) ---------------------------------------------------------------------------
     def can_scan(self, prop: Prop) -> bool:
-        """Prop de ruína escaneável que o player ainda não conhece, no alcance."""
-        if not prop.ruin or not C.PROPS[prop.kind].scannable or prop.kind in self.known_props():
+        """Prop de ruína escaneável que o player ainda não conhece, no alcance. v0.8 M3: o prop que vira máquina no lab
+        (C.PROP_MACHINE_ART) é escaneável só se dá um diagrama (C.SCAN_BLUEPRINT) que o player ainda não tem."""
+        if not prop.ruin or not C.PROPS[prop.kind].scannable:
+            return False
+        if prop.kind in C.PROP_MACHINE_ART:
+            if C.SCAN_BLUEPRINT.get(prop.kind) in (None, *self.blueprints):
+                return False
+        elif prop.kind in self.known_props():
             return False
         if self.active.props.get(prop.tile) is not prop:
             return False
@@ -1988,7 +2185,8 @@ class GameState:
 
     def _update_scan(self, target: Prop | None, dt: float) -> None:
         """Escanear segurando (v0.7 M2): o esquerdo segurado num prop de ruína desconhecido, no alcance, enche `scan_t` até
-        C.SCAN_HOLD e libera o projeto (`scanned`). Eventos: ("scan_charge",) ao começar, ("scan_cancel",) se para sem
+        C.SCAN_HOLD e libera o projeto (`scanned`; v0.8 M3: o tanque quebrado do lab libera o diagrama da máquina em
+        `blueprints`, e o ("scan_done", ...) leva o id do diagrama). Eventos: ("scan_charge",) ao começar, ("scan_cancel",) se para sem
         completar e ("scan_done", kind) ao terminar (o prop vira conhecido e deixa de ser alvo)."""
         if target is not None and not self.can_scan(target):
             target = None
@@ -2006,7 +2204,11 @@ class GameState:
         if self.scan_t >= C.SCAN_HOLD:
             kind = self.scanning.kind
             self.scanning, self.scan_t = None, 0.0
-            self.scanned.add(kind)
+            if kind in C.SCAN_BLUEPRINT:                     # v0.8 M3: não vira decoração, vira receita de máquina
+                kind = C.SCAN_BLUEPRINT[kind]
+                self.blueprints.add(kind)
+            else:
+                self.scanned.add(kind)
             self.events.append(("scan_done", kind))
 
     @property
@@ -2043,6 +2245,11 @@ class GameState:
                 for m in layer.machines:
                     if m.is_collector and not m.submerged and m.build <= 0 and not m.broken:
                         self._update_collector(m, layer, work_dt)
+        if power.factor > 0:                 # v0.8 M3: o Cultivador (cada um na camada dele)
+            for layer in self.layers.values():
+                for m in layer.machines:
+                    if m.is_cultivator and not m.submerged and m.build <= 0 and not m.broken:
+                        self._update_cultivator(m, layer, work_dt, power.factor)
         for key in layers.ORDER:             # drones (game/drones.py): uma rede por camada (v0.6 M3), as duas rodam
             if key not in self.layers:       # sempre; um Ledger por chamada; no déficit voam mais devagar
                 continue
@@ -2060,6 +2267,7 @@ class GameState:
         self._thaw_crater()
         self._thaw_fumaroles()
         self._thaw_gates()
+        self._thaw_lab_ice()
         self._thaw_lake()
         self._thaw_submerged()               # depois do lago: quem ficou debaixo d'água para
 
@@ -2089,6 +2297,21 @@ class GameState:
                         self.events.append(("giant_gate_thaw", stage))
                     else:
                         self.events.append(("gate_thaw", i, stage))
+
+    def _thaw_lab_ice(self) -> None:
+        """v0.8 M3: o gelo da porta do laboratório da Ilves derrete com o calor (thaw.lab_ice_progress, nunca desce): os
+        blocos e a colisão encolhem (Layer.refresh_gates) e sai ("lab_ice_open",) uma vez, quando a fresta abre."""
+        surface = self.layers.get(SURFACE)
+        if surface is None or surface.geo is None or ruins.lab_door_px(surface.world) is None:
+            return
+        p = max(surface.lab_ice_p, thaw.lab_ice_progress(self.indices["heat"]))
+        if p == surface.lab_ice_p:
+            return
+        was_open = surface.lab_ice_open
+        surface.lab_ice_p = p
+        surface.refresh_gates()
+        if surface.lab_ice_open and not was_open:
+            self.events.append(("lab_ice_open",))
 
     def _thaw_lake(self) -> None:
         """M3.3: a água das bacias sobe com o índice de água (thaw.lake_level), só a partir da Névoa. O nível anda

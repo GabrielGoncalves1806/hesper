@@ -77,6 +77,7 @@ class Ruin:
     crate: tuple[int, int]
     level: int
     props: dict[tuple[int, int], str] = field(default_factory=dict)   # v0.7 M2: tile -> kind do prop (face: tile da parede)
+    orient: int = 0                              # v0.8 M3: a orientação sorteada (0..7), pra saber pra onde a porta olha
 
     @property
     def tiles(self) -> list[tuple[int, int]]:
@@ -237,7 +238,7 @@ def build(plan: Plan, orient: int, level: int, rng: random.Random) -> Ruin | Non
                 terminals[(x, y)] = plan.logs[ch]
             elif ch == "c":
                 crate = (x, y)
-    return Ruin(plan.key, plan.name, plan.layer, plan.damage, 0, 0, grid, machines, terminals, crate, level, props)
+    return Ruin(plan.key, plan.name, plan.layer, plan.damage, 0, 0, grid, machines, terminals, crate, level, props, orient)
 
 
 # ---------------------------------------------------------------------------
@@ -265,10 +266,30 @@ def _stamp(world, ruin: Ruin) -> None:
             world.set(ruin.tx + x, ruin.ty + y, kind)
 
 
+def _lab_orients() -> tuple[int, ...]:
+    """v0.8 M3: as orientações em que a porta dupla `==` do laboratório fica na borda de BAIXO da grade (o gelo da porta
+    olha pro sul). Calculado da planta, não escrito à mão."""
+    grid = load_plan("lab").grid
+    out = []
+    for orient in range(8):
+        rows = transform(grid, orient)
+        door = [(x, y) for y, row in enumerate(rows) for x, ch in enumerate(row) if ch == "="]
+        if len(door) == 2 and all(y == len(rows) - 1 for _, y in door):
+            out.append(orient)
+    return tuple(out)
+
+
+LAB_ORIENTS = _lab_orients()
+LAB_DAMAGE_LEVELS = (0, 1)         # v0.8 M3: nível 0 e 1 não derrubam parede (RUIN_DAMAGE_WALL = 0): ninguém abre outra porta
+
+
 def _search(plan: Plan, rng: random.Random, tries: int, sample, fits) -> Ruin | None:
-    """Sorteia orientação, destruição (desce se isolar) e centro; devolve a primeira que `fits`."""
+    """Sorteia orientação, destruição (desce se isolar) e centro; devolve a primeira que `fits`. O laboratório só
+    nasce de frente pro sul e sem parede caída (v0.8 M3: o gelo trava a porta, não pode ter outra entrada)."""
+    lab = plan.key == "lab"
     for _ in range(tries):
-        orient, level = rng.randrange(8), rng.choice(C.RUIN_DAMAGE_LEVELS)
+        orient = rng.choice(LAB_ORIENTS) if lab else rng.randrange(8)
+        level = rng.choice(LAB_DAMAGE_LEVELS if lab else C.RUIN_DAMAGE_LEVELS)
         ruin = build(plan, orient, level, rng)
         while ruin is None:                                  # o nível 0 sempre passa (testado)
             level -= 1
@@ -393,6 +414,55 @@ def place_cave_ruins(world, seed: int) -> None:
     _finish(world, found)
 
 
+def lab_of(world) -> Ruin | None:
+    """O laboratório da Ilves do mundo (None se a seed não achou lugar)."""
+    return next((r for r in getattr(world, "ruins", ()) if r.key == "lab"), None)
+
+
+def lab_door_tiles(world) -> list[tuple[int, int]]:
+    """v0.8 M3: os 2 tiles da porta dupla `==` do laboratório (vazio sem lab)."""
+    lab = lab_of(world)
+    if lab is None:
+        return []
+    return [(lab.tx + x, lab.ty + y) for y, row in enumerate(lab.grid) for x, ch in enumerate(row) if ch == "="]
+
+
+def lab_door_px(world) -> tuple[float, float] | None:
+    """v0.8 M3: o pé do gelo do laboratório: o meio da borda de baixo da porta dupla, em px do mundo. None sem lab."""
+    tiles = lab_door_tiles(world)
+    if not tiles:
+        return None
+    return (min(x for x, _ in tiles) + 1) * C.TILE, (max(y for _, y in tiles) + 1) * C.TILE
+
+
+def lab_blockers(world) -> tuple[tuple[float, float, float, float], ...]:
+    """v0.8 M3: o que bate na caixa do player em volta da porta do laboratório fora o gelo (paredes, entulho, máquinas
+    quebradas e props que colidem), em px relativos ao pé do gelo. Sem isso a fresta do gelo podia abrir do lado da
+    máquina que está colada na porta (o `o2` da planta) e a dica de calor mentiria. Sai só da planta: vale desde a seed."""
+    from game.systems import Machine
+    lab, door = lab_of(world), lab_door_px(world)
+    if lab is None or door is None:
+        return ()
+    bx, by = door
+    cx, cy = int(bx // C.TILE), int(by // C.TILE) - 1
+    out = []
+    for ty in range(cy - 4, cy + 2):
+        for tx in range(cx - 4, cx + 4):
+            gx, gy = tx - lab.tx, ty - lab.ty
+            ch = _at(lab.grid, gx, gy)
+            t = (tx, ty)
+            rect = None
+            if ch in "#123x" and not (ch == "x" and lab.damage == "sand"):
+                rect = (tx * C.TILE, ty * C.TILE, C.TILE, C.TILE)
+            elif t in lab.machines:
+                rect = Machine(lab.machines[t], tx, ty, broken=True).rect
+            elif t in lab.props and Prop(lab.props[t], tx, ty, ruin=True).solid:
+                rect = Prop(lab.props[t], tx, ty, ruin=True).rect
+            if rect is not None:
+                out.append((rect[0] - bx, rect[1] - by, rect[2], rect[3]))
+    return tuple(out)
+
+
 # ---------------------------------------------------------------------------
 # Os objetos (a metade que nunca vai no save): caixa, casca e máquinas quebradas
 # ---------------------------------------------------------------------------
@@ -423,7 +493,10 @@ def ruin_loot(spot: RuinSpot, seed: int) -> list[tuple[str, int]]:
         n = rng.randint(lo, hi)
         if n > 0:
             items.append((item, n))
-    return items + wrecks._roll_parts(rng, parts)
+    items += wrecks._roll_parts(rng, parts)
+    if spot.key == "lab":                       # v0.8 M3: a cultura-controle da Ilves, sempre, além do saque
+        items.append(("algae", 1))
+    return items
 
 
 def make_ruin_crates(world, seed: int) -> dict:
