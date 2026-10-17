@@ -1169,3 +1169,11 @@ Detalhe e números de partida: `docs/superpowers/specs/2026-10-16-v08-plantas-de
 - **Save v15**: o Dispersor carrega com o slot de vazias; o `burn` limita a 360 s.
 - **Números**: pytest 2043 passed, 2 skipped; smoke exit 0 (média 6,2 ms, p95 11,2 ms).
 
+### Marco 3 · como ficou na implementação (`game/ruins.py`, `game/ice_blocks.py`, `game/thaw.py`, `game/layers.py`, `game/systems.py`, `game/ui.py`, `game/render.py`, `game/drones.py`, `game/save.py`)
+- **Gelo do lab**: o lab só nasce de frente pro sul (`LAB_ORIENTS` = (0, 4), calculado da planta) e com destruição 0 ou 1 (parede nunca cai). Os blocos do portão (receita A, índice `LAB_GATE = -1`) ficam na porta dupla; degelo linear em `LAB_ICE_HEAT` (5.000–8.000 pK). A fresta usa `ice_blocks.lab_opens_at` (corredor de 2 tiles, com o entulho e as máquinas quebradas em volta): abre perto de 7.000 pK. Evento `lab_ice_open`, aviso "O gelo do laboratório cedeu". Nada no save.
+- **Tanque e microscópio do lab** continuam props (saíram de `PLAYER_PROPS`), desenhados com a arte `_broken` sem tint. Escanear o tanque põe `"cultivator"` em `blueprints` ("Projeto liberado: Cultivador"); o microscópio ainda não é escaneável (M4).
+- **Alga** (`algae`) entra no saque da caixa do lab (`ruin_loot`). Save v15: a caixa do lab que já veio salva (saqueada) ganha 1 alga uma vez (`_lab_algae`).
+- **Cultivador** (slots: reserva 0, vazias 1, muda 2, colheita 3–6): só cresce com o tile dentro de base com Dispersor soprando; tanque de 5 que puxa da reserva (cada cápsula vira vazia); `growth` 0..1 em 4 etapas; madura → colhe 1–2 e volta pra etapa 2 (perene); colheita cheia = parada madura; seco = para, não morre; biomassa/s da cultura (`CROPS`). Trocar a muda zera a planta (`sync_crop`). Drones: recebem cheia, levam vazias e colheita (nunca a muda). Desmontar devolve a água do tanque.
+- **Painel** no molde do mock A: ÁGUA, CRESCE, cilindro ×2, BIO/S, COLHEITA, CHEIAS/VAZIAS/MUDA, status, DRONES. Os toggles do baú quebram em linhas de 8 (eram 13 itens).
+- **Números**: pytest 2123 passed, 2 skipped (+ testes do save v15); smoke exit 0 (média 6,1 ms, p95 11,0 ms). Save **v16**.
+
