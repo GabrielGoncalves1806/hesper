@@ -50,7 +50,10 @@ Drill: {"kind": "drill", ..., "resource": "iron", "timer": 3.2, "storage": [["ir
 Bloco da base (v9): {"kind": "base_wall", "tx": 70, "ty": 80}. A porta dupla é UM objeto: {"kind": "base_door2",
         "tx": 70, "ty": 80, "orient": "h"|"v"} com a âncora na metade de oeste/norte. Nada de estado de porta (nasce
         fechada) nem da vedação (recalculada no load, sem som).
-Dispersor de O₂ (v9): {"kind": "o2_dispenser", ..., "storage": [["water_capsule", 2]], "burn": 80.5, "sealed_once": true}.
+Dispersor de O₂ (v9): {"kind": "o2_dispenser", ..., "storage": [["water_capsule", 2], ["water_capsule_empty", 1]], "burn": 80.5,
+        "sealed_once": true}. Slot 1 = cápsulas vazias (v15; o v14 só tinha o slot 0).
+Coletor de água (v15): {"kind": "water_collector", ..., "timer": 12.5, "storage": [["water_capsule_empty", 3],
+        ["water_capsule", 1]], "sends": [...], "receives": [...], "batch": 10, "chip": true}. Slot 0 = vazias, 1 = cheias.
         `burn` = segundos que faltam da cápsula que está sendo gasta (já saiu do slot).
 Derretedor (v0.5 M2, ainda v8): {"kind": "melter", ..., "timer": 4.0, "storage": [["ice", 12], ["water_capsule", 2]],
         "sends": ["water_capsule"], "receives": [], "batch": 10}. Slot 0 = gelo, slot 1 = cápsulas. Sem "storage"
@@ -101,7 +104,7 @@ from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 from game.wrecks import loot_for
 
-SAVE_VERSION = 14  # v14 (v0.8 M1): biomassa (4º índice) e 6 estágios (o Verde antigo volta pro Úmido) · v13 (v0.7 M3): destroços novos (a mesma seed põe os destroços em outro lugar; wrecks.settle) · v12 (v0.6 Fundo M1): caverna nova 256×256 (a do v11 é descartada) · v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
+SAVE_VERSION = 15  # v15 (v0.8 M2): Dispersor com slot de cápsula vazia e Coletor de água · v14 (v0.8 M1): biomassa (4º índice) e 6 estágios (o Verde antigo volta pro Úmido) · v13 (v0.7 M3): destroços novos (a mesma seed põe os destroços em outro lugar; wrecks.settle) · v12 (v0.6 Fundo M1): caverna nova 256×256 (a do v11 é descartada) · v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
 FIRST_VERSION = 10  # saves com versão menor que essa são de outra época do jogo: "save antigo" (v1–v9, não migram)
 # Numeração dos estágios dentro do "progress": 2 = v0.4 (Tempestade, Árido, Névoa, Verde), 3 = v0.8 (Tempestade,
 # Árido, Úmido, Algas, Musgo, Verde). O 1 (os 3 estágios do v0.3) só existia no save v6, que não carrega mais.
@@ -331,11 +334,23 @@ def smelter_storage(data: list) -> Inventory:
 
 
 def dispenser_storage(data: list) -> Inventory:
-    """Inventário do Dispersor do save: 1 slot, só cápsula de água (outra coisa vira vazio)."""
+    """Inventário do Dispersor do save: [0] cápsula de água, [1] cápsula vazia (v0.8 M2; o save v14 só tem o slot 0).
+    Outra coisa vira vazio."""
     inv = Inventory(C.DISPENSER_SLOTS)
-    d = data[C.DISPENSER_CAPSULE_SLOT] if len(data) > C.DISPENSER_CAPSULE_SLOT else None
-    if d and d[0] == "water_capsule" and int(d[1]) > 0:
-        inv.slots[C.DISPENSER_CAPSULE_SLOT] = Stack("water_capsule", min(int(d[1]), max_stack("water_capsule")))
+    for slot, item in ((C.DISPENSER_CAPSULE_SLOT, "water_capsule"), (C.DISPENSER_EMPTY_SLOT, C.EMPTY_CAPSULE)):
+        d = data[slot] if len(data) > slot else None
+        if d and d[0] == item and int(d[1]) > 0:
+            inv.slots[slot] = Stack(item, min(int(d[1]), max_stack(item)))
+    return inv
+
+
+def collector_storage(data: list) -> Inventory:
+    """Inventário do Coletor do save (v0.8 M2): [0] cápsula vazia (entrada), [1] cápsula cheia (saída). Outra coisa vira vazio."""
+    inv = Inventory(C.COLLECTOR_SLOTS)
+    for slot, item in ((C.COLLECTOR_IN_SLOT, C.EMPTY_CAPSULE), (C.COLLECTOR_OUT_SLOT, "water_capsule")):
+        d = data[slot] if slot < len(data) else None
+        if d and d[0] == item and int(d[1]) > 0:
+            inv.slots[slot] = Stack(item, min(int(d[1]), max_stack(item)))
     return inv
 
 
@@ -347,6 +362,8 @@ def machine_to_dict(m: Machine) -> dict:
         data["timer"] = m.timer          # v0.5 M2: progresso da cápsula (o inventário vai com o resto do logístico)
     if m.is_smelter:                     # v0.6 Fundo M3: progresso do lingote e a carga de magmatita acesa
         data.update(timer=m.timer, fuel=m.fuel)
+    if m.is_collector:                   # v0.8 M2: progresso da cápsula (o inventário vai com o resto do logístico)
+        data["timer"] = m.timer
     if m.is_dispenser:                   # v9
         data.update(storage=m.storage.to_data(), burn=m.burn, sealed_once=m.sealed_once)
     if m.is_chest:
@@ -391,9 +408,13 @@ def machine_from_dict(data: dict) -> Machine:
         machine.storage = smelter_storage(data.get("storage", []))
         machine.timer = min(max(machine.timer, 0.0), C.SMELTER_TIME)
         machine.fuel = min(max(int(data.get("fuel", 0)), 0), C.SMELTER_BURNS_PER_FUEL)
+    if machine.is_collector:
+        # v0.8 M2: [0] cápsula vazia, [1] cápsula cheia
+        machine.storage = collector_storage(data.get("storage", []))
+        machine.timer = min(max(machine.timer, 0.0), C.COLLECTOR_TIME)
     if machine.is_dispenser:
         machine.storage = dispenser_storage(data.get("storage", []))
-        machine.burn = min(max(float(data.get("burn", 0.0)), 0.0), C.DISPENSER_CAPSULE_TIME)
+        machine.burn = min(max(float(data.get("burn", 0.0)), 0.0), C.DISPENSER_TIME_MAX)   # v0.8 M2: a cápsula pode durar até o teto
         machine.sealed_once = bool(data.get("sealed_once", False))
     machine.chip = bool(data.get("chip", False)) if machine.needs_chip else False
     if machine.is_logistic:
@@ -582,7 +603,13 @@ def _v13_to_v14(data: dict) -> dict:
     return data
 
 
-MIGRATIONS: dict = {10: _v10_to_v11, 11: _v11_to_v12, 12: _v12_to_v13, 13: _v13_to_v14}   # o v10 recomeçou do zero (v7–v9 viraram "save antigo")
+def _v14_to_v15(data: dict) -> dict:
+    """v0.8 M2: o Dispersor ganhou o slot das vazias (o save v14 tem 1 slot e o 2º nasce vazio) e o Coletor é máquina
+    nova. Nada a converter."""
+    return data
+
+
+MIGRATIONS: dict = {10: _v10_to_v11, 11: _v11_to_v12, 12: _v12_to_v13, 13: _v13_to_v14, 14: _v14_to_v15}   # o v10 recomeçou do zero (v7–v9 viraram "save antigo")
 
 
 class SaveError(Exception):

@@ -1267,7 +1267,7 @@ def check_base(bot) -> None:
     bot.shot("base_painel_dispersor_sem_chip.png")
     put_chip_in_machine(bot, disp)
     assert disp.chip and disp.receives == set() and disp in s.drone_logistics()   # o chip não marca nada (dono)
-    assert {v[0] for _, v in app.ui.logistics_buttons} == {"recv"}              # só recebe: sem Envia e sem Lote
+    assert {v[0] for _, v in app.ui.logistics_buttons} == {"recv", "send", "batch"}   # v0.8 M2: recebe cápsula e envia as vazias
     recv = next(r for r, v in app.ui.logistics_buttons if v == ("recv", "water_capsule"))
     bot.click((recv.centerx * 2, recv.centery * 2))
     assert disp.receives == {"water_capsule"}

@@ -52,7 +52,7 @@ from game.objectives import ObjectiveTracker
 from game.rain import rain_level
 from game.render import Renderer, art_key, stage_key
 from game.surfaces import opaque
-from game.systems import Controls, GameState
+from game.systems import Controls, GameState, collector_time, dispenser_capsule_time
 from game.textedit import TextField
 from game.ui import fmt, item_name, submerged_notice
 from game.title import TitleScreen, draw_saved_notice
@@ -65,8 +65,8 @@ MOVE_KEYS = {
     pygame.K_s: (0, 1), pygame.K_DOWN: (0, 1),
 }
 NUMBER_KEYS = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8]
-INVENTORY_MODES = ("inventory", "chest", "drill", "melter", "smelter", "dispenser", "station", "crate")
-PANEL_MODES = ("chest", "drill", "melter", "smelter", "dispenser", "station", "crate")          # dois painéis: clique transfere pro outro lado (Planet Crafter)
+INVENTORY_MODES = ("inventory", "chest", "drill", "melter", "smelter", "collector", "dispenser", "station", "crate")
+PANEL_MODES = ("chest", "drill", "melter", "smelter", "collector", "dispenser", "station", "crate")          # dois painéis: clique transfere pro outro lado (Planet Crafter)
 ZOOM_IN_KEYS = (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS)     # "=" é a tecla do "+" sem Shift
 ZOOM_OUT_KEYS = (pygame.K_MINUS, pygame.K_KP_MINUS)
 BANNER_TIME = 3.5          # banner de estágio: entra em 0,4 s, fica, sai em 0,8 s
@@ -98,6 +98,11 @@ def pick_scale() -> int:
     except (pygame.error, IndexError):
         return 1
     return max(1, min(int(w * 0.92) // C.SCREEN_W, int(h * 0.92) // C.SCREEN_H))
+
+
+def capsule_time_text(seconds: float) -> str:
+    """v0.8 M2: '45 s' até 90 s, '3 min' / '2.5 min' acima."""
+    return f"{seconds:.0f} s" if seconds <= 90 else f"{seconds / 60:.1f} min".replace(".0 min", " min")
 
 
 class App:
@@ -146,6 +151,7 @@ class App:
         self.open_drill = None                            # drill aberta (Machine), no modo "drill"
         self.open_melter = None                           # derretedor aberto (Machine), no modo "melter" (v0.5 M2)
         self.open_smelter = None                          # Fundição aberta (Machine), no modo "smelter" (v0.6 Fundo M3)
+        self.open_collector = None                        # Coletor de água aberto (Machine), no modo "collector" (v0.8 M2)
         self.open_dispenser = None                        # Dispersor de O₂ aberto (Machine), no modo "dispenser" (v0.5 M2)
         self.dry_fade_t = 0.0                             # s desde o dispenser_dry: o zumbido sai em 0,3 s em vez de 0,8
         self.open_crate = None                            # caixa de saque aberta (Crate), no modo "crate"
@@ -520,6 +526,10 @@ class App:
                     self.open_smelter = target[1]
                     self.placing = None
                     self.set_mode("smelter")
+                elif target and target[0] == "collector":
+                    self.open_collector = target[1]
+                    self.placing = None
+                    self.set_mode("collector")
                 elif target and target[0] == "dispenser":
                     self.open_dispenser = target[1]
                     self.placing = None
@@ -842,7 +852,7 @@ class App:
 
     def other_side(self, inv):
         """Shift+clique: o inventário do outro lado (player <-> baú/drill). None se só o Tab estiver aberto."""
-        side = self.open_chest or self.open_drill or self.open_melter or self.open_smelter or self.open_dispenser
+        side = self.open_chest or self.open_drill or self.open_melter or self.open_smelter or self.open_collector or self.open_dispenser
         if side is None:
             return None
         return side.storage if inv is self.state.inventory else self.state.inventory
@@ -1016,7 +1026,13 @@ class App:
             if index == C.SMELTER_FUEL_SLOT and item == C.SMELTER_FUEL:
                 return None
             return "A Fundição só aceita ferro, cobre e magmatita"
+        if self.open_collector is not None and inv is self.open_collector.storage:
+            if index == C.COLLECTOR_IN_SLOT and item == C.EMPTY_CAPSULE:     # v0.8 M2: [0] vazias entram, [1] só tira
+                return None
+            return "O Coletor só aceita cápsula vazia" if index == C.COLLECTOR_IN_SLOT else "A saída do Coletor só dá pra tirar"
         if self.open_dispenser is not None and inv is self.open_dispenser.storage:
+            if index == C.DISPENSER_EMPTY_SLOT:
+                return "A saída de vazias só dá pra tirar"      # v0.8 M2
             return None if item == "water_capsule" else "O Dispersor só aceita cápsula de água"
         return None
 
@@ -1098,7 +1114,7 @@ class App:
             return
         inv, i = hit
         item = inv.slots[i].item
-        target = self.open_drill or self.open_melter or self.open_smelter or self.open_dispenser
+        target = self.open_drill or self.open_melter or self.open_smelter or self.open_collector or self.open_dispenser
         if item == "chip" and inv is state.inventory and target is not None:
             if target.chip:                              # v0.6 M2: Shift+clique no chip encaixa na máquina aberta
                 self.show_notice("Essa máquina já tem chip")
@@ -1142,6 +1158,20 @@ class App:
                     self.show_notice("Tire o minério que está na Fundição antes"
                                      if item in C.SMELTER_RECIPES and have is not None and have.item != item
                                      else "Slot da Fundição cheio")
+            if moved:
+                self.audio.play("inv_move")
+            return
+        if self.open_collector is not None:              # v0.8 M2: só entra cápsula vazia; a cheia (e a vazia) sai
+            collector = self.open_collector
+            if inv is collector.storage:
+                moved = state.melter_take(collector, i, amount)
+            elif item != C.EMPTY_CAPSULE:
+                self.show_notice("O Coletor só aceita cápsula vazia")
+                return
+            else:
+                moved = state.collector_put(collector, i, amount)
+                if not moved:
+                    self.show_notice("Entrada de vazias cheia")
             if moved:
                 self.audio.play("inv_move")
             return
@@ -1191,6 +1221,8 @@ class App:
             moved = state.melter_take(self.open_melter)
         elif action == "take_smelter" and self.open_smelter is not None:
             moved = state.melter_take(self.open_smelter)
+        elif action == "take_collector" and self.open_collector is not None:
+            moved = state.melter_take(self.open_collector)
         elif action == "take_dispenser" and self.open_dispenser is not None:
             moved = state.melter_take(self.open_dispenser)
         elif action == "take_buffer" and self.open_station is not None:
@@ -1263,7 +1295,7 @@ class App:
                 return f"{item_name(res)} · {st.buffer.get(res, 0)} (sobras)"
         # seção DRONES só existe no baú/drill (na estação a lista podia vir do painel aberto antes)
         hit = (ui.logistics_at(mouse_ui)
-               if (self.open_chest or self.open_drill or self.open_melter or self.open_smelter) is not None else None)
+               if (self.open_chest or self.open_drill or self.open_melter or self.open_smelter or self.open_collector) is not None else None)
         if hit is not None:
             kind, value = hit
             if kind == "batch":
@@ -1286,7 +1318,7 @@ class App:
         """Clique na seção DRONES do baú/drill aberto: liga/desliga Envia e Recebe, ou troca o lote.
         True se acertou um botão."""
         hit = self.ui.logistics_at(pos)
-        side = self.open_chest or self.open_drill or self.open_melter or self.open_smelter or self.open_dispenser
+        side = self.open_chest or self.open_drill or self.open_melter or self.open_smelter or self.open_collector or self.open_dispenser
         if hit is None or side is None:
             return False
         kind, value = hit
@@ -1333,6 +1365,29 @@ class App:
             text += f" · RITMO {self.power_percent()}%"
         return text
 
+    def collector_status(self) -> str:
+        """Linha de estado no painel do Coletor: "COLETANDO" ou o que trava (curto: a barra é estreita; v0.8 M2)."""
+        blocker = self.state.collector_blocker(self.open_collector, self.state.active)
+        return {None: "COLETANDO", "cave": "PARADO", "stage": "PARADO", "no_empty": "SEM VAZIA",
+                "out_full": "SAÍDA CHEIA"}[blocker]
+
+    def collector_info(self) -> str:
+        """Embaixo da barra do painel do Coletor: o motivo da parada ou o ritmo ("1 cápsula a cada 40 s" e, chovendo,
+        " · chuva x2.5"). v0.8 M2."""
+        m, state = self.open_collector, self.state
+        blocker = state.collector_blocker(m, state.active)
+        if blocker == "cave":
+            return "Só funciona na superfície: lá em cima o ar tem umidade."
+        if blocker == "stage":
+            return "Precisa do estágio Úmido: antes disso o ar é seco demais."
+        rain = state.collector_rain(m, state.active)
+        text = f"1 cápsula a cada {collector_time(rain):.0f} s"
+        if rain > 0:
+            text += f" · chuva x{1 + C.COLLECTOR_RAIN_BONUS * rain:.1f}"
+        if state.power.deficit:
+            text += f" · ritmo {self.power_percent()}%"
+        return text
+
     def dispenser_status(self) -> str:
         """Linha de estado no painel do Dispersor: "VEDADO ✓", "VAZAMENTO", "SEM ÁGUA", "SEM ENERGIA"..."""
         return C.STATE_LABEL[self.state.dispenser_state(self.open_dispenser)].upper()
@@ -1343,16 +1398,19 @@ class App:
         seal = self.state.seal_of(m)
         state = self.state.dispenser_state(m)
         n = len(seal.floor)
+        if seal.ok:                                              # v0.8 M2: a cápsula dura conforme o tamanho da base
+            time_line = f"1 cápsula = {capsule_time_text(dispenser_capsule_time(n))} nesta base."
+        else:
+            time_line = "1 cápsula: vede a base pra calcular."
         return {
-            "sealed": f"Base vedada: {n} tiles de chão, {seal.doors} porta(s). Gasta 1 cápsula a cada "
-                      f"{C.DISPENSER_CAPSULE_TIME / 60:g} min.",
-            "leak": "Tem um furo na parede: o tile pisca no mundo. Feche com parede ou porta.",
+            "sealed": f"Base vedada: {n} tiles de chão, {seal.doors} porta(s). {time_line}",
+            "leak": f"Furo na parede (o tile pisca no mundo): feche com parede ou porta. {time_line}",
             "small": f"Base pequena: precisa de {C.BASE_MIN_FLOOR}+ tiles de chão ({n} agora).",
             "nodoor": "A base precisa de pelo menos 1 porta.",
             "big": f"Base grande demais (no máximo {C.BASE_MAX_FLOOR} tiles de chão).",
             "nofloor": "Ponha chão da base debaixo do Dispersor.",
-            "dry": "Ponha uma cápsula de água no slot (o derretedor faz).",
-            "nopower": f"Falta energia na rede ({energy.machine_use(m.kind):g} kW).",
+            "dry": f"Ponha uma cápsula de água no slot (o derretedor faz). {time_line}",
+            "nopower": f"Falta energia na rede ({energy.machine_use(m.kind):g} kW). {time_line}",
         }[state]
 
     def dispenser_labels(self) -> list:
@@ -1577,6 +1635,7 @@ class App:
             self.finish_name_edit(confirm=True)
             self.stash_held()            # devolve a pilha da mão (se não couber, ela espera o próximo Tab)
             self.open_station = self.open_drill = self.open_melter = self.open_smelter = self.open_dispenser = None
+            self.open_collector = None
             if self.mode == "crate":     # fechou a caixa de saque: o som do baú fechando
                 self.audio.play("chest_close")
                 self.open_crate = None
@@ -1591,7 +1650,7 @@ class App:
                 return
         if mode != self.mode:
             self.audio.play("ui_open" if mode in ("fabricator", "build", "pause", "inventory", "station", "drill", "melter",
-                                                  "smelter", "dispenser")
+                                                  "smelter", "collector", "dispenser")
                             else "ui_close")
         self.mode = mode
         self.mouse_held = False
@@ -1942,6 +2001,9 @@ class App:
                           if m.is_smelter and m.build <= 0 and not m.submerged and m.smelter_blocker is None)
         on = state.power.factor > 0
         self.audio.set_smelter_loops([sound.smelter_loop_volume(d) for d in smelting[:2]] if on else [])
+        collecting = [state.drill_distance(m) / C.TILE for m in state.machines              # v0.8 M2: o gotejar do Coletor
+                      if m.is_collector and m.build <= 0 and not m.submerged and m.collecting]
+        self.audio.set_collector_loop(sound.collector_loop_volume(min(collecting)) if collecting and on else 0.0)
         # chegou perto (~4 tiles) de uma drill cheia: avisa uma vez (no máximo a cada 10 s por drill)
         near_now = set()
         for d in state.drills:
@@ -2114,6 +2176,10 @@ class App:
             content = (f"Fundição: {ore_text} · {machine.storage.count(C.SMELTER_FUEL)} magmatita"
                        f" · {out.count if out else 0} pronto(s)")
             return content + (" · [E] abrir" if target and target[1] is machine else other)
+        if machine and machine.is_collector:               # v0.8 M2: vazias e cheias dentro
+            content = (f"Coletor: {machine.storage.count(C.EMPTY_CAPSULE)} vazia(s)"
+                       f" · {machine.storage.count('water_capsule')} cheia(s)")
+            return content + (" · [E] abrir" if target and target[1] is machine else other)
         if machine and machine.is_dispenser:               # v0.5 M2: estado da vedação e da água
             content = f"Dispersor de O₂: {C.STATE_LABEL[state.dispenser_state(machine)]}"
             return content + (" · [E] abrir" if target and target[1] is machine else other) + (
@@ -2278,6 +2344,8 @@ class App:
             return "[E] Abrir derretedor"
         if kind == "smelter":
             return "[E] Abrir Fundição"
+        if kind == "collector":
+            return "[E] Abrir Coletor de água"
         if kind == "station":
             return "[E] Estação de drones" if obj.station.drones else "[E] Estação: coloque drones"
         return (f"[E] Drill · [Shift+E] coletar {obj.stored} {C.RESOURCE_NAME[obj.resource]}" if obj.stored
@@ -2369,14 +2437,16 @@ class App:
         elif self.mode == "inventory" and self.inv_tab == TAB_LOGS:
             ui.draw_logs(state, self.log_selected, self.log_first, mouse_ui)
         elif self.mode in INVENTORY_MODES:
-            side = (self.open_chest or self.open_drill or self.open_melter or self.open_smelter or self.open_dispenser
+            side = (self.open_chest or self.open_drill or self.open_melter or self.open_smelter or self.open_collector or self.open_dispenser
                     or self.open_station or self.open_crate)
             status = (self.station_status() if self.open_station is not None
                       else self.drill_status() if self.open_drill is not None
                       else self.melter_status() if self.open_melter is not None
                       else self.smelter_status() if self.open_smelter is not None
+                      else self.collector_status() if self.open_collector is not None
                       else self.dispenser_status() if self.open_dispenser is not None else "")
             station_info = (self.hovered_slot_label(mouse_ui) if self.open_station is not None
+                            else self.collector_info() if self.open_collector is not None
                             else self.dispenser_info() if self.open_dispenser is not None else None)
             ui.draw_inventory(state.inventory, side, self.hotbar_selected, self.renderer.item_icon, mouse_ui,
                               self.t, self.name_edit, status, station_info,
@@ -2437,6 +2507,7 @@ class App:
         self.audio.set_drill_loops([])
         self.audio.set_drone_loops([])
         self.audio.set_smelter_loops([])
+        self.audio.set_collector_loop(0.0)
         self.audio.set_solar_hum(0.0)
         self.audio.set_wind(False)
         self.audio.set_rain(0.0)
@@ -2497,7 +2568,7 @@ class App:
         self.hotbar_selected, self.held, self.notice_time = 0, None, 0.0
         self.open_chest = self.renderer.open_chest = None
         self.open_station, self.open_drill, self.open_melter, self.name_edit = None, None, None, None
-        self.open_dispenser = self.open_smelter = None
+        self.open_dispenser = self.open_smelter = self.open_collector = None
         self.open_crate = self.after_terminal = None
         self.renderer.minimap.reset()
         self.blueprint_notice, self.blueprint_notice_time, self.blueprint_duck = None, 0.0, 0.0

@@ -215,17 +215,21 @@ def center(machine) -> tuple[float, float]:
 
 # ---------------------------------------------------------------- configuração (Envia / Recebe / Lote)
 def is_logistic(machine) -> bool:
-    """Baú, drill, derretedor, Fundição e dispersor têm inventário que os drones atendem (menos o baú, só com chip)."""
+    """Baú, drill, derretedor, Fundição, dispersor e Coletor têm inventário que os drones atendem (menos o baú, só com chip)."""
     return machine.is_logistic
 
 
 def can_send(machine, item: str) -> bool:
     """A drill só envia o minério dela, o derretedor só a cápsula, a Fundição só os lingotes (v0.6 M3), o dispersor
-    nada (v0.6 M2); o baú, qualquer item logístico."""
-    if item not in C.LOGISTIC_ITEMS or machine.is_dispenser:
+    só a cápsula vazia (v0.8 M2); o baú, qualquer item logístico."""
+    if machine.is_dispenser:                                # v0.8 M2: o dispersor só manda as vazias
+        return item == C.EMPTY_CAPSULE
+    if item not in C.LOGISTIC_ITEMS:
         return False
     if machine.is_smelter:
         return item in C.SMELTER_RECIPES.values()
+    if machine.is_collector:                                # v0.8 M2: o coletor só manda a cápsula cheia
+        return item == "water_capsule"
     if machine.is_melter:
         return item == "water_capsule"
     return not machine.is_drill or item == machine.resource
@@ -240,6 +244,8 @@ def can_receive(machine, item: str) -> bool:
         return item in C.SMELTER_RECIPES or item == C.SMELTER_FUEL
     if machine.is_melter:
         return item == "ice"
+    if machine.is_collector:                                # v0.8 M2: o coletor só recebe cápsula vazia
+        return item == C.EMPTY_CAPSULE
     if machine.is_dispenser:
         return item == "water_capsule"
     return True
@@ -256,6 +262,8 @@ def receive_slot(machine, item: str) -> int | None:
         return C.MELTER_ICE_SLOT
     if machine.is_dispenser and item == "water_capsule":
         return C.DISPENSER_CAPSULE_SLOT
+    if machine.is_collector and item == C.EMPTY_CAPSULE:
+        return C.COLLECTOR_IN_SLOT
     return None
 
 

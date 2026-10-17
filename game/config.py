@@ -178,6 +178,8 @@ RESOURCE_LABEL.update({"iron_ingot": "LING. FERRO", "copper_ingot": "LING. COBRE
 RESOURCE_NAME["silicon_wafer"] = "wafer de silício"   # v0.6 Fundo M4: o wafer da Fundição (toggle dos drones)
 RESOURCE_LABEL["silicon_wafer"] = "WAFER"
 RESOURCE_LABEL["water_capsule"] = "CÁPSULA"   # (idem: não é recurso, RESOURCES não tem ela)
+RESOURCE_NAME["water_capsule_empty"] = "cápsula vazia"      # v0.8 M2
+RESOURCE_LABEL["water_capsule_empty"] = "VAZIA"
 
 # ---------------------------------------------------------------------------
 # Sobrevivência (§4 Sobrevivência)
@@ -310,6 +312,9 @@ MACHINES[SMELTER] = MachineType(SMELTER, "Fundição", "minério → lingote", {
 MACHINE_ORDER = list(MACHINES)   # ordem no fabricador e nas teclas 1–7
 MACHINES["water_capsule"] = MachineType("water_capsule", "Cápsula de água", "água pro Dispersor", {}, None, 0, 0,
                                         "icon_water_capsule", placeable=False)
+EMPTY_CAPSULE = "water_capsule_empty"   # v0.8 M2: o Dispersor solta ao gastar a cápsula; o Coletor de água enche de novo
+MACHINES[EMPTY_CAPSULE] = MachineType(EMPTY_CAPSULE, "Cápsula vazia", "o Coletor enche de novo", {}, None, 0, 0,
+                                      "icon_water_capsule_empty", placeable=False)
 # v0.4 M3.4: máquinas de nome feminino (o aviso "Luminária submersa" / "Aquecedor submerso" concorda)
 MACHINE_FEMININE = {"drill", "drone_station", "lamp", "lamp_t2", "workbench", "smelter"}
 DISMANTLE_KEY = "Clique direito"   # o botão de desmontar (segurar): dica do canto e aviso de submersa
@@ -560,6 +565,7 @@ ORE_COLORS = {  # cor, sombra
     "copper": ("#e0703f", "#aa4a2a"),      # v0.6 Fundo: laranja do cobre (paleta da Designer, reports/design/v06_fundo_cobre_ferro)
     "magmatite": ("#ff7a2e", "#a8361a"),   # laranja-lava (a fissura da pedra), sombra de brasa
     "water_capsule": ("#59d0e6", "#2a7f96"),   # v0.5 M2: só pra pepita do drone e aviso flutuante (não é minério)
+    "water_capsule_empty": ("#b8e2ee", "#59d0e6"),   # v0.8 M2: a mesma cor, mais clara
     "iron_ingot": ("#cdb9a4", "#8a7560"),      # v0.6 M3: lingotes da Fundição (pepita do drone e aviso flutuante)
     "copper_ingot": ("#e8905f", "#aa4a2a"),
 }
@@ -687,7 +693,7 @@ DRONE_PICKUP_TIME = 0.8         # segundos parado em cima da origem "pegando"
 DRONE_DROP_TIME = 0.6           # segundos parado em cima do destino "soltando"
 DRONE_IDLE_RETRY = 0.5          # drone pousado sem tarefa procura de novo a cada 0,5 s
 # Logística (baú e drill): o que os drones tiram (Envia) e trazem (Recebe), e o lote por viagem.
-LOGISTIC_ITEMS = RESOURCES + ("water_capsule", "iron_ingot", "copper_ingot")   # itens com toggle no painel (v0.5 M2: a cápsula de água; v0.6 M3: os lingotes da Fundição; M5: o wafer saiu)
+LOGISTIC_ITEMS = RESOURCES + ("water_capsule", "water_capsule_empty", "iron_ingot", "copper_ingot")   # itens com toggle no painel (v0.5 M2: a cápsula de água; v0.6 M3: os lingotes da Fundição; M5: o wafer saiu)
 DRONE_BATCH_OPTIONS = (1, 5, 10, 20)
 DRONE_BATCH_DEFAULT = 10
 STATION_BUFFER = 50             # legado (save ≤ v4): o buffer não recebe mais nada, só dá pra tirar as sobras
@@ -1212,9 +1218,12 @@ BASE_MAX_FLOOR = 200                      # acima disso o flood fill para (barat
 BASE_LOG_KEEP = 64                        # mudanças de bloco lembradas pro recálculo só quando mexe perto
 # Dispersor de O₂
 DISPENSER = "o2_dispenser"
-DISPENSER_SLOTS = 1                       # 1 slot, só cápsula de água
+DISPENSER_SLOTS = 2                       # v0.8 M2: [0] cápsula de água (entra), [1] cápsula vazia (só sai)
 DISPENSER_CAPSULE_SLOT = 0
+DISPENSER_EMPTY_SLOT = 1
 DISPENSER_CAPSULE_TIME = 180.0            # s (3 min) que 1 cápsula dura, contados só com a base vedada e ligado
+DISPENSER_REF_FLOOR = 25                  # v0.8 M2: base de referência (5×5) em que a cápsula dura os 180 s
+DISPENSER_TIME_MIN, DISPENSER_TIME_MAX = 30.0, 360.0   # v0.8 M2: limites da duração (base enorme / base mínima)
 DISPENSER_REACH = MELTER_REACH
 DISPENSER_SPRITE_SIZE = (32, 48)          # machine_o2_dispenser.png e cada quadro das tiras (4 quadros, ~6 fps)
 DISPENSER_FPS = 6
@@ -1243,6 +1252,23 @@ FAB_TABS = FAB_TABS + (("base", "Base"),)  # o menu do construtor ganha a aba "B
 VOLUME.update({"door_open": 0.45, "door_close": 0.45, "base_sealed": 0.6, "dispenser_hum": 0.35,
                "leak_alert": 0.55, "dispenser_dry": 0.5})
 DISPENSER_HUM_FADE_MS, DISPENSER_HUM_DRY_FADE_MS = 800, 300
+
+# ---------------------------------------------------------------------------
+# v0.8 M2 · Coletor de água (bíblia §17): cápsula vazia + umidade do ar → cápsula cheia. Só na superfície e do
+# estágio Úmido em diante; a chuva acelera. Arte aprovada: reports/design/v08_plantas (rodada 1).
+# ---------------------------------------------------------------------------
+COLLECTOR = "water_collector"
+COLLECTOR_IN_SLOT, COLLECTOR_OUT_SLOT = 0, 1
+COLLECTOR_SLOTS = 2
+COLLECTOR_TIME = 40.0                     # s por cápsula sem chuva (× fator da energia)
+COLLECTOR_RAIN_BONUS = 2.0                # chuva cheia: tempo / (1 + 2) = 3× mais rápido
+COLLECTOR_REACH = MELTER_REACH
+MACHINES[COLLECTOR] = MachineType(COLLECTOR, "Coletor de água", "umidade → cápsula", {"iron_ingot": 3, "silicon": 6},
+                                  None, 0, 10_000, "machine_water_collector")
+POWER_USE[COLLECTOR] = 1
+MACHINE_ORDER.insert(MACHINE_ORDER.index(SMELTER) + 1, COLLECTOR)   # Automação, depois da Fundição
+MACHINE_CATEGORY[COLLECTOR] = "automation"
+VOLUME["collector_loop"] = 0.4            # Som (gotejar, loop baixo e perto); o arquivo ainda espera o dono: sem ele, mudo
 
 # ---------------------------------------------------------------------------
 # v0.6 Fundo M5 · Remapear crafts (bíblia §15 "Marco 5"). Números de partida; balanceamento depois.

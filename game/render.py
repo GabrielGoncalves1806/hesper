@@ -147,7 +147,8 @@ CAVE_STAGE = C.MIST_STAGE          # a caverna é desenhada sempre com a arte do
 RAMP_LIGHT = (255, 240, 214)       # luz do dia caindo pela boca da rampa de subida (cor da Designer, v5.0)
 TERMINAL_LIGHT = (111, 227, 160)
 MACHINE_LIGHT = {"o2": (89, 208, 230), "heater": (255, 138, 61), "melter": (159, 230, 255),
-                 "smelter": (255, 138, 61), "solar": (255, 216, 74), "drill": (255, 210, 140), "drone_station": (150, 210, 230)}
+                 "smelter": (255, 138, 61), "solar": (255, 216, 74), "drill": (255, 210, 140), "drone_station": (150, 210, 230),
+                 "water_collector": (89, 208, 230)}
 EMERGENCY_LIGHT = (255, 96, 72)     # v0.7 M4: luz de emergência da VÉSPER-7 (vermelha, fraca)
 EMERGENCY_RADIUS = 1.5              # tiles (decisão do dono: era 2,5 no plano)
 EMERGENCY_INTENSITY = 0.6
@@ -172,6 +173,8 @@ def cave_lights(state: GameState, helmet=WARM_WHITE, helmet_intensity: float = 1
             out.append(lamp_light(m.tx, m.ty, C.LAMP_RADIUS.get(m.kind, 5)))
         elif m.is_chest or (m.is_drill and m.full) or (m.is_smelter and m.smelter_blocker is not None):
             continue                              # (Fundição apagada parece desligada: só acende enquanto funde)
+        elif m.is_collector and state.collector_blocker(m, state.active) is not None:
+            continue                              # v0.8 M2: o Coletor só acende coletando
         else:
             ax, ay = m.anchor
             color = MACHINE_LIGHT.get(m.kind.removesuffix("_t2"), MACHINE_LIGHT["drone_station"])
@@ -1843,6 +1846,9 @@ class Renderer:
         sempre que está em pé (gera, não gasta; sem noite no jogo). A estação só com drone dentro. O resto anda no
         `machine_t`, que já corre no ritmo do power.factor (déficit = mais devagar). A Fundição parada devolve None
         (o sprite apagado: o quadro 0 da tira dela já é acesa)."""
+        if m.is_collector:              # v0.8 M2: só anima coletando (parado, o sprite apagado)
+            working = powered and not m.submerged and m.collecting
+            return anim_frame_index(self.machine_t, tile_phase(m.tx, m.ty)) if working else None
         if m.is_smelter:                # v0.6 Fundo M3: só anima fundindo
             working = powered and not m.submerged and m.smelter_blocker is None
             return anim_frame_index(self.machine_t, tile_phase(m.tx, m.ty)) if working else None
@@ -2036,6 +2042,9 @@ class Renderer:
                 small = self.surface("icon_backpack", art.backpack_icon)[0]
             elif item == "water_capsule":        # v0.5 M2: icon_water_capsule.png (aprovado)
                 small = self.surface("icon_water_capsule", art.water_capsule_icon)[0]
+            elif item in (C.EMPTY_CAPSULE, C.COLLECTOR):   # v0.8 M2: icon_water_capsule_empty.png e icon_water_collector.png
+                name = "icon_water_capsule_empty" if item == C.EMPTY_CAPSULE else "icon_water_collector"
+                small = self.surface(name, lambda: self._placeholder(16, item))[0]
             elif item in C.HAND_DRILLS or item in C.PART_ITEMS:   # v0.5 M4: icon_<item>.png (v0.6 Fundo M4: as duas brocas)
                 small = self._m4_icon(item)
             elif item in C.PLAYER_PROPS:         # v0.7 M2: icon_<prop>.png (16×16)
@@ -2099,6 +2108,8 @@ class Renderer:
             return pygame.transform.scale_by(self.surface("icon_constructor", art.constructor_icon)[0], 3)
         if kind == "water_capsule":
             return pygame.transform.scale_by(self.surface("icon_water_capsule", art.water_capsule_icon)[0], 3)
+        if kind == C.EMPTY_CAPSULE:      # v0.8 M2
+            return pygame.transform.scale_by(self.surface("icon_water_capsule_empty", lambda: self._placeholder(16, kind))[0], 3)
         if kind in C.HAND_DRILLS or kind in C.PART_ITEMS:
             return pygame.transform.scale_by(self._m4_icon(kind), 3)
         if kind in C.PLAYER_PROPS:       # v0.7 M2: o ícone do prop ×3
@@ -2407,7 +2418,7 @@ class Renderer:
                 bx, by = spots["beacon"]
                 lights.append((pod_x + bx, pod_y + by, 44, (255, 90, 74), 0.5, 0.5))
         machine_light = {"o2": ((89, 208, 230), 80, -30, 0.2), "heater": ((255, 138, 61), 100, -20, 0.3),
-                         "melter": ((159, 230, 255), 70, -36, 0.18), "smelter": ((255, 138, 61), 90, -22, 0.26),
+                         "melter": ((159, 230, 255), 70, -36, 0.18), "smelter": ((255, 138, 61), 90, -22, 0.26), "water_collector": ((89, 208, 230), 80, -24, 0.2),
                          "lamp": ((255, 222, 184), 96, -26, 0.22)}
         # no déficit de energia o brilho das máquinas fica mais fraco (metade com fator 0)
         dim = 0.5 + 0.5 * state.power.factor
@@ -2421,6 +2432,8 @@ class Renderer:
                 lights.append((ax - cam_x, ay - 66 - cam_y, 56, (255, 210, 140), round(0.14 * dim, 2), 1.0))
                 continue
             if m.is_smelter and m.smelter_blocker is not None:    # v0.6 M3: só acende enquanto funde
+                continue
+            if m.is_collector and state.collector_blocker(m, state.active) is not None:   # v0.8 M2: idem, coletando
                 continue
             if m.kind.removesuffix("_t2") not in machine_light:   # painel solar e baú: sem luz própria
                 continue
