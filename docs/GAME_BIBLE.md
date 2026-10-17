@@ -214,6 +214,8 @@ PNG com transparência, **escala 1:1** (o jogo não redimensiona). Objetos são 
 | `container_open.png` | 40×44 | **v0.5 M4, aprovado (B).** Contêiner aberto, mesma âncora do `container_sealed.png`. Sem ele, o lacrado escurecido com a tampa aberta (`art.opened_container`) |
 | `leak_blink.png` | 64×56 | **v0.5 M2, aprovado.** "Parede-fantasma" vermelha, 2 quadros de 32×56 (aceso, apagado) a ~2,5 Hz em `(x, y−24)` do tile furado, por cima dos objetos e do raio-x |
 | `plant_bush.png` `plant_tree.png` `plant_flower.png` | até 32×40 | estágio verde |
+| `machine_water_collector.png` `anim/anim_machine_water_collector.png` | 40×56 · tira 160×56 (4 quadros, ~5 fps) | **v0.8 M2, aprovado pelo dono (rodada 1, `reports/design/v08_plantas/`).** Coletor de água: anima só coletando, âncora padrão das máquinas nv.1 |
+| `icon_water_capsule_empty.png` `icon_water_collector.png` | 16×16 | **v0.8 M2, aprovados.** Cápsula vazia (par do `icon_water_capsule`, com vidro no lugar da água) e o ícone do Coletor no construtor |
 
 ### Cursor do mouse (v0.7, **aprovado pelo dono: opção A**, 2026-10-16, report `reports/design/v07_cursor/`, script `tools/sprites/build_cursor_v07.py`)
 Desenhado na camada da UI (480×270 lógicos, escala inteira k), por cima de tudo, no lugar do polígono do `UI.draw_cursor`. Esconder o cursor do sistema.
