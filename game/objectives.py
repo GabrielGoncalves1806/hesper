@@ -53,6 +53,7 @@ def found_magmatite(state: GameState) -> bool:
 
 
 COLLECTOR_HINT = "Pouco gelo? O coletor de água puxa a umidade do ar."
+SCAN_HINT = "Use o construtor pra escanear as máquinas quebradas do lab: com ele na mão, segure o clique nelas."
 
 
 def _mats(state: GameState, *kinds: str) -> bool:
@@ -136,7 +137,8 @@ OBJECTIVES = [
               or s.stage >= C.ALGAE_STAGE),
     Objective("Derreta o gelo do laboratório", lambda s: _lab_ice_open(s) or "cultivator" in s.blueprints
               or s.stage >= C.ALGAE_STAGE),
-    Objective("Escaneie o microscópio e o tanque", lambda s: {"cultivator", "microscope"} <= s.blueprints),
+    Objective("Escaneie o microscópio e o tanque", lambda s: {"cultivator", "microscope"} <= s.blueprints,
+              hint=SCAN_HINT),
     Objective("Pegue a cultura-controle", lambda s: "control_culture" in s.milestones or crafted(s, C.CULTIVATOR) >= 1
               or s.stage >= C.ALGAE_STAGE),
     Objective("Construa um cultivador dentro da base",

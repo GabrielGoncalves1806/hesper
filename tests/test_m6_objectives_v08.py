@@ -202,6 +202,16 @@ def test_collector_hint_comes_once_when_harvest_becomes_current():
     assert tracker.take_hint() is None
 
 
+def test_scan_hint_explains_the_constructor_when_scan_becomes_current():
+    i = index_of(SCAN)
+    assert OBJECTIVES[i].hint == O.SCAN_HINT
+    assert "construtor" in O.SCAN_HINT and "segure o clique" in O.SCAN_HINT
+    tracker = ObjectiveTracker(GameState(rng=random.Random(1)))
+    tracker.shown = i
+    assert tracker.take_hint() == O.SCAN_HINT
+    assert tracker.take_hint() is None
+
+
 # ---------------------------------------------------------------- save
 def test_milestones_roundtrip_unknown_ignored_and_missing_is_empty():
     g = GameState(rng=random.Random(1))
