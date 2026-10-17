@@ -1192,3 +1192,14 @@ Detalhe e números de partida: `docs/superpowers/specs/2026-10-16-v08-plantas-de
 - **Painel** no molde do mock A: ÁGUA, CRESCE, cilindro ×2, BIO/S, COLHEITA, CHEIAS/VAZIAS/MUDA, status, DRONES. Os toggles do baú quebram em linhas de 8 (eram 13 itens).
 - **Números**: pytest 2123 passed, 2 skipped (+ testes do save v15); smoke exit 0 (média 6,1 ms, p95 11,0 ms). Save **v16**.
 
+
+### Marco 4 · como ficou na implementação (`game/config.py` blocos "v0.8 M4", `game/systems.py`, `game/drones.py`, `game/save.py`, `game/app.py`, `game/ui.py`, `game/render.py`; 9 tasks, as 1–4 e 5–8 em paralelo)
+- **Trava por estágio**: `MachineType.unlock_stage` (0 = sem trava); `recipe_status` dá `locked` com Ti **ou** estágio abaixo. Texto "Libera no estágio Algas" (`ui.unlock_text`). Só a Centrífuga usa. O `balance_sim` ainda não conhece (M6).
+- **Amostras** `sample_basic` / `sample_mutant` / `sample_rare`: item de loot (pilha 20), logístico (o baú agora tem **16** toggles, 2 fileiras de 8), cor de pepita do drone em `ORE_COLORS` (azul-gelo, lilás, dourado; escolhidas pelo Dev, sem o dono ver).
+- **Microscópio** (slots: gelo 0, simples 1, mutação 2, rara 3): 1 gelo a cada 20 s → 30/15/5% (`MICROSCOPE_ODDS`, rng do estado), 50% nada; qualquer saída cheia trava antes de gastar. Qualquer camada e estágio. Custo 4 lingotes de ferro + 6 silício + 1 circuito; diagrama do scan do microscópio quebrado do lab (`SCAN_BLUEPRINT`).
+- **Centrífuga** (slots: alga 0, amostra 1 (um tipo por vez), Folha 2, Espiral 3, Lírio 4): 1 alga + 1 amostra a cada 30 s → planta 60/45/30% (`CENTRIFUGE_RECIPES`); falhou, gasta os dois. Custo 6 lingotes de ferro + 2 de cobre + 4 fios, estágio Algas. Anima a 10 fps.
+- **Drones**: microscópio recebe gelo e manda amostras; centrífuga recebe alga e amostras (mesmo tipo do slot) e manda plantas. Nunca tiram a entrada.
+- **Painéis** do mock A (`reports/design/v08_m4_paineis/`); textos encurtados pra fonte do jogo ("Metade do gelo não dá nada.", "Amostra mutação"). Avisos flutuantes "+1 amostra rara", "+1 Lírio-de-Ilves", "falhou". Sem som (os eventos `sample_found`/`centrifuge_done` só tocam se o arquivo existir).
+- **Fabricador**: Automação = … Cultivador → Microscópio → Centrífuga. A seta "→" das descrições virava quadrado (a fonte não tem o glifo): o `ui._render` troca por ">" (vale pra Fundição, Coletor etc.).
+- **Save continua v16** (só campos que já existiam: `timer` e storage de slots fixos).
+- **Números**: pytest 2218 passed, 2 skipped; smoke exit 0 (média 7,2 ms, p95 12,7 ms); `real_video_check` 16 telas iguais.
