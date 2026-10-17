@@ -1019,11 +1019,11 @@ class App:
                 self.show_notice("Drone em voo: espere ele pousar")
             elif drone is not None and state.station_undock(station, bay):
                 self.audio.play("inv_move")
-        elif self.held.item != "drone":
+        elif drones.tier_of(self.held.item) is None:
             self.show_notice("Só drones vão na estação")
         elif drone is not None:
             self.show_notice("Drone em voo: espere ele pousar" if drone.busy else "Baia ocupada")
-        elif state.station_dock_slot(station, bay):
+        elif state.station_dock_slot(station, bay, self.held.item):
             self.held.count -= 1
             if self.held.count == 0:
                 self.held = None
@@ -1291,7 +1291,7 @@ class App:
                 self.audio.play("inv_move")
             return
         if self.open_station is not None:                # só do inventário pra estação, e só drone
-            if item != "drone":
+            if drones.tier_of(item) is None:
                 self.show_notice("Só drones vão na estação")
             elif not self.open_station.station.free_slots():
                 self.show_notice("Estação sem slot livre")

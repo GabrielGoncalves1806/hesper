@@ -37,6 +37,20 @@ from dataclasses import dataclass, field
 from game import config as C
 from game.inventory import Inventory, Stack, max_stack
 
+DRONE_TIERS = {"drone": 1, C.DRONE_T2: 2}   # v0.8 M5: o item que vai na estação -> tier do drone
+TIER_ITEMS = {tier: item for item, tier in DRONE_TIERS.items()}
+
+
+def tier_of(item: str | None) -> int | None:
+    """Tier do drone que esse item vira na estação (None = não é drone)."""
+    return DRONE_TIERS.get(item)
+
+
+def item_of(drone) -> str:
+    """O item que o drone vira ao sair da estação."""
+    return TIER_ITEMS.get(drone.tier, "drone")
+
+
 LANDED, OUTBOUND, COLLECTING, CARRYING, DROPPING, RETURNING = (
     "landed", "outbound", "collecting", "carrying", "dropping", "returning")
 IN_AIR = (OUTBOUND, COLLECTING, CARRYING, DROPPING, RETURNING)   # estados em que o drone está voando
@@ -55,6 +69,20 @@ class Drone:
     planned: int = 0               # quanto vai pegar na origem (fica reservado até pegar)
     cargo: int = 0                 # quanto está carregando
     timer: float = 0.0             # tempo que falta pra pegar/soltar (pousado: até procurar tarefa de novo)
+    tier: int = 1                  # v0.8 M5: 1 = drone, 2 = drone nv.2 (mais rápido, pega/solta mais depressa)
+
+    @property
+    def speed(self) -> float:
+        """Tiles por segundo."""
+        return C.DRONE_T2_SPEED if self.tier == 2 else C.DRONE_SPEED
+
+    @property
+    def pickup_time(self) -> float:
+        return C.DRONE_PICKUP_TIME * (C.DRONE_T2_HANDLING if self.tier == 2 else 1.0)
+
+    @property
+    def drop_time(self) -> float:
+        return C.DRONE_DROP_TIME * (C.DRONE_T2_HANDLING if self.tier == 2 else 1.0)
 
     @property
     def in_air(self) -> bool:
@@ -133,7 +161,7 @@ def lift(machine, drone: Drone) -> float:
     if not drone.in_air:
         return 0.0
     px, py = pad_position(machine, drone.pad)
-    ramp = C.DRONE_SPEED * C.TILE * LIFT_TIME
+    ramp = drone.speed * C.TILE * LIFT_TIME
     return min(1.0, math.hypot(drone.x - px, drone.y - py) / ramp)
 
 
@@ -476,15 +504,15 @@ def new_station(machine, count: int = 0) -> Station:
     return station
 
 
-def dock(machine, station: Station, slot: int | None = None) -> Drone | None:
-    """Põe um drone novo (pousado) num slot livre (ou no `slot` pedido). None se não tem lugar."""
+def dock(machine, station: Station, slot: int | None = None, tier: int = 1) -> Drone | None:
+    """Põe um drone novo (pousado, do `tier` pedido) num slot livre (ou no `slot` pedido). None se não tem lugar."""
     free = station.free_slots()
     if slot is None:
         slot = free[0] if free else None
     if slot is None or slot not in free:
         return None
     x, y = pad_position(machine, slot)
-    drone = Drone(slot, x, y)
+    drone = Drone(slot, x, y, tier=tier)
     station.drones.append(drone)
     station.drones.sort(key=lambda d: d.pad)
     return drone
@@ -507,7 +535,7 @@ def _exists(machine, machines) -> bool:
 
 def _fly(drone: Drone, tx: float, ty: float, dt: float) -> bool:
     """Anda em linha reta até (tx, ty). Devolve True quando chega."""
-    step = C.DRONE_SPEED * C.TILE * dt
+    step = drone.speed * C.TILE * dt
     dx, dy = tx - drone.x, ty - drone.y
     dist = math.hypot(dx, dy)
     if dist <= step:
@@ -561,7 +589,7 @@ def update_drone(machine, drone: Drone, logistics, ledger: Ledger, dt: float, ev
             _finish_trip(drone)
             drone.state = RETURNING
         elif _fly(drone, *hover_position(drone.source), dt):
-            drone.state, drone.timer = COLLECTING, C.DRONE_PICKUP_TIME
+            drone.state, drone.timer = COLLECTING, drone.pickup_time
     elif drone.state == COLLECTING:
         drone.timer -= dt
         if drone.timer <= 0:
@@ -581,7 +609,7 @@ def update_drone(machine, drone: Drone, logistics, ledger: Ledger, dt: float, ev
         if not _exists(drone.dest, logistics) or drone.resource not in drone.dest.receives:
             _carry_on(drone, logistics, ledger, exclude=drone.dest)
         elif _fly(drone, *hover_position(drone.dest), dt):
-            drone.state, drone.timer = DROPPING, C.DRONE_DROP_TIME
+            drone.state, drone.timer = DROPPING, drone.drop_time
     elif drone.state == DROPPING:
         drone.timer -= dt
         if drone.timer <= 0:
