@@ -1358,6 +1358,28 @@ MACHINE_CATEGORY[MICROSCOPE] = "automation"
 SCAN_BLUEPRINT["prop_microscope_digital"] = MICROSCOPE
 
 # ---------------------------------------------------------------------------
+# v0.8 M4 · Centrífuga (bíblia §17, spec 2026-10-16-v08-plantas-design.md). Máquina de slots fixos, no molde da Fundição:
+# 1 alga + 1 amostra por ciclo → a planta da receita da amostra, por chance (falhou, gasta os dois e não dá nada). A receita
+# só libera no estágio Algas; construída, funciona em qualquer camada. Arte aprovada: machine_centrifuge (40×56, 10 fps).
+# ---------------------------------------------------------------------------
+CENTRIFUGE = "centrifuge"
+CENT_ALGAE_SLOT, CENT_SAMPLE_SLOT = 0, 1  # a amostra: um tipo por vez, como o minério da Fundição
+CENT_OUT_SLOTS = {"plant_1": 2, "plant_2": 3, "plant_3": 4}   # um slot fixo por planta
+CENT_SLOTS = 5
+CENTRIFUGE_TIME = 30.0                    # s por ciclo (× fator da energia)
+CENTRIFUGE_RECIPES = {"sample_basic": ("plant_1", 0.60), "sample_mutant": ("plant_2", 0.45),
+                      "sample_rare": ("plant_3", 0.30)}   # amostra → (planta, chance de dar)
+CENTRIFUGE_REACH = MELTER_REACH
+CENTRIFUGE_FPS = 10                       # a tira anim_machine_centrifuge gira mais rápido que o padrão
+MACHINES[CENTRIFUGE] = MachineType(CENTRIFUGE, "Centrífuga", "alga + amostra → planta",
+                                   {"iron_ingot": 6, "copper_ingot": 2, "wire": 4}, None, 0, 0, "machine_centrifuge",
+                                   unlock_stage=ALGAE_STAGE)
+POWER_USE[CENTRIFUGE] = 1
+MACHINE_ORDER.insert(MACHINE_ORDER.index(MICROSCOPE) + 1, CENTRIFUGE)   # Automação, depois do Microscópio
+MACHINE_CATEGORY[CENTRIFUGE] = "automation"
+MACHINE_FEMININE.add(CENTRIFUGE)          # "submersa"
+
+# ---------------------------------------------------------------------------
 # v0.6 Fundo M5 · Remapear crafts (bíblia §15 "Marco 5"). Números de partida; balanceamento depois.
 # ---------------------------------------------------------------------------
 # O wafer é feito na Bancada T2 (10 silício); a cadeia nova (Fundição + Bancada T2) vira obrigatória do Ti 10.000 em diante.

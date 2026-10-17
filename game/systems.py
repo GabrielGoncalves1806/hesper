@@ -104,6 +104,8 @@ class Machine:
     grow_blocker: str | None = field(default="no_seed", compare=False, repr=False)
     # v0.8 M4: só o Microscópio. Analisando agora (o render anima só assim); recalculado a cada tick, não vai no save.
     analyzing: bool = field(default=False, compare=False, repr=False)
+    # v0.8 M4: só a Centrífuga. Girando agora (o render anima só assim); recalculado a cada tick, não vai no save.
+    spinning: bool = field(default=False, compare=False, repr=False)
     # v0.7 M1: máquina quebrada de ruína (game/ruins.py). Não liga: sem índice, Ti, energia, luz, animação nem painel (o
     # E não abre). Só desmonta (devolve C.RUIN_SALVAGE). Nunca vai no save (a ruína sai da seed).
     broken: bool = field(default=False, compare=False)
@@ -125,6 +127,8 @@ class Machine:
             self.storage = Inventory(C.CULT_SLOTS)
         elif self.storage is None and self.is_microscope:
             self.storage = Inventory(C.MIC_SLOTS)
+        elif self.storage is None and self.is_centrifuge:
+            self.storage = Inventory(C.CENT_SLOTS)
         self.grow_crop = self.crop
         if stored_init:
             self.stored = stored_init
@@ -191,6 +195,11 @@ class Machine:
         return self.kind == C.MICROSCOPE
 
     @property
+    def is_centrifuge(self) -> bool:
+        """Centrífuga (v0.8 M4): 1 alga + 1 amostra → a planta da receita da amostra, por chance."""
+        return self.kind == C.CENTRIFUGE
+
+    @property
     def crop(self) -> str | None:
         """Cultivador: a cultura que está plantada (o item do slot da muda), None sem muda."""
         seed = self.storage.slots[C.CULT_SEED_SLOT] if self.is_cultivator else None
@@ -232,13 +241,13 @@ class Machine:
         """Baú, drill, derretedor, Fundição, dispersor e Coletor (v0.6 M2/M3, v0.8 M2): têm Envia/Recebe/Lote. Se o drone
         atende, é `in_network`."""
         return (self.is_chest or self.is_drill or self.is_melter or self.is_dispenser or self.is_smelter
-                or self.is_collector or self.is_cultivator or self.is_microscope)
+                or self.is_collector or self.is_cultivator or self.is_microscope or self.is_centrifuge)
 
     @property
     def needs_chip(self) -> bool:
         """v0.6 M2/M3, v0.8 M2: drill, derretedor, Fundição, dispersor e Coletor só entram na rede dos drones com um chip."""
         return (self.is_drill or self.is_melter or self.is_dispenser or self.is_smelter or self.is_collector
-                or self.is_cultivator or self.is_microscope)
+                or self.is_cultivator or self.is_microscope or self.is_centrifuge)
 
     @property
     def in_network(self) -> bool:
@@ -1375,6 +1384,12 @@ class GameState:
                 and self.drill_distance(m) <= C.MICROSCOPE_REACH]
         return min(near, key=self.drill_distance, default=None)
 
+    def nearby_centrifuge(self) -> Machine | None:
+        """Centrífuga ao alcance do E (a mais perto; ainda se construindo não abre)."""
+        near = [m for m in self.machines if m.is_centrifuge and m.build <= 0 and not m.broken
+                and self.drill_distance(m) <= C.CENTRIFUGE_REACH]
+        return min(near, key=self.drill_distance, default=None)
+
     def nearby_dispenser(self) -> Machine | None:
         """Dispersor de O₂ ao alcance do E (o mais perto)."""
         near = [m for m in self.machines if m.is_dispenser and m.build <= 0
@@ -1419,6 +1434,7 @@ class GameState:
                                ("collector", machine.is_collector and machine.build <= 0),
                                ("cultivator", machine.is_cultivator and machine.build <= 0),
                                ("microscope", machine.is_microscope and machine.build <= 0),
+                               ("centrifuge", machine.is_centrifuge and machine.build <= 0),
                                ("dispenser", machine.is_dispenser and machine.build <= 0)):
                 if flag:
                     return kind, machine
@@ -1475,7 +1491,8 @@ class GameState:
         reach = {"drill": C.DRILL_REACH, "chest": C.CHEST_REACH, "station": C.STATION_REACH,
                  "bench": C.BENCH_REACH, "melter": C.MELTER_REACH, "smelter": C.SMELTER_REACH, "dispenser": C.DISPENSER_REACH,
                  "collector": C.COLLECTOR_REACH, "cultivator": C.CULTIVATOR_REACH,
-                 "microscope": C.MICROSCOPE_REACH}[kind]
+                 "microscope": C.MICROSCOPE_REACH,
+                 "centrifuge": C.CENTRIFUGE_REACH}[kind]
         return any(m is target for m in self.machines) and self.drill_distance(target) <= reach
 
     def interaction(self, hover: tuple[str, object] | None = None) -> tuple[str, object] | None:
@@ -1518,6 +1535,9 @@ class GameState:
         microscope = self.nearby_microscope()
         if microscope is not None:
             options.append((self.drill_distance(microscope), "microscope", microscope))
+        centrifuge = self.nearby_centrifuge()
+        if centrifuge is not None:
+            options.append((self.drill_distance(centrifuge), "centrifuge", centrifuge))
         crate = self.nearby_crate()
         if crate is not None:
             options.append((self.crate_distance(crate), "crate", crate))
@@ -1686,6 +1706,33 @@ class GameState:
             return 0
         if have is None:
             mic.storage.slots[C.MIC_ICE_SLOT] = Stack("ice", moved)
+        else:
+            have.count += moved
+        self.inventory.remove_from_slot(index, moved)
+        return moved
+
+    def centrifuge_put(self, cent: Machine, index: int, amount: int | None = None) -> int:
+        """Põe do slot `index` do inventário do player na Centrífuga (`amount` None = a pilha inteira, 1 = clique direito):
+        a alga vai pro slot dela, a amostra pro slot da amostra (só se vazio ou da mesma amostra: um tipo por vez, como o
+        minério da Fundição). Qualquer outra coisa não entra. Só até a pilha encher. Devolve quanto entrou."""
+        stack = self.inventory.slots[index]
+        if stack is None:
+            return 0
+        if stack.item == "algae":
+            slot = C.CENT_ALGAE_SLOT
+        elif stack.item in C.CENTRIFUGE_RECIPES:
+            slot = C.CENT_SAMPLE_SLOT
+        else:
+            return 0
+        have = cent.storage.slots[slot]
+        if have is not None and have.item != stack.item:
+            return 0
+        room = stack.max - (have.count if have else 0)
+        moved = min(room, stack.count if amount is None else min(amount, stack.count))
+        if moved <= 0:
+            return 0
+        if have is None:
+            cent.storage.slots[slot] = Stack(stack.item, moved)
         else:
             have.count += moved
         self.inventory.remove_from_slot(index, moved)
@@ -1890,6 +1937,48 @@ class GameState:
         if out is not None and out.room <= 0:
             return "out_full"
         return None
+
+    def centrifuge_blocker(self, m: Machine) -> str | None:
+        """Por que a Centrífuga não gira agora: "no_algae", "no_sample", "out_full" (o slot da planta da receita da amostra
+        atual está cheio); None = girando."""
+        algae = m.storage.slots[C.CENT_ALGAE_SLOT]
+        if algae is None or algae.item != "algae":
+            return "no_algae"
+        sample = m.storage.slots[C.CENT_SAMPLE_SLOT]
+        if sample is None or sample.item not in C.CENTRIFUGE_RECIPES:
+            return "no_sample"
+        plant = C.CENTRIFUGE_RECIPES[sample.item][0]
+        out = m.storage.slots[C.CENT_OUT_SLOTS[plant]]
+        if out is not None and out.room <= 0:
+            return "out_full"
+        return None
+
+    def _update_centrifuge(self, m: Machine, dt: float) -> None:
+        """Centrífuga (v0.8 M4): a cada CENTRIFUGE_TIME s gasta 1 alga + 1 amostra e sorteia (rng do estado) a planta da
+        receita no slot fixo dela; falhou, não dá nada. Travada (sem alga, sem amostra, saída cheia): para, guarda o
+        progresso e não gasta nada. `spinning` fica pro render (anima só girando)."""
+        while dt > 0 and self.centrifuge_blocker(m) is None:
+            left = C.CENTRIFUGE_TIME - m.timer
+            if dt < left:
+                m.timer += dt
+                break
+            dt -= left
+            m.timer = 0.0
+            sample = m.storage.slots[C.CENT_SAMPLE_SLOT].item
+            plant, chance = C.CENTRIFUGE_RECIPES[sample]
+            m.storage.remove_from_slot(C.CENT_ALGAE_SLOT, 1)
+            m.storage.remove_from_slot(C.CENT_SAMPLE_SLOT, 1)
+            if self.rng.random() >= chance:
+                self.events.append(("centrifuge_done", m, None))
+                continue
+            slot = C.CENT_OUT_SLOTS[plant]
+            out = m.storage.slots[slot]
+            if out is None:
+                m.storage.slots[slot] = Stack(plant, 1)
+            else:
+                out.count += 1
+            self.events.append(("centrifuge_done", m, plant))
+        m.spinning = self.centrifuge_blocker(m) is None
 
     def collector_rain(self, m: Machine, layer: Layer) -> float:
         """Chuva (0..1) sobre o Coletor: a da superfície, 0 na caverna (não depende de onde o player está)."""
@@ -2115,7 +2204,7 @@ class GameState:
         if machine.is_drill and machine.stored:
             out[machine.resource] = out.get(machine.resource, 0) + machine.stored
         if machine.is_melter or machine.is_dispenser or machine.is_smelter or machine.is_collector or machine.is_cultivator \
-                or machine.is_microscope:   # v0.5 M2/v0.6 M3/v0.8 M2/M3/M4: o que ficou dentro (a carga acesa da Fundição some)
+                or machine.is_microscope or machine.is_centrifuge:   # v0.5 M2/v0.6 M3/v0.8 M2/M3/M4: o que ficou dentro (a carga acesa da Fundição some)
             for item, n in machine.storage.counts().items():
                 out[item] = out.get(item, 0) + n
         if machine.is_cultivator and int(machine.tank) > 0:    # v0.8 M3: a água do tanque interno volta em cápsulas cheias
@@ -2319,6 +2408,8 @@ class GameState:
                 self._update_smelter(m, work_dt)
             if m.is_microscope:              # v0.8 M4: qualquer camada, não depende de base nem de estágio
                 self._update_microscope(m, work_dt)
+            if m.is_centrifuge:              # v0.8 M4: qualquer camada (a trava de estágio é só na receita)
+                self._update_centrifuge(m, work_dt)
         if power.factor > 0:                 # v0.5 M2: o Dispersor gasta a cápsula (só vedado e ligado)
             for layer in self.layers.values():
                 for m in layer.machines:

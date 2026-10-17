@@ -17,13 +17,15 @@ def build_now(game, kind: str, tile, rotation: int = 0, finish: bool = True):
         short = n - game.inventory.count(r)
         if short > 0:
             give(game, **{r: short})
-    indices = dict(game.indices)                   # v0.6: trava de Ti (ex.: Baú normal) não atrapalha o atalho;
+    indices, stage = dict(game.indices), game.stage   # v0.6: trava de Ti (ex.: Baú normal) não atrapalha o atalho;
     game.indices["o2"] += max(0.0, C.MACHINES[kind].unlock_ti - game.ti) + 1   # o Ti volta ao que era logo depois
+    game.stage = max(stage, C.MACHINES[kind].unlock_stage)   # v0.8 M4: a trava por estágio (Centrífuga) também
     try:
         if not game.build(kind, tile, rotation):
             return None
     finally:
         game.indices.update(indices)
+        game.stage = stage
     machine = game.machines[-1]
     if finish:
         machine.build = 0.0
