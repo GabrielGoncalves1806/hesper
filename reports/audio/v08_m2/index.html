@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hesper · Som · v0.8 M2 Água (proposta)</title>
+<style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;margin:0;padding:16px}
+.wrap{max-width:1000px;margin:0 auto;padding-block:36px 70px}
+h1{font-size:34px;margin:8px 0 12px}h2{font-size:22px;margin:44px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.eyebrow{font:12px monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--rust)}
+.note{border-left:3px solid var(--gold);background:var(--panel);padding:12px 16px;margin:18px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:8px}
+.card.nb{opacity:.85}
+.fname{font:500 14px monospace}.when{font:11px monospace;color:var(--gold);text-transform:uppercase}
+.what{margin:0;color:var(--muted);font-size:14px}.tag{font:11px monospace;color:var(--muted);border:1px solid var(--line);padding:1px 6px;margin-right:4px}
+.tag.loop{color:var(--cyan);border-color:#2c5560}
+canvas{width:100%;height:44px;background:#251c18;display:block}audio{width:100%;height:36px}
+button{background:#251c18;color:var(--fg);border:1px solid var(--rust);padding:6px 12px;cursor:pointer;font:13px monospace;margin:4px 6px 4px 0}
+button:hover{background:var(--rust);color:#000}
+code{font:13px monospace;color:var(--cyan)}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+li{margin:4px 0;color:var(--muted)}li b{color:var(--fg)}
+</style>
+</head><body><div class="wrap">
+<div class="eyebrow">Hesper · Som · v0.8 M2 · Água · proposta (nada entrou no jogo)</div>
+<h1>Coletor de água: loop de condensação</h1>
+<div class="note"><b>v20 · o que mudou:</b> 3 variantes do <code>collector_loop</code>, só nesta pasta (nada em <code>assets/audio/</code>; md5 dos WAVs oficiais igual antes e depois). Todas em loop de 5,0 s (smelter 4,0 s, drill 3,2 s: não se repetem juntos), loudness -31 dB (smelter -30). Gota = glissando curto e agudo de seno com reverb pequeno de reservatório, cada uma com altura diferente e tempo irregular (sem grave, sem tambor, sem ressonância fixa). Ventoinha = ruído largo 250-2200 Hz respirando devagar + zumbido de condensador bem baixo em Lá2/Lá3 (mesma harmonia do resto). <b>A</b> mais gotejado (8 gotas), <b>B</b> mais ventoinha (2 gotas), <b>C</b> mistura (5 gotas). <b>Recomendo C.</b> Validação por análise, eu não ouço: a palavra final é do teu ouvido.</div>
+<h2>Variantes (loop)</h2><div class="cards" id="solo"></div>
+<div class="note"><button onclick="stopAll()">Parar tudo</button> <span style="color:var(--muted)">Os mixes abaixo têm 20 s nos volumes sugeridos: ambiente 0,7 · coletor 0,4 · fundição a 50% (longe).</span></div>
+<h2>Mixado na base (amb_green + coletor + fundição de longe)</h2><div class="cards" id="mixb"></div>
+<h2>Mixado na caverna (amb_cave + coletor)</h2><div class="cards" id="mixc"></div>
+<h2>Checagens</h2><div style="overflow-x:auto"><table id="tbl"></table></div>
+<p style="color:var(--muted);font-size:13px">Bandas = % da energia em 20-150 / 150-600 / 600-2500 / 2,5-6 / 6-16 kHz. Emenda = salto entre a última e a primeira amostra contra o 99,9º percentil dos saltos normais: muito menor = sem clique. Pico tonal = maior destaque estreito acima de 150 Hz: aqui aparece em 220 Hz de propósito (o zumbido do condensador, bem baixo; nenhuma gota é fixa em frequência).</p>
+<h2>Como pensei</h2><ul>
+<li><b>Não cansa na base:</b> energia concentrada em 600-2500 Hz (gota) e 250-2200 (ventoinha), longe do ronco de 55 Hz da fundição e do Lá grave dos <code>amb_*</code>. Os 5 s de período e as gotas irregulares evitam padrão.</li>
+<li><b>A</b> é o mais "água", mas com 8 gotas em 5 s pode virar torneira pingando se ficar sozinho muito tempo. <b>B</b> é o mais "máquina", quase sem água: pode confundir com ar-condicionado. <b>C</b> casa os dois e pinga mais espaçado.</li></ul>
+<h2>Pro Dev integrar</h2><ul>
+<li><b>Arquivo final</b> (o gerente copia depois da aprovação): <code>assets/audio/collector_loop.wav</code> (a variante escolhida, renomeada).</li>
+<li><b>VOLUME</b>: <code>"collector_loop": 0.4</code> (sobe pra 0,45 se ficar escondido no ambiente da base).</li>
+<li><b>Por distância</b>: igual à fundição, <code>VOLUME["collector_loop"] * fade_by_distance(d, 2, 6)</code>, uma por canal, só enquanto o coletor está <b>trabalhando</b> (tem cápsula vazia e espaço); parado = silêncio, com fadeout(400). Limite a 2 canais (os mais próximos).</li>
+<li><b>Chuva</b>: o coletor enche mais rápido, então pode subir o volume 20% (ou playback leve) enquanto chove, se quiser comunicar isso.</li>
+<li><b>Fase</b>: comece cada coletor num offset aleatório pra dois não ficarem em fase.</li></ul>
+<p style="color:var(--muted);font-size:13px">Gerado por <code>tools/audio/v08_collector.py</code> (seed por nome, só numpy; blocos do <code>build_audio.py</code>).</p>
+</div>
+<script src="v08m2_meta.js"></script>
+<script>
+const M=window.M2_META;
+const D={A:"Gotas pingando num reservatório, ventoinha só de fundo.",B:"Ventoinha e zumbido de condensador, pingos raros.",C:"Gotejar espaçado com ventoinha suave. Recomendada."};
+function card(key,t,loop){const m=M[key];const el=document.createElement("div");el.className="card";
+ el.innerHTML=`<div><span class="fname">${m.file}</span> <span class="tag">${m.duration.toFixed(2)} s</span><span class="tag">pico ${m.peak_db} dBFS</span><span class="tag">loud ${m.loudness_db} dB</span>${loop?'<span class="tag loop">loop</span>':''}</div>
+ <div class="when">${t[0]}</div><canvas width="320" height="44"></canvas>
+ <audio controls preload="metadata" ${loop?"loop":""} src="${m.file}"></audio><p class="what">${t[1]}</p>`;
+ const c=el.querySelector("canvas").getContext("2d");c.fillStyle="#59d0e6";const w=m.wave,bw=320/w.length;
+ w.forEach((v,i)=>{const h=Math.max(1,v*42*3);c.fillRect(i*bw,22-Math.min(h,42)/2,Math.max(1,bw-0.5),Math.min(h,42))});
+ return el}
+for(const k of "ABC"){document.getElementById("solo").append(card("collector_loop_"+k,[k+" · "+M["collector_loop_"+k].label+" · enquanto o coletor trabalha",D[k]],true));
+ document.getElementById("mixb").append(card("mix_base_"+k,["Base · variante "+k,"20 s de mix."],false));
+ document.getElementById("mixc").append(card("mix_cave_"+k,["Caverna · variante "+k,"20 s de mix."],false));}
+document.getElementById("tbl").innerHTML="<tr><th>arquivo</th><th>duração</th><th>pico dBFS</th><th>RMS dB</th><th>loudness dB</th><th>bandas %</th><th>emenda / ref</th><th>pico tonal</th></tr>"+
+ Object.keys(M).map(k=>{const m=M[k];return `<tr><td><code>${m.file}</code></td><td>${m.duration.toFixed(2)} s</td><td>${m.peak_db}</td><td>${m.rms_db}</td><td>${m.loudness_db}</td><td>${m.bands.join(" / ")}</td><td>${m.seam!==undefined?m.seam+" / "+m.seam_ref:"-"}</td><td>${m.tonal_db!==undefined?m.tonal_db+" dB @ "+m.tonal_hz+" Hz":"-"}</td></tr>`}).join("");
+function stopAll(){document.querySelectorAll("audio").forEach(a=>a.pause())}
+document.addEventListener("play",e=>{document.querySelectorAll("audio").forEach(a=>{if(a!==e.target)a.pause()})},true);
+</script></body></html>
