@@ -1112,3 +1112,26 @@ Os 5 destroços foram redesenhados maiores (`reports/design/v07_m4_destrocos/`).
 - **Boca da VÉSPER** virou campo do `WreckSpec` (`hatch`, `hatch_from`); `hatch_in_target` e `surface_exit` leem dele. O LED da sonda também (`led_rect`).
 - **Mapa**: dentro da nave (camada `vesper`) a própria nave não gera marcador "Ruína", nem no mapa nem no minimapa. Na superfície nada muda.
 - **Geração**: `WRECK_DIST`/`WRECK_SPACING`/`WRECK_MARGIN` intactos; o destroço rico do bolsão é o robô 3×2. Save continua v13 (o `wrecks.settle` cuida de destroço que cairia em cima de construção).
+
+### Marco 4 · como ficou na implementação (`game/vesper.py`, `game/vesper_plans/`, `game/vesper_fx.py`, `game/layers.py`, `game/systems.py`, `game/render.py`, `game/props.py`, `game/wrecks.py`, `game/map_view.py`, `game/app.py`, `game/ui.py`, `game/save.py`)
+- **A nave é um `ruins.Ruin` só** (key `"vesper"`), montado de 5 slots fixos (cabine, corredor, alojamento, câmara fria, porão), cada um com 2 plantas (`_a`/`_b`) sorteadas pela seed. Casca, chão, props, máquinas quebradas e terminais vêm do `ruins.apply_overlays`. As peças só da nave ficam em `world.fixtures`: escotilha, contêiner, painel, porta emperrada e luz de emergência.
+- **Mudanças de arte em relação às decisões acima**:
+  - o contêiner da câmara fria usa o `container_open.png` aprovado (sem sprite de arrombado);
+  - a saída é uma **escotilha no chão do porão** (`vesper_hatch_exit_a/_b`, buraco escuro com a grade arrancada e parafusos soltos; a variante segue a planta do porão), não porta na parede;
+  - as passagens entre salas são abertas;
+  - a luz de emergência tem 2 variantes por tile, raio de 1,5 tile.
+- **Viagem**: `RampTrip` ganhou `arrival` e `text`. A entrada é o alvo de E `hatch_in` (a boca do porão, `WreckSpec.hatch`/`hatch_from`); a saída é o `hatch_out`. O save no meio do fade cai no destino.
+- **Lá dentro**:
+  - não constrói (`Layer.buildable`);
+  - sem tempestade, neve nem céu limpo;
+  - a seta do O₂ crítico aponta pra "SAÍDA";
+  - as caixas do porão usam `vesper.crate_loot` (sem isso, salvar dentro quebrava);
+  - o marcador "Ruína" da própria nave não aparece no mapa nem no minimapa.
+- **Faísca e névoa**: `game/vesper_fx.py` (`DoorFx`), desenhadas por cima do escuro. O `spark` toca com ganho pela distância (cheio até 1,5 tile, zero em 5,5); o `door_stuck` tem cooldown de 0,4 s.
+- **Props**:
+  - multi-tile: `PropType.size`; o `layer.props` guarda um tile por parte, apontando pro mesmo `Prop`; o save guarda só a âncora;
+  - 17 props novos, mais o microscópio digital;
+  - o kit grande (2×1 e 2×2) mora só nas plantas da nave, porque a planta de ruína que gira não rotaciona o `size`;
+  - correção de um bug da Task 2: os props de face (monitor, quadro de aviso) das plantas da nave sumiam.
+- **Destroços maiores**: as variantes A/B saem por hash da posição do destroço (sem rng e sem save). Os `wreck_cargo/robot/liner.png` antigos saíram de `assets/`.
+- **Números**: pytest 1980 passed, 2 skipped; smoke exit 0, média 6,5 ms; `real_video_check` com 16 telas iguais. Save continua **v13**.
