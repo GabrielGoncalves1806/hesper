@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>v0.8 M5 · Materiais e itens · rodada 2</title><style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;padding:0 16px}
+.wrap{max-width:1020px;margin:0 auto;padding:40px 0 80px}
+.eyebrow{font:12px ui-monospace,monospace;letter-spacing:.08em;color:var(--rust);text-transform:uppercase}
+h1{font:600 38px/1.1 ui-monospace,monospace;margin:10px 0 14px}h2{margin:44px 0 6px;color:var(--gold)}h3{margin:22px 0 6px}
+p,li{color:var(--muted)}p b,li b{color:var(--fg)}
+.note{background:var(--panel);border-left:4px solid var(--cyan);padding:12px 16px;margin:16px 0;border-radius:4px}
+.rec{border-left-color:var(--ok)}
+img.full{display:block;width:960px;max-width:100%;height:auto;image-rendering:pixelated;border:1px solid var(--line);border-radius:4px;margin:6px 0}
+img.px{image-rendering:pixelated}
+.chk{display:inline-flex;gap:14px;align-items:flex-end;padding:10px;background:repeating-conic-gradient(#2a211c 0 25%,#221a16 0 50%) 0 0/16px 16px;border-radius:4px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:8px 0}
+figure{margin:0;background:var(--panel);border:1px solid var(--line);padding:8px;border-radius:4px}
+figcaption{font:12px ui-monospace,monospace;color:var(--muted);margin-top:6px;max-width:330px}
+.arrow{font:22px ui-monospace,monospace;color:var(--muted);align-self:center}
+.pick{outline:2px solid var(--ok);outline-offset:2px}
+code{background:var(--panel);padding:1px 5px;border-radius:3px;color:var(--gold)}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Designer · v0.8 M5 · rodada 2 · candidatas</div>
+<h1>Materiais e itens · rodada 2</h1>
+<div class="note"><b>v1.1 · o que mudou:</b> (1) o Tab segue a <b>opção A reorganizada</b>, aprovada pelo dono; os mocks daqui usam o mesmo layout. (2) <b>Gel hídrico virou bola de slime</b> (2 candidatas). (3) Os <b>equipáveis do traje com volume</b>, feitos na mesma cena e com a mesma luz das máquinas r3d (<code>r3d.py</code>: luz de cima e da esquerda, faces em tons diferentes, contorno <code>#1b1630</code>, linha escura entre peças). Entram aqui o tanque, a mochila e o scanner de hoje, mais os novos tanque nv.2, Mochila T2 e botas. Nada foi pro jogo. Rodada 1: <a href="../v08_m5_itens/index.html" style="color:#59d0e6">v08_m5_itens</a>. Tamanhos: <b>todos 16×16, alpha 0/255, sem extras</b>.</div>
+<h2>1 · Gel hídrico: bola de slime</h2>
+<p><b>Do estilo da referência do dono eu aproveitei</b> a esfera translúcida, o brilho em cima e à esquerda, as manchas mais escuras e a gosma clara escorrendo em pingos por cima de uma base escura. O desenho é próprio, em 16×16 e no verde-azulado da Folha-gota: gosma <code>#86e8bc</code>/<code>#52cfa2</code> e base <code>#1f7f86</code>/<code>#0f3f4a</code>. Do lado ficam a planta de origem e os dois ícones com que o gel não pode confundir.</p><div class="row">
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_plant_1.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_plant_1.png" width="64" height="64"></div><figcaption>Folha-gota (aprovada)</figcaption></figure>
+<span class="arrow">→</span>
+<figure class=pick><div class="chk"><img class="px" src="candidatas/icon_hydrogel_A.png" width="16" height="16"><img class="px" src="candidatas/icon_hydrogel_A.png" width="64" height="64"></div><figcaption>A · bola redonda, pingos de vários tamanhos, base escura aparecendo embaixo</figcaption></figure>
+<figure><div class="chk"><img class="px" src="candidatas/icon_hydrogel_B.png" width="16" height="16"><img class="px" src="candidatas/icon_hydrogel_B.png" width="64" height="64"></div><figcaption>B · slime meio assentado (base achatada, mais largo) com a folhinha da Folha-gota no alto</figcaption></figure>
+<figure><div class="chk"><img class="px" src="../v08_m5_itens/candidatas/icon_hydrogel_A.png" width="16" height="16"><img class="px" src="../v08_m5_itens/candidatas/icon_hydrogel_A.png" width="64" height="64"></div><figcaption>rodada 1 (gota), pra comparar</figcaption></figure>
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_water_capsule.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_water_capsule.png" width="64" height="64"></div><figcaption>vizinho: cápsula de água (cilindro com tampa)</figcaption></figure>
+<figure><div class="chk"><img class="px" src="../v08_m5_itens/pendentes/icon_frost_resin.png" width="16" height="16"><img class="px" src="../v08_m5_itens/pendentes/icon_frost_resin.png" width="64" height="64"></div><figcaption>vizinho: resina (azul, pedra com espiral)</figcaption></figure>
+</div><div class="note rec"><b>Recomendo A.</b> A bola redonda é a leitura mais direta de "slime" e não se parece com nada do inventário. O B tem a folhinha (amarra melhor com a planta), mas achatado vira "gosma no chão". A cor é o verde-azulado do gel, longe do azul da resina e do branco com azul da cápsula.</div>
+<h2>2 · Equipáveis com volume (r3d)</h2>
+<p>Cada um lado a lado: o atual ou o da rodada 1 (2D) → o 3D. Ampliado ×4, com o 1× do lado. Embaixo de cada um, o que ganhou ou perdeu.</p>
+<h3>Tanque de O₂ (nv.1)</h3><div class="row">
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_o2_tank.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_o2_tank.png" width="64" height="64"></div><figcaption>2D (hoje)</figcaption></figure>
+<span class="arrow">→</span>
+<figure class=pick><div class="chk"><img class="px" src="pendentes/icon_o2_tank.png" width="16" height="16"><img class="px" src="pendentes/icon_o2_tank.png" width="64" height="64"></div><figcaption>3D · melhora: os dois cilindros ganham corpo e o da direita vem um passo à frente; a manopla laranja e a faixa ciano continuam.</figcaption></figure>
+</div>
+<h3>Tanque de O₂ nv.2</h3><div class="row">
+<figure><div class="chk"><img class="px" src="../v08_m5_itens/pendentes/icon_o2_tank_t2.png" width="16" height="16"><img class="px" src="../v08_m5_itens/pendentes/icon_o2_tank_t2.png" width="64" height="64"></div><figcaption>2D (rodada 1)</figcaption></figure>
+<span class="arrow">→</span>
+<figure class=pick><div class="chk"><img class="px" src="pendentes/icon_o2_tank_t2.png" width="16" height="16"><img class="px" src="pendentes/icon_o2_tank_t2.png" width="64" height="64"></div><figcaption>3D · melhora: tampas e válvulas douradas ficam no topo iluminado, a faixa de gel e a cinta de fibra na frente.</figcaption></figure>
+</div>
+<h3>Mochila (nv.1)</h3><div class="row">
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_backpack.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_backpack.png" width="64" height="64"></div><figcaption>2D (hoje)</figcaption></figure>
+<span class="arrow">→</span>
+<figure class=pick><div class="chk"><img class="px" src="pendentes/icon_backpack.png" width="16" height="16"><img class="px" src="pendentes/icon_backpack.png" width="64" height="64"></div><figcaption>3D · fica parecida: lê como bolsa em domo com a aba laranja; perde o LED ciano e as alças de ombro do 2D.</figcaption></figure>
+</div>
+<h3>Mochila T2</h3><div class="row">
+<figure><div class="chk"><img class="px" src="../v08_m5_itens/pendentes/icon_backpack_t2.png" width="16" height="16"><img class="px" src="../v08_m5_itens/pendentes/icon_backpack_t2.png" width="64" height="64"></div><figcaption>2D (rodada 1)</figcaption></figure>
+<span class="arrow">→</span>
+<figure class=pick><div class="chk"><img class="px" src="pendentes/icon_backpack_t2.png" width="16" height="16"><img class="px" src="pendentes/icon_backpack_t2.png" width="64" height="64"></div><figcaption>3D · melhora: o rolo de fibra deitado em cima e as tiras douradas ficam com cara de objeto.</figcaption></figure>
+</div>
+<h3>Scanner</h3><div class="row">
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_scanner.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_scanner.png" width="64" height="64"></div><figcaption>2D (hoje)</figcaption></figure>
+<span class="arrow">→</span>
+<figure class=pick><div class="chk"><img class="px" src="pendentes/icon_scanner.png" width="16" height="16"><img class="px" src="pendentes/icon_scanner.png" width="64" height="64"></div><figcaption>3D · melhora: aparelho em pé com a tela maior, base laranja e a antena com a ponta vermelha.</figcaption></figure>
+</div>
+<h3>Botas de tração</h3><div class="row">
+<figure><div class="chk"><img class="px" src="../v08_m5_itens/pendentes/icon_boots.png" width="16" height="16"><img class="px" src="../v08_m5_itens/pendentes/icon_boots.png" width="64" height="64"></div><figcaption>2D (rodada 1)</figcaption></figure>
+<span class="arrow">→</span>
+<figure><div class="chk"><img class="px" src="pendentes/icon_boots.png" width="16" height="16"><img class="px" src="pendentes/icon_boots.png" width="64" height="64"></div><figcaption>3D · fica PIOR: em 16 px, as duas botas em 3/4 viram um bloco baixo; o 2D de perfil lê 'bota' mais rápido.</figcaption></figure>
+</div>
+<h3>Na escala do jogo (slot 20 px, Grande ×2): primeiro em 2D, depois em 3D</h3>
+<p>Ordem: tanque, tanque nv.2, mochila, Mochila T2, scanner, botas e gel.</p>
+<img class="px" src="slots_2d.png" style="display:block;margin:6px 0"><img class="px" src="slots_3d.png" style="display:block;margin:6px 0">
+<h3>A família nv.1 / nv.2 no cartão TRAJE (layout A)</h3>
+<p>À esquerda o traje só com nv.1 e as botas; à direita com os nv.2. Em cima a versão 2D, embaixo a 3D.</p>
+<img class="full" src="traje_2d.png" width="960" height="540"><img class="full" src="traje_3d.png" width="960" height="540">
+<h3>No Tab A aprovado</h3>
+<img class="full" src="tab_A_2d.png" width="960" height="540"><img class="full" src="tab_A_3d.png" width="960" height="540">
+<p style="font-size:13px">Em cima, os ícones 2D (de hoje e da rodada 1). Embaixo, os 3D desta rodada, com o gel de slime na hotbar.</p>
+<div class="note rec"><b>Recomendação:</b> passar pra 3D o <b>tanque nv.1 e o nv.2, a Mochila T2 e o scanner</b>, que ganham volume e continuam lendo. A <b>mochila nv.1</b> fica equivalente: vale ir pro 3D só pra família com a T2 ficar igual. As <b>botas ficam piores em 3D</b>, porque em 16 px o par em 3/4 vira um bloco baixo. Pra elas eu manteria o 2D de perfil da rodada 1, que já tem sombra própria e o contorno, então não destoa dos vizinhos 3D no slot. A família continua óbvia: o nv.2 é a mesma peça com dourado <code>#f2c46d</code> no topo (tampas, válvulas, tiras e fivela) e o material novo (fibra verde, gel).</div>
+<h2>Pro Dev integrar (depois do ok do dono)</h2><ul>
+<li>Só troca PNG, nenhum código muda. <code>icon_o2_tank.png</code>, <code>icon_backpack.png</code> e <code>icon_scanner.png</code> já existem no jogo: o 3D de <code>v08_m5_itens_r2/pendentes/</code> entra por cima, com o mesmo nome e o mesmo tamanho (16×16). <code>icon_o2_tank_t2</code>, <code>icon_backpack_t2</code> e <code>icon_boots</code> são novos (rodada 1). Botas: se o dono seguir a recomendação, use o de <code>v08_m5_itens/pendentes/icon_boots.png</code>.</li>
+<li><code>icon_hydrogel.png</code>: use o de <code>v08_m5_itens_r2/pendentes/</code> (slime A). O B está em <code>candidatas/icon_hydrogel_B.png</code>.</li>
+<li>O fantasma do slot vazio no TRAJE continua sendo o ícone nv.1 a alpha 45. Com o 3D, o fantasma ganha volume junto.</li>
+<li>Gerar de novo: <code>python3 tools/sprites/v08_m5_r2.py</code>. É determinístico e só lê <code>assets/</code>.</li>
+</ul></div></body></html>

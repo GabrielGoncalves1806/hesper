@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>v0.8 M5 · Materiais e itens</title><style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;padding:0 16px}
+.wrap{max-width:1020px;margin:0 auto;padding:40px 0 80px}
+.eyebrow{font:12px ui-monospace,monospace;letter-spacing:.08em;color:var(--rust);text-transform:uppercase}
+h1{font:600 38px/1.1 ui-monospace,monospace;margin:10px 0 14px}h2{margin:44px 0 6px;color:var(--gold)}h3{margin:22px 0 6px}
+p,li{color:var(--muted)}p b,li b{color:var(--fg)}
+.note{background:var(--panel);border-left:4px solid var(--cyan);padding:12px 16px;margin:16px 0;border-radius:4px}
+.rec{border-left-color:var(--ok)}
+img.full{display:block;width:960px;max-width:100%;height:auto;image-rendering:pixelated;border:1px solid var(--line);border-radius:4px;margin:6px 0}
+img.px{image-rendering:pixelated}
+.chk{display:inline-flex;gap:14px;align-items:flex-end;padding:10px;background:repeating-conic-gradient(#2a211c 0 25%,#221a16 0 50%) 0 0/16px 16px;border-radius:4px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:8px 0}
+figure{margin:0;background:var(--panel);border:1px solid var(--line);padding:8px;border-radius:4px}
+figcaption{font:12px ui-monospace,monospace;color:var(--muted);margin-top:6px;max-width:360px}
+.arrow{font:22px ui-monospace,monospace;color:var(--muted);align-self:center}
+.pick{outline:2px solid var(--ok);outline-offset:2px}
+.anim{image-rendering:pixelated;animation:a .27s steps(4) infinite}
+@keyframes a{to{background-position:var(--end) 0}}
+table{border-collapse:collapse;width:100%}td,th{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}th{background:var(--panel)}
+code{background:var(--panel);padding:1px 5px;border-radius:3px;color:var(--gold)}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Designer · v0.8 M5 · candidatas</div>
+<h1>Materiais e itens</h1>
+<div class="note rec"><b>Rodada 2 (2026-10-17):</b> o dono aprovou a <b>opção A reorganizada</b> do Tab. A rodada 2 traz o gel hídrico como bola de slime e os equipáveis do traje com volume (r3d): <a href="../v08_m5_itens_r2/index.html" style="color:#59d0e6">v08_m5_itens_r2</a>.</div>
+<div class="note"><b>v1.0 · o que é isto:</b> a rodada de arte do marco "Materiais e itens" (bíblia §17, "Plantas viram material"). <b>Candidatas</b>, nada foi pro jogo: 4 materiais (fibra, gel, resina, essência; 2 ou 3 versões dos que têm dúvida de leitura), 6 itens (Mochila T2, Tanque nv.2, Botas, Luminária bio, Adubo, Drone nv.2), a Luminária bio e o Drone nv.2 no mundo, e o mock do painel de equipamento com o slot novo de <b>BOTAS</b> e as duas opções da Mochila T2. A versão recomendada de cada ícone está em <code>pendentes/</code> com o nome do contrato; as outras em <code>candidatas/</code>. Tamanhos: <b>todos no contrato (16×16, lamp_bio 16×32, drone_t2 64×16), alpha só 0/255 e a sombra</b>. Referência de estilo: só os ícones aprovados do próprio jogo (v0.8 e os equipamentos); nada de fora.</div>
+<h2>1 · Materiais (a planta aparece no material)</h2>
+<p>Ampliados ×4 com o 1× do lado. Cada linha: a planta de origem (aprovada) → as candidatas → o ícone do jogo que pode confundir. Contorno <code>#1b1630</code>, faixas chapadas, um brilho, como os ícones da v0.8. Borda verde = recomendada.</p>
+<h3>Fibra sintética · da Alga</h3><div class="row">
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_algae.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_algae.png" width="64" height="64"></div><figcaption>Alga (aprovada)</figcaption></figure>
+<span class="arrow">→</span>
+<figure class=pick><div class="chk"><img class="px" src="candidatas/icon_fiber_A.png" width="16" height="16"><img class="px" src="candidatas/icon_fiber_A.png" width="64" height="64"></div><figcaption>A · cone de fio: a fibra enrolada num cone de fiação, voltas verde-alga, tubinho creme e a ponta solta</figcaption></figure>
+<figure><div class="chk"><img class="px" src="candidatas/icon_fiber_B.png" width="16" height="16"><img class="px" src="candidatas/icon_fiber_B.png" width="64" height="64"></div><figcaption>B · novelo: bola de fio com a ponta solta</figcaption></figure>
+<figure><div class="chk"><img class="px" src="candidatas/icon_fiber_C.png" width="16" height="16"><img class="px" src="candidatas/icon_fiber_C.png" width="64" height="64"></div><figcaption>C · meada amarrada com a fitinha laranja do maço de alga</figcaption></figure>
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_wire.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_wire.png" width="64" height="64"></div><figcaption>vizinho: fio de cobre (carretel com abas): o cone não tem aba, não confunde</figcaption></figure>
+</div>
+<h3>Gel hídrico · da Folha-gota</h3><div class="row">
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_plant_1.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_plant_1.png" width="64" height="64"></div><figcaption>Folha-gota (aprovada)</figcaption></figure>
+<span class="arrow">→</span>
+<figure class=pick><div class="chk"><img class="px" src="candidatas/icon_hydrogel_A.png" width="16" height="16"><img class="px" src="candidatas/icon_hydrogel_A.png" width="64" height="64"></div><figcaption>A · gota de gel gorda, achatada embaixo, bolhinhas presas e a folhinha da Folha-gota na ponta</figcaption></figure>
+<figure><div class="chk"><img class="px" src="candidatas/icon_hydrogel_B.png" width="16" height="16"><img class="px" src="candidatas/icon_hydrogel_B.png" width="64" height="64"></div><figcaption>B · potinho de vidro com tampa creme e faixa laranja</figcaption></figure>
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_water_capsule.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_water_capsule.png" width="64" height="64"></div><figcaption>vizinho: cápsula de água: o pote B fica parecido demais com ela</figcaption></figure>
+</div>
+<h3>Resina de geada · da Espiral-de-geada</h3><div class="row">
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_plant_2.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_plant_2.png" width="64" height="64"></div><figcaption>Espiral-de-geada (aprovada)</figcaption></figure>
+<span class="arrow">→</span>
+<figure class=pick><div class="chk"><img class="px" src="candidatas/icon_frost_resin_A.png" width="16" height="16"><img class="px" src="candidatas/icon_frost_resin_A.png" width="64" height="64"></div><figcaption>A · pepita gorda (estilo minério chunky) azul da Espiral, a espiral presa dentro, crosta de geada em cima</figcaption></figure>
+<figure><div class="chk"><img class="px" src="candidatas/icon_frost_resin_B.png" width="16" height="16"><img class="px" src="candidatas/icon_frost_resin_B.png" width="64" height="64"></div><figcaption>B · gota de resina com capuz de geada</figcaption></figure>
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_ice.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_ice.png" width="64" height="64"></div><figcaption>vizinho: gelo: a resina é mais funda (azul da planta), lisa, com a espiral</figcaption></figure>
+</div>
+<h3>Essência de Lírio · da Lírio-de-Ilves</h3><div class="row">
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_plant_3.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_plant_3.png" width="64" height="64"></div><figcaption>Lírio-de-Ilves (aprovada)</figcaption></figure>
+<span class="arrow">→</span>
+<figure class=pick><div class="chk"><img class="px" src="candidatas/icon_lily_essence_A.png" width="16" height="16"><img class="px" src="candidatas/icon_lily_essence_A.png" width="64" height="64"></div><figcaption>A · frasco-balão: essência violeta (miolo do Lírio) com núcleo ciano aceso, anel dourado, rolha de cristal e brilhinhos</figcaption></figure>
+<figure><div class="chk"><img class="px" src="candidatas/icon_lily_essence_B.png" width="16" height="16"><img class="px" src="candidatas/icon_lily_essence_B.png" width="64" height="64"></div><figcaption>B · frasquinho facetado (joia) com a rolha em flor</figcaption></figure>
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_sample_rare.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_sample_rare.png" width="64" height="64"></div><figcaption>vizinho: amostra rara: tubo de ensaio dourado; a essência é bojo redondo e violeta</figcaption></figure>
+</div>
+<div class="note rec"><b>Recomendação:</b> <b>fibra A</b> (o cone lê "fio industrial" e foge do maço de alga e do carretel de cobre; o novelo B em 16 px lê "repolho" e a meada C lê "laço de presente"); <b>gel A</b> (gota de gel; o pote B briga com a cápsula de água); <b>resina A</b> (a gota B fica com a mesma silhueta da gota de gel no mesmo inventário); <b>essência A</b> (lê "poção preciosa" na hora; o B é bonito mas pode ler "gema"). A essência é o único ícone violeta + dourado do jogo, pra parecer a coisa mais rara.</div>
+<h3>Na escala do jogo (slot 20 px, escala Grande ×2)</h3>
+<p>Alga, as 3 plantas e 2 amostras (aprovados) e, depois, os 4 materiais recomendados.</p>
+<img class="px" src="slots_materiais.png" style="display:block;margin:6px 0">
+<h2>2 · Itens</h2>
+<p>Os nv.2 saem do nv.1 aprovado (mesma silhueta), com o <b>dourado <code>#f2c46d</code></b> das máquinas nv.2 e o material de que são feitos aparecendo: fibra verde, gel verde-azulado, resina azul.</p>
+<div class="row">
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_backpack.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_backpack.png" width="64" height="64"></div><figcaption>Mochila (hoje)</figcaption></figure>
+<span class="arrow">→</span>
+<figure><div class="chk"><img class="px" src="pendentes/icon_backpack_t2.png" width="16" height="16"><img class="px" src="pendentes/icon_backpack_t2.png" width="16" height="16"></div><figcaption>Mochila T2: rolo de fibra amarrado em cima com tiras douradas, aba de fibra trançada, fivela dourada, alças e bolsos de fibra; mais larga</figcaption></figure>
+</div><div class="row">
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_o2_tank.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_o2_tank.png" width="64" height="64"></div><figcaption>Tanque de O₂ (hoje)</figcaption></figure>
+<span class="arrow">→</span>
+<figure><div class="chk"><img class="px" src="pendentes/icon_o2_tank_t2.png" width="16" height="16"><img class="px" src="pendentes/icon_o2_tank_t2.png" width="16" height="16"></div><figcaption>Tanque nv.2: cilindros com tampas, válvulas e anéis dourados, faixa no verde-azulado do gel, cinta de fibra</figcaption></figure>
+</div><div class="row">
+<figure><div class="chk"><img class="px" src="pendentes/icon_boots.png" width="16" height="16"><img class="px" src="pendentes/icon_boots.png" width="16" height="16"></div><figcaption>Botas de tração: par de botas do traje (cano branco, faixa laranja, punho de fibra), biqueira dourada e sola grossa de resina azul com cravos</figcaption></figure>
+<figure><div class="chk"><img class="px" src="pendentes/icon_fertilizer.png" width="16" height="16"><img class="px" src="pendentes/icon_fertilizer.png" width="16" height="16"></div><figcaption>Adubo: saquinho creme com a fitinha laranja, alga e bolhas de gel saindo da boca, rótulo com folha + gota</figcaption></figure>
+</div><div class="row">
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_lamp.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_lamp.png" width="64" height="64"></div><figcaption>Luminária (hoje)</figcaption></figure>
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_lamp_t2.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_lamp_t2.png" width="64" height="64"></div><figcaption>Luminária forte (hoje)</figcaption></figure>
+<span class="arrow">→</span>
+<figure><div class="chk"><img class="px" src="pendentes/icon_lamp_bio.png" width="16" height="16"><img class="px" src="pendentes/icon_lamp_bio.png" width="16" height="16"></div><figcaption>Luminária bio: redoma de vidro com a resina acesa (fria) e a espiral, poste de fibra, sem LED nem fio</figcaption></figure>
+</div><div class="row">
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/icon_drone.png" width="16" height="16"><img class="px" src="../../../assets/sprites/icon_drone.png" width="64" height="64"></div><figcaption>Drone (ícone de hoje: quadricóptero)</figcaption></figure>
+<span class="arrow">→</span>
+<figure><div class="chk"><img class="px" src="candidatas/icon_drone_t2_A.png" width="16" height="16"><img class="px" src="candidatas/icon_drone_t2_A.png" width="16" height="16"></div><figcaption>A · o ícone de hoje com faixa dourada, braços de fibra, hélices de resina e caixotinho de carga embaixo (carrega mais)</figcaption></figure>
+<figure><div class="chk"><img class="px" src="candidatas/icon_drone_t2_B.png" width="16" height="16"><img class="px" src="candidatas/icon_drone_t2_B.png" width="64" height="64"></div><figcaption>B · o quadro 0 do drone_t2 de mundo (esférico), como ícone</figcaption></figure>
+</div>
+<div class="note"><b>Achado:</b> o <code>icon_drone.png</code> de hoje ainda é o quadricóptero antigo, mas o <code>drone.png</code> do mundo é o drone esférico do r3d. Por isso o ícone nv.2 tem duas candidatas: <b>A</b> segue o ícone de hoje (recomendo, pra hotbar ficar coerente com o nv.1), <b>B</b> segue o drone do mundo. Se o dono quiser alinhar ícone e mundo, o certo é refazer o <code>icon_drone</code> também (fica pra outra rodada).</div>
+<h3>Na escala do jogo</h3><p>Os equipamentos de hoje (mochila, tanque, scanner, luminária, drone) e, depois, os 6 itens novos.</p>
+<img class="px" src="slots_itens.png" style="display:block;margin:6px 0">
+<h2>3 · No mundo</h2>
+<h3>Luminária bio · <code>lamp_bio.png</code> 16×32</h3>
+<div class="row">
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/lamp.png" width="16" height="32"><img class="px" src="../../../assets/sprites/lamp.png" width="80" height="160"></div><figcaption>lamp (hoje)</figcaption></figure>
+<figure><div class="chk"><img class="px" src="../../../assets/sprites/lamp_t2.png" width="16" height="32"><img class="px" src="../../../assets/sprites/lamp_t2.png" width="80" height="160"></div><figcaption>lamp_t2 (hoje)</figcaption></figure>
+<figure class=pick><div class="chk"><img class="px" src="pendentes/lamp_bio.png" width="16" height="32"><img class="px" src="pendentes/lamp_bio.png" width="80" height="160"></div><figcaption>lamp_bio: mesma sapata/poste/cabeça da família, mas a cabeça é uma redoma com a resina acesa dentro (espiral), poste embrulhado em fibra, faixa de fibra na sapata. Sem fio, sem LED.</figcaption></figure>
+</div>
+<p>Na caverna escura (mesma escuridão e ordem de desenho da prévia da luminária forte): comum (raio 5, quente), forte (raio 7, quente) e <b>bio (raio 5 na prévia, luz fria verde-azulada <code>(150, 245, 215)</code>)</b>.</p>
+<img class="full" src="caverna_luminarias_escuro.png" width="960" height="384">
+<img class="px" src="caverna_bio_zoom.png" width="480" height="336" style="display:block;border:1px solid #3a2c25;margin:6px 0">
+<p style="font-size:13px">Zoom ×3 da bio acesa. Mesma cena com luz cheia, pra ver o sprite: <a href="caverna_luminarias_claro.png" style="color:#59d0e6">caverna_luminarias_claro.png</a>.</p>
+<h3>Drone nv.2 · <code>drone_t2.png</code> 64×16 (4 quadros de 16×16, igual ao <code>drone.png</code>)</h3>
+<div class="row">
+<figure><div class="chk"><div class="anim" style="width:96px;height:96px;background:url(../../../assets/sprites/drone.png) 0 0/384px 96px;--end:-384px;animation-duration:0.267s"></div></div><figcaption>drone (hoje) · 15 fps</figcaption></figure>
+<figure><div class="chk"><div class="anim" style="width:96px;height:96px;background:url(pendentes/drone_t2.png) 0 0/384px 96px;--end:-384px;animation-duration:0.267s"></div></div><figcaption>drone_t2 · 15 fps: o mesmo drone esférico (mesma cena r3d) com cinto DOURADO, aletas de resina azul e DOIS propulsores (voa mais rápido); olho e antenas iguais</figcaption></figure>
+<figure><div class="chk"><img class="px" src="pendentes/drone_t2.png" width="64" height="16"><img class="px" src="pendentes/drone_t2.png" width="256" height="64"></div><figcaption>a tira (4 quadros)</figcaption></figure>
+</div>
+<h3>Na base (névoa)</h3><p>Três luminárias bio no chão e os dois drones voando (o nv.1 perto do player, dois nv.2), em escala 1:1, mesma ordem de desenho.</p>
+<img class="full" src="preview_base_mist.png" width="960" height="540">
+<h2>4 · Painel de equipamento (aba Tab · Inventário)</h2>
+<p>Escala Grande (tela lógica 480×270, ×2), medidas reais de <code>game/ui.py</code>: <code>TAB_INV_W</code> 346, <code>TAB_INV_H</code> 178, <code>BACKPACK_ROW_H</code> 32, grade 174, slot 20 e passo 22, detalhe do fim da grade até a borda, TRAJE em <code>top+68</code>. O detalhe mostra a Fibra com o "USADO EM" das receitas novas.</p>
+<h3>O TRAJE com 4 slots (vale pras duas opções)</h3>
+<p>Hoje: tanque e scanner dos lados do Explorador e a mochila embaixo do corpo. Com <b>BOTAS</b> os rótulos de baixo batiam nos estados de cima, então cada slot ganha um canto do cartão (rótulo e estado virados pra dentro): TANQUE e SCANNER em cima, MOCHILA e BOTAS embaixo. Mesmo cartão de 174×62, nada muda de altura. Abaixo, o Tab de hoje só com esse cartão novo (botas vazias, fantasma a 45 como os outros).</p>
+<img class="full" src="tab_hoje_botas.png" width="960" height="540">
+<h3>Opção B · mesma janela, as pilhas dobram</h3>
+<p>Mesma janela de hoje (346×210), Mochila T2 no slot da mochila: <b>recurso empilha até 100 no player</b> (hotbar, inventário e mochila; baú continua 50). Como o jogador percebe: (1) o rótulo vira <b>MOCHILA T2</b> com o selo dourado <b>PILHA 2X</b>; (2) o estado da mochila no TRAJE diz <b>pilha ×2</b> em dourado; (3) o detalhe mostra <b>12 / 100</b> com o selo <b>2X</b>; (4) os números passam de 50 nos slots (o "100" ocupa o slot quase inteiro, ainda lê). Ao pegar a Mochila T2, um aviso "Pilhas dobradas: recursos até 100" fecha a conta.</p>
+<img class="full" src="tab_B.png" width="960" height="540">
+<h3>Opção A · +1 linha (2 linhas da mochila)</h3>
+<p><b>Sem reorganizar não cabe:</b> 178 + 2×32 = 242 de altura; na Grande a janela já encosta no topo (y 4) e passa 32 px por cima da moldura da hotbar (vermelho).</p>
+<img class="full" src="tab_A_sem_reorganizar.png" width="960" height="540">
+<p><b>Reorganizada:</b> 3 colunas, com o TRAJE numa coluna própria (Explorador em cima, os 4 slots em 2×2). Fica <b>446×174</b>: mais larga, mas <b>mais baixa que a de hoje</b> (210), então sobra folga na Grande e nas outras escalas. O detalhe perde altura (3 linhas de "USADO EM" em vez de 5, o resto vira "+ N receitas" como hoje).</p>
+<img class="full" src="tab_A.png" width="960" height="540">
+<p>Nos painéis lado a lado (baú, máquinas) a janela do inventário vai de 116 pra <b>148</b> de altura. O painel do outro lado já é mais alto (baú grande ~194, cultivador 244), então nada muda de lugar:</p>
+<img class="full" src="lado_a_lado_A.png" width="960" height="540">
+<div class="note rec"><b>Recomendação: A reorganizada.</b> Na v0.8 o inventário ganha muita <b>variedade</b> (alga, 3 plantas, 3 amostras, 4 materiais, cápsulas cheias e vazias, adubo), e é variedade que lota slot; dobrar pilha (B) ajuda gelo e ferro, não isso. O layout de 3 colunas cabe com folga, fica até mais baixo, e o TRAJE em coluna deixa espaço pra mais equipamento no futuro (o filtro do traje da atualização do basalto). <b>B</b> é o caminho barato (zero layout, só a regra de pilha + o selo); se o dono escolher B, o selo PILHA 2X no rótulo + "12 / 100" no detalhe resolvem a leitura.</div>
+<h2>Pro Dev integrar (depois do ok do dono)</h2><ul>
+<li><b>Arquivos</b> (de <code>reports/design/v08_m5_itens/pendentes/</code> pra <code>assets/sprites/</code>, só os escolhidos): <code>icon_fiber</code>, <code>icon_hydrogel</code>, <code>icon_frost_resin</code>, <code>icon_lily_essence</code>, <code>icon_backpack_t2</code>, <code>icon_o2_tank_t2</code>, <code>icon_boots</code>, <code>icon_lamp_bio</code>, <code>icon_fertilizer</code>, <code>icon_drone_t2</code> (16×16, ícone de item, desenhados ×2 no slot como os outros); <code>lamp_bio.png</code> 16×32; <code>drone_t2.png</code> 64×16. Se o dono escolher B/C de algum, o PNG está em <code>candidatas/&lt;nome&gt;_&lt;letra&gt;.png</code> (renomear pro nome do contrato).</li>
+<li><b>lamp_bio.png</b>: drop-in da <code>lamp.png</code> (<code>C.LAMP_SPRITE_SIZE</code> (16, 32) não muda): objeto de 1 tile, base na linha 29, centro x = 8, desenhada em <code>(tx*32 + 16 - 8, (ty+1)*32 - 32)</code>, ordem de desenho pelo pé como as outras. <b>Centro do brilho</b> = <code>(8, 7)</code> do PNG; o <code>lighting.lamp()</code> de hoje (<code>tx*T + 16, ty*T + 8</code>) já cai certo. Luz: <code>LAMP_RADIUS["lamp_bio"]</code> (sugiro 5, número decide o marco) e uma cor própria fria, <code>(150, 245, 215)</code>, em vez do <code>LAMP_COLOR</code> quente; sem flicker (sugestão: um "respirar" lento de intensidade 0,9–1,0 em ~3 s, se for barato). Sem energia: não entra na rede.</li>
+<li><b>drone_t2.png</b>: mesmo contrato do <code>drone.png</code> (<code>C.DRONE_SPRITE</code> 16, 4 quadros lado a lado, 15 fps, mesmo balanço de flutuar e mesmo offset de desenho). Gerado pela mesma cena r3d do drone aprovado (<code>machines_r3d.drone</code>), só trocando cinto, aletas e propulsores.</li>
+<li><b>Slot BOTAS</b>: <code>EQUIP_SLOTS</code> = ("o2_tank", "scanner", "backpack", "boots"), <code>EQUIP_LABEL["boots"] = "BOTAS"</code>. Mochila T2 e Tanque nv.2 ocupam o mesmo slot da nv.1 (o fantasma do slot vazio continua sendo o ícone nv.1). Cartão do TRAJE (opção B / layout de hoje): 4 slots nos cantos de <code>(gx, top+68, 174, 62)</code>: esquerda <code>x+8</code>, direita <code>x+w-28</code>, linhas <code>y+9</code> e <code>y+36</code>; rótulo em <code>sy+2</code> e estado (ponto 3×3 + texto) em <code>sy+9</code>, alinhados pra dentro (<code>sx+24</code> à esquerda, alinhado à direita em <code>sx-4</code> do lado direito). As linhas até o corpo saem.</li>
+<li><b>Opção A (layout)</b>: janela <code>446×174</code> (= 10 + 174 + 8 + 96 + 8 + 142 + 8; altura 40 + 4×32 − 2 + 8). Coluna 1: MOCHILA T2 (2 linhas, <code>top+10</code> e <code>top+32</code>), INVENTÁRIO em <code>top+64</code>, HOTBAR em <code>top+96</code>. Coluna 2 (TRAJE, 96 de largura, de <code>top</code> até <code>y+h-8</code>): Explorador em <code>(x+32, y+6)</code>, slots 2×2 centrados em células de 46, linhas <code>y+44</code> e <code>y+84</code>, rótulo centrado em <code>sy+21</code>; estado só no tanque ("180 s") e nos vazios ("vazio"). Coluna 3: o detalhe de hoje com 142 de largura. Painéis lado a lado: <code>inv_h = SIDE_INV_H + 2×BACKPACK_ROW_H</code> (148), o resto igual.</li>
+<li><b>Opção B (pilha)</b>: <code>max_stack</code> de recurso ×2 no inventário do player com a Mochila T2 equipada (baú não muda). Rótulo "MOCHILA T2" + selo dourado "PILHA 2X" (pílula <code>#f2c46d</code>, texto <code>#1b1411</code>) logo depois do rótulo; no TRAJE o estado da mochila "pilha ×2" em dourado; no detalhe o selo "2X" depois de "12 / 100". Tirar a mochila com pilha &gt; 50: o que sobra cai no chão/não deixa tirar (regra do Dev).</li>
+<li><b>Cores novas</b> (só nos ícones): gel <code>#1f8a86/#3fc6b4/#8ff0dc</code>, brilho bio <code>#3fc6b4/#8ff0dc/#e0fff6</code>; o resto vem das paletas aprovadas (alga, Folha-gota, Espiral-de-geada, Lírio, equipamentos, dourado nv.2).</li>
+<li><b>Gerar de novo</b>: <code>python3 tools/sprites/v08_m5_itens_report.py</code> (roda o <code>v08_m5_itens.py</code> antes). Determinístico. Não mexe em <code>assets/</code>.</li>
+</ul></div></body></html>
