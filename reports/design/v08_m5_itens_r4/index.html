@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>v0.8 M5 · rodada 4 · botas e mochila nv.1</title><style>
+:root{--bg:#15100e;--panel:#1e1714;--line:#3a2c25;--fg:#efe5da;--muted:#a8968a;--rust:#e2733a;--cyan:#59d0e6;--gold:#f2c46d;--ok:#7fd67a;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,sans-serif;padding:0 16px}
+.wrap{max-width:1020px;margin:0 auto;padding:40px 0 80px}
+.eyebrow{font:12px ui-monospace,monospace;letter-spacing:.08em;color:var(--rust);text-transform:uppercase}
+h1{font:600 38px/1.1 ui-monospace,monospace;margin:10px 0 14px}h2{margin:44px 0 6px;color:var(--gold)}h3{margin:22px 0 6px}
+p,li{color:var(--muted)}p b,li b{color:var(--fg)}
+.note{background:var(--panel);border-left:4px solid var(--cyan);padding:12px 16px;margin:16px 0;border-radius:4px}
+.rec{border-left-color:var(--ok)}
+img.full{display:block;width:960px;max-width:100%;height:auto;image-rendering:pixelated;border:1px solid var(--line);border-radius:4px;margin:6px 0}
+img.px{image-rendering:pixelated}
+.chk{display:inline-flex;gap:14px;align-items:flex-end;padding:10px;background:repeating-conic-gradient(#2a211c 0 25%,#221a16 0 50%) 0 0/16px 16px;border-radius:4px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:8px 0}
+figure{margin:0;background:var(--panel);border:1px solid var(--line);padding:8px;border-radius:4px}
+figcaption{font:12px ui-monospace,monospace;color:var(--muted);margin-top:6px;max-width:330px}
+.arrow{font:22px ui-monospace,monospace;color:var(--muted);align-self:center}
+.pick{outline:2px solid var(--ok);outline-offset:2px}
+code{background:var(--panel);padding:1px 5px;border-radius:3px;color:var(--gold)}
+
+.big{image-rendering:pixelated}
+.cmp{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end}
+@keyframes pulse{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+.pick .chk img:last-child{animation:pulse 1.6s steps(2) infinite}
+</style></head><body><div class="wrap">
+<div class="eyebrow">Hesper · Designer · v0.8 M5 · rodada 4 · candidatas</div>
+<h1>Rodada 4 · botas e mochila nv.1</h1>
+<div class="note"><b>v1.3 · o que mudou:</b> só dois ícones de 16×16, <code>icon_boots</code> (4 candidatas) e <code>icon_backpack</code> nv.1 (3 candidatas). Desta vez <b>desenhados pixel a pixel</b>, não no r3d: em 16 px o r3d escolhia a silhueta sozinho, e a silhueta era o problema. As paletas são as mesmas de 5 tons dos equipáveis 3D aprovados (branco do traje, laranja <code>#e2733a</code>, fibra, resina, cinza, escuro), com a mesma luz (de cima e da esquerda) e o mesmo contorno <code>#1b1630</code>. A mochila C sai da própria <code>icon_backpack_t2.png</code> aprovada, só recolorida. Nada foi pro jogo. Tamanhos: <b>todos 16×16, alpha 0/255, pendentes só com os 2 nomes do contrato</b>. Anteriores: <a href="../v08_m5_itens_r3/index.html" style="color:#59d0e6">rodada 3</a> · <a href="../v08_m5_itens_r2/index.html" style="color:#59d0e6">rodada 2</a> · <a href="../v08_m5_itens/index.html" style="color:#59d0e6">rodada 1</a>.</div>
+<h2>1 · Botas (4 candidatas)</h2>
+<p>Pra fugir do "L", nenhuma tem mais o ângulo reto entre o cano e o pé. Em todas: o <b>cano é um cilindro</b> com a boca aberta em cima (o anel do punho de <b>fibra</b> verde em volta do escuro) e faixas de luz e sombra; o <b>bico é redondo e grande</b>; a <b>sola de resina</b> azul-gelo é grossa e tem <b>cravos</b> embaixo; e uma <b>tira de fibra com fivela de resina</b> passa no peito do pé. A receita (fibra + resina) fica visível nas duas cores.</p><div class="row">
+<figure class=pick><div class="chk"><img class="px" src="candidatas/icon_boots_A.png" width="16" height="16"><img class="px" src="candidatas/icon_boots_A.png" width="64" height="64"></div><figcaption>A · 3/4 de lado, peito do pé em rampa: cano cilíndrico (boca aberta, punho de fibra, faixa laranja), tira de fibra com fivela de resina, bico laranja redondo, sola de resina com 4 cravos</figcaption></figure>
+<figure><div class="chk"><img class="px" src="candidatas/icon_boots_B.png" width="16" height="16"><img class="px" src="candidatas/icon_boots_B.png" width="64" height="64"></div><figcaption>B · no passo: a sola de resina inclinada (calcanhar no chão, bico subindo), a tira de fibra na diagonal</figcaption></figure>
+<figure><div class="chk"><img class="px" src="candidatas/icon_boots_C.png" width="16" height="16"><img class="px" src="candidatas/icon_boots_C.png" width="64" height="64"></div><figcaption>C · chibi: bico laranja redondão, maior que o cano; a tira de fibra com fivela de resina sobe pro cano</figcaption></figure>
+<figure><div class="chk"><img class="px" src="candidatas/icon_boots_D.png" width="16" height="16"><img class="px" src="candidatas/icon_boots_D.png" width="64" height="64"></div><figcaption>D · 3/4 de frente: o bico vem pra câmera, à esquerda; a tira de fibra cruza o peito do pé</figcaption></figure>
+</div><p>Lado a lado a 1× e ×4 no fundo do slot:</p><img class="px" src="zoom_botas.png">
+<h3>As reprovadas, pra comparar</h3><div class="row">
+<figure><div class="chk"><img class="px" src="../before/v08m5_boots_r1_2d.png" width="16" height="16"><img class="px" src="../before/v08m5_boots_r1_2d.png" width="64" height="64"></div><figcaption>rodada 1 · 2D, par</figcaption></figure>
+<figure><div class="chk"><img class="px" src="../before/v08m5_boots_r2_3d.png" width="16" height="16"><img class="px" src="../before/v08m5_boots_r2_3d.png" width="64" height="64"></div><figcaption>rodada 2 · 3D, par (virou bloco)</figcaption></figure>
+<figure><div class="chk"><img class="px" src="../before/v08m5_boots_r3_A.png" width="16" height="16"><img class="px" src="../before/v08m5_boots_r3_A.png" width="64" height="64"></div><figcaption>rodada 3 · A (o 'L')</figcaption></figure>
+<figure><div class="chk"><img class="px" src="../before/v08m5_boots_r3_B.png" width="16" height="16"><img class="px" src="../before/v08m5_boots_r3_B.png" width="64" height="64"></div><figcaption>rodada 3 · B</figcaption></figure>
+<figure><div class="chk"><img class="px" src="../before/v08m5_boots_r3_C.png" width="16" height="16"><img class="px" src="../before/v08m5_boots_r3_C.png" width="64" height="64"></div><figcaption>rodada 3 · C</figcaption></figure>
+</div>
+<h3>No slot, na escala do jogo (Grande ×2)</h3><p>Tanque, scanner, mochila nv.1 (A), Mochila T2, tanque nv.2 e a bota da candidata, por último.</p>
+<p style="margin:10px 0 2px"><b>A</b></p><img class="px" src="slots_boots_A.png">
+<p style="margin:10px 0 2px"><b>B</b></p><img class="px" src="slots_boots_B.png">
+<p style="margin:10px 0 2px"><b>C</b></p><img class="px" src="slots_boots_C.png">
+<p style="margin:10px 0 2px"><b>D</b></p><img class="px" src="slots_boots_D.png">
+<h3>No cartão TRAJE do Tab A: com nv.1 e com nv.2</h3>
+<img class="full" src="traje_botas_nv1.png" width="960" height="540"><img class="full" src="traje_botas_nv2.png" width="960" height="540">
+<div class="note rec"><b>Recomendo A.</b> A 16 px é a única que lê "bota" de primeira sem precisar de contexto: o cano cilíndrico com a boca aberta, a rampa do peito do pé descendo até o bico e a sola com os cravos. A rampa preenche o canto, então o "L" some. Os pontos fracos: a <b>tira verde</b> em diagonal some um pouco a 1× (vira um risco) e o desenho ainda é de lado. Se o dono achar a A "parada" demais, a <b>B</b> é a que mais foge do L: com a sola inclinada, a silhueta vira um paralelogramo. Só que a 1× ela lembra um tênis ou um patins. A <b>C</b> é a mais simpática e a mais "astronauta de desenho", mas o bico laranja vira uma bola maior que o resto e briga com o laranja do tanque no slot. A <b>D</b> (3/4 de frente) tem volume, mas a 16 px é a que demora mais pra ler: o bico vira uma mancha laranja à esquerda.</div>
+<h2>2 · Mochila nv.1 (3 candidatas)</h2>
+<p>Todas são da família da Mochila T2 aprovada (corpo branco em domo, aba e bolso cinza embaixo), sem o dourado e sem a fibra, e com a leitura do 2D antigo: o <b>LED ciano</b>, as <b>alças de ombro</b> escuras e a alça de mão.</p><div class="row">
+<figure class=pick><div class="chk"><img class="px" src="candidatas/icon_backpack_A.png" width="16" height="16"><img class="px" src="candidatas/icon_backpack_A.png" width="64" height="64"></div><figcaption>A · corpo da T2 + a leitura do 2D: alça de mão em arco, LED ciano, alças de ombro escuras dos lados, aba e zíper laranja, fivela escura</figcaption></figure>
+<figure><div class="chk"><img class="px" src="candidatas/icon_backpack_B.png" width="16" height="16"><img class="px" src="candidatas/icon_backpack_B.png" width="64" height="64"></div><figcaption>B · a silhueta do 2D antigo (alta, em domo) com volume: alça em arco, LED, 2 faixas laranja, alças de ombro</figcaption></figure>
+<figure><div class="chk"><img class="px" src="candidatas/icon_backpack_C.png" width="16" height="16"><img class="px" src="candidatas/icon_backpack_C.png" width="64" height="64"></div><figcaption>C · a própria T2 recolorida: rolo branco, tiras e fivela escuras, aba laranja, bolsos cinza</figcaption></figure>
+</div><p>1× e ×4 no fundo do slot (a última é a T2 aprovada):</p><img class="px" src="zoom_mochilas.png">
+<h3>As anteriores, pra comparar</h3><div class="row">
+<figure><div class="chk"><img class="px" src="../before/v08m5_backpack_2d_antigo.png" width="16" height="16"><img class="px" src="../before/v08m5_backpack_2d_antigo.png" width="64" height="64"></div><figcaption>2D antigo (o de hoje no jogo): LED e alças liam bem</figcaption></figure>
+<figure><div class="chk"><img class="px" src="../before/v08m5_backpack_r2_3d.png" width="16" height="16"><img class="px" src="../before/v08m5_backpack_r2_3d.png" width="64" height="64"></div><figcaption>rodada 2 · 3D (reprovado: aba laranja enorme, sem LED, sem alças)</figcaption></figure>
+</div>
+<h3>No slot, na escala do jogo (Grande ×2)</h3><p>Tanque, scanner, a mochila da candidata (3º), Mochila T2, tanque nv.2 e a bota A.</p>
+<p style="margin:10px 0 2px"><b>A</b></p><img class="px" src="slots_bag_A.png">
+<p style="margin:10px 0 2px"><b>B</b></p><img class="px" src="slots_bag_B.png">
+<p style="margin:10px 0 2px"><b>C</b></p><img class="px" src="slots_bag_C.png">
+<h3>No cartão TRAJE: as 3 nv.1 e o nv.2 aprovado do lado</h3>
+<img class="full" src="traje_mochilas.png" width="960" height="540">
+<div class="note rec"><b>Recomendo A.</b> É a T2 "com menos coisa": o mesmo corpo, a mesma aba e o mesmo bolso, então a família é óbvia, e no lugar do rolo de fibra entra a alça de mão. Também traz o LED ciano e as alças de ombro escuras do 2D antigo. O nv.2 vira "esta + fibra + dourado". O defeito: de lado, as alças escuras deixam a silhueta com cara de caixa térmica (a 1× lê bem, no ×4 aparece). A <b>B</b> é a mais fiel ao 2D antigo, e quem gostava dele vai reconhecer, mas fica mais alta e estreita que a T2 e a família pesa menos. A <b>C</b> é a T2 recolorida: a família é perfeita, mas não é "mais simples", e as duas tiras escuras em cima viram umas orelhas.</div>
+<h2>Tab A inteiro com as recomendadas</h2><p>O Tab A aprovado mostra o traje nv.2. A bota A aparece no slot BOTAS; a mochila nv.1 aparece nos cartões acima.</p>
+<img class="full" src="tab_A_recomendadas.png" width="960" height="540">
+<h2>Pro Dev integrar (depois do ok do dono)</h2><ul>
+<li>Só troca de PNG, nenhum código muda. <code>v08_m5_itens_r4/pendentes/icon_boots.png</code> e <code>pendentes/icon_backpack.png</code> vão pra <code>assets/sprites/</code> com o mesmo nome: 16×16 RGBA, ícone de item como os outros (sem âncora: desenhado no slot com 2 px de margem, ×2 no Grande).</li>
+<li>Se o dono escolher outra: <code>candidatas/icon_boots_{A..D}.png</code> ou <code>candidatas/icon_backpack_{A..C}.png</code>, renomeado sem a letra.</li>
+<li>O fantasma do slot vazio no TRAJE continua sendo o ícone nv.1 a alpha 45 (BOTAS e MOCHILA).</li>
+<li>Gerar de novo: <code>python3 tools/sprites/v08_m5_r4.py</code>. É determinístico, só lê <code>assets/</code> e não mexe no <code>build_sprites.py</code>.</li>
+</ul></div></body></html>
