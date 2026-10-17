@@ -2091,14 +2091,10 @@ class Renderer:
                 small = self.surface("icon_lamp_bio", lambda: art.reduced_icon(self.lamp_surface(item)))[0]
             elif item == "chip_slot_empty":     # v0.6 M2: a silhueta do slot de chip vazio (UI), não é item
                 small = self.surface("chip_slot_empty", art.chip_slot_empty)[0]
-            elif item == "o2_tank":
-                small = self.surface("icon_o2_tank", art.o2_tank_icon)[0]
-            elif item == "scanner":
-                small = self.surface("icon_scanner", art.scanner_icon)[0]
+            elif item in C.EQUIP_SLOT_OF:        # v0.8 M5: os 6 itens do traje (icon_<item>.png)
+                small = self.suit_icon(item)
             elif item == "workbench":           # v0.5 M1 B2: icon_workbench.png (aprovado)
                 small = self.surface("icon_workbench", lambda: art.machine("workbench"))[0]
-            elif item == "backpack":
-                small = self.surface("icon_backpack", art.backpack_icon)[0]
             elif item == "water_capsule":        # v0.5 M2: icon_water_capsule.png (aprovado)
                 small = self.surface("icon_water_capsule", art.water_capsule_icon)[0]
             elif item in (C.EMPTY_CAPSULE, C.COLLECTOR):   # v0.8 M2: icon_water_capsule_empty.png e icon_water_collector.png
@@ -2145,6 +2141,15 @@ class Renderer:
             return self.surface("icon_hand_drill", fallback)[0]
         return self.surface(f"icon_{item}", lambda: self._placeholder(16, item))[0]
 
+    def suit_icon(self, item: str) -> pygame.Surface:
+        """Ícone 16×16 de um item do traje (v0.8 M5): o icon_<item>.png ou, sem ele, o desenho antigo (tanque, scanner,
+        mochila), o do nv.1 (tanque nv.2, Mochila T2) ou o placeholder (botas, até o PNG chegar)."""
+        painter = {"o2_tank": art.o2_tank_icon, "scanner": art.scanner_icon, "backpack": art.backpack_icon}.get(item)
+        if painter is None:
+            base = {C.O2_TANK_T2: "o2_tank", C.BACKPACK_T2: "backpack"}.get(item)
+            painter = (lambda: self.suit_icon(base).copy()) if base else (lambda: self._placeholder(16, item))
+        return self.surface(f"icon_{item}", painter)[0]
+
     def drone_icon(self, tier: int = 1) -> pygame.Surface:
         """Ícone 16×16 do item drone: assets/sprites/icon_drone.png assim que for aprovado (é só ele
         existir na pasta oficial); até lá, o 1º quadro do drone.png (ou do drone de fallback)."""
@@ -2166,9 +2171,8 @@ class Renderer:
             return self.station_surface()
         if kind in C.LAMP_RADIUS:
             return pygame.transform.scale_by(self.lamp_surface(kind), 2)   # 16×32 → 32×64, pixel a pixel
-        if kind in C.EQUIP_SLOTS:
-            painter = {"o2_tank": art.o2_tank_icon, "scanner": art.scanner_icon, "backpack": art.backpack_icon}[kind]
-            return pygame.transform.scale_by(self.surface(f"icon_{kind}", painter)[0], 3)   # 16×16 → 48×48
+        if kind in C.EQUIP_SLOT_OF:
+            return pygame.transform.scale_by(self.suit_icon(kind), 3)   # 16×16 → 48×48
         if kind == "constructor":
             return pygame.transform.scale_by(self.surface("icon_constructor", art.constructor_icon)[0], 3)
         if kind == "water_capsule":

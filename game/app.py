@@ -43,7 +43,7 @@ from game import ice_blocks, ruins, thaw
 from game.perf_meter import PerfMeter
 from game.assets import Sprites
 from game.audio import Audio
-from game.equipment import is_equipment
+from game.equipment import is_equipment, slot_of
 from game.geo import REGION_NAMES
 from game.fabricator import FabMenu, build_menu, craft_menu, t2_menu
 from game.inventory import Stack
@@ -924,8 +924,10 @@ class App:
             return False
         state = self.state
         if self.held is not None:
-            if self.held.item != kind:
+            if not is_equipment(self.held.item) or slot_of(self.held.item) != kind:   # v0.8 M5: nv.1 ou nv.2
                 self.show_notice(f"Só {item_name(kind).lower()} nesse slot")
+                return True
+            if not state.can_equip(self.held.item, back_to_inventory=False):   # Mochila T2 -> nv.1 com a linha cheia
                 return True
             self.held.count -= 1
             item = self.held.item
@@ -1387,8 +1389,10 @@ class App:
         if self.mode == "inventory":
             kind = next((k for rect, k in ui.equip_rects if rect.collidepoint(mouse_ui)), None)
             if kind is not None:
-                if self.state.equipment.has(kind):
-                    return f"{item_name(kind)} · equipado (clique tira)"
+                if self.state.equipment.filled(kind):         # v0.8 M5: o nome do que está lá (nv.1 ou nv.2)
+                    return f"{item_name(self.state.equipment.slots[kind])} · equipado (clique tira)"
+                if kind == "boots":
+                    return "Slot das botas (vazio)"
                 return f"Slot do {item_name(kind).lower()} (vazio)"
         if self.open_station is not None:
             st = self.open_station.station

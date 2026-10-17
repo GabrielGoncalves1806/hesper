@@ -86,6 +86,13 @@ TAB_INVENTORY, TAB_LOGS = range(2)               # índices das abas do Tab (a F
 TAB_INV_W = 346                                  # janela da aba Inventário (mochila/hotbar/traje + detalhe)
 TAB_INV_H = 178                                  # sem a mochila; com ela soma BACKPACK_ROW_H (210 = o que cabe no Grande)
 BACKPACK_ROW_H = 32                              # a linha extra da mochila: rótulo (10) + slots (20) + vão (2)
+
+
+def backpack_extra(slots: int) -> int:
+    """Altura que a mochila põe na janela: a 1ª linha com o rótulo (BACKPACK_ROW_H) e, com a T2 (32 slots, v0.8 M5),
+    mais uma linha de slots. O layout de verdade da T2 é o Tab A (Task 5)."""
+    rows = -(-max(0, slots - 2 * C.HOTBAR_SLOTS) // C.HOTBAR_SLOTS)
+    return BACKPACK_ROW_H + SLOT_STEP * (rows - 1) if rows else 0
 FAB_W, FAB_H, FAB_LIST_W = 456, 258, 176         # fabricador da base
 RECIPE_ROW_H, RECIPE_ROW_STEP = 22, 24           # linha da lista de receitas
 RECIPE_PEEK_H = RECIPE_ROW_H // 2                 # v0.6 Fundo M5: a meia linha que avisa que a lista rola
@@ -362,7 +369,7 @@ def item_category(item: str) -> tuple[str, str]:
         return "RECURSO", C.C_O2
     if item in C.DIAGRAM_ITEMS:
         return "DIAGRAMA", "#9fd0ff"
-    if item in C.EQUIP_SLOTS:
+    if item in C.EQUIP_SLOT_OF:                   # v0.8 M5: o nv.2 e as botas também
         return "TRAJE", C.C_TERMINAL
     if item in ("drone", C.DRONE_T2, "constructor"):
         return "ITEM", C.C_TI
@@ -836,11 +843,11 @@ class UI:
         self.tx("O₂", 11, 7, C.C_ALERT if crit else C.C_O2)
         bar = (C.C_ALERT if blink else "#c2281c") if crit else C.C_O2
         self.bar(26, 12, 60, o2, bar, h=4)
-        tank = state.equipment.has("o2_tank")
+        tank = state.equipment.slots.get("o2_tank")     # o nv.1 ou o nv.2 (v0.8 M5)
         value = f"{round(state.o2)}s" if tank else f"{round(o2 * 100)}%"
         self.tx(value, 90, 3, ALERT_TEXT if crit else B_TEXT, self.body)
         if tank and item_icon is not None:           # tanque equipado: a barra vale 220 s
-            self.native.append((self.small_icon(item_icon, "o2_tank"), (124 * 2, 10 * 2)))
+            self.native.append((self.small_icon(item_icon, tank), (124 * 2, 10 * 2)))
         self.left_bottom = 6 + 17                     # fundo da coluna da esquerda (o objetivo empurra pra baixo)
 
         # painel do Ti e, logo embaixo, o medidor de energia
@@ -1576,7 +1583,7 @@ class UI:
         item com o mouse (ou da mão, ou o da hotbar) com "USADO EM"."""
         tabbed = state is not None
         w = max(TAB_INV_W, self.inv_tabs_width() + 16) if tabbed else TAB_INV_W
-        extra = BACKPACK_ROW_H if len(inventory) > 2 * C.HOTBAR_SLOTS else 0     # linha da mochila (equipada)
+        extra = backpack_extra(len(inventory))     # linha(s) da mochila (equipada)
         h = (TAB_INV_H + extra) if equipment is not None else TAB_INV_H - 74
         x = (self.w - w) // 2
         y = self.inv_tabs_top(h) if tabbed else self.window_top(h)
@@ -1607,8 +1614,8 @@ class UI:
         equip = next((k for r, k in self.equip_rects if r.collidepoint(mouse)), None)
         if hovered is not None:
             item, count = hovered.item, hovered.count
-        elif equip is not None and equipment is not None and equipment.has(equip):
-            item, count = equip, 1
+        elif equip is not None and equipment is not None and equipment.filled(equip):
+            item, count = equipment.slots[equip], 1
         elif held is not None:
             item, count = held.item, held.count
         elif inventory.slots[hotbar_selected] is not None:
@@ -1669,7 +1676,7 @@ class UI:
         ex, ey = x + w // 2 - 16, y + 6
         self.round_rect((ex - 2, ey + 30, 36, 3), B_DEEP)               # sombrinha no chão
         self.native.append((self.explorer_image(), (ex * 2, ey * 2)))
-        kinds = [k for k in C.EQUIP_SLOTS if k != "backpack"]       # tanque e scanner: um de cada lado do corpo
+        kinds = ["o2_tank", "scanner"]                              # tanque e scanner: um de cada lado do corpo
         for n, kind in enumerate(kinds):
             left = n == 0
             sx = x + 8 if left else x + w - 28
@@ -1718,20 +1725,22 @@ class UI:
                 self.fill(sub_color, (sx + 20 - sw - 5, sy + 31, 3, 3))
                 self.tx(sub, sx + 20, sy + 26, sub_color, self.body, "right")
         self._backpack_slot(equipment, x + w // 2 - SLOT // 2, y + 41, item_icon, mouse)
+        # v0.8 M5: as botas, provisório no canto de baixo à esquerda (o cartão de 4 slots é o Tab A, Task 5)
+        self._backpack_slot(equipment, x + 8, y + 41, item_icon, mouse, "boots")
 
-    def _backpack_slot(self, equipment, sx: int, sy: int, item_icon, mouse) -> None:
-        """Slot da mochila no traje: embaixo do Explorer (onde ela fica), com o rótulo ao lado."""
+    def _backpack_slot(self, equipment, sx: int, sy: int, item_icon, mouse, kind: str = "backpack") -> None:
+        """Slot da mochila no traje: embaixo do Explorer (onde ela fica), com o rótulo ao lado (v0.8 M5: as botas também)."""
         rect = pygame.Rect(sx, sy, SLOT, SLOT)
-        item = equipment.slots.get("backpack")
+        item = equipment.slots.get(kind)
         self.draw_slot(sx, sy, Stack(item, 1) if item else None, item_icon, hover=rect.collidepoint(mouse))
         if item:
             self.round_rect((sx - 1, sy - 1, SLOT + 2, SLOT + 2), (0, 0, 0, 0), C.C_O2)
         else:
-            ghost = item_icon("backpack").copy()
+            ghost = item_icon(kind).copy()
             ghost.set_alpha(45)
             self.native.append((ghost, (sx * 2 + 4, sy * 2 + 4)))
-        self.equip_rects.append((rect, "backpack"))
-        self.tx(C.EQUIP_LABEL["backpack"], sx + SLOT + 4, sy + 7, B_TEXT if item else B_MUTED)
+        self.equip_rects.append((rect, kind))
+        self.tx(C.EQUIP_LABEL[kind], sx + SLOT + 4, sy + 7, B_TEXT if item else B_MUTED)
 
     # ---- painéis lado a lado: inventário | botões do meio | baú, drill, estação ou caixa ----
     def _side_layout(self, side_h: int) -> tuple[int, int, int, int]:
@@ -1761,7 +1770,7 @@ class UI:
         else:
             side_h = 164
         hb = C.HOTBAR_SLOTS
-        extra = BACKPACK_ROW_H if len(inventory) > 2 * hb else 0                  # linha da mochila (equipada)
+        extra = backpack_extra(len(inventory))                                    # linha(s) da mochila (equipada)
         inv_h = SIDE_INV_H + extra
         side_h = max(side_h, inv_h)                  # o painel do lado cresce junto, pras duas janelas ficarem iguais
         lx, rx, y, h = self._side_layout(side_h)

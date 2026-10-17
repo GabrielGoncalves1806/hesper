@@ -109,7 +109,7 @@ from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 from game.wrecks import loot_for
 
-SAVE_VERSION = 16  # v16 (v0.8 M3; o v0.8 M4 entrou sem versão nova: Microscópio/Centrífuga/amostras/diagrama só usam campos já existentes): Cultivador (growth, tank e 7 slots fixos) e o diagrama dele em blueprints · v15 (v0.8 M2): Dispersor com slot de cápsula vazia e Coletor de água · v14 (v0.8 M1): biomassa (4º índice) e 6 estágios (o Verde antigo volta pro Úmido) · v13 (v0.7 M3): destroços novos (a mesma seed põe os destroços em outro lugar; wrecks.settle) · v12 (v0.6 Fundo M1): caverna nova 256×256 (a do v11 é descartada) · v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
+SAVE_VERSION = 17  # v17 (v0.8 M5): inventário de até 32 slots (Mochila T2), slot "boots" no traje e o nv.2 no slot do nv.1 · v16 (v0.8 M3; o v0.8 M4 entrou sem versão nova: Microscópio/Centrífuga/amostras/diagrama só usam campos já existentes): Cultivador (growth, tank e 7 slots fixos) e o diagrama dele em blueprints · v15 (v0.8 M2): Dispersor com slot de cápsula vazia e Coletor de água · v14 (v0.8 M1): biomassa (4º índice) e 6 estágios (o Verde antigo volta pro Úmido) · v13 (v0.7 M3): destroços novos (a mesma seed põe os destroços em outro lugar; wrecks.settle) · v12 (v0.6 Fundo M1): caverna nova 256×256 (a do v11 é descartada) · v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
 FIRST_VERSION = 10  # saves com versão menor que essa são de outra época do jogo: "save antigo" (v1–v9, não migram)
 # Numeração dos estágios dentro do "progress": 2 = v0.4 (Tempestade, Árido, Névoa, Verde), 3 = v0.8 (Tempestade,
 # Árido, Úmido, Algas, Musgo, Verde). O 1 (os 3 estágios do v0.3) só existia no save v6, que não carrega mais.
@@ -305,13 +305,16 @@ def slots_from_data(data: list, size: int) -> Inventory:
 
 
 def inventory_to_dict(state: GameState) -> dict:
-    """Os slots do player: 16 (a hotbar são os 8 primeiros) ou 24 com a mochila equipada."""
+    """Os slots do player: 16 (a hotbar são os 8 primeiros), 24 com a mochila equipada ou 32 com a T2 (v0.8 M5)."""
     return {"slots": state.inventory.to_data()}
 
 
 def inventory_from_dict(state: GameState, data: dict) -> None:
-    # 16 slots, ou 24 se o save tem a linha da mochila (quem decide de vez é o sync_backpack, depois do equipamento)
-    size = C.INVENTORY_SLOTS + C.BACKPACK_SLOTS if len(data["slots"]) > C.INVENTORY_SLOTS else C.INVENTORY_SLOTS
+    # 16, 24 ou 32 slots: o tamanho do save arredondado pra cima em linhas de 8, no máximo as 2 da Mochila T2 (quem
+    # decide de vez é o sync_backpack, depois do equipamento)
+    extra = max(0, len(data["slots"]) - C.INVENTORY_SLOTS)
+    rows = min(-(-extra // C.BACKPACK_SLOTS), C.BACKPACK_T2_SLOTS // C.BACKPACK_SLOTS)
+    size = C.INVENTORY_SLOTS + C.BACKPACK_SLOTS * rows
     state.inventory = slots_from_data(data["slots"], size)
 
 
@@ -560,8 +563,8 @@ def progress_from_dict(state: GameState, data: dict) -> None:
     # Marco 3 (save do Marco 1/2 não tem: começa sem diagrama lido, sem equipamento, nenhum destroço visitado)
     state.blueprints = {b for b in data.get("blueprints", []) if b in C.BLUEPRINTS}
     state.equipment = Equipment.from_data(data.get("equipment"))
-    state.equipped_ever = {e for e in data.get("equipped_ever", []) if e in C.EQUIP_SLOTS}
-    state.sync_backpack()          # v0.5 B3: 24 slots com a mochila, 16 sem (save v8 sem mochila continua com 16)
+    state.equipped_ever = {e for e in data.get("equipped_ever", []) if e in C.EQUIP_SLOT_OF}   # v0.8 M5: o nv.2 e as botas
+    state.sync_backpack()          # v0.5 B3: 24 slots com a mochila, 16 sem (save v8 sem mochila continua com 16); T2: 32
     state.wrecks_visited = {int(r) for r in data.get("wrecks_visited", [])}
 
 
@@ -697,7 +700,14 @@ def _v15_to_v16(data: dict) -> dict:
     return data
 
 
-MIGRATIONS: dict = {10: _v10_to_v11, 11: _v11_to_v12, 12: _v12_to_v13, 13: _v13_to_v14, 14: _v14_to_v15, 15: _v15_to_v16}   # o v10 recomeçou do zero (v7–v9 viraram "save antigo")
+def _v16_to_v17(data: dict) -> dict:
+    """v0.8 M5: o traje ganhou o slot das botas (o v16 não tem a chave: nasce vazio, `Equipment.from_data`), o slot
+    aceita o nv.2 e o inventário pode ter 32 slots (Mochila T2). Tudo isso só acrescenta: nada a converter."""
+    return data
+
+
+MIGRATIONS: dict = {10: _v10_to_v11, 11: _v11_to_v12, 12: _v12_to_v13, 13: _v13_to_v14, 14: _v14_to_v15, 15: _v15_to_v16,
+                    16: _v16_to_v17}   # o v10 recomeçou do zero (v7–v9 viraram "save antigo")
 
 
 class SaveError(Exception):

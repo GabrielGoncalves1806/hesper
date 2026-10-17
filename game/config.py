@@ -811,8 +811,8 @@ MACHINES["backpack"] = MachineType("backpack", "Mochila", "+1 linha de slots", {
 MACHINE_ORDER += ["o2_tank", "scanner", "backpack"]
 FAB_TABS = FAB_TABS + (("suit", "Traje"),)
 MACHINE_CATEGORY.update({"lamp_t2": "light", "o2_tank": "suit", "scanner": "suit", "backpack": "suit"})
-EQUIP_SLOTS = ("o2_tank", "scanner", "backpack")          # um slot por tipo de equipamento (ordem na tela)
-EQUIP_LABEL = {"o2_tank": "TANQUE", "scanner": "SCANNER", "backpack": "MOCHILA"}
+EQUIP_SLOTS = ("o2_tank", "scanner", "backpack", "boots")   # um slot por tipo de equipamento (ordem na tela; v0.8 M5: botas)
+EQUIP_LABEL = {"o2_tank": "TANQUE", "scanner": "SCANNER", "backpack": "MOCHILA", "boots": "BOTAS"}
 O2_TANK_MAX = 220.0             # O₂ máximo com o tanque equipado (sem ele: O2_MAX = 100)
 
 # Explorado (game/explore.py): o jogo registra o que o jogador viu desde o começo, em cada camada.

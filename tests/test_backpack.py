@@ -213,7 +213,7 @@ def test_tab_inventory_layout(ui, size, backpack):
     ui.begin()
     ui.draw_inventory(s.inventory, None, 0, _icon, (0, 0), equipment=s.equipment, state=s)
     assert sorted(i for _, _, i in ui.slot_rects) == list(range(len(s.inventory)))
-    assert [k for _, k in ui.equip_rects] == ["o2_tank", "scanner", "backpack"]
+    assert [k for _, k in ui.equip_rects] == ["o2_tank", "scanner", "backpack", "boots"]
     assert (len(s.inventory) == FULL) == backpack
 
     def row_top(lo):

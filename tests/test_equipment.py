@@ -10,10 +10,10 @@ from tests.helpers import give
 
 def test_slots_start_empty_and_roundtrip():
     eq = Equipment()
-    assert eq.slots == {"o2_tank": None, "scanner": None, "backpack": None} and eq.o2_max == C.O2_MAX
+    assert eq.slots == {"o2_tank": None, "scanner": None, "backpack": None, "boots": None} and eq.o2_max == C.O2_MAX
     assert eq.equip("o2_tank") is None and eq.o2_max == C.O2_TANK_MAX
     assert Equipment.from_data(eq.to_data()).slots == eq.slots
-    assert Equipment.from_data({"o2_tank": "scanner", "x": "o2_tank"}).slots == {"o2_tank": None, "scanner": None, "backpack": None}
+    assert Equipment.from_data({"o2_tank": "scanner", "x": "o2_tank"}).slots == {"o2_tank": None, "scanner": None, "backpack": None, "boots": None}
     with pytest.raises(ValueError):
         eq.equip("iron")
 
