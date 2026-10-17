@@ -88,6 +88,16 @@ def test_normal_sequence_walks_every_objective(game):
     game.blueprints.add("o2_tank"); step()      # M5: o tanque desceu pra depois dos drones (pede circuito)
     game.equipped_ever.add("o2_tank"); step()
     craft_free(game, "melter_t2"); step()
+    game.mark("lab_found"); step()              # v0.8 M6: o caminho das plantas
+    game.surface.lab_ice_open = True; step()
+    game.blueprints.update({"cultivator", "microscope"}); step()
+    game.mark("control_culture"); step()
+    game.mark("cultivator_in_base"); step()
+    game.mark("first_harvest"); step()
+    game.stage = C.ALGAE_STAGE; step()
+    game.mark("first_sample"); step()
+    game.mark("first_plant"); step()
+    game.stage = C.MOSS_STAGE; step()
     game.indices["biomass"] = 15_000.0          # v0.8 M1: o Verde pede biomassa também
     game.debug_add_ti(100_000); step()          # -> Verde
 
@@ -123,6 +133,16 @@ def test_normal_sequence_walks_every_objective(game):
         "Ache e leia o diagrama do tanque de O₂",
         "Fabrique e equipe o tanque de O₂",
         "Construa uma máquina nv.2",
+        "Ache o laboratório da Ilves",
+        "Derreta o gelo do laboratório",
+        "Escaneie o microscópio e o tanque",
+        "Pegue a cultura-controle",
+        "Construa um cultivador dentro da base",
+        "Colha a primeira alga",
+        "Chegue ao estágio Algas",
+        "Consiga uma amostra no microscópio",
+        "Consiga uma planta nova na centrífuga",
+        "Chegue ao estágio Musgo",
         "Deixe o planeta verde",
         None,
     ]
@@ -227,6 +247,8 @@ def test_everything_done_list_disappears(game):
     game.drill_collected["iron"] = 5
     game.drone_deliveries = 1
     game.drones_docked = 1
+    game.blueprints.update({"cultivator", "microscope"})      # v0.8 M6: o caminho das plantas já feito
+    game.crafted.update(fiber=1, hydrogel=1, cultivator=1)
     tracker = ObjectiveTracker(game)
     assert current_text(game) == "Chegue a Ti 500"
     game.indices["biomass"] = 15_000.0

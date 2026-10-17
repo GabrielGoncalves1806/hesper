@@ -481,6 +481,7 @@ class GameState:
         self.drill_collected = {r: 0 for r in C.RESOURCES}   # total já coletado de drills (só cresce)
         self.crafted = {k: 0 for k in C.MACHINES}            # quantas de cada já fabricou (só cresce)
         self.drone_deliveries = 0                      # entregas feitas por drones (só cresce)
+        self.milestones: set[str] = set()              # v0.8 M6: marcos do tutorial das plantas (C.MILESTONES; só cresce)
         self.drones_docked = 0                         # drones já colocados numa estação (só cresce)
         self.power_alert = PowerAlert()                # quando tocar o power_low (game/energy.py)
         self.ramp: RampTrip | None = None              # descendo/subindo pela rampa (o fade está rolando)
@@ -2009,6 +2010,7 @@ class GameState:
             else:
                 out.count += 1
             self.events.append(("centrifuge_done", m, plant))
+            self.mark("first_plant")
         m.spinning = self.centrifuge_blocker(m) is None
 
     def collector_rain(self, m: Machine, layer: Layer) -> float:
@@ -2080,9 +2082,15 @@ class GameState:
             else:
                 out.count += 1
             self.events.append(("sample_found", m, item))
+            self.mark("first_sample")
         m.analyzing = self.microscope_blocker(m) is None
 
     # ---- Cultivador (v0.8 M3) ----------------------------------------------------------------------
+    def mark(self, name: str) -> None:
+        """v0.8 M6: registra um marco (idempotente, só cresce)."""
+        assert name in C.MILESTONES, name
+        self.milestones.add(name)
+
     def in_breathing_base(self, tile: tuple[int, int], layer: Layer, factor: float | None = None) -> bool:
         """O tile está dentro de uma base vedada da `layer` com um Dispersor soprando (ligado, vedado, com água)?"""
         factor = self.power.factor if factor is None else factor
@@ -2146,6 +2154,8 @@ class GameState:
                 left -= moved
         m.growth = C.CULTIVATOR_HARVEST_AFTER
         self.events.append(("harvest", m, crop, n - left))   # a parte que não coube some
+        if n - left > 0:
+            self.mark("first_harvest")
         return True
 
     def _update_cultivator(self, m: Machine, layer: Layer, dt: float, factor: float | None = None) -> None:
@@ -2153,6 +2163,8 @@ class GameState:
         (1 cápsula = `water_s` s da cultura), avança o ciclo e soma `biomass` por segundo no índice. Madura, colhe e volta
         pra etapa 1; sem lugar na colheita, fica madura parada (sem gastar água nem somar). Seco: para, a planta não morre."""
         blocker = self.cultivator_blocker(m, layer, factor)
+        if "cultivator_in_base" not in self.milestones and self.in_breathing_base((m.tx, m.ty), layer, factor):
+            self.mark("cultivator_in_base")                # v0.8 M6: dentro da base vedada, com ou sem muda
         if blocker in ("no_seed", "no_base"):
             m.grow_blocker = blocker
             return
@@ -2772,6 +2784,8 @@ class GameState:
             moved += got
             if got and item in C.RESOURCES:
                 self.events.append(("loot", item, got, crate.anchor))
+            if got and item == "algae" and getattr(crate.wreck, "key", None) == "lab":
+                self.mark("control_culture")
         if moved < want:
             self.events.append(("inv_full",))
         return moved
@@ -2790,6 +2804,10 @@ class GameState:
                     cx, cy = w.center
                     if math.hypot(ptx - cx, pty - cy) <= C.WRECK_VISIT_DIST:
                         self.wrecks_visited.add(w.rank)
+            if self.active is self.surface:               # v0.8 M6: chegou no laboratório da Ilves
+                door = ruins.lab_door_px(self.world)
+                if door is not None and math.hypot(ptx - door[0] / C.TILE, pty - door[1] / C.TILE) <= C.WRECK_VISIT_DIST:
+                    self.mark("lab_found")
 
     # ---- equipamento (game/equipment.py) ----------------------------------------------
     @property

@@ -52,6 +52,22 @@ def found_magmatite(state: GameState) -> bool:
     return state.mined_total.get("magmatite", 0) >= 1 or crafted(state, "heater") >= 1
 
 
+COLLECTOR_HINT = "Pouco gelo? O coletor de água puxa a umidade do ar."
+
+
+def _mats(state: GameState, *kinds: str) -> bool:
+    return any(crafted(state, k) >= 1 for k in kinds)
+
+
+def _plant_fallback(state: GameState) -> bool:
+    """Quem já fabricou algo que só sai de planta nova (gel, resina, essência, adubo) passou da amostra e da centrífuga."""
+    return _mats(state, C.HYDROGEL, C.FROST_RESIN, C.LILY_ESSENCE, C.FERTILIZER)
+
+
+def _lab_ice_open(state: GameState) -> bool:
+    return state.surface.lab_ice_open
+
+
 @dataclass(frozen=True)
 class Objective:
     text: str
@@ -115,6 +131,26 @@ OBJECTIVES = [
     Objective("Ache e leia o diagrama do tanque de O₂", lambda s: "o2_tank" in s.blueprints),
     Objective("Fabrique e equipe o tanque de O₂", lambda s: "o2_tank" in s.equipped_ever),
     Objective("Construa uma máquina nv.2", lambda s: any(crafted(s, k) >= 1 for k in ("o2_t2", "melter_t2", "heater_t2"))),
+    # v0.8 M6: o caminho das plantas. Cada condição é "marco ou fallback" (o fallback cobre o save de antes dos marcos).
+    Objective("Ache o laboratório da Ilves", lambda s: "lab_found" in s.milestones or "cultivator" in s.blueprints
+              or s.stage >= C.ALGAE_STAGE),
+    Objective("Derreta o gelo do laboratório", lambda s: _lab_ice_open(s) or "cultivator" in s.blueprints
+              or s.stage >= C.ALGAE_STAGE),
+    Objective("Escaneie o microscópio e o tanque", lambda s: {"cultivator", "microscope"} <= s.blueprints),
+    Objective("Pegue a cultura-controle", lambda s: "control_culture" in s.milestones or crafted(s, C.CULTIVATOR) >= 1
+              or s.stage >= C.ALGAE_STAGE),
+    Objective("Construa um cultivador dentro da base",
+              lambda s: "cultivator_in_base" in s.milestones or "first_harvest" in s.milestones
+              or s.stage >= C.ALGAE_STAGE),
+    Objective("Colha a primeira alga",
+              lambda s: "first_harvest" in s.milestones or _mats(s, C.FIBER, C.FERTILIZER) or s.stage >= C.ALGAE_STAGE,
+              hint=COLLECTOR_HINT),
+    Objective("Chegue ao estágio Algas", lambda s: s.stage >= C.ALGAE_STAGE),
+    Objective("Consiga uma amostra no microscópio",
+              lambda s: "first_sample" in s.milestones or _plant_fallback(s)),
+    Objective("Consiga uma planta nova na centrífuga",
+              lambda s: "first_plant" in s.milestones or _plant_fallback(s)),
+    Objective("Chegue ao estágio Musgo", lambda s: s.stage >= C.MOSS_STAGE),
     Objective("Deixe o planeta verde", lambda s: s.stage >= C.GREEN_STAGE),
 ]
 

@@ -526,6 +526,7 @@ def progress_to_dict(state: GameState) -> dict:
         "drone_deliveries": state.drone_deliveries,
         "drones_docked": state.drones_docked,
         "lamps_placed": state.lamps_placed,
+        "milestones": sorted(state.milestones),         # v0.8 M6 (campo opcional; sem versão nova)
         "logs_read": sorted(state.logs_read),
         "logs_seen": sorted(state.logs_seen),           # aba LOGs: já abertos por lá (sem "NOVO")
         # Marco 3
@@ -555,6 +556,7 @@ def progress_from_dict(state: GameState, data: dict) -> None:
     state.drone_deliveries = int(data["drone_deliveries"])
     state.drones_docked = int(data["drones_docked"])
     state.lamps_placed = int(data.get("lamps_placed", 0))     # Marco 2: save v6 do Marco 1 não tem
+    state.milestones = {k for k in data.get("milestones", []) if k in C.MILESTONES}
     state.logs_read = {int(i) for i in data["logs_read"] if 0 <= int(i) < len(C.LOGS)}
     # aba LOGs: save v6 de antes dela não tem o campo, e aí todo LOG lido conta como visto (sem "NOVO")
     seen = data.get("logs_seen")
