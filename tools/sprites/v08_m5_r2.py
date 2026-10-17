@@ -345,6 +345,8 @@ def write_html(ok):
     a(f'<!doctype html>\n<html lang="pt-BR"><head><meta charset="utf-8"><title>v0.8 M5 · Materiais e itens · rodada 2</title><style>{CSS}</style></head><body><div class="wrap">')
     a('<div class="eyebrow">Hesper · Designer · v0.8 M5 · rodada 2 · candidatas</div>')
     a('<h1>Materiais e itens · rodada 2</h1>')
+    a('<div class="note rec"><b>Rodada 3 · botas (2026-10-17):</b> o dono aprovou o slime A e os equipáveis 3D. As botas foram refeitas como uma bota só, '
+      'em 3 candidatas: <a href="../v08_m5_itens_r3/index.html" style="color:#59d0e6">v08_m5_itens_r3</a>.</div>')
     a('<div class="note"><b>v1.1 · o que mudou:</b> (1) o Tab segue a <b>opção A reorganizada</b>, aprovada pelo dono; os mocks daqui usam o mesmo layout. '
       '(2) <b>Gel hídrico virou bola de slime</b> (2 candidatas). (3) Os <b>equipáveis do traje com volume</b>, feitos na mesma cena e com a mesma luz das máquinas r3d '
       '(<code>r3d.py</code>: luz de cima e da esquerda, faces em tons diferentes, contorno <code>#1b1630</code>, linha escura entre peças). Entram aqui o tanque, a mochila e o scanner '
