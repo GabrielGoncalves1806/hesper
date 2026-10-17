@@ -46,7 +46,7 @@
 |---|---|---|
 | 1 (paralelo) | 1 Objetivos · 2 DRONES no Grande · 3 Plantas no `balance_sim` | arquivos diferentes (`objectives`/`systems`/`save` · `ui` · `tools/dev`) |
 | 2 (dono + gerente) | 4 Ritmo das plantas | o dono decide os números com o report da Task 3 |
-| 3 | 6 O derretedor enche vazia | entrou no meio do M6 (dono) |
+| 3 | 6 A garrafa é recurso | entrou no meio do M6 (dono) |
 | 4 | 5 Prints, report e merge de marco | depende de tudo |
 
 Cada task tem o seu arquivo de teste: `tests/test_m6_objectives_v08.py`, `test_m6_drones_fit_v08.py` e `test_m6_balance_v08.py`.
@@ -226,43 +226,66 @@ Ajuste de número fica só no pytest, sem smoke (regra do dono, 2026-10-16).
 
 ---
 
-### Task 6: O derretedor enche vazia (entrou no meio do M6, dono 2026-10-17)
+### Task 6: A garrafa é recurso (entrou no meio do M6, dono 2026-10-17)
 
-**Por quê:** o derretedor cria cápsula do zero e o Dispersor e o Cultivador transformam cada cheia gasta em 1 vazia. Então toda cápsula do derretedor vira uma vazia a mais pra sempre, e o único jeito de uma vazia sumir é o Coletor (ou a saída cheia). Decisão na bíblia §17, "O derretedor enche vazia".
+**Por quê:** o derretedor cria cápsula do zero, e o Dispersor e o Cultivador transformam cada cheia gasta em 1 vazia, então as vazias só se acumulam. Decisão do dono (bíblia §17, "A garrafa é recurso"):
+- a **cápsula vazia é fabricada**;
+- o derretedor **só enche vazia**;
+- sem kit e sem vazia de graça.
 
-**Files:** `game/config.py` (`MELTER_EMPTY_SLOT`, `MELTER_SLOTS`), `game/systems.py` (`_update_melter`, o storage do derretedor, `capsule_room` se precisar), `game/drones.py` (o derretedor recebe vazia), `game/app.py` (o slot aceita vazia; dica do E), `game/ui.py` (painel do derretedor), `game/save.py`, `tests/test_m6_melter_empty_v08.py`
+**Files:**
+- `game/config.py`: receita e `CRAFT_YIELD` da vazia, `MELTER_EMPTY_SLOT`, `MELTER_SLOTS`, descrições;
+- `game/systems.py`: `_update_melter`, storage do derretedor, bloqueio;
+- `game/drones.py`: o derretedor recebe vazia;
+- `game/app.py`: o slot aceita vazia; o rótulo de estado;
+- `game/ui.py`: painel do derretedor;
+- `game/save.py`;
+- `game/objectives.py`: só a dica;
+- `tools/dev/balance_sim.py`: só se ele usar as cápsulas do derretedor;
+- `tests/test_m6_bottles_v08.py`.
 
 **Interfaces:**
-- Produces: `C.MELTER_EMPTY_SLOT = 2`, `C.MELTER_SLOTS = 3`. Os slots 0 (gelo) e 1 (cheias) **não mudam de índice**, pra o save antigo continuar batendo.
+- Produces:
+  - `C.MELTER_EMPTY_SLOT = 2` e `C.MELTER_SLOTS = 3`. O 0 (gelo) e o 1 (cheias) **não mudam de índice**;
+  - `MACHINES[EMPTY_CAPSULE].recipe = {"silicon": 1}` e `CRAFT_YIELD[EMPTY_CAPSULE] = 2`, no fabricador, aba **Materiais** (onde estão os fios);
+  - a descrição da vazia vira "o derretedor e o Coletor enchem".
 
 **Regras:**
-1. A cada `MELTER_CAPSULE_TIME` o derretedor gasta `MELTER_ICE_PER_CAPSULE` de gelo, como hoje. Se tiver vazia no slot 2, gasta 1 vazia também. Sem vazia, a cápsula nasce do zero, como hoje. O tempo e o gelo são os mesmos nos dois casos.
-2. O slot 2 só aceita `C.EMPTY_CAPSULE`, pelo clique, pelo shift+clique e pelos drones. Pilha normal da vazia.
-3. **Drones:**
-   - o derretedor **recebe** gelo e vazia;
-   - vazia entra no slot 2;
+1. **Derretedor:** a cada `MELTER_CAPSULE_TIME` gasta `MELTER_ICE_PER_CAPSULE` de gelo **e 1 vazia** e põe 1 cheia.
+   - Sem vazia, para e não gasta gelo. O progresso fica guardado, como no "sem gelo" de hoje.
+   - A terraformação (o "+ água" do índice) **não muda**: continua independente das cápsulas.
+2. **Slot VAZIAS (2):** só aceita `C.EMPTY_CAPSULE`, pelo clique, pelo shift+clique e pelos drones. O slot 0 continua só gelo.
+3. **Estado do painel:** status curto **SEM VAZIA**, no molde do COLETANDO / PARADO / SEM VAZIA do Coletor, com o motivo na linha de baixo ("Fabrique cápsulas vazias"). O slot VAZIAS fica ao lado do gelo, com rótulo.
+4. **Drones:**
+   - o derretedor **recebe** gelo e vazia (vazia no slot 2);
    - o derretedor continua mandando só cheias;
-   - os drones nunca tiram a vazia do derretedor.
-   - Confira o `can_receive`/`can_send` e o roteamento das vazias: hoje elas vão pro Coletor. Com Coletor e derretedor querendo vazia, os dois recebem pela regra que já existe (maior falta e menor viagem). Não invente prioridade nova (a prioridade dos drones está no Futuro).
-4. **Painel do derretedor:**
-   - o slot VAZIAS ao lado do gelo, com rótulo;
-   - o estado diz se está enchendo vazia ou criando nova (texto curto);
-   - a seção DRONES ganha a vazia no Recebe.
-   - Teste de altura nos 3 tamanhos, com a mochila nv.1 e com a T2 (molde: `tests/test_m6_drones_fit_v08.py`): nada passa da moldura da hotbar nem da linha de ajuda. **Não** use o `*_LOGI_Y` das máquinas do lab: o derretedor tem o dele (`DISP_LOGI_Y`).
-5. **Save:** o derretedor de save v17 tem 2 slots. Se o load já completar o storage de slots fixos (confira `save.py` ~324 e ~412), não precisa de versão nova. Se precisar, `SAVE_VERSION = 18`, com `_v17_to_v18`. Conte no report qual dos dois.
-6. **Desmontar** o derretedor devolve as vazias junto do resto, como as outras máquinas fazem com o storage.
+   - os drones nunca tiram a vazia de lá.
+   - Coletor e derretedor disputam as vazias pela regra que já existe. **Não** invente prioridade.
+5. **Dica:** o objetivo "Minere gelo e construa um Derretedor" ganha o `hint` "O derretedor enche cápsulas vazias: fabrique algumas (silício) e ponha nele." (mecanismo `Objective.hint`). Confira se cabe no cartão.
+6. **Save:**
+   - o derretedor de save v17 tem 2 slots. Se o load já completa o storage de slots fixos (`save.py` ~324 e ~412), não precisa de versão nova; se não, `SAVE_VERSION = 18`, com `_v17_to_v18`. Conte no report qual dos dois;
+   - **sem** vazia de presente na migração: o dono quer que o jogador fabrique. As vazias que já sobram no mundo dele viram úteis.
+7. **Desmontar** o derretedor devolve as vazias junto do resto.
+8. **`balance_sim`:** confira se ele depende das cápsulas do derretedor. Se depender, o jogador simulado fabrica as vazias quando precisa, e conte no report.
 
 **Testes** (no mínimo):
-- [ ] com vazia no slot 2, 1 ciclo gasta 1 vazia + o gelo e põe 1 cheia;
-- [ ] sem vazia, a cheia nasce do zero e não gasta nada além do gelo;
-- [ ] **conservação:** derretedor + Dispersor com 1 drone, rodando N ciclos: o total de cápsulas (cheias + vazias, em todo lugar) não cresce enquanto houver vazia voltando;
-- [ ] o slot 2 recusa outro item; o slot 0 continua recusando vazia;
+- [ ] 1 ciclo gasta 1 vazia + o gelo e põe 1 cheia;
+- [ ] sem vazia, para, não gasta gelo e guarda o progresso; o índice de água continua subindo;
+- [ ] a receita dá 2 vazias por 1 silício e aparece na aba Materiais;
+- [ ] **conservação:** derretedor + Dispersor + 1 estação com drone, N ciclos: cheias + vazias em todo lugar = constante;
+- [ ] o slot 2 recusa outro item e o slot 0 recusa vazia;
 - [ ] o drone leva vazia pro derretedor e nunca tira de lá;
 - [ ] round-trip do save com vazias no derretedor; um derretedor de save v17 (2 slots) carrega;
 - [ ] desmontar devolve as vazias;
-- [ ] altura do painel nos 3 tamanhos × nv.1/T2.
+- [ ] a altura do painel nos 3 tamanhos × nv.1/T2 (molde: `tests/test_m6_drones_fit_v08.py`).
+  - Nada passa da moldura da hotbar nem da linha de ajuda.
+  - O derretedor usa o `DISP_LOGI_Y` dele.
 
-Rode também os testes do derretedor, do Dispersor, do Coletor, dos drones e do save (`grep -l "melter\|dispenser\|collector\|drone" tests/`). Print headless do painel do derretedor no Grande com vazias, em `reports/dev/v08_m6_derretedor.png`; abra com Read. Report `reports/dev/v08_m6_task6.md`.
+Rode também os testes do derretedor, do Dispersor, do Coletor, dos drones, dos objetivos, do save e do fabricador (`grep -l "melter\|dispenser\|collector\|drone\|craft" tests/`), mais o `tests/test_balance_sim.py` se mexer no sim.
+
+**Saídas:**
+- print headless do painel do derretedor no Grande, com vazias e com "SEM VAZIA", em `reports/dev/v08_m6_derretedor*.png`, aberto com Read;
+- report `reports/dev/v08_m6_task6.md`.
 
 ---
 
