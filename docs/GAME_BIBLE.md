@@ -1163,7 +1163,8 @@ Detalhe e números de partida: `docs/superpowers/specs/2026-10-16-v08-plantas-de
   | Lírio-de-Ilves | Essência de Lírio | nenhum na v0.8; o Semeador e o fim da história da Ilves vêm na v0.9 |
 
   - **Adubo**: consumível no Cultivador, cresce 2× por um tempo.
-  - **Mochila T2**: hoje a mochila é +1 linha de 8 e a janela do Tab já está no limite na escala Grande. Opção A (+1 linha, refaz o layout do Tab e dos painéis laterais) ou B (dobra as pilhas): **a decidir**.
+  - **Mochila T2: A** (dono, 2026-10-17; report `reports/design/v08_m5_itens/`, `tab_A.png`): +1 linha de 8 além da nv.1. O Tab vira 3 colunas (grades · traje em coluna · detalhe do item com "usado em"), mais larga e mais baixa que a de hoje. O traje ganha o slot **BOTAS** (4 slots).
+  - **Rodada 2 de arte** (dono, 2026-10-17): o gel hídrico vira uma **bola de slime** verde-azulada (ref. `reports/design/ideias/v08_m5/gel_slime_ref.png`); os ícones dos equipáveis (tanque, mochila, scanner, botas, nv.1 e nv.2) ficam com cara meio 3D.
   - **Descartados**: parede isolada. O **filtro do traje** (gel hídrico) fica pra atualização do basalto (ROADMAP, Futuro).
 - **Arte rodada 1, decisões do dono (2026-10-17)** (report `reports/design/v08_plantas/`): **cultivador B** (base cheia, corpo + miolo da cultura por cima); **nomes**: planta 1 **Folha-gota**, planta 2 **Espiral-de-geada**, planta 3 **Lírio-de-Ilves**; **UI do cultivador A** (inventário à esquerda, painel da máquina à direita: água + crescimento, cilindro, colheita, cheias/vazias, drones).
 - **Gelo da porta do lab: A** (dono, 2026-10-17): os blocos dos gelos-portão (`ice_block_*`, mesmo derretimento e mesma arte) amontoados na frente da porta; o `lab_ice_door2_*` da rodada 1 não entra. **Centrífuga a 10 fps** ("rapidão"); as outras máquinas seguem a ~5 fps.
