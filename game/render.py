@@ -149,7 +149,8 @@ RAMP_LIGHT = (255, 240, 214)       # luz do dia caindo pela boca da rampa de sub
 TERMINAL_LIGHT = (111, 227, 160)
 MACHINE_LIGHT = {"o2": (89, 208, 230), "heater": (255, 138, 61), "melter": (159, 230, 255),
                  "smelter": (255, 138, 61), "solar": (255, 216, 74), "drill": (255, 210, 140), "drone_station": (150, 210, 230),
-                 "water_collector": (89, 208, 230), "cultivator": (140, 230, 170)}
+                 "water_collector": (89, 208, 230), "cultivator": (140, 230, 170),
+                 "microscope": (170, 210, 255), "centrifuge": (190, 255, 160)}
 EMERGENCY_LIGHT = (255, 96, 72)     # v0.7 M4: luz de emergência da VÉSPER-7 (vermelha, fraca)
 EMERGENCY_RADIUS = 1.5              # tiles (decisão do dono: era 2,5 no plano)
 EMERGENCY_INTENSITY = 0.6
@@ -187,6 +188,10 @@ def cave_lights(state: GameState, helmet=WARM_WHITE, helmet_intensity: float = 1
             continue                              # v0.8 M2: o Coletor só acende coletando
         elif m.is_cultivator and m.grow_blocker is not None:
             continue                              # v0.8 M3: o Cultivador só acende crescendo
+        elif m.is_microscope and state.microscope_blocker(m) is not None:
+            continue                              # v0.8 M4: o Microscópio só acende analisando
+        elif m.is_centrifuge and state.centrifuge_blocker(m) is not None:
+            continue                              # v0.8 M4: a Centrífuga só acende girando
         else:
             ax, ay = m.anchor
             color = MACHINE_LIGHT.get(m.kind.removesuffix("_t2"), MACHINE_LIGHT["drone_station"])
@@ -1870,6 +1875,13 @@ class Renderer:
         if m.is_collector:              # v0.8 M2: só anima coletando (parado, o sprite apagado)
             working = powered and not m.submerged and m.collecting
             return anim_frame_index(self.machine_t, tile_phase(m.tx, m.ty)) if working else None
+        if m.is_microscope:             # v0.8 M4: só anima analisando (parado, o sprite apagado), ~5 fps
+            working = powered and not m.submerged and m.analyzing
+            return anim_frame_index(self.machine_t, tile_phase(m.tx, m.ty)) if working else None
+        if m.is_centrifuge:             # v0.8 M4: só anima girando, mais rápido (CENTRIFUGE_FPS)
+            working = powered and not m.submerged and m.spinning
+            return (anim_frame_index(self.machine_t, tile_phase(m.tx, m.ty), fps=C.CENTRIFUGE_FPS)
+                    if working else None)
         if m.is_smelter:                # v0.6 Fundo M3: só anima fundindo
             working = powered and not m.submerged and m.smelter_blocker is None
             return anim_frame_index(self.machine_t, tile_phase(m.tx, m.ty)) if working else None
@@ -2084,7 +2096,7 @@ class Renderer:
             elif item in (C.EMPTY_CAPSULE, C.COLLECTOR):   # v0.8 M2: icon_water_capsule_empty.png e icon_water_collector.png
                 name = "icon_water_capsule_empty" if item == C.EMPTY_CAPSULE else "icon_water_collector"
                 small = self.surface(name, lambda: self._placeholder(16, item))[0]
-            elif item == C.CULTIVATOR or item in C.CROP_ITEMS or item in C.SAMPLE_ITEMS:   # v0.8 M3/M4: icon_cultivator.png, icon_algae.png, icon_plant_N.png, icon_sample_*.png
+            elif item in (C.CULTIVATOR, C.MICROSCOPE, C.CENTRIFUGE) or item in C.CROP_ITEMS or item in C.SAMPLE_ITEMS:   # v0.8 M3/M4: icon_cultivator/microscope/centrifuge.png, icon_algae.png, icon_plant_N.png, icon_sample_*.png
                 small = self.surface(f"icon_{item}", lambda: self._placeholder(16, item))[0]
             elif item in C.HAND_DRILLS or item in C.PART_ITEMS:   # v0.5 M4: icon_<item>.png (v0.6 Fundo M4: as duas brocas)
                 small = self._m4_icon(item)
@@ -2465,6 +2477,7 @@ class Renderer:
         machine_light = {"o2": ((89, 208, 230), 80, -30, 0.2), "heater": ((255, 138, 61), 100, -20, 0.3),
                          "melter": ((159, 230, 255), 70, -36, 0.18), "smelter": ((255, 138, 61), 90, -22, 0.26), "water_collector": ((89, 208, 230), 80, -24, 0.2),
                          "cultivator": ((140, 230, 170), 80, -24, 0.2),
+                         "microscope": ((170, 210, 255), 80, -24, 0.2), "centrifuge": ((190, 255, 160), 80, -24, 0.2),
                          "lamp": ((255, 222, 184), 96, -26, 0.22)}
         # no déficit de energia o brilho das máquinas fica mais fraco (metade com fator 0)
         dim = 0.5 + 0.5 * state.power.factor
@@ -2482,6 +2495,10 @@ class Renderer:
             if m.is_collector and state.collector_blocker(m, state.active) is not None:   # v0.8 M2: idem, coletando
                 continue
             if m.is_cultivator and m.grow_blocker is not None:    # v0.8 M3: idem, crescendo
+                continue
+            if m.is_microscope and state.microscope_blocker(m) is not None:   # v0.8 M4: idem, analisando
+                continue
+            if m.is_centrifuge and state.centrifuge_blocker(m) is not None:   # v0.8 M4: idem, girando
                 continue
             if m.kind.removesuffix("_t2") not in machine_light:   # painel solar e baú: sem luz própria
                 continue
