@@ -575,10 +575,10 @@ def test_harvest_event_shows_a_floater(fresh):
 
 # ---------------------------------------------------------------- Task 7: save v16
 def test_save_version_16_and_migration():
-    assert save.SAVE_VERSION == 16 and 15 in save.MIGRATIONS
+    assert save.SAVE_VERSION >= 16 and 15 in save.MIGRATIONS
     data = {"version": 15, "x": 1}
     assert save.MIGRATIONS[15](dict(data)) == {**data, "_lab_algae": True}      # só a marca da alga do lab
-    assert save.migrate({"version": 15, "layers": {}})["version"] == 16
+    assert save.migrate({"version": 15, "layers": {}})["version"] == save.SAVE_VERSION
 
 
 def test_cultivator_save_roundtrip():
@@ -699,7 +699,7 @@ def test_v16_roundtrip_does_not_add_more_algae():
     once = save.state_from_dict(save.migrate(data))
     assert _lab_crate(once).storage.count("algae") == 1
     saved = save.state_to_dict(once)
-    assert "_lab_algae" not in saved and saved["version"] == 16
+    assert "_lab_algae" not in saved and saved["version"] == save.SAVE_VERSION
     twice = save.state_from_dict(save.migrate(saved))
     assert _lab_crate(twice).storage.count("algae") == 1
     _lab_crate(twice).storage.remove("algae", 1)                      # o jogador tirou: um v16 não devolve

@@ -23,7 +23,7 @@ from game import ruins
 from game import vesper
 from game import wrecks
 from game import thaw
-from game.equipment import Equipment, is_equipment
+from game.equipment import Equipment, is_equipment, slot_of
 from game.inventory import Inventory, Stack, max_stack
 from game.energy import PowerAlert, PowerReport, power_report
 from game.geo import FROST
@@ -2757,31 +2757,56 @@ class GameState:
     # ---- equipamento (game/equipment.py) ----------------------------------------------
     @property
     def o2_max(self) -> float:
-        """O₂ máximo: 100 s, ou 220 s com o tanque equipado."""
+        """O₂ máximo: 100 s, 220 s com o tanque equipado ou 400 s com o nv.2 (v0.8 M5)."""
         return self.equipment.o2_max
 
     @property
     def has_scanner(self) -> bool:
-        return self.equipment.has("scanner")
+        return self.equipment.filled("scanner")
+
+    def can_equip(self, item: str, free_index: int | None = None, back_to_inventory: bool = True) -> bool:
+        """v0.8 M5: dá pra encaixar `item`? Só a troca de mochila pode recusar: se o inventário encolhe (T2 -> nv.1),
+        as linhas que somem têm que estar vazias (`backpack_not_empty`) e, com `back_to_inventory`, o que sai do slot
+        tem que caber no que sobra (`inv_full`). `free_index`: o slot de onde `item` vai sair (já conta como vazio)."""
+        if slot_of(item) != "backpack":
+            return True
+        size = C.INVENTORY_SLOTS + C.BACKPACK_SLOTS * (C.BACKPACK_T2_SLOTS // 8 if item == C.BACKPACK_T2 else 1)
+        if size >= len(self.inventory):
+            return True
+        inv = self.inventory.copy()
+        if free_index is not None:
+            inv.remove_from_slot(free_index, 1)
+        if not inv.tail_empty(size):
+            self.events.append(("backpack_not_empty",))
+            return False
+        old = self.equipment.slots["backpack"]
+        inv.resize(size)
+        if back_to_inventory and old is not None and not inv.has_space(old):
+            self.events.append(("inv_full",))
+            return False
+        return True
 
     def equip_from(self, index: int) -> bool:
         """Encaixa o equipamento do slot `index` do inventário no traje (troca com o que estava lá)."""
         stack = self.inventory.slots[index]
-        if stack is None or not is_equipment(stack.item):
+        if stack is None or not is_equipment(stack.item) or not self.can_equip(stack.item, free_index=index):
             return False
         item = stack.item
         self.inventory.remove_from_slot(index, 1)
         old = self.equipment.equip(item)
+        self.sync_backpack()                         # a mochila nova primeiro: na T2 -> nv.1 a linha vazia já sai
         if old is not None:
-            self.inventory.add(old, 1)               # acabou de sair 1 do mesmo tipo: sempre cabe
+            self.inventory.add(old, 1)               # acabou de sair 1 (e o can_equip conferiu o espaço da mochila)
         self.equipped_ever.add(item)
         self.events.append(("equip", item))
         self._clamp_o2()
-        self.sync_backpack()
         return True
 
     def equip_item(self, item: str) -> str | None:
-        """Encaixa um item que não está no inventário (a "mão" da tela do Tab). Devolve o que saiu do slot."""
+        """Encaixa um item que não está no inventário (a "mão" da tela do Tab). Devolve o que saiu do slot. Sem
+        `can_equip` (Mochila T2 -> nv.1 com a linha de baixo cheia), não encaixa e devolve None: quem chama confere antes."""
+        if not self.can_equip(item, back_to_inventory=False):
+            return None
         old = self.equipment.equip(item)
         self.equipped_ever.add(item)
         self.events.append(("equip", item))
@@ -2795,7 +2820,7 @@ class GameState:
         if item is None:
             return False
         if kind == "backpack":                       # só sai com a linha extra vazia (senão os itens sumiriam)
-            if not self.inventory.tail_empty(C.INVENTORY_SLOTS):
+            if not self.inventory.tail_empty(C.INVENTORY_SLOTS):   # a T2 tem 2 linhas: as duas vazias
                 self.events.append(("backpack_not_empty",))
                 return False
             base = self.inventory.copy()
@@ -2815,7 +2840,7 @@ class GameState:
 
     @property
     def has_backpack(self) -> bool:
-        return self.equipment.has("backpack")
+        return self.equipment.filled("backpack")
 
     def ensure_hand_drill(self) -> bool:
         """v0.5 M4: save sem a broca de mão (v10 do M3) ganha uma. Vale a que estiver no inventário ou guardada em
@@ -2828,9 +2853,9 @@ class GameState:
         return self.inventory.add(C.HAND_DRILL, 1) == 0
 
     def sync_backpack(self) -> None:
-        """Deixa o inventário com 16 slots (sem mochila) ou 24 (com ela). Encolher só corta slots vazios; se a
-        linha extra tem item (save estragado), a mochila continua valendo e o inventário não encolhe."""
-        want = C.INVENTORY_SLOTS + (C.BACKPACK_SLOTS if self.has_backpack else 0)
+        """Deixa o inventário com 16 slots (sem mochila), 24 (nv.1) ou 32 (T2, v0.8 M5). Encolher só corta slots vazios;
+        se a linha extra tem item (save estragado), a mochila continua valendo e o inventário não encolhe."""
+        want = C.INVENTORY_SLOTS + C.BACKPACK_SLOTS * self.equipment.backpack_rows
         if want > len(self.inventory) or self.inventory.tail_empty(want):
             self.inventory.resize(want)
 
@@ -2867,8 +2892,9 @@ class GameState:
 
     @property
     def player_speed(self) -> float:
-        """px/s do player (com o F3 ligado, DEBUG_SPEED× mais rápido)."""
-        return C.PLAYER_SPEED * (C.DEBUG_SPEED if self.fast else 1)
+        """px/s do player (com o F3 ligado, DEBUG_SPEED× mais rápido; com as botas, ×BOOTS_SPEED: v0.8 M5)."""
+        boots = C.BOOTS_SPEED if self.equipment.filled("boots") else 1
+        return C.PLAYER_SPEED * boots * (C.DEBUG_SPEED if self.fast else 1)
 
     @property
     def can_break_hard(self) -> bool:
