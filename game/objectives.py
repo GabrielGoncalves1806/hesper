@@ -98,7 +98,7 @@ OBJECTIVES = [
     Objective("Leia um terminal", lambda s: len(s.logs_read) >= 1),
     # v0.4 Marco 1: o jogo começa na tempestade de poeira; o Árido é o céu limpando
     Objective("Limpe o céu (Árido)", lambda s: s.stage >= C.ARID_STAGE),
-    Objective("Chegue ao estágio Névoa", lambda s: s.stage >= C.MIST_STAGE),
+    Objective("Chegue ao estágio Úmido", lambda s: s.stage >= C.MIST_STAGE),
     # v0.6 Fundo M5: a drill pede circuito (cobre do salar → Fundição → fios → Bancada T2). Os três guiam a cadeia.
     Objective("Construa a Bancada T2", lambda s: crafted(s, "workbench") >= 1),
     Objective("Construa uma Fundição", lambda s: crafted(s, C.SMELTER) >= 1),

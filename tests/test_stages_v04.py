@@ -24,10 +24,9 @@ def reach_arid(state: GameState) -> None:
 
 
 # ---------------------------------------------------------------- A1 · estágios e arte
-def test_four_stages_in_order():
-    assert [s.key for s in C.STAGES] == ["storm", "arid", "mist", "green"]
-    assert [s.ti for s in C.STAGES][:1] == [0] and C.STAGES[2].ti == 10_000 and C.STAGES[3].ti == 100_000
-    assert [s.number for s in C.STAGES] == [1, 2, 3, 4]
+def test_first_stages_in_order():
+    assert [s.key for s in C.STAGES][:3] == ["storm", "arid", "mist"]      # os 6 estão em test_stages_v08.py
+    assert C.STAGES[0].ti == 0 and C.STAGES[2].ti == 10_000
     assert 0 < C.STAGES[1].ti < C.STAGES[2].ti
 
 
@@ -38,7 +37,7 @@ def test_stage_constants_match_the_table():
 
 
 def test_art_key_maps_storm_and_arid_to_dead():
-    assert [art_key(i) for i in (1, 2, 3, 4)] == ["dead", "dead", "mist", "green"]
+    assert [art_key(i) for i in range(1, 7)] == ["dead", "dead", "mist", "mist", "mist", "green"]
 
 
 def test_every_stage_has_a_palette_a_color_and_a_water_threshold():
@@ -101,6 +100,7 @@ def test_storm_fade_keeps_going_while_in_the_cave():
 
 def test_storm_is_zero_from_arid_on_after_a_big_jump():
     s = GameState()
+    s.indices["biomass"] = 15_000.0               # v0.8 M1: o Verde pede biomassa também
     s.debug_add_ti(100_000)                       # F2 até o Verde de uma vez
     step(s, C.STORM_FADE_S)
     assert s.stage == C.GREEN_STAGE and s.storm == 0.0
@@ -150,7 +150,7 @@ def test_new_save_does_not_move_the_stage_again(tmp_path):
 # ---------------------------------------------------------------- A4 · objetivo, banner e ambiente
 def test_clear_the_sky_objective_follows_the_arid():
     sky = next(o for o in OBJECTIVES if o.text == "Limpe o céu (Árido)")
-    mist = next(i for i, o in enumerate(OBJECTIVES) if o.text == "Chegue ao estágio Névoa")
+    mist = next(i for i, o in enumerate(OBJECTIVES) if o.text == "Chegue ao estágio Úmido")
     assert OBJECTIVES.index(sky) == mist - 1
     s = GameState()
     assert not sky.done(s)

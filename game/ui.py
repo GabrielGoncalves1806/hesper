@@ -281,6 +281,15 @@ def fmt(n: float) -> str:
     return f"{round(n):,}".replace(",", ".")
 
 
+def next_stage_line(nxt, remaining_ti: float, remaining_bio: float, eta: str) -> str:
+    """Linha de baixo do "próximo estágio" (v0.8 M1): o que falta, Ti e/ou biomassa. Só biomassa não tem estimativa."""
+    if remaining_bio > 0 and remaining_ti <= 0:
+        return f"falta biomassa {fmt(remaining_bio)}"
+    if remaining_bio > 0:
+        return f"faltam {fmt(remaining_ti)} · biomassa {fmt(remaining_bio)}"
+    return f"faltam {fmt(remaining_ti)} · {eta}"
+
+
 def fmt_rate(n: float) -> str:
     return (f"{n:.1f}".replace(".", ",") if n % 1 else str(int(n)))
 
@@ -850,15 +859,15 @@ class UI:
 
     def draw_ti_panel(self, state: GameState) -> None:
         """Painel "ÍNDICE TI" (organização da direção A no cartão da B): +/s, Ti grande numa faixa escura,
-        os 3 índices com valor e unidade alinhados à direita e o próximo estágio com barra segmentada,
+        os 4 índices com valor e unidade alinhados à direita e o próximo estágio com barra segmentada,
         % e "faltam X · ~Y"."""
         px, w, y = self.ti_panel_x, TI_PANEL_W, 6
         right = px + w - 6
-        nxt, fraction, remaining = stage_progress(state.ti)
+        nxt, fraction, remaining, remaining_bio = stage_progress(state.ti, state.indices["biomass"])
         eta = eta_label(remaining, state.smoothed_rate)
-        line2 = f"faltam {fmt(remaining)} · {eta}"
-        wrap_eta = nxt is not None and self.tilde_width(line2) > w - 12      # não coube: o tempo desce
-        h = 74 if nxt is None else 100 if wrap_eta else 88
+        line2 = next_stage_line(nxt, remaining, remaining_bio, eta)
+        wrap_eta = nxt is not None and " · " in line2 and self.tilde_width(line2) > w - 12   # não coube: o resto desce
+        h = 83 if nxt is None else 109 if wrap_eta else 97          # v0.8 M1: +9 px da linha da biomassa
         self.hud_panel(px, y, w, h)
         self.ti_panel_bottom = y + h      # o medidor de energia encaixa logo abaixo (draw_energy)
 
@@ -869,7 +878,7 @@ class UI:
         self.round_rect((px + 4, y + 12, w - 8, 19), B_DEEP)
         self.tx("TI", px + 9, y + 15, B_DIM)
         self.tx(fmt(state.ti), px + w - 9, y + 11, C.C_TI, self.font_big, "right")
-        for i, key in enumerate(("o2", "heat", "water")):
+        for i, key in enumerate(("o2", "heat", "water", "biomass")):
             yy = y + 34 + i * 9
             self.fill(C.INDEX_COLOR[key], (px + 6, yy + 1, 3, 3))
             self.tx(self.INDEX_NAME.get(key, C.INDEX_LABEL[key]), px + 13, yy - 4, B_TEXT)
@@ -878,22 +887,23 @@ class UI:
             self.tx(fmt(state.indices[key]), right - uw - 3, yy - 4, B_TEXT, align="right")
 
         # ---- próximo estágio
-        self.fill(B_LINE, (px + 6, y + 62, w - 12, 1))
+        self.fill(B_LINE, (px + 6, y + 71, w - 12, 1))
         if nxt is None:
             done = C.STAGE_COLOR[C.GREEN_STAGE]
-            label_w = self.tx("PLANETA VERDE", px + 6, y + 61, done)
-            self.draw_check(px + 6 + label_w + 5, y + 65, done)   # a fonte não tem "✓": desenhamos um
+            label_w = self.tx("PLANETA VERDE", px + 6, y + 70, done)
+            self.draw_check(px + 6 + label_w + 5, y + 74, done)   # a fonte não tem "✓": desenhamos um
             return
-        name_w = self.tx(nxt.name, px + 6, y + 61, B_TEXT)
-        pct_w = self.tx(f"{int(fraction * 100)}%", right, y + 61, C.C_TI, align="right")
+        name_w = self.tx(nxt.name, px + 6, y + 70, B_TEXT)
+        pct_w = self.tx(f"{int(fraction * 100)}%", right, y + 70, C.C_TI, align="right")
         seg_x = max(px + 40, px + 6 + name_w + 5)
         n = max(4, min(16, (right - pct_w - 4 - seg_x + 1) // 5))
-        self.segments(seg_x, y + 66, n, round(n * fraction), C.C_TI)
+        self.segments(seg_x, y + 75, n, round(n * fraction), C.C_TI)
         if wrap_eta:
-            self.tx(f"faltam {fmt(remaining)}", px + 6, y + 70, B_MUTED, self.body)
-            self.text_tilde(eta, px + 6, y + 82, B_MUTED, shadow=False)
+            head, _, tail = line2.partition(" · ")
+            self.tx(head, px + 6, y + 79, B_MUTED, self.body)
+            self.text_tilde(tail, px + 6, y + 91, B_MUTED, shadow=False)
         else:
-            self.text_tilde(line2, px + 6, y + 70, B_MUTED, shadow=False)
+            self.text_tilde(line2, px + 6, y + 79, B_MUTED, shadow=False)
 
     # ---- energia (lógica em energy.py) ----------------------------------------
     ENERGY_COLOR = {"ok": C.C_OK, "tight": "#ffd84a", "deficit": C.C_ALERT}
@@ -2454,6 +2464,7 @@ class UI:
         ("ESC > OPÇÕES", "Tamanho da interface (HUD e menus)"),
         ("F1 · F2 · F3 · F4", "Debug: x10 · +10.000 Ti · rápido · gelo da cratera"),
         ("F5", "Contador de FPS e ms do quadro"),
+        ("F7", "Debug: +500 de biomassa"),
     ]
 
     def _pause_frame(self, x, y, w, h, title, right: str | None = "PAUSA") -> None:

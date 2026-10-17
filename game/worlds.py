@@ -272,6 +272,8 @@ def info(slot: int) -> WorldInfo:
             return out
         progress = data["progress"]
         stage = int(progress["stage"])
+        if version < 14:                                   # v0.8 M1: o Verde antigo (4) volta pro Úmido (save._v13_to_v14)
+            stage = min(stage, C.MIST_STAGE)
         out.stage = max(1, min(len(C.STAGES), stage))
         out.play_time = float(progress.get("play_time", world.get("played_s", 0.0)))
         out.status = "ok"

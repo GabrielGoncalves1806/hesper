@@ -306,27 +306,31 @@ def storm_level(state) -> float:
     return state.storm if state.layer == SURFACE else 0.0
 
 
-def stage_for_ti(ti: float) -> int:
+def stage_for_ti(ti: float, biomass: float = 0.0) -> int:
+    """Estágio pelo Ti e pela biomassa (v0.8 M1): o maior em sequência cujos dois mínimos já bateram."""
     stage = 1
     for s in C.STAGES:
-        if ti >= s.ti:
-            stage = s.number
+        if ti < s.ti or biomass < s.biomass:
+            break
+        stage = s.number
     return stage
 
 
 # ---- quanto falta pro próximo estágio (funções puras, testadas em tests/test_progress.py) ----
-def stage_progress(ti: float) -> tuple[C.Stage | None, float, float]:
-    """(próximo estágio, progresso de 0 a 1 DENTRO do estágio atual, Ti que falta).
+def stage_progress(ti: float, biomass: float = 0.0) -> tuple[C.Stage | None, float, float, float]:
+    """(próximo estágio, progresso de 0 a 1 DENTRO do estágio atual, Ti que falta, biomassa que falta).
 
-    O progresso é relativo ao estágio atual: no estágio 2 (10k → 100k) com Ti 12.914 dá ~3%.
-    No último estágio devolve (None, 1.0, 0).
+    O progresso é relativo ao estágio atual e vale o do gargalo (o menor entre Ti e biomassa; v0.8 M1). Próximo
+    estágio sem biomassa a mais conta só o Ti. No último estágio devolve (None, 1.0, 0, 0).
     """
-    current = C.STAGES[stage_for_ti(ti) - 1]
+    current = C.STAGES[stage_for_ti(ti, biomass) - 1]
     if current.number == len(C.STAGES):
-        return None, 1.0, 0.0
+        return None, 1.0, 0.0, 0.0
     nxt = C.STAGES[current.number]
     fraction = (ti - current.ti) / (nxt.ti - current.ti)
-    return nxt, max(0.0, min(1.0, fraction)), max(0.0, nxt.ti - ti)
+    if nxt.biomass > current.biomass:
+        fraction = min(fraction, (biomass - current.biomass) / (nxt.biomass - current.biomass))
+    return nxt, max(0.0, min(1.0, fraction)), max(0.0, nxt.ti - ti), max(0.0, nxt.biomass - biomass)
 
 
 def format_eta(seconds: float) -> str:
@@ -377,7 +381,7 @@ class GameState:
         # Tiles onde já existiu máquina: fontes da mancha de transição (game/transition.py).
         # Só cresce: desmontar a máquina NÃO tira daqui, senão a terra em volta "desconverteria".
         self.transition_sources: set[tuple[int, int]] = set()
-        self.indices = {"o2": 0.0, "heat": 0.0, "water": 0.0}
+        self.indices = {"o2": 0.0, "heat": 0.0, "water": 0.0, "biomass": 0.0}   # v0.8 M1: biomassa (4º índice)
         self.o2 = C.O2_MAX
         self.stage = 1
         # Tempestade de poeira (v0.4): 1.0 cheia, 0.0 sem. Passou do estágio Tempestade, desce até 0 em
@@ -579,7 +583,7 @@ class GameState:
     # ---- consultas ----------------------------------------------------------
     @property
     def ti(self) -> float:
-        """Índice de terraformação = O₂ + Calor + Água."""
+        """Índice de terraformação = O₂ + Calor + Água + Biomassa."""
         return sum(self.indices.values())
 
     @property
@@ -2031,7 +2035,7 @@ class GameState:
                 self.events.append(("fumarole_wake", i))
 
     def _check_stage(self) -> None:
-        new_stage = stage_for_ti(self.ti)
+        new_stage = stage_for_ti(self.ti, self.indices["biomass"])
         if new_stage > self.stage:          # estágio nunca volta
             self.stage = new_stage
             self.events.append(("stage_up", new_stage))
@@ -2334,6 +2338,11 @@ class GameState:
         self.indices["water"] += share
         self._check_stage()
         self._apply_thaw()                    # o calor do F2 já derrete (igual ao tick das máquinas)
+
+    def debug_add_biomass(self, amount: float = C.DEBUG_BIOMASS_BONUS) -> None:
+        """F7 (v0.8 M1): biomassa de graça, pra testar os estágios novos antes do cultivador existir."""
+        self.indices["biomass"] += amount
+        self._check_stage()
 
     def debug_melt_crater(self) -> None:
         """F4 (debug): derrete a tampa de gelo da cratera na hora (no M2 é o único jeito de descer)."""

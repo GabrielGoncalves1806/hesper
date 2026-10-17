@@ -435,6 +435,8 @@ class App:
             state.debug_melt_crater()
         elif key == pygame.K_F5:                          # contador de FPS e ms do quadro
             self.perf.toggle()
+        elif key == pygame.K_F7:                          # debug (v0.8 M1): +biomassa (F6 fica pro overlay de colisão)
+            state.debug_add_biomass()
         if state.fainted:
             return
 
@@ -2151,7 +2153,7 @@ class App:
         if vein:
             name = C.RESOURCE_NAME[vein.resource]
             unlocked = state.recipe_status("drill") != "locked"
-            return f"Veio de {name} · " + ("coloque uma drill" if unlocked else "drill libera na Névoa")
+            return f"Veio de {name} · " + ("coloque uma drill" if unlocked else "drill libera no Úmido")
         hover = state.interactable_at(*self.mouse_world())
         wreck = state.world.wreck_at_px(*self.mouse_world())
         if wreck is not None and hover is None:                         # corpo do destroço (não a caixa/terminal)

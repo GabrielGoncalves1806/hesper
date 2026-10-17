@@ -21,7 +21,7 @@ def proposal():
 def test_proposta_chega_no_fim_dentro_da_meta(proposal, strategy):
     r = sim.simulate(strategy, seed=1, overrides=proposal)
     assert r.finished
-    assert set(r.milestones) == {"Ti 500", "Árido", "Névoa", "Verde"}
+    assert set(r.milestones) == {"Ti 500", "Árido", "Úmido", "Algas (Ti)", "Musgo (Ti)", "Verde (Ti)"}
     # meta do v0.2: ~25 min (20 a 35). v0.3 Marco 1: só a superfície (pouco minério de propósito, a
     # caverna vem no Marco 2), então a partida fica mais lenta: o casual da proposta passa de ~33 pra ~43 min.
     # Teto provisório de 50 min até o Marco 2/4 (referência do v0.3: 25–40 min).
@@ -40,7 +40,7 @@ def test_proposta_chega_no_fim_dentro_da_meta(proposal, strategy):
     # v0.5 M1: o construtor (5 Fe antes da 1ª máquina) atrasou a caverna da seed 1 em ~2 s além dos 15 min (15m02s);
     # folga de 1 min até a rodada de balanceamento.
     nevoa_max = 16 if cave else 13
-    assert 9 * 60 <= r.milestones["Névoa"] <= nevoa_max * 60
+    assert 9 * 60 <= r.milestones["Úmido"] <= nevoa_max * 60
     # nenhuma espera longa no meio do jogo; a da reta final ("o fim chega antes da próxima máquina") é o
     # jogador esperando o Ti fechar: no Marco 1 (superfície) chega a ~3 min, na caverna (proposta) a ~5 min
     # Marco 3: os destroços mudaram o deserto (área sólida + folga sem rocha pequena) e o guloso da seed 1 passou
@@ -112,7 +112,7 @@ def test_cratera_e_portoes_no_ritmo_do_m4(proposal):
     assert r.heater_at is not None and r.crater_at is not None
     assert 3 * 60 <= r.crater_at - r.heater_at <= 5 * 60
     assert set(r.gate_at) == {0, 1, 2}
-    assert r.milestones["Névoa"] < r.gate_at[0] < r.gate_at[1] < r.gate_at[2] <= r.total
+    assert r.milestones["Úmido"] < r.gate_at[0] < r.gate_at[1] < r.gate_at[2] <= r.total
     assert r.gate_at[2] >= 0.7 * r.total                    # o último, perto do fim
     assert set(r.lake_at) == {0, 1, 2}                      # os três lagos aparecem antes do Verde
-    assert r.lake_at[0] - r.milestones["Névoa"] <= 60       # o 1º lago junto com a Névoa
+    assert r.lake_at[0] - r.milestones["Úmido"] <= 60       # o 1º lago junto com a Névoa

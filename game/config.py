@@ -59,6 +59,7 @@ ZOOM_TOAST_TIME = 1.2           # segundos do aviso "Zoom 1,5×"
 MAX_DT = 0.05                   # nunca simula mais que 50 ms num frame (evita atravessar parede)
 DEBUG_TIME_SCALE = 10           # F1: acelera O₂ e máquinas ×10
 DEBUG_TI_BONUS = 10_000         # F2: soma isso no Ti
+DEBUG_BIOMASS_BONUS = 500       # F7: soma isso na biomassa (v0.8 M1; o F6 fica pro overlay de colisão)
 DEBUG_SPEED = 2.0               # F3: player anda 2× mais rápido...
 DEBUG_MINE = 5.0                # ...e a broca quebra 5× mais rápido (paredes, minério e rochas)
 
@@ -191,8 +192,8 @@ FAINT_DURATION = 3.0        # segundos até devolver o controle
 # ---------------------------------------------------------------------------
 # Máquinas e índices (§4 Máquinas e índices)
 # ---------------------------------------------------------------------------
-INDEX_UNIT = {"o2": "ppq", "heat": "pK", "water": "ppm"}
-INDEX_LABEL = {"o2": "O₂", "heat": "CALOR", "water": "AGUA"}
+INDEX_UNIT = {"o2": "ppq", "heat": "pK", "water": "ppm", "biomass": "kg"}
+INDEX_LABEL = {"o2": "O₂", "heat": "CALOR", "water": "AGUA", "biomass": "BIOMASSA"}
 
 
 @dataclass(frozen=True)
@@ -322,34 +323,51 @@ PLACE_REACH = 4                  # alcance pra colocar máquina (tiles)
 @dataclass(frozen=True)
 class Stage:
     number: int
-    key: str            # "storm", "arid", "mist", "green" (a arte sai do STAGE_ART: floor_dead_0 etc.)
+    key: str            # "storm", "arid", "mist", "algae", "moss", "green"
     ti: int             # Ti mínimo
     title: str
     subtitle: str
-    name: str           # nome curto, usado no HUD ("PRÓXIMO: NÉVOA")
+    name: str           # nome curto, usado no HUD ("PRÓXIMO: ALGAS")
+    biomass: int = 0    # v0.8 M1: biomassa mínima (além do Ti) pra entrar no estágio
+    look: str = ""      # v0.8 M1: qual dos 4 visuais antigos ele usa (rampas, sprites, som); vazio = a própria key
+    water: str = ""     # v0.8 M1: paleta da água (PALETTES); vazio = a arte do look (STAGE_ART)
+
+    def __post_init__(self):
+        if not self.look:
+            object.__setattr__(self, "look", self.key)
+        if not self.water:
+            object.__setattr__(self, "water", STAGE_ART[self.look])
 
 
-# v0.4 Marco 1: 4 estágios. A Tempestade é o começo do jogo; o Árido é o "céu limpo" com o chão de hoje.
+# Arte de cada visual (sprites floor_{arte}_N, PALETTES[arte]...): a Tempestade e o Árido usam a do Morto.
+STAGE_ART = {"storm": "dead", "arid": "dead", "mist": "mist", "green": "green"}   # look -> arte (sprites e paleta)
+
+# v0.4 Marco 1: 4 estágios. v0.8 M1: 6, e os 3 últimos pedem biomassa também (bíblia §17). Algas e Musgo
+# usam o visual da Névoa (look "mist"), com a água esverdeada da paleta "algae".
 # O Ti do Árido sai do tools/dev/balance_sim.py (meta: chegar entre 8 e 12 min no casual). Com 2.500 o casual
 # chegava em ~5 min; com 6.500, em 8m15s–8m24s (seeds 1–3). Névoa e Verde ficaram iguais (o total não mudou).
 STAGES = [
     Stage(1, "storm", 0, "ESTÁGIO 1 · TEMPESTADE", "Sobreviva e monte a base", "TEMPESTADE"),
     Stage(2, "arid", 6_500, "ESTÁGIO 2 · CÉU LIMPO", "A poeira baixou", "ÁRIDO"),
-    Stage(3, "mist", 10_000, "ESTÁGIO 3 · PRIMEIRAS CHUVAS", "Máquinas nv.2 liberadas", "NÉVOA"),
-    Stage(4, "green", 100_000, "ESTÁGIO 4 · PRIMEIRO VERDE", "Ti 100.000 · fim do MVP", "VERDE"),
+    Stage(3, "mist", 10_000, "ESTÁGIO 3 · PRIMEIRAS CHUVAS", "Máquinas nv.2 liberadas", "ÚMIDO"),
+    Stage(4, "algae", 25_000, "ESTÁGIO 4 · PRIMEIRAS ALGAS", "Os lagos ganham cor", "ALGAS",
+          biomass=500, look="mist", water="algae"),
+    Stage(5, "moss", 50_000, "ESTÁGIO 5 · MUSGO", "O verde agarra nas pedras", "MUSGO",
+          biomass=3_000, look="mist", water="algae"),
+    Stage(6, "green", 100_000, "ESTÁGIO 6 · PRIMEIRO VERDE", "Ti 100.000 · fim do MVP", "VERDE", biomass=15_000),
 ]
 STORM_STAGE = 1      # estágio da tempestade de poeira (passou dele, a tempestade some)
 ARID_STAGE = 2
-MIST_STAGE = 3       # a água e as máquinas nv.2 começam aqui
-GREEN_STAGE = 4      # plantas e fim do jogo
+MIST_STAGE = 3       # Úmido: a água e as máquinas nv.2 começam aqui (a chave continua "mist")
+ALGAE_STAGE = 4      # v0.8 M1
+MOSS_STAGE = 5       # v0.8 M1: o musgo das pedras aparece daqui pra frente
+GREEN_STAGE = 6      # plantas e fim do jogo
 STORM_FADE_S = 20.0  # s pra tempestade sumir depois de entrar no Árido (state.storm de 1.0 a 0.0)
-# Arte de cada estágio (sprites floor_{arte}_N, PALETTES[arte]...): a Tempestade e o Árido usam a do Morto.
-STAGE_ART = {"storm": "dead", "arid": "dead", "mist": "mist", "green": "green"}
 
 RATE_SMOOTHING = 3.0   # segundos da média móvel da taxa de Ti usada na estimativa "~50 min"
 
 # Água: quanto mais baixo o limiar, menos poças. Só aparece a partir da Névoa (§3).
-WATER_THRESHOLD = {1: 0.0, 2: 0.0, 3: 0.24, 4: 0.33}   # Tempestade e Árido não têm água nenhuma (§3)
+WATER_THRESHOLD = {1: 0.0, 2: 0.0, 3: 0.24, 4: 0.24, 5: 0.24, 6: 0.33}   # Tempestade e Árido sem água (§3); Algas e Musgo = Úmido
 PLANT_CHANCE = 0.11   # estágio Verde: chance de um tile de chão ter planta
 
 # ---- v0.4 Marco 3 (M3.3): lagos nas bacias e chuva (números de partida; balanceamento no Marco 4) ----
@@ -533,6 +551,7 @@ PALETTES = {
         "ambient": (10, 22, 12, 31),
     },
 }
+PALETTES["algae"] = {**PALETTES["mist"], "water": "#3f8a72", "water_d": "#2f6e5a"}   # v0.8 M1: lago das Algas (placeholder; dono aprova pelo print)
 
 ORE_COLORS = {  # cor, sombra
     "iron": ("#b99b82", "#7a6552"),         # v0.6 Fundo: paleta bege do ferro novo (era "#e8a066", "#a5582c")
@@ -556,8 +575,9 @@ C_MUTED = "#9c8d82"
 C_HEAT = "#ff8a3d"
 C_WATER = "#6aa8ff"
 C_TERMINAL = "#6fe3a0"
-INDEX_COLOR = {"o2": C_O2, "heat": C_HEAT, "water": C_WATER}
-STAGE_COLOR = {1: C_ACCENT, 2: "#e8b37a", 3: "#9fd2e6", 4: "#a6e07a"}
+C_BIOMASS = "#8fd46a"
+INDEX_COLOR = {"o2": C_O2, "heat": C_HEAT, "water": C_WATER, "biomass": C_BIOMASS}
+STAGE_COLOR = {1: C_ACCENT, 2: "#e8b37a", 3: "#9fd2e6", 4: "#7fcfb0", 5: "#8fd46a", 6: "#a6e07a"}
 
 # ---------------------------------------------------------------------------
 # Transição gradual de estágio (game/transition.py)

@@ -302,3 +302,15 @@ def test_app_creates_world_with_seed_and_continue_opens_it(app_dir):
     app.on_key(pygame.K_RETURN)                                    # Continuar
     assert app.mode == "play" and app.state.world_name == "Areia" and app.state.seed == s.seed
     assert app.state.play_time == 125.0
+
+
+def test_v13_world_list_shows_the_old_green_as_umido(saves):
+    state = save.new_state()
+    data = save.state_to_dict(state)
+    data["version"] = 13
+    data["progress"]["stage"] = 4                                  # o Verde antigo
+    data["world"] = {"name": "Velho", "seed": 7, "created": "", "played_s": 0.0}
+    worlds.path(1).write_text(json.dumps(data), encoding="utf-8")
+    info = worlds.info(1)
+    assert info.status == "ok" and info.stage == C.MIST_STAGE
+    assert C.STAGES[info.stage - 1].name == "ÚMIDO"

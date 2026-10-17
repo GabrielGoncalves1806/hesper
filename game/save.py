@@ -101,11 +101,11 @@ from game.systems import GameState, Machine, clean_chest_name
 from game.world import World
 from game.wrecks import loot_for
 
-SAVE_VERSION = 13  # v13 (v0.7 M3): destroços novos (a mesma seed põe os destroços em outro lugar; wrecks.settle) · v12 (v0.6 Fundo M1): caverna nova 256×256 (a do v11 é descartada) · v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
+SAVE_VERSION = 14  # v14 (v0.8 M1): biomassa (4º índice) e 6 estágios (o Verde antigo volta pro Úmido) · v13 (v0.7 M3): destroços novos (a mesma seed põe os destroços em outro lugar; wrecks.settle) · v12 (v0.6 Fundo M1): caverna nova 256×256 (a do v11 é descartada) · v11 (v0.6 M2): "chip" nas máquinas que precisam · v10 (v0.5 M3.1): superfície 256×256 (a mesma seed gera outro mundo) · v9: blocos da base e Dispersor
 FIRST_VERSION = 10  # saves com versão menor que essa são de outra época do jogo: "save antigo" (v1–v9, não migram)
-# Numeração dos estágios dentro do "progress": 2 = v0.4 (Tempestade, Árido, Névoa, Verde). O 1 (os 3 estágios do
-# v0.3) só existia no save v6, que não carrega mais.
-STAGE_SCHEME = 2
+# Numeração dos estágios dentro do "progress": 2 = v0.4 (Tempestade, Árido, Névoa, Verde), 3 = v0.8 (Tempestade,
+# Árido, Úmido, Algas, Musgo, Verde). O 1 (os 3 estágios do v0.3) só existia no save v6, que não carrega mais.
+STAGE_SCHEME = 3
 # Save único de antes dos mundos (v0.4): o jogo agora usa saves/world1..3.json (game/worlds.py), que migra
 # este arquivo pro mundo 1 sem apagar. Continua sendo o padrão do write_save/probe sem caminho (testes).
 SAVE_PATH = C.ROOT_DIR / "saves" / "slot1.json"   # o smoke e os testes apontam pra outro lugar
@@ -422,7 +422,7 @@ def progress_to_dict(state: GameState) -> dict:
     return {
         "indices": dict(state.indices),
         "stage": state.stage,
-        "stage_scheme": STAGE_SCHEME,                   # numeração dos estágios (2 = v0.4)
+        "stage_scheme": STAGE_SCHEME,                   # numeração dos estágios (3 = v0.8)
         "storm": state.storm,                           # tempestade no meio da passagem pro Árido continua de onde parou
         "smoothed_rate": state.smoothed_rate,           # pra estimativa do HUD não zerar ao carregar
         "play_time": state.play_time,
@@ -572,7 +572,17 @@ def _v12_to_v13(data: dict) -> dict:
     return data
 
 
-MIGRATIONS: dict = {10: _v10_to_v11, 11: _v11_to_v12, 12: _v12_to_v13}   # o v10 recomeçou do zero (v7–v9 viraram "save antigo")
+def _v13_to_v14(data: dict) -> dict:
+    """v0.8 M1: o 4º índice (biomassa) nasce zerado e os estágios viram 6. O Verde antigo (4) pedia só Ti; agora
+    Algas, Musgo e Verde pedem biomassa também, então quem estava no 4 volta pro Úmido (3). Do 1 ao 3 nada muda."""
+    progress = data.get("progress", {})
+    progress.setdefault("indices", {})["biomass"] = 0.0
+    progress["stage"] = min(int(progress.get("stage", 1)), C.MIST_STAGE)
+    progress["stage_scheme"] = 3
+    return data
+
+
+MIGRATIONS: dict = {10: _v10_to_v11, 11: _v11_to_v12, 12: _v12_to_v13, 13: _v13_to_v14}   # o v10 recomeçou do zero (v7–v9 viraram "save antigo")
 
 
 class SaveError(Exception):

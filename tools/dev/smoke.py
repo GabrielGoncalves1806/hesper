@@ -902,11 +902,25 @@ def check_objectives_midway(bot) -> None:
     bot.shot("objetivos_meio.png")
 
 
+def reach_stage(s, stage: int) -> None:
+    """v0.8 M1: põe o Ti do estágio e a biomassa mínima dele. O Ti total (o2 + biomassa) fica no limiar exato."""
+    st = C.STAGES[stage - 1]
+    s.indices.update(o2=float(st.ti - st.biomass), heat=0.0, water=0.0, biomass=float(st.biomass))
+
+
 def ti_in_window(stage: int, window_fraction: float) -> float:
     """Ti que fica `window_fraction` (0 a 1) dentro da janela de transição do estágio `stage` pro próximo."""
     start, end = C.STAGES[stage - 1].ti, C.STAGES[stage].ti
     bar = 1 - C.TRANSITION_WINDOW + C.TRANSITION_WINDOW * window_fraction
     return start + (end - start) * bar
+
+
+def reach_window(s, stage: int, window_fraction: float) -> None:
+    """v0.8 M1: como `ti_in_window`, mas a biomassa anda junto (o gargalo do estágio seguinte é o dela também)."""
+    cur, nxt = C.STAGES[stage - 1], C.STAGES[stage]
+    bar = 1 - C.TRANSITION_WINDOW + C.TRANSITION_WINDOW * window_fraction
+    biomass = cur.biomass + (nxt.biomass - cur.biomass) * bar
+    s.indices.update(o2=ti_in_window(stage, window_fraction) - biomass, heat=0.0, water=0.0, biomass=biomass)
 
 
 def check_transition(bot, stage: int, shots: list[tuple[str, float]]) -> None:
@@ -920,7 +934,7 @@ def check_transition(bot, stage: int, shots: list[tuple[str, float]]) -> None:
     bot.teleport(t192(96, 98))
     s.o2 = C.O2_MAX
     for name, fraction in shots:
-        s.indices.update(o2=ti_in_window(stage, fraction), heat=0.0, water=0.0)
+        reach_window(s, stage, fraction)
         bot.frames(0.1)
         assert s.stage == stage, "a transição não pode trocar o estágio oficial antes do limiar"
         bot.shot(name)
@@ -953,7 +967,7 @@ def check_veins(bot) -> None:
     near = [min((v for v in s.world.veins if v.resource == r), key=lambda v: math.hypot(v.tx - cx, v.ty - cy))
             for r in C.VEIN_RESOURCES]
     # os 3 não cabem juntos na tela (HUD em cima e embaixo): monta um recorte de cada
-    # (a dica "Veio de ... · drill libera na Névoa" é conferida pelo assert)
+    # (a dica "Veio de ... · drill libera no Úmido" é conferida pelo assert)
     crops = []
     for vein in sorted(near, key=lambda v: C.VEIN_RESOURCES.index(v.resource)):
         s.player.x, s.player.y = (vein.tx + 1) * C.TILE, (vein.ty + 4) * C.TILE   # player logo abaixo do veio
@@ -962,7 +976,7 @@ def check_veins(bot) -> None:
         bot.mouse_to(pos)
         bot.frames(0.05)
         name = C.RESOURCE_NAME[vein.resource]
-        assert app.hint() == f"Veio de {name} · drill libera na Névoa", app.hint()
+        assert app.hint() == f"Veio de {name} · drill libera no Úmido", app.hint()
         crop = pygame.Surface((240, 200))
         crop.blit(app.frame, (0, 0), (pos[0] - 104, pos[1] - 90, 240, 200))
         crops.append(crop)
@@ -2550,7 +2564,7 @@ def check_surface(bot) -> None:
             for cx in range(0, w.width * C.TILE, chunk):
                 piece.fill((0, 0, 0))
                 r.view_w, r.view_h = chunk, chunk
-                r.stage_map.update(s.ti, [])
+                r.stage_map.update(s.ti, [], s.indices["biomass"])
                 r.draw_floors(piece, s, (cx, cy), "dead", 0.0)
                 r.draw_veins(piece, s, (cx, cy))
                 r.draw_zone(piece, (cx, cy), 0.0)
@@ -2668,7 +2682,7 @@ def check_ground(bot) -> None:
     w.geo = geo
     assert geo is not None and r.surface_geo(s) is geo, "sem geo ou sem a arte das regiões (assets/sprites/regions/)"
     s.stage, s.storm = C.ARID_STAGE, 0.0              # Árido: sem poeira na frente do chão
-    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    reach_stage(s, C.ARID_STAGE)
     app.set_zoom(1.0, notify=False)
     names = {"planalto": 0, "salar": 1, "basalto": 2, "gelada": 3}
     for name, reg in names.items():
@@ -2702,24 +2716,25 @@ def check_ground(bot) -> None:
         n = sum(1 for ty in range(spot[1] - 8, spot[1] + 9) for tx, _, _ in r.ground.decor_row(ty)
                 if abs(tx - spot[0]) <= 15)
         assert n > 0, f"sem decoração solta perto de {spot}"
-    # 4 estágios na base (cor da rampa; a poeira e o clima por cima, como no jogo)
-    for stage in (1, 2, 3, 4):
+    # 4 visuais na base (cor da rampa; a poeira e o clima por cima, como no jogo). v0.8 M1: o 4º print é o Verde (6);
+    # Algas e Musgo usam a rampa do Úmido, então o nome do arquivo (chao_estagio4) continua o do Verde.
+    for shot_n, stage in enumerate((1, 2, 3, C.GREEN_STAGE), start=1):
         s.stage = stage
         s.storm = 1.0 if stage == C.STORM_STAGE else 0.0
-        s.indices.update(o2=float(C.STAGES[stage - 1].ti), heat=0.0, water=0.0)
+        reach_stage(s, stage)
         bot.teleport((C.BASE_TILE[0] + 3, C.BASE_TILE[1] + 4))
         s.o2 = C.O2_MAX
         ground_settle(bot)
-        bot.shot(f"chao_estagio{stage}.png")
+        bot.shot(f"chao_estagio{shot_n}.png")
     # a mancha da transição Árido -> Névoa passando pela base (blocos misturados)
     s.stage, s.storm = C.ARID_STAGE, 0.0
     app.set_zoom(0.75, notify=False)
-    s.indices.update(o2=ti_in_window(C.ARID_STAGE, 0.6), heat=0.0, water=0.0)
+    reach_window(s, C.ARID_STAGE, 0.6)
     bot.teleport((C.BASE_TILE[0], C.BASE_TILE[1] + 2))
     ground_settle(bot)
     assert any(c[0][0] == "m" for c in r.ground._color.values()), "nenhum bloco misturado na transição"
     bot.shot("chao_transicao.png")
-    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    reach_stage(s, C.ARID_STAGE)
     # 5) mapa inteiro reduzido 8× (só o chão), pra comparar com o mapa_regioes.png da Designer
     full = pygame.Surface((w.width * C.TILE // 8, w.height * C.TILE // 8), 0, 32)
     piece = pygame.Surface((1024, 1024), 0, 32)
@@ -2728,7 +2743,7 @@ def check_ground(bot) -> None:
     for cy in range(0, w.height * C.TILE, 1024):
         for cx in range(0, w.width * C.TILE, 1024):
             r.view_w, r.view_h = 1024, 1024
-            r.stage_map.update(s.ti, [])
+            r.stage_map.update(s.ti, [], s.indices["biomass"])
             r.draw_floors(piece, s, (cx, cy), "dead", 0.0)
             full.blit(pygame.transform.smoothscale(piece, (128, 128)), (cx // 8, cy // 8))
     r.ground.sync = False
@@ -2792,7 +2807,7 @@ def check_hills(bot) -> None:
     stage_before, storm_before = s.stage, s.storm
     zoom_before = app.zoom
     s.stage, s.storm = C.ARID_STAGE, 0.0
-    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    reach_stage(s, C.ARID_STAGE)
     app.set_zoom(1.0, notify=False)
     assert r.organic_hills(s), "morro orgânico desligado (sem a arte hill_top/hill_face?)"
     # 1) antes × depois (C.ORGANIC_HILLS desliga), no planalto e no basalto
@@ -2910,8 +2925,8 @@ def check_faixa_gelada(bot) -> None:
     for stage, tag in ((C.STORM_STAGE, "tempestade"), (C.ARID_STAGE, "arido"), (C.MIST_STAGE, "nevoa"),
                        (C.GREEN_STAGE, "verde")):
         s.stage, s.storm = stage, 0.0
-        s.indices.update(o2=float(C.STAGES[stage - 1].ti), heat=0.0, water=0.0)
-        app.renderer.stage_map.update(s.indices["o2"], [])
+        reach_stage(s, stage)
+        app.renderer.stage_map.update(s.ti, [], s.indices["biomass"])
         ground_settle(bot)
         shot_zoom(bot, f"faixa_gelada_{tag}.png", ((v.tx - 3) * C.TILE, (v.ty + 1.5) * C.TILE), w=400, h=220, k=2)
     for t, tile in saved.items():
@@ -2937,7 +2952,7 @@ def check_formations(bot) -> None:
 
     def set_stage(stage):
         s.stage, s.storm = stage, 0.0
-        s.indices.update(o2=float(C.STAGES[stage - 1].ti), heat=0.0, water=0.0)
+        reach_stage(s, stage)
 
     def stand(px, py):
         s.player.x, s.player.y = px, py
@@ -3099,7 +3114,7 @@ def check_v9_elements(bot) -> None:
     bot.mouse_to((900, 500))
     for stage, tag in ((C.ARID_STAGE, "arido"), (C.GREEN_STAGE, "verde")):
         s.stage, s.storm = stage, 0.0
-        s.indices.update(o2=float(C.STAGES[stage - 1].ti), heat=0.0, water=0.0)
+        reach_stage(s, stage)
         for name, (f, spot) in views.items():
             bot.teleport(spot)
             s.o2 = C.O2_MAX
@@ -3124,7 +3139,7 @@ def check_v9_elements(bot) -> None:
             bot.shot(f"v9_{name}_{tag}.png")
     # custo: passeio no basalto (zoom 0,75), com e sem os soltos v9 e as formações pequenas (alternado, a melhor)
     s.stage, s.storm = C.ARID_STAGE, 0.0
-    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    reach_stage(s, C.ARID_STAGE)
     app.set_zoom(0.75, notify=False)
     spot = views["basalto"][1]
     avg = lambda ft: 1000 * sum(ft) / len(ft)   # noqa: E731
@@ -3302,7 +3317,7 @@ def check_thaw(bot) -> None:
         r.vent_smoke.clear()
 
     s.stage, s.storm = C.ARID_STAGE, 0.0                  # Árido: sem poeira na frente dos prints
-    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    reach_stage(s, C.ARID_STAGE)
     reset_thaw()
     app.set_zoom(1.0, notify=False)
     bot.mouse_to((900, 500))
@@ -3385,7 +3400,7 @@ def check_crater(bot) -> None:
     stage_before, storm_before = s.stage, s.storm
     zoom_before = app.zoom
     s.stage, s.storm = C.ARID_STAGE, 0.0                  # Árido: sem poeira na frente dos prints
-    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    reach_stage(s, C.ARID_STAGE)
     app.set_zoom(1.0, notify=False)
     w = s.world
     tx, ty = w.crater
@@ -4105,7 +4120,7 @@ def check_cover(bot) -> None:
               (C.GREEN_STAGE, "verde_cobertura_lago.png", lake, C.GEO_LEVELS[2])]
     for stage, name, spot, level in shots:
         s.stage, s.storm = stage, 0.0
-        s.indices.update(o2=float(C.STAGES[stage - 1].ti), heat=0.0, water=0.0)
+        reach_stage(s, stage)
         w.water_level = level
         bot.teleport(spot)
         s.o2 = C.O2_MAX
@@ -4352,7 +4367,7 @@ def check_gates(bot) -> None:
 
     def heat(value):                                   # Árido (Ti 6.500) com o calor pedido
         s.stage, s.storm = C.ARID_STAGE, 0.0
-        s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti) - value, heat=float(value), water=0.0)
+        s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti) - value, heat=float(value), water=0.0, biomass=0.0)
         s.o2 = C.O2_MAX
         bot.frames(DT)
 
@@ -4512,7 +4527,7 @@ def check_magmatite(bot) -> None:
     before = dict(s.indices)
     stage_before, storm_before, zoom_before = s.stage, s.storm, app.zoom
     s.stage, s.storm = C.ARID_STAGE, 0.0                   # Árido: sem poeira na frente dos prints
-    s.indices.update(o2=float(C.STAGES[C.ARID_STAGE - 1].ti), heat=0.0, water=0.0)
+    reach_stage(s, C.ARID_STAGE)
     banner_before, app.banner_time = app.banner_time, 999.0   # sem o banner do estágio na frente
     vents = layer.geo.vents
     rings = {t for f in vents for t in magmatite.ring_tiles(f)}
@@ -4763,6 +4778,7 @@ def main() -> None:
     check_polish(bot)
     check_final_polish(bot)
     check_transition(bot, C.MIST_STAGE, [("transicao_verde_60.png", 0.60)])
+    s.indices["biomass"] = 15_000.0           # v0.8 M1: o Verde pede biomassa também (o F7 só dá 500 por toque)
     for _ in range(9):
         bot.key(pygame.K_F2)
     bot.frames(1.0)
@@ -4867,7 +4883,7 @@ def check_borda_baixo(bot) -> None:
     """Bug da rocha furada: os 24 px de baixo do mapa (abaixo da cordilheira da borda) saíam transparentes e
     aparecia o chão (grama no Verde). Print com a câmera no fundo do mapa (borda_baixo_verde)."""
     s, app = bot.state, bot.app
-    s.indices.update(o2=100_000.0, heat=0.0, water=0.0)       # Ti do Verde (o estágio vem dos índices)
+    reach_stage(s, C.GREEN_STAGE)                  # Ti e biomassa do Verde (o estágio vem dos índices)
     s.storm = 0.0
     bot.teleport((s.world.width // 2, s.world.height - 4))
     bot.frames(2.0)

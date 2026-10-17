@@ -33,27 +33,28 @@ BASE_SOURCE = (C.BASE_TILE[0], C.POD_TILES[0][1])
 # ---------------------------------------------------------------------------
 # Em que ponto da janela de transição estamos
 # ---------------------------------------------------------------------------
-def window_progress(ti: float) -> tuple[int, float]:
+def window_progress(ti: float, biomass: float = 0.0) -> tuple[int, float]:
     """(estágio atual, quanto da janela de transição já andou, de 0 a 1).
 
     Ex.: com Ti 9.000 estamos no estágio 1 com 90% da barra; a janela começa em 65%,
     então andamos (0,90 - 0,65) / 0,35 = ~71% dela. No último estágio não tem janela (0).
+    v0.8 M1: com a biomassa, a janela anda pelo gargalo (o mesmo progresso do HUD).
     """
-    stage = stage_for_ti(ti)
-    nxt, fraction, _ = stage_progress(ti)
+    stage = stage_for_ti(ti, biomass)
+    nxt, fraction, _, _ = stage_progress(ti, biomass)
     if nxt is None:
         return stage, 0.0
     start = 1.0 - C.TRANSITION_WINDOW
     return stage, max(0.0, (fraction - start) / C.TRANSITION_WINDOW)
 
 
-def window_step(ti: float) -> tuple[int, int]:
+def window_step(ti: float, biomass: float = 0.0) -> tuple[int, int]:
     """Mesma coisa, mas em "degraus" inteiros (0 a TRANSITION_STEPS - 1).
 
     O visual só muda quando o degrau muda (a cada 1% da janela). Isso deixa o desenho
     cacheável: enquanto o degrau não muda, o estágio de cada tile também não muda.
     """
-    stage, progress = window_progress(ti)
+    stage, progress = window_progress(ti, biomass)
     return stage, min(C.TRANSITION_STEPS - 1, int(progress * C.TRANSITION_STEPS))
 
 
@@ -88,12 +89,12 @@ def front_distance(progress: float) -> float:
     return C.TRANSITION_FRONT_NEAR * progress + C.TRANSITION_FRONT_FAR * progress ** C.TRANSITION_FRONT_POWER
 
 
-def tile_stage(x: int, y: int, ti: float, sources, seed: int = C.WORLD_SEED) -> int:
+def tile_stage(x: int, y: int, ti: float, sources, seed: int = C.WORLD_SEED, biomass: float = 0.0) -> int:
     """Número do estágio (1, 2, 3) com que o tile (x, y) deve ser desenhado com esse Ti.
 
     `sources` são os tiles de onde a mancha nasce: a base e toda máquina que já foi colocada.
     """
-    stage, step = window_step(ti)
+    stage, step = window_step(ti, biomass)
     if step > 0 and effective_distance(x, y, sources, seed) < front_distance(step / C.TRANSITION_STEPS):
         return stage + 1
     return stage
@@ -122,14 +123,14 @@ class StageMap:
         self._distances: dict[tuple[int, int], list[float]] = {}
         self._stages: dict[tuple[int, int], bytes] = {}
 
-    def update(self, ti: float, sources) -> None:
+    def update(self, ti: float, sources, biomass: float = 0.0) -> None:
         """Chamar uma vez por frame. Só joga cache fora se as fontes ou o degrau mudaram."""
         sources = tuple(sorted(set(sources)))
         if sources != self._sources:
             self._sources = sources
             self._distances.clear()
             self._stages.clear()
-        stage, self.progress = window_progress(ti)
+        stage, self.progress = window_progress(ti, biomass)
         step = min(C.TRANSITION_STEPS - 1, int(self.progress * C.TRANSITION_STEPS))
         if (stage, step) != (self.stage, self.step):
             self.stage, self.step = stage, step
