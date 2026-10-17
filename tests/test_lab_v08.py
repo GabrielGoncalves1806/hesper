@@ -151,18 +151,17 @@ def test_scanning_the_tank_unlocks_the_cultivator_recipe():
     assert not g.can_scan(tank)                                         # e não escaneia de novo
 
 
-def test_microscope_is_not_scannable_yet():
+def test_scanning_the_tank_does_not_give_the_microscope():
+    # v0.8 M4: o microscópio quebrado passou a dar o diagrama dele (tests/test_microscope_v08.py); o do tanque continua só o Cultivador
     g = new_game(7)
-    mic = lab_prop(g, "prop_microscope_digital")
-    assert g.can_scan(mic) is False
-    hold_scan(g, mic)
-    assert not g.blueprints and "prop_microscope_digital" not in g.scanned
+    hold_scan(g, lab_prop(g, "prop_sample_tank"))
+    assert g.blueprints == {C.CULTIVATOR}
 
 
 def test_lab_machine_props_are_not_player_decor():
     for kind in C.PROP_MACHINE_ART:
         assert kind not in C.PLAYER_PROPS and kind in C.PROPS
-    assert C.SCAN_BLUEPRINT == {"prop_sample_tank": C.CULTIVATOR}
+    assert C.SCAN_BLUEPRINT == {"prop_sample_tank": C.CULTIVATOR, "prop_microscope_digital": C.MICROSCOPE}   # v0.8 M4
     assert C.BLUEPRINTS[C.CULTIVATOR] == "Cultivador" and C.CULTIVATOR not in C.WRECK_DIAGRAMS
 
 

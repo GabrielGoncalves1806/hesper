@@ -102,6 +102,8 @@ class Machine:
     tank: float = field(default=0.0, compare=False)
     grow_crop: str | None = field(default=None, compare=False, repr=False)
     grow_blocker: str | None = field(default="no_seed", compare=False, repr=False)
+    # v0.8 M4: só o Microscópio. Analisando agora (o render anima só assim); recalculado a cada tick, não vai no save.
+    analyzing: bool = field(default=False, compare=False, repr=False)
     # v0.7 M1: máquina quebrada de ruína (game/ruins.py). Não liga: sem índice, Ti, energia, luz, animação nem painel (o
     # E não abre). Só desmonta (devolve C.RUIN_SALVAGE). Nunca vai no save (a ruína sai da seed).
     broken: bool = field(default=False, compare=False)
@@ -121,6 +123,8 @@ class Machine:
             self.storage = Inventory(C.COLLECTOR_SLOTS)
         elif self.storage is None and self.is_cultivator:
             self.storage = Inventory(C.CULT_SLOTS)
+        elif self.storage is None and self.is_microscope:
+            self.storage = Inventory(C.MIC_SLOTS)
         self.grow_crop = self.crop
         if stored_init:
             self.stored = stored_init
@@ -182,6 +186,11 @@ class Machine:
         return self.kind == C.CULTIVATOR
 
     @property
+    def is_microscope(self) -> bool:
+        """Microscópio (v0.8 M4): gelo → amostra por chance (C.MICROSCOPE_ODDS), em qualquer camada e estágio."""
+        return self.kind == C.MICROSCOPE
+
+    @property
     def crop(self) -> str | None:
         """Cultivador: a cultura que está plantada (o item do slot da muda), None sem muda."""
         seed = self.storage.slots[C.CULT_SEED_SLOT] if self.is_cultivator else None
@@ -223,13 +232,13 @@ class Machine:
         """Baú, drill, derretedor, Fundição, dispersor e Coletor (v0.6 M2/M3, v0.8 M2): têm Envia/Recebe/Lote. Se o drone
         atende, é `in_network`."""
         return (self.is_chest or self.is_drill or self.is_melter or self.is_dispenser or self.is_smelter
-                or self.is_collector or self.is_cultivator)
+                or self.is_collector or self.is_cultivator or self.is_microscope)
 
     @property
     def needs_chip(self) -> bool:
         """v0.6 M2/M3, v0.8 M2: drill, derretedor, Fundição, dispersor e Coletor só entram na rede dos drones com um chip."""
         return (self.is_drill or self.is_melter or self.is_dispenser or self.is_smelter or self.is_collector
-                or self.is_cultivator)
+                or self.is_cultivator or self.is_microscope)
 
     @property
     def in_network(self) -> bool:
@@ -1360,6 +1369,12 @@ class GameState:
                 and self.drill_distance(m) <= C.CULTIVATOR_REACH]
         return min(near, key=self.drill_distance, default=None)
 
+    def nearby_microscope(self) -> Machine | None:
+        """Microscópio ao alcance do E (o mais perto; ainda se construindo não abre)."""
+        near = [m for m in self.machines if m.is_microscope and m.build <= 0 and not m.broken
+                and self.drill_distance(m) <= C.MICROSCOPE_REACH]
+        return min(near, key=self.drill_distance, default=None)
+
     def nearby_dispenser(self) -> Machine | None:
         """Dispersor de O₂ ao alcance do E (o mais perto)."""
         near = [m for m in self.machines if m.is_dispenser and m.build <= 0
@@ -1403,6 +1418,7 @@ class GameState:
                                ("smelter", machine.is_smelter and machine.build <= 0),
                                ("collector", machine.is_collector and machine.build <= 0),
                                ("cultivator", machine.is_cultivator and machine.build <= 0),
+                               ("microscope", machine.is_microscope and machine.build <= 0),
                                ("dispenser", machine.is_dispenser and machine.build <= 0)):
                 if flag:
                     return kind, machine
@@ -1458,7 +1474,8 @@ class GameState:
             return tuple(target) in self.world.containers and self.container_distance(target) <= C.CONTAINER_REACH
         reach = {"drill": C.DRILL_REACH, "chest": C.CHEST_REACH, "station": C.STATION_REACH,
                  "bench": C.BENCH_REACH, "melter": C.MELTER_REACH, "smelter": C.SMELTER_REACH, "dispenser": C.DISPENSER_REACH,
-                 "collector": C.COLLECTOR_REACH, "cultivator": C.CULTIVATOR_REACH}[kind]
+                 "collector": C.COLLECTOR_REACH, "cultivator": C.CULTIVATOR_REACH,
+                 "microscope": C.MICROSCOPE_REACH}[kind]
         return any(m is target for m in self.machines) and self.drill_distance(target) <= reach
 
     def interaction(self, hover: tuple[str, object] | None = None) -> tuple[str, object] | None:
@@ -1498,6 +1515,9 @@ class GameState:
         cultivator = self.nearby_cultivator()
         if cultivator is not None:
             options.append((self.drill_distance(cultivator), "cultivator", cultivator))
+        microscope = self.nearby_microscope()
+        if microscope is not None:
+            options.append((self.drill_distance(microscope), "microscope", microscope))
         crate = self.nearby_crate()
         if crate is not None:
             options.append((self.crate_distance(crate), "crate", crate))
@@ -1648,6 +1668,24 @@ class GameState:
             return 0
         if have is None:
             collector.storage.slots[slot] = Stack(C.EMPTY_CAPSULE, moved)
+        else:
+            have.count += moved
+        self.inventory.remove_from_slot(index, moved)
+        return moved
+
+    def microscope_put(self, mic: Machine, index: int, amount: int | None = None) -> int:
+        """Põe gelo do slot `index` do inventário do player na entrada do Microscópio (`amount` None = a pilha inteira,
+        1 = clique direito). Só entra gelo, e só até a pilha encher. Devolve quanto entrou."""
+        stack = self.inventory.slots[index]
+        if stack is None or stack.item != "ice":
+            return 0
+        have = mic.storage.slots[C.MIC_ICE_SLOT]
+        room = stack.max - (have.count if have else 0)
+        moved = min(room, stack.count if amount is None else min(amount, stack.count))
+        if moved <= 0:
+            return 0
+        if have is None:
+            mic.storage.slots[C.MIC_ICE_SLOT] = Stack("ice", moved)
         else:
             have.count += moved
         self.inventory.remove_from_slot(index, moved)
@@ -1881,6 +1919,49 @@ class GameState:
                 out.count += 1
             self.events.append(("collector_done", m))
 
+    # ---- Microscópio (v0.8 M4) ----------------------------------------------------------------------
+    def microscope_blocker(self, m: Machine) -> str | None:
+        """Por que o Microscópio não analisa agora: "no_ice" (sem gelo), "out_full" (um dos 3 slots de amostra cheio:
+        não dá pra saber o que vai sair); None = analisando."""
+        if m.storage.count("ice") <= 0:
+            return "no_ice"
+        if any(m.storage.slots[s] is not None and m.storage.slots[s].room <= 0 for s in C.MIC_OUT_SLOTS.values()):
+            return "out_full"
+        return None
+
+    def microscope_roll(self) -> str | None:
+        """Uma análise: a amostra que saiu (C.MICROSCOPE_ODDS, com o rng do estado) ou None (o gelo não tinha nada)."""
+        r, acc = self.rng.random(), 0.0
+        for item, chance in C.MICROSCOPE_ODDS:
+            acc += chance
+            if r < acc:
+                return item
+        return None
+
+    def _update_microscope(self, m: Machine, dt: float) -> None:
+        """Microscópio (v0.8 M4): a cada MICROSCOPE_TIME s gasta 1 gelo e sorteia uma amostra no slot do tipo dela.
+        Travado (sem gelo, saída cheia): para, guarda o progresso e não gasta nada. `analyzing` fica pro render."""
+        while dt > 0 and self.microscope_blocker(m) is None:
+            left = C.MICROSCOPE_TIME - m.timer
+            if dt < left:
+                m.timer += dt
+                break
+            dt -= left
+            m.timer = 0.0
+            m.storage.remove("ice", 1)
+            item = self.microscope_roll()
+            if item is None:
+                self.events.append(("microscope_done", m, None))
+                continue
+            slot = C.MIC_OUT_SLOTS[item]
+            out = m.storage.slots[slot]
+            if out is None:
+                m.storage.slots[slot] = Stack(item, 1)
+            else:
+                out.count += 1
+            self.events.append(("sample_found", m, item))
+        m.analyzing = self.microscope_blocker(m) is None
+
     # ---- Cultivador (v0.8 M3) ----------------------------------------------------------------------
     def in_breathing_base(self, tile: tuple[int, int], layer: Layer, factor: float | None = None) -> bool:
         """O tile está dentro de uma base vedada da `layer` com um Dispersor soprando (ligado, vedado, com água)?"""
@@ -2033,7 +2114,8 @@ class GameState:
         out = dict(machine.type.cost)
         if machine.is_drill and machine.stored:
             out[machine.resource] = out.get(machine.resource, 0) + machine.stored
-        if machine.is_melter or machine.is_dispenser or machine.is_smelter or machine.is_collector or machine.is_cultivator:   # v0.5 M2/v0.6 M3/v0.8 M2/M3: o que ficou dentro (a carga acesa da Fundição some)
+        if machine.is_melter or machine.is_dispenser or machine.is_smelter or machine.is_collector or machine.is_cultivator \
+                or machine.is_microscope:   # v0.5 M2/v0.6 M3/v0.8 M2/M3/M4: o que ficou dentro (a carga acesa da Fundição some)
             for item, n in machine.storage.counts().items():
                 out[item] = out.get(item, 0) + n
         if machine.is_cultivator and int(machine.tank) > 0:    # v0.8 M3: a água do tanque interno volta em cápsulas cheias
@@ -2235,6 +2317,8 @@ class GameState:
                 self._update_melter(m, work_dt)
             if m.is_smelter:
                 self._update_smelter(m, work_dt)
+            if m.is_microscope:              # v0.8 M4: qualquer camada, não depende de base nem de estágio
+                self._update_microscope(m, work_dt)
         if power.factor > 0:                 # v0.5 M2: o Dispersor gasta a cápsula (só vedado e ligado)
             for layer in self.layers.values():
                 for m in layer.machines:
