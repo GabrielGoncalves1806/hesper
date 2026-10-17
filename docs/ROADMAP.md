@@ -93,6 +93,8 @@ Spec: `docs/superpowers/specs/2026-10-16-v07-lore-design.md` (brainstorm de 2026
 - [x] Marco 3 · Destroços novos (fechado em 2026-10-16, testado pelo dono "acho que tá ok"): VÉSPER-7, base de vidro (8×4, terminal lido de baixo), sonda nova, ARCA-2 (LOG dia 2) e robô R-2 (circuito sempre + chip 40%, LOG dia 167); 8 a 10 destroços por mundo; save v13 (destroço que bateria em construção não nasce).
 - [x] Marco 4 · Interior da VÉSPER-7 (fechado em 2026-10-16, testado pelo dono: "tudo ok"): uma VÉSPER por mundo; camada `vesper` 48×48 com 5 salas (2 plantas cada, pela seed); entra pela rampa da traseira, sai pela escotilha do porão; câmara fria com o contêiner aberto por dentro; painel sem bateria e porta emperrada no norte (faísca e névoa, gancho bateria + crachá da Ilves); LOGs 21–23; 17 props novos + microscópio digital, prop multi-tile (2×1, 2×2); som `amb_vesper`, `door_stuck`, `spark`; os 5 destroços maiores (VÉSPER 14×7, base 14×5, variantes A/B); aba VÉSPER-7 no mapa. Save v13.
 
+**v0.7 fechado em 2026-10-16.** Ficou pra depois (ver "Futuro"): código do cursor novo, abrir a porta emperrada (bateria + crachá da Ilves), colisão dos destroços, prop multi-tile em planta que gira, base de pesquisa + dungeon.
+
 ## v0.8 · Vida
 Fauna e flora surgindo com o Ti, farm, música. **O planeta reage** ao Ti e ao derretimento (saiu da v0.7). Genes do gelo (canon na bíblia §2).
 
