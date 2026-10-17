@@ -1,5 +1,5 @@
 {
-  "description": "Proposta de balanceamento v1 (Dev 4). Só receitas e taxas das máquinas; limiares (500, 10.000, 100.000), mineração, O₂ e velocidade ficam iguais. Reproduza com: uv run python tools/dev/balance_sim.py",
+  "description": "Proposta de balanceamento v1 (Dev 4). Só receitas e taxas das máquinas; limiares (500, 10.000, 100.000), mineração, O₂ e velocidade ficam iguais. Reproduza com: uv run python tools/dev/balance_sim.py. v0.8 M6: CROPS = proposta de partida do ROADMAP pros ciclos das plantas (alga 150, Folha-gota 240, Espiral 360, Lírio 540; o número final é do dono na Task 4). Tabela: --crops",
   "overrides": {
     "MACHINES": {
       "o2":        {"cost": {"iron": 14, "silicon": 6},              "rate": 2},
@@ -8,6 +8,12 @@
       "o2_t2":     {"cost": {"iron": 40, "silicon": 25, "ice": 15},  "rate": 20},
       "melter_t2": {"cost": {"iron": 30, "ice": 40},                 "rate": 16},
       "heater_t2": {"cost": {"iron": 45, "silicon": 30},             "rate": 24}
+    },
+    "CROPS": {
+      "algae":   {"cycle": 150},
+      "plant_1": {"cycle": 240},
+      "plant_2": {"cycle": 360},
+      "plant_3": {"cycle": 540}
     }
   }
 }
