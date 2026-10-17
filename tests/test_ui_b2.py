@@ -88,7 +88,7 @@ def test_drone_toggles_hit_test(ui, size):
     rects = [r for r, _ in ui.logistics_buttons]
     for rect, value in ui.logistics_buttons:
         assert ui.logistics_at(rect.center) == value
-        assert rect.w >= 20 and rect.h >= 16                       # botão grande: o ícone é o botão
+        assert rect.w >= 16 and rect.h >= 16                       # o ícone (16×16) é o botão: moldura justa
         assert pygame.Rect(0, 0, *size).contains(rect)
     assert all(a.collidelist([b for b in rects if b is not a]) < 0 for a in rects)
     assert ui.logistics_summary(chest) == "envia ferro"

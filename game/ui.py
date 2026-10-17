@@ -56,15 +56,22 @@ CENT_LOGI_Y = 152                                # v0.8 M4: ...e a da Centrífug
 DISP_LOGI_Y = 92                                 # onde a seção DRONES começa nos painéis da drill, derretedor e dispersor
 LOGI_H = 14 + 2 * LOGI_ROW + 2 + LOGI_BATCH_H    # altura da seção com Envia e Recebe, 1 linha de botões cada (82)
 LOGI_WIDE_AFTER = 5                              # com mais materiais que isso (o baú tem 8), a fileira vira "larga":
-LOGI_WIDE_BTN, LOGI_WIDE_GAP = 20, 2             # o rótulo (Envia/Recebe) sobe pra uma linha própria e os botões
-LOGI_WIDE_ROW = 9 + LOGI_WIDE_BTN + 2            # (20×20) ocupam a grade toda: 8 × 20 + 7 × 2 = 174 = GRID_W
-LOGI_WIDE_COLS = 8                               # v0.8 M3: passou de 8 materiais (as culturas), a fileira larga quebra em mais linhas
+LOGI_WIDE_BTN, LOGI_WIDE_GAP = 16, 1             # o rótulo (Envia/Recebe) sobe pra uma linha própria e os botões
+LOGI_WIDE_ROW = 9 + LOGI_WIDE_BTN + 2            # (16×16, o ícone justo) ficam 10 por linha: 10 × 16 + 9 × 1 = 169 ≤ GRID_W
+LOGI_WIDE_COLS = 10                              # v0.8 M5: 16 materiais no baú = 2 linhas por fileira (10 + 6); eram 4 de 20×20
+
+
+def wide_label_inline(n: int) -> bool:
+    """A última linha da fileira larga é curta (o baú: 6 de 10)? Então o rótulo (Envia/Recebe) vai no vão à direita
+    dela, em vez de gastar uma linha própria em cima. Precisa de 48 px livres ("Recebe" tem 41)."""
+    last = n % LOGI_WIDE_COLS or LOGI_WIDE_COLS
+    return GRID_W - last * (LOGI_WIDE_BTN + LOGI_WIDE_GAP) >= 48
 
 
 def wide_row_height(n: int) -> int:
-    """Altura de uma fileira larga (rótulo em cima e os botões 20×20 em linhas de 8) com `n` materiais."""
+    """Altura de uma fileira larga (botões 16×16 em linhas de 10; rótulo em cima, ou no vão da última linha) com `n`."""
     lines = -(-n // LOGI_WIDE_COLS)
-    return 9 + lines * (LOGI_WIDE_BTN + 2)
+    return (0 if wide_label_inline(n) else 9) + lines * (LOGI_WIDE_BTN + 2)
 
 
 def logi_row_cap(machine) -> int:
@@ -2442,8 +2449,8 @@ class UI:
             Lote     [1][5][10][20]
 
         Só entra a linha que a máquina pode ter (a drill não tem Recebe, o dispersor não tem Envia nem Lote).
-        Com mais de LOGI_WIDE_AFTER materiais (o baú tem 8, com os lingotes) a fileira vira larga: o rótulo sobe pra
-        uma linha própria e os botões (20×20) ocupam a grade toda.
+        Com mais de LOGI_WIDE_AFTER materiais (o baú tem 16) a fileira vira larga: botões 16×16, 10 por linha, na grade; o
+        rótulo vai no vão da última linha (ou sobe pra uma linha própria se não houver vão).
         Quem precisa de chip mostra o slot dele à direita; sem chip, no lugar das linhas vai o texto
         "Coloque um chip pra ligar aos drones". Guarda os botões em `logistics_buttons`."""
         from game import drones                      # (import local: a UI não depende da lógica no topo)
@@ -2478,10 +2485,18 @@ class UI:
             if not items:
                 continue
             wide = len(items) > LOGI_WIDE_AFTER
-            if wide:                                     # o baú: rótulo em cima, botões 20×20 na largura da grade
-                self.tx(label, x, ry - 3, B_MUTED, self.body)
+            if wide:                                     # o baú: botões 16×16, 10 por linha, na largura da grade
+                inline = wide_label_inline(len(items))
+                top = ry if inline else ry + 9
+                lines = -(-len(items) // LOGI_WIDE_COLS)
+                if inline:                               # rótulo no vão à direita da última linha (curta)
+                    last = len(items) % LOGI_WIDE_COLS or LOGI_WIDE_COLS
+                    self.tx(label, x + last * (LOGI_WIDE_BTN + LOGI_WIDE_GAP) + 6,
+                            top + (lines - 1) * (LOGI_WIDE_BTN + 2) + 1, B_MUTED, self.body)
+                else:
+                    self.tx(label, x, ry - 3, B_MUTED, self.body)
                 row = [pygame.Rect(x + (k % LOGI_WIDE_COLS) * (LOGI_WIDE_BTN + LOGI_WIDE_GAP),
-                                   ry + 9 + (k // LOGI_WIDE_COLS) * (LOGI_WIDE_BTN + 2), LOGI_WIDE_BTN, LOGI_WIDE_BTN)
+                                   top + (k // LOGI_WIDE_COLS) * (LOGI_WIDE_BTN + 2), LOGI_WIDE_BTN, LOGI_WIDE_BTN)
                        for k in range(len(items))]
             else:
                 self.tx(label, x, ry + 2, B_MUTED, self.body)
