@@ -170,12 +170,15 @@ def build_at(state, kind, tile, rotation=0, finish=True):
         if short > 0:
             state.inventory.add(r, short)
     indices = dict(state.indices)               # v0.6: a trava de Ti (ex.: Baú normal) não atrapalha o atalho
+    stage = state.stage
+    state.stage = max(stage, C.MACHINES[kind].unlock_stage)   # v0.8 M4: a trava por estágio também
     state.indices["o2"] += max(0.0, C.MACHINES[kind].unlock_ti - state.ti) + 1
     try:
         assert state.build(kind, tile, rotation), \
             f"não construiu {kind} em {tile}: {state.build_status(kind)}, lugar {state.can_place(kind, tile, rotation)}"
     finally:
         state.indices.update(indices)
+        state.stage = stage
     machine = state.machine_at(tile)
     if finish:
         machine.build = 0.0

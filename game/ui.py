@@ -292,6 +292,14 @@ def static_noise(surf: pygame.Surface, amount: float, t: float, snow: float = 0.
         surf.fill(line, (0, y, w, k), special_flags=pygame.BLEND_RGB_ADD)
 
 
+def unlock_text(kind: str) -> str:
+    """Texto do "locked" de uma receita: o estágio (se ela trava por estágio) ou o Ti."""
+    m = C.MACHINES[kind]
+    if m.unlock_stage > 0:
+        return f"LIBERA NO ESTÁGIO {C.STAGES[m.unlock_stage - 1].name}"
+    return f"LIBERA EM TI {fmt(m.unlock_ti)}"
+
+
 def fmt(n: float) -> str:
     """12400 -> '12.400' (separador de milhar brasileiro)."""
     return f"{round(n):,}".replace(",", ".")
@@ -1430,7 +1438,7 @@ class UI:
         elif status in ("known", "made"):
             label, kind_b = ("JÁ LIDO" if status == "known" else "JÁ FEITO"), "off"
         else:
-            label, kind_b = f"LIBERA EM TI {fmt(m.unlock_ti)}", "off"
+            label, kind_b = unlock_text(kind), "off"
         self.button(button, label, kind_b, hover=kind_b == "primary" and button.collidepoint(mouse))
         self.craft_label = label
 

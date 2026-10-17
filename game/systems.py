@@ -891,7 +891,7 @@ class GameState:
 
     def recipe_status(self, kind: str, inv_only: bool = False) -> str:
         """'blueprint' (diagrama não lido), 'known' (a receita é um diagrama que já foi lido), 'made' (item de uma vez
-        só, C.ONCE_ITEMS, já fabricado ou em posse; v0.6 Fundo M5), 'locked' (Ti insuficiente), 'missing' (falta recurso) ou 'ok'.
+        só, C.ONCE_ITEMS, já fabricado ou em posse; v0.6 Fundo M5), 'locked' (Ti ou estágio insuficiente), 'missing' (falta recurso) ou 'ok'.
         `inv_only`: conta só o inventário (o construtor, v0.5 M1)."""
         machine = C.MACHINES[kind]
         if kind in C.PLAYER_PROPS and kind not in self.known_props():
@@ -903,7 +903,7 @@ class GameState:
             return "known"                      # o diagrama dessa receita já foi lido: não se fabrica de novo
         if kind in C.ONCE_ITEMS and (self.crafted[kind] > 0 or self.owns(kind)):
             return "made"                       # v0.6 Fundo M5: item de uma vez só, já fabricado
-        if self.ti < machine.unlock_ti:
+        if self.ti < machine.unlock_ti or self.stage < machine.unlock_stage:
             return "locked"
         if any(self.available(r, inv_only) < n for r, n in machine.cost.items()):
             return "missing"
