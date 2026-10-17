@@ -15,6 +15,7 @@ Canais reservados (o pygame não usa eles pra efeitos comuns):
     11    = chiado da fumarola acordada mais perto (v11, vent_hiss.wav)
     12    = o "carregando" do desmonte · 13 = zumbido do Dispersor
     14 e 15 = loop das 2 Fundições fundindo mais perto (v0.6 Fundo M3, smelter_loop.wav)
+    16    = loop do scan · 17 = loop do Coletor de água coletando mais perto (v0.8 M2, collector_loop.wav)
 """
 
 import random
@@ -130,6 +131,11 @@ def smelter_loop_volume(distance_tiles: float) -> float:
     return VOLUME.get("smelter_loop", 0.45) * fade_by_distance(distance_tiles, 2, 7)
 
 
+def collector_loop_volume(distance_tiles: float) -> float:
+    """Loop do Coletor de água coletando: baixo e perto, cheio (0,4) até 2 tiles, some a partir de 6."""
+    return VOLUME.get("collector_loop", 0.4) * fade_by_distance(distance_tiles, 2, 6)
+
+
 def smelter_done_gain(distance_tiles: float) -> float:
     """smelter_done (lingote saiu, 0,6 no VOLUME) atenuado: inteiro até 3 tiles, some a partir de 10."""
     return fade_by_distance(distance_tiles, 3, 10)
@@ -232,8 +238,8 @@ class Audio:
         try:
             if not pygame.mixer.get_init():
                 pygame.mixer.init(44100, -16, 2, 512)
-            pygame.mixer.set_num_channels(20)
-            pygame.mixer.set_reserved(17)
+            pygame.mixer.set_num_channels(21)
+            pygame.mixer.set_reserved(18)
             self.amb = [pygame.mixer.Channel(0), pygame.mixer.Channel(1)]
             self.alarm_channel = pygame.mixer.Channel(2)
             self.hum_channel = pygame.mixer.Channel(3)
@@ -257,6 +263,8 @@ class Audio:
             self.scan_channel = pygame.mixer.Channel(16)   # v0.7 M2: o loop do scan (canal único)
             self.smelter_channels = [pygame.mixer.Channel(14), pygame.mixer.Channel(15)]   # v0.6 Fundo M3
             self._smelter_on = [False, False]
+            self.collector_channel = pygame.mixer.Channel(17)   # v0.8 M2: o gotejar do Coletor (canal único)
+            self._collector_on = [False]
             self.ok = True
         except pygame.error as err:
             print(f"[audio] sem áudio ({err}). Seguindo em silêncio.")
@@ -438,6 +446,11 @@ class Audio:
         """Loop da Fundição em até 2 canais (as 2 fundindo mais perto). Volume 0 = some com fadeout(400)."""
         if self.ok:
             self._set_loops("smelter_loop", self.smelter_channels, self._smelter_on, volumes)
+
+    def set_collector_loop(self, volume: float) -> None:
+        """Loop do Coletor de água (v0.8 M2): um canal, o coletor coletando mais perto. Sem o arquivo, silêncio."""
+        if self.ok:
+            self._set_loops("collector_loop", [self.collector_channel], self._collector_on, [volume])
 
     def set_solar_hum(self, volume: float) -> None:
         """Um canal só, com o volume do painel solar mais perto."""

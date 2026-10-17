@@ -15,7 +15,7 @@ from game import config as C  # noqa: E402
 from game import save  # noqa: E402
 from game.base import BaseBlock, BaseGrid, floor_variant  # noqa: E402
 from game.inventory import Stack  # noqa: E402
-from game.systems import Controls, GameState, Machine  # noqa: E402
+from game.systems import Controls, GameState, Machine, dispenser_capsule_time  # noqa: E402
 from tests.helpers import build_now, give  # noqa: E402
 
 T = C.TILE
@@ -429,7 +429,7 @@ def run(game, seconds, step=0.05):
 def test_dispenser_recipe_power_and_placing(game):
     m = C.MACHINES[C.DISPENSER]
     assert m.name == "Dispersor de O₂" and C.POWER_USE[C.DISPENSER] == 1 and C.MACHINE_CATEGORY[C.DISPENSER] == "base"
-    assert len(Machine(C.DISPENSER, 3, 3).storage) == C.DISPENSER_SLOTS == 1
+    assert len(Machine(C.DISPENSER, 3, 3).storage) == C.DISPENSER_SLOTS == 2   # v0.8 M2: cápsula + vazias
     x0, y0 = free_spot(game, 6, 4)
     stand_at(game, x0 + 2, y0 + 2)
     d = build_now(game, C.DISPENSER, (x0, y0))
@@ -467,11 +467,12 @@ def test_dispenser_burns_one_capsule_every_x_minutes_and_only_when_sealed(game):
     assert d.capsules == 2 and d.burn == 0
     game.base.add(BaseBlock(C.BASE_WALL, x0 + 4, y0))
     game._update_machines(1.0)
-    assert d.capsules == 1 and 0 < d.burn < C.DISPENSER_CAPSULE_TIME      # a 1ª saiu do slot pra queimar
-    game._update_machines(C.DISPENSER_CAPSULE_TIME)
+    t = dispenser_capsule_time(len(game.seal_of(d).floor))        # v0.8 M2: a duração depende do chão (4×3 = 12 tiles)
+    assert d.capsules == 1 and 0 < d.burn < t                      # a 1ª saiu do slot pra queimar
+    game._update_machines(t)
     assert d.capsules == 0 and d.burn > 0                          # a 2ª começou
     assert game.dispenser_state(d) == "sealed"
-    game._update_machines(C.DISPENSER_CAPSULE_TIME)
+    game._update_machines(t)
     assert d.capsules == 0 and d.burn == 0 and game.dispenser_state(d) == "dry"
     assert [e for e in game.events if e[0] == "dispenser_dry"] == [("dispenser_dry", d.anchor)]   # uma vez só
     game._update_machines(30)
@@ -605,7 +606,7 @@ def test_save_version_is_10_and_blocks_roundtrip(game, tmp_path):
     dd = BaseBlock(C.BASE_DOOR2, x0 - 1 - 3, y0, "v")
     game.base.add(dd)
     data = save.state_to_dict(game)
-    assert data["version"] == save.SAVE_VERSION == 14
+    assert data["version"] == save.SAVE_VERSION == 15
     entries = data["layers"]["surface"]["base"]
     double = [e for e in entries if e["kind"] == C.BASE_DOOR2]
     assert double == [{"kind": C.BASE_DOOR2, "tx": dd.tx, "ty": dd.ty, "orient": "v"}]    # um objeto só, com âncora e orientação
@@ -629,7 +630,7 @@ def test_dispenser_save_sanitizes_the_slot():
     data["storage"] = [["iron", 9]]
     data["burn"] = 99999
     back = save.machine_from_dict(data)
-    assert back.capsules == 0 and back.burn == C.DISPENSER_CAPSULE_TIME
+    assert back.capsules == 0 and back.burn == C.DISPENSER_TIME_MAX   # v0.8 M2: o teto da duração
 
 
 def test_load_ignores_unknown_and_overlapping_blocks():

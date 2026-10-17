@@ -260,7 +260,7 @@ def test_save_props_e_scanned(state_with_constructor):
     s.build("prop_table", tile)
     s.scanned.add("prop_bunk")
     data = json.loads(json.dumps(save.state_to_dict(s)))
-    assert data["version"] == 14 and data["scanned"] == ["prop_bunk"]
+    assert data["version"] == 15 and data["scanned"] == ["prop_bunk"]
     assert data["layers"]["surface"]["props"] == [["prop_table", *tile]]
     t = save.state_from_dict(data)
     assert t.scanned == {"prop_bunk"}

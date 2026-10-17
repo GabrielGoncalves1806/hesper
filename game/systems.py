@@ -91,6 +91,9 @@ class Machine:
     leak_t: float = field(default=0.0, compare=False, repr=False)
     # v0.6 Fundo M3: só a Fundição. Fundições que ainda restam da magmatita que está queimando (vai no save).
     fuel: int = field(default=0, compare=False)
+    # v0.8 M2: só o Coletor de água. Coletando agora (o render anima só assim); recalculado a cada tick, não vai no save.
+    collecting: bool = field(default=False, compare=False, repr=False)
+    cycle: float = field(default=C.COLLECTOR_TIME, compare=False, repr=False)   # s da cápsula agora (com a chuva), pra barra do painel
     # v0.7 M1: máquina quebrada de ruína (game/ruins.py). Não liga: sem índice, Ti, energia, luz, animação nem painel (o
     # E não abre). Só desmonta (devolve C.RUIN_SALVAGE). Nunca vai no save (a ruína sai da seed).
     broken: bool = field(default=False, compare=False)
@@ -106,6 +109,8 @@ class Machine:
             self.storage = Inventory(C.DISPENSER_SLOTS)
         elif self.storage is None and self.is_smelter:
             self.storage = Inventory(C.SMELTER_SLOTS)
+        elif self.storage is None and self.is_collector:
+            self.storage = Inventory(C.COLLECTOR_SLOTS)
         if stored_init:
             self.stored = stored_init
 
@@ -156,6 +161,11 @@ class Machine:
         return None
 
     @property
+    def is_collector(self) -> bool:
+        """Coletor de água (v0.8 M2): cápsula vazia + umidade do ar → cápsula cheia (só na superfície, do Úmido em diante)."""
+        return self.kind == C.COLLECTOR
+
+    @property
     def is_dispenser(self) -> bool:
         """Dispersor de O₂ (v0.5 M2): 1 slot de cápsula de água, vedação da base e O₂ lá dentro."""
         return self.kind == C.DISPENSER
@@ -178,13 +188,15 @@ class Machine:
 
     @property
     def is_logistic(self) -> bool:
-        """Baú, drill, derretedor, Fundição e dispersor (v0.6 M2/M3): têm Envia/Recebe/Lote. Se o drone atende, é `in_network`."""
-        return self.is_chest or self.is_drill or self.is_melter or self.is_dispenser or self.is_smelter
+        """Baú, drill, derretedor, Fundição, dispersor e Coletor (v0.6 M2/M3, v0.8 M2): têm Envia/Recebe/Lote. Se o drone
+        atende, é `in_network`."""
+        return (self.is_chest or self.is_drill or self.is_melter or self.is_dispenser or self.is_smelter
+                or self.is_collector)
 
     @property
     def needs_chip(self) -> bool:
-        """v0.6 M2/M3: drill, derretedor, Fundição e dispersor só entram na rede dos drones com um chip no slot."""
-        return self.is_drill or self.is_melter or self.is_dispenser or self.is_smelter
+        """v0.6 M2/M3, v0.8 M2: drill, derretedor, Fundição, dispersor e Coletor só entram na rede dos drones com um chip."""
+        return self.is_drill or self.is_melter or self.is_dispenser or self.is_smelter or self.is_collector
 
     @property
     def in_network(self) -> bool:
@@ -304,6 +316,17 @@ def storm_level(state) -> float:
     """Intensidade da tempestade que vale onde o player está: 0 debaixo do chão e dentro da nave (a poeira não entra
     lá), senão o `state.storm` (1 = tempestade cheia, 0 = céu limpo)."""
     return state.storm if state.layer == SURFACE else 0.0
+
+
+def dispenser_capsule_time(floor_tiles: int) -> float:
+    """v0.8 M2: quanto 1 cápsula dura no Dispersor, proporcional ao chão da base (5×5 = 180 s), entre 30 e 360 s."""
+    raw = C.DISPENSER_CAPSULE_TIME * C.DISPENSER_REF_FLOOR / max(1, floor_tiles)
+    return max(C.DISPENSER_TIME_MIN, min(C.DISPENSER_TIME_MAX, raw))
+
+
+def collector_time(rain: float) -> float:
+    """v0.8 M2: segundos por cápsula no Coletor com a chuva `rain` (0..1)."""
+    return C.COLLECTOR_TIME / (1.0 + C.COLLECTOR_RAIN_BONUS * max(0.0, min(1.0, rain)))
 
 
 def stage_for_ti(ti: float, biomass: float = 0.0) -> int:
@@ -1232,24 +1255,34 @@ class GameState:
         return min(math.hypot(p.x - x, p.y - y) for x, y in points)
 
     def _burn_capsules(self, machine: Machine, layer: Layer, dt: float) -> None:
-        """Gasta a água do Dispersor: com a base vedada e ligado, 1 cápsula dura C.DISPENSER_CAPSULE_TIME s. A cápsula
+        """Gasta a água do Dispersor: com a base vedada e ligado, 1 cápsula dura `dispenser_capsule_time(chão)` s. A cápsula
         sai do slot quando começa a queimar; acabou a última, solta ("dispenser_dry", posição) uma vez."""
-        if not self.seal_of(machine, layer).ok:
+        seal = self.seal_of(machine, layer)
+        if not seal.ok:
             return
         while dt > 1e-9:
             if machine.burn <= 0:
                 if machine.capsules <= 0:
                     return
                 machine.storage.remove("water_capsule", 1)
-                machine.burn = C.DISPENSER_CAPSULE_TIME
+                machine.burn = dispenser_capsule_time(len(seal.floor))
             used = min(dt, machine.burn)
             machine.burn -= used
             dt -= used
             if machine.burn <= 1e-9:
                 machine.burn = 0.0
+                self._drop_empty(machine)
                 if machine.capsules <= 0:
                     self.events.append(("dispenser_dry", machine.anchor))
                     return
+
+    def _drop_empty(self, dispenser: Machine) -> None:
+        """v0.8 M2: a cápsula que acabou de queimar vira 1 vazia na saída. Saída cheia: a vazia some (o ar não para)."""
+        out = dispenser.storage.slots[C.DISPENSER_EMPTY_SLOT]
+        if out is None:
+            dispenser.storage.slots[C.DISPENSER_EMPTY_SLOT] = Stack(C.EMPTY_CAPSULE, 1)
+        elif out.room > 0:
+            out.count += 1
 
     def drill_distance(self, drill: Machine) -> float:
         """Distância (px) dos pés do player até a base da drill."""
@@ -1280,6 +1313,12 @@ class GameState:
     def nearby_smelter(self) -> Machine | None:
         """Fundição ao alcance do E (a mais perto; ainda se construindo não abre)."""
         near = [m for m in self.machines if m.is_smelter and m.build <= 0 and self.drill_distance(m) <= C.SMELTER_REACH]
+        return min(near, key=self.drill_distance, default=None)
+
+    def nearby_collector(self) -> Machine | None:
+        """Coletor de água ao alcance do E (o mais perto; ainda se construindo não abre)."""
+        near = [m for m in self.machines if m.is_collector and m.build <= 0 and not m.broken
+                and self.drill_distance(m) <= C.COLLECTOR_REACH]
         return min(near, key=self.drill_distance, default=None)
 
     def nearby_dispenser(self) -> Machine | None:
@@ -1323,6 +1362,7 @@ class GameState:
                                ("station", machine.is_station), ("bench", machine.is_bench),
                                ("melter", machine.is_melter and machine.build <= 0),
                                ("smelter", machine.is_smelter and machine.build <= 0),
+                               ("collector", machine.is_collector and machine.build <= 0),
                                ("dispenser", machine.is_dispenser and machine.build <= 0)):
                 if flag:
                     return kind, machine
@@ -1377,7 +1417,8 @@ class GameState:
         if kind == "container":
             return tuple(target) in self.world.containers and self.container_distance(target) <= C.CONTAINER_REACH
         reach = {"drill": C.DRILL_REACH, "chest": C.CHEST_REACH, "station": C.STATION_REACH,
-                 "bench": C.BENCH_REACH, "melter": C.MELTER_REACH, "smelter": C.SMELTER_REACH, "dispenser": C.DISPENSER_REACH}[kind]
+                 "bench": C.BENCH_REACH, "melter": C.MELTER_REACH, "smelter": C.SMELTER_REACH, "dispenser": C.DISPENSER_REACH,
+                 "collector": C.COLLECTOR_REACH}[kind]
         return any(m is target for m in self.machines) and self.drill_distance(target) <= reach
 
     def interaction(self, hover: tuple[str, object] | None = None) -> tuple[str, object] | None:
@@ -1411,6 +1452,9 @@ class GameState:
         dispenser = self.nearby_dispenser()
         if dispenser is not None:
             options.append((self.drill_distance(dispenser), "dispenser", dispenser))
+        collector = self.nearby_collector()
+        if collector is not None:
+            options.append((self.drill_distance(collector), "collector", collector))
         crate = self.nearby_crate()
         if crate is not None:
             options.append((self.crate_distance(crate), "crate", crate))
@@ -1542,6 +1586,25 @@ class GameState:
             return 0
         if have is None:
             smelter.storage.slots[slot] = Stack(stack.item, moved)
+        else:
+            have.count += moved
+        self.inventory.remove_from_slot(index, moved)
+        return moved
+
+    def collector_put(self, collector: Machine, index: int, amount: int | None = None) -> int:
+        """Põe cápsulas vazias do slot `index` do inventário do player na entrada do Coletor (`amount` None = a pilha
+        inteira, 1 = clique direito). Só entra cápsula vazia, e só até a pilha encher. Devolve quanto entrou."""
+        stack = self.inventory.slots[index]
+        if stack is None or stack.item != C.EMPTY_CAPSULE:
+            return 0
+        slot = C.COLLECTOR_IN_SLOT
+        have = collector.storage.slots[slot]
+        room = stack.max - (have.count if have else 0)
+        moved = min(room, stack.count if amount is None else min(amount, stack.count))
+        if moved <= 0:
+            return 0
+        if have is None:
+            collector.storage.slots[slot] = Stack(C.EMPTY_CAPSULE, moved)
         else:
             have.count += moved
         self.inventory.remove_from_slot(index, moved)
@@ -1684,6 +1747,48 @@ class GameState:
             else:
                 out.count += 1
 
+    def collector_blocker(self, m: Machine, layer: Layer) -> str | None:
+        """Por que o Coletor de água não coleta agora: "cave" (só na superfície), "stage" (precisa do Úmido), "no_empty"
+        (sem cápsula vazia), "out_full" (saída cheia); None = coletando."""
+        if not layer.has_base:
+            return "cave"
+        if self.stage < C.MIST_STAGE:
+            return "stage"
+        if m.storage.slots[C.COLLECTOR_IN_SLOT] is None:
+            return "no_empty"
+        out = m.storage.slots[C.COLLECTOR_OUT_SLOT]
+        if out is not None and out.room <= 0:
+            return "out_full"
+        return None
+
+    def collector_rain(self, m: Machine, layer: Layer) -> float:
+        """Chuva (0..1) sobre o Coletor: a da superfície, 0 na caverna (não depende de onde o player está)."""
+        return self.rain.intensity if layer.has_base else 0.0
+
+    def _update_collector(self, m: Machine, layer: Layer, dt: float) -> None:
+        """Coletor de água (v0.8 M2): a cada `collector_time(chuva)` s, 1 vazia da entrada vira 1 cheia na saída.
+        Travado (caverna, estágio, sem vazia, saída cheia): para, guarda o progresso e não gasta nada. `collecting`
+        fica pro render (anima só coletando) sem ele precisar do GameState."""
+        self._collect(m, layer, dt)
+        m.collecting = self.collector_blocker(m, layer) is None
+        m.cycle = collector_time(self.collector_rain(m, layer))
+
+    def _collect(self, m: Machine, layer: Layer, dt: float) -> None:
+        while dt > 0 and self.collector_blocker(m, layer) is None:
+            left = collector_time(self.collector_rain(m, layer)) - m.timer
+            if dt < left:
+                m.timer += dt
+                return
+            dt -= left
+            m.timer = 0.0
+            m.storage.remove(C.EMPTY_CAPSULE, 1)
+            out = m.storage.slots[C.COLLECTOR_OUT_SLOT]
+            if out is None:
+                m.storage.slots[C.COLLECTOR_OUT_SLOT] = Stack("water_capsule", 1)
+            else:
+                out.count += 1
+            self.events.append(("collector_done", m))
+
     def _update_melter(self, melter: Machine, dt: float) -> None:
         """Cápsulas de água (v0.5 M2): a cada MELTER_CAPSULE_TIME s gasta MELTER_ICE_PER_CAPSULE de gelo da entrada
         e põe 1 cápsula na saída. Sem gelo ou com a saída cheia, para (o progresso fica guardado) e não gasta gelo.
@@ -1739,7 +1844,7 @@ class GameState:
         out = dict(machine.type.cost)
         if machine.is_drill and machine.stored:
             out[machine.resource] = out.get(machine.resource, 0) + machine.stored
-        if machine.is_melter or machine.is_dispenser or machine.is_smelter:   # v0.5 M2/v0.6 M3: o que ficou dentro (a carga acesa da Fundição some)
+        if machine.is_melter or machine.is_dispenser or machine.is_smelter or machine.is_collector:   # v0.5 M2/v0.6 M3/v0.8 M2: o que ficou dentro (a carga acesa da Fundição some)
             for item, n in machine.storage.counts().items():
                 out[item] = out.get(item, 0) + n
         if machine.chip:                                       # v0.6 M2: o chip volta junto
@@ -1933,6 +2038,11 @@ class GameState:
                 for m in layer.machines:
                     if m.is_dispenser and not m.submerged and m.build <= 0:
                         self._burn_capsules(m, layer, work_dt)
+        if power.factor > 0:                 # v0.8 M2: o Coletor de água (cada um na camada dele, com o player onde for)
+            for layer in self.layers.values():
+                for m in layer.machines:
+                    if m.is_collector and not m.submerged and m.build <= 0 and not m.broken:
+                        self._update_collector(m, layer, work_dt)
         for key in layers.ORDER:             # drones (game/drones.py): uma rede por camada (v0.6 M3), as duas rodam
             if key not in self.layers:       # sempre; um Ledger por chamada; no déficit voam mais devagar
                 continue

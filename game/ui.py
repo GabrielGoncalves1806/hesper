@@ -32,7 +32,7 @@ from game import map_view
 from game.assets import Sprites, load_font
 from game.floaters import LANE_PX, RISE, FloatingTexts, dodge_labels, hud_fade  # noqa: F401 (FloatingTexts: app)
 from game.inventory import Inventory, Stack, max_stack
-from game.systems import GameState, eta_label, stage_progress
+from game.systems import GameState, dispenser_capsule_time, eta_label, stage_progress
 from game.wrecks import Crate
 
 UW, UH = C.UI_W, C.UI_H           # tamanho da UI no Grande (e o mínimo em qualquer tamanho)
@@ -49,6 +49,7 @@ SMELT_COLOR = "#ff8a3d"                                # laranja da Fundição (
 SHORT_NAME = {"water_capsule": "cápsula"}          # só no resumo do título da seção DRONES (C.RESOURCE_NAME fica como está)
 LOGI_COL = 52                                    # onde começam os botões (depois de "Recebe")
 SMELT_LOGI_Y = 102                               # ...e nela, a da Fundição (3 slots, barra, carga e ajuda em cima)
+COLLECT_LOGI_Y = 92                              # v0.8 M2: ...e a do Coletor de água (2 slots, barra, estado e o ritmo)
 DISP_LOGI_Y = 92                                 # onde a seção DRONES começa nos painéis da drill, derretedor e dispersor
 LOGI_H = 14 + 2 * LOGI_ROW + 2 + LOGI_BATCH_H    # altura da seção com Envia e Recebe, 1 linha de botões cada (82)
 LOGI_WIDE_AFTER = 5                              # com mais materiais que isso (o baú tem 8), a fileira vira "larga":
@@ -1720,6 +1721,8 @@ class UI:
             side_h = 92 + self.logistics_height(side) + 10
         elif side.is_smelter:
             side_h = SMELT_LOGI_Y + self.logistics_height(side) + 10
+        elif side.is_collector:
+            side_h = COLLECT_LOGI_Y + self.logistics_height(side) + 10
         else:
             side_h = 164
         hb = C.HOTBAR_SLOTS
@@ -1755,6 +1758,9 @@ class UI:
             pairs = HELP_CURSOR
         elif side.is_smelter:
             self._smelter_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, mid)
+            pairs = HELP_CURSOR
+        elif side.is_collector:
+            self._collector_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, info, mid)
             pairs = HELP_CURSOR
         elif side.is_dispenser:
             self._dispenser_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, info, mid)
@@ -2021,17 +2027,43 @@ class UI:
         self._button(mid, "<<\nPEGAR\nTUDO", "take_smelter", mouse, not smelter.storage.is_empty(), "ghost")
         self.draw_logistics(gx, y + SMELT_LOGI_Y, GRID_W, smelter, item_icon, mouse)
 
+    def _collector_panel(self, m, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str, info: str | None,
+                         mid: pygame.Rect) -> None:
+        """Coletor de água (v0.8 M2): vazias (entram) e cheias (só tira), a barra da cápsula atual, o estado, o ritmo
+        (com a chuva), "<< PEGAR TUDO" no meio e a seção DRONES."""
+        out = m.storage.slots[C.COLLECTOR_OUT_SLOT]
+        self.window(cx, y, pw, h, "Coletor de água", f"{out.count if out else 0} cheias", C.C_O2)
+        gx, sy = cx + 8, y + SIDE_GRID_Y
+        self._section_label("VAZIAS", gx, y + 16, B_MUTED)
+        self._section_label("CHEIAS", gx + SLOT_STEP + 18, y + 16, C.C_O2)
+        self._grid(m.storage, [C.COLLECTOR_IN_SLOT], gx, sy, item_icon, mouse)
+        self.tx(">", gx + SLOT + 6, sy + 3, B_MUTED)
+        self._grid(m.storage, [C.COLLECTOR_OUT_SLOT], gx + SLOT_STEP + 18, sy, item_icon, mouse)
+        bx = gx + 2 * SLOT_STEP + 26
+        bw = GRID_W - (bx - gx)
+        working = status == "COLETANDO"
+        self.bar(bx, sy + 3, bw, min(1.0, m.timer / m.cycle) if working else 0.0, C.C_O2, h=4)
+        self.tx(self.fit(status, bw), bx, sy + 7, "#7fd67a" if working else C.C_ALERT)
+        for k, line in enumerate(wrap(self.body, info or "", GRID_W)[:2]):
+            self.tx(line, gx, sy + 26 + k * 12, B_MUTED, self.body)
+        self._button(mid, "<<\nPEGAR\nTUDO", "take_collector", mouse, not m.storage.is_empty(), "ghost")
+        self.draw_logistics(gx, y + COLLECT_LOGI_Y, GRID_W, m, item_icon, mouse)
+
     def _dispenser_panel(self, m, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str, info: str | None,
                          mid: pygame.Rect) -> None:
-        """Dispersor de O₂ (v0.5 M2): o slot da cápsula de água, a barra da cápsula que está sendo gasta, o estado
-        (Vedado ✓ / Vazamento / Sem água / Sem energia), a explicação do estado e "<< PEGAR" no meio."""
+        """Dispersor de O₂ (v0.5 M2): o slot da cápsula de água, o das vazias (v0.8 M2, só tira), a barra da cápsula que
+        está sendo gasta, o estado (Vedado ✓ / Vazamento / Sem água / Sem energia), a explicação do estado e "<< PEGAR" no meio."""
         self.window(cx, y, pw, h, "Dispersor de O₂", f"{m.capsules} cáps.", C.C_O2)
         gx = cx + 8
-        self._section_label("CÁPSULA", gx, y + 16, C.C_O2)
+        self._section_label("CHEIAS", gx, y + 16, C.C_O2)
+        self._section_label("VAZIAS", gx + SLOT_STEP + 18, y + 16, B_MUTED)
         self._grid(m.storage, [C.DISPENSER_CAPSULE_SLOT], gx, y + SIDE_GRID_Y, item_icon, mouse)
-        bx = gx + SLOT_STEP + 10
+        self.tx(">", gx + SLOT + 6, y + SIDE_GRID_Y + 3, B_MUTED)
+        self._grid(m.storage, [C.DISPENSER_EMPTY_SLOT], gx + SLOT_STEP + 18, y + SIDE_GRID_Y, item_icon, mouse)
+        bx = gx + 2 * SLOT_STEP + 26
         bw = GRID_W - (bx - gx)
-        self.bar(bx, y + SIDE_GRID_Y + 3, bw, m.burn / C.DISPENSER_CAPSULE_TIME, C.C_O2, h=4)
+        total = dispenser_capsule_time(len(m.seal.floor)) if m.seal is not None and m.seal.ok else C.DISPENSER_CAPSULE_TIME
+        self.bar(bx, y + SIDE_GRID_Y + 3, bw, min(1.0, m.burn / total), C.C_O2, h=4)
         ok = status.startswith("VEDADO")
         self.tx(self.fit(status, bw), bx, y + SIDE_GRID_Y + 7, "#7fd67a" if ok else C.C_ALERT)
         for k, line in enumerate(wrap(self.body, info or "", GRID_W)[:3]):
