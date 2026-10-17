@@ -5,6 +5,7 @@
     uv run python tools/dev/balance_sim.py --overrides x.json # outro arquivo de overrides
     uv run python tools/dev/balance_sim.py --markdown         # tabelas em Markdown (pro reports/dev/balance.md)
     uv run python tools/dev/balance_sim.py --no-energy        # roda também sem energia (como era antes do Marco 2)
+    uv run python tools/dev/balance_sim.py --crops            # v0.8 M6: só a tabela das plantas (atual × proposta)
 
 O que é real e o que é aproximado
 ---------------------------------
@@ -57,6 +58,25 @@ perto (caminho real na superfície, ida e volta, com O₂), abre a caixa (regra 
 o diagrama do tanque vem no saque), volta, lê o diagrama, fabrica o tanque de O₂ e equipa (`equip_from`). Daí em diante o O₂ máximo
 é o do tanque (`GameState.o2_max`, 220 s), o que deixa cada descida na caverna render mais.
 
+v0.8 M6 · Plantas:
+- Tabela das plantas (`crop_table`, `--crops`): REAL. Um GameState com uma base vedada 5×5 de verdade (chão, parede,
+  porta) e o Dispersor soprando, um Cultivador por cultura (o `_update_machines` real, dt = 1 s), sem e com adubo
+  contínuo. Aproximado: a reserva de água e o Dispersor são enchidos a cada segundo e a colheita é esvaziada a cada
+  segundo (o jogador/os drones fazem isso no jogo); começa no regime (planta recém-colhida). O consumo (Centrífuga,
+  itens do M5 abertos até a planta, o kit) sai das receitas do config; as plantas por amostra saem das odds reais
+  (`MICROSCOPE_ODDS` × `CENTRIFUGE_RECIPES`) em conta fechada, conferida com o rng (`microscope_roll` real).
+- Biomassa VIRTUAL na simulação principal (APROXIMADO): o sim não constrói base vedada, cultivador, microscópio nem
+  centrífuga (a cadeia de lingotes/circuito/fio que eles pedem o sim não faz). Quando o gelo do lab abre (regra real:
+  `Layer.lab_ice_open`, ou `thaw.lab_ice_progress(heat)` passando do `lab_ice_opens_at`) e o estágio Úmido já chegou
+  (o que vier por último), mais `craft_overhead`, o jogador passa a ter `Strategy.cultivators` (3) cultivando alga:
+  a biomassa sobe N × a biomassa/s da tabela (com a água medida lá; o sim não simula as cápsulas nem a energia dos
+  cultivadores). Quando a receita da Centrífuga destrava (`recipe_status` real, trava do estágio Algas), cada planta
+  (Folha → Espiral → Lírio) entra no lugar de uma alga depois do tempo esperado da 1ª dela (`plant_times`, contado
+  da Centrífuga, cada planta independente). Os itens colhidos não são usados (só a biomassa importa pros estágios).
+- Marcas: Algas, Musgo e Verde pelo `stage_for_ti(ti, biomassa)` real; a biomassa soma no Ti (bíblia §17). O fim
+  é o Verde (Ti E biomassa); "Ti 100k" é quando o Ti sozinho bateu, e a coluna "gargalo" diz o que chegou por último.
+  Com o Ti no fim e a biomassa faltando, a espera é "esperando biomassa" (fora do teto das esperas do meio do jogo).
+
 Tempo morto: o jogador só fica parado quando não existe nada útil: (a) a próxima máquina não ficaria pronta antes
 de o Ti bater o fim, (b) ele já tem os recursos e está esperando a receita liberar, ou (c) não há minério alcançável
 com o O₂ de um tanque cheio.
@@ -68,6 +88,7 @@ import argparse
 import contextlib
 import copy
 import dataclasses
+import functools
 import heapq
 import json
 import math
@@ -86,7 +107,7 @@ from game import layers  # noqa: E402
 from game import surface_gen  # noqa: E402
 from game import thaw  # noqa: E402
 from game.layers import CAVE, SURFACE  # noqa: E402
-from game.systems import GameState  # noqa: E402
+from game.systems import GameState, stage_for_ti  # noqa: E402
 
 PROPOSAL_PATH = Path(__file__).with_name("balance_proposal.json")
 SQRT2 = math.sqrt(2)
@@ -94,7 +115,8 @@ INF = float("inf")
 NEIGHBORS = [(1, 0, 1.0), (-1, 0, 1.0), (0, 1, 1.0), (0, -1, 1.0),
              (1, 1, SQRT2), (1, -1, SQRT2), (-1, 1, SQRT2), (-1, -1, SQRT2)]
 TILE_NAMES = {"ROCK": C.ROCK, "IRON": C.IRON, "SILICON": C.SILICON, "ICE": C.ICE}
-PANEL_BELOW = 0.9      # o jogador simulado fabrica um painel solar quando o fator da energia cai abaixo disso
+PANEL_BELOW = 0.9
+PRODUCE_STEP = 5.0     # v0.8 M6: o _produce anda em pedaços de até 5 s (o Ti e a biomassa em linha reta dentro de cada um)      # o jogador simulado fabrica um painel solar quando o fator da energia cai abaixo disso
 
 
 # ---------------------------------------------------------------------------
@@ -149,6 +171,7 @@ def patched_config(overrides: dict | None):
       {"MINE_TIME": {"IRON": 0.8}}                                  por nome de tile
       {"MACHINES": {"o2": {"rate": 5, "cost": {"iron": 8}}}}        campos do MachineType
       {"STAGES": {"arid": 6500, "mist": 8000, "green": 60000}}      Ti de cada estágio
+      {"CROPS": {"algae": {"cycle": 150}}}                          campos do Crop (v0.8 M6)
     `cost` substitui a receita inteira. O código do jogo lê `C.<nome>` na hora do uso, então trocar o atributo
     do módulo basta.
     """
@@ -171,6 +194,8 @@ def patched_config(overrides: dict | None):
                 C.MACHINES = new
             elif key == "STAGES":
                 C.STAGES = [dataclasses.replace(s, ti=value.get(s.key, s.ti)) for s in C.STAGES]
+            elif key == "CROPS":                 # v0.8 M6: {"algae": {"cycle": 150}} (Crop é NamedTuple: _replace)
+                C.CROPS = {k: c._replace(**value.get(k, {})) for k, c in C.CROPS.items()}
             else:
                 setattr(C, key, copy.deepcopy(value))
         yield
@@ -178,6 +203,200 @@ def patched_config(overrides: dict | None):
         for key, value in saved.items():
             setattr(C, key, value)
         surface_gen._cache.clear()
+
+
+# ---------------------------------------------------------------------------
+# Plantas (v0.8 M6): a regra real do Cultivador numa base vedada de verdade
+# ---------------------------------------------------------------------------
+CROP_HOURS = 1.0                 # horas de jogo medidas por cultura (dt = 1 s)
+CROP_RNG = 5                     # rng fixo da colheita (1 ou 2 itens) e do mundo da base de teste
+PLANTS = ("plant_1", "plant_2", "plant_3")
+M5_ITEMS = ("backpack_t2", "o2_tank_t2", "boots", "drone_t2", "lamp_bio", "fertilizer")
+KIT_CULTIVATORS = {"algae": 3, "plant_1": 1, "plant_2": 1, "plant_3": 1}   # o kit do M5 com 3 de alga e 1 de cada planta
+SAMPLE_ROUNDS = 2000             # rodadas de rng pra conferir a conta fechada das amostras
+
+
+def _crop_base():
+    """GameState com uma base vedada 5×5 (chão + parede + porta) e o Dispersor no canto, do jeito dos testes do M3
+    (`tests/test_base.demo_base`). Devolve (state, dispersor, tile livre dentro da base pro Cultivador)."""
+    from game.base import BaseBlock
+    from game.systems import Machine
+    gs = GameState(rng=random.Random(CROP_RNG))
+    gs.debug_add_ti()                                   # igual à fixture `game` dos testes
+    w = h = 5
+    bx, by = C.BASE_TILE
+    spot = None
+    for dy in range(-8, 12):
+        for dx in range(-14, 14):
+            x0, y0 = bx + dx, by + dy
+            tiles = [(x0 + i, y0 + j) for i in range(w + 2) for j in range(h + 2)]
+            if abs(dx) > 3 and all(gs.world.is_floor(*t) and t not in C.POD_TILES and not gs.world.vein_at(*t)
+                                   and not gs.world.is_water(*t, gs.stage) for t in tiles):
+                spot = (x0 + 1, y0 + 1)
+                break
+        if spot:
+            break
+    x0, y0 = spot
+    for y in range(y0 - 1, y0 + h + 1):
+        for x in range(x0 - 1, x0 + w + 1):
+            inside = x0 <= x < x0 + w and y0 <= y < y0 + h
+            kind = C.BASE_FLOOR if inside else C.BASE_DOOR if (x, y) == (x0 + 1, y0 + h) else C.BASE_WALL
+            gs.base.add(BaseBlock(kind, x, y))
+    disp = Machine(C.DISPENSER, x0, y0)
+    gs.machines.append(disp)
+    return gs, disp, (x0 + 3, y0 + 2)
+
+
+def _measure_crop(crop: str, fertilizer: bool, hours: float) -> dict:
+    """Um Cultivador da `crop` rodando o update real (`GameState._update_machines`, dt = 1 s) por `hours` horas, com a
+    reserva de água e o Dispersor sempre cheios e a colheita esvaziada a cada segundo (os drones/o jogador). Começa no
+    regime (a planta acabou de ser colhida: growth = CULTIVATOR_HARVEST_AFTER, tanque cheio). `fertilizer`: põe 1 adubo
+    (regra do `cultivator_put`: +FERTILIZER_TIME) sempre que o que sobra do adubo fica abaixo de 1 dose."""
+    from game.inventory import Stack, max_stack
+    from game.systems import Machine
+    gs, disp, (tx, ty) = _crop_base()
+    cult = Machine(C.CULTIVATOR, tx, ty)
+    gs.machines.append(cult)
+    full = max_stack("water_capsule")
+    disp.storage.slots[C.DISPENSER_CAPSULE_SLOT] = Stack("water_capsule", full)
+    assert gs.in_breathing_base((tx, ty), gs.active), "a base de teste do sim não ficou vedada"
+    cult.storage.slots[C.CULT_SEED_SLOT] = Stack(crop, 1)
+    cult.sync_crop()
+    cult.growth, cult.tank = C.CULTIVATOR_HARVEST_AFTER, C.CULTIVATOR_TANK
+    b0 = gs.indices["biomass"]
+    harvests = items = capsules = puts = 0
+    growing = 0.0
+    steps = round(hours * 3600)
+    for _ in range(steps):
+        disp.storage.slots[C.DISPENSER_CAPSULE_SLOT] = Stack("water_capsule", full)
+        cult.storage.slots[C.CULT_WATER_SLOT] = Stack("water_capsule", full)
+        if fertilizer and cult.boost < C.FERTILIZER_TIME:
+            cult.boost = min(C.FERTILIZER_MAX, cult.boost + C.FERTILIZER_TIME)
+            puts += 1
+        bio = gs.indices["biomass"]
+        gs._update_machines(1.0)
+        growing += (gs.indices["biomass"] - bio) / C.CROPS[crop].biomass
+        capsules += full - cult.storage.count("water_capsule")
+        for slot in (*C.CULT_HARVEST_SLOTS, C.CULT_EMPTY_SLOT):
+            cult.storage.slots[slot] = None
+        for ev in gs.events:
+            if ev[0] == "harvest":
+                harvests += 1
+                items += ev[3]
+        gs.events.clear()
+    h = steps / 3600
+    out = {"crop": crop, "fertilizer": fertilizer, "cycle": C.CROPS[crop].cycle,
+           "harvests_h": harvests / h, "items_h": items / h, "bio_s": (gs.indices["biomass"] - b0) / steps,
+           "water": growing / steps, "capsules_h": capsules / h}
+    if fertilizer:
+        out["fertilizer_h"] = (puts * C.FERTILIZER_TIME - cult.boost) / C.FERTILIZER_TIME / h
+    return out
+
+
+def crop_table(overrides=None, hours: float = CROP_HOURS) -> list[dict]:
+    """Tabela das plantas (regra real): por cultura, sem e com adubo contínuo. Cada linha: colheitas/h, itens/h,
+    biomassa/s média, água (fração do tempo crescendo), cápsulas/h e, com adubo, adubos/h."""
+    with patched_config(overrides):
+        return [_measure_crop(crop, fert, hours) for crop in C.CROP_ITEMS for fert in (False, True)]
+
+
+def plant_cost(item: str) -> dict:
+    """Custo de 1 `item` em culturas (alga e plantas), abrindo materiais e adubo pelas receitas reais do config
+    (o resto da receita, ferro/circuito/drone/etc., não entra). Divide pelo CRAFT_YIELD (o adubo sai 2 por receita)."""
+    if item in C.CROPS:
+        return {item: 1.0}
+    out: dict = {}
+    if item not in C.MACHINES:
+        return out
+    per = C.CRAFT_YIELD.get(item, 1)
+    for r, n in C.MACHINES[item].cost.items():
+        if r in C.CROPS or r in C.MATERIAL_ITEMS or r == C.FERTILIZER:
+            for crop, k in plant_cost(r).items():
+                out[crop] = out.get(crop, 0.0) + n * k / per
+    return out
+
+
+def sample_odds() -> dict:
+    """Chance, por análise do Microscópio (1 gelo), de sair cada planta depois da Centrífuga: odds da amostra
+    (`MICROSCOPE_ODDS`) × chance da receita (`CENTRIFUGE_RECIPES`)."""
+    odds = dict(C.MICROSCOPE_ODDS)
+    return {plant: odds[sample] * chance for sample, (plant, chance) in C.CENTRIFUGE_RECIPES.items()}
+
+
+def plant_times() -> dict:
+    """Tempo esperado (s) até a 1ª de cada planta, e até ter as três, com 1 Microscópio alimentando 1 Centrífuga.
+    Conta fechada: cada análise (MICROSCOPE_TIME s) é um sorteio independente; a 1ª planta i sai em média em
+    MICROSCOPE_TIME / p_i análises + CENTRIFUGE_TIME (o ciclo da centrífuga que processa a amostra). As três:
+    colecionador de figurinhas com chances diferentes (inclusão-exclusão: Σ ±1/P(S) sobre os subconjuntos S).
+    Aproximação: a Centrífuga dá conta do ritmo do Microscópio (1 amostra a cada 40 s em média < 1 ciclo de 30 s) e
+    o jogador põe cada amostra assim que sai (sem fila de tipos)."""
+    import itertools
+    p = sample_odds()
+    out = {plant: C.MICROSCOPE_TIME / p[plant] + C.CENTRIFUGE_TIME for plant in PLANTS}
+    trials = 0.0
+    for k in range(1, len(PLANTS) + 1):
+        for subset in itertools.combinations(PLANTS, k):
+            trials += (-1) ** (k + 1) / sum(p[x] for x in subset)
+    out["all"] = trials * C.MICROSCOPE_TIME + C.CENTRIFUGE_TIME
+    return out
+
+
+def plant_times_rng(rounds: int = SAMPLE_ROUNDS, seed: int = CROP_RNG) -> dict:
+    """Confere o `plant_times` com o rng: o sorteio real do Microscópio (`GameState.microscope_roll`) e o teste da
+    Centrífuga (`rng.random() < chance`, como o `_update_centrifuge`), análise por análise, até sair cada planta."""
+    gs = GameState(rng=random.Random(seed))
+    total = {plant: 0.0 for plant in (*PLANTS, "all")}
+    for _ in range(rounds):
+        first, n = {}, 0
+        while len(first) < len(PLANTS):
+            n += 1
+            sample = gs.microscope_roll()
+            if sample is None:
+                continue
+            plant, chance = C.CENTRIFUGE_RECIPES[sample]
+            if gs.rng.random() < chance and plant not in first:
+                first[plant] = n * C.MICROSCOPE_TIME + C.CENTRIFUGE_TIME
+        for plant in PLANTS:
+            total[plant] += first[plant]
+        total["all"] += max(first.values())
+    return {k: v / rounds for k, v in total.items()}
+
+
+def crop_report(overrides=None, hours: float = CROP_HOURS, rng_check: bool = True) -> dict:
+    """Tudo das plantas: a tabela (regra real), o consumo (receitas reais), o kit do M5 e as plantas por amostra."""
+    rows = crop_table(overrides, hours)
+    with patched_config(overrides):
+        plain = {r["crop"]: r for r in rows if not r["fertilizer"]}
+        cent_algae_h = 3600 / C.CENTRIFUGE_TIME                         # 1 alga por ciclo
+        mic_samples_h = 3600 / C.MICROSCOPE_TIME * sum(p for _, p in C.MICROSCOPE_ODDS)
+        costs = {item: plant_cost(item) for item in M5_ITEMS}
+        kit: dict = {}
+        for item in M5_ITEMS:
+            for crop, n in costs[item].items():
+                kit[crop] = kit.get(crop, 0.0) + n * C.CRAFT_YIELD.get(item, 1)   # o adubo: 1 receita (2 adubos)
+        kit_h = {crop: n / (KIT_CULTIVATORS[crop] * plain[crop]["items_h"]) for crop, n in kit.items()}
+        fert_cost = plant_cost(C.FERTILIZER)
+        return {
+            "rows": rows,
+            "centrifuge_algae_h": cent_algae_h,
+            "centrifuge_fed_algae_h": min(cent_algae_h, mic_samples_h),
+            "cult_per_centrifuge": cent_algae_h / plain["algae"]["items_h"],
+            "cult_per_fed_centrifuge": min(cent_algae_h, mic_samples_h) / plain["algae"]["items_h"],
+            "costs": costs, "kit": kit, "kit_h": kit_h, "kit_time": 3600 * max(kit_h.values()),
+            "fertilizer_cost": fert_cost,
+            "plant_times": plant_times(),
+            "plant_times_rng": plant_times_rng() if rng_check else None,
+        }
+
+
+@functools.lru_cache(maxsize=16)
+def _bio_rates(crops_key) -> dict:
+    """biomassa/s média de um Cultivador de cada cultura (sem adubo), pela tabela real (cacheada por CROPS)."""
+    return {crop: _measure_crop(crop, False, CROP_HOURS)["bio_s"] for crop in C.CROP_ITEMS}
+
+
+def bio_rates() -> dict:
+    return _bio_rates(tuple(sorted(C.CROPS.items())))
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +415,7 @@ class Strategy:
     drones: int = 2               # quantos drones (item) ele fabrica e põe na estação
     cave: bool = False            # Marco 2: minera na CAVERNA (desce pela rampa), drills nos veios de lá
     wrecks: bool = False          # Marco 3: começa indo à nave de carga mais perto (saque + tanque de O₂)
+    cultivators: int = 3          # v0.8 M6: cultivadores "virtuais" a partir do lab aberto e do Úmido (biomassa)
 
 
 STRATEGIES = {
@@ -310,6 +530,14 @@ class Result:
     lake_at: dict = field(default_factory=dict)      # v0.4 M4: lago k (0..2 = L1..L3) -> quando a água bateu a marca
     magma_at: float | None = None                    # v0.4 M4: quando minerou a 1ª magmatita (o que o inventário já viu)
     heater_at: float | None = None                   # v0.4 M4: quando o 1º aquecedor entrou no mapa
+    lab_at: float | None = None                      # v0.8 M6: quando a fresta do gelo do lab abriu (regra real)
+    bio_at: float | None = None                      # v0.8 M6: quando os cultivadores virtuais começam a somar biomassa
+    centrifuge_at: float | None = None               # v0.8 M6: quando a receita da Centrífuga deixou de ser "locked"
+    switch_at: dict = field(default_factory=dict)    # v0.8 M6: planta -> quando um cultivador trocou a alga por ela
+    bottleneck: dict = field(default_factory=dict)   # v0.8 M6: marca -> "Ti" ou "bio" (o que bateu por último)
+    ti_done: float | None = None                     # v0.8 M6: quando o Ti bateu o do Verde (a biomassa pode faltar)
+    locked_tries: int = 0                            # v0.8 M6: tentativas de fabricar receita travada (tem que ser 0)
+    biomass: float = 0.0                             # v0.8 M6: biomassa no fim
 
 
 # ---------------------------------------------------------------------------
@@ -336,7 +564,11 @@ class Sim:
         self.max_time = max_time
         self.tw = C.TILE / C.PLAYER_SPEED                 # segundos por tile andado
         self.final_ti = C.STAGES[-1].ti
-        self.marks = [("Ti 500", 500.0)] + [(mark_label(s), float(s.ti)) for s in C.STAGES[1:]]   # v0.8 M1: só o Ti conta (o sim não produz biomassa)
+        self.final_bio = C.STAGES[-1].biomass
+        # v0.8 M6: cada marca = (nome, Ti, biomassa); a dos estágios Algas/Musgo/Verde pede os dois (stage_for_ti)
+        self.marks = [("Ti 500", 500.0, 0.0)] + [(mark_label(s), float(s.ti), float(s.biomass)) for s in C.STAGES[1:]]
+        self.bio_rates = bio_rates() if strategy.cultivators else {}
+        self.plant_t = plant_times()
         self.res = Result(strategy.name, seed)
         self.sec_per_unit = 1.5                           # estimativa do jogador (EMA), atualizada a cada viagem
         self.plan: str | None = None
@@ -538,16 +770,96 @@ class Sim:
                 self._faint()
 
     def _produce(self, dt):
-        ti0, rate = self.gs.ti, self.gs.ti_rate
-        for name, thr in self.marks:
-            if name not in self.res.milestones and ti0 < thr <= ti0 + rate * dt:
-                self.res.milestones[name] = self.t + (thr - ti0) / rate
-        if rate > 0 and ti0 + rate * dt >= self.final_ti:
-            dt = (self.final_ti - ti0) / rate
-            self.res.finished = True
-        if self.gs.power.deficit:
+        """Passa dt em pedaços de até PRODUCE_STEP s, cortando nos instantes em que a biomassa virtual muda de ritmo
+        (começa, um cultivador troca de cultura): dentro de cada pedaço o Ti e a biomassa sobem em linha reta."""
+        while dt > 1e-9 and not self.res.finished:
+            step = min(dt, PRODUCE_STEP)
+            for t_ev in self._bio_events():
+                if self.t + 1e-9 < t_ev < self.t + step:
+                    step = t_ev - self.t
+            t0 = self.t
+            self._produce_step(step)
+            dt -= self.t - t0
+
+    # ---- biomassa virtual (v0.8 M6) ----
+    def _switch_times(self) -> dict:
+        """Planta -> quando um cultivador troca a alga por ela: a Centrífuga liberou + o tempo esperado da 1ª planta
+        com 1 Microscópio (`plant_times`). Só os `Strategy.cultivators` primeiros trocam (um por planta)."""
+        if self.res.centrifuge_at is None:
+            return {}
+        return {p: self.res.centrifuge_at + self.plant_t[p] for p in PLANTS[:self.s.cultivators]}
+
+    def _bio_events(self):
+        if self.res.bio_at is not None:
+            yield self.res.bio_at
+        yield from self._switch_times().values()
+
+    def _bio_rate(self) -> float:
+        """Biomassa/s dos cultivadores virtuais agora (a da tabela das plantas, regra real, com a água medida lá)."""
+        if self.res.bio_at is None or self.t < self.res.bio_at - 1e-9:
+            return 0.0
+        crops = ["algae"] * self.s.cultivators
+        for i, (plant, at) in enumerate(self._switch_times().items()):
+            if self.t >= at - 1e-9:
+                crops[i] = plant
+                self.res.switch_at.setdefault(plant, at)
+        return sum(self.bio_rates[c] for c in crops)
+
+    def _watch_plants(self, dt):
+        """Depois do update real: o lab abriu? (Layer.lab_ice_open, ou o thaw.lab_ice_progress passando do ponto da
+        fresta), então quando a biomassa virtual começa; e quando a receita da Centrífuga destravou (recipe_status)."""
+        gs, res = self.gs, self.res
+        if res.lab_at is None:
+            surf, heat = gs.surface, gs.indices["heat"]
+            if surf.lab_ice_open or thaw.lab_ice_progress(heat) >= surf.lab_ice_opens_at:
+                lo, hi = C.LAB_ICE_HEAT
+                h_open = lo + min(1.0, surf.lab_ice_opens_at) * (hi - lo)
+                heat_rate = sum(m.type.rate for m in gs.working_machines if m.type.index == "heat") * gs.power.factor
+                back = (heat - h_open) / heat_rate if heat_rate > 0 else 0.0
+                res.lab_at = min(self.t + dt, max(self.t, self.t + dt - back))
+        umido = res.milestones.get(mark_label(C.STAGES[C.MIST_STAGE - 1]))
+        if res.bio_at is None and self.s.cultivators and res.lab_at is not None and umido is not None:
+            res.bio_at = max(max(res.lab_at, umido) + self.s.craft_overhead, self.t + dt)
+        if res.centrifuge_at is None and gs.recipe_status(C.CENTRIFUGE) != "locked":
+            res.centrifuge_at = self.t + dt
+
+    def _produce_step(self, dt):
+        gs = self.gs
+        ti0, rate = gs.ti, gs.ti_rate
+        b0 = gs.indices["biomass"]
+        brate = self._bio_rate()
+        total = rate + brate                   # a biomassa soma no Ti (bíblia §17)
+
+        def cross(ti_thr, bio_thr):
+            """(s até bater o Ti, s até bater a biomassa) a partir do começo do pedaço."""
+            t_ti = 0.0 if ti0 >= ti_thr else ((ti_thr - ti0) / total if total > 0 else INF)
+            t_bio = 0.0 if b0 >= bio_thr else ((bio_thr - b0) / brate if brate > 0 else INF)
+            return t_ti, t_bio
+
+        final, ti_thr, bio_thr = self.marks[-1]
+        t_ti, t_bio = cross(ti_thr, bio_thr)
+        if max(t_ti, t_bio) <= dt:             # o Verde chega neste pedaço: corta no instante exato
+            dt = max(t_ti, t_bio) + 1e-6
+        if self.res.ti_done is None and t_ti <= dt:
+            self.res.ti_done = self.t + t_ti
+        if gs.power.deficit:
             self.res.deficit_time += dt
-        self.gs._update_machines(dt)           # regra real: soma rate*dt×fator em cada índice e checa estágio
+        gs.indices["biomass"] += brate * dt
+        gs._update_machines(dt)                # regra real: soma rate*dt×fator em cada índice e checa estágio
+        # marcas: o Ti 500 pelo Ti; os estágios pelo stage_for_ti real (Ti e biomassa), no instante interpolado
+        reached = stage_for_ti(gs.ti, gs.indices["biomass"])
+        for k, (name, ti_thr, bio_thr) in enumerate(self.marks):
+            if name in self.res.milestones:
+                continue
+            t_ti, t_bio = cross(ti_thr, bio_thr)
+            hit = (gs.ti >= ti_thr) if k == 0 else (reached >= k + 1)     # marks[k] = estágio k+1 (k >= 1)
+            if hit:
+                self.res.milestones[name] = self.t + min(dt, max(t_ti, t_bio))
+                if bio_thr:
+                    self.res.bottleneck[name] = "bio" if t_bio > t_ti else "Ti"
+        if final in self.res.milestones:
+            self.res.finished = True
+        self._watch_plants(dt)
         if self.res.crater_at is None and not self.gs.crater_frozen:   # v0.4 M3.1: o calor (thaw) abriu a cratera
             heat_rate = sum(m.type.rate for m in self.gs.all_machines if m.type.index == "heat" and not m.broken) * self.gs.power.factor
             over = self.gs.indices["heat"] - C.THAW_CRATER_HEAT[-1]
@@ -762,6 +1074,8 @@ class Sim:
     def _build(self, kind, tile) -> bool:
         """Constrói pela regra real (state.build). A animação de construir (C.BUILD_TIME) não entra: o sim anda
         o relógio pelo _advance, então a máquina já sai pronta."""
+        if self.gs.recipe_status(kind) == "locked":     # v0.8 M6: nunca tenta o que está travado (o teste confere)
+            self.res.locked_tries += 1
         if not self.gs.build(kind, tile):
             return False
         self.gs.machines[-1].build = 0.0
@@ -770,6 +1084,8 @@ class Sim:
     def craft_and_dock_drone(self) -> bool:
         """Fabrica 1 drone e põe no primeiro slot livre da estação (regra real: station_dock)."""
         self._set_player(self.home)
+        if self.gs.recipe_status("drone") == "locked":
+            self.res.locked_tries += 1
         if not self.gs.craft("drone"):
             return False
         station = next(m for m in self.gs.stations if m.station.free_slots())
@@ -1064,10 +1380,12 @@ class Sim:
                 if kind is None:
                     if not self.zone[self.cur]:
                         self.go_base()
-                    self.res.idle_reason = "fim chega antes da próxima máquina"
-                    # a taxa não muda enquanto ele espera, então dá pra pular direto pro fim
-                    left = (self.final_ti - self.gs.ti) / self.gs.ti_rate
-                    self._advance(min(left + 1e-6, self.max_time - self.t), idle=True)
+                    # a taxa de Ti não muda enquanto ele espera; a da biomassa muda (começa, troca de planta), então
+                    # a espera anda em pedaços de até 60 s. v0.8 M6: Ti já no fim e falta biomassa = "esperando biomassa"
+                    t_ti, t_bio = self._time_to_end()
+                    self.res.idle_reason = ("esperando biomassa" if t_bio > t_ti
+                                            else "fim chega antes da próxima máquina")
+                    self._advance(max(1e-3, min(max(t_ti, t_bio) + 1e-6, 60.0, self.max_time - self.t)), idle=True)
                     continue
                 if self.affordable(kind):
                     if not self.zone[self.cur]:
@@ -1123,12 +1441,23 @@ class Sim:
                 self._update_pace(trip_t0, trip_units)
                 trip_t0, trip_units = self.t, 0
         self.res.total = self.t
+        self.res.biomass = self.gs.indices["biomass"]
         self.res.final_indices = {k: round(v) for k, v in self.gs.indices.items()}
         self.res.units = self._units() + sum(
             sum(C.MACHINES[m.kind].cost.values()) for m in self.gs.all_machines if not m.broken)
         self.res.machines = {k: sum(1 for m in self.gs.all_machines if m.kind == k and not m.broken) for k in C.MACHINES}
         self.res.machines["drone"] = sum(len(m.station.drones) for m in self.gs.stations)   # drones nas estações
         return self.res
+
+    def _time_to_end(self):
+        """(s até o Ti do Verde, s até a biomassa do Verde) no ritmo de agora (INF = parado)."""
+        brate = self._bio_rate()
+        total = self.gs.ti_rate + brate
+        need_ti = self.final_ti - self.gs.ti
+        need_bio = self.final_bio - self.gs.indices["biomass"]
+        t_ti = 0.0 if need_ti <= 0 else (need_ti / total if total > 0 else INF)
+        t_bio = 0.0 if need_bio <= 0 else (need_bio / brate if brate > 0 else INF)
+        return t_ti, t_bio
 
     def _update_pace(self, t0, units):
         if units > 0:
@@ -1156,12 +1485,16 @@ def fmt(sec):
 def table(title, results, markdown=False):
     marks = ["Ti 500"] + [mark_label(s) for s in C.STAGES[1:]]
     kinds = list(C.MACHINES)
-    head = ["estratégia", "seed", *marks, "total", "espera total", "maior espera", "desm.", "drill un.",
+    bio_marks = [mark_label(s) for s in C.STAGES if s.biomass]
+    head = ["estratégia", "seed", *marks, "lab abre", "bio desde", "gargalo (" + "/".join(bio_marks) + ")", "Ti 100k",
+            "Folha/Espiral/Lírio", "total", "espera total", "maior espera", "desm.", "drill un.",
             "drone un.", "déficit", "tanque", "saque", "magmat.", "aquec.", "cratera", "portão 1", "portão 2", "portão 3", "grande", "L1", "L2", "L3",
             "máquinas (" + "/".join(kinds) + ")"]
     rows = []
     for r in results:
         rows.append([r.strategy, str(r.seed), *[fmt(r.milestones.get(m)) for m in marks],
+                     fmt(r.lab_at), fmt(r.bio_at), "/".join(r.bottleneck.get(m, "—") for m in bio_marks), fmt(r.ti_done),
+                     "/".join(fmt(r.switch_at.get(p)) for p in PLANTS),
                      fmt(r.total) + ("" if r.finished else " (não acabou)"),
                      fmt(r.idle_total), fmt(r.idle_longest), str(r.faints), str(r.drill_units),
                      str(r.drone_units), fmt(r.deficit_time), fmt(r.tank_at), str(r.loot_units),
@@ -1176,6 +1509,62 @@ def table(title, results, markdown=False):
         widths = [max(len(h), *(len(row[c]) for row in rows)) for c, h in enumerate(head)]
         out.append("  ".join(h.ljust(w) for h, w in zip(head, widths)))
         out += ["  ".join(v.ljust(w) for v, w in zip(row, widths)) for row in rows]
+    return "\n".join(out)
+
+
+def _grid(head, rows, markdown=False) -> list[str]:
+    if markdown:
+        return ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)] + ["| " + " | ".join(r) + " |" for r in rows]
+    widths = [max(len(h), *(len(r[c]) for r in rows)) for c, h in enumerate(head)]
+    return ["  ".join(h.ljust(w) for h, w in zip(head, widths))] + \
+        ["  ".join(v.ljust(w) for v, w in zip(r, widths)) for r in rows]
+
+
+def crop_text(title, overrides=None, markdown=False, hours: float = CROP_HOURS) -> str:
+    """Tabela das plantas (`crop_report`) em texto ou Markdown."""
+    rep = crop_report(overrides, hours)
+    with patched_config(overrides):
+        names = dict(C.CROP_NAME)
+        items = {k: C.MACHINES[k].name for k in M5_ITEMS}
+    h2 = "#### " if markdown else "-- "
+    out = [f"\n{'### ' if markdown else '== '}{title}\n", f"{h2}Cultivador, regra real ({hours:g} h de jogo, dt = 1 s, "
+           "água sempre cheia, base vedada 5×5)\n"]
+    by = {(r["crop"], r["fertilizer"]): r for r in rep["rows"]}
+    head = ["cultura", "ciclo", "colheitas/h", "itens/h", "bio/s", "água", "cápsulas/h",
+            "adubo: colheitas/h", "adubo: itens/h", "adubos/h"]
+    rows = []
+    for crop in names:
+        a, b = by[(crop, False)], by[(crop, True)]
+        rows.append([names[crop], f"{a['cycle']:g} s", f"{a['harvests_h']:.0f}", f"{a['items_h']:.0f}",
+                     f"{a['bio_s']:.2f}", f"{a['water']:.0%}", f"{a['capsules_h']:.0f}", f"{b['harvests_h']:.0f}",
+                     f"{b['items_h']:.0f}", f"{b['fertilizer_h']:.0f}"])
+    out += _grid(head, rows, markdown)
+    algae_h = by[("algae", False)]["items_h"]
+    fert = rep["fertilizer_cost"]
+    out += ["", f"{h2}Consumo (receitas reais do config)\n",
+            f"- Centrífuga sem parar: {rep['centrifuge_algae_h']:.0f} algas/h = {rep['cult_per_centrifuge']:.2f} "
+            f"cultivadores de alga ({algae_h:.0f} algas/h cada).",
+            f"- Alimentada por 1 Microscópio (1 amostra a cada {3600 / rep['centrifuge_fed_algae_h']:.0f} s em média): "
+            f"{rep['centrifuge_fed_algae_h']:.0f} algas/h = {rep['cult_per_fed_centrifuge']:.2f} cultivadores de alga.",
+            "- Adubo contínuo num cultivador: ~" + f"{by[('algae', True)]['fertilizer_h']:.0f} adubos/h = "
+            + " + ".join(f"{n * by[('algae', True)]['fertilizer_h']:.0f} {names[c]}" for c, n in fert.items()) + " por hora.",
+            ""]
+    head = ["item", "custo em plantas"]
+    rows = [[items[k], ", ".join(f"{n:g} {names[c]}" for c, n in rep["costs"][k].items()) or "—"] for k in M5_ITEMS]
+    out += _grid(head, rows, markdown)
+    kit = ", ".join(f"{n:g} {names[c]}" for c, n in rep["kit"].items())
+    slow = max(rep["kit_h"], key=rep["kit_h"].get)
+    out += ["", f"- Kit do M5 (1 de cada item, 1 receita de adubo): {kit}. Com "
+            + ", ".join(f"{n} de {names[c]}" for c, n in KIT_CULTIVATORS.items())
+            + f": {fmt(rep['kit_time'])} (gargalo: {names[slow]}; começa com a muda de cada planta na mão).", ""]
+    pt, rng = rep["plant_times"], rep["plant_times_rng"]
+    out += [f"{h2}Plantas por amostra (1 Microscópio → 1 Centrífuga; odds reais, conta fechada × {SAMPLE_ROUNDS} rodadas "
+            "de rng)\n"]
+    head = ["1ª planta", "chance por gelo", "conta", "rng"]
+    odds = sample_odds()
+    rows = [[names[p], f"{odds[p]:.1%}", fmt(pt[p]), fmt(rng[p])] for p in PLANTS]
+    rows.append(["as três", "—", fmt(pt["all"]), fmt(rng["all"])])
+    out += _grid(head, rows, markdown)
     return "\n".join(out)
 
 
@@ -1194,7 +1583,16 @@ def main(argv=None):
     ap.add_argument("--no-energy", action="store_true", help="roda também sem energia (consumo zero), pra comparar")
     ap.add_argument("--no-drones", action="store_true", help="roda também sem a estação de drones, pra comparar")
     ap.add_argument("--geo", action="store_true", help="só o relatório da geografia (destroços, veios, minério perto)")
+    ap.add_argument("--crops", action="store_true", help="só a tabela das plantas (Cultivador, consumo, amostras)")
+    ap.add_argument("--crop-hours", type=float, default=10.0,
+                    help="horas de jogo por cultura na tabela das plantas (padrão 10: N grande pros itens/h)")
     args = ap.parse_args(argv)
+    if args.crops:
+        print(crop_text("Plantas: números atuais (game/config.py)", None, args.markdown, args.crop_hours))
+        if not args.current:
+            print(crop_text(f"Plantas: proposta ({args.overrides.name})", load_overrides(args.overrides), args.markdown,
+                            args.crop_hours))
+        return
     if args.geo:
         print(geo_report(args.seeds, args.markdown))
         return
@@ -1311,8 +1709,9 @@ def without_energy(overrides):
 
 
 def mark_label(stage) -> str:
-    """Rótulo da marca de um estágio. v0.8 M1: os que pedem biomassa levam " (Ti)", porque o sim só mede o Ti."""
-    return stage.name.capitalize() + (" (Ti)" if stage.biomass else "")
+    """Rótulo da marca de um estágio. v0.8 M6: o sim mede a biomassa (cultivadores virtuais), então o " (Ti)" do M1
+    saiu; a tabela diz qual dos dois foi o gargalo."""
+    return stage.name.capitalize()
 
 
 def without_t2(overrides):
