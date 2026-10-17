@@ -2371,6 +2371,8 @@ class App:
             short = C.MACHINES[kind].cost[res] - state.available(res, inv_only=True)
             return f"Falta {short} {item_name(res).lower()} no inventário"
         if status == "locked":
+            if C.MACHINES[kind].unlock_stage > 0:
+                return f"Libera no estágio {C.STAGES[C.MACHINES[kind].unlock_stage - 1].name.capitalize()}"
             return f"Libera em Ti {fmt(C.MACHINES[kind].unlock_ti)}"
         if status == "blueprint":
             return "Precisa do diagrama"
