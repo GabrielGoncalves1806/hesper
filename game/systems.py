@@ -902,7 +902,8 @@ class GameState:
 
     def available(self, resource: str, inv_only: bool = False) -> int:
         """Quanto dá pra gastar desse recurso: inventário + baús da base (fabricador) ou só o inventário (construtor)."""
-        return self.inventory.count(resource) + sum(c.storage.count(resource) for c in self.craft_sources(inv_only))
+        worn = 1 if resource in C.SUIT_UPGRADES.values() and self.equipment.has(resource) else 0   # v0.8 M5: a nv.1 vestida
+        return self.inventory.count(resource) + worn + sum(c.storage.count(resource) for c in self.craft_sources(inv_only))
 
     def owns(self, kind: str) -> bool:
         """Tem um desses no inventário ou no traje (v0.6 Fundo M5: item de uma vez só)."""
@@ -956,6 +957,9 @@ class GameState:
         if self.recipe_status(kind, inv_only=t2) != "ok":
             return False
         cost = C.MACHINES[kind].cost
+        old = C.SUIT_UPGRADES.get(kind)
+        if old is not None and self.inventory.count(old) == 0 and self.equipment.has(old):
+            return self._craft_worn_upgrade(kind, old, t2, at)
         # "e se eu gastar o que vem do inventário, sobra lugar pro item?" (testa numa cópia)
         trial = self.inventory.copy()
         for r, n in cost.items():
@@ -973,6 +977,21 @@ class GameState:
             self.inventory.add(kind, made)
         self.crafted[kind] += 1
         self.events.append(("craft", kind))
+        if at is not None:
+            at.work = C.BENCH_WORK_TIME
+        return True
+
+    def _craft_worn_upgrade(self, kind: str, old: str, t2: bool, at: Machine | None) -> bool:
+        """v0.8 M5: a nv.2 do traje (Mochila T2, tanque nv.2) gasta a nv.1 que está VESTIDA e já nasce no slot dela (a
+        mochila cresce na hora; nada passa pelo inventário). O resto da receita sai do inventário, como sempre."""
+        self._spend({r: n for r, n in C.MACHINES[kind].cost.items() if r != old}, inv_only=t2)
+        self.equipment.equip(kind)                   # a nv.1 some: ela era ingrediente
+        self.sync_backpack()
+        self._clamp_o2()
+        self.equipped_ever.add(kind)
+        self.crafted[kind] += 1
+        self.events.append(("craft", kind))
+        self.events.append(("equip", kind))
         if at is not None:
             at.work = C.BENCH_WORK_TIME
         return True

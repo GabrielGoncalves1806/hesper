@@ -101,7 +101,7 @@ Spec: `docs/superpowers/specs/2026-10-16-v08-plantas-design.md` (bíblia §17). 
 - [x] M2 · Água (Dispersor proporcional à base, cápsula vazia, coletor)
 - [x] M3 · Lab e cultivador
 - [x] M4 · Microscópio e centrífuga (fechado em 2026-10-17, testado pelo dono: "tudo ok"): trava de receita por estágio, 3 amostras, Microscópio (diagrama no lab), Centrífuga (estágio Algas, 10 fps), drones, painéis do mock A, save v16; a seta → das descrições virou >.
-- [ ] M5 · Materiais e itens (dono, 2026-10-17; bíblia §17 "Plantas viram material"): fibra sintética, gel hídrico, resina de geada e essência de Lírio na Bancada T2; Mochila T2 (A ou B a decidir), Tanque de O₂ nv.2, Botas de tração, Luminária bio, Adubo e Drone nv.2. Arte passa pelo dono.
+- [x] M5 · Materiais e itens (fechado em 2026-10-17, testado pelo dono: "tudo certo"): fibra, gel hídrico, resina de geada e essência na Bancada T2; Mochila T2 (+2 linhas, Tab em 3 colunas), Tanque de O₂ nv.2 (400 s), Botas (+30%), Luminária bio, Adubo (2× por 2 min) e Drone nv.2 (voa 50% mais rápido); a nv.2 do traje consome a nv.1 (vestida ou no inventário); toggles do baú 16×16; save v17.
 - [ ] M6 · Objetivos e fechamento
   - Rebalancear o ritmo da alga (dono, 2026-10-17: com 3 cultivadores parecia render demais, mas o F1 tava ligado). Conta sem F1: ~6 algas por cultivador a cada 5 min. Decidir junto com o consumo da centrífuga e dos materiais do M5.
   - `balance_sim` passa a conhecer a trava de receita por estágio (M4).

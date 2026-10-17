@@ -1527,15 +1527,18 @@ PART_ITEMS = PART_ITEMS + MATERIAL_ITEMS          # empilham como peça (STACK_L
 # Equipáveis nv.2 e as botas. A nv.2 não consome a nv.1 (a nv.1 está no traje): equipar a nv.2 troca e a nv.1 volta pro
 # inventário. EQUIP_SLOT_OF diz em que slot do traje cada item entra (o slot tem o nome do item nv.1).
 BACKPACK_T2, O2_TANK_T2, BOOTS = "backpack_t2", "o2_tank_t2", "boots"
-MACHINES[BACKPACK_T2] = MachineType(BACKPACK_T2, "Mochila T2", "+2 linhas de slots", {FIBER: 6, "iron_ingot": 4},
+MACHINES[BACKPACK_T2] = MachineType(BACKPACK_T2, "Mochila T2", "+2 linhas de slots", {"backpack": 1, FIBER: 6, "iron_ingot": 4},
                                     None, 0, 0, "icon_backpack_t2", placeable=False)
-MACHINES[O2_TANK_T2] = MachineType(O2_TANK_T2, "Tanque de O₂ nv.2", "O₂ dura 400 s", {FIBER: 3, HYDROGEL: 2, "iron_ingot": 3},
+MACHINES[O2_TANK_T2] = MachineType(O2_TANK_T2, "Tanque de O₂ nv.2", "O₂ dura 400 s", {"o2_tank": 1, FIBER: 3, HYDROGEL: 2, "iron_ingot": 3},
                                    None, 0, 0, "icon_o2_tank_t2", placeable=False)
 MACHINES[BOOTS] = MachineType(BOOTS, "Botas de tração", "anda 30% mais rápido", {FIBER: 3, FROST_RESIN: 2},
                               None, 0, 0, "icon_boots", placeable=False)
 BACKPACK_T2_SLOTS = 16                    # a T2 dá 2 linhas de 8 (a nv.1 dá 1): inventário de 32
 O2_TANK_T2_MAX = 400.0                    # s de O₂ com o tanque nv.2 (nv.1: O2_TANK_MAX 220)
 BOOTS_SPEED = 1.3                         # × PLAYER_SPEED com as botas no traje
+# Dono (teste do M5): a nv.2 consome a nv.1. Ela vale no inventário ou vestida; vestida, a nv.2 já nasce no traje.
+SUIT_UPGRADES = {BACKPACK_T2: "backpack", O2_TANK_T2: "o2_tank"}
+CRAFT_REPLACES = {**CRAFT_REPLACES, **SUIT_UPGRADES}   # no inventário, a nv.2 nasce no slot da nv.1
 EQUIP_SLOT_OF = {"o2_tank": "o2_tank", O2_TANK_T2: "o2_tank", "scanner": "scanner",
                  "backpack": "backpack", BACKPACK_T2: "backpack", BOOTS: "boots"}
 

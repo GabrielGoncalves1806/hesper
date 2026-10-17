@@ -188,3 +188,52 @@ def test_tab_does_not_crash_with_4_slots_and_32(t2, size):
     assert sorted(i for _, inv, i in ui.slot_rects if inv is g.inventory) == list(range(len(g.inventory)))
     ui.begin()
     ui.draw_hud(g, 0.0, None, {r: art.icon(r) for r in C.RESOURCES}, item_icon=lambda _i: art.icon("iron"))
+
+
+# ---- a nv.2 consome a nv.1 (dono, teste do M5) --------------------------------------------------------------------
+def test_t2_recipes_ask_for_the_nv1():
+    assert C.MACHINES[C.BACKPACK_T2].cost["backpack"] == 1
+    assert C.MACHINES[C.O2_TANK_T2].cost["o2_tank"] == 1
+
+
+def give_rest(g: GameState, kind: str) -> None:
+    give(g, **{r: n for r, n in C.MACHINES[kind].cost.items() if r != C.SUIT_UPGRADES[kind]})
+
+
+def test_worn_backpack_counts_and_the_t2_is_born_worn():
+    g = state()
+    equip_via_inventory(g, "backpack")
+    give_rest(g, C.BACKPACK_T2)
+    assert g.available("backpack", inv_only=True) == 1                  # vestida conta no "tem / precisa"
+    assert g.recipe_status(C.BACKPACK_T2, inv_only=True) == "ok"
+    assert g.craft(C.BACKPACK_T2, bench="t2")
+    assert g.equipment.slots["backpack"] == C.BACKPACK_T2
+    assert len(g.inventory) == C.INVENTORY_SLOTS + C.BACKPACK_T2_SLOTS   # cresceu na hora
+    assert g.inventory.count("backpack") == 0 and g.inventory.count(C.BACKPACK_T2) == 0
+    assert g.inventory.count(C.FIBER) == 0
+
+
+def test_worn_tank_becomes_the_nv2_and_o2_max_goes_up():
+    g = state()
+    equip_via_inventory(g, "o2_tank")
+    give_rest(g, C.O2_TANK_T2)
+    assert g.craft(C.O2_TANK_T2, bench="t2")
+    assert g.equipment.slots["o2_tank"] == C.O2_TANK_T2 and g.o2_max == C.O2_TANK_T2_MAX
+
+
+def test_nv1_in_the_inventory_is_replaced_in_its_slot():
+    g = state()
+    give(g, o2_tank=1)
+    slot = next(i for i, s in enumerate(g.inventory.slots) if s and s.item == "o2_tank")
+    give_rest(g, C.O2_TANK_T2)
+    assert g.craft(C.O2_TANK_T2, bench="t2")
+    assert g.inventory.slots[slot] == Stack(C.O2_TANK_T2, 1)
+    assert not g.equipment.filled("o2_tank")
+
+
+def test_without_the_nv1_the_t2_is_missing():
+    g = state()
+    give_rest(g, C.BACKPACK_T2)
+    assert g.recipe_status(C.BACKPACK_T2, inv_only=True) == "missing"
+    assert g.missing_resource(C.BACKPACK_T2, inv_only=True) == "backpack"
+    assert not g.craft(C.BACKPACK_T2, bench="t2")
