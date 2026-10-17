@@ -1158,3 +1158,10 @@ Detalhe e números de partida: `docs/superpowers/specs/2026-10-16-v08-plantas-de
 - **Debug**: F7 +500 de biomassa. **Save v14** (`STAGE_SCHEME` 3): v13 ganha biomassa 0 e o Verde antigo volta pro Úmido.
 - **Números**: pytest 2001 passed, 2 skipped; smoke exit 0 (média 6,4 ms, p95 11,5 ms). balance_sim mede só as marcas de Ti até o M5.
 
+### Marco 2 · como ficou na implementação (`game/config.py` blocos do Dispersor e "v0.8 M2 · Coletor", `game/systems.py`, `game/drones.py`, `game/save.py`, `game/app.py`, `game/ui.py`, `game/render.py`, `game/audio.py`)
+- **Dispersor**: `dispenser_capsule_time(chão)` = 180 × 25 / tiles, limitado a 30–360 s (5×5 = 3 min). 2 slots: CHEIAS (0) e VAZIAS (1). Cada cápsula que termina vira 1 vazia; saída cheia = a vazia some e o ar continua. O painel diz "1 cápsula = N nesta base". Os drones levam as vazias (o Dispersor passou a ter Envia e Lote).
+- **Cápsula vazia** `water_capsule_empty` (item logístico, ícone próprio). O derretedor continua fazendo cápsula sem vazia.
+- **Coletor de água** `water_collector` (molde da Fundição): VAZIAS → CHEIAS a cada `collector_time(chuva)` = 40 s / (1 + 2 × chuva); a chuva vem da superfície (`collector_rain`), mesmo com o player na caverna. Para na caverna e antes do Úmido. Status curto (COLETANDO / PARADO / SEM VAZIA / SAÍDA CHEIA) com o motivo na linha de baixo. Custa 3 lingotes de ferro + 6 silício, libera com Ti 10k, 1 kW, na Automação depois da Fundição. Loop `collector_loop` (canal 17) só toca se o arquivo existir (som esperando o dono).
+- **Save v15**: o Dispersor carrega com o slot de vazias; o `burn` limita a 360 s.
+- **Números**: pytest 2043 passed, 2 skipped; smoke exit 0 (média 6,2 ms, p95 11,2 ms).
+
