@@ -50,9 +50,13 @@ SHORT_NAME = {"water_capsule": "cápsula"}          # só no resumo do título d
 LOGI_COL = 52                                    # onde começam os botões (depois de "Recebe")
 SMELT_LOGI_Y = 102                               # ...e nela, a da Fundição (3 slots, barra, carga e ajuda em cima)
 COLLECT_LOGI_Y = 92                              # v0.8 M2: ...e a do Coletor de água (2 slots, barra, estado e o ritmo)
-CULT_LOGI_Y = 152                                # v0.8 M3: ...e a do Cultivador (barras, cilindro, colheita e a fileira dos slots)
-MIC_LOGI_Y = 156                                 # v0.8 M4: ...a do Microscópio (mock A: máquina, faixa de chances, estado)
-CENT_LOGI_Y = 152                                # v0.8 M4: ...e a da Centrífuga (mock A: máquina, cartão da amostra, estado)
+CULT_LOGI_Y = 135                                # v0.8 M3: ...e a do Cultivador; M6: o estado foi pro lado do MUDA (slots até y+134)
+MIC_LOGI_Y = 135                                 # v0.8 M4: ...a do Microscópio; M6: estado e explicação numa linha (y+121 +14)
+CENT_LOGI_Y = 135                                # v0.8 M4: ...e a da Centrífuga; M6: estado e explicação numa linha (y+121 +14)
+LAB_PAD = 4                                      # v0.8 M6: folga embaixo da seção DRONES nas 3 do lab (as outras: 10)
+CULT_ROW_STEP = 36                               # v0.8 M6: passo CHEIAS → VAZIAS → MUDA (era 40), pro estado caber à direita
+CULT_STATUS_X = 2 * CULT_ROW_STEP + 28           # ...e o estado (até 2 linhas) começa depois do rótulo MUDA (25 px)
+CULT_STATUS_W = GRID_W - CULT_STATUS_X           # 74: "Fora da base" tem 74
 DISP_LOGI_Y = 92                                 # onde a seção DRONES começa nos painéis da drill, derretedor e dispersor
 LOGI_H = 14 + 2 * LOGI_ROW + 2 + LOGI_BATCH_H    # altura da seção com Envia e Recebe, 1 linha de botões cada (82)
 LOGI_WIDE_AFTER = 5                              # com mais materiais que isso (o baú tem 8), a fileira vira "larga":
@@ -61,17 +65,37 @@ LOGI_WIDE_ROW = 9 + LOGI_WIDE_BTN + 2            # (16×16, o ícone justo) fica
 LOGI_WIDE_COLS = 10                              # v0.8 M5: 16 materiais no baú = 2 linhas por fileira (10 + 6); eram 4 de 20×20
 
 
-def wide_label_inline(n: int) -> bool:
+def wide_cols(room: int = GRID_W) -> int:
+    """Quantos botões 16×16 cabem por linha da fileira larga numa largura `room` (no máximo LOGI_WIDE_COLS)."""
+    return max(1, min(LOGI_WIDE_COLS, (room + LOGI_WIDE_GAP) // (LOGI_WIDE_BTN + LOGI_WIDE_GAP)))
+
+
+def wide_label_inline(n: int, room: int = GRID_W) -> bool:
     """A última linha da fileira larga é curta (o baú: 6 de 10)? Então o rótulo (Envia/Recebe) vai no vão à direita
     dela, em vez de gastar uma linha própria em cima. Precisa de 48 px livres ("Recebe" tem 41)."""
-    last = n % LOGI_WIDE_COLS or LOGI_WIDE_COLS
-    return GRID_W - last * (LOGI_WIDE_BTN + LOGI_WIDE_GAP) >= 48
+    cols = wide_cols(room)
+    last = n % cols or cols
+    return room - last * (LOGI_WIDE_BTN + LOGI_WIDE_GAP) >= 48
 
 
-def wide_row_height(n: int) -> int:
+def wide_row_height(n: int, room: int = GRID_W) -> int:
     """Altura de uma fileira larga (botões 16×16 em linhas de 10; rótulo em cima, ou no vão da última linha) com `n`."""
-    lines = -(-n // LOGI_WIDE_COLS)
-    return (0 if wide_label_inline(n) else 9) + lines * (LOGI_WIDE_BTN + 2)
+    lines = -(-n // wide_cols(room))
+    return (0 if wide_label_inline(n, room) else 9) + lines * (LOGI_WIDE_BTN + 2)
+
+
+def logi_wide(machine, n: int) -> bool:
+    """A fileira (Envia ou Recebe) com `n` materiais é larga? A do baú (mais de LOGI_WIDE_AFTER) e, v0.8 M6, sempre a
+    das máquinas do lab (COMPACT_LOGI), pra seção DRONES caber no Grande."""
+    return n > LOGI_WIDE_AFTER or machine.kind in COMPACT_LOGI
+
+
+def logi_wide_room(machine) -> int:
+    """Largura da fileira larga: a grade toda, ou até o slot do chip (à direita) quando a máquina pede chip."""
+    return GRID_W - (SLOT + 4 if machine.needs_chip else 0)
+
+
+COMPACT_LOGI = {C.CULTIVATOR, C.MICROSCOPE, C.CENTRIFUGE}   # v0.8 M6: Envia e Recebe na fileira larga (16×16), sempre
 
 
 def logi_row_cap(machine) -> int:
@@ -500,6 +524,7 @@ class UI:
         # v0.8 M5 Tab A: a janela "Inventário" (Tab ou painel lateral), as colunas do TRAJE e do detalhe, e a caixa
         # da tinta de cada texto do cartão do TRAJE (rótulos e estados), pros testes de "não encosta"
         self.inv_window = pygame.Rect(0, 0, 0, 0)
+        self.side_window = pygame.Rect(0, 0, 0, 0)               # v0.8 M6: a janela do lado (baú, máquina) com a ajuda embaixo
         self.suit_rect = pygame.Rect(0, 0, 0, 0)
         self.detail_rect = pygame.Rect(0, 0, 0, 0)
         self.suit_text_rects: list[tuple[str, pygame.Rect]] = []
@@ -1796,11 +1821,11 @@ class UI:
         elif side.is_collector:
             side_h = COLLECT_LOGI_Y + self.logistics_height(side) + 10
         elif side.is_cultivator:
-            side_h = CULT_LOGI_Y + self.logistics_height(side) + 10
+            side_h = CULT_LOGI_Y + self.logistics_height(side) + LAB_PAD
         elif side.is_microscope:
-            side_h = MIC_LOGI_Y + max(LOGI_H, self.logistics_height(side)) + 10
+            side_h = MIC_LOGI_Y + self.logistics_height(side) + LAB_PAD
         elif side.is_centrifuge:
-            side_h = CENT_LOGI_Y + max(LOGI_H, self.logistics_height(side)) + 10
+            side_h = CENT_LOGI_Y + self.logistics_height(side) + LAB_PAD
         else:
             side_h = 164
         hb = C.HOTBAR_SLOTS
@@ -1856,6 +1881,7 @@ class UI:
         else:
             self._station_panel(side, rx, y, SIDE_W, side_h, item_icon, mouse, status, info, mid)
             pairs = HELP_CURSOR
+        self.side_window = pygame.Rect(rx, y, SIDE_W, h)
         self.help_line(y + h + 7, pairs)
         self.notice_y = self.panel_notice_y(y, y + h + HELP_H + 2)
 
@@ -2190,12 +2216,15 @@ class UI:
         self.tx("COLHEITA", hx, y + 85, B_MUTED)
         ry = y + 104
         self._section_label("CHEIAS", gx, ry, C.C_O2)
-        self._section_label("VAZIAS", gx + SLOT_STEP + 18, ry, B_MUTED)
-        self._section_label("MUDA", gx + 2 * SLOT_STEP + 36, ry, C.C_ACCENT)
+        self._section_label("VAZIAS", gx + CULT_ROW_STEP, ry, B_MUTED)
+        self._section_label("MUDA", gx + 2 * CULT_ROW_STEP, ry, C.C_ACCENT)
         self._grid(m.storage, [C.CULT_WATER_SLOT], gx, ry + 10, item_icon, mouse)
-        self._grid(m.storage, [C.CULT_EMPTY_SLOT], gx + SLOT_STEP + 18, ry + 10, item_icon, mouse)
-        self._grid(m.storage, [C.CULT_SEED_SLOT], gx + 2 * SLOT_STEP + 36, ry + 10, item_icon, mouse)
-        self.tx(self.fit(status, GRID_W), gx, y + 138, "#7fd67a" if status == "Crescendo" else C.C_ALERT, self.body)
+        self._grid(m.storage, [C.CULT_EMPTY_SLOT], gx + CULT_ROW_STEP, ry + 10, item_icon, mouse)
+        self._grid(m.storage, [C.CULT_SEED_SLOT], gx + 2 * CULT_ROW_STEP, ry + 10, item_icon, mouse)
+        lines = wrap(self.body, status, CULT_STATUS_W)                    # v0.8 M6: à direita do MUDA, até 2 linhas
+        sy = ry + 3 + (6 if len(lines) == 1 else 0)
+        for k, line in enumerate(lines[:2]):
+            self.tx(line, gx + CULT_STATUS_X, sy + k * 12, "#7fd67a" if status == "Crescendo" else C.C_ALERT, self.body)
         self._button(mid, "<<\nPEGAR\nTUDO", "take_cultivator", mouse,
                      any(m.storage.slots[i] is not None for i in (C.CULT_EMPTY_SLOT, *C.CULT_HARVEST_SLOTS)), "ghost")
         self.draw_logistics(gx, y + CULT_LOGI_Y, GRID_W, m, item_icon, mouse)
@@ -2226,6 +2255,13 @@ class UI:
             self.round_rect((x - 1, y - 1, SLOT + 2, SLOT + 2), (0, 0, 0, 0), color)
         self.tx(name, x + 24, y + 1, (color or B_MUTED) if lit else B_MUTED)
         self.tx(pct, x + 24, y + 10, (color or B_MUTED) if lit else B_DIM)
+
+    def _status_line(self, x: int, y: int, status: str, info: str | None, color) -> None:
+        """v0.8 M6: o estado (na cor) e a explicação (apagada) na mesma linha, 8 px entre eles, pro painel do lab caber no
+        Grande. Os textos são curtos pra caber em GRID_W (tests/test_m6_drones_fit_v08.py); o fit é só a rede."""
+        sw = self.tx(self.fit(status, GRID_W), x, y, color, self.body)
+        if info:
+            self.tx(self.fit(info, GRID_W - sw - 8), x + sw + 8, y, B_MUTED, self.body)
 
     def _microscope_panel(self, m, cx: int, y: int, pw: int, h: int, item_icon, mouse, status: str, info: str | None,
                           mid: pygame.Rect) -> None:
@@ -2260,8 +2296,7 @@ class UI:
                 self.fill(B_WELL, (sx, sy, 1, 10))
             sx += sw
         self.tx(f"NADA {nothing * 100:.0f}%", gx + 4, sy, B_TEXT)
-        self.tx(self.fit(status, GRID_W), gx, y + 121, LAB_OK if working else C.C_ALERT, self.body)
-        self.tx(self.fit(info or "", GRID_W), gx, y + 134, B_MUTED, self.body)
+        self._status_line(gx, y + 121, status, info, LAB_OK if working else C.C_ALERT)
         self._button(mid, "<<\nPEGAR\nTUDO", "take_microscope", mouse, samples > 0, "ghost")
         self.draw_logistics(gx, y + MIC_LOGI_Y, GRID_W, m, item_icon, mouse)
 
@@ -2283,6 +2318,7 @@ class UI:
         self._grid(m.storage, [C.CENT_SAMPLE_SLOT], gx, y + 61, item_icon, mouse)
         if sample is not None:
             self.round_rect((gx - 1, y + 60, SLOT + 2, SLOT + 2), (0, 0, 0, 0), C.C_ACCENT)
+        self.tx(f"{C.CENTRIFUGE_TIME:g} S", gx, top + 59, B_TEXT)          # v0.8 M6: o tempo do ciclo, como o "20 S" do Microscópio
         self._lab_bar(gx, y, "CICLO", m.timer / C.CENTRIFUGE_TIME, working)
         self._lab_machine(gx, y)
         hx = gx + 114
@@ -2303,11 +2339,7 @@ class UI:
             self.tx(self.fit(f"Amostra {SAMPLE_SHORT[sample].lower()}", GRID_W - 34 - pct_w), gx + 26, ry + 1, color, self.body)
             self.tx(self.fit(f"dá {C.CROP_NAME[plant]}", GRID_W - 34 - pct_w), gx + 26, ry + 12, B_TEXT, self.body)
             self.tx(f"{pct * 100:.0f}%", gx + GRID_W - 6, ry + 9, color, align="right")
-        sw = self.tx(self.fit(status, GRID_W), gx, y + 121, LAB_OK if working else C.C_ALERT, self.body)
-        rate = f"{C.CENTRIFUGE_TIME:g} s por ciclo"
-        if sw + 12 + self.body.size(rate)[0] <= GRID_W:
-            self.tx(rate, gx + max(56, sw + 12), y + 121, B_MUTED, self.body)
-        self.tx(self.fit(info or "", GRID_W), gx, y + 135, B_MUTED, self.body)
+        self._status_line(gx, y + 121, status, info, LAB_OK if working else C.C_ALERT)
         self._button(mid, "<<\nPEGAR\nTUDO", "take_centrifuge", mouse, plants > 0, "ghost")
         self.draw_logistics(gx, y + CENT_LOGI_Y, GRID_W, m, item_icon, mouse)
 
@@ -2422,7 +2454,10 @@ class UI:
         rows = 0
         for allowed in (drones.can_send, drones.can_receive):
             n = len([i for i in C.LOGISTIC_ITEMS if allowed(machine, i)])
-            rows += 0 if n == 0 else wide_row_height(n) if n > LOGI_WIDE_AFTER else -(-n // logi_row_cap(machine)) * LOGI_ROW
+            if n == 0:
+                continue
+            rows += (wide_row_height(n, logi_wide_room(machine)) if logi_wide(machine, n)
+                     else -(-n // logi_row_cap(machine)) * LOGI_ROW)
         batch = 2 + LOGI_BATCH_H if any(drones.can_send(machine, i) for i in C.LOGISTIC_ITEMS) else 0
         height = 14 + rows + batch
         return max(height, 14 + 2 * LOGI_ROW) if machine.needs_chip else height
@@ -2484,19 +2519,21 @@ class UI:
             items = [i for i in C.LOGISTIC_ITEMS if allowed(machine, i)]
             if not items:
                 continue
-            wide = len(items) > LOGI_WIDE_AFTER
-            if wide:                                     # o baú: botões 16×16, 10 por linha, na largura da grade
-                inline = wide_label_inline(len(items))
+            wide = logi_wide(machine, len(items))
+            room = logi_wide_room(machine)
+            cols = wide_cols(room)
+            if wide:                                     # o baú e o lab: botões 16×16, até 10 por linha (até o chip)
+                inline = wide_label_inline(len(items), room)
                 top = ry if inline else ry + 9
-                lines = -(-len(items) // LOGI_WIDE_COLS)
+                lines = -(-len(items) // cols)
                 if inline:                               # rótulo no vão à direita da última linha (curta)
-                    last = len(items) % LOGI_WIDE_COLS or LOGI_WIDE_COLS
+                    last = len(items) % cols or cols
                     self.tx(label, x + last * (LOGI_WIDE_BTN + LOGI_WIDE_GAP) + 6,
                             top + (lines - 1) * (LOGI_WIDE_BTN + 2) + 1, B_MUTED, self.body)
                 else:
                     self.tx(label, x, ry - 3, B_MUTED, self.body)
-                row = [pygame.Rect(x + (k % LOGI_WIDE_COLS) * (LOGI_WIDE_BTN + LOGI_WIDE_GAP),
-                                   top + (k // LOGI_WIDE_COLS) * (LOGI_WIDE_BTN + 2), LOGI_WIDE_BTN, LOGI_WIDE_BTN)
+                row = [pygame.Rect(x + (k % cols) * (LOGI_WIDE_BTN + LOGI_WIDE_GAP),
+                                   top + (k // cols) * (LOGI_WIDE_BTN + 2), LOGI_WIDE_BTN, LOGI_WIDE_BTN)
                        for k in range(len(items))]
             else:
                 self.tx(label, x, ry + 2, B_MUTED, self.body)
@@ -2506,7 +2543,7 @@ class UI:
             for rect, item in zip(row, items):
                 self._toggle(rect, item, item in chosen, color, item_icon, mouse)
                 self.logistics_buttons.append((rect, (kind, item)))
-            ry += wide_row_height(len(items)) if wide else -(-len(items) // logi_row_cap(machine)) * LOGI_ROW
+            ry += wide_row_height(len(items), room) if wide else -(-len(items) // logi_row_cap(machine)) * LOGI_ROW
         if not any(drones.can_send(machine, i) for i in C.LOGISTIC_ITEMS):
             return                                   # quem só recebe não tem Lote ("quanto o drone tira daqui")
         ry += 2

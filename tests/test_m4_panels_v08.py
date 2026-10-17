@@ -80,7 +80,7 @@ def test_centrifuge_status_and_info(fresh):
     m = make_centrifuge(s, algae=0, sample=None)
     open_cent(fresh, m)
     assert fresh.centrifuge_status() == "Sem alga"
-    assert fresh.centrifuge_info() == "Alga + amostra = planta nova"
+    assert fresh.centrifuge_info() == "Alga + amostra"
     m.storage.slots[C.CENT_ALGAE_SLOT] = Stack("algae", 2)
     assert fresh.centrifuge_status() == "Sem amostra"
     m.storage.slots[C.CENT_SAMPLE_SLOT] = Stack("sample_basic", 2)
