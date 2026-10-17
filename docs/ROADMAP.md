@@ -115,6 +115,7 @@ Fauna surgindo com o Ti, farm, música. **Fim da história da Ilves** (dono, 202
 Inimigos (larvas pelo mapa), combate, a criatura como boss (saíram da v0.7).
 
 ## Futuro
+- **Receitas em JSON** (dono, 2026-10-17, saiu da Task 6 do v0.8 M6; logo depois da v0.8): um `data/items.json` com uma entrada por item (chave, nome, descrição, estação, aba, custo, rende, trava de Ti/estágio, uma vez só, ícone), na ordem do fabricador. O `config.py` lê e monta o que hoje está espalhado (45 `MachineType`, 27 `MACHINE_ORDER.insert`, `MACHINE_CATEGORY`, `CRAFT_YIELD`, `T2_RECIPES`, `ONCE_ITEMS` e a escada do `render.item_icon`). Só o dado vai pro JSON; o comportamento das máquinas fica no código. Casa com a wiki gerada (abaixo).
 - **Atualização do basalto: ar ruim** (dono, 2026-10-17): no basalto, as cinzas e os gases das fumarolas dão um debuff no player (ideia: O₂ cai mais rápido). O **filtro do traje**, feito com o gel hídrico da Folha-gota, deixa a região "safe". Saiu do brainstorm das plantas da v0.8; não entra agora.
 - **Colisão dos destroços** (sobrou do "Rever os destroços" do M3; o tamanho foi feito no v0.7 M4): hoje é a pegada retangular aproximada, então o player bate no ar em volta do casco isométrico.
 - **Abrir a porta emperrada da VÉSPER-7** (gancho do v0.7 M4): bateria no painel de energia da cabine + o crachá da Dra. Ilves (achado em outro lugar) abrem a sala norte. Atrás dela ainda não existe nada (a sala é gerada quando entrar).
