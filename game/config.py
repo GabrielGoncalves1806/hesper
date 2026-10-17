@@ -773,6 +773,8 @@ WRECK_MARGIN = 2                # folga de areia livre em volta do destroço e d
 CRATE_SLOTS = 8                 # caixa de saque: 1 linha de 8
 CRATE_DISMANTLE_RETURN = {"iron": 3}   # v0.6 M1: desmontar a caixa de saque vazia (só ela; o contêiner não desmonta)
 CRATE_REACH = 48                # px dos pés até a base da caixa (igual ao baú)
+# v0.8 M6: marcos do tutorial das plantas (GameState.milestones; só crescem; vão no save como lista)
+MILESTONES = ("lab_found", "control_culture", "cultivator_in_base", "first_harvest", "first_sample", "first_plant")
 WRECK_VISIT_DIST = 6            # tiles: chegou "perto" de um destroço (objetivo "Ache um destroço")
 LOOT_CRATE_SIZE = (32, 32)
 
